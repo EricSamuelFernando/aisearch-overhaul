@@ -1,0 +1,14 @@
+.form-input {
+  border-radius: 10px;
+  border: solid 0.5px #707070;
+  background-color: #f5f6f9;
+  padding: 20px 10px;
+}
+
+.date-input {
+  padding: 11.5px 102px 11.5px 24.5px;
+  border-radius: 10px;
+  border: solid 0.5px #707070;
+  background-color: #f5f6f9;
+  margin-top: 10px;
+}

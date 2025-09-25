@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+  nextjs-new:
+    build: .
+    ports:
+      - "8001:8001"
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+    restart: unless-stopped
+
+  # nextjs-old:
+  #   build: ./frontend
+  #   ports:
+  #     - "8000:3000"
+  #   environment:
+  #     - NODE_ENV=production
+  #   volumes:
+  #     - ./frontend:/usr/src/app
+  #     - /usr/src/app/node_modules
+  #   restart: unless-stopped

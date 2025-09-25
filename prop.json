@@ -1,0 +1,39 @@
+{
+  "ListingKey": "417060883599023838",
+  "ListingId": "11909764",
+  "PropertyType": "Residential Lease",
+  "PropertySubType": "Residential Rental",
+  "StandardStatus": "Active",
+  "ModificationTimestamp": "2024-01-24T09:20:45Z",
+  "ListPrice": 900,
+  "BathroomsTotalInteger": 1,
+  "BedroomsTotal": 2,
+  "City": "Chicago",
+  "PostalCode": "60607",
+  "UnparsedAddress": " , Chicago, Cook County, Illinois 60607, USA ",
+  "Coordinates": [-87.6244212, 41.8755616],
+  "Latitude": 41.8755616,
+  "Longitude": -87.6244212,
+  "InternetAddressDisplayYN": true,
+  "FeedTypes": "IDX",
+  "ListAgentFullName": "Gia Devenyi",
+  "ListOfficeName": "@properties Christie's International Real Estate",
+  "ListAgentMlsId": "867074",
+  "ListOfficeMlsId": "17665",
+  "OriginatingSystemName": "MyStateMLS-Demo",
+  "PublicRemarks": "One bedroom and share kitchen and bathroom in this 2 bedroom apartment.  share with one person. Single occupancy only. Female preferred. .",
+  "Media": [
+    {
+      "Order": 0,
+      "MediaKey": "652d7b8efe39a94dcb2b5eb7",
+      "MediaURL": "https://dx41nk9nsacii.cloudfront.net/cdn/36/MRD11909764/0904934ae8650247afbf241b9dbf2e35.jpeg",
+      "MediaSize": 445400,
+      "ImageHeight": 1080,
+      "MediaModificationTimestamp": "2023-10-16T18:06:06.573Z",
+      "ImageWidth": 1620,
+      "Thumbnail": "https://dx41nk9nsacii.cloudfront.net/cdn/36/MRD11909764/thumbnail-0904934ae8650247afbf241b9dbf2e35.jpeg",
+      "ImageSizeDescription": "1620x1080",
+      "MediaObjectID": "MRDExteriorFront"
+    }
+  ]
+}

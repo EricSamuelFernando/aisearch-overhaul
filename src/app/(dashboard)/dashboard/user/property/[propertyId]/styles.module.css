@@ -1,0 +1,27 @@
+.button {
+  border: 1px solid black;
+  border-radius: 20px;
+  padding: 0 20px;
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.offer {
+  border-radius: 20px;
+  padding: 10px 20px;
+  font-size: 16px;
+  background-color: #ccc;
+  font-weight: 400;
+  color: white;
+  font: 400;
+}
+
+.offer-added {
+  border-radius: 20px;
+  padding: 10px 20px;
+  font-size: 16px;
+  background-color: #000;
+  font-weight: 400;
+  color: white;
+  font: 400;
+}

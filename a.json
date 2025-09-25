@@ -1,0 +1,17 @@
+{
+  "message": "File Upload Url created",
+  "data": {
+    "successfullFiles": [
+      {
+        "uploadUrl": "the returned url",
+        "filename": "sampleOfFileName1.pdf"
+      }
+    ],
+    "failedFiles": [
+      {
+        "uploadUrl": null,
+        "filename": ""
+      }
+    ]
+  }
+}

@@ -1,0 +1,70 @@
+.root {
+  border-radius: 5px;
+  background-color: #e6e6e6;
+}
+
+.remove {
+  font-size: 8px;
+  scale: 0.8;
+}
+
+.label {
+  font-size: 14pxs;
+}
+
+.input {
+  border-radius: 5px;
+}
+
+.table {
+  width: 100%;
+}
+
+.tabLabel {
+  width: max-content;
+  font-weight: 700;
+}
+
+.controls {
+  display: flex;
+  text-align: right;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  bottom: 0;
+}
+
+.control {
+  height: 36px;
+  width: 36px;
+  font-size: 20px;
+}
+
+.search-input {
+  border-radius: 7.5px;
+  border: solid 0.5px #707070;
+  width: 196.5px;
+  height: 31px;
+  min-width: 300px;
+}
+
+.modal-container {
+  border-radius: 10px;
+}
+
+.close {
+  display: none;
+}
+
+.notify-input {
+  width: 305px;
+  padding: 10px;
+  border-radius: 5px;
+  background-color: #f5f8fa;
+}
+
+.listing-input {
+  border-radius: 10px;
+  border: solid 0.5px #707070;
+  background-color: #f5f6f9;
+}

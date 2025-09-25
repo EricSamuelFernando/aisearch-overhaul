@@ -1,0 +1,19 @@
+export interface SellerPropertyOffersInterface {
+    id:string;
+    propertyId:string;
+    isBuyer?:Boolean;
+    listingId:string;
+    price:number;
+    financeType:string;
+    downPayment:number;
+    appraisalContingencyPrice:string;
+    inspectionContingencyPrice:string;
+    createdBy:{
+        id:string;
+        firstName:string;
+        lastName:string;
+        email:string;
+        phone:string;
+        profile?:string
+    }
+}

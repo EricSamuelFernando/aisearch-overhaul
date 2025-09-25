@@ -1,0 +1,1830 @@
+"use client"
+
+import Image from "next/image"
+import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Input } from "@/components/ui/input"
+import EmojiPicker from "emoji-picker-react"
+import {
+  ChevronLeft,
+  Search,
+  HandHelpingIcon as Help,
+  MoreVertical,
+  Send,
+  Star,
+  Wifi,
+  CookingPotIcon as Kitchen,
+  Car,
+  Wind,
+  Maximize2,
+  X,
+  MessageCircle,
+  Paperclip,
+  Download,
+  FileText,
+  Smile,
+  FolderOpenDot,
+  Play,
+  SendHorizontal,
+  CircleCheck,
+  ZoomIn,
+  ZoomOut,
+  Eye,
+  Maximize,
+} from "lucide-react"
+import "swiper/css"
+import "swiper/css/navigation"
+import "swiper/css/pagination"
+import FavoriteBorder from "@mui/icons-material/FavoriteBorder"
+import LocationOnIcon from "@mui/icons-material/LocationOn"
+import { Badge } from "@/components/ui/badge"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { useCallback, useContext, useEffect, useRef, useState } from "react"
+import useDebounce from "@/hooks/utils/debounce"
+import { useSelector } from "react-redux"
+import KingBedIcon from "@mui/icons-material/KingBed"
+import BathtubIcon from "@mui/icons-material/Bathtub"
+import type { RootState } from "@/lib/store"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { format, formatDistanceToNow, isSameDay, subDays } from "date-fns"
+import { PROPERTY_DETAIL_SEARCH_AI_URL } from "@/shared/constants/env"
+import { SocketContext } from "@/providers/socket.context"
+import { useAgentConversationApi } from "@/hooks/api/auth/useConversationApi"
+import { FaHome, FaMapMarkerAlt } from "react-icons/fa"
+import { decryptMessage, encryptMessage, generateColorFromName } from "@/utils/math-utilities"
+import { useMessagesApi } from "@/hooks/api/useFetchMessages"
+import { useUserAgentMessageApi } from "@/hooks/api/auth/useMessageApi"
+import InviteUserModal from "./Invite-user-modal"
+import { threadId } from "worker_threads"
+import { useAtom } from "jotai"
+import { messageThreadsAtom } from "@/hooks/atoms"
+import { Loader } from "@mantine/core"
+import { usePropertyServiceAPI } from "@/hooks/api/agent/useAgentProperty"
+import { useRepoManagementApi } from "@/hooks/api/document/useRepoManagement"
+import { error } from "../alert/notify"
+import { useAuth } from "@/shared/hooks/useAuth"
+import { MdNotificationAdd } from "react-icons/md"
+
+interface User {
+  id: string
+  username: string
+  message: string
+  image: string
+}
+interface Message {
+  fileType?: string;
+  messageType?: string;
+  threadId: string
+  message: string
+  senderId?: string
+  createdAt?: string
+  receiverId?: string
+  timestamp?: string
+  seen?: boolean
+  parentMessageId?: string | null
+  file?: {
+    name?: string
+    url?: string
+    type?: string
+  }
+}
+export interface MediaPreview {
+  type: string;
+  url: string;
+  name?: string;
+  loaded?: boolean;
+  loading?: boolean;
+  error?: boolean;
+}
+interface Thread {
+  messages?: any
+  id: string
+  threadName?: string
+  image?: string;
+  propertyName?: string;
+  message?: string
+  lastSeen?: string
+  unreadCount?: number
+  propertyAddress?: string
+  propertyId?: string
+  listingId?: string
+  participants?: any
+  user?: {
+    id?: string
+    firstName?: string
+    lastName?: string
+  }
+  buyerAgent?: {
+    id?: string
+    firstName?: string
+    lastName?: string
+  }
+  sellerAgent?: {
+    id?: string
+    firstName?: string
+    lastName?: string
+  }
+  lastMessage?: string
+  lastMessageAt?: string | null
+  isTyping?: boolean
+  members?: any[]
+  threadId?: string | null
+  isActive?: boolean
+}
+interface PropertyData {
+  media?: {
+    primaryListingImageUrl?: string
+  }
+  listingId?: string
+  property?: {
+    bathroomsTotal?: number
+    bedroomsTotal?: number
+  }
+  address?: {
+    unparsedAddress?: string
+  }
+  courtesyOf?: string
+  publicRemarks?: string
+}
+
+export default function ChatBoxComponent(props: any) {
+  const { threads, setIsRead, setSearch, loading, threadId } = props
+  const router = useRouter()
+  const params = useSearchParams();
+  const type = params?.get('type')
+  const { socket, state, setState } = useContext(SocketContext)
+  const [isDetails, setIsDetails] = useState(false)
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [activeButton, setActiveButton] = useState("all")
+  const toggleDropdown = () => setIsDropdownOpen((prev) => !prev)
+  const closeDropdown = () => setIsDropdownOpen(false)
+  const [message, setMessage] = useState("")
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isTyping, setIsTyping] = useState(false)
+  const [fileErrorMsg, setFileErrorMsg] = useState("")
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [selectedChannel, setSelectedChannel] = useState<Thread | null>(null)
+  const propertyDetails = useSelector((state: { property: any }) => state.property)
+  const userData = useSelector((state: RootState) => state.auth.user)
+  const { user } = useAuth();
+  const currentUser = user?.account_type;
+  const [receiverId, setRecieverId] = useState<string>("")
+  const [messageLoading, setMessageLoading] = useState(false)
+  const [showThreads, setShowThreads] = useState(true)
+  const [receiverDetail, setRecieverDetail] = useState<any>({})
+  const [senderDetail, setSenderDetail] = useState<any>({})
+  const [showChat, setShowChat] = useState(false)
+  const [showDetails, setShowDetails] = useState(false)
+  const [propertyData, setPropertyData] = useState<any>(null)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [mediaPreview, setMediaPreview] = useState<MediaPreview | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [allMediaFiles, setAllMediaFiles] = useState<{ type?: string, url?: string, name?: string }[]>([]);
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+  const debounce = useDebounce()
+  const imageTypes = ["image/jpeg", "image/png", "image/jpg"]
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const uploadMenuRef = useRef<HTMLDivElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+
+  const [selectedThread, setSelectedThread] = useState<any>("")
+  const [threadParticipants, setThreadParticipant] = useState<any>([])
+  const [selectedThreadDetail, setSelectedThreadDetail] = useState<any>("")
+  const pathname = useSearchParams();
+  const [messageThreads, setMessageThreads] = useAtom(messageThreadsAtom);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [showUploadMenu, setShowUploadMenu] = useState(false);
+
+  console.log(selectedThreadDetail)
+  const imageMimeType = [
+    "image/png",
+    "image/jpeg",
+    "image/jpg",
+    "image/webp",
+    "image/gif",
+    "image/bmp",
+    "image/svg+xml",
+    "image/tiff",
+    "image/x-icon",
+    "image/heic",
+    "image/heif",
+  ]
+  const videoMimeType = [
+    "video/mp4",
+    "video/webm",
+    "video/ogg",
+    "video/quicktime",
+    "video/x-msvideo",
+    "video/x-ms-wmv",
+    "video/x-flv",
+    "video/x-matroska",
+    "video/3gpp",
+    "video/mp2t",
+    "video/x-m4v",
+  ]
+  const allowedFileTypes = [...imageMimeType, ...videoMimeType, "application/pdf"]
+  const { getAllConversationMessagesMutation } = useAgentConversationApi()
+  const { getAllUserAgentMessagesMutation } = useUserAgentMessageApi()
+  const { getThreadById } = useAgentConversationApi()
+  const { uploadNewFile } = usePropertyServiceAPI()
+  const { createRepoWithUploadedFile } = useRepoManagementApi()
+
+  const getThreadDetails = async (id: string) => {
+    getThreadById.mutateAsync(id ?? threadId, {
+      onSuccess: async (data: any) => {
+        const participants = await [
+          ...(data?.buyerAgent ? [data.buyerAgent] : []),
+          ...(data?.sellerAgent ? [data.sellerAgent] : []),
+          ...(data?.user ? [data.user] : []),
+          ...(Array.isArray(data?.participants) ? data.participants.map((p: any) => p.user) : []),
+        ];
+        handleThreadSelection(data, participants)
+      }
+    })
+  }
+  const handleFileUpload = async (file: File) => {
+    try {
+      const { key } = await uploadNewFile(file, userData?.id || "", selectedThreadDetail?.propertyId);
+      const payload = {
+        uploadedFile: {
+          fileName: file?.name,
+          fileSize: file?.size,
+          fileUrl: key,
+          fileType: file?.type
+        },
+        createRepoManagementInput: {
+          name: 'proof-document',
+          url: '/proof-document',
+          propertyId: selectedThreadDetail?.propertyId,
+          createdBy: userData?.id,
+          parentFolderName: 'proof-document',
+          isArchived: true,
+
+        }
+      };
+      createRepoWithUploadedFile?.mutate(payload, {
+        onSuccess: (data) => {
+          console.log(data)
+        },
+        onError: (err) => {
+          error({ message: err?.message || 'Upload failed' });
+        },
+      });
+      return key;
+    } catch (err: any) {
+      console.error("File upload failed:", err);
+      throw new Error('File upload failed');
+    }
+  };
+
+  const handleThreadSelection = (thread: Thread, participants: any) => {
+    if (selectedChannel === thread) return null
+    setIsDetails(false)
+    setShowThreads(false)
+    setShowChat(true)
+    setThreadParticipant(participants)
+    setSelectedThreadDetail(thread)
+    localStorage.setItem('threadId', thread?.id || '');
+    if (socket) {
+      socket.emit("joinThread", thread?.id);
+    }
+    setSelectedThread(thread?.id)
+    // if (TYPE === "messages") {
+    getAllThreadMessage(thread?.id)
+    if (userData?.id === thread?.buyerAgent?.id) {
+      setRecieverId(thread?.user?.id || "")
+      setRecieverDetail(thread?.user)
+    }
+    if (userData?.id === thread?.sellerAgent?.id) {
+      setRecieverId(thread?.user?.id || "")
+      setRecieverDetail(thread?.user)
+    }
+    else if (userData?.id === thread?.user?.id) {
+      setRecieverId(thread?.buyerAgent?.id || "")
+      setRecieverDetail(thread?.buyerAgent)
+    }
+    // }
+    // else {
+    //   getAllConversationThreads(thread?.id)
+    //   if (userData?.id === thread?.buyerAgent?.id) {
+    //     setRecieverId(thread?.sellerAgent?.id || "")
+    //   }
+    //   else {
+    //     setRecieverId(thread?.buyerAgent?.id || "")
+    //   }
+    // }
+    getPropertyDetails(thread?.listingId, thread.propertyId)
+    setState((prev: any) => ({
+      ...prev,
+      selectedChannel: {
+        id: thread?.id,
+        propertyName: thread.propertyName,
+      }
+    }))
+  }
+
+  const handleEmojiClick = (emoji: any) => {
+    setMessage((prev) => prev + emoji.emoji);
+  };
+  const handleBackToThreads = () => {
+    setShowThreads(true)
+    setShowChat(false)
+    setSelectedChannel(null)
+  }
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollIntoView({ behavior: "smooth" })
+    }
+  }, [])
+
+  const typing = useCallback(
+    debounce((id) => {
+      if (socket) {
+        socket.emit("typing", { user: "username", typing: false, recipient: id })
+      }
+    }, 2000),
+    [],
+  )
+
+  const getAllConversationThreads = async (threadId: string) => {
+    try {
+      setMessages([])
+      getAllConversationMessagesMutation.mutate(threadId, {
+        onSuccess: (data) => {
+          setMessages(data?.data?.conversationsByThread)
+        },
+        onError: (error) => {
+          console.log("Error in mutation: ", error)
+        },
+      })
+    } catch (error) {
+      console.log("error : ", error)
+    }
+  }
+
+  const toggleUploadMenu = () => {
+    setShowUploadMenu((prev) => !prev);
+  };
+
+  const getAllThreadMessage = async (threadId: string) => {
+    try {
+      setMessages([]);
+      getAllUserAgentMessagesMutation.mutate(threadId, {
+        onSuccess: (data) => {
+          const decryptedMessages = data?.data?.messagesByThread?.map((message: Message) => {
+            //const decryptedMessage = decryptMessage(message.message);
+            const decryptedMessage = message.message
+            return {
+              ...message,
+              message: decryptedMessage,
+            };
+          });
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+          }, 2000)
+          setMessages(decryptedMessages || []);
+        },
+        onError: (error) => {
+          console.log("Error in mutation: ", error);
+        },
+      });
+    } catch (error) {
+      console.log("error: ", error);
+    }
+  };
+
+  const handleSearch = useCallback(
+    debounce((value: string) => {
+      setSearch(value)
+    }, 1000),
+    [],
+  )
+
+  const handleTyping = (status: boolean) => {
+    if (socket) {
+      socket.emit("typing", { user: "username", typing: status, recipient: receiverId })
+      setTimeout(() => {
+        socket.emit("typing", { user: "username", typing: false, recipient: receiverId })
+      }, 1000);
+      typing(receiverId)
+    }
+  }
+
+  const handleZoom = (zoomIn: boolean) => {
+    if (zoomIn) {
+      setZoomLevel(prev => Math.min(prev + 0.25, 3));
+    } else {
+      setZoomLevel(prev => Math.max(prev - 0.25, 0.5));
+    }
+  };
+
+  const closeMediaPreview = () => {
+    setMediaPreview(null);
+    setZoomLevel(1);
+  };
+
+  const openMediaPreview = useCallback((fileUrl: string, fileType: string) => {
+    if (fileUrl) {
+      setMediaPreview({
+        type: fileType || '',
+        url: fileUrl,
+        name: fileType.split('/')[1] || 'media',
+        loading: true
+      });
+
+      if (fileType && imageMimeType.includes(fileType)) {
+        if (fileUrl.startsWith('data:')) {
+          setZoomLevel(1);
+          setMediaPreview({
+            type: fileType,
+            url: fileUrl,
+            name: fileType.split('/')[1] || 'media',
+            loaded: true
+          });
+          return;
+        }
+
+        const img = document.createElement('img');
+        img.crossOrigin = "anonymous";
+        img.src = fileUrl;
+
+        img.onload = () => {
+          setZoomLevel(1);
+          setMediaPreview({
+            type: fileType,
+            url: fileUrl,
+            name: fileType.split('/')[1] || 'media',
+            loaded: true
+          });
+        };
+
+        img.onerror = (e) => {
+          console.error("Failed to load image:", e);
+
+          const imgFallback = document.createElement('img');
+          imgFallback.src = fileUrl;
+
+          imgFallback.onload = () => {
+            setZoomLevel(1);
+            setMediaPreview({
+              type: fileType,
+              url: fileUrl,
+              name: fileType.split('/')[1] || 'media',
+              loaded: true
+            });
+          };
+
+          imgFallback.onerror = () => {
+            console.error("All loading attempts failed for image");
+            setMediaPreview({
+              type: fileType,
+              url: '/placeholder.jpg',
+              name: fileType.split('/')[1] || 'media',
+              loaded: false,
+              error: true
+            });
+          };
+        };
+      } else {
+        setZoomLevel(1);
+        setMediaPreview({
+          type: fileType || '',
+          url: fileUrl,
+          name: fileType.split('/')[1] || 'media',
+          loading: false
+        });
+      }
+      const index = allMediaFiles.findIndex(mediaFile =>
+        mediaFile.url === fileUrl
+      );
+
+      if (index !== -1) {
+        setCurrentMediaIndex(index);
+      }
+    }
+  }, [allMediaFiles, imageMimeType]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+
+    if (file) {
+      setFileErrorMsg("")
+      setSelectedFile(null)
+
+      const validTypes = ["image/jpeg", "image/png", "application/pdf"]
+      const maxSize = 5 * 1024 * 1024
+
+      if (!allowedFileTypes.includes(file.type)) {
+        setFileErrorMsg("Invalid file type. Only JPG, PNG, and PDF are allowed.")
+        return
+      }
+      if (file.size > maxSize) {
+        setFileErrorMsg("File size exceeds the 5MB limit.")
+        return
+      }
+
+      setSelectedFile(file)
+    }
+  }
+
+  const getPropertyDetails = async (id: any, propertyId: any) => {
+    try {
+      setMessageLoading(true)
+      setPropertyData(null)
+      const payload = {
+        listingId: parseInt(id) || "",
+        propertyId: parseInt(propertyId)
+      }
+      const response = await fetch(PROPERTY_DETAIL_SEARCH_AI_URL || "http://13.60.114.186:9000/api/search/preference", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      })
+      const data = await response.json()
+      setPropertyData(data?.data)
+      setMessageLoading(false)
+      // setIsDetails(true)
+      setShowDetails(true)
+      return data
+    } catch (error) {
+      console.log("error : ", error)
+    }
+    setMessageLoading(false)
+  }
+
+  const handleInputChange = (e: any) => {
+    const value = e.target.value
+    setMessage(value)
+
+    if (!isTyping) {
+      handleTyping(true)
+    }
+
+    if (value.trim() === "") {
+      handleTyping(false)
+    }
+  }
+  const getBase64 = (file: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  const handleSendMessage = async () => {
+    try {
+      // const encryptedMessage = encryptMessage(message)
+      const encryptedMessage = message
+      if (encryptedMessage.trim() !== "" || selectedFile) {
+        const newMessage = {
+          threadId: state?.selectedChannel.id || "",
+          message: encryptedMessage,
+          senderId: userData?.id,
+          roomId: selectedThreadDetail?.roomId,
+          receiverId: receiverId,
+          createdAt: new Date().toISOString(),
+        } as Message
+        let fileData = null;
+        if (selectedFile) {
+          const base64Content = await getBase64(selectedFile);
+          const fileType = selectedFile.type;
+          fileData = {
+            name: selectedFile.name,
+            type: fileType,
+            size: selectedFile.size,
+            content: base64Content,
+            sender: userData,
+          };
+          socket?.emit("save_file", fileData, async (response: any) => {
+            handleFileUpload(selectedFile)
+            const messageData = await response.data;
+            const message = response.data.message || "";
+            if (response?.success) {
+              socket?.emit(
+                "sendMessagetoThread",
+                {
+                  ...newMessage,
+                  ...response?.data,
+                  message
+                },
+                {
+                  reciepent: receiverId,
+                  userName: userData?.firstname + " " + userData?.lastname,
+                },
+                null,
+              )
+
+              setTimeout(() => {
+                setMessageThreads((prev) =>
+                  prev.map((thread) =>
+                    thread.id === threadId
+                      ? {
+                        ...thread,
+                        messages: [{
+                          ...newMessage,
+                          ...messageData
+                        }, ...(thread.messages || [])],
+                      }
+                      : thread
+                  )
+                );
+                setMessages((prev) => [
+                  {
+                    ...newMessage,
+                    ...messageData
+                  },
+                  ...prev,
+                ]);
+              }, 2000)
+            }
+          })
+        }
+        else {
+          socket?.emit(
+            "sendMessagetoThread",
+            newMessage,
+            {
+              reciepent: receiverId,
+              userName: userData?.firstname + " " + userData?.lastname,
+            },
+            null,
+          )
+        }
+        setSelectedFile(null)
+        if (message.trim() !== "") {
+          setMessageThreads((prev: any) =>
+            prev.map((thread: any) =>
+              thread.id === threadId
+                ? {
+                  ...thread,
+                  messages: [{ ...newMessage, message }, ...(thread.messages || [])],
+                }
+                : thread
+            )
+          );
+          setMessages((prevMessages) => [
+            { ...newMessage, message },
+            ...prevMessages,
+          ])
+        }
+        setMessage("")
+      }
+    } catch (error) {
+      console.log("error : ", error)
+    }
+  }
+
+  const handleTrheadsName = (user: any) => {
+    const str1 = "Byuer (" + user?.buyerAgent.firstName + " " + user?.buyerAgent.lastName + ")"
+    const str2 = "Seller (" + user?.sellerAgent.firstName + " " + user?.sellerAgent.lastName + ")"
+    return <>
+      <h3 className="font-semibold text-sm sm:text-base truncate">{str1}</h3>
+      <h3 className="font-semibold text-sm sm:text-base truncate">{str2}</h3>
+    </>
+  }
+
+  const groupedMessages: { [date: string]: Message[] } = messages.reduce((acc: { [date: string]: Message[] }, message) => {
+    const date = format(new Date(message?.createdAt ?? 0), "yyyy-MM-dd");
+    if (!acc[date]) acc[date] = [];
+    acc[date].push(message);
+    return acc;
+  }, {});
+
+  // const groupedMessages: { [date: string]: Message[] } = (() => {
+  //   const thread = messageThreads.find((thread) => thread.id === selectedThread);
+  //   return thread?.messages?.reduce((acc: { [date: string]: Message[] }, message) => {
+  //     const date = format(new Date(message?.createdAt ?? 0), "yyyy-MM-dd");
+  //     if (!acc[date]) acc[date] = [];
+  //     acc[date].push(message);
+  //     return acc;
+  //   }, {}) || {};
+  // })();
+
+
+  function isToday(date: Date): boolean {
+    const today = new Date();
+    return isSameDay(date, today);
+  }
+
+  function isYesterday(date: Date): boolean {
+    const yesterday = subDays(new Date(), 1);
+    return isSameDay(date, yesterday);
+  }
+
+  const saveAllMessages = () => {
+    if (socket) {
+      const threadId = localStorage.getItem('threadId')
+      socket.emit("save_user_agent_messages", threadId);
+    }
+  }
+
+  useEffect(() => {
+    if (socket) {
+      // socket?.on('thread_marked_as_read', (data: any) => {
+      //   if (selectedThread === data?.threadId) {
+      //     // setAllMessages(allMessages);
+      //     const updatedMessages = allMessages.map((msg) =>
+      //       msg.isRead ? msg : { ...msg, isRead: true }
+      //     );
+      //     setAllMessages(updatedMessages);
+      //   }
+      // })
+      // socket.on("recievedMessage", (newMessage: Message) => {
+      //   // setShowNewMessageTag(true)
+      //   console.log("Data : ", selectedThread, newMessage);
+      //   setMessages(prevMessages => [newMessage, ...prevMessages]);
+      // })
+      socket.on("typingStatus", (typing: boolean) => {
+        setIsTyping(typing)
+      })
+      const interval = setInterval(saveAllMessages, 5000);
+      return () => {
+        socket.off("recievedMessage")
+        socket.off("thread_marked_as_read")
+        clearInterval(interval);
+        saveAllMessages();
+      }
+    }
+    return () => {
+      setState((prev: any) => ({
+        ...prev,
+        selectedChannel: {
+          id: null,
+          propertyName: ""
+        }
+      }))
+    }
+  }, [socket])
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [groupedMessages]);
+
+
+  useEffect(() => {
+    if (socket) {
+      socket.emit("joinThread", selectedThread);
+    }
+  }, [selectedThread])
+
+  useEffect(() => {
+    if (socket) {
+      socket.on("recievedMessage", (newMessage: Message) => {
+        setMessages((prevMessages) => [
+          {
+            ...newMessage,
+            message: newMessage.message
+            // message: decryptMessage(newMessage.message)
+          },
+          ...prevMessages
+        ])
+      })
+      socket.on("typingStatus", (typing: boolean) => {
+        setIsTyping(typing)
+      })
+      return () => {
+        socket.off("recievedMessage")
+        socket.off("typingStatus");
+      }
+    }
+    return () => {
+      setState((prev: any) => ({
+        ...prev,
+        selectedChannel: {
+          id: null,
+          propertyName: ""
+        }
+      }))
+    }
+  }, [socket])
+
+  useEffect(() => {
+
+    const handleUnload = () => {
+      if (socket) {
+        // if (TYPE === "messages") {
+        const threadId = localStorage.getItem('threadId')
+        socket.emit("save_user_agent_messages", threadId);
+        // }
+        // else {
+        //   socket.emit("save_messages");
+        // }
+      }
+    };
+
+    // Trigger save when the user tries to refresh or close the page
+    window.addEventListener("beforeunload", handleUnload);
+
+    // Trigger save when the user presses the back button
+    window.addEventListener("popstate", handleUnload);
+
+    // Clean up the event listeners when the component unmounts
+    return () => {
+      window.removeEventListener("beforeunload", handleUnload);
+      window.removeEventListener("popstate", handleUnload);
+    };
+  }, [socket]
+  );
+
+  useEffect(() => {
+    if (state?.newMessage) {
+      // const message = decryptMessage(state?.newMessage?.message)
+      const message = state?.newMessage?.message
+      state.newMessage.message = message;
+      console.log("DAtaaaaaaaaaaa: ", state.newMessage);
+
+      setMessages((prevMessages) => [state.newMessage, ...prevMessages])
+      setState((prev: any) => ({
+        ...prev,
+        newMessage: null
+      }))
+    }
+  }, [state.newMessage])
+
+  useEffect(() => {
+    if (threadId) {
+      getThreadDetails(threadId);
+    }
+  }, [threadId]);
+
+  // Predefined light colors for consistent user avatars
+  const lightColors = ["bg-blue-200", "bg-green-200", "bg-red-200", "bg-yellow-200", "bg-purple-200"];
+
+  // Function to pick a static color based on the user's name
+  const getStaticColor = (name: string) => {
+    const index = name?.charCodeAt(0) % lightColors.length;
+    return lightColors[index];
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n: string) => n[0])
+      .join("")
+      .toUpperCase();
+  };
+
+  console.log(message)
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      // Upload dropdown
+      if (
+        showUploadMenu &&
+        uploadMenuRef.current &&
+        !uploadMenuRef.current.contains(event.target as Node)
+      ) {
+        setShowUploadMenu(false);
+      }
+
+      // Emoji picker
+      if (
+        showEmojiPicker &&
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(event.target as Node)
+      ) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showUploadMenu, showEmojiPicker]);
+
+
+   console.log("Thread Data: ", threads);
+  return (
+    <div className="mt-24 max-w-full ">
+      <header className="border-b px-2 sm:px-4 py-2 flex items-center justify-between  shadow-sm">
+        <div className="flex bg-white shadow  pr-4 rounded-full items-center " onClick={() => router.push(`/dashboard/${currentUser === "seller" ? "" : "buyer"}`)}>
+          <Button variant="ghost" size="icon">
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+          <span className="font-semibold">Back</span>
+        </div>
+        <div className="flex justify-center items-center w-full">
+          <div className="shadow relative flex w-full max-w-xl bg-white h-10 rounded-full">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-500" />
+            <Input
+              placeholder="Search"
+              className="pl-12 pr-4 bg-transparent text-gray-700 placeholder-gray-500 w-full focus:outline-none appearance-none border-0"
+              onChange={(e) => {
+                handleSearch(e.target.value)
+              }}
+            />
+          </div>
+        </div>
+        <Button variant="ghost" size="icon">
+          <Help className="h-5 w-5" />
+        </Button>
+      </header>
+      <section>
+        <div className="flex flex-col border-l md:flex-row bg-gray-100 h-[calc(100vh-9rem)] max-h-[calc(100vh-9rem)]">
+          <div className={`w-full md:w-96 bg-white border-r ${showThreads ? "block" : "hidden md:block"} overflow-hidden`}>
+            {/* Header */}
+            <div className="p-4 border-b flex justify-between items-center">
+              <h2 className="font-semibold text-lg text-gray-800">Messages</h2>
+              <Button variant="ghost" size="icon">
+                <MessageCircle className="h-6 w-6 text-gray-600" />
+              </Button>
+            </div>
+
+            {/* Toggle Buttons */}
+            <div className="p-2 px-4  border-b flex justify-center items-center">
+              <div className="flex w-full gap-2 rounded-full bg-gray-100 p-1 shadow-sm">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setIsRead(false)
+                    setActiveButton("all")
+                  }}
+                  className={`h-10 w-full text-gray-600 rounded-full px-4 py-2 ${activeButton === "all" ? "bg-white shadow text-gray-800" : ""}`}
+                >
+                  All
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setIsRead(true)
+                    setActiveButton("unread")
+                  }}
+                  className={`h-10 w-full text-gray-600 rounded-full px-4 py-2 ${activeButton === "unread" ? "bg-white shadow text-gray-800" : ""}`}
+                >
+                  Unread
+                </Button>
+              </div>
+            </div>
+
+            {/* Threads List */}
+            {props?.loading ?
+              <div className="flex items-center justify-center h-32">
+                <svg
+                  className="animate-spin h-6 w-6 text-orange-500"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v8z"
+                  ></path>
+                </svg>
+              </div> :
+              <ScrollArea className="px-4 py-2 overflow-auto h-[calc(96vh-16rem)]">
+                {threads?.length ? (
+                  threads.map((thread: Thread) => {
+                    const participants = [
+                      ...(thread?.buyerAgent ? [thread.buyerAgent] : []),
+                      ...(thread?.sellerAgent ? [thread.sellerAgent] : []),
+                      ...(thread?.user ? [thread.user] : []),
+                      ...(Array.isArray(thread?.participants) ? thread.participants.map(p => p.user) : []),
+                    ];
+                    const lastMessage = thread?.messages?.[thread?.messages?.length - 1]
+                    const initials = getInitials(
+                      `${thread?.buyerAgent?.firstName || ''} ${thread?.user?.firstName || thread?.sellerAgent?.firstName || ''}`
+                    );
+
+                    return (
+                      <div
+                        key={thread.id}
+                        className={`relative flex w-full  border border-bottom mt-3 items-start gap-3 p-4 rounded-md ${selectedThreadDetail?.id === thread?.id ? 'bg-[#1B1B1B] text-white' : "bg-orange"} hover:shadow-xl  hover:bg-black hover:text-white cursor-pointer transition-colors`}
+                        onClick={() => handleThreadSelection(thread, participants)}
+                      >
+                        {/* Timestamp */}
+                        {lastMessage?.createdAt ? <span className="absolute top-2 right-3 text-[10px] sm:text-xs text-gray-400">
+                          {formatDistanceToNow(new Date(lastMessage?.createdAt), { addSuffix: true })}
+                        </span> : null}
+
+                        {/* Avatar */}
+                        {thread?.image ? (
+                          <Image
+                            src={thread.image}
+                            alt="User Avatar"
+                            width={50}
+                            height={50}
+                            className="rounded-full object-cover w-[40px] h-[40px] sm:w-[50px] sm:h-[50px]"
+                            priority
+                            unoptimized
+                          />
+                        ) : (
+                          <div
+                            className={`rounded-full flex items-center justify-center font-semibold w-[40px] h-[40px] sm:w-[50px] sm:h-[50px]  bg-gray-800 text-white `}
+                          >
+                            {initials}
+                          </div>
+                        )}
+
+                        {/* Thread Content */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm sm:text-base truncate">
+                            {thread.buyerAgent?.firstName} & {thread?.user?.firstName || thread.sellerAgent?.firstName}
+                          </p>
+
+                          {/* <p className="text-xs sm:text-sm text-gray-500 truncate w-full">
+                            {true ? thread.message : "typing..."}
+                          </p> */}
+                          {/* <p className="text-xs sm:text-sm text-gray-500 truncate w-full">
+                            {lastMessage?.message || "No messages yet"}
+                          </p> */}
+
+                          {/* Participants */}
+                          <div className="flex flex-wrap gap-1 text-[10px] text-gray-500 truncate w-full">
+                            {participants.map((p: any, i: number) => (
+                              <span key={i} className="truncate">{p?.firstName}{i < participants.length - 1 && ','}</span>
+                            ))}
+                          </div>
+
+                          {/* Tags */}
+                          <div className="text-xs flex flex-wrap items-center gap-2 mt-2">
+                            <span className="flex items-center gap-1 border border-orange-500 bg-white text-orange-700 px-3 py-1 rounded-full text-[10px] sm:text-xs h-6">
+                              <FaHome className="text-orange-600 text-xs" />
+                              <span className="truncate max-w-[100px]">{thread.propertyName}</span>
+                            </span>
+                            <span className="flex items-center gap-1 bg-orange-100 overflow-hidden w-24  text-orange-700 px-3 py-1 rounded-full text-[10px] sm:text-xs h-6">
+                              <FaMapMarkerAlt className="text-orange-600 text-xs" />
+                              <span className="truncate max-w-[100px]">{thread.propertyAddress}</span>
+                            </span>
+                          </div>
+                          {/* {(thread.messages?.length || 0) > 0 && (
+                                                    <div className="absolute top-2 right-5 translate-x-1/2 -translate-y-1/2">
+                                                        <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-semibold leading-none text-white bg-orange-600 rounded-full shadow">
+                                                            {thread.messages?.length}
+                                                        </span>
+                                                    </div>
+                                                )} */}
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-center mt-6 text-gray-400">
+                    <p className="text-lg font-semibold">No threads available</p>
+                    <p className="text-sm">It seems like you have not started any conversations yet.</p>
+                  </div>
+                )}
+              </ScrollArea>
+            }
+          </div>
+
+
+          <div className={`flex-1  flex flex-col bg-[#F7F2EB] ${showChat ? "block" : "hidden md:block"} max-h-full overflow-hidden`}>
+            <header className="border-b bg-[#F7F2EB] px-4 py-2 flex items-center justify-between md:hidden">
+              <div className="flex items-center gap-4">
+                <Button variant="ghost" size="icon" onClick={handleBackToThreads}>
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+                <span className="font-semibold">{state?.selectedChannel?.propertyName || ""}</span>
+              </div>
+            </header>
+            <div className="flex-1 flex bg-gray-50">
+              {state.selectedChannel.id ? (
+                <div className="flex-1 flex flex-col">
+                  {!messageLoading ? (
+                    <>
+                      <div className="p-4 border-b flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+
+                          {selectedThread?.image ? (
+                            <Image
+                              src={selectedThread?.image}
+                              alt="User Avatar"
+                              width={50}
+                              height={50}
+                              className="rounded-full object-cover w-[40px] h-[40px] sm:w-[50px] sm:h-[50px]"
+                            />
+                          ) : (
+                            <div
+                              className={`rounded-full flex items-center justify-center text-gray-700 font-semibold w-[40px] h-[40px] sm:w-[50px] sm:h-[50px] text-white bg-gray-700
+                              `}
+                            >
+                              {getInitials(
+                                `${selectedThread?.buyerAgent?.firstName?.[0] || ""} ${selectedThread?.user?.firstName?.[0] || selectedThread?.sellerAgent?.firstName?.[0] || ""}`
+                              )}
+                            </div>
+
+                          )}
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 min-w-0">
+                                {/* Name */}
+                                <p className="font-semibold text-sm sm:text-base truncate">{selectedThreadDetail.buyerAgent?.firstName} & {selectedThreadDetail?.user?.firstName || selectedThreadDetail?.sellerAgent?.firstName}</p>
+
+                                <span className="truncate max-w-[100px] flex text-[10px]">{threadParticipants?.map((participant: any, idx: number) => <p key={idx}>{participant?.firstName}, </p>)}</span>
+                              </div>
+                              {/* <span className="text-xs text-green-500">Online</span> */}
+                            </div>
+                            {isTyping && <span className="text-sm text-green-600">Typing...</span>}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center  gap-3">
+                            <Image
+                              src={propertyData?.media?.photosList?.[0]?.lowRes || "/placeholder.jpg"}
+                              alt="Property"
+                              width={60}
+                              height={40}
+                              className="rounded-lg object-cover"
+                              priority
+                              unoptimized
+                            />
+                            <div>
+                              <span className="text-xs">{propertyData?.courtesyOf}</span>
+                            </div>
+                          </div>
+                          <div className="relative">
+                            <button className="p-2 rounded-full hover:bg-gray-100" onClick={toggleDropdown}>
+                              <MoreVertical className="h-5 w-5" />
+                            </button>
+                            {isDropdownOpen && (
+                              <div
+                                className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border"
+                                onMouseLeave={closeDropdown}
+                                style={{ zIndex: 100 }}
+                              >
+                                <ul className="py-1">
+                                  <li>
+                                    <button
+                                      className="w-full text-left px-4 py-2 hover:bg-gray-100"
+                                      onClick={() => {
+                                        closeDropdown()
+                                        setIsDetails(!isDetails)
+                                        setShowDetails(!showDetails)
+                                      }}
+                                    >
+                                      Property Details
+                                    </button>
+                                  </li>
+                                  <li>
+                                    <InviteUserModal
+                                      threadId={selectedThread}
+                                    />
+                                  </li>
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <ScrollArea className="ms-2 mb-2 sm:ms-5 scrollbar-hide sm:me-5 overflow-auto h-[calc(96vh-16rem)] sm:h-[calc(96vh-18rem)]">
+                        <div className="space-y-6 me-4">
+                          {Object.entries(groupedMessages)
+                            .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
+                            .map(([dateKey, dayMessages]) => {
+                              const parsedDate = new Date(dateKey);
+                              // const label = "Today"
+                              const label = isToday(parsedDate)
+                                ? "Today"
+                                : isYesterday(parsedDate)
+                                  ? "Yesterday"
+                                  : format(parsedDate, "EEEE, MMMM d");
+
+                              return (
+                                <div key={dateKey}>
+                                  <div className="text-center py-2">
+                                    <span className="text-gray-500 text-xs sm:text-sm font-medium bg-white px-3 py-1 rounded-full shadow">
+                                      {label}
+                                    </span>
+                                  </div>
+
+
+                                  <div className="space-y-4">
+                                    {[...dayMessages]
+                                      .sort((a, b) => new Date(a.createdAt ?? 0).getTime() - new Date(b?.createdAt ?? 0).getTime())
+                                      .map((message, index) => {
+                                        const isSender = message.senderId === userData?.id;
+                                        const isLastMessage = index === dayMessages?.length - 1;
+                                        const formattedTime = format(new Date(message?.createdAt ?? 0), "hh:mm a");
+                                        const receiver = threadParticipants.find(
+                                          (p: any) => p.id === message.senderId && p.id !== userData?.id
+                                        );
+
+                                        const notificationMessage = message?.messageType === "notification"
+
+                                        return (
+                                          <div
+                                            key={index}
+                                            className={`flex gap-3 mt-4 items-start ${isSender ? 'justify-end' : ''}`}
+                                          // ref={isLastMessage ? messagesEndRef : null}
+                                          >
+                                              {notificationMessage &&
+
+<div className="flex justify-center  rounded-xl text-center w-full  pt-6 p-3">
+    <div className="bg-white shadow-md rounded-full w-fit px-8 py-4 pt-6">
+        <div className="flex gap-2 items-center">
+            <MdNotificationAdd size={24} />
+    <p className="whitespace-pre-wrap break-words  text- text-sm">{message.message}</p>
+    </div>
+    <div className={`text-xs text-gray-400 px-2 mt-2 text-right`}>
+        {formattedTime}
+    </div>
+    </div>
+
+</div>
+}
+                                            {!isSender && receiver && !notificationMessage && (
+                                              <div
+                                                className="w-7 h-7 sm:w-10 bg-black mt-4 text-white sm:h-10 flex items-center justify-center bg-gray-300 text-white text-xs sm:text-sm font-semibold rounded-full bg-gray-800 text-white shrink-0"
+
+                                              >
+                                                {getInitials(`${receiver?.firstName} ${receiver?.lastName}` || '')}
+                                              </div>
+                                            )}
+
+
+                                            {!notificationMessage &&
+
+                                              <div className="w-full flex flex-col gap-1">
+                                                {/* Time aligned to sender/receiver side */}
+                                                <div className={`text-xs text-gray-400 px-2 ${isSender ? "text-right" : "text-left"}`}>
+                                                  {formattedTime}
+                                                </div>
+
+                                                {/* Message container taking full width */}
+                                                <div className={`w-full flex ${isSender ? "justify-end" : "justify-start"}`}>
+                                                  <div
+                                                    className={`p-3 sm:p-4 bg-black text-white  font-medium rounded-2xl shadow-md text-xs sm:text-sm max-w-full sm:max-w-[90%] 
+      `}
+                                                  >
+                                                    {/* Text message */}
+                                                    {message?.messageType !== "file" && message.message && (
+                                                      <p className="whitespace-pre-wrap break-words">{message.message}</p>
+                                                    )}
+
+                                                    {/* File message */}
+                                                    {message?.messageType === "file" && (
+                                                      <div className="rounded-lg flex items-center gap-3 p-2">
+                                                        {message.fileType && imageMimeType.includes(message.fileType) ? (
+                                                          <div
+                                                            className="relative cursor-pointer group"
+                                                            onClick={() => openMediaPreview(message.message, message.fileType ?? "")}
+                                                          >
+                                                            <Image
+                                                              src={message.message || ""}
+                                                              alt="Uploaded Image"
+                                                              width={140}
+                                                              height={140}
+                                                              unoptimized={true}
+                                                              priority
+                                                              className="rounded-lg max-w-[120px] hover:opacity-90 transition-opacity"
+                                                            />
+                                                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-lg transition-opacity">
+                                                              <Maximize className="w-4 h-4 text-white" />
+                                                            </div>
+                                                          </div>
+                                                        ) : message.fileType && videoMimeType?.includes(message.fileType) ? (
+                                                          <video
+                                                            controls
+                                                            className="rounded-lg max-w-[120px]"
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              openMediaPreview(message.message, message.fileType || "");
+                                                            }}
+                                                          >
+                                                            <source src={message.message} type={message.fileType} />
+                                                            Your browser does not support the video tag.
+                                                          </video>
+                                                        ) : (
+                                                          <div className="flex items-center gap-2 text-xs sm:text-sm">
+                                                            <FileText className="w-5 h-5 text-gray-600" />
+                                                            <span className="truncate max-w-[100px] sm:max-w-full">
+                                                              {message.message.slice(0, 20)}
+                                                            </span>
+                                                            <a
+                                                              href={message.message}
+                                                              target="_blank"
+                                                              rel="noopener noreferrer"
+                                                              className="text-blue-500 hover:underline"
+                                                            >
+                                                              <Eye className="w-4 h-4 text-orange-500" />
+                                                            </a>
+                                                          </div>
+                                                        )}
+                                                      </div>
+                                                    )}
+
+                                                    {/* Reply Preview */}
+                                                    {message.parentMessageId && (
+                                                      <div className="mt-2 p-2 border-l-4 border-gray-300 text-sm italic">
+                                                        Replying to: <span className="font-medium">{message.parentMessageId}</span>
+                                                      </div>
+                                                    )}
+
+                                                    {/* Seen indicator */}
+                                                    {isSender && isLastMessage && message.seen && (
+                                                      <div className="text-xs text-blue-500 mt-1 text-right">Seen</div>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            }
+
+
+                                            {isSender && !notificationMessage && (
+                                              <div className="w-7 h-7 mt-4 sm:w-10 sm:h-10 flex items-center justify-center bg-gray-300  bg-gray-800 text-white text-xs sm:text-sm font-semibold rounded-full shrink-0">
+                                                {getInitials(`${userData?.firstname} ${userData?.lastname}` || '')}
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+
+                        {selectedFile && (
+                          <div className="mx-4 mt-2 mb-3 relative">
+                            <div className="bg-gray-100 rounded-lg p-3 pr-10">
+                              <div className="flex items-start">
+                                {selectedFile.type && imageTypes.includes(selectedFile.type) ? (
+                                  <div className="mr-3">
+                                    <div className="w-16 h-16 sm:w-20 sm:h-20 relative bg-[#FAF9F5] rounded-md overflow-hidden">
+                                      <img
+                                        src={URL.createObjectURL(selectedFile) || "/placeholder.svg"}
+                                        alt="Preview"
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                  </div>
+                                ) : selectedFile.type && selectedFile.type.startsWith("video/") ? (
+                                  <div className="mr-3">
+                                    <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center bg-[#FAF9F5] rounded-md relative">
+                                      <Play className="w-8 h-8 text-gray-500" />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="mr-3">
+                                    <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center bg-[#FAF9F5] rounded-md">
+                                      <FileText className="w-8 h-8 text-gray-500" />
+                                    </div>
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-sm truncate">{selectedFile.name}</p>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                                  </p>
+                                  <p className="text-xs text-gray-500 capitalize">{selectedFile.type.split("/")[0]}</p>
+                                </div>
+                              </div>
+                              <button
+                                className="absolute top-3 right-3 p-1 rounded-full hover:bg-[#FAF9F5] text-gray-500"
+                                onClick={() => setSelectedFile(null)}
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        <div ref={messagesEndRef} />
+                      </ScrollArea>
+                      {/* Message Input Section
+                      <div className="p-4 border-t">
+                        <div className="flex items-center gap-2">
+                          <label className="cursor-pointer p-2 rounded-full hover:bg-gray-100">
+                            <Paperclip className="h-5 w-5 text-gray-600" />
+                            <input type="file" className="hidden" onChange={handleFileChange} />
+                          </label>
+                          <form
+                            className="flex-1 py-2 px-4"
+                            onSubmit={(e) => {
+                              e.preventDefault()
+                              handleSendMessage()
+                            }}
+                          >
+                            <Input
+                              className="flex-1 py-2 px-4 border rounded-lg focus:outline-none"
+                              placeholder="Type a message..."
+                              value={message}
+                              onChange={handleInputChange}
+                            />
+                          </form>
+                          <Button
+                            size="icon"
+                            className="bg-orange-500 hover:bg-orange-600 text-white rounded-lg flex px-3 gap-2"
+                            onClick={handleSendMessage}
+                          >
+                            <Send className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div> */}
+
+                      <div className="p-2 sm:p-4 border-t relative">
+                        {fileErrorMsg && (
+                          <div className="absolute -top-10 left-0 right-0 bg-red-100 text-red-600 p-2 text-xs sm:text-sm text-center">
+                            {fileErrorMsg}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1 sm:gap-2">
+                          {/* File Upload with dropdown */}
+                          <div className="relative">
+                            <button
+                              className="cursor-pointer  p-1 sm:p-2 rounded-full hover:bg-[#FAF9F5]"
+                              onClick={toggleUploadMenu}
+                            >
+                              <FolderOpenDot className="h-4 w-4 sm:h-5 sm:w-5 text-green-700" />
+                            </button>
+                            {showUploadMenu && (
+                              <div
+                                ref={uploadMenuRef}
+                                className="absolute bottom-full left-0 mb-2 bg-white  rounded-lg z-10 w-48"
+                              >
+                                <div className="p-2 shadow text-xs sm:text-sm">
+                                  <p className="font-medium mb-1">Upload file</p>
+                                  <div className="space-y-2">
+                                    <label className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md cursor-pointer">
+                                      <Paperclip className="h-4 w-4 text-blue-500" />
+                                      <span>Image</span>
+                                      <input
+                                        type="file"
+                                        className="hidden"
+                                        onChange={handleFileChange}
+                                        accept="image/jpeg,image/png,image/jpg"
+                                      />
+                                    </label>
+                                    <label className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md cursor-pointer">
+                                      <Play className="h-4 w-4 text-red-500" />
+                                      <span>Video</span>
+                                      <input
+                                        type="file"
+                                        className="hidden"
+                                        onChange={handleFileChange}
+                                        accept="video/mp4,video/webm,video/ogg"
+                                      />
+                                    </label>
+                                    <label className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md cursor-pointer">
+                                      <FileText className="h-4 w-4 text-gray-500" />
+                                      <span>Document</span>
+                                      <input
+                                        type="file"
+                                        className="hidden"
+                                        onChange={handleFileChange}
+                                        accept="application/pdf"
+                                      />
+                                    </label>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="relative">
+                            <button
+                              type="button"
+                              className="p-1 sm:p-2 rounded-full bg-[#FAF9F5] hover:bg-[#FAF9F5]"
+                              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                            >
+                              <Smile className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" />
+                            </button>
+                            {showEmojiPicker && (
+                              <div
+                                ref={emojiPickerRef}
+                                className="absolute bottom-12 left-0 z-10 scale-75 sm:scale-100 origin-bottom-left">
+                                <EmojiPicker onEmojiClick={handleEmojiClick} />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Message Input */}
+                          <form
+                            className="flex-1 py-1 sm:py-2 px-2 sm:px-4"
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              handleSendMessage();
+                            }}
+                          >
+                            <Input
+                              className="flex-1 py-1 sm:py-2 px-2 sm:px-4 text-xs sm:text-sm border rounded-lg focus:outline-none"
+                              placeholder="Type a message..."
+                              value={message}
+                              onChange={handleInputChange}
+                            />
+                          </form>
+
+                          {/* Send Button */}
+                          <Button
+                            size="icon"
+                            className="bg-black text-white rounded-xl flex h-8 w-8 sm:h-10 sm:w-auto sm:px-3 sm:gap-2 items-center justify-center"
+                            onClick={handleSendMessage}
+                          > <SendHorizontal className="h-3 w-3 sm:h-4 sm:w-4" />
+                            <span className="hidden sm:inline">Send</span>
+
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex mt-5 justify-center items-center h-40">
+                        <Loader color="orange" />
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {/* <div className="text-center mt-6 text-gray-400">
+                            <p className="text-lg font-semibold">No thread is Selected</p>
+                            <p className="text-sm">It seems like you haven't started any conversations yet.</p>
+                        </div> */}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Property Details Sidebar */}
+          {isDetails && (
+            <div className={`w-full md:w-96 bg-gray-50 border-l ${showDetails ? "block" : "hidden md:block"}`}>
+              <div className="p-4 border-b flex justify-between items-center">
+                <h2 className="font-semibold">Property Details</h2>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setIsDetails(false)
+                    setShowDetails(false)
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <ScrollArea className="h-[calc(82vh-10rem)]">
+                <div className="p-4">
+                  {/* <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+                                        <Carousel images={propertyDetails?.property?.property?.imageURLs} />
+                                    </div> */}
+                  <div className="relative">
+                    <Image
+                      src={propertyData?.media?.photosList?.[0]?.lowRes || ""}
+                      alt={`Property Image `}
+                      width={400}
+                      height={100}
+                      className="rounded-lg objectcover"
+                      priority
+                      unoptimized
+                    />
+                  </div>
+                  <div className="mt-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-start gap-1">
+                        <LocationOnIcon className="text-primary" />
+                        <div>
+                          {/* <h3 className="font-semibold text-lg">{propertyDetails?.property?.address}</h3> */}
+                          <p className="text-sm text-muted-foreground">{propertyData?.courtesyOf}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Star className="h-4 w-4 fill-primary text-primary" />
+                        <span>4.6</span>
+                      </div>
+                    </div>
+
+                    {/* Additional Info */}
+                    <div className="flex justify-between items-center mt-4">
+                      <div className="flex gap-2">
+                        {/* Bedroom Capsule */}
+                        <div className="bg-gray-200 text-sm rounded-full px-3 py-1 flex items-center">
+                          <BathtubIcon />
+                          <span>{propertyData?.property?.bathroomsTotal
+                          } Bath</span>
+                        </div>
+                        {/* Bathroom Capsule */}
+                        <div className="bg-gray-200 text-sm rounded-full px-3 py-1 flex items-center">
+                          <KingBedIcon />
+                          <span>{propertyData?.property?.bedroomsTotal} Bed</span>
+                        </div>
+                      </div>
+                      {/* Heart Icon */}
+                      <FavoriteBorder className="text-gray-500 hover:text-red-500 cursor-pointer" />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <h4 className="font-semibold text-lg">Overview</h4>
+                    <span>
+
+                      {propertyData?.publicRemarks}
+                    </span>
+
+                    {/* Modal for full description */}
+                    <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Property Overview</DialogTitle>
+                          <DialogDescription>{propertyData?.property?.descriptions?.[0]?.value}</DialogDescription>
+                        </DialogHeader>
+                        <DialogClose asChild>
+                          <Button className="bg-orange-500 hover:bg-orange-600">Close</Button>
+                        </DialogClose>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+
+                  <div className="mt-6">
+                    <h4 className="font-medium mb-2">Amenities</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex items-center gap-2">
+                        <Wifi className="h-4 w-4" />
+                        <span className="text-sm">Wifi</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Kitchen className="h-4 w-4" />
+                        <span className="text-sm">Kitchen</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Maximize2 className="h-4 w-4" />
+                        <span className="text-sm">Workspace</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Car className="h-4 w-4" />
+                        <span className="text-sm">Free parking</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Wind className="h-4 w-4" />
+                        <span className="text-sm">Air conditioning</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </ScrollArea>
+              <Button
+                className="ms-2 me-5 shadow bg-orange-500 hover:bg-orange-600 w-full mt-6"
+                onClick={() => {
+                  router.push(`/buy/${propertyData.property?.id}/prop/preview`)
+                }}
+              >
+                View details
+              </Button>
+            </div>
+          )}
+        </div>
+      </section>
+      {mediaPreview && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
+          <div className="relative w-full h-full flex items-center justify-center">
+            <button
+              onClick={closeMediaPreview}
+              className="absolute top-4 right-4 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white z-20"
+            >
+              <X className="h-6 w-6" />
+            </button>
+
+            {/* Navigation controls */}
+            {/* {allMediaFiles.length > 1 && (
+                          <>
+                            <button
+                              onClick={goToPrevMedia}
+                              disabled={currentMediaIndex === 0}
+                              className={`absolute left-4 top-1/2 transform -translate-y-1/2 p-3 rounded-full ${currentMediaIndex === 0 ? 'bg-gray-500/30 cursor-not-allowed' : 'bg-black/50 hover:bg-black/70 cursor-pointer'} text-white z-20`}
+                            >
+                              <ArrowLeft className="h-6 w-6" />
+                            </button>
+                            <button
+                              onClick={goToNextMedia}
+                              disabled={currentMediaIndex === allMediaFiles.length - 1}
+                              className={`absolute right-4 top-1/2 transform -translate-y-1/2 p-3 rounded-full ${currentMediaIndex === allMediaFiles.length - 1 ? 'bg-gray-500/30 cursor-not-allowed' : 'bg-black/50 hover:bg-black/70 cursor-pointer'} text-white z-20`}
+                            >
+                              <ArrowRight className="h-6 w-6" />
+                            </button>
+                          </>
+                        )} */}
+
+            {/* Zoom controls for images */}
+            {mediaPreview.type &&
+              imageMimeType.includes(mediaPreview.type) &&
+              !mediaPreview.loading &&
+              !mediaPreview.error && (
+                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex items-center gap-4 bg-black/50 rounded-full px-4 py-2 z-20">
+                  <button
+                    onClick={() => handleZoom(false)}
+                    className="text-white hover:text-gray-200"
+                    disabled={zoomLevel <= 0.5}
+                  >
+                    <ZoomOut className="h-5 w-5" />
+                  </button>
+                  <span className="text-white text-sm">{Math.round(zoomLevel * 100)}%</span>
+                  <button
+                    onClick={() => handleZoom(true)}
+                    className="text-white hover:text-gray-200"
+                    disabled={zoomLevel >= 3}
+                  >
+                    <ZoomIn className="h-5 w-5" />
+                  </button>
+                </div>
+              )}
+
+            <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1 rounded-md text-sm z-20 max-w-[80%] truncate">
+              {mediaPreview.name || "Media Preview"}
+            </div>
+
+            <div className="max-w-full max-h-full overflow-auto">
+              {/* Loading indicator */}
+              {mediaPreview.loading && (
+                <div className="flex flex-col items-center justify-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mb-4"></div>
+                  <p className="text-white text-sm">Loading image...</p>
+                </div>
+              )}
+
+              {/* Error message */}
+              {mediaPreview.error && (
+                <div className="flex flex-col items-center justify-center">
+                  <div className="bg-red-600/20 p-8 rounded-lg text-center">
+                    <p className="text-white text-lg mb-2">Failed to load image</p>
+                    <p className="text-gray-300 text-sm">The image could not be loaded due to an error.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Image preview */}
+              {mediaPreview.type &&
+                imageMimeType.includes(mediaPreview.type) &&
+                !mediaPreview.loading &&
+                !mediaPreview.error ? (
+                <div
+                  className="relative flex items-center justify-center w-full h-full"
+                  style={{
+                    transform: `scale(${zoomLevel})`,
+                    transition: "transform 0.2s ease-out",
+                  }}
+                >
+                  <img
+                    src={mediaPreview.url || "/placeholder.svg"}
+                    alt="Image Preview"
+                    className="max-w-full max-h-[90vh] object-contain"
+                    onLoad={() => console.log("Image loaded successfully")}
+                    onError={(e) => {
+                      console.error("Image failed to display in preview:", e)
+                      setMediaPreview((prev) => (prev ? { ...prev, error: true } : null))
+                    }}
+                  />
+                </div>
+              ) : mediaPreview.type && videoMimeType.includes(mediaPreview.type) ? (
+                <div className="relative max-w-4xl w-full">
+                  <video
+                    src={mediaPreview.url}
+                    controls
+                    autoPlay
+                    className="max-w-full max-h-[90vh]"
+                    onError={(e) => {
+                      console.error("Video failed to load:", e)
+                      setMediaPreview((prev) => (prev ? { ...prev, error: true } : null))
+                    }}
+                  >
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
+              ) : (
+                !mediaPreview.loading &&
+                !mediaPreview.error && (
+                  <div className="bg-white rounded-lg p-8 text-center max-w-lg">
+                    <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                    <p className="text-xl font-medium mb-2">File preview not available</p>
+                    <p className="text-gray-500 mb-6">{mediaPreview.name}</p>
+                    <a
+                      href={mediaPreview.url}
+                      download
+                      className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Download className="h-4 w-4 mr-2" /> Download File
+                    </a>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+const hashCode = (str: string) => str.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
+

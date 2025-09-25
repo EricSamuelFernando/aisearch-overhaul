@@ -1,0 +1,44 @@
+docker-build:
+  image: docker:latest
+  stage: build
+  services:
+    - docker:dind
+  variables:
+    DOCKER_DRIVER: overlay2
+    IMAGE_NAME_NEW: $DOCKERHUB_USERNAME/snaphomz-new
+    IMAGE_NAME_OLD: $DOCKERHUB_USERNAME/snaphomz-old
+    BRANCH_TAG: $CI_COMMIT_REF_SLUG
+    SHA_TAG: $CI_COMMIT_SHORT_SHA
+  before_script:
+    - echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+  script:
+    # ---- Build and push snaphomz-new ----
+    - echo "🔧 Building snaphomz-new"
+    - docker build -t $IMAGE_NAME_NEW:$SHA_TAG -t $IMAGE_NAME_NEW:$BRANCH_TAG . 
+    - docker push $IMAGE_NAME_NEW:$SHA_TAG
+    - docker push $IMAGE_NAME_NEW:$BRANCH_TAG
+
+    # Add 'latest' tag if on default branch
+    - |
+      if [[ "$CI_COMMIT_BRANCH" == "$CI_DEFAULT_BRANCH" ]]; then
+        docker tag $IMAGE_NAME_NEW:$SHA_TAG $IMAGE_NAME_NEW:latest
+        docker push $IMAGE_NAME_NEW:latest
+      fi
+
+    # ---- Build and push snaphomz-old ---- #
+    - echo "🔧 Building snaphomz-old"
+    - docker build -t $IMAGE_NAME_OLD:$SHA_TAG -t $IMAGE_NAME_OLD:$BRANCH_TAG .
+    - docker push $IMAGE_NAME_OLD:$SHA_TAG
+    - docker push $IMAGE_NAME_OLD:$BRANCH_TAG
+
+    # Add 'latest' tag if on default branch
+    - |
+      if [[ "$CI_COMMIT_BRANCH" == "$CI_DEFAULT_BRANCH" ]]; then
+        docker tag $IMAGE_NAME_OLD:$SHA_TAG $IMAGE_NAME_OLD:latest
+        docker push $IMAGE_NAME_OLD:latest
+      fi
+#.
+  rules:
+    - if: $CI_COMMIT_BRANCH
+      exists:
+        - Dockerfile

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="2192" viewBox="0 0 1180 2192">
+  <g id="Group_1726" data-name="Group 1726" transform="translate(-370 -1463)">
+    <path id="Rectangle_645" data-name="Rectangle 645" d="M40,2A37.966,37.966,0,0,0,2,40V921a37.967,37.967,0,0,0,38,38H1140a37.966,37.966,0,0,0,38-38V40a37.967,37.967,0,0,0-38-38H40m0-2H1140a40,40,0,0,1,40,40V921a40,40,0,0,1-40,40H40A40,40,0,0,1,0,921V40A40,40,0,0,1,40,0Z" transform="translate(370 2412)" fill="#dbe2ee"/>
+    <g id="Group_1560" data-name="Group 1560" transform="translate(9380 22766)">
+      <circle id="Ellipse_206" data-name="Ellipse 206" cx="24" cy="24" r="24" transform="translate(-8444 -21303)" fill="#fafcff"/>
+      <path id="Ellipse_206_-_Outline" data-name="Ellipse 206 - Outline" d="M24,1a23.006,23.006,0,0,0-8.952,44.193,23.006,23.006,0,0,0,17.9-42.386A22.855,22.855,0,0,0,24,1m0-1A24,24,0,1,1,0,24,24,24,0,0,1,24,0Z" transform="translate(-8444 -21303)" fill="#dbe2ee"/>
+      <path id="Path_828" data-name="Path 828" d="M4,0A4,4,0,1,1,0,4,4,4,0,0,1,4,0Z" transform="translate(-8424 -21283)"/>
+    </g>
+    <g id="Group_1561" data-name="Group 1561" transform="translate(9380 23314)">
+      <circle id="Ellipse_206-2" data-name="Ellipse 206" cx="24" cy="24" r="24" transform="translate(-8444 -21303)" fill="#fafcff"/>
+      <path id="Ellipse_206_-_Outline-2" data-name="Ellipse 206 - Outline" d="M24,1a23.006,23.006,0,0,0-8.952,44.193,23.006,23.006,0,0,0,17.9-42.386A22.855,22.855,0,0,0,24,1m0-1A24,24,0,1,1,0,24,24,24,0,0,1,24,0Z" transform="translate(-8444 -21303)" fill="#dbe2ee"/>
+      <path id="Path_829" data-name="Path 829" d="M4,0A4,4,0,1,1,0,4,4,4,0,0,1,4,0Z" transform="translate(-8424 -21283)"/>
+    </g>
+    <path id="Line_127" data-name="Line 127" d="M1,600H-1V0H1Z" transform="translate(960 2059)" fill="#dbe2ee"/>
+    <path id="Line_128" data-name="Line 128" d="M1,600H-1V0H1Z" transform="translate(960 3046)" fill="#dbe2ee"/>
+    <g id="Group_1564" data-name="Group 1564" transform="translate(9380 24910)">
+      <path id="Path_830" data-name="Path 830" d="M24,0A24,24,0,1,1,0,24,24,24,0,0,1,24,0Z" transform="translate(-8444 -21303)" fill="#fafcff"/>
+      <path id="Path_830_-_Outline" data-name="Path 830 - Outline" d="M24,1a23.006,23.006,0,0,0-8.952,44.193,23.006,23.006,0,0,0,17.9-42.386A22.855,22.855,0,0,0,24,1m0-1A24,24,0,1,1,0,24,24,24,0,0,1,24,0Z" transform="translate(-8444 -21303)" fill="#dbe2ee"/>
+      <path id="Path_831" data-name="Path 831" d="M4,0A4,4,0,1,1,0,4,4,4,0,0,1,4,0Z" transform="translate(-8424 -21283)"/>
+    </g>
+  </g>
+</svg>

@@ -44,21 +44,21 @@ interface SnapCollection {
   name: string;
   image?: string;
 }
-  interface Agent {
-    id: string;
-    accountType: string;
-    is_accepted: string;
-    sellerAgent?: {
-      firstName: string;
-      lastName: string;
-      email: string;
-    };
-    buyerAgent?: {
-      firstName: string;
-      lastName: string;
-      email: string;
-    };
-  }
+interface Agent {
+  id: string;
+  accountType: string;
+  is_accepted: string;
+  sellerAgent?: {
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  buyerAgent?: {
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+}
 
 export default function AccountPage() {
   const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
@@ -228,6 +228,7 @@ export default function AccountPage() {
   }
 
   const getAllSnapProperties = () => {
+    debugger
     if (selectedSnap?.id) {
       getAllSnapsProperties.mutate(selectedSnap?.id, {
         onSuccess: (response) => {
@@ -282,6 +283,8 @@ export default function AccountPage() {
 
   useEffect(() => {
     if (selectedSnap?.id) {
+      debugger
+      console.log(selectedSnap, "selectedSnap")
       getAllSnapProperties()
     }
   }, [selectedSnap])
@@ -405,24 +408,20 @@ export default function AccountPage() {
             selectedSnap ? (
               <ScrollArea className='w-full max-h-[70vh] overflow-y-auto'>
                 <div className='grid grid-cols-3 gap-6 p-2'>
-                  {[...favourites].reverse().map((property: any) => (
-                    <FavouritePropertyCards
-                      {...property}
-                    />
-                    // <FavouriteModal
-                    //   property={property}
-                    //   badgeStatus=''
-                    //   key={property.id}
-                    //   className='w-full'
-                    // >
-                    //   <PropertySnippetDetails
-                    //     noOfBeds={property.bedRooms}
-                    //     noOfBaths={property.bathRooms}
-                    //     lotSizeValue={property?.sqft || 0}
-                    //     lotSizeUnit={property.sqft}
-                    //   />
-                    // </FavouriteModal>
-                  ))}
+               {[...favourites].reverse().map((property: any) => {
+  const safeProperty = {
+    id: property.id || Math.random().toString(),
+    name: property.name || 'Property',
+    image: property.image || '/assets/images/placeholder.svg',
+    bedRooms: property.bedRooms || 0,
+    bathRooms: property.bathRooms || 0,
+    sqft: property.sqft || 0,
+    ...property,
+  };
+
+  return <FavouritePropertyCards key={safeProperty.id} {...safeProperty} />;
+})}
+
                 </div>
                 <ScrollBar orientation='vertical' className='h-full' />
               </ScrollArea>
@@ -436,11 +435,14 @@ export default function AccountPage() {
                           <div className="flex items-center gap-3">
                             {snap?.image ? (
                               <div className="w-12 h-12 rounded overflow-hidden">
-                                <img src={snap.image || PlaceholderImage} alt={snap.name || "Collection"} className="w-full h-full object-cover" />
-                              </div>
+                                <img
+                                  src={snap.image}
+                                  alt={snap.name || "Collection"}
+                                  className="w-full h-full object-cover"
+                                />                              </div>
                             ) : (
                               <div className="w-12 h-12 flex items-center justify-center rounded bg-indigo-500 text-white font-bold">
-                                {snap.name ? snap.name.charAt(0).toUpperCase() : "C"}
+                                {snap?.name ? snap?.name.charAt(0).toUpperCase() : "C"}
                               </div>
                             )}
                             <span className="text-sm font-medium">{snap?.name || "Collection"}</span>

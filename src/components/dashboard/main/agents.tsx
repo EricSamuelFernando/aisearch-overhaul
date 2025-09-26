@@ -18,7 +18,7 @@ function Agents() {
 
   return (
     <div className='w-full'>
-      <Heading
+      {/* <Heading
         title='Agents'
         className='my-4 w-full text-left text-xl font-bold'
       />
@@ -79,7 +79,7 @@ function Agents() {
             )}
           </div>
         )}
-      </div>
+      </div> */}
     </div>
   );
 }

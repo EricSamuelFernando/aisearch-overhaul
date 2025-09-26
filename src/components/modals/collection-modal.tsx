@@ -680,4 +680,3 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
 };
 
 export default CollectionModal;
-

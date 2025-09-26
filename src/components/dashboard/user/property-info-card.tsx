@@ -36,7 +36,7 @@ export function PropertyInfoCard({ }: Props) {
     values?.currentStatus || propertyStatusOptions[0].value,
   );
   const dispatch = useDispatch()
-  const AI_SEARCH_ENDPOINT = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI || "https://demo-ai.snaphomz.com"
+  const AI_SEARCH_ENDPOINT = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI || "https://ai.snaphomz.com"
   const [isSaved, setIsSaved] = React.useState<boolean>(false);
   const router = useRouter();
   const publishMutation = usePublishMutation(selectedStatus);

@@ -12,7 +12,7 @@ import HomeInsuranceInfo from './HomeInsuranceInfo';
 import Improvements from './Improvements';
 import UtilityProviders from './UtilityProviders';
 
-const API_BASE = process.env.NEXT_PUBLIC_AI_SEARCH_ENDPOINT || "https://demo-ai.snaphomz.com";
+const API_BASE = process.env.NEXT_PUBLIC_AI_SEARCH_ENDPOINT || "https://ai.snaphomz.com";
 
 const steps = [
   'Property Details',

@@ -42,7 +42,7 @@ const EditPropertyContent = forwardRef<Props, ForwardRefProp>((props, ref) => {
   const handleIconChange = (index: number, selectedIcon: string) => {
     methods.setValue(`features.${index}.icon`, selectedIcon);
   };
-  const AI_SEARCH_ENDPOINT = process.env.NEXT_PUBLIC_AI_SEARCH_ENDPOINT || "https://demo-ai.snaphomz.com";
+  const AI_SEARCH_ENDPOINT = process.env.NEXT_PUBLIC_AI_SEARCH_ENDPOINT || "https://ai.snaphomz.com";
   const [uploadedFileKeys, setUploadedFileKeys] = React.useState<string[]>([]);
   const propertyData = useSelector((state: any) => state?.property?.claimProperty);
   const propertyDetails = useMemo(() => {

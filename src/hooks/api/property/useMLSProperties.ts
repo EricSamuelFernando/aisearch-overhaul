@@ -22,7 +22,7 @@ const postProperties = async (searchTerm: string) => {
     }
 
     const response = await axios.post(
-      'https://demo-ai.snaphomz.com/api/search',
+      'https://ai.snaphomz.com/api/search',
       {
         query: searchTerm,
         userId: 'yash@003',

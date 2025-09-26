@@ -42,7 +42,7 @@ export const SellerListings = (props: any) => {
   // const properties = propertyData?.data?.data?.data?.result || [];
   const total = propertyData?.data?.data?.data?.total || 0;
   const propertyCount = properties?.length;
-  const AI_SEARCH_ENDPOINT = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI || "https://demo-ai.snaphomz.com"
+  const AI_SEARCH_ENDPOINT = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI || "https://ai.snaphomz.com"
   const reduxDispatch = useDispatch();
   const [isDeleting, setIsDeleting] = React.useState<string | null>(null);
   const [selectedPropertyId, setSelectedPropertyId] = React.useState<string | null>(null);

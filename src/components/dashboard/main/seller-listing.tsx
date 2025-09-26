@@ -28,7 +28,7 @@ function SellerListing({}: Props) {
   const { propertyData } = useSellerPropertiesContext();
   // const loading = propertyData.isLoading || propertyData.isFetching;
   const propertyCount = propertyData.data?.data?.data?.result.length; 
-  const AI_SEARCH_ENDPOINT = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI||"https://demo-ai.snaphomz.com" 
+  const AI_SEARCH_ENDPOINT = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI||"https://ai.snaphomz.com" 
   const [isDeleted , setIsDeleted] = useState(false)
   const getAllProperties = ()=>{
     setloading(true);

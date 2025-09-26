@@ -212,7 +212,7 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
   const scrollContainerRef = useRef(null);
   const PROPERTY_DETAIL_SEARCH_AI_URL =
     process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI ||
-    'https://demo-ai.snaphomz.com';
+    'https://ai.snaphomz.com';
   const [email, setEmail] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [page, setPage] = useState(1);

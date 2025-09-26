@@ -22,7 +22,7 @@ const SellerListingProcess: React.FC = () => {
   const property_info = useSelector(selectPropertyInformation);
   const [agentInfo , setAgentInfo] = useState<any>({})
   const propertyData = useSelector((state:any)=>state?.property?.claimProperty);
-  const AI_SEARCH_ENDPOINT = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI||"https://demo-ai.snaphomz.com" 
+  const AI_SEARCH_ENDPOINT = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI||"https://ai.snaphomz.com" 
   const { 
     getClaimedPropertyByIdAPI
   } = SellerAPIs()

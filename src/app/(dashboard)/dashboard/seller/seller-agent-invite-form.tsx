@@ -43,7 +43,7 @@ export const InviteExternalAgent: React.FC = () => {
     const engagementId = searchParams.get('engagementId');
     const meansType = searchParams.get('mean_type');
     const claimedProperty = useSelector((state: any) => state?.property?.claimProperty);
-    const AI_SEARCH_ENDPOINT = process.env.NEXT_PUBLIC_AI_SEARCH_ENDPOINT || "https://demo-ai.snaphomz.com";
+    const AI_SEARCH_ENDPOINT = process.env.NEXT_PUBLIC_AI_SEARCH_ENDPOINT || "https://ai.snaphomz.com";
     const handleAgentSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         setEmail(value);

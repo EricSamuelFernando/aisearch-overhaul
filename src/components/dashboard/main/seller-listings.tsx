@@ -179,19 +179,19 @@ export const SellerListings = (props: any) => {
                     openDeleteModal={openDeleteModal}
                     id={item?.id}
                     listing_id={item?.listingid}
-                    // openClick={() => {
-                    //   const updatedItem = {
-                    //     ...item,
-                    //     imageUrl:
-                    //       (item.images && item.images[0]?.url) ||
-                    //       '/assets/icons/defaultImage.svg',
-                    //   };
-                    //   dispatch(setClaimProperty(item))
-                    //   reduxDispatch(setPropertyDetailsAction(updatedItem));
-                    //   router.push(
-                    //     `/dashboard/seller/listing/listingprocess?id=${item?.id}`,
-                    //   );
-                    // }}
+                    openClick={() => {
+                      const updatedItem = {
+                        ...item,
+                        imageUrl:
+                          (item.images && item.images[0]?.url) ||
+                          '/assets/icons/defaultImage.svg',
+                      };
+                      dispatch(setClaimProperty(item))
+                      reduxDispatch(setPropertyDetailsAction(updatedItem));
+                      router.push(
+                        `/dashboard/seller/listing/listingprocess?id=${item?.id}`,
+                      );
+                    }}
                   />
                   // <FavouriteModal
                   //   property={{

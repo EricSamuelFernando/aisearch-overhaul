@@ -23,6 +23,7 @@ export const APP_PUBLIC_ROUTE = [
   '/home',
   '/waitlist',
   '/waitlist/subscriber',
+  '/waitlist-template',
   '/sell',
   '/agents',
   '/buy/browse',

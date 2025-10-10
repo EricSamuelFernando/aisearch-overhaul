@@ -43,7 +43,13 @@ const referr = ["LinkedIn", "Instagram", "Facebook", "Twitter", "Google", "Word 
   }, []);
   const { data, isLoading, error } = getWaitlistQuery;
   // debugger
- console.log(data)
+ const [totalUsers, setTotalUsers] = useState(128);
+
+useEffect(() => {
+  if (data?.total) {
+    setTotalUsers(128 + parseInt(data.total));
+  }
+}, [data]);
   const filteredLocations = locationSuggestions.filter((loc) =>
     loc.toLowerCase().includes(preferredLocation.toLowerCase())
   )
@@ -421,7 +427,8 @@ const referr = ["LinkedIn", "Instagram", "Facebook", "Twitter", "Google", "Word 
             {/* Right Section - Image Carousel */}
             <div className="w-full lg:w-1/2 mt-8 lg:mt-0 space-y-6 flex flex-col items-center">
               {isClient?<div className="text-white text-4xl sm:text-5xl font-bold tracking-tight animate-fadeInUp">
-                <Odometer value={128+parseInt(data?.total)} format="(,ddd)" />+
+                {/* <Odometer value={128+parseInt(data?.total)} format="(,ddd)" /> */}
+                    <Odometer value={totalUsers} format="(,ddd)" />+
                 <p className="text-lg text-gray-400 mt-1">early adopters are already experiencing radical transparency with Snaphomz</p>
               </div>:null}
               <div className="w-full">{tabContent[activeTab as keyof typeof tabContent]}</div>

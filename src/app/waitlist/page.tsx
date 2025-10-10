@@ -11,7 +11,7 @@ import ReactPlayer from "react-player"
 import 'odometer/themes/odometer-theme-default.css';
 import dynamic from "next/dynamic";
 const Odometer = dynamic(() => import('react-odometerjs'), {ssr: false,});
-
+import { toast } from 'sonner';
 const WaitlistPage = () => {
   const [activeTab, setActiveTab] = useState("Default")
   const [fullName, setFullName] = useState("")
@@ -34,13 +34,16 @@ const WaitlistPage = () => {
   const locationSuggestions = useGooglePlacesAutocomplete(preferredLocation);
   // const locationSuggestions = ["New York", "Los Angeles", "San Francisco", "Austin", "Chicago", "Miami", "Seattle", "Dallas", "Atlanta"]
   const [isClient, setIsClient] = useState(false);
-
+  const [referralSource, setReferralSource] = useState("");
+const referr = ["LinkedIn", "Instagram", "Facebook", "Twitter", "Google", "Word of Mouth"];
+  const [loadingLocation, setLoadingLocation] = useState(false);
   useEffect(() => {
     // Ensures it renders only after hydration
     setIsClient(true);
   }, []);
   const { data, isLoading, error } = getWaitlistQuery;
-
+  // debugger
+ console.log(data)
   const filteredLocations = locationSuggestions.filter((loc) =>
     loc.toLowerCase().includes(preferredLocation.toLowerCase())
   )
@@ -101,6 +104,7 @@ const WaitlistPage = () => {
           },
           onError: (error) => {
             setLoading(false)
+             toast.error(error.message);
             console.error("Error submitting waitlist:", error);
           },
         }
@@ -388,7 +392,22 @@ const WaitlistPage = () => {
                     </ul>
                   )}
                 </div>
-                {/* Submit Button */}
+
+                 <div className="relative">
+                <select
+                  value={referralSource}
+                  onChange={(e) => setReferralSource(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-800 text-gray-400 rounded-md"
+                >
+                  <option value="">How did you hear about us</option>
+                  {referr.map((source) => (
+                    <option key={source} value={source}>
+                      {source}
+                    </option>
+                  ))}
+                </select>
+                {/* {errors.referralSource && <p className="text-red-500 text-sm">{errors.referralSource}</p>} */}
+              </div>
                 <button
                   onClick={handleSubmit}
                   disabled={loading}

@@ -54,12 +54,14 @@ export function middleware(request: NextRequest) {
 
 
   if (isHome && !isPublicRoute) {
+    debugger
     // return NextResponse.next();
-    return NextResponse.redirect(new URL('/home', url));
+    return NextResponse.redirect(new URL('/waitlist', url));
   }
 
 
   if (isPrivate(nextUrl.pathname) || isPrivateRoute) {
+
     if (token?.value === undefined) {
       const redirectUrl = request.nextUrl.clone()
       redirectUrl.pathname = '/login'
@@ -68,7 +70,9 @@ export function middleware(request: NextRequest) {
 
     }
   }
+
   if (!isPublicRoute && token?.value === undefined && nextUrl.pathname !== "/waitlist/subscriber") {
+    debugger
     const loginUrl = new URL('/login', url)
     loginUrl.searchParams.set('redirect', nextUrl.pathname)
     return NextResponse.redirect(new URL('/login', url));
@@ -123,7 +127,8 @@ export const config = {
     '/unauthorized',
     '/property/:path*',
     '/start-process/:path*',
-    // '/waitlist/subscriber',
+    '/waitlist',
+    '/waitlist/subscriber',
   ],
 };
 

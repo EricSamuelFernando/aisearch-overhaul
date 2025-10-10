@@ -36,7 +36,7 @@ const ThankYouPage = () => {
 
             {/* Thank You Section */}
             <main className="text-center max-w-xl md:max-w-2xl mt-6 md:mt-12 px-4">
-                <h2 className="text-2xl md:text-4xl font-bold">Thank you for joining the waitlist!</h2>
+                {/* <h2 className="text-2xl md:text-4xl font-bold">Thank you for joining the waitlist!</h2> */}
                 <h2 className="text-2xl md:text-4xl font-bold">Thank you for joining the Snaphomz waitlist, {name}</h2>
                 <p className="mt-3 text-base md:text-lg text-gray-600">
                     You are one step closer to experiencing real estate, fully guided.
@@ -47,7 +47,7 @@ const ThankYouPage = () => {
             </main>
 
             {/* Next Steps Section */}
-            <section className="mt-6 md:mt-8 max-w-xl md:max-w-2xl px-4">
+            {/* <section className="mt-6 md:mt-8 max-w-xl md:max-w-2xl px-4">
                 <h3 className="text-lg font-semibold text-center">Want early access? Invite your friends!</h3>
                 <div className="mt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
                     <input
@@ -64,7 +64,7 @@ const ThankYouPage = () => {
                         {copied ? "Copied!" : "Copy Link"}
                     </button>
                 </div>
-            </section> 
+            </section>  */}
 
             {/* Follow Us Section */}
             {/* <section className="mt-6 md:mt-8 text-center">

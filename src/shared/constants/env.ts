@@ -21,6 +21,8 @@ export const APP_PUBLIC_ROUTE = [
   '/forgot-password',
   '/not-supported',
   '/home',
+  '/waitlist',
+  '/waitlist/subscriber',
   '/sell',
   '/agents',
   '/buy/browse',

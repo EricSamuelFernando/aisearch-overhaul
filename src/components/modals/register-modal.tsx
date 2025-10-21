@@ -36,13 +36,20 @@ const schema = z.object({
 
 export default function RegisterModal({
   handleStage,
+  viewParam,
+  accountTypes,
+  userRedirection
+
 }: {
   handleStage: () => void;
+  viewParam?: 'account-selection' | 'send-code';
+  accountTypes?: 'buyer' | 'seller' | 'agent';
+  userRedirection?: string;
 }) {
   const [view, setView] = useState<'account-selection' | 'send-code'>(
-    'account-selection',
+    viewParam || 'account-selection',
   );
-  const [activeUserType, setActiveUserType] = useState<UserType | null>(null);
+  const [activeUserType, setActiveUserType] = useState< UserType | null>(accountTypes || null);
   const { selectAccountType } = useRegisterActions();
   const [isLoading , setLoading] = useState(false)
   const dispatch = useAppDispatch();
@@ -128,7 +135,7 @@ export default function RegisterModal({
         if (res?.data?.data?.sendVerification === 'Email sent successfully') {
           setAgentEmail(values.email);
           success({ message: res?.data?.data?.sendVerification });
-          router.push('/verify-email');
+          router.push('/verify-email?redirection=' + userRedirection);
         } else {
           error({ message: res?.data?.errors?.[0]?.message });
         }
@@ -224,13 +231,13 @@ export default function RegisterModal({
                   'Continue'
                 )}
               </Button>
-              <AuthButton
+              {userRedirection != 'preapproval' && <AuthButton
                 className='justify-center gap-x-4'
                 imageSrc='/assets/images/google.svg'
                 imageAlt='Google Logo'
                 text='Continue with Google'
                 onClick={handleGoogleLogin}
-              />
+              />}
             </div>
           </form>
 

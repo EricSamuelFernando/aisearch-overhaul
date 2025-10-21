@@ -8,6 +8,7 @@ import { useGoogleLogin, useGoogleOneTapLogin } from '@react-oauth/google';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
 import React from 'react';
+import { useSearchParams } from 'next/navigation';  
 
 interface GoogleOneTapLoginProps {
   onSuccess: (token: string) => void;
@@ -20,9 +21,11 @@ function useGoogleAuth(handleCb?: () => void) {
   const GRAPHQL_URI =
     process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || 'http://localhost:4000/graphql';
   const { login } = useAuthActions();
-
+  const searchParams = useSearchParams();
+  const typeParam = searchParams.get("type") || null;
   const handleAuthSuccess = async (googleToken: string) => {
     try {
+      debugger
       const response = await axios.post(GRAPHQL_URI, {
         query: `
           mutation GoogleLogin($googleToken: String!) {
@@ -61,7 +64,13 @@ function useGoogleAuth(handleCb?: () => void) {
         login(user);
         storeCookie({ key: AUTH_TOKEN, value: access_token });
         storeCookie({ key: USER_ROLE, value: accountType });
-        router.push(`/home`);
+        if( typeParam === 'preapproval'){
+          router.push(process.env.NEXT_PUBLIC_PREAPPROVAL_URL || "http://localhost:3000");
+          return
+        }else{
+           router.push(`/home`);
+        }
+       
         handleCb?.();
       }
     } catch (err) {

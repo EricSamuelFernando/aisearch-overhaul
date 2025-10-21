@@ -57,6 +57,7 @@ interface ResetPasswordInput {
 }
 
 export const useUserAuthApi = (handleCb?: () => void) => {
+  // debugger
   const router = useRouter();
   const searchParams = useSearchParams();
   const { close } = useAuthModalActions();
@@ -71,6 +72,9 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     manageConversationUnread,
     manageMessageUnread
   } = useAuthActions();
+
+
+  const typeParam = searchParams.get("redirection") || null;
 
   const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql"
 
@@ -163,13 +167,13 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       if (data?.isBack) {
         router.back()
       }
-      if(user.account_type==="seller"){
+      if (user.account_type === "seller") {
         router.push('/sell')
       }
       if (data?.isHome) {
-        if(user.account_type==="seller"){
+        if (user.account_type === "seller") {
           router.push('/sell')
-        }else
+        } else
           router.push(`/home`)
       }
       // if (searchTerm) {
@@ -291,8 +295,14 @@ export const useUserAuthApi = (handleCb?: () => void) => {
         setAuthToken(token);
         login(user);
         storeCookie({ key: AUTH_TOKEN, value: token });
+        debugger
+          if (typeParam ==='preapproval') {
+          router.push(process.env.NEXT_PUBLIC_PREAPPROVAL_URL || "http://localhost:3000");
+          return
+        }
         if (user?.id) {
           close();
+       
           return router.push('/dashboard/agent');
         }
       }
@@ -334,6 +344,11 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       });
     },
     onSuccess: (data: any) => {
+      debugger
+
+      console.log(typeParam, "typeParam");
+
+
       if (data?.data?.errors?.length) {
         error({ message: data?.data?.errors?.[0]?.message })
       }
@@ -345,6 +360,11 @@ export const useUserAuthApi = (handleCb?: () => void) => {
           key: AUTH_TOKEN,
           value: (data as any)?.data?.data?.verifyOtp?.access_token,
         });
+
+        if (typeParam ==='preapproval') {
+          router.push(process.env.NEXT_PUBLIC_PREAPPROVAL_URL || "http://localhost:3000");
+          return
+        }
         if (data?.data?.data?.verifyOtp?.accountType === "buyer") {
           router.push("/property-preference");
         } else {
@@ -1265,12 +1285,12 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     },
     onSuccess: (data) => {
       if (handleCb) handleCb();
-      console.log("DAta : ",data);
-      if(data?.id){
+      console.log("DAta : ", data);
+      if (data?.id) {
         logout();
         router.push('/home');
       }
-      
+
     },
     onError: (error: any) => {
       const errorMessage =

@@ -1,87 +1,17 @@
-// "use client";
-// import SignupFlow from '@/components/forms/sign-up';
-// import RegisterModal from '@/components/modals/register-modal';
-// import { useState } from 'react';
-
-// interface RegisterPageProps {
-//   initialStage?: number;
-// }
-
-  
-// const Register = () => {
-//     const [currentForm, setCurrentForm] = useState<number>(0);
-    
-//   const handlePrevForm = () => {
-//     setCurrentForm(0);
-//   };
-
-//   return <RegisterModal  handleStage={handlePrevForm} />;
-// };
-
-// export default Register;
-
-
-
 'use client';
 
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
-import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import { LoginModal } from '@components/modals/login-modal';
-import RegisterModal from '@components/modals/register-modal';
-import { useSearchParams } from 'next/navigation';
-const LoginRegisterModal = ({
-  initialStage,
-  label,
-  className,
-  variant,
-}: {
-  initialStage: number;
-  label: string;
-  className?: string;
-  variant:
-    | 'link'
-    | 'default'
-    | 'destructive'
-    | 'outline'
-    | 'secondary'
-    | 'ghost'
-    | 'ocreal'
-    | null
-    | undefined;
-}) => {
-  const [currentForm, setCurrentForm] = useState<number>(initialStage | 0);
-  const [isOpen, setIsOpen] = useState(true);
-  const searchParams = useSearchParams();
+import LoginRegisterModal from '@components/modals/registerforpreapproval';
 
- const typeParam = searchParams.get("type") || "null";
-  useEffect(() => {
-    if (!isOpen) {
-      setCurrentForm(initialStage);
-    }
-  }, [isOpen, initialStage]);
-
-  const handleNextForm = () => {
-    setCurrentForm(1);
-  };
-
-  const handlePrevForm = () => {
-    setCurrentForm(0);
-  };
-
+const RegisterPage = () => {
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant={variant} className={(cn('w-full'), className)}>
-          {label}
-        </Button>
-      </DialogTrigger>
-      <DialogContent className='w-[22rem] rounded-[20px] md:w-[36rem]'>
-        <RegisterModal handleStage={handlePrevForm} viewParam='send-code' accountTypes='buyer' userRedirection={typeParam} />
-      </DialogContent>
-    </Dialog>
+    <div className="flex justify-center items-center min-h-screen">
+      <LoginRegisterModal
+        initialStage={0}
+        label="Register"
+        variant="default"
+      />
+    </div>
   );
 };
 
-export default LoginRegisterModal;
+export default RegisterPage;

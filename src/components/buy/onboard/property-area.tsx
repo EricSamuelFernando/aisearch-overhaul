@@ -14,7 +14,7 @@ import { useAppDispatch } from '@/lib/hook';
 
 import { googleMapsApiKey } from '@/shared/constants/env';
 import { updateBuyerOnboardingPreference } from '@/slices/onboarding/onboarding-slice';
-
+import {useSearchParams } from  'next/navigation';
 const libraries: Libraries = ['places'];
 
 const PropertyArea: React.FC = () => {
@@ -23,6 +23,9 @@ const PropertyArea: React.FC = () => {
     null,
   );
   const dispatch = useAppDispatch();
+   const searchParams = useSearchParams();
+  
+   const typeParam = searchParams.get("redirectionUrl") || "null";
 
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',

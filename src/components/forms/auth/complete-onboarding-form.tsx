@@ -16,7 +16,7 @@ import { UserPasswordInput } from '@/components/PasswordInput';
 import { PhoneNumberInput } from '@/components/PhoneNumberInput';
 import { agentEmailAtom } from '@/hooks/atoms';
 import { useAtom } from 'jotai';
-
+import {useRouter,useSearchParams} from 'next/navigation';
 export function CompleteOnboardingForm() {
   const account_type = getActiveUserRole();
   const form = useForm({
@@ -53,6 +53,10 @@ export function CompleteOnboardingForm() {
     },
   });
 
+  const searchParams = useSearchParams();
+    
+ const typeParam = searchParams.get("redirectionUrl") || "null";
+  const router = useRouter();
 
   const { onBoardingMutation, loginMutation } = useUserAuthApi();
   const [agentEmail] = useAtom(agentEmailAtom);
@@ -81,11 +85,15 @@ export function CompleteOnboardingForm() {
       await onBoardingMutation.mutateAsync(onBoardingPayload, {
         onSuccess: (response: any) => {
           if (response?.data?.data?.completeSignUp?.id) {
-            loginMutation.mutateAsync({
-              email: response?.data?.data?.completeSignUp?.email,
-              password: values.password,
-              isHome: true,
-            });
+            if (typeParam ==='preapproval') {
+          router.push(process.env.NEXT_PUBLIC_PREAPPROVAL_URL || "http://localhost:3000");
+          return
+        }
+            // loginMutation.mutateAsync({
+            //   email: response?.data?.data?.completeSignUp?.email,
+            //   password: values.password,
+            //   isHome: true,
+            // });
           }
         },
       });

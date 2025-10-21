@@ -74,7 +74,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
   } = useAuthActions();
 
 
-  const typeParam = searchParams.get("redirection") || null;
+  const typeParam :any = searchParams.get("redirection") || "null";
 
   const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql"
 
@@ -361,14 +361,14 @@ export const useUserAuthApi = (handleCb?: () => void) => {
           value: (data as any)?.data?.data?.verifyOtp?.access_token,
         });
 
-        if (typeParam ==='preapproval') {
-          router.push(process.env.NEXT_PUBLIC_PREAPPROVAL_URL || "http://localhost:3000");
-          return
-        }
+        // if (typeParam ==='preapproval') {
+        //   router.push(process.env.NEXT_PUBLIC_PREAPPROVAL_URL || "http://localhost:3000");
+        //   return
+        // }
         if (data?.data?.data?.verifyOtp?.accountType === "buyer") {
-          router.push("/property-preference");
+          router.push("/property-preference?redirectionUrl=" + typeParam);
         } else {
-          router.push("/complete-onboarding");
+          router.push("/complete-onboarding?redirectionUrl=" + typeParam);
         }
       }
     },

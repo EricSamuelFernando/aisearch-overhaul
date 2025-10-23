@@ -15,12 +15,17 @@ const CookieConsent = dynamic(
 export function ClientRoot({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
 
-  // only render after hydration, so cloudinary / maps scripts don’t SSR-crash
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  if (!mounted) return null;
+  // Show a spinner until the client has mounted
+  if (!mounted)
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-white">
+        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-gray-900"></div>
+      </div>
+    );
 
   return (
     <>

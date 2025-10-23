@@ -53,10 +53,13 @@ export function middleware(request: NextRequest) {
 
 
 
+  // if (isHome && !isPublicRoute) {
+  //   // return NextResponse.next();
+  //   return NextResponse.redirect(new URL('/home', url));
+  // }
   if (isHome && !isPublicRoute) {
-    // return NextResponse.next();
-    return NextResponse.redirect(new URL('/home', url));
-  }
+  return NextResponse.rewrite(new URL('/', request.url));
+}
 
 
   if (isPrivate(nextUrl.pathname) || isPrivateRoute) {

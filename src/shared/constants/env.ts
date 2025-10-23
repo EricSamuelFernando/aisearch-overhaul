@@ -24,6 +24,7 @@ export const APP_PUBLIC_ROUTE = [
   '/sell',
   '/agents',
   '/buy/browse',
+  '/',
   /^\/buy\/[^/]+\/prop\/preview$/,
 ];
 export const PRIVATE_DYNAMIC_ROUTE = [

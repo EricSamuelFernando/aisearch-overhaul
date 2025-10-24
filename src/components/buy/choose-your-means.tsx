@@ -59,7 +59,7 @@ const ChooseYourMeans = () => {
                 <p className="font-bold text-md text-center">Do It Yourself</p>
                 <p className="text-xs">We’ll guide you in every step</p>
                 <button  onClick={() => window.location.href = "https://preprod.snaphomz.com/home"} className="mt-4 px-6 py-2 bg-black text-white text-sm rounded-full transition duration-200">
-                  Get Started
+                  Coming Soon
                   </button>
               </div>
           </div>

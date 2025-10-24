@@ -659,21 +659,32 @@ export default function Home() {
 
   const [activeTab, setActiveTab] = useState('Transaction');
   const [searchMethod, setSearchMethod] = useState<string>('');
+  
 
   return (
     <>
       <MainNavPages />
-      <section className="bg-[#170800] text-white h-screen relative pt-24 -mt-24 overflow-hidden ">
-        <section className="flex flex-col  justify-end h-full items-center text-center py-24 px-4">
-          <div className="flex justify-center  items-center w-full overflow-visible">
-            <div className="absolute top-32 w-[1200px] h-[1000px]">
+      {/* <section className="bg-[#170800] text-white h-screen relative pt-24 -mt-24 overflow-hidden "> */}
+      <section className="bg-[#170800] text-white min-h-screen relative pt-24 -mt-24 overflow-hidden md:h-screen">
+
+        {/* <section className="flex flex-col  justify-end h-full items-center text-center py-24 px-4"> */}
+        <section className="flex flex-col justify-end h-full items-center text-center py-16 px-4 md:py-24">
+
+          {/* <div className="flex justify-center  items-center w-full overflow-visible"> */}
+            {/* <div className="absolute top-32 w-[1200px] h-[1000px]"> */}
+            <div className="hidden md:flex justify-center items-center w-full overflow-visible">
+
+            <div className="absolute top-24 md:top-32 w-[600px] h-[500px] md:w-[1200px] md:h-[1000px]">
+
 
               {cardImages.map((image, i) => {
                 const angle = (360 / cardImages.length) * i;
                 return (
                   <div
                     key={i}
-                    className="absolute w-[150px] h-[150px] top-[46%] left-[45%] transform -translate-x-1/2 -translate-y-1/2"
+                    // className="absolute w-[150px] h-[150px] top-[46%] left-[45%] transform -translate-x-1/2 -translate-y-1/2"
+                    className="absolute w-[80px] h-[80px] md:w-[150px] md:h-[150px] top-[46%] left-[45%] transform -translate-x-1/2 -translate-y-1/2"
+
                     style={{
                       transform: `rotate(${angle}deg) translateX(430px)`,
                     }}
@@ -698,13 +709,19 @@ export default function Home() {
           </div>
           <div className="relative z-30  h-full -bottom-20  justify-end flex flex-col items-center text-center gap-8 max-w-[900px]">
             {/* Updated Headline */}
-            <h1
+            {/* <h1
               className="
       text-white
       text-[2rem] font-medium leading-none
       md:text-[3rem] 
-    "
-              style={{ fontFamily: 'Satoshi' }}
+    " */}
+             <h1
+  className="
+      text-white
+      text-[1.6rem] font-medium leading-tight
+      sm:text-[2rem] md:text-[3rem]
+    " 
+    style={{ fontFamily: 'Satoshi' }}
             >
               {/* First line: “Buying a home” (extra‐bold) */}
               <span className="block tracking-tighter font-medium">Buying a home</span>
@@ -721,8 +738,9 @@ export default function Home() {
             </p>
 
             {/* FULL-WIDTH SEARCH PILL */}
-            <div className="w-[600px] relative z-100 px-4 md:px-0 text-black">
-              
+            {/* <div className="w-[600px] relative z-100 px-4 md:px-0 text-black"> */}
+              <div className="w-full max-w-[600px] relative z-100 px-2 md:px-0 text-black">
+
                    
                       <HeroSearchForm 
                       searchType ={searchMethod}
@@ -730,7 +748,9 @@ export default function Home() {
                     
                   
               
-                <div className="flex gap-4 justify-center text-sm  mb-2 text-white mt-4">
+                {/* <div className="flex gap-4 justify-center text-sm  mb-2 text-white mt-4"> */}
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 justify-center text-sm mb-2 text-white mt-4">
+
                     <label className="flex items-center">
                       <Radio
                         value="nlp"
@@ -767,7 +787,9 @@ export default function Home() {
           </div>
         </section>
         {/* <div className="bg-gradient-to-t absolute bottom-0 h-60 w-full from-[#050505] to-transparent"> */}
-        <div className="absolute bottom-0 h-36 w-full" style={{ background: 'linear-gradient(to bottom, rgba(25, 7, 0, 0) 4.07%, #190700 55.92%)' }}>
+        {/* <div className="absolute bottom-0 h-36 w-full" style={{ background: 'linear-gradient(to bottom, rgba(25, 7, 0, 0) 4.07%, #190700 55.92%)' }}> */}
+        <div className="absolute bottom-0 h-20 md:h-36 w-full" style={{ background: 'linear-gradient(to bottom, rgba(25, 7, 0, 0) 4.07%, #190700 55.92%)' }}>
+
         </div>
       </section>
 

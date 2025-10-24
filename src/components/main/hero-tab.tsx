@@ -990,15 +990,22 @@ export const HeroSearchForm = ({
   return (
     <div className="flex gap-2 w-full">
       <form
-        className=" items-center w-full  rounded-xl border-0 p-1 md:flex md:space-y-0 bg-white"
+        className=" 
+        relative w-full rounded-xl border-0 p-1 bg-white md:flex md:items-center md:space-y-0
+        "
         onSubmit={handleNavigate}
       > 
-      {
+      {/* {
          searchTerm === ""  &&  <StarIcon  />
-      }
+      } */}
+      {searchTerm === "" && (
+   <span className="pointer-events-none absolute left-3 sm:top-[48.333333%] top-1/4 -translate-y-1/2 md:left-3">
+     <StarIcon />
+   </span>
+ )}
      
-      <SpeechInput value={searchTerm} setValue={setSearchTerm} searchType={searchType} className="pr-2" />
-     
+      {/* <SpeechInput value={searchTerm} setValue={setSearchTerm} searchType={searchType} className="pr-2" /> */}
+     <SpeechInput value={searchTerm} setValue={setSearchTerm} searchType={searchType} className="pl-10 pr-2" />
         <Button
           type="submit"
           size="lg"

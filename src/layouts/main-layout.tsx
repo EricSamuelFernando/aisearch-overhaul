@@ -103,10 +103,15 @@ function MainLayout({ children }: Readonly<Props>) {
       <main>{children}</main>
 
       {/* Conditionally render Footer based on the route */}
-      {typeof pathname === 'string' &&
-      ['browse', 'preview'].some((path) => pathname.includes(path)) ? null : (
+      {/* {typeof pathname === 'string' &&
+      ['browse', 'preview' ,'home'].some((path) => pathname.includes(path)) ? null : (
         <Footer />
-      )}
+      )} */}
+      {typeof pathname === 'string' &&
+  (pathname === '/home' || pathname.includes('/browse') || pathname.includes('/preview'))
+  ? null
+  : <Footer />}
+
     </>
   );
 }

@@ -489,6 +489,7 @@ import { PROPERTY_SEARCH_PREFERENCE_AI_URL } from '@/shared/constants/env';
 import OurClients from '@/components/company/our-clients';
 import MainNavPages from '@/components/navbars/main-nav-pages';
 import { Radio } from '@mantine/core';
+import Footer from '@/components/shared/footer';
 
 const questions = [
   {
@@ -797,6 +798,7 @@ export default function Home() {
       <WeMakeItEasy />
       <OfferStrengthAnalyzer />
       <OurClients />
+      <Footer />
     </>
   );
 }

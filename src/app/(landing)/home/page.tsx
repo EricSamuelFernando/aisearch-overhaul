@@ -481,6 +481,7 @@ import { RootState } from '@/lib/store';
 import { useAppDispatch, useAppSelector } from '@/lib/hook';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useMediaQuery } from '@mantine/hooks';
 import {
   incrementSearchCount,
   initializeTempUserId,
@@ -536,6 +537,7 @@ export default function Home() {
   const [answers, setAnswers] = useState<any[]>(questions);
   const { email } = useRegister();
   const dispatch = useAppDispatch();
+  const isDesktop = useMediaQuery('(min-width: 768px)');
 
   useEffect(() => {
     const hasVisited = localStorage.getItem('hasVisited');
@@ -716,22 +718,24 @@ export default function Home() {
       text-[2rem] font-medium leading-none
       md:text-[3rem] 
     " */}
-             <h1
+    <h1
   className="
-      text-white
-      text-[1.6rem] font-medium leading-tight
-      sm:text-[2rem] md:text-[3rem]
-    " 
-    style={{ fontFamily: 'Satoshi' }}
-            >
-              {/* First line: “Buying a home” (extra‐bold) */}
-              <span className="block tracking-tighter font-medium">Buying a home</span>
-
-              {/* Second line: “should be” (medium), then “Very Easy” (italic) */}
-              <span className="block tracking-tighter font-medium">
-                should be{' '}Very Easy
-              </span>
-            </h1>
+    text-white
+    text-[2.8rem]           /* < md (phones) — bigger */
+    sm:text-[2.6rem]        /* small tablets */
+    md:text-[3rem]          /* >= md (desktop) — unchanged */
+    font-medium
+    leading-snug md:leading-tight
+    tracking-tight
+  "
+  style={{ fontFamily: 'Satoshi' }}
+>
+  <span className="block tracking-tighter font-medium">Buying a home</span>
+ <span className="block tracking-tighter">
+    <span className="font-medium">should be </span>
+    <span className="italic font-extralight">Very Easy</span>
+    {/* ↑ italic + lighter accent color to match the image */}
+  </span></h1>
 
             {/* Subheading */}
             <p className=" text-[1rem] font-medium md:text-[1rem] text-[#CEB28B]" >
@@ -740,7 +744,7 @@ export default function Home() {
 
             {/* FULL-WIDTH SEARCH PILL */}
             {/* <div className="w-[600px] relative z-100 px-4 md:px-0 text-black"> */}
-              <div className="w-full max-w-[600px] relative z-100 px-2 md:px-0 text-black">
+              <div className="w-full md:w-[600px] relative z-100 px-2 md:px-0 text-black">
 
                    
                       <HeroSearchForm 
@@ -750,7 +754,7 @@ export default function Home() {
                   
               
                 {/* <div className="flex gap-4 justify-center text-sm  mb-2 text-white mt-4"> */}
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 justify-center text-sm mb-2 text-white mt-4">
+                {/* <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 justify-center text-sm mb-2 text-white mt-4">
 
                     <label className="flex items-center">
                       <Radio
@@ -772,13 +776,37 @@ export default function Home() {
                         className="mr-2"
                       />
                     </label>
-                </div>
-             
+                </div> */}
+                 <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 justify-center text-sm mb-2 text-white mt-4">
+  <label className="flex items-center">
+    <Radio
+      value="nlp"
+      label="Search by Location"
+      size={isDesktop ? 'xs' : 'lg'}   
+      checked={searchMethod === 'nlp'}
+      onChange={() => setSearchMethod('nlp')}
+      className="mr-2"
+    />
+  </label>
+
+  <label className="flex items-center">
+    <Radio
+      value="address"
+      label="Search by Full Address"
+      size={isDesktop ? 'xs' : 'lg'}   
+      checked={searchMethod === 'address'}
+      onChange={() => setSearchMethod('address')}
+      className="mr-2"
+    />
+  </label>
+</div>
+
             </div>
            
 
             {/* “Conversational search Powered by AI” */}
-            <div className="text-white text-[1rem]">
+            {/* <div className="text-white text-[1rem]"> */}
+            <div className="text-white text-[1.2rem] md:text-[1rem]">
               <span className="font-medium">Conversational search&nbsp;</span>
               <span className="font-bold underline">
                 Powered by AI

@@ -55,12 +55,21 @@ const ChooseYourMeans = () => {
               alt="Proper Name"
               className="w-full h-full object-cover "
             />
-              <div className="absolute bottom-0 left-0 right-0  text-white p-6 text-center">
+              <div className="absolute bottom-0 left-0 right-0  text-[#e5e3e357] p-6 text-center">
                 <p className="font-bold text-md text-center">Do It Yourself</p>
-                <p className="text-xs">We’ll guide you in every step</p>
-                <button  onClick={() => window.location.href = "https://preprod.snaphomz.com/home"} className="mt-4 px-6 py-2 bg-black text-white text-sm rounded-full transition duration-200">
+                <p className="text-xs ">We’ll guide you in every step</p>
+                {/* <button  onClick={() => window.location.href = "https://preprod.snaphomz.com/home"} className="mt-4 px-6 py-2 bg-black text-white text-sm rounded-full transition duration-200">
                   Coming Soon
-                  </button>
+                  </button> */}
+                  <button
+  disabled
+  className="mt-4 px-6 py-2 rounded-full text-sm
+             bg-black text-white transition duration-200
+             disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
+>
+  Coming Soon
+</button>
+
               </div>
           </div>
         </div>

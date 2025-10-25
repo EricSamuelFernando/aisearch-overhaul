@@ -991,7 +991,7 @@ export const HeroSearchForm = ({
     <div className="flex gap-2 w-full">
       <form
         className=" 
-        relative w-full rounded-xl border-0 p-1 bg-white md:flex md:items-center md:space-y-0
+       relative w-full rounded-xl border-0 p-1 bg-white md:flex md:items-center md:space-y-0
         "
         onSubmit={handleNavigate}
       > 

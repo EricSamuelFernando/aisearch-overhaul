@@ -45,7 +45,7 @@ export const footerLinks: Record<string, IFooterItems> = {
     links: [
       {
         title: 'Terms and Conditions',
-        href: '/terms-and-conditions',
+        href: '/terms-condition',
       },
       {
         title: 'Privacy Policy',

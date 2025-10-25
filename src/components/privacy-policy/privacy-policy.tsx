@@ -62,14 +62,10 @@ import MainNavPages from '@/components/navbars/main-nav-pages';
 export default function PrivacyPolicy() {
   return (
     <>
-      {/* <div className="fixed w-full z-50 top-0 left-0">
-        <MainNavPages />
-      </div> */}
-
-      <div className="w-full overflow-x-hidden">
-        {/* === Hero (dark) — same spec as T&C === */}
-        <section className="bg-[#170800] text-white pt-28 md:pt-36 pb-24 md:pb-28 px-4 sm:px-8">
-          <div className="max-w-4xl mx-auto text-center">
+         <MainNavPages />
+        {/* === Hero (dark) === */}
+      <section className="bg-[#170800] text-white min-h-[600px] relative pt-12 -mt-24 overflow-hidden flex items-center justify-center">
+  <div className="max-w-4xl mx-auto text-center mt-12">
             <p className="text-xs md:text-sm text-[#CEB28B] mb-5">Current as of October 2025</p>
 
             <h1 className="tracking-tight text-[40px] sm:text-[56px] md:text-[68px] font-semibold leading-none mb-5">
@@ -244,7 +240,7 @@ export default function PrivacyPolicy() {
             </div>
           </div>
         </section>
-      </div>
+     
     </>
   );
 }

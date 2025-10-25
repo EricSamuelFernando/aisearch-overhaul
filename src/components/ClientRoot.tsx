@@ -5,12 +5,12 @@ import { ReactNode, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import NextTopLoader from 'nextjs-toploader';
 import { Providers } from '../app/providers';
-
+import CookieConsent from './CookieConsent';
 // dynamically import so it only runs in the browser
-const CookieConsent = dynamic(
-  () => import('react-cookie-consent'),
-  { ssr: false }
-);
+// const CookieConsent = dynamic(
+//   () => import('react-cookie-consent'),
+//   { ssr: false }
+// );
 
 export function ClientRoot({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
@@ -34,8 +34,9 @@ export function ClientRoot({ children }: { children: ReactNode }) {
         showSpinner={false}
         showForHashAnchor={false}
       />
+        <CookieConsent />
 
-      <CookieConsent
+      {/* <CookieConsent
         location="bottom"
         buttonText="Got it!"
         cookieName="user-consent"
@@ -56,7 +57,7 @@ export function ClientRoot({ children }: { children: ReactNode }) {
       >
         This website uses cookies to enhance the user experience. By using this site,
         you agree to our cookie policy.
-      </CookieConsent>
+      </CookieConsent> */}
 
       <Providers>{children}</Providers>
     </>

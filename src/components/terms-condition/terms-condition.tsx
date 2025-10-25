@@ -9,25 +9,24 @@ export default function TermsAndConditions() {
       {/* <div className="fixed w-full z-50 top-0 left-0">
         <MainNavPages />
       </div> */}
-
-      <div className="w-full overflow-x-hidden">
-
+          <MainNavPages />
         {/* === Hero (dark) === */}
-        <section className="bg-[#170800] text-white pt-28 md:pt-36 pb-24 md:pb-28 px-4 sm:px-8">
-          <div className="max-w-4xl mx-auto text-center">
-            <p className="text-xs md:text-sm text-[#CEB28B] mb-5">Current as of October 2025</p>
+      <section className="bg-[#170800] text-white min-h-[600px] relative pt-12 -mt-24 overflow-hidden flex items-center justify-center">
+  <div className="max-w-4xl mx-auto text-center mt-12">
+    <p className="text-xs md:text-sm text-[#CEB28B] mb-5">Current as of October 2025</p>
 
-            <h1 className="tracking-tight text-[40px] sm:text-[56px] md:text-[68px] font-semibold leading-none mb-5">
-              Terms and <span className="font-light italic">conditions</span>
-            </h1>
+    <h1 className="tracking-tight text-[40px] sm:text-[56px] md:text-[68px] font-semibold leading-none mb-5">
+      Terms and <span className="font-light italic">conditions</span>
+    </h1>
 
-            <p className="text-[13px] sm:text-sm md:text-base text-[#E7E0D6]/90 leading-relaxed max-w-2xl mx-auto">
-              We believe transparency builds trust, so here’s everything you need to know about
-              using Snaphomz. No surprises, just clarity on how our platform works, what we promise,
-              and what we expect in return.
-            </p>
-          </div>
-        </section>
+    <p className="text-[13px] sm:text-sm md:text-base text-[#E7E0D6]/90 leading-relaxed max-w-2xl mx-auto">
+      We believe transparency builds trust, so here’s everything you need to know about
+      using Snaphomz. No surprises, just clarity on how our platform works, what we promise,
+      and what we expect in return.
+    </p>
+  </div>
+</section>
+
 
         {/* Thin brand divider (blue) exactly under hero */}
         {/* <div className="h-[3px] w-full bg-[#2E90FA]" /> */}
@@ -193,7 +192,6 @@ export default function TermsAndConditions() {
             </div>
           </div>
         </section>
-      </div>
     </>
   );
 }

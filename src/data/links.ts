@@ -13,13 +13,13 @@ export const footerLinks: Record<string, IFooterItems> = {
         title: 'Career',
         href: '/career',
       },
+      // {
+      //   title: 'Investor',
+      //   href: '/investor',
+      // },
       {
-        title: 'Investor',
-        href: '/investor',
-      },
-      {
-        title: 'Insight',
-        href: '/insight',
+        title: 'Blog',
+        href: '/blogs',
       },
     ],
   },

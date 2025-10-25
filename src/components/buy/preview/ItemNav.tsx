@@ -138,13 +138,13 @@ function ItemNav({ cardRef }: Props) {
     <div className='fixed left-0 top-[70px] z-20 w-full bg-grey-430 px-4 py-4 sm:px-6 md:px-8'>
       <div className='flex flex-wrap items-center justify-between'>
         {/* Navigation Items */}
-        <div className='hidden w-full flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-start sm:gap-4 md:inline-flex md:h-16 md:w-auto'>
+        <div className='hidden w-full flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-start sm:gap-4 md:inline-flex md:w-auto'>
           {navItems.map((item) => (
             <Link
               key={item.hash}
               href={item.hash}
               className={cn(
-                'h-full px-4 py-2 text-sm font-medium text-[#818181] hover:border-b-[2px] hover:border-black hover:text-black',
+                'px-4 py-2 text-sm font-medium text-[#818181] hover:border-b-[2px] hover:border-black hover:text-black',
                 hash === item.hash &&
                 'border-b-[2px] border-black bg-[#F8F8F8] text-black',
               )}

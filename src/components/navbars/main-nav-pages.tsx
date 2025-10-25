@@ -79,9 +79,13 @@ function MainNavPages() {
 <header
   ref={headerRef}
   className={`fixed left-0 text-white right-0 top-0 z-50 flex w-full items-center justify-between px-4 py-4 md:px-8 transition-all duration-300 ${
+    // isScrolled
+    //   ? "bg-black shadow-lg py-2"
+    //   : "bg-transparent py-4"
     isScrolled
-      ? "bg-black shadow-lg py-2"
-      : "bg-transparent py-4"
+  ? "bg-black/70 backdrop-blur-md shadow-lg py-2"
+  : "bg-transparent py-4"
+
   }`}
 >
 

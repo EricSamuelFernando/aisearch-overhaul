@@ -55,24 +55,25 @@ const HeroHighlights: React.FC<HeroHighlightsProps> = ({
 
   return (
     <div
-      className={cn(
-        'flex h-full w-full flex-col space-y-6 rounded-lg bg-grey-390 px-5 py-6',
-        className,
-      )}
+      // className={cn(
+      //   'flex h-full w-full flex-col space-y-6 rounded-lg bg-grey-390 px-5 py-6',
+      //   className,
+      // )}
+      className="flex flex-col space-y-6 rounded-lg  w-full md:w-[23rem]  hover:shadow-xl transition-shadow duration-300"
     >
-      <h4 className='text-xl font-medium leading-8'>Highlights</h4>
+      {/* <h4 className='text-xl font-medium leading-8'>Highlights</h4>
       <div className='flex w-full flex-col gap-3 border-b border-grey-850  pb-4'>
         <HightLightComponent icon={SchoolIcon} title={schoolDistrict} />
         <HightLightComponent icon={FloorIcon} title={houseFeature} />
         <HightLightComponent icon={HammerIcon} title={feature} />
         <HightLightComponent icon={HouseIcon} title={offerTerms} />
-      </div>
+      </div> */}
       <div className="flex w-full flex-col space-y-2">
         
            
          { typeof data?.id === 'number' ?
          <>
-          <Button className="w-full text-lg font-medium" type="button">
+          {/* <Button className="w-full text-lg font-medium" type="button">
           <Link
             href={""}
             onClick={(e) => {
@@ -83,7 +84,7 @@ const HeroHighlights: React.FC<HeroHighlightsProps> = ({
           >
            Continue The Process
           </Link>
-        </Button>
+        </Button> */}
         <Button className="w-full text-lg bg-orange-500 font-medium" type="button">
            <Link
              href={""}
@@ -122,15 +123,15 @@ const HeroHighlights: React.FC<HeroHighlightsProps> = ({
         }
        
 
-        <Tooltip className='cursor-pointer' title="Coming Soon" placement="bottom">
-          <span> {/* Wrap button with a span so the tooltip works */}
+        {/* <Tooltip className='cursor-pointer' title="Coming Soon" placement="bottom">
+          <span> 
             <Button className="w-full text-lg font-medium" type="button" disabled>
               <Link href={`/take-tour/${id}/finance-process`} className="w-full">
                 Advanced Analytics
               </Link>
             </Button>
           </span>
-        </Tooltip>
+        </Tooltip> */}
 
         {/* <AddAgentProcess/> */}
       </div>

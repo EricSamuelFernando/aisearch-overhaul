@@ -34,7 +34,9 @@ export function ClientRoot({ children }: { children: ReactNode }) {
         showSpinner={false}
         showForHashAnchor={false}
       />
-        <CookieConsent />
+        <div className="hidden md:block">
+           <CookieConsent />
+        </div>
 
       {/* <CookieConsent
         location="bottom"

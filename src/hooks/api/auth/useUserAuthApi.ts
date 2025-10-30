@@ -366,7 +366,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
         //   return
         // }
         if (data?.data?.data?.verifyOtp?.accountType === "buyer") {
-          router.push("/property-preference?redirectionUrl=" + typeParam);
+          router.push("/complete-onboarding?redirectionUrl=" + typeParam);
         } else {
           router.push("/complete-onboarding?redirectionUrl=" + typeParam);
         }

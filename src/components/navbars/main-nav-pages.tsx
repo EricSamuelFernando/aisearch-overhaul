@@ -83,8 +83,8 @@ function MainNavPages() {
     //   ? "bg-black shadow-lg py-2"
     //   : "bg-transparent py-4"
     isScrolled
-  ? "bg-black/70 backdrop-blur-md shadow-lg py-2"
-  : "bg-transparent py-4"
+  ? "bg-[#170800] backdrop-blur-md shadow-lg py-2"
+  : "bg-[#170800] py-4"
 
   }`}
 >
@@ -94,7 +94,7 @@ function MainNavPages() {
   </div>
 
   <Link
-    href="/home"
+    href="/"
     className="absolute inset-y-0 left-1/2 flex items-center transform -translate-x-1/2"
   >
     <Image

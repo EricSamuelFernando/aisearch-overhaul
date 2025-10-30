@@ -122,7 +122,7 @@ export function CompleteOnboardingForm() {
           />
         </div>
 
-        {account_type === 'agent' && (
+        {/* {account_type === 'agent' && (
           <Fragment>
             <CustomTextInput
               placeholder="License Number"
@@ -135,7 +135,7 @@ export function CompleteOnboardingForm() {
               {...form.getInputProps('region')}
             />
           </Fragment>
-        )}
+        )} */}
 
         <div className="flex flex-col w-full">
           <PhoneNumberInput

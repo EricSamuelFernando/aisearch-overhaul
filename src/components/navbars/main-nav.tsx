@@ -251,7 +251,7 @@ function MainNav() {
         </div>
 
         <Link
-          href="/home"
+          href="/"
           className="flex-1 flex justify-center md:absolute md:inset-y-0 md:left-1/2 md:transform md:-translate-x-1/2"
         >
           <Image

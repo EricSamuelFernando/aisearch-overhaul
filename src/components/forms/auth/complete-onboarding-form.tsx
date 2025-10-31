@@ -90,7 +90,10 @@ export function CompleteOnboardingForm() {
             if (typeParam === 'preapproval') {
               router.push(process.env.NEXT_PUBLIC_PREAPPROVAL_URL || "http://localhost:3000");
               return
+            }else{
+              router.push('/login');
             }
+
             // loginMutation.mutateAsync({
             //   email: response?.data?.data?.completeSignUp?.email,
             //   password: values.password,

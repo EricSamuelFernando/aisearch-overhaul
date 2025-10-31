@@ -52,7 +52,7 @@ function Footer() {
   <div className='flex items-center justify-center border-t-[1px] border-white py-6'>
   <div className='text-grey-510 text-center'>
     <span className='font-[500]'>
-      © SNAPHOMZ, Inc. {new Date().getFullYear()}
+      © SNAPHOMZ, LLC. {new Date().getFullYear()}
     </span>
   </div>
 </div>

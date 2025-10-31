@@ -16,7 +16,7 @@ import { UserPasswordInput } from '@/components/PasswordInput';
 import { PhoneNumberInput } from '@/components/PhoneNumberInput';
 import { agentEmailAtom } from '@/hooks/atoms';
 import { useAtom } from 'jotai';
-import {useRouter,useSearchParams} from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 export function CompleteOnboardingForm() {
   const account_type = getActiveUserRole();
   const form = useForm({
@@ -35,10 +35,10 @@ export function CompleteOnboardingForm() {
     validate: {
       firstName: (value) => (value.length < 1 ? 'First Name is required' : null),
       lastName: (value) => (value.length < 1 ? 'Last Name is required' : null),
-      licenseNumber: (value) =>
-        account_type === 'agent' && value.length < 1 ? 'License Number is required' : null,
-      region: (value) =>
-        account_type === 'agent' && value.length < 1 ? 'Region is required' : null,
+      // licenseNumber: (value) =>
+      //   account_type === 'agent' && value.length < 1 ? 'License Number is required' : null,
+      // region: (value) =>
+      //   account_type === 'agent' && value.length < 1 ? 'Region is required' : null,
       password: (value) =>
         /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/.test(value)
           ? null
@@ -54,8 +54,8 @@ export function CompleteOnboardingForm() {
   });
 
   const searchParams = useSearchParams();
-    
- const typeParam = searchParams.get("redirectionUrl") || "null";
+
+  const typeParam = searchParams.get("redirectionUrl") || "null";
   const router = useRouter();
 
   const { onBoardingMutation, loginMutation } = useUserAuthApi();
@@ -81,14 +81,16 @@ export function CompleteOnboardingForm() {
   );
 
   const handleSubmit = async (values: typeof form.values) => {
+     debugger
     try {
+     
       await onBoardingMutation.mutateAsync(onBoardingPayload, {
         onSuccess: (response: any) => {
           if (response?.data?.data?.completeSignUp?.id) {
-            if (typeParam ==='preapproval') {
-          router.push(process.env.NEXT_PUBLIC_PREAPPROVAL_URL || "http://localhost:3000");
-          return
-        }
+            if (typeParam === 'preapproval') {
+              router.push(process.env.NEXT_PUBLIC_PREAPPROVAL_URL || "http://localhost:3000");
+              return
+            }
             // loginMutation.mutateAsync({
             //   email: response?.data?.data?.completeSignUp?.email,
             //   password: values.password,
@@ -174,18 +176,24 @@ export function CompleteOnboardingForm() {
           </div>
         </div>
 
-        <button
+        {/* <button
           className={`${onBoardingMutation.isPending || loginMutation.isPending
             ? 'bg-black/20'
             : 'bg-black'
             } space-b-8 w-full rounded-md py-3 font-bold text-white`}
           type="submit"
-          disabled={onBoardingMutation.isPending || loginMutation.isPending}
+          // disabled={onBoardingMutation.isPending || loginMutation.isPending}
         >
-          {onBoardingMutation.isPending || loginMutation.isPending
-            ? 'Loading...'
-            : 'Next'}
+        
+            Submit
+        </button> */}
+        <button
+          className="bg-black space-b-8 w-full rounded-md py-3 font-bold text-white"
+          type="submit"
+        >
+          Submit
         </button>
+
 
         <section className="my-4 flex w-full items-center justify-between">
           <div></div>

@@ -51,8 +51,7 @@ const EstimatedMarketValue: React.FC<any> = ({ estimatedData }) => {
     const data = estimatedData || defaultEstimatedData;
 
     return (
-        <div className="bg-white p-6 md:p-8">
-            {/* --- Heading Section --- */}
+        <div className="bg-white p-2  md:p-2">
             <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">
                 Estimated market value
             </h2>
@@ -60,11 +59,23 @@ const EstimatedMarketValue: React.FC<any> = ({ estimatedData }) => {
                 This is what this home is worth in the market
             </p>
 
-            {/* --- Cards Grid --- */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+            <div
+                className="  w-[300px] overflow-x-scroll 
+    md:w-full md:overflow-x-visible 
+    flex md:grid 
+    flex-nowrap md:flex-wrap 
+    md:grid-cols-3 
+    gap-4 md:gap-6 
+    scrollbar-hide 
+    snap-x snap-mandatory md:snap-none
+  "
+
+            >
 
                 {/* Card 1: Estimated house value */}
-                <div className="bg-[#F4F4F4] p-5 rounded-lg shadow-sm border border-gray-100 flex flex-col justify-between">
+                <div className="bg-[#F4F4F4] p-5 rounded-lg shadow-sm border border-gray-100 flex flex-col justify-between 
+                min-w-[85%] sm:min-w-[350px] md:min-w-0 md:w-auto 
+                snap-start md:col-span-1">
                     <div>
                         <p className="text-gray-700 text-sm mb-1">Estimated house value</p>
                         <p className="text-2xl font-bold text-gray-900 mb-4">
@@ -78,14 +89,21 @@ const EstimatedMarketValue: React.FC<any> = ({ estimatedData }) => {
                 </div>
 
                 {/* Card 2: Estimated Rent */}
-                {/* <div className="bg-[#F4F4F4] p-5 rounded-lg shadow-sm border border-gray-100 flex flex-col justify-between">
+                <div className="bg-[#F4F4F4] p-5 rounded-lg shadow-sm border border-gray-100 flex flex-col justify-between 
+                min-w-[85%] sm:min-w-[350px] md:min-w-0 md:w-auto 
+                snap-start md:col-span-1">
                     <div>
                         <p className="text-gray-700 text-sm mb-1">Estimated Rent</p>
                         <div className="flex items-center justify-between mb-4">
                             <p className="text-2xl font-bold text-gray-900">
                                 {data.estimatedRent}
                             </p>
-                            <span className={`font-semibold text-lg ${data.rentChange.startsWith('-') ? 'text-orange-500' : 'text-green-500'}`}>
+                            <span
+                                className={`font-semibold text-lg ${data.rentChange.startsWith('-')
+                                        ? 'text-orange-500'
+                                        : 'text-green-500'
+                                    }`}
+                            >
                                 {data.rentChange}
                             </span>
                         </div>
@@ -94,34 +112,28 @@ const EstimatedMarketValue: React.FC<any> = ({ estimatedData }) => {
                         <p className="p-2">{data.rentDescription}</p>
                         <ViewButton />
                     </div>
-                </div> */}
-                 <div className="bg-[#F4F4F4] p-5 rounded-lg shadow-sm border border-gray-100 flex flex-col justify-between">
-                    <div>
-                        <p className="text-gray-700 text-sm mb-1">Estimated house value</p>
-                        <p className="text-2xl font-bold text-gray-900 mb-4">
-                            {data.houseValue}
-                        </p>
-                    </div>
-                    <div className="flex justify-between items-center text-gray-500 text-sm">
-                        <p>{data.houseValueDescription}</p>
-                        <ViewButton />
-                    </div>
                 </div>
 
                 {/* Card 3: Projected % Gain (5Y) */}
-                <div className="bg-[#F4F4F4] p-5 rounded-lg shadow-sm border border-gray-100 flex flex-col justify-between">
+                <div className="bg-[#F4F4F4] p-5 rounded-lg shadow-sm border border-gray-100 flex flex-col justify-between 
+                min-w-[85%] sm:min-w-[350px] md:min-w-0 md:w-auto 
+                snap-start md:col-span-1">
                     <div>
                         <p className="text-gray-700 text-sm mb-1">Projected % Gain (5Y)</p>
                         <p className="text-2xl font-bold text-gray-900 mb-4">
                             {data.projectedGain}
                         </p>
                     </div>
-                    {/* Note: This card does not have the 'View' button like the others in the image */}
                     <div className="text-gray-500 text-sm">
                         <p>{data.projectedGainDescription}</p>
                     </div>
+                    {/* Placeholder for ViewButton to maintain structure on desktop */}
+                    <div className="flex justify-end items-center text-gray-500 text-sm">
+                        {/* Keeping this empty to visually align Card 3 footer with others if needed */}
+                    </div>
                 </div>
             </div>
+
         </div>
     );
 };

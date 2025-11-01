@@ -1,23 +1,19 @@
 'use client';
 
 import * as React from 'react';
-import { ChevronLeftIcon, ChevronRightIcon, LayoutGridIcon } from 'lucide-react'; // Added LayoutGridIcon for the button
+import { ChevronLeftIcon, ChevronRightIcon, LayoutGridIcon } from 'lucide-react';
 import Image from 'next/image';
-
-//  import { cn } from '@/lib/utils';// Assuming imageLoader and cn are defined elsewhere
-// import { imageLoader } from '@/utils/image-loader'; 
-
-interface CarouselProps {
-  className?: any;
-  imageURLs: Array<{ highRes: string }>;
-  // onImageClick is now used to trigger the "Show all photos" action
-  onImageClick?: (index: number) => void; 
-}
 
 // NOTE: Placeholder for external utilities if you don't have them
 const cn = (...classes: string[]) => classes.filter(Boolean).join(' ');
 const imageLoader = ({ src }: { src: string }) => src;
 // End of placeholders
+
+interface CarouselProps {
+  className?: any;
+  imageURLs: Array<{ highRes: string }>;
+  onImageClick?: (index: number) => void; 
+}
 
 const HeroCollege: React.FC<React.PropsWithChildren<CarouselProps>> = ({
   className,
@@ -27,30 +23,26 @@ const HeroCollege: React.FC<React.PropsWithChildren<CarouselProps>> = ({
 }) => {
   const [currentIndex, setCurrentIndex] = React.useState(0);
 
-  // This function remains to handle navigation via chevrons
   const goToSlide = React.useCallback(
     (index: number) => {
       setCurrentIndex((prevIndex) => {
-        const newIndex = (index + imageURLs.length) % imageURLs.length;
-        // Handle negative index correctly for circular array
-        return newIndex < 0 ? newIndex + imageURLs.length : newIndex;
+        const newIndex = (index % imageURLs.length + imageURLs.length) % imageURLs.length;
+        return newIndex;
       });
     },
     [imageURLs.length],
   );
 
-  // Helper to get a circular index
   const getCircularIndex = React.useCallback(
     (index: number) => (index % imageURLs.length + imageURLs.length) % imageURLs.length,
     [imageURLs.length],
   );
 
-  // Function to render an image container
   const renderImage = (imgUrl: string, index: number, className: string, isPriority: boolean = false) => (
     <div
       key={imgUrl + index.toString()}
       className={cn('h-full w-full flex-shrink-0 cursor-pointer', className)}
-      onClick={() => onImageClick && onImageClick(index)}
+      // Removed onClick here to rely on the parent div click, preventing double triggers.
     >
       <Image
         loader={imageLoader}
@@ -71,9 +63,9 @@ const HeroCollege: React.FC<React.PropsWithChildren<CarouselProps>> = ({
 
   if (imageURLs.length === 0) {
     return (
-      <div className={cn('relative h-full w-full rounded-lg overflow-hidden', className)}>
-        <div className='flex h-full w-full items-center justify-center bg-primary-100'>
-          <p className='text-lg font-semibold leading-8 text-black'>
+      <div className={cn('relative h-96 w-full rounded-lg overflow-hidden', className)}>
+        <div className='flex h-full w-full items-center justify-center bg-gray-100'>
+          <p className='text-lg font-semibold leading-8 text-gray-800'>
             No Image Found
           </p>
         </div>
@@ -81,67 +73,91 @@ const HeroCollege: React.FC<React.PropsWithChildren<CarouselProps>> = ({
     );
   }
 
-  // Determine the indices for the side images
   const secondImageIndex = getCircularIndex(currentIndex + 1);
   const thirdImageIndex = getCircularIndex(currentIndex + 2);
 
   return (
     <div
-      // Container class adjusted for the grid layout
+      // GRID FIX: Start with a single column on mobile, switch to 12-column grid on md screens
       className={cn(
-        'relative h-full w-full select-none rounded-lg overflow-hidden grid grid-cols-12 gap-2', 
+        'relative h-[300px] md:h-[500px] w-full select-none rounded-lg overflow-hidden grid grid-cols-1 md:grid-cols-12 gap-2', 
         className,
       )}
     >
       {children}
       
-      {/* --- 1. Main Image (9 columns) --- */}
-      <div className='relative col-span-12 md:col-span-9 h-full w-full'>
+      {/* --- 1. Main Image (Always 12 columns on mobile, 9 on desktop) --- */}
+      <div 
+        // COL-SPAN FIX: Use col-span-12 for mobile, then md:col-span-9 for desktop
+        className='relative col-span-12 md:col-span-9 h-full w-full'
+        onClick={() => onImageClick && onImageClick(currentIndex)} // Click handler on the main image container
+      >
         {renderImage(
           imageURLs[currentIndex]?.highRes, 
           currentIndex, 
+          // ROUNDING FIX: Only round the right edge on desktop if it's the 9-column layout
           'rounded-lg md:rounded-r-none', 
           true
         )}
 
         {/* Navigation Overlays (positioned on the main image) */}
-        <div className='absolute bottom-8 w-full px-7 z-10'>
+        <div className='absolute bottom-4 sm:bottom-8 w-full px-4 sm:px-7 z-10'>
           <div className='flex w-full items-center justify-between'>
+            
             {/* Counter */}
             <div className='rounded bg-black/40 p-1 px-2 text-white'>
               <h2 className='text-sm font-medium leading-6'>
                 {currentIndex + 1}/{imageURLs.length}
               </h2>
             </div>
-            {/* Chevrons */}
-            <div className='inline-flex items-center space-x-5'>
-              <div className='flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-white transition-all hover:bg-gray-100'>
-                <ChevronLeftIcon
-                  onClick={(e) => {
-                    e.stopPropagation(); // Prevent main image click
-                    goToSlide(currentIndex - 1);
-                  }}
-                  size={32} // Adjusted size for better fit
-                />
+            
+            {/* Chevrons (Navigation) */}
+            <div className='inline-flex items-center space-x-2 sm:space-x-5'>
+              <div 
+                className='flex h-8 w-8 sm:h-11 sm:w-11 cursor-pointer items-center justify-center rounded-full bg-white transition-all hover:bg-gray-100'
+                onClick={(e) => {
+                  e.stopPropagation(); 
+                  goToSlide(currentIndex - 1);
+                }}
+              >
+                <ChevronLeftIcon size={24} className="sm:size-32" /> 
               </div>
-              <div className='flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-white transition-all hover:bg-gray-100'>
-                <ChevronRightIcon
-                  onClick={(e) => {
-                    e.stopPropagation(); // Prevent main image click
-                    goToSlide(currentIndex + 1);
-                  }}
-                  size={32} // Adjusted size for better fit
-                />
+              <div 
+                className='flex h-8 w-8 sm:h-11 sm:w-11 cursor-pointer items-center justify-center rounded-full bg-white transition-all hover:bg-gray-100'
+                onClick={(e) => {
+                  e.stopPropagation(); 
+                  goToSlide(currentIndex + 1);
+                }}
+              >
+                <ChevronRightIcon size={24} className="sm:size-32" />
               </div>
             </div>
           </div>
         </div>
+        
+        {/* --- MOBILE ONLY: Show all photos button (Overlay) --- */}
+        <div className='absolute top-4 right-4 z-10 md:hidden'>
+          <button
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent main image click handler from firing
+              onImageClick && onImageClick(currentIndex); 
+            }}
+            className='flex items-center space-x-2 rounded-lg bg-white/90 px-3 py-1 text-xs font-semibold text-gray-800 shadow-xl border border-gray-200 hover:bg-white transition-colors'
+          >
+            <LayoutGridIcon className='h-3 w-3' />
+            <span>Show all photos</span>
+          </button>
+        </div>
       </div>
 
-      {/* --- 2. Side Images & Button (3 columns - Hidden on small screens) --- */}
+      {/* --- 2. Side Images & Button (Hidden on mobile, visible on desktop) --- */}
       <div className='hidden md:col-span-3 md:grid grid-rows-2 gap-2 h-full w-full'>
+        
         {/* Top side image */}
-        <div className='relative row-span-1'>
+        <div 
+          className='relative row-span-1'
+          onClick={() => imageURLs.length > 1 && onImageClick && onImageClick(secondImageIndex)}
+        >
           {imageURLs.length > 1 && renderImage(
             imageURLs[secondImageIndex]?.highRes,
             secondImageIndex,
@@ -149,20 +165,22 @@ const HeroCollege: React.FC<React.PropsWithChildren<CarouselProps>> = ({
           )}
         </div>
 
-        {/* Bottom side image with 'Show all photos' overlay */}
-        <div className='relative row-span-1'>
+        {/* Bottom side image with 'Show all photos' button */}
+        <div 
+          className='relative row-span-1'
+          onClick={() => imageURLs.length > 2 && onImageClick && onImageClick(thirdImageIndex)}
+        >
           {imageURLs.length > 2 && renderImage(
             imageURLs[thirdImageIndex]?.highRes,
             thirdImageIndex,
             'rounded-lg',
           )}
           
-          {/* 'Show all photos' button overlay */}
+          {/* 'Show all photos' button overlay (Desktop) */}
           <div className='absolute inset-0 flex items-center justify-center z-10'>
             <button
               onClick={(e) => {
-                e.stopPropagation(); // Prevent image click handler from firing
-                // Call onImageClick to trigger the full gallery view
+                e.stopPropagation(); 
                 onImageClick && onImageClick(currentIndex); 
               }}
               className='flex items-center space-x-2 rounded-lg bg-white/90 px-4 py-2 text-sm font-semibold text-gray-800 shadow-xl border border-gray-200 hover:bg-white transition-colors'

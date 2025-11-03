@@ -466,6 +466,371 @@
 //   );
 // }
 
+// ---------- 03112025 code -----------
+// 'use client';
+
+// import { useEffect, useRef, useState } from 'react';
+// import Image from 'next/image';
+// import MainTestimonial from '../../../components/main-testimonial';
+// import { ChooseYourMeans } from '@/components/buy/choose-your-means';
+// import { HeroSearchForm } from '@/components/main/hero-tab';
+// import { WeMakeItEasy } from '@/components/buy/we-make-it-easy';
+// import { OfferStrengthAnalyzer } from '@/components/buy/offer-strength-analyzer';
+// import { useRegister } from '@/hooks/api/auth/useRegister';
+// import { RootState } from '@/lib/store';
+// import { useAppDispatch, useAppSelector } from '@/lib/hook';
+// import { Button } from '@/components/ui/button';
+// import { Input } from '@/components/ui/input';
+// import { useMediaQuery } from '@mantine/hooks';
+// import {
+//   incrementSearchCount,
+//   initializeTempUserId,
+// } from '@/slices/onboarding/property-preference';
+// import { PROPERTY_SEARCH_PREFERENCE_AI_URL } from '@/shared/constants/env';
+// import OurClients from '@/components/company/our-clients';
+// import MainNavPages from '@/components/navbars/main-nav-pages';
+// import { Radio } from '@mantine/core';
+// import Footer from '@/components/shared/footer';
+
+// const questions = [
+//   {
+//     question: "Which city are you looking to search for properties in?",
+//     importantNotes: "The city you are searching for properties in.",
+//     type: "text",
+//     answer: "",
+//   },
+//   {
+//     question: "How many bathrooms do you need in the property?",
+//     importantNotes: "The number of bathrooms you need in the property.",
+//     type: "text",
+//     answer: "",
+//   },
+//   {
+//     question: "How many bedrooms would you like in the property?",
+//     importantNotes: "The number of bedrooms you would like in the property.",
+//     type: "text",
+//     answer: "",
+//   },
+//   {
+//     question: "What type of property are you interested in?",
+//     importantNotes: "The type of property you are interested in.",
+//     type: "text",
+//     answer: "",
+//   },
+//   {
+//     question: "What is your budget range?",
+//     importantNotes: "The budget range you have in mind for the property.",
+//     type: "text",
+//     answer: "",
+//   },
+//   {
+//     question: "What is the current status of the property you’re looking for?",
+//     importantNotes: "The current status of the property you are looking for.",
+//     type: "text",
+//     answer: "",
+//   },
+// ];
+
+// export default function Home() {
+//   const [isOpen, setIsOpen] = useState(false);
+//   const [currentStep, setCurrentStep] = useState(0);
+//   const [answers, setAnswers] = useState<any[]>(questions);
+//   const { email } = useRegister();
+//   const dispatch = useAppDispatch();
+//   const isDesktop = useMediaQuery('(min-width: 768px)');
+
+//   useEffect(() => {
+//     const hasVisited = localStorage.getItem('hasVisited');
+//     if (!hasVisited) {
+//       setTimeout(() => {
+//         setIsOpen(true);
+//       }, 20000);
+//       localStorage.setItem('hasVisited', 'true');
+//     }
+//   }, []);
+
+//   const handleAnswerChange = (
+//     e: React.ChangeEvent<any>,
+//     index: number
+//   ) => {
+//     const updated = [...answers];
+//     updated[index].answer = e.target.value;
+//     setAnswers(updated);
+//   };
+
+//   const handleNext = () => {
+//     if (currentStep < questions.length - 1) {
+//       setCurrentStep(currentStep + 1);
+//     } else {
+//       setIsOpen(false);
+//       submitAnswers();
+//     }
+//   };
+
+//   const { tempUserId, searchCount } = useAppSelector(
+//     (state: RootState) => state.propertyPreference
+//   );
+
+//   useEffect(() => {
+//     dispatch(initializeTempUserId());
+//   }, [dispatch]);
+
+//   const submitAnswers = async () => {
+//     const userId = email || tempUserId;
+//     const userPreferences = {
+//       user: userId,
+//       preference: answers.map((q) => q.answer).join(' '),
+//     };
+
+//     try {
+//       const response = await fetch(
+//         PROPERTY_SEARCH_PREFERENCE_AI_URL ||
+//         'http://13.60.114.186:9000/api/search/preference',
+//         {
+//           method: 'POST',
+//           headers: {
+//             'Content-Type': 'application/json',
+//           },
+//           body: JSON.stringify(userPreferences),
+//         }
+//       );
+
+//       if (response.ok) {
+//         const data = await response.json();
+//         dispatch(incrementSearchCount());
+
+//         if (searchCount + 1 >= 6) {
+//           alert(
+//             'You have reached the search limit for non-logged-in users. Please create an account to continue.'
+//           );
+//         } else {
+//           console.log(`Searching for: ${searchCount}`);
+//         }
+//         console.log('API Response:', data);
+//       } else {
+//         console.error('API request failed');
+//       }
+//     } catch (error) {
+//       console.error('Error submitting answers:', error);
+//     }
+//   };
+
+//   // ——————————————————————————————————————————————————————————————————————————————
+//   // 1) List out the eight image paths
+//   const cardImages = [
+//     '/assets/images/home-landing8.png',
+//     '/assets/images/home-landing7.png',
+//     '/assets/images/home-landing6.png',
+//     '/assets/images/home-landing5.png',
+//     '/assets/images/home-landing4.png',
+//     '/assets/images/home-landing3.png',
+//     '/assets/images/home-landing2.png',
+//     '/assets/images/home-landing1.png',
+//     '/assets/images/home-landing6.png',
+//     '/assets/images/home-landing5.png',
+//     '/assets/images/home-landing4.png',
+//     '/assets/images/home-landing3.png',
+//     '/assets/images/home-landing2.png',
+//     '/assets/images/home-landing1.png',
+
+//   ];
+
+//   const angles = [185, 210, 235, 260, 285, 310, 335, 355, 185, 210, 235, 260, 285, 310, 335, 355];
+
+//   const radiusPx = 580;
+//   const centerYOffset = 100;
+
+//   const rotatingRef = useRef(null);
+
+//   useEffect(() => {
+//     const el = rotatingRef.current;
+//     if (el) {
+//       //@ts-ignore
+//       el.animate(
+//         [
+//           { transform: 'rotate(0deg)' },
+//           { transform: 'rotate(360deg)' },
+//         ],
+//         {
+//           duration: 60000,
+//           iterations: Infinity,
+//           easing: 'linear',
+//         }
+//       );
+//     }
+//   }, []);
+
+//   const [activeTab, setActiveTab] = useState('Transaction');
+//   const [searchMethod, setSearchMethod] = useState<string>('');
+  
+
+//   return (
+//     <>
+//       <MainNavPages />
+//       {/* <section className="bg-[#170800] text-white h-screen relative pt-24 -mt-24 overflow-hidden "> */}
+//       <section className="bg-[#170800] text-white min-h-screen relative pt-24 -mt-24 overflow-hidden md:h-screen">
+
+//         {/* <section className="flex flex-col  justify-end h-full items-center text-center py-24 px-4"> */}
+//         <section className="flex flex-col justify-end h-full items-center text-center py-16 px-4 md:py-24">
+
+//           {/* <div className="flex justify-center  items-center w-full overflow-visible"> */}
+//             {/* <div className="absolute top-32 w-[1200px] h-[1000px]"> */}
+//             <div className="hidden md:flex justify-center items-center w-full overflow-visible">
+
+//             <div className="absolute top-24 md:top-32 w-[600px] h-[500px] md:w-[1200px] md:h-[1000px]">
+
+
+//               {cardImages.map((image, i) => {
+//                 const angle = (360 / cardImages.length) * i;
+//                 return (
+//                   <div
+//                     key={i}
+//                     // className="absolute w-[150px] h-[150px] top-[46%] left-[45%] transform -translate-x-1/2 -translate-y-1/2"
+//                     className="absolute w-[80px] h-[80px] md:w-[150px] md:h-[150px] top-[46%] left-[45%] transform -translate-x-1/2 -translate-y-1/2"
+
+//                     style={{
+//                       transform: `rotate(${angle}deg) translateX(430px)`,
+//                     }}
+//                   >
+//                     <div
+//                       className="w-full h-full"
+
+//                     >
+//                       <Image
+//                         src={image}
+//                         alt={`home-landing-${i + 1}`}
+//                         width={120}
+//                         height={120}
+//                         className="rounded-3xl object-cover w-full h-full"
+//                       />
+//                     </div>
+//                   </div>
+//                 );
+//               })}
+
+//             </div>
+//           </div>
+//           <div className="relative z-30  h-full -bottom-20  justify-end flex flex-col items-center text-center gap-8 max-w-[900px]">
+//             {/* Updated Headline */}
+//             {/* <h1
+//               className="
+//       text-white
+//       text-[2rem] font-medium leading-none
+//       md:text-[3rem] 
+//     " */}
+//     <h1
+//   className="
+//     text-white
+//     text-[2.8rem]           /* < md (phones) — bigger */
+//     sm:text-[2.6rem]        /* small tablets */
+//     md:text-[3rem]          /* >= md (desktop) — unchanged */
+//     font-medium
+//     leading-snug md:leading-tight
+//     tracking-tight
+//   "
+//   style={{ fontFamily: 'Satoshi' }}
+// >
+//   <span className="block tracking-tighter font-medium">Buying a home</span>
+//  <span className="block tracking-tighter">
+//     <span className="font-medium">should be </span>
+//     <span className="italic font-extralight">Very Easy</span>
+//     {/* ↑ italic + lighter accent color to match the image */}
+//   </span></h1>
+
+//             {/* Subheading */}
+//             <p className=" text-[1rem] font-medium md:text-[1rem] text-[#CEB28B]" >
+//               First end-to-end guided real estate platform
+//             </p>
+
+//             {/* FULL-WIDTH SEARCH PILL */}
+//             {/* <div className="w-[600px] relative z-100 px-4 md:px-0 text-black"> */}
+//               <div className="w-full md:w-[600px] relative z-100 px-2 md:px-0 text-black">
+
+                   
+//                       <HeroSearchForm 
+//                       searchType ={searchMethod}
+//                     />
+                    
+                  
+              
+//                 {/* <div className="flex gap-4 justify-center text-sm  mb-2 text-white mt-4"> */}
+//                 {/* <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 justify-center text-sm mb-2 text-white mt-4">
+
+//                     <label className="flex items-center">
+//                       <Radio
+//                         value="nlp"
+//                         label="Search by Location"
+//                           size='xs'
+//                         checked={searchMethod === "nlp"}
+//                         onChange={() => setSearchMethod("nlp")}
+//                         className="mr-2"
+//                       />
+//                     </label>
+//                     <label className="flex items-center">
+//                       <Radio
+//                         value="address"
+//                         label="Search by Full Address"
+//                         size='xs'
+//                         checked={searchMethod === "address"}
+//                         onChange={() => setSearchMethod("address")}
+//                         className="mr-2"
+//                       />
+//                     </label>
+//                 </div> */}
+//                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 justify-center text-sm mb-2 text-white mt-4">
+//   <label className="flex items-center">
+//     <Radio
+//       value="nlp"
+//       label="Search by Location"
+//       size={isDesktop ? 'xs' : 'lg'}   
+//       checked={searchMethod === 'nlp'}
+//       onChange={() => setSearchMethod('nlp')}
+//       className="mr-2"
+//     />
+//   </label>
+
+//   <label className="flex items-center">
+//     <Radio
+//       value="address"
+//       label="Search by Full Address"
+//       size={isDesktop ? 'xs' : 'lg'}   
+//       checked={searchMethod === 'address'}
+//       onChange={() => setSearchMethod('address')}
+//       className="mr-2"
+//     />
+//   </label>
+// </div>
+
+//             </div>
+           
+
+//             {/* “Conversational search Powered by AI” */}
+//             {/* <div className="text-white text-[1rem]"> */}
+//             <div className="text-white text-[1.2rem] md:text-[1rem]">
+//               <span className="font-medium">Conversational search&nbsp;</span>
+//               <span className="font-bold underline">
+//                 Powered by AI
+//               </span>
+//             </div>
+
+//           </div>
+//         </section>
+//         {/* <div className="bg-gradient-to-t absolute bottom-0 h-60 w-full from-[#050505] to-transparent"> */}
+//         {/* <div className="absolute bottom-0 h-36 w-full" style={{ background: 'linear-gradient(to bottom, rgba(25, 7, 0, 0) 4.07%, #190700 55.92%)' }}> */}
+//         <div className="absolute bottom-0 h-20 md:h-36 w-full" style={{ background: 'linear-gradient(to bottom, rgba(25, 7, 0, 0) 4.07%, #190700 55.92%)' }}>
+
+//         </div>
+//       </section>
+
+//       <ChooseYourMeans />
+//       <WeMakeItEasy />
+//       <OfferStrengthAnalyzer />
+//       <OurClients />
+//       <Footer />
+//     </>
+//   );
+// }
+
 
 'use client';
 
@@ -668,14 +1033,13 @@ export default function Home() {
     <>
       <MainNavPages />
       {/* <section className="bg-[#170800] text-white h-screen relative pt-24 -mt-24 overflow-hidden "> */}
-      <section className="bg-[#170800] text-white min-h-screen relative pt-24 -mt-24 overflow-hidden md:h-screen">
+  <section className="bg-[#170800] text-white min-h-screen relative pt-24 -mt-24 overflow-visible md:overflow-hidden md:h-screen">
 
         {/* <section className="flex flex-col  justify-end h-full items-center text-center py-24 px-4"> */}
         <section className="flex flex-col justify-end h-full items-center text-center py-16 px-4 md:py-24">
 
-          {/* <div className="flex justify-center  items-center w-full overflow-visible"> */}
-            {/* <div className="absolute top-32 w-[1200px] h-[1000px]"> */}
-            <div className="hidden md:flex justify-center items-center w-full overflow-visible">
+          {/* Desktop carousel (unchanged) */}
+          <div className="hidden md:flex justify-center items-center w-full overflow-visible">
 
             <div className="absolute top-24 md:top-32 w-[600px] h-[500px] md:w-[1200px] md:h-[1000px]">
 
@@ -710,16 +1074,81 @@ export default function Home() {
 
             </div>
           </div>
+
+          {/* ---------------- MOBILE decorative arc (limited tiles) ---------------- */}
+          {/* ---------- MOBILE decorative arc (7 tiles: 5 main + 2 edge peeks) ---------- */}
+{/* ---------- MOBILE decorative arc (circular, spaced) ---------- */}
+<div className="md:hidden w-full relative pointer-events-none">
+  {/* Centered arc using polar placement */}
+  <div className="absolute top-3/4 left-1/2 -translate-x-1/2 w-full max-w-[560px] h-[160px] overflow-visible">
+    {/* two subtle edge peeks */}
+    {[
+      { a: 192, r: 220, size: 74, idx: 8, rot: -16 },  // left edge
+      { a: 332, r: 220, size: 74, idx: 0, rot: 16 },   // right edge
+    ].map((p, i) => (
+      <div
+        key={`m-edge-${i}`}
+        className="absolute rounded-2xl overflow-hidden shadow-sm"
+        style={{
+          left: '50%',
+          top: '110px',
+          width: `${p.size}px`,
+          height: `${p.size}px`,
+          transform: `translate(-50%,-50%) rotate(${p.a}deg) translateX(${p.r}px) rotate(${-p.a + p.rot}deg)`,
+        }}
+      >
+        <Image
+          src={cardImages[p.idx]}
+          alt={`mobile-edge-${i}`}
+          width={p.size}
+          height={p.size}
+          className="w-full h-full object-cover"
+          priority
+        />
+      </div>
+    ))}
+
+    {/* 5 main tiles across the arc: center largest, even spacing */}
+    {[
+      { a: 210, r: 210, size: 92,  idx: 7 }, // left
+      { a: 236, r: 210, size: 100, idx: 5 }, // left-mid
+      { a: 262, r: 210, size: 108, idx: 2 }, // center (biggest)
+      { a: 288, r: 210, size: 100, idx: 1 }, // right-mid
+      { a: 314, r: 210, size: 92,  idx: 0 }, // right
+    ].map((p, i) => (
+      <div
+        key={`m-main-${i}`}
+        className="absolute rounded-2xl overflow-hidden shadow-sm"
+        style={{
+          left: '50%',
+          top: '110px',
+          width: `${p.size}px`,
+          height: `${p.size}px`,
+          // rotate around arc -> offset by radius -> counter-rotate to keep upright
+          transform: `translate(-50%,-50%) rotate(${p.a}deg) translateX(${p.r}px) rotate(${-p.a}deg)`,
+        }}
+      >
+        <Image
+          src={cardImages[p.idx]}
+          alt={`mobile-hero-${i}`}
+          width={p.size}
+          height={p.size}
+          className="w-full h-full object-cover"
+          priority={i < 3}
+        />
+      </div>
+    ))}
+  </div>
+
+  {/* Spacer so the headline clears the arc */}
+  <div className="h-16" />
+</div>
+{/* ---------- END MOBILE decorative arc ---------- */}
+
           <div className="relative z-30  h-full -bottom-20  justify-end flex flex-col items-center text-center gap-8 max-w-[900px]">
             {/* Updated Headline */}
-            {/* <h1
+            <h1
               className="
-      text-white
-      text-[2rem] font-medium leading-none
-      md:text-[3rem] 
-    " */}
-    <h1
-  className="
     text-white
     text-[2.8rem]           /* < md (phones) — bigger */
     sm:text-[2.6rem]        /* small tablets */
@@ -728,84 +1157,51 @@ export default function Home() {
     leading-snug md:leading-tight
     tracking-tight
   "
-  style={{ fontFamily: 'Satoshi' }}
->
-  <span className="block tracking-tighter font-medium">Buying a home</span>
- <span className="block tracking-tighter">
-    <span className="font-medium">should be </span>
-    <span className="italic font-extralight">Very Easy</span>
-    {/* ↑ italic + lighter accent color to match the image */}
-  </span></h1>
+              style={{ fontFamily: 'Satoshi' }}
+            >
+              <span className="block tracking-tighter font-medium">Buying a home</span>
+              <span className="block tracking-tighter">
+                <span className="font-medium">should be </span>
+                <span className="italic font-extralight">Very Easy</span>
+                {/* ↑ italic + lighter accent color to match the image */}
+              </span></h1>
 
             {/* Subheading */}
             <p className=" text-[1rem] font-medium md:text-[1rem] text-[#CEB28B]" >
               First end-to-end guided real estate platform
             </p>
 
-            {/* FULL-WIDTH SEARCH PILL */}
-            {/* <div className="w-[600px] relative z-100 px-4 md:px-0 text-black"> */}
-              <div className="w-full md:w-[600px] relative z-100 px-2 md:px-0 text-black">
+     <div className="w-full md:w-[600px] max-w-[540px] relative z-100 px-4 md:px-0 text-black mx-auto">
+  <HeroSearchForm searchType={searchMethod} />
 
-                   
-                      <HeroSearchForm 
-                      searchType ={searchMethod}
-                    />
-                    
-                  
-              
-                {/* <div className="flex gap-4 justify-center text-sm  mb-2 text-white mt-4"> */}
-                {/* <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 justify-center text-sm mb-2 text-white mt-4">
-
-                    <label className="flex items-center">
-                      <Radio
-                        value="nlp"
-                        label="Search by Location"
-                          size='xs'
-                        checked={searchMethod === "nlp"}
-                        onChange={() => setSearchMethod("nlp")}
-                        className="mr-2"
-                      />
-                    </label>
-                    <label className="flex items-center">
-                      <Radio
-                        value="address"
-                        label="Search by Full Address"
-                        size='xs'
-                        checked={searchMethod === "address"}
-                        onChange={() => setSearchMethod("address")}
-                        className="mr-2"
-                      />
-                    </label>
-                </div> */}
-                 <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 justify-center text-sm mb-2 text-white mt-4">
-  <label className="flex items-center">
-    <Radio
-      value="nlp"
-      label="Search by Location"
-      size={isDesktop ? 'xs' : 'lg'}   
-      checked={searchMethod === 'nlp'}
-      onChange={() => setSearchMethod('nlp')}
-      className="mr-2"
-    />
-  </label>
-
-  <label className="flex items-center">
-    <Radio
-      value="address"
-      label="Search by Full Address"
-      size={isDesktop ? 'xs' : 'lg'}   
-      checked={searchMethod === 'address'}
-      onChange={() => setSearchMethod('address')}
-      className="mr-2"
-    />
-  </label>
+  {/* Hide on mobile, keep on desktop */}
+  <div className="hidden md:flex flex-col sm:flex-row gap-2 sm:gap-4 justify-center text-sm mb-2 text-white mt-4">
+    <label className="flex items-center">
+      <Radio
+        value="nlp"
+        label="Search by Location"
+        size="xs"
+        checked={searchMethod === 'nlp'}
+        onChange={() => setSearchMethod('nlp')}
+        className="mr-2"
+      />
+    </label>
+    <label className="flex items-center">
+      <Radio
+        value="address"
+        label="Search by Full Address"
+        size="xs"
+        checked={searchMethod === 'address'}
+        onChange={() => setSearchMethod('address')}
+        className="mr-2"
+      />
+    </label>
+  </div>
 </div>
 
-            </div>
-           
+
 
             {/* “Conversational search Powered by AI” */}
-            {/* <div className="text-white text-[1rem]"> */}
             <div className="text-white text-[1.2rem] md:text-[1rem]">
               <span className="font-medium">Conversational search&nbsp;</span>
               <span className="font-bold underline">

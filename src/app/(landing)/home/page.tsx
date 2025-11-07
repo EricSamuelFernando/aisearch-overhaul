@@ -1027,15 +1027,16 @@ export default function Home() {
 
   const [activeTab, setActiveTab] = useState('Transaction');
   const [searchMethod, setSearchMethod] = useState<string>('');
-  
+  const isTinyPhone = useMediaQuery('(max-width: 380px)'); 
+
 
   return (
     <>
       <MainNavPages />
       {/* <section className="bg-[#170800] text-white h-screen relative pt-24 -mt-24 overflow-hidden "> */}
-  <section className="bg-[#170800] text-white min-h-screen relative pt-24 -mt-24 overflow-visible md:overflow-hidden md:h-screen">
-
-        {/* <section className="flex flex-col  justify-end h-full items-center text-center py-24 px-4"> */}
+  {/* <section className="bg-[#170800] text-white min-h-screen relative pt-24 -mt-24 overflow-visible md:overflow-hidden md:h-screen"> */}
+<section className="bg-[#170800] text-white min-h-screen relative pt-28 md:pt-24 -mt-24 overflow-hidden md:h-screen">
+          {/* <section className="flex flex-col  justify-end h-full items-center text-center py-24 px-4"> */}
         <section className="flex flex-col justify-end h-full items-center text-center py-16 px-4 md:py-24">
 
           {/* Desktop carousel (unchanged) */}
@@ -1074,47 +1075,18 @@ export default function Home() {
 
             </div>
           </div>
-
-          {/* ---------------- MOBILE decorative arc (limited tiles) ---------------- */}
-          {/* ---------- MOBILE decorative arc (7 tiles: 5 main + 2 edge peeks) ---------- */}
-{/* ---------- MOBILE decorative arc (circular, spaced) ---------- */}
-<div className="md:hidden w-full relative pointer-events-none">
-  {/* Centered arc using polar placement */}
-  <div className="absolute top-3/4 left-1/2 -translate-x-1/2 w-full max-w-[560px] h-[160px] overflow-visible">
-    {/* two subtle edge peeks */}
+          
+{/* ---------- MOBILE decorative arc (5 tiles, larger + spaced) ---------- */}
+<div className="md:hidden w-full relative pointer-events-none z-10">
+  {/* wider container + a bit lower to clear the navbar */}
+  <div className="absolute top-24 left-1/2 -translate-x-1/2 w-full max-w-[440px] h-[220px] overflow-visible">
     {[
-      { a: 192, r: 220, size: 74, idx: 8, rot: -16 },  // left edge
-      { a: 332, r: 220, size: 74, idx: 0, rot: 16 },   // right edge
-    ].map((p, i) => (
-      <div
-        key={`m-edge-${i}`}
-        className="absolute rounded-2xl overflow-hidden shadow-sm"
-        style={{
-          left: '50%',
-          top: '110px',
-          width: `${p.size}px`,
-          height: `${p.size}px`,
-          transform: `translate(-50%,-50%) rotate(${p.a}deg) translateX(${p.r}px) rotate(${-p.a + p.rot}deg)`,
-        }}
-      >
-        <Image
-          src={cardImages[p.idx]}
-          alt={`mobile-edge-${i}`}
-          width={p.size}
-          height={p.size}
-          className="w-full h-full object-cover"
-          priority
-        />
-      </div>
-    ))}
-
-    {/* 5 main tiles across the arc: center largest, even spacing */}
-    {[
-      { a: 210, r: 210, size: 92,  idx: 7 }, // left
-      { a: 236, r: 210, size: 100, idx: 5 }, // left-mid
-      { a: 262, r: 210, size: 108, idx: 2 }, // center (biggest)
-      { a: 288, r: 210, size: 100, idx: 1 }, // right-mid
-      { a: 314, r: 210, size: 92,  idx: 0 }, // right
+      // angles are spread wider, radius slightly bigger -> more gap between cards
+      { a: 204, r: 175, size: 108, idx: 7, rot: -8  }, // left
+      { a: 232, r: 175, size: 120, idx: 5, rot: -4  }, // left-mid
+      { a: 260, r: 175, size: 132, idx: 2, rot: 0   }, // center (largest)
+      { a: 288, r: 175, size: 120, idx: 1, rot: 4   }, // right-mid
+      { a: 316, r: 175, size: 108, idx: 0, rot: 8   }, // right
     ].map((p, i) => (
       <div
         key={`m-main-${i}`}
@@ -1124,8 +1096,8 @@ export default function Home() {
           top: '110px',
           width: `${p.size}px`,
           height: `${p.size}px`,
-          // rotate around arc -> offset by radius -> counter-rotate to keep upright
-          transform: `translate(-50%,-50%) rotate(${p.a}deg) translateX(${p.r}px) rotate(${-p.a}deg)`,
+          // rotate around arc -> offset -> counter-rotate with slight tilt
+          transform: `translate(-50%,-50%) rotate(${p.a}deg) translateX(${p.r}px) rotate(${-p.a + p.rot}deg)`,
         }}
       >
         <Image
@@ -1140,10 +1112,11 @@ export default function Home() {
     ))}
   </div>
 
-  {/* Spacer so the headline clears the arc */}
-  <div className="h-16" />
+  {/* extra spacing so headline never overlaps */}
+  <div className="h-28" />
 </div>
 {/* ---------- END MOBILE decorative arc ---------- */}
+
 
           <div className="relative z-30  h-full -bottom-20  justify-end flex flex-col items-center text-center gap-8 max-w-[900px]">
             {/* Updated Headline */}

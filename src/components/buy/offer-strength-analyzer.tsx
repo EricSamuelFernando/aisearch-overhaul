@@ -332,7 +332,7 @@ const OfferStrengthAnalyzer = () => {
   const MOBILE  = buildArcs({ w: 200, h: 120, cx: 100, cy: 110, r: 80, stroke: 40, percent: successPercentage });
 
   return (
-    <section id="offer-strength" className="bg-[#FDF1E8] pt-32">
+    <section id="offer-strength" className="bg-[#FDF1E8] pt-10">
       {/* ===== MOBILE HEADER (exact text) ===== */}
       <div className="mx-auto max-w-5xl px-6 text-center md:hidden">
         <h1 className="text-[34px] leading-[40px] font-medium tracking-tight">

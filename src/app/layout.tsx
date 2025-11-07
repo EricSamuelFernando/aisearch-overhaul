@@ -51,6 +51,54 @@
 // }
 // src/app/layout.tsx
 // src/app/layout.tsx
+
+
+// import Script from 'next/script';
+// import { metadata as md } from './metadata';
+// import { satoshi } from '../utils/fonts';
+// import { ClientRoot } from '../components/ClientRoot';
+
+// export const metadata = {
+//   title: md.title,
+//   description: md.description,
+// };
+
+// export default function RootLayout({ children }: { children: React.ReactNode }) {
+//   return (
+//     <html
+//       lang="en"
+//       className="h-full overflow-auto"          // ← allow html to scroll
+//       suppressHydrationWarning
+//     >
+//       <head>
+//         <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+//         {/* these can live in a server component */}
+//         <Script src="https://widget.cloudinary.com/v2.0/global/all.js" />
+//         <script
+//           key="google-maps"
+//           src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`}
+//           async
+//           defer
+//         />
+//       </head>
+
+//       <body
+//         style={satoshi.style}
+//         className="h-full flex flex-col font-satoshi scroll-smooth overflow-auto"
+//       >
+//         <ClientRoot>
+//           <main className="flex-1 overflow-y-auto">
+//             {children}
+//           </main>
+//         </ClientRoot>
+//       </body>
+//     </html>
+//   );
+// }
+
+
+// src/app/layout.tsx
 import Script from 'next/script';
 import { metadata as md } from './metadata';
 import { satoshi } from '../utils/fonts';
@@ -65,13 +113,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className="h-full overflow-auto"          // ← allow html to scroll
+      className="min-h-full overflow-x-hidden"  // block horizontal scroll at the root
       suppressHydrationWarning
     >
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-        {/* these can live in a server component */}
         <Script src="https://widget.cloudinary.com/v2.0/global/all.js" />
         <script
           key="google-maps"
@@ -83,10 +129,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
       <body
         style={satoshi.style}
-        className="h-full flex flex-col font-satoshi scroll-smooth overflow-auto"
+        className="min-h-screen flex flex-col font-satoshi scroll-smooth overflow-x-hidden" // let the document handle vertical scroll
       >
         <ClientRoot>
-          <main className="flex-1 overflow-y-auto">
+          <main className="flex-1">
             {children}
           </main>
         </ClientRoot>

@@ -406,7 +406,7 @@ export const HeroSearchForm = ({
     await sendSearchRequest(requestBody);
   };
 
-return (
+return ( 
   <div className="flex gap-2 w-full">
     <form
       onSubmit={handleNavigate}

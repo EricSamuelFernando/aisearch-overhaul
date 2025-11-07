@@ -1029,6 +1029,7 @@ export default function Home() {
   const [searchMethod, setSearchMethod] = useState<string>('');
   const isTinyPhone = useMediaQuery('(max-width: 380px)'); 
 
+  
 
   return (
     <>

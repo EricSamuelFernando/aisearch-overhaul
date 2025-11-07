@@ -166,13 +166,13 @@ const WeMakeItEasy = () => {
   );
 
   return (
-    <section className="bg-[#FAF0E6]  pt-32 pl-24">
+    <section className="bg-[#FAF0E6]  pt-12 pl-0  sm:pl-24">
       <div className=" mx-auto text-center">
         {/* Heading */}
         <h2 className="text-3xl sm:text-4xl font-medium ">
           We Make It <span className="font-normal">Easy</span>
         </h2>
-        <p className="text-xs sm:text-sm text-gray-600 mb-12 max-w-[600px] mx-auto">
+        <p className="text-xs sm:text-sm text-gray-600 mb-5 max-w-[600px] mx-auto">
           Tailor your homebuying experience — your way, with the guidance you need.
         </p>
 
@@ -267,7 +267,8 @@ const WeMakeItEasy = () => {
 
             controls: {
               position: 'relative',
-              marginTop: '32px',
+              marginTop: '11px',
+              padding:'10px',
               justifyContent: 'flex-end',
               gap:12,
               marginRight:20

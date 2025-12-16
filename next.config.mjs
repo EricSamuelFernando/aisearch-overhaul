@@ -81,9 +81,9 @@ const nextConfig = {
   transpilePackages: ['lucide-react'],
   reactStrictMode: true,
   swcMinify: true,
-  future: {
-    webpack5: true,
-  },
+  // future: {
+  //   webpack5: true,
+  // },
   webpack: (config) => {
     config.plugins.push(
       new CopyPlugin({

@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import axios from "axios";
 export const WaitlistAPIs = (handleCb?: () => void) => {
-  const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql";
+  const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "https://zqnraeibbc.execute-api.us-east-1.amazonaws.com/prod/graphql";
   const waitlistResponse = useMutation({
     mutationKey: ['create_waitlist'],
     mutationFn: async (createWaitlistData: any) => {

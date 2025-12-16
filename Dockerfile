@@ -1,5 +1,5 @@
 # Build Stage
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 
 # Install Python and other build dependencies including tools needed for node-gyp
 # RUN apk add --no-cache --virtual .gyp \
@@ -43,9 +43,20 @@ COPY . .
 RUN yarn run build
 
 # Production Stage
-# FROM node:24-alpine AS production
+FROM public.ecr.aws/docker/library/node:22-slim AS production
 
-# WORKDIR /app
+ARG NODE_ENV=production
+ARG PORT=8001
+
+ENV NODE_ENV=${NODE_ENV}
+ENV PORT=${PORT}
+ENV AWS_LWA_READINESS_CHECK_PORT=${PORT}
+ENV AWS_LWA_ENABLE=true
+EXPOSE ${PORT}
+
+WORKDIR /app
+
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
 
 # # Copy built assets from the build stage
 # COPY --from=build /app/package*.json ./
@@ -53,7 +64,19 @@ RUN yarn run build
 # COPY --from=build /app/public ./public
 # # COPY --from=build /app/node_modules ./node_modules
 
-# ENV NODE_ENV=production
-# EXPOSE 8001
+RUN apk add --no-cache \
+    libc6-compat \
+    cairo \
+    pango \
+    jpeg \
+    giflib \
+    pixman \
+    libpng \
+    librsvg
 
-# CMD ["yarn", "start"]
+# Copy standalone output
+COPY --from=build /app/.next/standalone ./
+# COPY --from=build /app/.next/static ./.next/static
+# COPY --from=build /app/public ./public
+
+CMD ["node", "server.js"]

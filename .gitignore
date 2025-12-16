@@ -16,6 +16,7 @@
 # production
 /build
 *.txt
+*.terraform
 
 # misc
 .DS_Store

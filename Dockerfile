@@ -64,15 +64,16 @@ COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt
 # COPY --from=build /app/public ./public
 # # COPY --from=build /app/node_modules ./node_modules
 
-# RUN apk add --no-cache \
-#     libc6-compat \
-#     cairo \
-#     pango \
-#     jpeg \
-#     giflib \
-#     pixman \
-#     libpng \
-#     librsvg
+RUN apt-get update && apt-get install -y \
+    libc6 \
+    libcairo2 \
+    libpango-1.0-0 \
+    libjpeg62-turbo \
+    libgif7 \
+    libpixman-1-0 \
+    libpng16-16 \
+    librsvg2-2 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy standalone output
 COPY --from=build /app/.next/standalone ./

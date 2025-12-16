@@ -21,10 +21,10 @@ RUN yarn install --force
 # RUN npm i --force
 
 # Copy the application code
-# COPY . .
+COPY . .
 
 # Build the application
-# RUN yarn run build
+RUN yarn run build
 
 # Production Stage
 # FROM node:24-alpine AS production

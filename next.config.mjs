@@ -8,6 +8,10 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const nextConfig = {
+  output: 'standalone',
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   images: {
     domains: [
       'raw.githubusercontent.com',
@@ -31,7 +35,7 @@ const nextConfig = {
       'ssl.cdn-redfin.com',
       'i.pravatar.cc',
       'imagecdn.realty.com',
-      'snaphomz.s3.eu-north-1.amazonaws.com'
+      'snaphomz.s3.eu-north-1.amazonaws.com',
     ],
     remotePatterns: [
       {

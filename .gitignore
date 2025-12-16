@@ -15,6 +15,7 @@
 /public/assets/libs
 # production
 /build
+*.txt
 
 # misc
 .DS_Store

@@ -19,8 +19,8 @@ env:
   S3_BUCKET: 'snaphomz-nextjs-frontend-dev'
 
 jobs:
-  deploy-frontend-static:
-    name: Deploy NextJS static frontend
+  deploy-frontend:
+    name: Deploy NextJS frontend
     runs-on: ubuntu-latest
 
     steps:

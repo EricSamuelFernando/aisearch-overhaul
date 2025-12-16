@@ -17,3 +17,7 @@ output "role_arn" {
   description = "IAM role ARN for the Lambda"
   value       = aws_iam_role.this.arn
 }
+
+output "lambda_domain" {
+  value = aws_lambda_function_url.app_url.function_url
+}

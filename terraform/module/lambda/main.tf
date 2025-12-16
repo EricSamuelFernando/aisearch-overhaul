@@ -46,3 +46,24 @@ resource "aws_lambda_function" "this" {
     Environment = var.env
   }
 }
+
+resource "aws_lambda_function_url" "app_url" {
+  function_name = aws_lambda_function.this.function_name
+
+  authorization_type = "NONE"
+
+  cors {
+    allow_origins = ["*"]
+    allow_methods = ["*"]
+    allow_headers = ["*"]
+  }
+}
+
+resource "aws_lambda_permission" "allow_public_url" {
+  statement_id  = "AllowPublicAccess"
+  action        = "lambda:InvokeFunctionUrl"
+  function_name = aws_lambda_function.this.function_name
+  principal     = "*"
+
+  function_url_auth_type = "NONE"
+}

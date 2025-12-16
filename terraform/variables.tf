@@ -19,3 +19,8 @@ variable "lambda_memory_size" {
   type        = number
   default     = 512
 }
+
+variable "domain" {
+  type    = string
+  default = "waitlist.snaphomz.com"
+}

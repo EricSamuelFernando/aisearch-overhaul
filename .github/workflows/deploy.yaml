@@ -19,7 +19,7 @@ env:
   S3_BUCKET: 'snaphomz-nextjs-frontend-dev'
 
 jobs:
-  deploy-frontend:
+  deploy-frontend-static:
     name: Deploy NextJS frontend
     runs-on: ubuntu-latest
 
@@ -36,12 +36,12 @@ jobs:
         run: |
           yarn install --frozen-lockfile
 
-      - name: Cache Next.js build
-        uses: actions/cache@v4
-        with:
-          path: |
-            .next/cache
-          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/yarn.lock') }}
+      # - name: Cache Next.js build
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: |
+      #       .next/cache
+      #     key: ${{ runner.os }}-nextjs-${{ hashFiles('**/yarn.lock') }}
 
       - name: Build nextjs image
         run: |
@@ -67,6 +67,18 @@ jobs:
           echo "📤 Deploying static assets with long cache..."
           aws s3 sync public/ s3://${{ env.S3_BUCKET }}/public/ \
             --delete
+
+  deploy-frontend-image:
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Log in to AWS ECR
         run: |

@@ -27,46 +27,46 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Node setup
-        uses: actions/setup-node@v6
-        with:
-          node-version: ${{env.NODE_VERSION}}
+      # - name: Node setup
+      #   uses: actions/setup-node@v6
+      #   with:
+      #     node-version: ${{env.NODE_VERSION}}
 
-      - name: Package Installtion
-        run: |
-          yarn install --frozen-lockfile
+      # - name: Package Installtion
+      #   run: |
+      #     yarn install --frozen-lockfile
 
-      - name: Cache Next.js build
-        uses: actions/cache@v4
-        with:
-          path: |
-            .next/cache
-          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/yarn.lock') }}
+      # - name: Cache Next.js build
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: |
+      #       .next/cache
+      #     key: ${{ runner.os }}-nextjs-${{ hashFiles('**/yarn.lock') }}
 
-      - name: Build nextjs image
-        run: |
-          export NODE_OPTIONS="--max-old-space-size=4096"
-          npx next telemetry disable
-          yarn build --no-lint
+      # - name: Build nextjs image
+      #   run: |
+      #     export NODE_OPTIONS="--max-old-space-size=4096"
+      #     npx next telemetry disable
+      #     yarn build --no-lint
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+      # - name: Configure AWS credentials
+      #   uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     aws-region: ${{ env.AWS_REGION }}
 
-      - name: Upload static file to s3
-        run: |
-          echo "📤 Deploying static assets with long cache..."
-          aws s3 sync .next/static/ s3://${{ env.S3_BUCKET }}/.next/static/ \
-            --delete
+      # - name: Upload static file to s3
+      #   run: |
+      #     echo "📤 Deploying static assets with long cache..."
+      #     aws s3 sync .next/static/ s3://${{ env.S3_BUCKET }}/.next/static/ \
+      #       --delete
 
-      - name: Upload public folder to s3
-        run: |
-          echo "📤 Deploying static assets with long cache..."
-          aws s3 sync public/ s3://${{ env.S3_BUCKET }}/public/ \
-            --delete
+      # - name: Upload public folder to s3
+      #   run: |
+      #     echo "📤 Deploying static assets with long cache..."
+      #     aws s3 sync public/ s3://${{ env.S3_BUCKET }}/public/ \
+      #       --delete
 
       - name: Log in to AWS ECR
         run: |

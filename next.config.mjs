@@ -8,6 +8,12 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const nextConfig = {
+  assetPrefix: process.env.NEXT_PUBLIC_ASSET_PREFIX || '',
+
+  images: {
+    loader: 'custom',
+    path: process.env.NEXT_PUBLIC_ASSET_PREFIX || '',
+  },
   output: 'standalone',
   eslint: {
     ignoreDuringBuilds: true,

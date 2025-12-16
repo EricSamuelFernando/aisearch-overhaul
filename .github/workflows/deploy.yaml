@@ -36,45 +36,11 @@ jobs:
         run: |
           yarn install --frozen-lockfile
 
-      # - name: Cache Next.js build
-      #   uses: actions/cache@v4
-      #   with:
-      #     path: |
-      #       .next/cache
-      #     key: ${{ runner.os }}-nextjs-${{ hashFiles('**/yarn.lock') }}
-
-      - name: Build nextjs image
+      - name: Build nextjs app
         run: |
           export NODE_OPTIONS="--max-old-space-size=4096"
           npx next telemetry disable
           yarn build --no-lint
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Upload static file to s3
-        run: |
-          echo "📤 Deploying static assets with long cache..."
-          aws s3 sync .next/static/ s3://${{ env.S3_BUCKET }}/_next/static/ \
-            --delete
-
-      - name: Upload public folder to s3
-        run: |
-          echo "📤 Deploying static assets with long cache..."
-          aws s3 sync public/ s3://${{ env.S3_BUCKET }}/public/ \
-            --delete
-
-  deploy-frontend-image:
-    name: Deploy NextJS static frontend
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -105,3 +71,15 @@ jobs:
           aws lambda update-function-code \
           --function-name ${{env.LAMBDA_FUNCTION_NAME}}  \
           --image-uri ${{env.ECR_REGISTRY}}/${{env.ECR_REPOSITORY}}:latest
+
+      - name: Upload static file to s3
+        run: |
+          echo "📤 Deploying static assets with long cache..."
+          aws s3 sync .next/static/ s3://${{ env.S3_BUCKET }}/_next/static/ \
+            --delete
+
+      - name: Upload public folder to s3
+        run: |
+          echo "📤 Deploying static assets with long cache..."
+          aws s3 sync public/ s3://${{ env.S3_BUCKET }}/public/ \
+            --delete

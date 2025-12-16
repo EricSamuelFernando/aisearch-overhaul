@@ -64,18 +64,18 @@ COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt
 # COPY --from=build /app/public ./public
 # # COPY --from=build /app/node_modules ./node_modules
 
-RUN apk add --no-cache \
-    python3 \
-    make \
-    g++ \
-    libc6-compat \
-    cairo-dev \
-    pango-dev \
-    jpeg-dev \
-    giflib-dev \
-    pixman-dev \
-    libpng-dev \
-    librsvg-dev
+# RUN apk add --no-cache \
+#     python3 \
+#     make \
+#     g++ \
+#     libc6-compat \
+#     cairo-dev \
+#     pango-dev \
+#     jpeg-dev \
+#     giflib-dev \
+#     pixman-dev \
+#     libpng-dev \
+#     librsvg-dev
 
 # Copy standalone output
 COPY --from=build /app/.next/standalone ./

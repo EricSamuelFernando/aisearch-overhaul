@@ -1,15 +1,31 @@
 # Build Stage
-FROM node:24-alpine AS build
+FROM node:20-alpine AS build
 
 # Install Python and other build dependencies including tools needed for node-gyp
-RUN apk add --no-cache --virtual .gyp \
+# RUN apk add --no-cache --virtual .gyp \
+#     python3 \
+#     py3-pip \
+#     python3-dev \
+#     build-base \
+#     make \
+#     g++ \
+#     && ln -sf python3 /usr/bin/python
+
+RUN apk add --no-cache \
     python3 \
-    py3-pip \
-    python3-dev \
-    build-base \
     make \
     g++ \
-    && ln -sf python3 /usr/bin/python
+    libc6-compat \
+    cairo-dev \
+    pango-dev \
+    jpeg-dev \
+    giflib-dev \
+    pixman-dev \
+    libpng-dev \
+    librsvg-dev
+
+ENV PYTHON=/usr/bin/python3
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # Setup the work directory
 WORKDIR /app

@@ -264,7 +264,7 @@ useEffect(() => {
       {/* Header */}
       <header className="w-full py-4 bg-black text-white px-4 sm:px-6 lg:px-8">
         <div className="container mx-auto flex">
-          <Image
+          <img
             src="/assets/images/image.png"
             alt="logo"
             className="w-[120px] h-[36px] sm:w-[170px] sm:h-[45px] lg:w-[240px] lg:h-[72px]"

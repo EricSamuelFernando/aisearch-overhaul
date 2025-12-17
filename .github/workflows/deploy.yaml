@@ -91,6 +91,13 @@ jobs:
             --delete
           echo "Public folder uploaded to s3 successfully"
 
+      - name: Upload assets folder to s3
+        run: |
+          echo "Deploying static assets with long cache..."
+          aws s3 sync public/assets/ s3://${{ env.S3_BUCKET }}/assets/ \
+            --delete
+          echo "Assets folder uploaded to s3 successfully"
+
       - name: Invalidate CloudFront cache
         run: |
           echo "Invalidating CloudFront cache..."

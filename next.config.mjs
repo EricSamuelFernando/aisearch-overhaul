@@ -11,6 +11,7 @@ const nextConfig = {
   assetPrefix: process.env.NEXT_PUBLIC_ASSET_PREFIX || '',
 
   images: {
+    unoptimized: true,
     loader: 'custom',
     path: process.env.NEXT_PUBLIC_ASSET_PREFIX || '',
   },

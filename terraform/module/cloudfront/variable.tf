@@ -10,14 +10,18 @@ variable "env" {
 #   type = string
 # }
 
-# variable "apigateway_id" {
-#   type = string
-# }
-
 variable "s3_domain_name" {
   type = string
 }
 
 variable "price_class" {
+  type = string
+}
+
+variable "project_name" {
+  type = string
+}
+
+variable "lambda_function_url" {
   type = string
 }

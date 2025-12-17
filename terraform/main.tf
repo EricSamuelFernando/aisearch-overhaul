@@ -5,9 +5,10 @@ module "ecr" {
 }
 
 module "s3" {
-  source       = "./module/s3"
-  env          = var.environment
-  project_name = var.project_name
+  source         = "./module/s3"
+  env            = var.environment
+  project_name   = var.project_name
+  cloudfront_arn = module.cloudfront.cloudfront_arn
 }
 
 module "lambda" {
@@ -20,26 +21,24 @@ module "lambda" {
 }
 
 module "cloudfront" {
-  source         = "./module/cloudfront"
-  domain         = var.domain
-  env            = var.environment
-  price_class    = "PriceClass_100"
-  s3_domain_name = module.s3.domain_name
+  source              = "./module/cloudfront"
+  domain              = var.domain
+  env                 = var.environment
+  price_class         = "PriceClass_100"
+  s3_domain_name      = module.s3.domain_name
+  project_name        = var.project_name
+  lambda_function_url = module.lambda.function_url
+  # acm_certificate_arn = module.route53.acm_certificate_arn
 }
 
-module "acm" {
-  source                  = "./module/acm"
-  env                     = var.environment
-  domain                  = var.domain
-  validation_record_fqdns = module.route53.cert_validation_fqdn
-}
-
-module "route53" {
-  source                            = "./module/route53"
-  certificate_resource_record_name  = module.acm.certificate_resource_record_name
-  certificate_resource_record_type  = module.acm.certificate_resource_record_type
-  certificate_resource_record_value = module.acm.certificate_resource_record_value
-  domain                            = var.domain
-  lambda_domain                     = module.lambda.lambda_domain
-  hosted_zone_id                    = ""
-}
+# module "route53" {
+#   source                 = "./module/route53"
+#   domain                 = var.domain
+#   hosted_zone_id         = var.hosted_zone_id
+#   cdn_hosted_zone_id     = module.cloudfront.hosted_zone_id
+#   cloudfront_domain_name = module.cloudfront.domain_name
+#   env                    = var.environment
+#   providers = {
+#     "aws" = "us-east-1"
+#   }
+# }

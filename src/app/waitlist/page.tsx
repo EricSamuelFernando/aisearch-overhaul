@@ -268,8 +268,8 @@ useEffect(() => {
             src="/assets/images/image.png"
             alt="logo"
             className="w-[120px] h-[36px] sm:w-[170px] sm:h-[45px] lg:w-[240px] lg:h-[72px]"
-            width={240}
-            height={72}
+            // width={240}
+            // height={72}
           />
         </div>
       </header>

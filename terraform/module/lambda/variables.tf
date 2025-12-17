@@ -24,3 +24,11 @@ variable "env" {
   description = "Environment"
   type        = string
 }
+
+# variable "NEXT_PUBLIC_ASSET_PREFIX" {
+#   type = string
+# }
+
+# variable "NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL" {
+#   type = string
+# }

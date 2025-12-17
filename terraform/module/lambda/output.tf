@@ -18,6 +18,6 @@ output "role_arn" {
   value       = aws_iam_role.this.arn
 }
 
-output "lambda_domain" {
-  value = aws_lambda_function_url.app_url.function_url
+output "function_url" {
+  value = aws_lambda_function_url.this.function_url
 }

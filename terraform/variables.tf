@@ -1,6 +1,6 @@
 variable "environment" {
   type    = string
-  default = "dev"
+  default = "prod"
 }
 
 variable "project_name" {
@@ -23,4 +23,9 @@ variable "lambda_memory_size" {
 variable "domain" {
   type    = string
   default = "waitlist.snaphomz.com"
+}
+
+variable "hosted_zone_id" {
+  type    = string
+  default = "Z03826773GQ15YX1JR593"
 }

@@ -38,6 +38,8 @@ resource "aws_lambda_function" "this" {
   environment {
     variables = {
       Environment = var.env
+      # NEXT_PUBLIC_ASSET_PREFIX = "https://${var.NEXT_PUBLIC_ASSET_PREFIX}"
+      # NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL = "${var.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL}graphql"
     }
   }
 
@@ -47,7 +49,7 @@ resource "aws_lambda_function" "this" {
   }
 }
 
-resource "aws_lambda_function_url" "app_url" {
+resource "aws_lambda_function_url" "this" {
   function_name = aws_lambda_function.this.function_name
 
   authorization_type = "NONE"

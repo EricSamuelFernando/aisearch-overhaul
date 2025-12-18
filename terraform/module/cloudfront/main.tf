@@ -25,6 +25,10 @@ data "aws_cloudfront_origin_request_policy" "origin_request_policy" {
   name = "Managed-CORS-S3Origin"
 }
 
+data "aws_cloudfront_response_headers_policy" "response_header_policy" {
+  name = "Managed-CORS-with-preflight-and-SecurityHeadersPolicy"
+}
+
 resource "aws_cloudfront_distribution" "distribution" {
   origin {
     domain_name              = var.s3_domain_name
@@ -46,7 +50,7 @@ resource "aws_cloudfront_distribution" "distribution" {
 
   enabled         = true
   is_ipv6_enabled = true
-  # aliases         = [var.domain]
+  aliases         = ["www.snaphomz.com"]
 
   default_cache_behavior {
     viewer_protocol_policy = "allow-all"
@@ -58,46 +62,49 @@ resource "aws_cloudfront_distribution" "distribution" {
   }
 
   ordered_cache_behavior {
-    path_pattern             = "_next/*"
-    viewer_protocol_policy   = "allow-all"
-    cache_policy_id          = data.aws_cloudfront_cache_policy.cache_optimized.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.origin_request_policy.id
-    allowed_methods          = ["GET", "HEAD", "OPTIONS"]
-    cached_methods           = ["GET", "HEAD", "OPTIONS"]
-    compress                 = true
-    target_origin_id         = "S3Origin"
+    path_pattern               = "_next/*"
+    viewer_protocol_policy     = "allow-all"
+    cache_policy_id            = data.aws_cloudfront_cache_policy.cache_optimized.id
+    origin_request_policy_id   = data.aws_cloudfront_origin_request_policy.origin_request_policy.id
+    allowed_methods            = ["GET", "HEAD", "OPTIONS"]
+    cached_methods             = ["GET", "HEAD", "OPTIONS"]
+    compress                   = true
+    target_origin_id           = "S3Origin"
+    response_headers_policy_id = data.aws_cloudfront_response_headers_policy.response_header_policy.id
   }
 
   ordered_cache_behavior {
-    path_pattern             = "public/*"
-    viewer_protocol_policy   = "allow-all"
-    cache_policy_id          = data.aws_cloudfront_cache_policy.cache_optimized.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.origin_request_policy.id
-    allowed_methods          = ["GET", "HEAD", "OPTIONS"]
-    cached_methods           = ["GET", "HEAD", "OPTIONS"]
-    compress                 = true
-    target_origin_id         = "S3Origin"
+    path_pattern               = "public/*"
+    viewer_protocol_policy     = "allow-all"
+    cache_policy_id            = data.aws_cloudfront_cache_policy.cache_optimized.id
+    origin_request_policy_id   = data.aws_cloudfront_origin_request_policy.origin_request_policy.id
+    allowed_methods            = ["GET", "HEAD", "OPTIONS"]
+    cached_methods             = ["GET", "HEAD", "OPTIONS"]
+    compress                   = true
+    target_origin_id           = "S3Origin"
+    response_headers_policy_id = data.aws_cloudfront_response_headers_policy.response_header_policy.id
   }
 
   ordered_cache_behavior {
-    path_pattern             = "assets/*"
-    viewer_protocol_policy   = "allow-all"
-    cache_policy_id          = data.aws_cloudfront_cache_policy.cache_optimized.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.origin_request_policy.id
-    allowed_methods          = ["GET", "HEAD", "OPTIONS"]
-    cached_methods           = ["GET", "HEAD", "OPTIONS"]
-    compress                 = true
-    target_origin_id         = "S3Origin"
+    path_pattern               = "assets/*"
+    viewer_protocol_policy     = "allow-all"
+    cache_policy_id            = data.aws_cloudfront_cache_policy.cache_optimized.id
+    origin_request_policy_id   = data.aws_cloudfront_origin_request_policy.origin_request_policy.id
+    allowed_methods            = ["GET", "HEAD", "OPTIONS"]
+    cached_methods             = ["GET", "HEAD", "OPTIONS"]
+    compress                   = true
+    response_headers_policy_id = data.aws_cloudfront_response_headers_policy.response_header_policy.id
+    target_origin_id           = "S3Origin"
   }
 
-  # viewer_certificate {
-  #   acm_certificate_arn      = var.acm_certificate_arn
-  #   ssl_support_method       = "sni-only"
-  #   minimum_protocol_version = "TLSv1.2_2021"
-  # }
   viewer_certificate {
-    cloudfront_default_certificate = true
+    acm_certificate_arn      = "arn:aws:acm:us-east-1:075502422618:certificate/26bb1ff9-ee05-48cb-b2f3-abbc161a3548"
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
   }
+  # viewer_certificate {
+  #   cloudfront_default_certificate = true
+  # }
 
   price_class = var.price_class
 

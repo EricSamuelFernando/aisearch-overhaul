@@ -28,30 +28,10 @@ data "aws_iam_policy_document" "s3_bucket_policy" {
   }
 }
 
-# data "aws_iam_policy_document" "s3_bucket_policy" {
-#   statement {
-#     principals {
-#       type        = "*"
-#       identifiers = ["*"]
-#     }
-#     effect    = "Allow"
-#     actions   = ["s3:GetObject"]
-#     resources = ["${aws_s3_bucket.frontend.arn}/*"]
-#   }
-# }
-
 resource "aws_s3_bucket_policy" "allow_public_access" {
   bucket = aws_s3_bucket.frontend.id
   policy = data.aws_iam_policy_document.s3_bucket_policy.json
 }
-
-# resource "aws_s3_bucket_public_access_block" "block_public_access" {
-#   bucket                  = aws_s3_bucket.frontend.id
-#   block_public_acls       = false
-#   block_public_policy     = false
-#   ignore_public_acls      = false
-#   restrict_public_buckets = false
-# }
 
 resource "aws_s3_bucket" "frontend" {
   bucket = local.bucket_name
@@ -66,7 +46,12 @@ resource "aws_s3_bucket_cors_configuration" "frontend" {
 
   cors_rule {
     allowed_methods = ["GET", "HEAD"]
-    allowed_origins = ["https://d3t6xtiakz1dzi.cloudfront.net"]
+    allowed_origins = [
+      "https://d3t6xtiakz1dzi.cloudfront.net",
+      "https://www.snaphomz.com",
+      "https://snaphomz.com",
+      "https://waitlist.snaphomz.com"
+    ]
     allowed_headers = ["*"]
     expose_headers  = []
     max_age_seconds = 3000

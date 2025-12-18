@@ -106,9 +106,12 @@ const LandingBuyPropertyProvider: React.FC<React.PropsWithChildren> = ({
     mlsPropertyQuery.isSuccess,
   ]);
 
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const hasValidClientId = googleClientId && googleClientId.trim().length > 0;
+
   return (
     <>
-    {userData?.isLoggedIn ? null :
+    {userData?.isLoggedIn || !hasValidClientId ? null :
       <GoogleOneTap />
     }
       <LandingBuyPropertyContext.Provider

@@ -118,7 +118,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        {/* Google Tag Manager */}
+         {/* Google Tag Manager */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -131,8 +131,8 @@ export default function RootLayout({
           }}
         />
         {/* End Google Tag Manager */}
-        <meta name='viewport' content='width=device-width, initial-scale=1' />
-        <Script src='https://widget.cloudinary.com/v2.0/global/all.js' />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <Script src="https://widget.cloudinary.com/v2.0/global/all.js" />
         <script
           key='google-maps'
           src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`}
@@ -148,11 +148,11 @@ export default function RootLayout({
         {/* Google Tag Manager (noscript) */}
         <noscript>
           <iframe
-            src='https://www.googletagmanager.com/ns.html?id=GTM-5WD3TKNN'
-            height='0'
-            width='0'
+            src="https://www.googletagmanager.com/ns.html?id=GTM-5WD3TKNN"
+            height="0"
+            width="0"
             style={{ display: 'none', visibility: 'hidden' }}
-            title='Google Tag Manager'
+            title="Google Tag Manager"
           />
         </noscript>
         <ClientRoot>

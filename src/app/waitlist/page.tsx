@@ -47,7 +47,7 @@ const referr = ["LinkedIn", "Instagram", "Facebook", "Twitter", "Google", "Word 
 
 useEffect(() => {
   if (data?.total) {
-    setTotalUsers(128 + parseInt(data.total));
+    setTotalUsers(parseInt(data.total));
   }
 }, [data]);
   const filteredLocations = locationSuggestions.filter((loc) =>

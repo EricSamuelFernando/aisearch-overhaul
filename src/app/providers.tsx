@@ -24,6 +24,26 @@ import { WindowSizeProvider } from '@/providers/window-size-provider';
 import SocketProvider from '@/providers/socket.context';
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '448512456564-p64marq9uat5onc9ncj0mr69uol806s4.apps.googleusercontent.com';
+  const hasValidClientId = googleClientId && googleClientId.trim().length > 0;
+
+  const appContent = (
+    <DisclosureProvider>
+      <AppQueryProviders>
+        <ModalProvider initialModals={initialModals}>
+          <Modals />
+          <SocketProvider>
+            <CollectionModalProvider>
+              {children}
+            </CollectionModalProvider>
+          </SocketProvider>
+          <WindowSizeProvider />
+        </ModalProvider>
+        <Toaster position='top-right' duration={2000} richColors />
+      </AppQueryProviders>
+    </DisclosureProvider>
+  );
+
   return (
     <StoreProvider>
       <MantineProvider 
@@ -45,24 +65,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
         primaryColor: 'ocOrange', // Use ocOrange as primary color for other components
       }}
          >
-        <GoogleOAuthProvider
-          clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID as string}
-        >
-          <DisclosureProvider>
-            <AppQueryProviders>
-              <ModalProvider initialModals={initialModals}>
-                <Modals />
-                <SocketProvider>
-                  <CollectionModalProvider>
-                    {children}
-                  </CollectionModalProvider>
-                </SocketProvider>
-                <WindowSizeProvider />
-              </ModalProvider>
-              <Toaster position='top-right' duration={2000} richColors />
-            </AppQueryProviders>
-          </DisclosureProvider>
-        </GoogleOAuthProvider>
+        {hasValidClientId ? (
+          <GoogleOAuthProvider clientId={googleClientId}>
+            {appContent}
+          </GoogleOAuthProvider>
+        ) : (
+          appContent
+        )}
       </MantineProvider>
     </StoreProvider>
   );

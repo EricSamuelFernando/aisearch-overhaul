@@ -6,7 +6,7 @@ export default function DoNotSellOrShare() {
       <header className="w-full bg-[#120500] py-4">
         <div className="mx-auto flex items-center justify-center px-6">
           <Image
-            src="/Snaphomz-Logo-White-01.png"
+            src="/assets/Snaphomz-Logo-White-01.png"
             alt="Snaphomz logo"
             width={200}
             height={40}

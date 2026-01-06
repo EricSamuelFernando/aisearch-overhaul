@@ -184,7 +184,7 @@ export default function DoNotSellOrShare() {
 
 
 
-export interface NavItem {
+interface NavItem {
   title: string;
   href?: string;
   disabled?: boolean;
@@ -193,16 +193,12 @@ export interface NavItem {
   label?: string;
 }
 
-
-
-
-
-export interface IFooterItems {
+interface IFooterItems {
   title: string;
   links: NavItem[];
 }
 
-export const footerLinks: Record<string, IFooterItems> = {
+const footerLinks: Record<string, IFooterItems> = {
   company: {
     title: 'Company',
     links: [
@@ -231,9 +227,9 @@ export const footerLinks: Record<string, IFooterItems> = {
   },
 };
 
-export interface MainNavItem extends NavItem {}
+interface MainNavItem extends NavItem {}
 
-export const socialLinks: MainNavItem[] = [
+const socialLinks: MainNavItem[] = [
   {
     title: 'twitter',
     external: true,

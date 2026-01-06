@@ -10,7 +10,7 @@ import { storeCookie } from "@/lib/storage"
 import ReactPlayer from "react-player"
 import 'odometer/themes/odometer-theme-default.css';
 import dynamic from "next/dynamic";
-const Odometer = dynamic(() => import('react-odometerjs'), {ssr: false,});
+const Odometer = dynamic(() => import('react-odometerjs'), { ssr: false, });
 import { toast } from 'sonner';
 const WaitlistPage = () => {
   const [activeTab, setActiveTab] = useState("Default")
@@ -35,7 +35,7 @@ const WaitlistPage = () => {
   // const locationSuggestions = ["New York", "Los Angeles", "San Francisco", "Austin", "Chicago", "Miami", "Seattle", "Dallas", "Atlanta"]
   const [isClient, setIsClient] = useState(false);
   const [referralSource, setReferralSource] = useState("");
-const referr = ["LinkedIn", "Instagram", "Facebook", "Twitter", "Google", "Word of Mouth"];
+  const referr = ["LinkedIn", "Instagram", "Facebook", "Twitter", "Google", "Word of Mouth"];
   const [loadingLocation, setLoadingLocation] = useState(false);
   useEffect(() => {
     // Ensures it renders only after hydration
@@ -43,13 +43,13 @@ const referr = ["LinkedIn", "Instagram", "Facebook", "Twitter", "Google", "Word 
   }, []);
   const { data, isLoading, error } = getWaitlistQuery;
   // debugger
- const [totalUsers, setTotalUsers] = useState(128);
+  const [totalUsers, setTotalUsers] = useState(128);
 
-useEffect(() => {
-  if (data?.total) {
-    setTotalUsers(parseInt(data.total));
-  }
-}, [data]);
+  useEffect(() => {
+    if (data?.total) {
+      setTotalUsers(parseInt(data.total));
+    }
+  }, [data]);
   const filteredLocations = locationSuggestions.filter((loc) =>
     loc.toLowerCase().includes(preferredLocation.toLowerCase())
   )
@@ -110,7 +110,7 @@ useEffect(() => {
           },
           onError: (error) => {
             setLoading(false)
-             toast.error(error.message);
+            toast.error(error.message);
             console.error("Error submitting waitlist:", error);
           },
         }
@@ -268,8 +268,8 @@ useEffect(() => {
             src="/assets/images/image.png"
             alt="logo"
             className="w-[120px] h-[36px] sm:w-[170px] sm:h-[45px] lg:w-[240px] lg:h-[72px]"
-            // width={240}
-            // height={72}
+          // width={240}
+          // height={72}
           />
         </div>
       </header>
@@ -399,21 +399,21 @@ useEffect(() => {
                   )}
                 </div>
 
-                 <div className="relative">
-                <select
-                  value={referralSource}
-                  onChange={(e) => setReferralSource(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-800 text-gray-400 rounded-md"
-                >
-                  <option value="">How did you hear about us</option>
-                  {referr.map((source) => (
-                    <option key={source} value={source}>
-                      {source}
-                    </option>
-                  ))}
-                </select>
-                {/* {errors.referralSource && <p className="text-red-500 text-sm">{errors.referralSource}</p>} */}
-              </div>
+                <div className="relative">
+                  <select
+                    value={referralSource}
+                    onChange={(e) => setReferralSource(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-800 text-gray-400 rounded-md"
+                  >
+                    <option value="">How did you hear about us</option>
+                    {referr.map((source) => (
+                      <option key={source} value={source}>
+                        {source}
+                      </option>
+                    ))}
+                  </select>
+                  {/* {errors.referralSource && <p className="text-red-500 text-sm">{errors.referralSource}</p>} */}
+                </div>
                 <button
                   onClick={handleSubmit}
                   disabled={loading}
@@ -426,11 +426,11 @@ useEffect(() => {
 
             {/* Right Section - Image Carousel */}
             <div className="w-full lg:w-1/2 mt-8 lg:mt-0 space-y-6 flex flex-col items-center">
-              {isClient?<div className="text-white text-4xl sm:text-5xl font-bold tracking-tight animate-fadeInUp">
+              {isClient ? <div className="text-white text-4xl sm:text-5xl font-bold tracking-tight animate-fadeInUp">
                 {/* <Odometer value={128+parseInt(data?.total)} format="(,ddd)" /> */}
-                    <Odometer value={totalUsers} format="(,ddd)" />+
+                <Odometer value={totalUsers} format="(,ddd)" />+
                 <p className="text-lg text-gray-400 mt-1">early adopters are already experiencing radical transparency with Snaphomz</p>
-              </div>:null}
+              </div> : null}
               <div className="w-full">{tabContent[activeTab as keyof typeof tabContent]}</div>
 
               {/* Tab Navigation */}
@@ -468,6 +468,34 @@ useEffect(() => {
                 ))}
               </div> */}
             </div>
+          </div>
+
+          {/* Navigation Cards */}
+          <div className="mt-16 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
+            {[
+              { href: "https://preapproval.snaphomz.com", src: "/assets/nav icon/PreAproval-By-Snaphomz_02.png", alt: "Pre-Approval" },
+              { href: "https://snapinterest.snaphomz.com", src: "/assets/nav icon/SnapInterest-By-Snaphomz_02.png", alt: "Snap Interest" },
+              { href: "https://rentvsbuy.snaphomz.com", src: "/assets/nav icon/Rent-Vs-Buy-By-Snaphomz_02.png", alt: "Rent vs Buy" },
+              { href: "https://snapdisclosures.snaphomz.com", src: "/assets/nav icon/SnapDisclosures-By-Snaphomz_02.png", alt: "Snap Disclosures" },
+              { href: "https://snapgrad.snaphomz.com", src: "/assets/nav icon/SnapGrad-By-Snaphomz_01.png", alt: "Snap Grad" },
+            ].map((card, index) => (
+              <a
+                key={index}
+                href={card.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-col items-center justify-center py-4 px-4 rounded-2xl bg-gray-900/50 border border-gray-800 hover:border-gray-600 hover:bg-gray-800/80 transition-all duration-300 group h-[100px]"
+              >
+                <div className="relative w-full h-full transition-transform duration-300 group-hover:scale-105">
+                  <Image
+                    src={card.src}
+                    alt={card.alt}
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+              </a>
+            ))}
           </div>
         </div>
       </main>

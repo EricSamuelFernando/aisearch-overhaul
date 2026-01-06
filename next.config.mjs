@@ -8,6 +8,16 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const nextConfig = {
+  assetPrefix: process.env.NEXT_PUBLIC_ASSET_PREFIX || '',
+
+  images: {
+    loader: 'custom',
+    path: process.env.NEXT_PUBLIC_ASSET_PREFIX || '',
+  },
+  output: 'standalone',
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   images: {
     domains: [
       'raw.githubusercontent.com',
@@ -31,7 +41,7 @@ const nextConfig = {
       'ssl.cdn-redfin.com',
       'i.pravatar.cc',
       'imagecdn.realty.com',
-      'snaphomz.s3.eu-north-1.amazonaws.com'
+      'snaphomz.s3.eu-north-1.amazonaws.com',
     ],
     remotePatterns: [
       {
@@ -77,9 +87,9 @@ const nextConfig = {
   transpilePackages: ['lucide-react'],
   reactStrictMode: true,
   swcMinify: true,
-  future: {
-    webpack5: true,
-  },
+  // future: {
+  //   webpack5: true,
+  // },
   webpack: (config) => {
     config.plugins.push(
       new CopyPlugin({

@@ -471,13 +471,14 @@ const WaitlistPage = () => {
           </div>
 
           {/* Navigation Cards */}
-          <div className="mt-16 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
+          <div className="mt-16 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6">
             {[
               { href: "https://preapproval.snaphomz.com", src: "/assets/nav icon/PreAproval-By-Snaphomz_02.png", alt: "Pre-Approval" },
               { href: "https://snapinterest.snaphomz.com", src: "/assets/nav icon/SnapInterest-By-Snaphomz_02.png", alt: "Snap Interest" },
               { href: "https://rentvsbuy.snaphomz.com", src: "/assets/nav icon/Rent-Vs-Buy-By-Snaphomz_02.png", alt: "Rent vs Buy" },
               { href: "https://snapdisclosures.snaphomz.com", src: "/assets/nav icon/SnapDisclosures-By-Snaphomz_02.png", alt: "Snap Disclosures" },
               { href: "https://snapgrad.snaphomz.com", src: "/assets/nav icon/SnapGrad-By-Snaphomz_01.png", alt: "Snap Grad" },
+              { href: "https://snapaudit.snaphomz.com", src: "/assets/nav icon/SnapAudit-Logo-01.svg", alt: "Snap Audit" },
             ].map((card, index) => (
               <a
                 key={index}

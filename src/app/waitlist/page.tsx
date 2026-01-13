@@ -478,7 +478,7 @@ const WaitlistPage = () => {
               { href: "https://rentvsbuy.snaphomz.com", src: "/assets/nav icon/Rent-Vs-Buy-By-Snaphomz_02.png", alt: "Rent vs Buy" },
               { href: "https://snapdisclosures.snaphomz.com", src: "/assets/nav icon/SnapDisclosures-By-Snaphomz_02.png", alt: "Snap Disclosures" },
               { href: "https://snapgrad.snaphomz.com", src: "/assets/nav icon/SnapGrad-By-Snaphomz_01.png", alt: "Snap Grad" },
-              { href: "https://snapaudit.snaphomz.com", src: "/assets/nav icon/SnapAudit-Logo-01.svg", alt: "Snap Audit" },
+              { href: "https://snapaudit.snaphomz.com", src: "/assets/nav icon/snapAudit.png", alt: "Snap Audit" },
             ].map((card, index) => (
               <a
                 key={index}

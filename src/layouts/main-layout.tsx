@@ -108,7 +108,7 @@ function MainLayout({ children }: Readonly<Props>) {
         <Footer />
       )} */}
       {typeof pathname === 'string' &&
-  (pathname === '/home' || pathname.includes('/browse') || pathname.includes('/preview'))
+  (pathname === '/home' || pathname.includes('/browse') || pathname.includes('/preview') || pathname.includes('/do-not-sell-or-share'))
   ? null
   : <Footer />}
 

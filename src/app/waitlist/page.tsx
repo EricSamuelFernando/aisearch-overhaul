@@ -43,7 +43,7 @@ const WaitlistPage = () => {
   }, []);
   const { data, isLoading, error } = getWaitlistQuery;
   // debugger
-  const [totalUsers, setTotalUsers] = useState(128);
+  const [totalUsers, setTotalUsers] = useState(15138);
 
   useEffect(() => {
     if (data?.total) {

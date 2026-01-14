@@ -473,19 +473,19 @@ const WaitlistPage = () => {
           {/* Navigation Cards */}
           <div className="mt-16 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6">
             {[
-              { href: "https://preapproval.snaphomz.com", src: "/assets/nav icon/PreAproval-By-Snaphomz_02.png", alt: "Pre-Approval" },
-              { href: "https://snapinterest.snaphomz.com", src: "/assets/nav icon/SnapInterest-By-Snaphomz_02.png", alt: "Snap Interest" },
-              { href: "https://rentvsbuy.snaphomz.com", src: "/assets/nav icon/Rent-Vs-Buy-By-Snaphomz_02.png", alt: "Rent vs Buy" },
-              { href: "https://snapdisclosures.snaphomz.com", src: "/assets/nav icon/SnapDisclosures-By-Snaphomz_02.png", alt: "Snap Disclosures" },
-              { href: "https://snapgrad.snaphomz.com", src: "/assets/nav icon/SnapGrad-By-Snaphomz_01.png", alt: "Snap Grad" },
-              { href: "https://snapaudit.snaphomz.com", src: "/assets/nav icon/snapAudit.png", alt: "Snap Audit" },
+              { href: "https://preapproval.snaphomz.com", src: "/assets/nav icon/SnapPreApproval-Logo-Light-01.svg", alt: "Pre-Approval" },
+              { href: "https://snapinterest.snaphomz.com", src: "/assets/nav icon/SnapInterest-Logo-Light-01.svg", alt: "Snap Interest" },
+              { href: "https://rentvsbuy.snaphomz.com", src: "/assets/nav icon/SnapRentBuy-Logo-Light-01.svg", alt: "Rent vs Buy" },
+              { href: "https://snapdisclosures.snaphomz.com", src: "/assets/nav icon/SnapDisclosure-Logo-Light-01.svg", alt: "Snap Disclosures" },
+              { href: "https://snapgrad.snaphomz.com", src: "/assets/nav icon/SnapGrad-Logo-Light-01.svg", alt: "Snap Grad" },
+              { href: "https://snapaudit.snaphomz.com", src: "/assets/nav icon/SnapAudit-Logo-Light-01.svg", alt: "Snap Audit" },
             ].map((card, index) => (
               <a
                 key={index}
                 href={card.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex flex-col items-center justify-center py-4 px-4 rounded-2xl bg-gray-900/50 border border-gray-800 hover:border-gray-600 hover:bg-gray-800/80 transition-all duration-300 group h-[100px]"
+                className="flex flex-col items-center justify-center py-4 px-4 rounded-2xl bg-gray-900/50 border border-orange-500/30 shadow-[0_0_10px_rgba(249,115,22,0.2)] hover:border-orange-500/50 hover:shadow-[0_0_20px_rgba(249,115,22,0.4)] hover:bg-gray-800/80 transition-all duration-300 group h-[100px]"
               >
                 <div className="relative w-full h-full transition-transform duration-300 group-hover:scale-105">
                   <Image

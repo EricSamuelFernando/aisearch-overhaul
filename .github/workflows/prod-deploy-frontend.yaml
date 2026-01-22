@@ -15,7 +15,7 @@ env:
   LAMBDA_FUNCTION_NAME: "snaphomz-frontend-prod-terraform"
   NODE_VERSION: "22.x"
   S3_BUCKET: "snaphomz-frontend-prod-terraform"
-  CLOUDFRONT_DISTRIBUTION_ID: "EBYQP7QX6FW6J"
+  CLOUDFRONT_DISTRIBUTION_ID: "E27MB2F0VHAUFH"
 
 jobs:
   deploy-frontend-prod:

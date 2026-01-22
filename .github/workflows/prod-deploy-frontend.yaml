@@ -8,7 +8,7 @@ on:
     paths-ignore: ["terraform/**", "README.md", ".github/workflows/prod-deploy-terraform.yaml"]
 
 env:
-  AWS_REGION: us-east-1
+  AWS_REGION: us-west-1
   ECR_REGISTRY: "075502422618.dkr.ecr.us-east-1.amazonaws.com"
   ECR_REPOSITORY: "snaphomz-frontend-prod-terraform"
   LAMBDA_FUNCTION_NAME: "snaphomz-nextjs-frontend-prod"

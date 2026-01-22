@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - prod-deploy
+      - lambda-cicd
 
     paths-ignore: ["terraform/**", "README.md", ".github/workflows/prod-deploy-terraform.yaml"]
 

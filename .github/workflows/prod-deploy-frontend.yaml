@@ -9,11 +9,11 @@ on:
 
 env:
   AWS_REGION: us-west-1
-  ECR_REGISTRY: "075502422618.dkr.ecr.us-east-1.amazonaws.com"
+  ECR_REGISTRY: "075502422618.dkr.ecr.us-west-1.amazonaws.com"
   ECR_REPOSITORY: "snaphomz-frontend-prod-terraform"
-  LAMBDA_FUNCTION_NAME: "snaphomz-nextjs-frontend-prod"
+  LAMBDA_FUNCTION_NAME: "snaphomz-frontend-prod-terraform"
   NODE_VERSION: "22.x"
-  S3_BUCKET: "snaphomz-nextjs-frontend-prod"
+  S3_BUCKET: "snaphomz-frontend-prod-terraform"
   CLOUDFRONT_DISTRIBUTION_ID: "EBYQP7QX6FW6J"
 
 jobs:

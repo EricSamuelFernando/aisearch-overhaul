@@ -28,7 +28,7 @@ function SellerOverview() {
         {!loading ? <OverviewDetails /> : null}
       </div>
       <section className='flex flex-wrap justify-between lg:flex-col lg:justify-start'>
-        {/* <ToursList /> */}
+        <ToursList />
         <NotificationList />
         <Agents />
       </section>

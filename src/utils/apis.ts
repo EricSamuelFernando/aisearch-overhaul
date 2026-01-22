@@ -41,7 +41,7 @@ export const AGENT_SUBMIT_OFFER = '/property/agent/submit/offer';
 
 // Property Enpoints
 export const PROPERTIES = `/property`;
-export const GET_PROPERTY = `/property/single`;
+export const GET_PROPERTY = `/api/property`;
 export const UPDATE_PROPERTY = `/property/update`;
 export const SCHEDULE_PROPERTY_TOUR = `/property/schedule/tour`;
 export const BUYER_CREATE_OFFER = `/property/buyer/create/offer`;

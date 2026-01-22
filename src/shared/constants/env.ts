@@ -24,8 +24,6 @@ export const APP_PUBLIC_ROUTE = [
   '/sell',
   '/agents',
   '/buy/browse',
-  '/',
-  '/waitlist',
   /^\/buy\/[^/]+\/prop\/preview$/,
 ];
 export const PRIVATE_DYNAMIC_ROUTE = [
@@ -48,21 +46,21 @@ export const APP_PRIVATE_ROUTE = [
 
 export const VERSION_NUMBER = '0.0.0.3';
 
-export const SNAPHOMZ_MAIN_APPLICATION_URL = process.env.NEXT_PUBLIC_SNAPHOMZ_MAIN_FRONTEND_URL || "http://13.60.114.186:8000" ;
+export const SNAPHOMZ_MAIN_APPLICATION_URL = process.env.NEXT_PUBLIC_SNAPHOMZ_MAIN_FRONTEND_URL || "http://13.60.114.186:8000";
 
-export const MORTGAGE_APPLICATION_URL = process.env.NEXT_PUBLIC_MORTGAGE_FRONTEND_URL || "http://13.60.114.186:8000" ;
+export const MORTGAGE_APPLICATION_URL = process.env.NEXT_PUBLIC_MORTGAGE_FRONTEND_URL || "http://13.60.114.186:8000";
 
 export const AI_BACKEND_BASE_URI = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI
 
-export const PROPERTY_SEARCH_AI_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/search` || "http://13.60.114.186:9000/api/search" ;
+export const PROPERTY_SEARCH_AI_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/search` || "http://13.60.114.186:9000/api/search";
 
 export const PROPERTY_DETAIL_SEARCH_AI_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/get_data` || 'http://13.60.114.186:9000/api/get_data'
 
-export const PROPERTY_SEARCH_PREFERENCE_AI_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/search/preference`|| 'http://13.60.114.186:9000/api/search/preference'
+export const PROPERTY_SEARCH_PREFERENCE_AI_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/search/preference` || 'http://13.60.114.186:9000/api/search/preference'
 
 export const PROPERTY_SEARCH_DATA_LIMIT_AI_URL = process.env.SEARCH_RECORDS || 10;
 
-export const GET_PROPERTY_SEARCH_PREFERENCE_AI_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/preference`|| 'http://13.60.114.186:9000/api/preference'
+export const GET_PROPERTY_SEARCH_PREFERENCE_AI_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/preference` || 'http://13.60.114.186:9000/api/preference'
 
 export const COMMUNICATION_SOCKET_URI = process.env.NEXT_PUBLIC_COMMUNICATION_SOCKET_URI
 
@@ -70,11 +68,11 @@ export const COMMUNICATION_SERVICE_URI = process.env.NEXT_PUBLIC_COMMUNICATION_S
 
 export const GET_MESSAGE_PROPERTY_MESSAGE_THREADS = `${COMMUNICATION_SERVICE_URI}/conversations/threads`
 
-export const deploymentEnv = process.env.NEXT_PUBLIC_AUTH_SERVICE_GRAPHQL_URL 
+export const deploymentEnv = process.env.NEXT_PUBLIC_AUTH_SERIVCE_SOCKET_URL || "http://localhost:4000";
 
 export const AGENT_APPLICATIONS = process.env.NEXT_PUBLIC_AGENT_URL;
 
-export const mlsDeploymentEnv = process.env.NEXT_PUBLIC_MLS_ENVIROMENT_URL;
+export const mlsDeploymentEnv = process.env.NEXT_PUBLIC_MLS_ENVIROMENT_URL || deploymentEnv || "https://demo-ai.snaphomz.com";
 export const publicDomain = process.env.NEXT_PUBLIC_DOMAIN;
 export const googleMapsUrl = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_URL;
 export const googleMapsApiKey = process.env.NEXT_PUBLIC_MAP_KEY || "AIzaSyAD1nloXcpFm5mvgyRdvgwFFpin7dEwwwc";

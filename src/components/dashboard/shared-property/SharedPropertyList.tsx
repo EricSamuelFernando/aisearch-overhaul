@@ -24,12 +24,12 @@ interface SharedProperty {
 
 const SharedPropertyList = () => {
 
-    const { data: sharedProperties, isLoading, isError } = useSharedProperties();
+  const { data: sharedProperties, isLoading, isError } = useSharedProperties();
 
-    if (isLoading) {
-      return <div className="px-12 py-16 text-gray-500">Loading shared properties...</div>;
-    }
-  
+  if (isLoading) {
+    return <div className="px-12 py-16 text-gray-500">Loading shared properties...</div>;
+  }
+
   return (
     <div className="px-12 py-16 min-h-screen">
       <h2 className="mb-6 text-2xl font-semibold text-gray-800">Shared Properties</h2>
@@ -38,7 +38,7 @@ const SharedPropertyList = () => {
         <div className="text-gray-500 text-sm">No properties shared yet.</div>
       ) : (
         <div className="flex gap-6 overflow-x-auto">
-          {sharedProperties?.map((property:SharedProperty) => (
+          {sharedProperties?.map((property: SharedProperty) => (
             <div
               key={property.id}
               className="min-w-[320px] rounded-2xl shadow-md bg-black "

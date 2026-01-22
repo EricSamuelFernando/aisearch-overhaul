@@ -204,6 +204,7 @@ import { Icons } from '../../icons';
 import { useCollectionModal } from '@/providers/collection-modal-provider';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useSelector } from 'react-redux';
+import { useUserSnapAPIs } from '@/hooks/api/auth/snaps.API';
 
 type Props = {
   cardRef: RefObject<HTMLDivElement>;
@@ -228,6 +229,41 @@ function ItemNav({ cardRef }: Props) {
   const router = useRouter();
   const propertyData = useSelector((state: any) => state.property.property);
   const propertyId = params?.propertyId as string;
+
+  // New Logic
+  const userData = useSelector((state: any) => state.auth.user);
+  const { getAllSnaps } = useUserSnapAPIs();
+  const [snaps, setSnaps] = useState<any[]>([]);
+
+  const fetchSnaps = () => {
+    if (userData?.id) {
+      getAllSnaps.mutate(userData.id, {
+        onSuccess: (data) => {
+          setSnaps(data);
+        },
+      });
+    }
+  };
+
+  useEffect(() => {
+    fetchSnaps();
+  }, [userData?.id]);
+
+  const isPropertyInFavourite = (snapsList: any[]) => {
+    if (!Array.isArray(snapsList)) {
+      return false;
+    }
+    const isAvailable = snapsList.some((snap: any) =>
+      snap?.favourites?.some((favourite: any) => {
+        const propertyIdMatch = favourite?.propertyId === propertyData?.id;
+        const listingIdMatch = favourite?.listingId === propertyData?.listingId;
+        return propertyIdMatch || listingIdMatch;
+      })
+    );
+    return isAvailable;
+  };
+
+  const isFavored = isPropertyInFavourite(snaps);
 
   const Server_URL = process.env.NEXT_PUBLIC_APPLICATION_URL;
   const propertyLink = `${Server_URL}buy/${propertyId}/prop/preview?propertyId=${propertyData?.id}&listingId=${propertyData?.listingId}`;
@@ -254,7 +290,7 @@ function ItemNav({ cardRef }: Props) {
   return (
     <div
       ref={navSection}
-className="fixed left-0 top-[70px] z-20 w-full bg-white px-4 py-3 sm:px-6 md:px-8 shadow-sm mt-[10px] md:mt-0"
+      className="fixed left-0 top-[70px] z-20 w-full bg-white px-4 py-3 sm:px-6 md:px-8 shadow-sm mt-[10px] md:mt-0"
     >
       {/* MOBILE: Two rows  */}
       <div className='flex flex-col gap-2 md:flex-row md:items-center md:justify-between'>
@@ -284,14 +320,14 @@ className="fixed left-0 top-[70px] z-20 w-full bg-white px-4 py-3 sm:px-6 md:px-
             <button
               onClick={() => {
                 if (isLoggedIn) {
-                  openCollectionModal(propertyId, '/assets/images/property-placeholder.jpg');
+                  openCollectionModal(propertyId, '/assets/images/property-placeholder.jpg', fetchSnaps);
                 } else {
                   router.push('/login');
                 }
               }}
               className='flex items-center gap-2 text-[#818181] hover:text-black'
             >
-              <Heart className='h-4 w-4' />
+              <Heart className={cn('h-4 w-4', isFavored ? 'fill-orange-500 text-orange-500' : '')} />
             </button>
           </div>
         </div>
@@ -305,7 +341,7 @@ className="fixed left-0 top-[70px] z-20 w-full bg-white px-4 py-3 sm:px-6 md:px-
               className={cn(
                 'snap-start whitespace-nowrap px-4 py-2 text-sm font-medium text-[#818181] hover:border-b-[2px] hover:border-black hover:text-black',
                 hash === item.hash &&
-                  'border-b-[2px] border-black bg-[#F8F8F8] text-black'
+                'border-b-[2px] border-black bg-[#F8F8F8] text-black'
               )}
             >
               {item.title}
@@ -325,14 +361,14 @@ className="fixed left-0 top-[70px] z-20 w-full bg-white px-4 py-3 sm:px-6 md:px-
           <button
             onClick={() => {
               if (isLoggedIn) {
-                openCollectionModal(propertyId, '/assets/images/property-placeholder.jpg');
+                openCollectionModal(propertyId, '/assets/images/property-placeholder.jpg', fetchSnaps);
               } else {
                 router.push('/login');
               }
             }}
             className='flex items-center gap-2 text-[#818181] hover:text-black'
           >
-            <Heart className='h-4 w-4' />
+            <Heart className={cn('h-4 w-4', isFavored ? 'fill-orange-500 text-orange-500' : '')} />
           </button>
         </div>
       </div>

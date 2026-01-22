@@ -1,386 +1,189 @@
-// 'use client';
-
-// import React, { useState } from 'react';
-// import { Carousel } from '@mantine/carousel';
-// import {
-//   Paper,
-//   Text,
-//   Group,
-//   Container,
-//   Title,
-//   SegmentedControl,
-// } from '@mantine/core';
-// import {
-//   FaComment,
-//   FaClock,
-//   FaConciergeBell,
-//   FaLaptop,
-//   FaChartLine,
-//   FaLock,
-// } from 'react-icons/fa';
-// import { useMediaQuery } from '@mantine/hooks';
-
-// import '@mantine/core/styles.css';
-// import '@mantine/carousel/styles.css';
-// import Image from 'next/image';
-// import guidline from '../../../public/assets/icons/Guided.svg';
-// import reduced from '../../../public/assets/icons/Reduced.svg';
-// import concierge from '../../../public/assets/icons/Concierge.svg';
-// import { IconArrowLeft, IconArrowNarrowLeft, IconArrowNarrowRight, IconArrowRight } from '@tabler/icons-react';
-
-// const features = [
-//   // TRANSACTION category
-//   {
-//     category: 'Transaction',
-//     icon: <Image src={guidline} alt="Guided Transactions" width={50} height={50} />,
-//     title: 'Guided transactions',
-//     description:
-//       'Gain unprecedented control with guided transactions, approval workflows, task tracking, and comprehensive closing services.',
-//   },
-//   {
-//     category: 'Transaction',
-//     icon: <Image src={reduced} alt="Guided Transactions" width={50} height={50} />,
-//     title: 'Reduced time for task completion',
-//     description:
-//       'Our platform increases task efficiency by 50%, saving 30% on routine tasks and 80% on complex ones.',
-//   },
-//   {
-//     category: 'Transaction',
-//     icon: <Image src={concierge} alt="Guided Transactions" width={50} height={50} />,
-//     title: 'Concierge services',
-//     description:
-//       'Track interior design, remodeling, renovation, landscaping, and moving with our Concierge Services feature.',
-//   },
-//   {
-//     category: 'Transaction',
-//     icon: <FaComment size={40} color="#FF6A13" />,
-//     title: 'Guided transactions',
-//     description:
-//       'Gain unprecedented control with guided transactions, approval workflows, task tracking, and comprehensive closing services.',
-//   },
-//   {
-//     category: 'Transaction',
-//     icon: <FaClock size={40} color="#FF6A13" />,
-//     title: 'Reduced time for task completion',
-//     description:
-//       'Our platform increases task efficiency by 50%, saving 30% on routine tasks and 80% on complex ones.',
-//   },
-//   {
-//     category: 'Transaction',
-//     icon: <FaConciergeBell size={40} color="#FF6A13" />,
-//     title: 'Concierge services',
-//     description:
-//       'Track interior design, remodeling, renovation, landscaping, and moving with our Concierge Services feature.',
-//   },
-
-//   // TECHNOLOGY category
-//   {
-//     category: 'Technology',
-//     icon: <FaLaptop size={40} color="#FF6A13" />,
-//     title: 'AI‐powered recommendations',
-//     description:
-//       'Our AI engine analyzes market data in real time to suggest best‐fit listings and financing options.',
-//   },
-//   {
-//     category: 'Technology',
-//     icon: <FaChartLine size={40} color="#FF6A13" />,
-//     title: 'Live analytics dashboard',
-//     description:
-//       'See up‐to‐the‐minute market trends, monitor your home’s value, and track your savings goals in one place.',
-//   },
-//   {
-//     category: 'Technology',
-//     icon: <FaLock size={40} color="#FF6A13" />,
-//     title: 'Secure document storage',
-//     description:
-//       'All your contracts and disclosures are encrypted and stored on our platform—accessible from anywhere.',
-//   },
-//   {
-//     category: 'Technology',
-//     icon: <FaChartLine size={40} color="#FF6A13" />,
-//     title: 'Live analytics dashboard',
-//     description:
-//       'See up‐to‐the‐minute market trends, monitor your home’s value, and track your savings goals in one place.',
-//   },
-//   {
-//     category: 'Technology',
-//     icon: <FaLock size={40} color="#FF6A13" />,
-//     title: 'Secure document storage',
-//     description:
-//       'All your contracts and disclosures are encrypted and stored on our platform—accessible from anywhere.',
-//   },
-
-//   // TRANSPARENCY category
-//   {
-//     category: 'Transparency',
-//     icon: <FaComment size={40} color="#FF6A13" />,
-//     title: 'Clear fee breakdowns',
-//     description:
-//       'No hidden costs. We show you every fee, every commission, and every closing cost in plain English.',
-//   },
-//   {
-//     category: 'Transparency',
-//     icon: <FaClock size={40} color="#FF6A13" />,
-//     title: 'Real‐time status updates',
-//     description:
-//       'Know exactly where you stand in your transaction—no more guessing or waiting for status emails.',
-//   },
-//   {
-//     category: 'Transparency',
-//     icon: <FaConciergeBell size={40} color="#FF6A13" />,
-//     title: 'Open communication channels',
-//     description:
-//       'Message, call, or video‐chat your agent, lender, and closing coordination team all from one dashboard.',
-//   },
-//   {
-//     category: 'Transparency',
-//     icon: <FaClock size={40} color="#FF6A13" />,
-//     title: 'Real‐time status updates',
-//     description:
-//       'Know exactly where you stand in your transaction—no more guessing or waiting for status emails.',
-//   },
-//   {
-//     category: 'Transparency',
-//     icon: <FaConciergeBell size={40} color="#FF6A13" />,
-//     title: 'Open communication channels',
-//     description:
-//       'Message, call, or video‐chat your agent, lender, and closing coordination team all from one dashboard.',
-//   },
-// ];
-
-// const WeMakeItEasy = () => {
-//   const [activeCategory, setActiveCategory] = useState('Transaction');
-
-//   // Responsive breakpoints for slide size
-//   const isSmallScreen = useMediaQuery('(max-width: 768px)');
-//   const isMediumScreen = useMediaQuery('(max-width: 992px)');
-//   const slideSize = isSmallScreen
-//     ? '100%'
-//     : isMediumScreen
-//       ? '50%'
-//       : '33.3333%';
-
-//   // Only show features matching the selected tab
-//   const filteredFeatures = features.filter(
-//     (feature) => feature.category === activeCategory
-//   );
-
-//   return (
-//     <section className="bg-[#FAF0E6]  pt-32 pl-24">
-//       <div className=" mx-auto text-center">
-//         {/* Heading */}
-//         <h2 className="text-3xl sm:text-4xl font-medium ">
-//           We Make It <span className="font-normal">Easy</span>
-//         </h2>
-//         <p className="text-xs sm:text-sm text-gray-600 mb-12 max-w-[600px] mx-auto">
-//           Tailor your homebuying experience — your way, with the guidance you need.
-//         </p>
-
-//         {/* SegmentedControl (three tabs styled like the first screenshot) */}
-//         <Container size="sm" className='mb-20' px={0} >
-//   <SegmentedControl
-//     value={activeCategory}
-//     onChange={setActiveCategory}
-//     color='#323131'
-    
-//     data={[
-//       { label: 'Transaction', value: 'Transaction' },
-//       { label: 'Technology', value: 'Technology' },
-//       { label: 'Transparency', value: 'Transparency' },
-//     ]}
-//     radius="12px"
-//     size="md"
-//     styles={{
-      
-//       root: {
-//         backgroundColor: '#170800',   // dark-brown for the background
-//         borderRadius: '12px',          // rounded corners
-//         overflow: 'hidden',
-//         display: 'flex',
-//         width: 380,                    // fixed width
-//         maxWidth: '100%',              // prevents overflow on mobile
-//         margin: '0 auto',
-//       },
-      
-
-//       control: ({ checked }: { checked: boolean }) => ({
-//         flex: 1,
-//         padding: '8px 24px',
-//         border: 'none',
-//         cursor: 'pointer',
-//         fontSize: '0.9rem',
-
-//         // Active button (checked): Background color updated to #323131
-//         backgroundColor: checked ? '#323131' : 'green', // #323131 for active
-//         color: checked ? '#ffffff' : '#D9CFC2',           // White text for active, light beige for inactive
-
-//         borderRadius: 0,  // The pill's edges are handled by root’s radius
-//         position: 'relative',
-
-//         // Hover effect: a faint white background for inactive buttons
-//         '&:hover': {
-//           backgroundColor: checked
-//             ? '#323131' // active stays #323131
-//             : 'rgba(255, 255, 255, 0.1)', // inactive gets a faint white hover effect
-//         },
-
-//         // Rounded corners for the first and last buttons
-//         '&:first-of-type': {
-//           borderTopLeftRadius: '12px',
-//           borderBottomLeftRadius: '12px',
-//         },
-
-//         '&:last-of-type': {
-//           borderTopRightRadius: '12px',
-//           borderBottomRightRadius: '12px',
-//         },
-
-//         // White divider line between the second and third buttons
-//         '&:nth-of-type(2):after': {
-//           content: "''",
-//           position: 'absolute',
-//           top: '15%',
-//           right: 0,
-//           width: 1,
-//           height: '70%',
-//           backgroundColor: '#170800', // White divider
-//         },
-//       }),
-//     }}
-//   />
-// </Container>
-
-
-//         {/* Carousel */}
-//         <Carousel
-          
-//           slideSize="36%"
-//           align="start"
-//           loop
-//           slideGap="lg"
-//           height={400}
-//           nextControlIcon={<IconArrowNarrowRight size={36} stroke={1} />}
-//           previousControlIcon={<IconArrowNarrowLeft size={36} stroke={1} />}
-          
-//           styles={{
-//             root: { position: 'relative', width: '100%' , marginTop:'32px' },
-
-//             controls: {
-//               position: 'relative',
-//               marginTop: '32px',
-//               justifyContent: 'flex-end',
-//               gap:12,
-//               marginRight:20
-
-//             },
-//             control:{
-//               padding:8,
-//               width:100,
-//               background:'#F5EBDF',
-//               border:'none',
-//               boxShadow:'none'
-              
-//             }
-            
-
-          
-
-           
-//           }}
-//         >
-//           {filteredFeatures.map((feature, index) => (
-//             <Carousel.Slide key={index}>
-//               <Paper
-//                 bg="#F4E5D0"
-//                 style={{
-//                   borderRadius: '16px',
-//                   padding: '60px',
-//                   height: '100%',
-//                   display: 'flex',
-//                   flexDirection: 'column',
-//                   alignItems: 'center',
-//                   justifyContent: 'center',
-//                 }}
-//               >
-//                 <Group justify="center" mb="md">
-//                   {feature.icon}
-//                 </Group>
-//                 <h3 className="text-[20px] font-bold px-[80px] mb-2">
-//                   {feature.title}
-//                 </h3>
-//                 <Text size="md" color="#707070" ta="center">
-//                   {feature.description}
-//                 </Text>
-//               </Paper>
-//             </Carousel.Slide>
-//           ))}
-//         </Carousel>
-//       </div>
-//     </section>
-//   );
-// };
-
-// export { WeMakeItEasy };
 'use client';
 
 import React, { useState } from 'react';
 import { Carousel } from '@mantine/carousel';
-import { Paper, Text, Group, Container, SegmentedControl } from '@mantine/core';
+import {
+  Paper,
+  Text,
+  Group,
+  Container,
+  Title,
+  SegmentedControl,
+} from '@mantine/core';
+import {
+  FaComment,
+  FaClock,
+  FaConciergeBell,
+  FaLaptop,
+  FaChartLine,
+  FaLock,
+} from 'react-icons/fa';
 import { useMediaQuery } from '@mantine/hooks';
-import { IconArrowNarrowLeft, IconArrowNarrowRight } from '@tabler/icons-react';
-import Image from 'next/image';
 
 import '@mantine/core/styles.css';
 import '@mantine/carousel/styles.css';
-
+import Image from 'next/image';
 import guidline from '../../../public/assets/icons/Guided.svg';
 import reduced from '../../../public/assets/icons/Reduced.svg';
 import concierge from '../../../public/assets/icons/Concierge.svg';
-import { FaComment, FaClock, FaConciergeBell, FaLaptop, FaChartLine, FaLock } from 'react-icons/fa';
+import { IconArrowLeft, IconArrowNarrowLeft, IconArrowNarrowRight, IconArrowRight } from '@tabler/icons-react';
 
 const features = [
-  { category: 'Transaction', icon: <Image src={guidline} alt="Guided" width={50} height={50} />, title: 'Guided transactions',
-    description: 'Gain unprecedented control with guided transactions, approval workflows, task tracking, and comprehensive closing services.' },
-  { category: 'Transaction', icon: <Image src={reduced} alt="Reduced time" width={50} height={50} />, title: 'Reduced time for task completion',
-    description: 'Our platform increases task efficiency by 50%, saving 30% on routine tasks and 80% on complex ones.' },
-  { category: 'Transaction', icon: <Image src={concierge} alt="Concierge" width={50} height={50} />, title: 'Concierge services',
-    description: 'Track interior design, remodeling, renovation, landscaping, and moving with our Concierge Services feature.' },
+  // TRANSACTION category
+  {
+    category: 'Transaction',
+    icon: <Image src={guidline} alt="Guided Transactions" width={50} height={50} />,
+    title: 'Guided transactions',
+    description:
+      'Gain unprecedented control with guided transactions, approval workflows, task tracking, and comprehensive closing services.',
+  },
+  {
+    category: 'Transaction',
+    icon: <Image src={reduced} alt="Guided Transactions" width={50} height={50} />,
+    title: 'Reduced time for task completion',
+    description:
+      'Our platform increases task efficiency by 50%, saving 30% on routine tasks and 80% on complex ones.',
+  },
+  {
+    category: 'Transaction',
+    icon: <Image src={concierge} alt="Guided Transactions" width={50} height={50} />,
+    title: 'Concierge services',
+    description:
+      'Track interior design, remodeling, renovation, landscaping, and moving with our Concierge Services feature.',
+  },
+  {
+    category: 'Transaction',
+    icon: <FaComment size={40} color="#FF6A13" />,
+    title: 'Guided transactions',
+    description:
+      'Gain unprecedented control with guided transactions, approval workflows, task tracking, and comprehensive closing services.',
+  },
+  {
+    category: 'Transaction',
+    icon: <FaClock size={40} color="#FF6A13" />,
+    title: 'Reduced time for task completion',
+    description:
+      'Our platform increases task efficiency by 50%, saving 30% on routine tasks and 80% on complex ones.',
+  },
+  {
+    category: 'Transaction',
+    icon: <FaConciergeBell size={40} color="#FF6A13" />,
+    title: 'Concierge services',
+    description:
+      'Track interior design, remodeling, renovation, landscaping, and moving with our Concierge Services feature.',
+  },
 
-  { category: 'Technology', icon: <FaLaptop size={40} color="#FF6A13" />, title: 'AI-powered recommendations',
-    description: 'Our AI engine analyzes market data in real time to suggest best-fit listings and financing options.' },
-  { category: 'Technology', icon: <FaChartLine size={40} color="#FF6A13" />, title: 'Live analytics dashboard',
-    description: 'See up-to-the-minute market trends, monitor your home’s value, and track your savings goals in one place.' },
-  { category: 'Technology', icon: <FaLock size={40} color="#FF6A13" />, title: 'Secure document storage',
-    description: 'All your contracts and disclosures are encrypted and stored on our platform—accessible from anywhere.' },
+  // TECHNOLOGY category
+  {
+    category: 'Technology',
+    icon: <FaLaptop size={40} color="#FF6A13" />,
+    title: 'AI‐powered recommendations',
+    description:
+      'Our AI engine analyzes market data in real time to suggest best‐fit listings and financing options.',
+  },
+  {
+    category: 'Technology',
+    icon: <FaChartLine size={40} color="#FF6A13" />,
+    title: 'Live analytics dashboard',
+    description:
+      'See up‐to‐the‐minute market trends, monitor your home’s value, and track your savings goals in one place.',
+  },
+  {
+    category: 'Technology',
+    icon: <FaLock size={40} color="#FF6A13" />,
+    title: 'Secure document storage',
+    description:
+      'All your contracts and disclosures are encrypted and stored on our platform—accessible from anywhere.',
+  },
+  {
+    category: 'Technology',
+    icon: <FaChartLine size={40} color="#FF6A13" />,
+    title: 'Live analytics dashboard',
+    description:
+      'See up‐to‐the‐minute market trends, monitor your home’s value, and track your savings goals in one place.',
+  },
+  {
+    category: 'Technology',
+    icon: <FaLock size={40} color="#FF6A13" />,
+    title: 'Secure document storage',
+    description:
+      'All your contracts and disclosures are encrypted and stored on our platform—accessible from anywhere.',
+  },
 
-  { category: 'Transparency', icon: <FaComment size={40} color="#FF6A13" />, title: 'Clear fee breakdowns',
-    description: 'No hidden costs. We show you every fee, every commission, and every closing cost in plain English.' },
-  { category: 'Transparency', icon: <FaClock size={40} color="#FF6A13" />, title: 'Real-time status updates',
-    description: 'Know exactly where you stand in your transaction—no more guessing or waiting for status emails.' },
-  { category: 'Transparency', icon: <FaConciergeBell size={40} color="#FF6A13" />, title: 'Open communication channels',
-    description: 'Message, call, or video-chat your agent, lender, and closing coordination team all from one dashboard.' },
+  // TRANSPARENCY category
+  {
+    category: 'Transparency',
+    icon: <FaComment size={40} color="#FF6A13" />,
+    title: 'Clear fee breakdowns',
+    description:
+      'No hidden costs. We show you every fee, every commission, and every closing cost in plain English.',
+  },
+  {
+    category: 'Transparency',
+    icon: <FaClock size={40} color="#FF6A13" />,
+    title: 'Real‐time status updates',
+    description:
+      'Know exactly where you stand in your transaction—no more guessing or waiting for status emails.',
+  },
+  {
+    category: 'Transparency',
+    icon: <FaConciergeBell size={40} color="#FF6A13" />,
+    title: 'Open communication channels',
+    description:
+      'Message, call, or video‐chat your agent, lender, and closing coordination team all from one dashboard.',
+  },
+  {
+    category: 'Transparency',
+    icon: <FaClock size={40} color="#FF6A13" />,
+    title: 'Real‐time status updates',
+    description:
+      'Know exactly where you stand in your transaction—no more guessing or waiting for status emails.',
+  },
+  {
+    category: 'Transparency',
+    icon: <FaConciergeBell size={40} color="#FF6A13" />,
+    title: 'Open communication channels',
+    description:
+      'Message, call, or video‐chat your agent, lender, and closing coordination team all from one dashboard.',
+  },
 ];
 
 const WeMakeItEasy = () => {
-  const [activeCategory, setActiveCategory] = useState<'Transaction' | 'Technology' | 'Transparency'>('Transaction');
-  const isSm = useMediaQuery('(max-width: 768px)');
+  const [activeCategory, setActiveCategory] = useState('Transaction');
 
-  const filtered = features.filter((f) => f.category === activeCategory);
+  // Responsive breakpoints for slide size
+  const isSmallScreen = useMediaQuery('(max-width: 768px)');
+  const isMediumScreen = useMediaQuery('(max-width: 992px)');
+  const slideSize = isSmallScreen
+    ? '90%'          // reduced width on mobile
+    : isMediumScreen
+      ? '50%'
+      : '33.3333%';
+
+
+  // Only show features matching the selected tab
+  const filteredFeatures = features.filter(
+    (feature) => feature.category === activeCategory
+  );
 
   return (
-    <section className="bg-[#FAF0E6] pt-24 pb-12 md:pt-32 md:pb-20">
-      <div className="mx-auto max-w-[420px] md:max-w-6xl px-4 text-center">
-        <h2 className="text-3xl sm:text-4xl font-medium">
-          We Make it <span className="font-normal italic">Easy</span>
+    <section className="bg-[#FFF6EC] pt-20 pb-20 px-4 sm:px-6 lg:px-24 overflow-x-hidden">
+      <div className=" mx-auto text-center">
+        {/* Heading */}
+        <h2 className=" satoshi text-3xl sm:text-4xl font-semibold ">
+          We Make It <span className="font-light">Easy</span>
         </h2>
-        <p className="text-xs sm:text-sm text-gray-600 mb-8 sm:mb-12 max-w-[600px] mx-auto">
+        <p className="satoshi text-xs sm:text-sm text-[#8E8B8A] mb-12 max-w-[600px] mx-auto">
           Tailor your homebuying experience — your way, with the guidance you need.
         </p>
 
-        <Container size="sm" className="mb-8 sm:mb-12" px={0}>
+        {/* SegmentedControl (three tabs styled like the first screenshot) */}
+        <Container size="sm" className='mb-20' px={0} >
           <SegmentedControl
             value={activeCategory}
-            onChange={(v) => setActiveCategory(v as any)}
+            onChange={setActiveCategory}
+            color='#323131'
+
             data={[
               { label: 'Transaction', value: 'Transaction' },
               { label: 'Technology', value: 'Technology' },
@@ -389,79 +192,181 @@ const WeMakeItEasy = () => {
             radius="12px"
             size="md"
             styles={{
+
               root: {
-                backgroundColor: '#170800',
-                borderRadius: 12,
+                backgroundColor: '#170800',   // dark container background
+                borderRadius: '12px',          // rounded corners
                 overflow: 'hidden',
-                width: 360,
-                maxWidth: '100%',
+                display: 'flex',
+                width: 380,                    // fixed width
+                maxWidth: '100%',              // prevents overflow on mobile
                 margin: '0 auto',
-                padding: 4,
+                padding: '4px',                // padding for inset effect and gap between buttons (matching image)
+                gap: '4px',                    // gap between buttons (matching image)
               },
+
+
               control: ({ checked }: { checked: boolean }) => ({
                 flex: 1,
-                padding: '10px 16px',
-                border: 'none',
-                fontSize: 14,
-                backgroundColor: checked ? '#323131' : 'transparent',
-                color: checked ? '#FFFFFF' : '#D9CFC2',
-                borderRadius: 10,
+                padding: '10px 24px',
+                border: 'none !important',
+                borderLeft: 'none !important',
+                borderRight: 'none !important',
+                borderTop: 'none !important',
+                borderBottom: 'none !important',
+                outline: 'none',
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                fontWeight: 500,
+                transition: 'all 0.2s ease',
+                minHeight: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: 'none',
+
+                // Active button (checked): Dark gray background with white text
+                backgroundColor: checked ? '#323131' : 'transparent', // Transparent for inactive
+                color: checked ? '#ffffff' : '#F0F0F0',           // White text for active, very light gray for inactive tabs (Technology & Transparency)
+
+                borderRadius: '8px',  // Rounded corners
                 position: 'relative',
-                '&:not(:last-of-type)::after': {
-                  content: "''",
-                  position: 'absolute',
-                  right: 0,
-                  top: '22%',
-                  height: '56%',
-                  width: 1,
-                  backgroundColor: '#2A1A10',
+
+                // Remove any borders or dividers
+                '&::before': {
+                  display: 'none !important',
+                  content: 'none',
+                },
+                '&::after': {
+                  display: 'none !important',
+                  content: 'none',
+                },
+
+                // Remove any adjacent borders that create divider lines
+                '& + &': {
+                  borderLeft: 'none !important',
+                  marginLeft: 0,
+                },
+                
+                // Ensure proper spacing with gap
+                margin: 0,
+
+                // Hover effect - clear visibility for inactive tabs
+                '&:hover': {
+                  backgroundColor: checked
+                    ? '#323131'
+                    : '#323131',  // Dark gray background on hover for inactive tabs
+                  color: '#ffffff !important', // Always white text on hover for better visibility
+                  border: 'none !important',
+                  fontWeight: 600, // Slightly bolder on hover for better visibility
+                },
+                
+                // Target label text on hover
+                '&:hover label': {
+                  color: '#ffffff !important',
+                  fontWeight: 600,
+                },
+                
+                '&:hover .mantine-SegmentedControl-label': {
+                  color: '#ffffff !important',
+                  fontWeight: 600,
+                },
+                
+                // Active focus state for accessibility
+                '&:focus': {
+                  backgroundColor: '#323131',
+                  color: '#ffffff !important',
+                  outline: 'none',
+                  border: 'none !important',
+                },
+
+                // Rounded corners for the first and last buttons
+                '&:first-of-type': {
+                  borderTopLeftRadius: '8px',
+                  borderBottomLeftRadius: '8px',
+                  borderLeft: 'none !important',
+                },
+
+                '&:last-of-type': {
+                  borderTopRightRadius: '8px',
+                  borderBottomRightRadius: '8px',
+                  borderRight: 'none !important',
                 },
               }),
+
+              // Remove any indicator or divider elements
+              indicator: {
+                display: 'none !important',
+              },
+
+              label: {
+                position: 'relative',
+                border: 'none !important',
+                color: 'inherit !important', // Inherit from control: white for active, #D9CFC2 for inactive (matching second image)
+                transition: 'color 0.2s ease',
+                '&::before': {
+                  display: 'none !important',
+                  content: 'none',
+                },
+                '&::after': {
+                  display: 'none !important',
+                  content: 'none',
+                },
+              },
             }}
           />
         </Container>
 
-        {/* HIDE CONTROLS ON MOBILE */}
+
+        {/* Carousel */}
         <Carousel
-          withControls={!isSm}                       // ← hide arrows on mobile
-          align="start"
+          slideSize={slideSize}
+          align={isSmallScreen ? 'center' : 'start'}
           loop
-          slideGap="md"
-          slideSize={isSm ? '86%' : '33.333%'}
-          height={isSm ? 300 : 340}
-          nextControlIcon={<IconArrowNarrowRight size={26} stroke={1.2} />}
-          previousControlIcon={<IconArrowNarrowLeft size={26} stroke={1.2} />}
+          slideGap="lg"
+          height={isSmallScreen ? 'auto' : 400}
+
+          // withControls={!isSmallScreen}   // 👈 KEY LINE
+          withControls={false}   // 👈 Disabled controls
+          // nextControlIcon={<IconArrowNarrowRight size={36} stroke={1} />}
+          // previousControlIcon={<IconArrowNarrowLeft size={36} stroke={1} />}
+
           styles={{
-            root: { position: 'relative', width: '100%' },
-            viewport: { paddingBottom: 8 },
-            controls: isSm
-              ? { display: 'none' }                 // ← also ensure no space is reserved
-              : {
-                  position: 'relative',
-                  marginTop: 24,
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  gap: 12,
-                  marginRight: 8,
-                },
+            root: {
+              position: 'relative',
+              width: '100%',
+              marginTop: '32px',
+              backgroundColor: isSmallScreen ? 'transparent' : undefined, // 👈 remove bg
+            },
+
+            controls: {
+              position: 'relative',
+              marginTop: '32px',
+              justifyContent: 'flex-end',
+              gap: 12,
+              marginRight: isSmallScreen ? 0 : 20,
+            },
+
             control: {
-              width: 44,
-              height: 34,
-              borderRadius: 12,
+              padding: 8,
+              width: 100,
               background: '#F5EBDF',
               border: 'none',
               boxShadow: 'none',
             },
           }}
         >
-          {filtered.map((feature, i) => (
-            <Carousel.Slide key={`${feature.title}-${i}`}>
+
+          {filteredFeatures.map((feature, index) => (
+            <Carousel.Slide key={index}>
               <Paper
                 bg="#F4E5D0"
                 style={{
-                  borderRadius: 16,
-                  padding: isSm ? 20 : 28,
-                  height: isSm ? 280 : 300,
+                  borderRadius: '14px',
+                  padding: isSmallScreen ? '18px' : '60px', // 👈 slightly tighter
+                  height: '100%',
+                  maxWidth: isSmallScreen ? '320px' : '100%', // 👈 KEY LINE
+                  margin: '0 auto',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
@@ -471,10 +376,10 @@ const WeMakeItEasy = () => {
                 <Group justify="center" mb="md">
                   {feature.icon}
                 </Group>
-                <h3 className="text-[18px] sm:text-[20px] font-bold mb-2">
+                <h3 className="text-[18px] sm:text-[20px] font-semibold px-2 sm:px-6 mb-2 text-center">
                   {feature.title}
                 </h3>
-                <Text size="sm" className="text-[#707070]" ta="center">
+                <Text size="md" color="#707070" ta="center">
                   {feature.description}
                 </Text>
               </Paper>

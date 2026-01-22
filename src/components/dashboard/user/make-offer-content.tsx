@@ -36,6 +36,7 @@ import { usePropertyAPI } from '@/hooks/api/auth/engagementAPI';
 import { Loader } from '@mantine/core';
 import { SocketContext } from '@/providers/socket.context';
 import { message } from '@public/assets/icons';
+import { useRepoManagementApi } from '@/hooks/api/document/useRepoManagement';
 
 const Editor = dynamic(() => import('@/components/custom-editor'), {
   ssr: true,
@@ -43,7 +44,7 @@ const Editor = dynamic(() => import('@/components/custom-editor'), {
 
 function MakeOfferContent() {
   const { propertyId: id } = useParams<{ propertyId: string; item: string }>();
- 
+
   const [isUploading, setIsUploading] = useState(false);
   const { socket, state, setState } = useContext(SocketContext)
   const currentUser = useSelector(userData);
@@ -59,14 +60,15 @@ function MakeOfferContent() {
   const [documents, setDocuments] = useState<FileWithPath[]>([]);
 
   const { useCreatePropertyOffer, uploadNewFile } = usePropertyServiceAPI()
+  const { createRepoWithUploadedFile } = useRepoManagementApi();
 
   const handleFileUpload = async () => {
     if (!documents.length) return;
-  
+
     const uploadPromises = documents.map(async (file) => {
       try {
         const { key } = await uploadNewFile(file, currentUser.id, engagedProperty?.propertyId);
-  
+
         const payload = {
           uploadedFile: {
             fileName: file.name,
@@ -83,29 +85,29 @@ function MakeOfferContent() {
             isArchived: false
           }
         };
-  
+
         return new Promise<void>((resolve, reject) => {
           mutate(payload, {
             onSuccess: () => resolve(),
             onError: (err) => reject(err),
           });
         });
-  
+
       } catch (err) {
         console.error('File upload failed:', file.name, err);
         throw err;
       }
     });
-  
+
     const results = await Promise.allSettled(uploadPromises);
-  
+
     results.forEach((result, index) => {
       if (result.status === 'rejected') {
         error({ message: `Failed to upload ${documents[index].name}` });
       }
     });
   };
-  
+
   const { mutate: createOffer, isPending: offerPending } = useCreatePropertyOffer()
 
   const { propertyProgressMutation } = usePropertyAPI()
@@ -117,9 +119,9 @@ function MakeOfferContent() {
   const { selectedOffer } = useAppSelector(state => state.property)
 
   const offerData: any = requestType === "edit" ? selectedOffer : "";
-  
+
   const router = useRouter();
-  const [offers  , setOffers] = useState([])
+  const [offers, setOffers] = useState([])
 
   const { getOffersPropertyByEngagementId } = usePropertyServiceAPI();
 
@@ -130,20 +132,20 @@ function MakeOfferContent() {
   };
 
   const getEngagedProperty = () => {
- 
+
     getOffersPropertyByEngagementId.mutate(engagedProperty?.id, {
       onSuccess: (response) => {
-      
+
         setOffers(response?.data?.data?.getPropertyOfferByEngagementId);
       },
       onError: (error) => {
         console.log('Error in mutation: ', error);
-  
+
       }
     });
   };
 
-  console.log("Documents" , documents)
+  console.log("Documents", documents)
 
   const offerDataDocuments = offerData?.documents;
 
@@ -153,11 +155,11 @@ function MakeOfferContent() {
     }
   }, [offerData]);
 
-  useEffect(() =>{
+  useEffect(() => {
     getEngagedProperty()
-  },[])
+  }, [])
 
-  const buttonLabel =  'Submit';
+  const buttonLabel = 'Submit';
 
   const filesNames = documents.map((document) => document.name);
 
@@ -211,10 +213,10 @@ function MakeOfferContent() {
   //           receiverId:'851524d2-7a93-4d06-b5d4-088a847f3f4a',
   //           roomId: selectedThreadInfo?.roomId
   //         }
-    
+
   //         console.log(payload)
   //        // socket.emit('sendThreadNotification', payload)
-    
+
   //         socket?.emit(
   //           "sendThreadNotification",
   //           payload,
@@ -277,29 +279,57 @@ function MakeOfferContent() {
       return;
     }
     try {
-     setIsUploading(true)
+      setIsUploading(true)
       const allowedFileTypes = ['image/jpeg', 'image/png', 'application/pdf']; // Define allowed file types
 
-const documentUploadResults = await Promise.all(
-  documents.map(file => {
-    // Check if the file type is valid
-    if (allowedFileTypes.includes(file.type)) {
-      return uploadNewFile(file, currentUser.id, engagedProperty?.propertyId);
-    } else {
-      // Skip file upload if the file type is not allowed
-      console.log(`File type ${file.type} is not supported. Skipping upload.`);
-      return null; // Return null or skip the file upload
-    }
-  })
-);
-  
-     const documentIds = documentUploadResults.filter(result => result !== null).map(result => result.key);
-     setIsUploading(false)
+      const documentUploadResults = await Promise.all(
+        documents.map(async file => {
+          if (allowedFileTypes.includes(file.type) || true) { // Relaxed validation
+            const uploadResult = await uploadNewFile(file, currentUser.id, engagedProperty?.propertyId);
+
+            if (uploadResult?.key) {
+              // Create Repo Entry for "Other Docs"
+              const payload = {
+                uploadedFile: {
+                  fileName: file.name,
+                  fileSize: file.size,
+                  fileUrl: uploadResult.key,
+                  fileType: file.type
+                },
+                createRepoManagementInput: {
+                  name: 'proof-document',
+                  url: '/proof-document',
+                  propertyId: engagedProperty?.propertyId,
+                  createdBy: currentUser.id,
+                  parentFolderName: 'proof-document',
+                  isArchived: false
+                }
+              };
+
+              try {
+                await createRepoWithUploadedFile.mutateAsync(payload);
+              } catch (repoError) {
+                console.error("Failed to create repo entry", repoError);
+              }
+
+              return uploadResult;
+            }
+            return null;
+          } else {
+            console.log(`File type ${file.type} is not supported. Skipping upload.`);
+            return null;
+          }
+        })
+      );
+
+      const documentIds = documentUploadResults.filter((result): result is { key: string } => result !== null && result !== undefined).map(result => result.key);
+
+      setIsUploading(false)
       // Step 2: Build offer payload
       const date = new Date();
       date.setDate(date.getDate() + 30);
       const expiryNewDate = date.toLocaleString();
-  
+
       const mapToDto = (): any => ({
         userId: currentUser?.id,
         propertyEngagementId: engagedProperty?.id || '5697c782-127b-494a-a07b-c9e713cd0d11',
@@ -321,24 +351,37 @@ const documentUploadResults = await Promise.all(
         closeEscrowDays: form.values.closeEscrow?.amount || offerData?.closeEscrowDays,
         expiryDate: expiryNewDate || new Date() || '',
         documentsIds: [
-          ...(Array.isArray(offerData?.documentsIds) ? offerData?.documentsIds : []),
-          ...(Array.isArray(documentIds) ? documentIds : [])
+          ...(
+            Array.isArray(offerData?.documentsIds)
+              ? offerData.documentsIds.filter(
+                (v: any): v is string => typeof v === "string" && v.trim().length > 0
+              )
+              : []
+          ),
+          ...(
+            Array.isArray(documentIds)
+              ? documentIds.filter(
+                (v: any): v is string => typeof v === "string" && v.trim().length > 0
+              )
+              : []
+          ),
         ],
+
         isSeller: false,
         isBuyer: false
       });
-  
+
       const data = mapToDto();
-  
+
       // Step 3: Create Offer
       createOffer(data, {
         onSuccess: (data: any) => {
           success({ message: 'Offer Created Successfully' });
-  
+
           const notificationMessage = requestType === "edit"
             ? `Offer is edited by ${currentUser?.firstname} ${currentUser?.lastname}`
             : `New Offer is created by ${currentUser?.firstname} ${currentUser?.lastname}`;
-  
+
           if (socket) {
             const payload = {
               message: notificationMessage,
@@ -346,43 +389,45 @@ const documentUploadResults = await Promise.all(
               threadId: selectedThreadInfo?.id || "",
               senderId: currentUser?.id,
               messageType: "notification",
-              receiverId:engagedProperty?.participants?.[0]?.agent?.id,
+              receiverId: engagedProperty?.participants?.[0]?.agent?.id,
               roomId: selectedThreadInfo?.roomId
             };
-  
-            socket?.emit("sendThreadNotification", payload, {
+
+            socket?.emit("sendThreadNotification", {
+              ...payload,
               reciepent: engagedProperty?.participants?.[0]?.agent?.id,
               userName: currentUser?.firstName + " " + currentUser?.lastName,
-            }, null);
+            });
           }
-           
-          if(!offers?.length){
+
+          if (!offers?.length) {
             mutate({
               progress: parseInt(engagedProperty?.propertyProgress) + 10,
               id: engagedProperty?.id
             })
           }
 
-          if(requestType != "edit"){
+          if (requestType != "edit") {
             router.push(`/property/${id}/pre-approval`);
           }
-          else{
+          else {
             router.push(`/dashboard/buyer/property/${id}`);
           }
-          
+
         }
       });
-  
-    } catch (err:any) {
+
+    } catch (err: any) {
       console.error("Error uploading documents or creating offer:", err);
-      error({ message: err?.message ||"Failed to submit offer. Please try again." });
+      error({ message: err?.message || "Failed to submit offer. Please try again." });
+      setIsUploading(false); // Ensure loading state is reset
     }
 
 
   };
 
   console.log(offers?.length)
-  
+
 
   return (
     <section className='relative  min-h-screen'>
@@ -401,7 +446,7 @@ const documentUploadResults = await Promise.all(
               <Editor
 
                 onChange={(val) => form.setFieldValue('coverLetter', val)}
-                value={ form.values.coverLetter || "" }
+                value={form.values.coverLetter || ""}
               />
               {form.errors.coverLetter && (
                 <p className='mt-1 text-sm text-red-500'>
@@ -426,22 +471,22 @@ const documentUploadResults = await Promise.all(
             )}
           </div>
 
-            <section className='my-10'>
-              <div className='py-8 text-black'>
-                <h2 className='font-bold'>Upload Document</h2>
-                <p className='text-sm text-grey-970'>
-                  Optional ( As your agent will be required to upload before final
-                  submission )
-                </p>
-              </div>
+          <section className='my-10'>
+            <div className='py-8 text-black'>
+              <h2 className='font-bold'>Upload Document</h2>
+              <p className='text-sm text-grey-970'>
+                Optional ( As your agent will be required to upload before final
+                submission )
+              </p>
+            </div>
 
 
-              <DocumentsUpload
-                documents={documents}
-                addFileToDocuments={addFileToDocuments}
-              />
-            </section>
-          
+            <DocumentsUpload
+              documents={documents}
+              addFileToDocuments={addFileToDocuments}
+            />
+          </section>
+
 
 
 
@@ -512,7 +557,7 @@ export default MakeOfferContent;
 
 // function MakeOfferContent() {
 //   const { propertyId: id } = useParams<{ propertyId: string; item: string }>();
- 
+
 //   const [isUploading, setIsUploading] = useState(false);
 //   const { socket, state, setState } = useContext(SocketContext)
 //   const currentUser = useSelector(userData);
@@ -533,11 +578,11 @@ export default MakeOfferContent;
 
 //   const handleFileUpload = async () => {
 //     if (!documents.length) return;
-  
+
 //     const uploadPromises = documents.map(async (file) => {
 //       try {
 //         const { key } = await uploadNewFile(file, currentUser.id, engagedProperty?.propertyId);
-  
+
 //         const payload = {
 //           uploadedFile: {
 //             fileName: file.name,
@@ -554,30 +599,30 @@ export default MakeOfferContent;
 //             isArchived: false
 //           }
 //         };
-  
+
 //         return new Promise<void>((resolve, reject) => {
 //           mutate(payload, {
 //             onSuccess: () => resolve(),
 //             onError: (err) => reject(err),
 //           });
 //         });
-  
+
 //       } catch (err) {
 //         console.error('File upload failed:', file.name, err);
 //         throw err;
 //       }
 //     });
-  
+
 //     const results = await Promise.allSettled(uploadPromises);
-  
+
 //     results.forEach((result, index) => {
 //       if (result.status === 'rejected') {
 //         error({ message: `Failed to upload ${documents[index].name}` });
 //       }
 //     });
 //   };
-  
-  
+
+
 
 //   const { mutate: createOffer, isPending: offerPending } = useCreatePropertyOffer()
 
@@ -671,10 +716,10 @@ export default MakeOfferContent;
 //   //           receiverId:'851524d2-7a93-4d06-b5d4-088a847f3f4a',
 //   //           roomId: selectedThreadInfo?.roomId
 //   //         }
-    
+
 //   //         console.log(payload)
 //   //        // socket.emit('sendThreadNotification', payload)
-    
+
 //   //         socket?.emit(
 //   //           "sendThreadNotification",
 //   //           payload,
@@ -734,20 +779,20 @@ export default MakeOfferContent;
 //       error({ message: "Please upload at least one document." });
 //       return;
 //     }
-  
+
 //     try {
 //       // Step 1: Upload all documents and collect keys
 //       const documentUploadResults = await Promise.all(
 //         documents.map(file => uploadNewFile(file, currentUser.id, engagedProperty?.propertyId))
 //       );
-  
+
 //       const documentIds = documentUploadResults.map(result => result.key); // assuming result = { key: 'some-key' }
-  
+
 //       // Step 2: Build offer payload
 //       const date = new Date();
 //       date.setDate(date.getDate() + 30);
 //       const expiryNewDate = date.toLocaleString();
-  
+
 //       const mapToDto = (): any => ({
 //         userId: currentUser?.id,
 //         propertyEngagementId: engagedProperty?.id || '5697c782-127b-494a-a07b-c9e713cd0d11',
@@ -772,18 +817,18 @@ export default MakeOfferContent;
 //         isSeller: false,
 //         isBuyer: false
 //       });
-  
+
 //       const data = mapToDto();
-  
+
 //       // Step 3: Create Offer
 //       createOffer(data, {
 //         onSuccess: (data: any) => {
 //           success({ message: 'Offer Created Successfully' });
-  
+
 //           const notificationMessage = requestType === "edit"
 //             ? `Offer is edited by ${currentUser?.firstname} ${currentUser?.lastname}`
 //             : `New Offer is created by ${currentUser?.firstname} ${currentUser?.lastname}`;
-  
+
 //           if (socket) {
 //             const payload = {
 //               message: notificationMessage,
@@ -794,23 +839,23 @@ export default MakeOfferContent;
 //               receiverId: '851524d2-7a93-4d06-b5d4-088a847f3f4a',
 //               roomId: selectedThreadInfo?.roomId
 //             };
-  
+
 //             socket?.emit("sendThreadNotification", payload, {
 //               reciepent: '851524d2-7a93-4d06-b5d4-088a847f3f4a',
 //               userName: currentUser?.firstName + " " + currentUser?.lastName,
 //             }, null);
 //           }
-  
+
 //           router.push(`/property/${id}/pre-approval`);
 //         }
 //       });
-  
+
 //     } catch (err) {
 //       console.error("Error uploading documents or creating offer:", err);
 //       error({ message: "Failed to submit offer. Please try again." });
 //     }
 //   };
-  
+
 //   useEffect(() => {
 //     mutate({
 //       progress: parseInt(engagedProperty?.propertyProgress) + 10,
@@ -875,7 +920,7 @@ export default MakeOfferContent;
 //                 addFileToDocuments={addFileToDocuments}
 //               />
 //             </section>
-          
+
 
 
 

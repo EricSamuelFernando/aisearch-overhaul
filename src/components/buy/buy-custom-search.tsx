@@ -691,6 +691,7 @@ style={{
           id='buyer-search-hero-form'
           className="flex flex-col space-y-4 border-t border-gray-100 bg-gray-50 px-6 py-6"
           onSubmit={handleSubmit}
+          style={{width:'50%'}}
         >
           <div className="flex h-12 w-full items-center rounded-lg bg-gray-100 pl-4 transition-colors duration-300 hover:bg-white focus-within:bg-white">
             <SpeechInput
@@ -704,9 +705,9 @@ style={{
           <Button
             type='submit'
             size='lg'
-            className='w-full md:w-auto rounded-lg bg-ocOrange font-bold hover:bg-ocOrange-dark'
+            className='w-full md:w-auto rounded-lg bg-ocOrange font-bold hover:bg-ocOrange-dark text-center'
           >
-            <div className='flex w-full items-center justify-between gap-2'>
+            <div className='flex w-full items-center justify-between gap-2 text-center'>
               {isSearching ? (
                 <div
                   className='text-surface inline-block h-5 w-5 animate-spin rounded-full border-2 border-solid border-current border-e-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite] dark:text-white'

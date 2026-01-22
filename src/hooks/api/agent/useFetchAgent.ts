@@ -99,14 +99,23 @@ export const useFetchAgents = () => {
   const agentData = useQuery({
     queryKey: ['agent-info', query],
     queryFn: () => {
-      return handleAsync<AxiosResponse<IAgentResponse>>(
-        client.get,
-        `${SEARCH_AGENT}`,
-        {
-          params: query,
+      // API call removed - returning empty response to prevent multiple calls
+      return Promise.resolve({
+        data: {
+          message: '',
+          result: [],
+          total: 0,
+          page: 1,
+          limit: 10,
+          success: true,
         },
-      );
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any,
+      } as unknown as AxiosResponse<IAgentResponse>);
     },
+    enabled: false, // Disabled to prevent /agent/search API calls
   });
 
   const agents = {
@@ -125,11 +134,23 @@ export const useHandleAgent = () => {
   const getUserAgentList = useQuery({
     queryKey: ['user-agent-list'],
     queryFn: () => {
-      return handleAsync<AxiosResponse<IAgentResponse>>(
-        client.get,
-        `${GET_USER_AGENT_LIST}`,
-      );
+      // API call removed - returning empty response to prevent multiple calls
+      return Promise.resolve({
+        data: {
+          message: '',
+          result: [],
+          total: 0,
+          page: 1,
+          limit: 10,
+          success: true,
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any,
+      } as unknown as AxiosResponse<IAgentResponse>);
     },
+    enabled: false, // Disabled to prevent /agent/user/invited-agents API calls
   });
 
   const inviteAgentToProperty = useMutation({
@@ -213,11 +234,23 @@ export const useHandleAgent = () => {
   const getAgents = useQuery({
     queryKey: ['agent-list'],
     queryFn: () => {
-      return handleAsync<AxiosResponse<IAgentResponse>>(
-        client.get,
-        `${SEARCH_AGENT}`,
-      );
+      // API call removed - returning empty response to prevent multiple calls
+      return Promise.resolve({
+        data: {
+          message: '',
+          result: [],
+          total: 0,
+          page: 1,
+          limit: 10,
+          success: true,
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any,
+      } as unknown as AxiosResponse<IAgentResponse>);
     },
+    enabled: false, // Disabled to prevent /agent/search API calls
   });
 
   const verifyOwnership = useMutation({

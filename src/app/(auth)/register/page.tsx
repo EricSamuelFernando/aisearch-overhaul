@@ -1,17 +1,7 @@
-'use client';
+import SignupFlow from '@/components/forms/sign-up';
 
-import LoginRegisterModal from '@components/modals/registerforpreapproval';
-
-const RegisterPage = () => {
-  return (
-    <div className="flex justify-center items-center min-h-screen">
-      <LoginRegisterModal
-        initialStage={0}
-        label="Register"
-        variant="default"
-      />
-    </div>
-  );
+const Register = () => {
+  return <SignupFlow origin='page' />;
 };
 
-export default RegisterPage;
+export default Register;

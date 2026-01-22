@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import ChatItem from './chat-item';
 import PropertyDetailCard from './property-detail-card';
 import { useAuth } from '@/shared/hooks/useAuth';
-import socket from '@/lib/socket';
+import { SocketContext } from '@/providers/socket.context';
 import { property } from './data';
 import ChatThread from './chat-thread';
 
@@ -28,6 +28,7 @@ export default function PropertyThreadList({
   setStatusMessage,
   activeAgent,
 }: AgentPropertyListProps) {
+  const { socket } :any = useContext(SocketContext);
   const [isOpen, setIsOpen] = useState(false);
   const {user}= useAuth()
   const [activePropertyId, setActivePropertyId] = useState<string | null>(null);
@@ -36,14 +37,21 @@ export default function PropertyThreadList({
 
   const joinConversation = async (createConversationDto:any) => {
     console.log(createConversationDto)
-    socket.emit('createOrJoinConversation', createConversationDto, (response:any) => {
+    
+    const handleConversationResponse = (response:any) => {
       if (response.status === 'success') {
         setConversationId(response.data._id);
         setStatusMessage(response.message);
       } else {
         setStatusMessage(response.message);
       }
-    });
+      socket?.off('createOrJoinConversation_response', handleConversationResponse);
+    };
+
+    if (socket) {
+      socket.on('createOrJoinConversation_response', handleConversationResponse);
+      socket.emit('createOrJoinConversation', createConversationDto);
+    }
   };
 
   console.log(activeAgent)

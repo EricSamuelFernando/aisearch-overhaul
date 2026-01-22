@@ -46,7 +46,7 @@ export const SellingAgentDirectoryBox: React.FC = () => {
   const { socket, state, setState } = React.useContext(SocketContext)
   const [receiverId, setRecieverId] = React.useState<string>("")
   const claimedProperty = useSelector((state: any) => state?.property?.claimProperty);
-  const AI_SEARCH_ENDPOINT = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI || "https://ai.snaphomz.com";
+  const AI_SEARCH_ENDPOINT = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI || "https://demo-ai.snaphomz.com";
   const dummyAgents = [
     {
       _id: '1',

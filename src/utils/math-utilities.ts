@@ -36,12 +36,14 @@ export const generateTempUserId = (): string => {
 };
 
 export function encryptMessage(message: string): string {
-  return CryptoJS.AES.encrypt(message, SECRET_KEY).toString();
+  // return CryptoJS.AES.encrypt(message, SECRET_KEY).toString();
+  return message;
 }
 
 export function decryptMessage(encryptedMessage: string): string {
   const bytes = CryptoJS.AES.decrypt(encryptedMessage, SECRET_KEY);
-  return bytes.toString(CryptoJS.enc.Utf8);
+  // return bytes.toString(CryptoJS.enc.Utf8);
+  return  encryptedMessage;
 }
 
 export const generateColorFromName = (name: string): string => {

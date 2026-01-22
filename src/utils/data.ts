@@ -6,31 +6,26 @@ export const buyerDashboardRoutes: TabLinks = [
     query: 'dashboard',
     url: '/dashboard/buyer',
   },
+  // {
+  //   title: 'Feed',
+  //   query: 'feeds',
+  //   url: '/dashboard/buyer',
+  // },
   {
-    title: 'Feed',
-    query: 'feeds',
-    url: '/dashboard/buyer',
+    title: 'Messages',
+    query: 'messages',
+    url: '/dashboard/chat',
   },
-  // {
-  //   title: 'Messages',
-  //   query: 'messages',
-  //   url: '/dashboard/chat',
-  // },
-  // {
-  //   title: 'Conversations',
-  //   query: 'conversation',
-  //   url: '/dashboard/conversation',
-  // },
+  {
+    title: 'Conversations',
+    query: 'conversation',
+    url: '/dashboard/conversation',
+  },
   // {
   //   title: 'Tasks',
   //   query: 'tasks',
   //   url: '/dashboard/buyer',
   // },
-  {
-    title:'Upcoming Features',
-    query:'upcoming-features',
-    url:'/dashboard/buyer/upcoming-features',
-  }
 ];
 
 export const sellerDashboardRoutes: TabLinks = [
@@ -42,18 +37,18 @@ export const sellerDashboardRoutes: TabLinks = [
     title: 'Listings',
     query: 'listings',
   },
-  // {
-  //   title: 'Feeds',
-  //   query: 'feeds',
-  // },
-  // {
-  //   title: 'Messages',
-  //   query: 'messages',
-  // },
-  // {
-  //   title: 'Conversation',
-  //   query: 'conversation',
-  // },
+  {
+    title: 'Feeds',
+    query: 'feeds',
+  },
+  {
+    title: 'Messages',
+    query: 'messages',
+  },
+  {
+    title: 'Conversation',
+    query: 'conversation',
+  },
     {
     title: 'Inventory',
     query: 'inventory',

@@ -14,8 +14,7 @@ import {
 } from '@/interfaces/property.interface';
 import { useFetchAIDBProperties } from '@/hooks/api/useFetchAI-DBPropeties';
 import { ODataStrippedResponse } from '@/interfaces/mls-data.interface';
-import useGoogleAuth from '@/hooks/api/auth/useGoogleAuth';
-import GoogleOneTap from '@/hooks/api/auth/googleOneTap';
+import useCognitoGoogleAuth from '@/hooks/api/auth/useCognitoGoogleAuth';
 import { useSelector } from 'react-redux';
 
 export type Coordinate = {
@@ -50,7 +49,7 @@ const LandingBuyPropertyContext =
 const LandingBuyPropertyProvider: React.FC<React.PropsWithChildren> = ({
   children,
 }) => {
-  const { googleLogin } = useGoogleAuth();
+  const { cognitoGoogleLogin } = useCognitoGoogleAuth();
   const userData = useSelector((state: { auth: { user: any,isLoggedIn:boolean } }) => state.auth);  
   const {
     allPropertyQuery: propertyListingsResult,
@@ -106,14 +105,8 @@ const LandingBuyPropertyProvider: React.FC<React.PropsWithChildren> = ({
     mlsPropertyQuery.isSuccess,
   ]);
 
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '448512456564-p64marq9uat5onc9ncj0mr69uol806s4.apps.googleusercontent.com';
-  const hasValidClientId = googleClientId && googleClientId.trim().length > 0;
-
   return (
     <>
-    {userData?.isLoggedIn || !hasValidClientId ? null :
-      <GoogleOneTap />
-    }
       <LandingBuyPropertyContext.Provider
         value={{
           filters,

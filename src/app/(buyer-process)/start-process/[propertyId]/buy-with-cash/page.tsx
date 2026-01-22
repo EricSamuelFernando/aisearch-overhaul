@@ -53,10 +53,10 @@ export default function BuyWithCashPage() {
   const checkAll = useMemo(() => Object.keys(files)?.length === 1, [files]);
   const { createRepoWithUploadedFile: { mutate, data, status } } = useRepoManagementApi()
   const { uploadNewFile } = usePropertyServiceAPI();
-  const [document,setDocument] = useState([]);
-  const [loading,setLoading] = useState(false);
+  const [document, setDocument] = useState([]);
+  const [loading, setLoading] = useState(false);
   const handleNext = async () => {
-    const meanType = localStorage.getItem("means")    
+    const meanType = localStorage.getItem("means")
     if (!document?.length) {
       error({ message: "Please provide documentation confirming your available funds" });
       return
@@ -75,7 +75,7 @@ export default function BuyWithCashPage() {
         userId: currentUser?.id,
         answers: undefined,
         propertyProgress: 10,
-        fullAddress:`${engagementData?.public?.address?.label}, USA`
+        fullAddress: `${engagementData?.public?.address?.label}, USA`
       }, {
       onSuccess: (response: any) => {
         console.log("Response   ", response);
@@ -196,8 +196,8 @@ export default function BuyWithCashPage() {
           <FileUpload
             accept='.pdf,.doc,.docx,.txt'
             setFile={(file: FileList) => {
-              console.log("Files : 01 ",file);
-              
+              console.log("Files : 01 ", file);
+
               setFiles(UploadPOFFilesType.PROOF_OF_FUNDS, file);
             }}
             onChange={handleFileUpload}

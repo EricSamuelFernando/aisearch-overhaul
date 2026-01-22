@@ -23,7 +23,7 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children }) => {
   return (
     <Fragment>
       <section className='px-6 py-3'>
-        <Link href={'/'}>
+        <Link href={'/home'}>
           <Image src={SnapHomz} alt='logo' className='h-[3.75rem] w-44' />
         </Link>
       </section>

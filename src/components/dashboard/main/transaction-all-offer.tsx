@@ -172,7 +172,7 @@ const OfferCard = ({
             description={
               <span className='text-base'>
                 {formatCurrency(
-                  +offer?.price,
+                  +offer?.cashAmount,
                   "$",
                 )}
               </span>

@@ -153,7 +153,7 @@ function PropertyBrowseView({ }: Props) {
               // MOBILE: in-flow full-width, 60vh tall, scrollable
               'relative w-full h-[60vh] overflow-auto' +
               // MD+: fixed on the right, full-height minus header
-              ' md:fixed md:top-[120px] md:right-0 md:w-[45%] lg:md:w-[40%] md:h-[calc(100vh-120px)] md:overflow-hidden'
+              ' md:fixed md:top-[50px] md:right-0 md:w-[45%] lg:md:w-[43%] md:h-[calc(100vh-55px)] md:overflow-hidden'
           )}
         >
           <div className="absolute inset-0 rounded-l-lg overflow-hidden shadow-lg">

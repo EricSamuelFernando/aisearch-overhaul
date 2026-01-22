@@ -174,7 +174,7 @@ import { MobileSideDrawer } from './main-nav-drawers';
 import SnapHomz from '@public/assets/images/snaphomz-logo.svg';
 import LoginRegisterModal from '../modals/login-register-modal';
 import { NavigationList } from './navigation-list';
-import useGoogleAuth from '@/hooks/api/auth/useGoogleAuth';
+import useCognitoGoogleAuth from '@/hooks/api/auth/useCognitoGoogleAuth';
 
 type NavDialogState = {
   isBuyHovered: boolean;
@@ -195,7 +195,7 @@ function MainNav() {
   const toggleClose = () => setOpenDialogs(initialState);
   const [isScrolled, setIsScrolled] = React.useState(false);
   const headerRef = React.useRef<HTMLDivElement>(null);
-  const { googleLogin, GoogleOneTapLogin } = useGoogleAuth()
+  const { cognitoGoogleLogin } = useCognitoGoogleAuth();
 
   React.useEffect(() => {
     const handleScroll = () => {
@@ -251,7 +251,7 @@ function MainNav() {
         </div>
 
         <Link
-          href="/"
+          href="/home"
           className="flex-1 flex justify-center md:absolute md:inset-y-0 md:left-1/2 md:transform md:-translate-x-1/2"
         >
           <Image

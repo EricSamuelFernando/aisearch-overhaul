@@ -1,9 +1,7 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { useMutation, useQuery } from "@tanstack/react-query";
+import axios from "axios";
 export const WaitlistAPIs = (handleCb?: () => void) => {
-  const GRAPHQL_URI =
-    process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
-    'https://zqnraeibbc.execute-api.us-east-1.amazonaws.com/prod/graphql';
+  const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql";
   const waitlistResponse = useMutation({
     mutationKey: ['create_waitlist'],
     mutationFn: async (createWaitlistData: any) => {
@@ -25,7 +23,7 @@ export const WaitlistAPIs = (handleCb?: () => void) => {
 
         if (response.status !== 200 || response.data.errors) {
           throw new Error(
-            response?.data?.errors?.[0]?.message || 'Failed to create waitlist',
+            response?.data?.errors?.[0]?.message || 'Failed to create waitlist'
           );
         }
 
@@ -41,15 +39,13 @@ export const WaitlistAPIs = (handleCb?: () => void) => {
     onError: (error: any) => {
       console.error('Error creating waitlist:', error);
       const errorMessage =
-        error?.response?.data?.errors?.[0]?.message ||
-        error.message ||
-        'An error occurred';
+        error?.response?.data?.errors?.[0]?.message || error.message || 'An error occurred';
       error({ message: errorMessage });
     },
   });
 
   const getWaitlistQuery = useQuery({
-    queryKey: ['get_all_waitlist'],
+    queryKey: ["get_all_waitlist"],
     queryFn: async () => {
       try {
         const response = await axios.post(GRAPHQL_URI, {
@@ -70,13 +66,13 @@ export const WaitlistAPIs = (handleCb?: () => void) => {
 
         if (response.status !== 200 || response.data.errors) {
           throw new Error(
-            response?.data?.errors?.[0]?.message || 'Failed to fetch waitlist',
+            response?.data?.errors?.[0]?.message || "Failed to fetch waitlist"
           );
         }
 
         return response.data.data.getAllWaitlist;
       } catch (error) {
-        console.error('Error fetching waitlist:', error);
+        console.error("Error fetching waitlist:", error);
         throw error;
       }
     },
@@ -85,6 +81,7 @@ export const WaitlistAPIs = (handleCb?: () => void) => {
   });
   return {
     waitlistResponse,
-    getWaitlistQuery,
-  };
-};
+    getWaitlistQuery
+  }
+
+}

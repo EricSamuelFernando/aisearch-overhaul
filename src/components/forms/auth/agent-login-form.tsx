@@ -15,7 +15,7 @@ export const AgentLoginForm = () => {
       email: '',
     },
     validate: {
-      email: (value) => (/^\S+@\S+$/.test(value) ? null : 'Invalid email'),
+      email: (value) => (/^\S+@\S+$/.test(value) ? null : '📧 Oops! That email format isn\'t quite right. Let\'s fix it together!'),
       password: (value) =>
         /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/.test(
           value,

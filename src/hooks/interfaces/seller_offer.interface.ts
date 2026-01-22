@@ -6,6 +6,7 @@ export interface SellerPropertyOffersInterface {
     price:number;
     financeType:string;
     downPayment:number;
+    cashAmount:number;
     appraisalContingencyPrice:string;
     inspectionContingencyPrice:string;
     createdBy:{

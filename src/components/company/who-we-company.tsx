@@ -14,20 +14,20 @@ const WhoWeCompany = () => {
       }}
     >
       {/* Overlay */}
-      <div className="absolute inset-0 bg-[#f7e9d5a5] opacity-90"></div>
+      <div className="absolute inset-0 bg-[#f7e9d5a5] opacity-50"></div>
 
       {/* Content */}
       <div className="relative max-w-4xl text-center text-[#1B1B1B]">
         <h2 className="text-3xl font-bold mb-6">
           Who We <span className="font-normal">Are</span>
         </h2>
-        <p className="mb-6 text-base text-gray-600 max-w-[80%] mx-auto">
+        <p className="mb-6 text-base text-[#595858] max-w-[80%] mx-auto">
           We're not just another real estate company — we're a movement. At Snaphomz, we're a united community who combine deep market knowledge with technological innovation to transform the way you find and secure your dream home. We believe in making real estate transactions as smooth as a snap of your fingers.
         </p>
-        <p className="mb-6 text-base text-gray-600 max-w-[80%] mx-auto">
+        <p className="mb-6 text-base text-[#595858] max-w-[80%] mx-auto">
           Setting foundation first, We build lasting relationships on trust and expertise, with “transparency” in every “transaction” through simplified “technology”.
         </p>
-        <p className="text-base max-w-[80%] text-gray-600 mx-auto">
+        <p className="text-base max-w-[80%] text-[#595858] mx-auto">
           Community growth starts with individual success
         </p>
       </div>
@@ -43,7 +43,7 @@ const WhoWeCompany = () => {
         }}
       >
         {/* Overlay (slightly tint the background) */}
-        <div className="absolute inset-0 bg-black/20" />
+        {/* <div className="absolute inset-0 bg-black/18" /> */}
 
         {/* Cards container */}
         <div className="relative max-w-6xl w-full grid grid-cols-1 md:grid-cols-3 gap-8 items-end">
@@ -52,7 +52,7 @@ const WhoWeCompany = () => {
           {/* ------------------------------------------- */}
           <div className="bg-[#F7E9D7] rounded-xl p-6 shadow-lg text-center">
             <h3 className="font-bold mb-2 text-lg">People Driven</h3>
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-[#777675]">
               Human connections at the heart of every interaction and decision.
             </p>
           </div>
@@ -62,7 +62,7 @@ const WhoWeCompany = () => {
           {/* ------------------------------------------- */}
           <div className="bg-[#F7E9D7] rounded-xl p-6 shadow-lg text-center">
             <h3 className="font-bold mb-2 text-lg">Open House. Open Mind</h3>
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-[#777675]">
               Breaking barriers to create accessible opportunities in every market.
             </p>
           </div>
@@ -72,7 +72,7 @@ const WhoWeCompany = () => {
           {/* ------------------------------------------- */}
           <div className="bg-[#F7E9D7] rounded-xl p-6 shadow-lg text-center">
             <h3 className="font-bold mb-2 text-lg">Digital Edge</h3>
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-[#777675]">
               We build revolutionary digital solutions to disrupt the traditional real estate.
             </p>
           </div>

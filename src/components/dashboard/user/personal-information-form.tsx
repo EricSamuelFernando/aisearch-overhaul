@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { useAuth, useAuthActions } from '@/shared/hooks/useAuth';
 import { useUploadprofile, useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
 import { CustomFileInput } from './CustomFileInput';
+import Image from "next/image"
 
 type Props = {
   cb?: () => void;
@@ -97,10 +98,10 @@ export function ProfileForm({ cb }: Props) {
 
   useEffect(() => {
     if (updateUserMutation.isSuccess) {
-      
+
       login({
         ...user,
-        firstname:user?.firstname || '',
+        firstname: user?.firstname || '',
         id: user?.id || "",
         email: user?.email || '',
         profile: data?.url || user?.profile || '',
@@ -118,7 +119,13 @@ export function ProfileForm({ cb }: Props) {
   return (
     <div className="mt-6 space-y-4">
       <h2 className="text-2xl font-bold">Profile Picture</h2>
-
+      <Image
+        src="/assets/images/v2/pangea_logo1.jpg"
+        alt="Powered by Pangea"
+        width={100}
+        height={100}
+        className="absolute top-2 right-2 object-contain"
+      />
       <div className="flex items-center gap-6">
         {user?.profile ? (
           <div className="relative group w-32 h-32 rounded-full overflow-hidden border-2 border-gray-300 shadow-md cursor-pointer">

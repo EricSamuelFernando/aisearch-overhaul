@@ -55,7 +55,7 @@ function TransactionOfferListView(
         financeType: item.financeType.toUpperCase(),
         offerPrice: formatCurrency(item?.price?.toString(), 'USD'),
         downPayment: formatCurrency(item?.downPayment?.toString(), 'USD'),
-        loanAmount: formatCurrency(item.loanAmount?.toString(), 'USD'),
+        loanAmount: formatCurrency(item.cashAmount?.toString(), 'USD'),
         inspectionContingency: item.inspectionContingencyPrice,
         appraisalContingency: item.apprasalContingencyPrice,
         strength: 'Strong',

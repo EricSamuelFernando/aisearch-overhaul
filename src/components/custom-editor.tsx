@@ -23,7 +23,7 @@ export default function CustomEditor({ onChange, value }: CustomEditorProps) {
       <Editor
         tinymceScriptSrc={'/assets/libs/tinymce/tinymce.min.js'}
         onInit={(evt, editor) => {
-          editorRef.current = editor;
+          editorRef.current = editor as unknown as TinyMCEEditor;
         }}
         value={value}
         init={{

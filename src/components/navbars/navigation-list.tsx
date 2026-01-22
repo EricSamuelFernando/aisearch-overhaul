@@ -108,6 +108,14 @@ export function NavigationList({ dark = false }: any) {
             </NavigationMenuLink>
           </Link>
         </NavigationMenuItem>
+
+        <NavigationMenuItem>
+          <Link href='/blog' legacyBehavior passHref>
+            <NavigationMenuLink className={`bg-transparent px-4 font-medium hover:bg-transparent hover:text-primary hover:underline ${textClass}`}>
+              Blog
+            </NavigationMenuLink>
+          </Link>
+        </NavigationMenuItem>
       </NavigationMenuList>
     </NavigationMenu>
   );

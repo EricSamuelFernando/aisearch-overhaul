@@ -1,62 +1,75 @@
 import { footerLinks, socialLinks } from '@/data/links';
 import { IFooterItems } from '@/interfaces/footer.interface';
-import { nanoid } from 'nanoid';
 import Image from 'next/image';
 import Link from 'next/link';
 
 function Footer() {
   return (
-    <footer className='mt-auto w-full bg-[#170800] py-4'>
-      <section className='mx-auto px-4 md:px-[3.219rem]'>
-        <div className='grid py-8 text-white md:grid-cols-4 md:py-16'>
-   {/* Logo and Tagline Section */}
-      <div className='col-span-1'>
-            <div className='logo'>
-              <Link href='/'>
-                <Image
-                  src={'/assets/images/logo-main.png'} // Adjust logo path if necessary
-                  alt='Footer Logo'
-                  height={100}
-                  width={150}
-                />
-              </Link>
-              <p className='text-[#8E8B8A] text-[14px] mt-2'>
-                Making real estate simple, fast, and seamless.
-              </p>
-            </div>
+    <footer className="mt-auto w-full bg-[#170800]">
+      <section className="mx-auto w-full px-4 md:px-[3.219rem]">
+        {/* Top */}
+        <div className="grid grid-cols-1 gap-10 py-10 text-white md:grid-cols-4 md:gap-6 md:py-14">
+          {/* LEFT: Logo + tagline + social */}
+          <div className="flex h-full flex-col">
+            <Link href="/" className="mb-4 inline-flex items-center">
+              <Image
+                src="/assets/images/logo-main.png"
+                alt="Snaphomz Logo"
+                height={60}
+                width={176}
+                unoptimized
+                className="object-contain"
+              />
+            </Link>
 
-            {/* Social Media Icons, placed under logo and tagline */}
-            <nav className='flex gap-x-4 mt-4'>
+            <p className="mb-0 max-w-[260px] text-sm leading-relaxed text-[#8E8B8A]">
+              Making real estate simple, fast, and seamless.
+            </p>
+
+            {/* Mobile: sits under tagline. Desktop: pushed down like reference */}
+            <div className="mt-6 flex items-center gap-5 md:mt-auto">
               {socialLinks.map((item, i) => (
                 <Link
-                  key={i}
+                  key={`${item.title}-${i}`}
                   href={item.href}
-                  target={item.external ? '_blank' : ''}
-                  rel={item.external ? 'noreferrer' : ''}
-                  className='flex items-center gap-x-2'
+                  target={item.external ? '_blank' : undefined}
+                  rel={item.external ? 'noreferrer' : undefined}
+                  aria-label={item.title}
+                  className="inline-flex h-8 w-8 items-center justify-center leading-none transition-opacity hover:opacity-80"
                 >
-                  {item.icon ? <item.icon className="h-5 w-5" /> : null}
+                  {item.icon ? (
+                    <item.icon className="h-[18px] w-[18px] text-white" />
+                  ) : null}
                 </Link>
               ))}
-            </nav>
+            </div>
           </div>
 
-          {/* Footer Categories: Company, Contact, Legal */}
-          <div className='col-span-3 my-4 grid grid-cols-2 items-start justify-between md:my-0 md:justify-around lg:grid-cols-3'>
-            <FooterCategory {...footerLinks.company} />
-            <FooterCategory {...footerLinks.contact} />
-            <FooterCategory {...footerLinks.legal} />
+          {/* RIGHT: Categories
+              ✅ Mobile requirement (like your screenshot):
+              - Company + Contact: 2 columns
+              - Legal: full width below them
+              ✅ Desktop stays exactly 3 columns
+          */}
+          <div className="md:col-span-3">
+            <div className="grid grid-cols-2 gap-x-10 gap-y-10 md:grid-cols-3 md:gap-6">
+              <FooterCategory {...footerLinks.company} />
+              <FooterCategory {...footerLinks.contact} />
+
+              {/* Legal spans full width ONLY on mobile */}
+              <div className="col-span-2 md:col-span-1">
+                <FooterCategory {...footerLinks.legal} />
+              </div>
+            </div>
           </div>
         </div>
 
-  <div className='flex items-center justify-start border-t-[1px] border-white py-6'>
-  <div className='text-grey-510 text-start'>
-    <span className='font-[500]'>
-      © SNAPHOMZ, LLC. {new Date().getFullYear()}
-    </span>
-  </div>
-</div>
-
+        {/* Bottom */}
+        <div className="border-t border-white/20 py-6">
+          <p className="text-center text-sm text-white/70">
+            © Snaphomz Inc. {new Date().getFullYear()}
+          </p>
+        </div>
       </section>
     </footer>
   );
@@ -66,12 +79,19 @@ export default Footer;
 
 const FooterCategory = ({ title, links }: IFooterItems) => {
   return (
-    <div>
-      <h3 className='text-lg font-bold'>{title}</h3>
-      <ul className='space-y-4 py-8 text-grey-510'>
+    <div className="flex flex-col">
+      {/* Keep desktop unchanged; mobile matches screenshot styling */}
+      <h3 className="mb-4 text-sm font-semibold text-white">{title}</h3>
+
+      <ul className="space-y-3 text-[#8E8B8A]">
         {links.map((item) => (
-          <li key={nanoid()}>
-            <Link href={item.href!}>{item.title}</Link>
+          <li key={item.href ?? item.title}>
+            <Link
+              href={item.href!}
+              className="text-sm transition-colors hover:text-white"
+            >
+              {item.title}
+            </Link>
           </li>
         ))}
       </ul>

@@ -19,7 +19,7 @@ function EditLayout() {
   const params = useSearchParams();
   const id = params?.get('id');
 
-  const { getSingleProperty } = useGetSingleProperty(id!);
+  const { getSingleProperty }:any = useGetSingleProperty(id!);
   const property = getSingleProperty?.data?.data?.data?.property as IProperty;
 
   const loading = getSingleProperty.isLoading || getSingleProperty.isFetching;

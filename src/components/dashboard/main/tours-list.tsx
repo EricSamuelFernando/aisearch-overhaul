@@ -15,10 +15,10 @@ type Props = {
 
 function ToursList({ showButton = false, properties, propertyId }: Props) {
   // Use your query hook if propertyId is provided
+  debugger
   const { data: fetchedTours, isFetching } = useGetToursByProperty(propertyId || '');
 
   // Use passed properties prop or fetched tours from hook
-  const toursData = properties || fetchedTours;
 
     const staticTour = {
     id: "static-1",
@@ -30,7 +30,9 @@ function ToursList({ showButton = false, properties, propertyId }: Props) {
       },
     ],
   };
- 
+
+  const toursData = properties || fetchedTours || [staticTour];
+
   const singleTour = toursData && toursData.length > 0 ? toursData[0] : staticTour;
   const { userPath } = useCurrentUser();
 

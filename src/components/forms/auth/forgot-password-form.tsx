@@ -11,7 +11,7 @@ export const ForgotPasswordForm = () => {
       email: '',
     },
     validate: {
-      email: (value) => (/^\S+@\S+$/.test(value) ? null : 'Invalid email'),
+      email: (value) => (/^\S+@\S+$/.test(value) ? null : '🔐 We need a valid email to help you reset your password. Please check and try again!'),
     },
   });
 

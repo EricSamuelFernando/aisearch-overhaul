@@ -37,7 +37,7 @@ client.interceptors.response.use(
         // Clear the expired token and reject the promise
         deleteStorageCookie({ key: AUTH_TOKEN });
         clearItem();
-        error({ message: 'Invalid email or password' });
+        error({ message: '🔐 Hmm, that email or password doesn\'t look right. Double-check and try again!' });
         // void Router.replace('/login');
         return await Promise.reject({
           status,

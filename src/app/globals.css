@@ -364,10 +364,178 @@ div.make-it-easy-component {
 }
 
 .mantine-SegmentedControl-control {
-  border: 'none',
- 
-}
-.mantine-SegmentedControl-active {
-  border: 'none',
+  border: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-top: none !important;
+  border-bottom: none !important;
 }
 
+.mantine-SegmentedControl-control + .mantine-SegmentedControl-control {
+  border-left: none !important;
+  margin-left: 0 !important;
+}
+
+.mantine-SegmentedControl-control::before,
+.mantine-SegmentedControl-control::after {
+  display: none !important;
+  content: none !important;
+}
+
+.mantine-SegmentedControl-active {
+  border: none !important;
+}
+
+/* Set text colors for active and inactive states - target all possible selectors */
+.mantine-SegmentedControl-control[data-active],
+.mantine-SegmentedControl-control[data-checked],
+.mantine-SegmentedControl-control[aria-checked="true"] {
+  color: #ffffff !important;
+}
+
+.mantine-SegmentedControl-control[data-active] .mantine-SegmentedControl-label,
+.mantine-SegmentedControl-control[data-active] label,
+.mantine-SegmentedControl-control[data-active] > span,
+.mantine-SegmentedControl-control[data-checked] .mantine-SegmentedControl-label,
+.mantine-SegmentedControl-control[data-checked] label,
+.mantine-SegmentedControl-control[data-checked] > span,
+.mantine-SegmentedControl-control[aria-checked="true"] .mantine-SegmentedControl-label,
+.mantine-SegmentedControl-control[aria-checked="true"] label,
+.mantine-SegmentedControl-control[aria-checked="true"] > span {
+  color: #ffffff !important;
+}
+
+/* Inactive tabs - light gray text */
+.mantine-SegmentedControl-control:not([data-active]):not([data-checked]):not([aria-checked="true"]) {
+  color: #F0F0F0 !important;
+}
+
+.mantine-SegmentedControl-control:not([data-active]):not([data-checked]):not([aria-checked="true"]) .mantine-SegmentedControl-label,
+.mantine-SegmentedControl-control:not([data-active]):not([data-checked]):not([aria-checked="true"]) label,
+.mantine-SegmentedControl-control:not([data-active]):not([data-checked]):not([aria-checked="true"]) > span {
+  color: #F0F0F0 !important;
+}
+
+/* Ensure text is visible on hover */
+.mantine-SegmentedControl-control:hover {
+  color: #ffffff !important;
+}
+
+.mantine-SegmentedControl-control:hover .mantine-SegmentedControl-label {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+/* Alternative selector to ensure label text changes on hover */
+.mantine-SegmentedControl-control:hover label {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+/* Direct label hover targeting */
+.mantine-SegmentedControl-label {
+  transition: color 0.2s ease, font-weight 0.2s ease;
+}
+
+.mantine-SegmentedControl-control:hover .mantine-SegmentedControl-label,
+.mantine-SegmentedControl-control:hover > label,
+.mantine-SegmentedControl-control:hover > span {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+.mantine-SegmentedControl-control + .mantine-SegmentedControl-control {
+  border-left: none !important;
+  margin-left: 0 !important;
+}
+
+.mantine-SegmentedControl-control::before,
+.mantine-SegmentedControl-control::after {
+  display: none !important;
+  content: none !important;
+}
+
+.mantine-SegmentedControl-active {
+  border: none !important;
+}
+
+/* Set text colors for active and inactive states - target all possible selectors */
+.mantine-SegmentedControl-control[data-active],
+.mantine-SegmentedControl-control[data-checked],
+.mantine-SegmentedControl-control[aria-checked="true"] {
+  color: #ffffff !important;
+}
+
+.mantine-SegmentedControl-control[data-active] .mantine-SegmentedControl-label,
+.mantine-SegmentedControl-control[data-active] label,
+.mantine-SegmentedControl-control[data-active] > span,
+.mantine-SegmentedControl-control[data-checked] .mantine-SegmentedControl-label,
+.mantine-SegmentedControl-control[data-checked] label,
+.mantine-SegmentedControl-control[data-checked] > span,
+.mantine-SegmentedControl-control[aria-checked="true"] .mantine-SegmentedControl-label,
+.mantine-SegmentedControl-control[aria-checked="true"] label,
+.mantine-SegmentedControl-control[aria-checked="true"] > span {
+  color: #ffffff !important;
+}
+
+/* Inactive tabs - light gray text */
+.mantine-SegmentedControl-control:not([data-active]):not([data-checked]):not([aria-checked="true"]) {
+  color: #F0F0F0 !important;
+}
+
+.mantine-SegmentedControl-control:not([data-active]):not([data-checked]):not([aria-checked="true"]) .mantine-SegmentedControl-label,
+.mantine-SegmentedControl-control:not([data-active]):not([data-checked]):not([aria-checked="true"]) label,
+.mantine-SegmentedControl-control:not([data-active]):not([data-checked]):not([aria-checked="true"]) > span {
+  color: #F0F0F0 !important;
+}
+
+/* Ensure text is visible on hover */
+.mantine-SegmentedControl-control:hover {
+  color: #ffffff !important;
+}
+
+.mantine-SegmentedControl-control:hover .mantine-SegmentedControl-label {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+/* Alternative selector to ensure label text changes on hover */
+.mantine-SegmentedControl-control:hover label {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+/* Direct label hover targeting */
+.mantine-SegmentedControl-label {
+  transition: color 0.2s ease, font-weight 0.2s ease;
+}
+
+.mantine-SegmentedControl-control:hover .mantine-SegmentedControl-label,
+.mantine-SegmentedControl-control:hover > label,
+.mantine-SegmentedControl-control:hover > span {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+
+/* ============================= */
+/* COMPANY PAGE NAVBAR OVERRIDE */
+/* ============================= */
+
+.company-navbar {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+.company-navbar a,
+.company-navbar button,
+.company-navbar svg {
+  color: #ffffff !important;
+}
+
+/* Prevent scroll-based background change */
+.company-navbar.bg-transparent,
+.company-navbar.bg-white,
+.company-navbar.bg-black {
+  background-color: #000000 !important;
+}

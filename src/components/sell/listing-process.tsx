@@ -201,26 +201,23 @@ const ListingProcess: React.FC<IListingProcessProps> = ({ link, propertyData , a
       name: 'analytics',
       icon: '/assets/icons/analytics.svg',
       link: `/dashboard/seller/${propertyData?.id}/analytics`,
-      disabled: true,
+      disabled: false,
     },
     {
       name: 'agreement',
       icon: '/assets/icons/agreement.svg',
       link: `/dashboard/seller/sell-agreement?id=${propertyData?.id}`,
-      disabled:true
     },
     {
       name: 'add agent',
       icon: '/assets/icons/addAgent.svg',
-      link: `/dashboard/seller/${propertyData?.id}/add-selling-agent?mean_type=snaphomz_agents`,
+      link: `/dashboard/seller/${propertyData?.id}/add-selling-agent?mean_type=snaphomz_agents`
       //link: `/dashboard/seller/${propertyData?.id}/select-agent`,
-      disabled:true
     },
     {
       name: 'document',
       icon: '/assets/icons/documents.png',
       link: `/dashboard/seller/docs?id=${propertyData?.id}&manage=documents`,
-      disabled:true
     },
   ];
   
@@ -372,7 +369,7 @@ const ListingProcess: React.FC<IListingProcessProps> = ({ link, propertyData , a
           {navItems.map(({ icon, name, link, disabled }) => {
             const isRestricted =
               // (name === 'edit facts' && !isEditEnabled) ||
-              (name === 'analytics' && disabled) || (name === 'agreement' && disabled)|| (name === "add agent" && propertyData?.selling_agent?.agent_id ) || (name === "add agent" && agent  )
+              (name === 'analytics' && disabled) || (name === "add agent" && propertyData?.selling_agent?.agent_id ) || (name === "add agent" && agent  )
 
             return link ? (
               <Link

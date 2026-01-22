@@ -118,7 +118,7 @@ export const EmptyListing = ({ title }: EmptyListingProp) => {
        address,
       }
       const response = await axios.post(
-        `${PROPERTY_SEARCH_AI_URL}/address` || 'https://ai.snaphomz.com/api/search/address',
+        `${PROPERTY_SEARCH_AI_URL}/address` || 'https://demo-ai.snaphomz.com/api/search/address',
         body
       );
       console.log("Response : ", response);

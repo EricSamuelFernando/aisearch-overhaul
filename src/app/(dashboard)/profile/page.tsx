@@ -137,7 +137,9 @@ function Profile() {
         </div>
       </section>
 
-      <UserPropfilePreference />
+      <section className='py-8'>
+        <UserPropfilePreference />
+      </section>
 
       <section className='py-8'>
         <h3 className='border-b-[1px] border-b-grey-590 pb-4 font-bold'>

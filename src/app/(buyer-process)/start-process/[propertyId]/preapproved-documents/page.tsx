@@ -73,7 +73,7 @@ export default function PreapprovedDocumentsPage() {
   const [loading, setLoading] = useState(false);
   const handleNext = () => {
     const meanType = localStorage.getItem("means")
-    if (document?.length<2) {
+    if (document?.length < 2) {
       error({ message: "Please provide documentation confirming your available funds" });
       return
     }
@@ -91,7 +91,7 @@ export default function PreapprovedDocumentsPage() {
         userId: currentUser?.id,
         answers: undefined,
         propertyProgress: 10,
-        fullAddress:`${engagementData?.public?.address?.label}, USA`
+        fullAddress: `${engagementData?.public?.address?.label}, USA`
       }, {
       onSuccess: (response: any) => {
         console.log("Response   ", response);
@@ -104,11 +104,11 @@ export default function PreapprovedDocumentsPage() {
   }
 
   const handleFileUpload = async (e: any) => {
-    console.log("Filesss: ",e.target.files);
-    
+    console.log("Filesss: ", e.target.files);
+
     setLoading(true);
     const file = e.target.files?.[0]
-    setDocument((prev)=>([
+    setDocument((prev) => ([
       ...prev,
       file
     ]));
@@ -253,8 +253,8 @@ export default function PreapprovedDocumentsPage() {
                 setFile={(file: FileList) => {
                   // handleDocumentPicked(file, fileType);
                   setFiles(fileType, file);
-                  console.log("Files : -001 : ",file);
-                  
+                  console.log("Files : -001 : ", file);
+
                 }}
                 disabled={loading}
                 onChange={handleFileUpload}

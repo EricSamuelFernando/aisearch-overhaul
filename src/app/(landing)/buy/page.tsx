@@ -8,6 +8,7 @@ import { ChooseYourMeans } from '@/components/buy/choose-your-means';
 import { WeMakeItEasy } from '@/components/buy/we-make-it-easy';
 import MainTestimonial from '@/components/main-testimonial';
 import { OfferStrengthAnalyzer } from '@/components/buy/offer-strength-analyzer';
+import GetReadyForCollege from '@/components/buy/get-ready-for-college';
 
 export const metadata: Metadata = {
   title: 'Snaphomz | Buy',
@@ -46,6 +47,7 @@ export default function Buy() {
       </Hero>
       <ChooseYourMeans />
       <WeMakeItEasy />
+      <GetReadyForCollege />
       <OfferStrengthAnalyzer />
       <MainTestimonial />
     </>

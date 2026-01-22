@@ -5,17 +5,20 @@ import FindPartner from '@/components/agents/find-partner';
 import TimeWorth from '@/components/agents/time-worth';
 import OurClients from '@/components/company/our-clients';
 import MainTestimonial from '@/components/main-testimonial';
+import { getAgentsFromCSV } from '@/lib/load-agents';
 
-const AgentsPage = () => {
+const AgentsPage = async () => {
+  const agents = await getAgentsFromCSV();
+
   return (
     <main>
-      <AgentsHero />
+      <AgentsHero agents={agents} />
       <FindAgent />
-      <FindPartner />
+      {/* <FindPartner /> */}
       <AgentsWeMakeItEasy />
       <TimeWorth />
       {/* <MainTestimonial /> */}
-      <OurClients />
+      <OurClients bgColor="#FFF6EC" />
     </main>
   );
 };

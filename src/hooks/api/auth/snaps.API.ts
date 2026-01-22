@@ -121,6 +121,10 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
       if (handleCb) handleCb();
     },
     onError: (error: any) => {
+      // Suppress error logging when authentication/user ID is missing (expected when user is not logged in)
+      if (error?.message === "Missing authentication or user ID") {
+        return;
+      }
       console.error("Error fetching snaps:", error);
       const errorMessage =
         error?.response?.data?.errors?.[0]?.message ||
@@ -413,11 +417,11 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
     mutationKey: ["update_snap"],
     mutationFn: async (updateSnapsInput: any) => {
       const token = getAuthToken() || localStorage.getItem("userAccessToken");
-  
+
       if (!token) {
         throw new Error("Missing authentication token");
       }
-  
+
       try {
         const response = await axios.post(
           GRAPHQL_URI,
@@ -442,13 +446,13 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
             },
           }
         );
-  
+
         if (response.status !== 200 || response.data.errors) {
           throw new Error(
             response?.data?.errors?.[0]?.message || "Failed to update snap"
           );
         }
-  
+
         return response.data.data.updateSnap; // ✅ now correct
       } catch (error) {
         console.error("Error updating snap:", error);
@@ -471,83 +475,83 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
   });
 
   const sendPartnerInvitation = useMutation({
-  mutationKey: ["sendPartnerInvitation"],
-  mutationFn: async ({ email, partnerEmail }: { email: string; partnerEmail: string }) => {
-    const token = getAuthToken() || localStorage.getItem("userAccessToken");
+    mutationKey: ["sendPartnerInvitation"],
+    mutationFn: async ({ email, partnerEmail }: { email: string; partnerEmail: string }) => {
+      const token = getAuthToken() || localStorage.getItem("userAccessToken");
 
-    if (!token) {
-      throw new Error("No authentication token found");
-    }
+      if (!token) {
+        throw new Error("No authentication token found");
+      }
 
-    try {
-      const response = await axios.post(
-        GRAPHQL_URI,
-        {
-          query: `
+      try {
+        const response = await axios.post(
+          GRAPHQL_URI,
+          {
+            query: `
             mutation SendPartnerInvitation($email: String!, $partnerEmail: String!) {
               sendPartnerInvitation(email: $email, partnerEmail: $partnerEmail)
             }
           `,
-          variables: {
-            email,
-            partnerEmail,
+            variables: {
+              email,
+              partnerEmail,
+            },
           },
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.status !== 200 || response.data.errors) {
-        throw new Error(
-          response?.data?.errors?.[0]?.message || "Failed to send invitation"
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
+
+        if (response.status !== 200 || response.data.errors) {
+          throw new Error(
+            response?.data?.errors?.[0]?.message || "Failed to send invitation"
+          );
+        }
+
+        return response.data.data.sendPartnerInvitation; // Boolean or message
+      } catch (error) {
+        console.error("Error sending invitation:", error);
+        throw error;
       }
-
-      return response.data.data.sendPartnerInvitation; // Boolean or message
-    } catch (error) {
-      console.error("Error sending invitation:", error);
-      throw error;
-    }
-  },
-  onSuccess: (data) => {
-    console.log("Partner invitation sent:", data);
-    if (handleCb) handleCb();
-  },
-  onError: (error: any) => {
-    console.error("Error sending partner invitation:", error);
-    const errorMessage =
-      error?.response?.data?.errors?.[0]?.message ||
-      error.message ||
-      "An error occurred";
-    // Optional: toast or modal
-  },
-});
+    },
+    onSuccess: (data) => {
+      console.log("Partner invitation sent:", data);
+      if (handleCb) handleCb();
+    },
+    onError: (error: any) => {
+      console.error("Error sending partner invitation:", error);
+      const errorMessage =
+        error?.response?.data?.errors?.[0]?.message ||
+        error.message ||
+        "An error occurred";
+      // Optional: toast or modal
+    },
+  });
 
 
-const toggleFavourite = useMutation({
-  mutationKey: ["toggleFavourite"],
-  mutationFn: async ({
-    snapId,
-    propertyId,
-    listingId,
-    createFavouritesInput,
-  }: {
-    snapId: string;
-    propertyId: string;
-    listingId: string;
-    createFavouritesInput?: any;
-  }) => {
-    const token = getAuthToken() || localStorage.getItem("userAccessToken");
-    if (!token) throw new Error("No authentication token found");
+  const toggleFavourite = useMutation({
+    mutationKey: ["toggleFavourite"],
+    mutationFn: async ({
+      snapId,
+      propertyId,
+      listingId,
+      createFavouritesInput,
+    }: {
+      snapId: string;
+      propertyId: string;
+      listingId: string;
+      createFavouritesInput?: any;
+    }) => {
+      const token = getAuthToken() || localStorage.getItem("userAccessToken");
+      if (!token) throw new Error("No authentication token found");
 
-    const response = await axios.post(
-      GRAPHQL_URI,
-      {
-        query: `
+      const response = await axios.post(
+        GRAPHQL_URI,
+        {
+          query: `
           mutation toggleFavourite(
             $snapId: String!, 
             $propertyId: String!, 
@@ -562,28 +566,28 @@ const toggleFavourite = useMutation({
             )
           }
         `,
-        variables: { snapId, propertyId, listingId, createFavouritesInput },
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          variables: { snapId, propertyId, listingId, createFavouritesInput },
         },
-      }
-    );
-
-    if (response.status !== 200 || response.data.errors) {
-      throw new Error(
-        response?.data?.errors?.[0]?.message || "Failed to toggle favourite"
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
-    }
 
-    return response.data.data.toggleFavourite; // true = added, false = removed
-  },
-});
+      if (response.status !== 200 || response.data.errors) {
+        throw new Error(
+          response?.data?.errors?.[0]?.message || "Failed to toggle favourite"
+        );
+      }
+
+      return response.data.data.toggleFavourite; // true = added, false = removed
+    },
+  });
 
 
-  
+
   return {
     createNewSnap,
     getAllSnaps,

@@ -14,6 +14,9 @@ import { useFetchTours } from '@/hooks/api/agent/useGetTours';
 import UpcomingTours from '@/components/dashboard/main/upcoming-tour';
 import { useSearchParams } from 'next/navigation';
 import PastTours from '@/components/dashboard/main/past-tours';
+import { userData } from '@/slices/auth/auth.slice';
+import { useSelector } from 'react-redux';
+
 
 interface Tour {
   date: string;
@@ -61,6 +64,13 @@ const Tours: React.FC = () => {
   const filteredTours: Tour[] =
     currentTab === 'upcoming' ? tours : initialTours;
 
+
+       const currentUser = useSelector(userData);
+        
+        debugger
+        console.log(currentUser)
+        const role = currentUser?.account_type?.toLowerCase();
+
   return (
     <div className='px-16'>
       <div className='mt-6 flex items-center'>
@@ -85,7 +95,12 @@ const Tours: React.FC = () => {
         ></CustomButton>
       </div>
 
-      {currentTab === 'upcoming' ? <UpcomingTours /> : <PastTours />}
+     {currentTab === "upcoming" ? (
+  <UpcomingTours role={role} userId={currentUser?.id} />
+) : (
+  <PastTours />
+)}
+
     </div>
   );
 };

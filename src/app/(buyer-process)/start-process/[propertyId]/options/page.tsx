@@ -11,14 +11,16 @@ import { usePurchaseProcessStore } from '@/store/use-purchase-process-store';
 import { MORTGAGE_APPLICATION_URL } from '@/shared/constants/env';
 import { useAppSelector } from '@/lib/hook';
 import { useSelector } from 'react-redux';
+import { accessToken } from '@/slices/auth/auth.slice';
 
 const PreApprovalAffiliatesPage: React.FC = () => {
-  const {propertyQuery} = useAppSelector(state => state.property)
+  const { propertyQuery } = useAppSelector(state => state.property)
   const { propertyId } = useParams<{ propertyId: string }>();
-  const [answer,setAnswer] = React.useState("");
+  const [answer, setAnswer] = React.useState("");
   const router = useRouter()
   const means = localStorage.getItem("means")
-  const propertyData = useSelector((state:any)=>state.property.property);
+  const propertyData = useSelector((state: any) => state.property.property);
+  const token = useSelector(accessToken);
   const {
     combinedProcessState,
     updatePropertyPreference,
@@ -49,11 +51,10 @@ const PreApprovalAffiliatesPage: React.FC = () => {
   ];
 
   const handlePreApprovalAffiliateChange = (value: boolean) => {
-   // updatePropertyPreference('preApprovalAffiliates', value);
-    if(value){
+    // updatePropertyPreference('preApprovalAffiliates', value);
+    if (value) {
       setAnswer("Yes");
-    }else
-    {
+    } else {
       setAnswer("No");
     }
   };
@@ -69,8 +70,8 @@ const PreApprovalAffiliatesPage: React.FC = () => {
               className={cn(
                 `w-full rounded-md border border-black px-4 py-3  text-black transition-all`,
                 (combinedProcessState.propertyPreference
-                  .preApprovalAffiliates === value || answer===label) &&
-                  'bg-black text-white hover:bg-black',
+                  .preApprovalAffiliates === value || answer === label) &&
+                'bg-black text-white hover:bg-black',
               )}
             >
               {label}
@@ -99,17 +100,19 @@ const PreApprovalAffiliatesPage: React.FC = () => {
           <Button
             roundness='full'
             className='h-8 w-28 px-[4.5rem] py-2'
-            disabled={answer===""}
+            disabled={answer === ""}
             // disabled={
             //   combinedProcessState.propertyPreference.preApprovalAffiliates ===
             //   null
             // }
-            onClick={()=>{
-              if(answer==="Yes"){
-                window.location.href = `${MORTGAGE_APPLICATION_URL}/start-process?listingId=${propertyId}&propertyId=${propertyData?.id}&means=${means}&pq=${propertyQuery}&token=""`;
-              }else{
-                router.push('/start-process/${propertyId}/spoken-to-lenders')
-              }
+            onClick={() => {
+              // if (answer === "Yes") {
+              //   const actualToken = token || localStorage.getItem('userAccessToken') || "";
+              //   window.location.href = `${MORTGAGE_APPLICATION_URL}/start-process?listingId=${propertyId}&propertyId=${propertyData?.id}&means=${means}&pq=${propertyQuery}&token=${actualToken}`;
+              // } else {
+              //   router.push('/start-process/${propertyId}/spoken-to-lenders')
+              // }
+              router.push(`/start-process/${propertyId}/spoken-to-lenders`);
             }}
           >
             <Link

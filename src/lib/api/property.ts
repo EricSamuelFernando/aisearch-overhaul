@@ -100,7 +100,7 @@ export const usePropertyServiceAPI = (handleCb?: () => void) => {
         },
       );
       // success({ message: "File Uploaded successfully" })
-      return response.data;
+      return response.data.data;
     } catch (error: any) {
       console.error('Error uploading file:', error.message);
 
@@ -183,7 +183,7 @@ export const usePropertyServiceAPI = (handleCb?: () => void) => {
         if (response.status !== 200 || response.data.errors) {
           throw new Error(
             response.data.errors?.[0]?.message ||
-              'Failed to fetch participants',
+            'Failed to fetch participants',
           );
         }
 
@@ -547,8 +547,8 @@ export const usePropertyServiceAPI = (handleCb?: () => void) => {
         console.error('Error updating participants:', error);
         throw new Error(
           error?.response?.data?.errors?.[0]?.message ||
-            error.message ||
-            'An error occurred',
+          error.message ||
+          'An error occurred',
         );
       }
     },
@@ -624,7 +624,7 @@ export const usePropertyServiceAPI = (handleCb?: () => void) => {
         if (response.status !== 200 || response.data.errors) {
           throw new Error(
             response.data.errors?.[0]?.message ||
-              'Failed to fetch participants',
+            'Failed to fetch participants',
           );
         }
         console.log('Response data ', response);
@@ -683,7 +683,7 @@ export const usePropertyServiceAPI = (handleCb?: () => void) => {
         if (response.status !== 200 || response.data.errors) {
           throw new Error(
             response.data.errors?.[0]?.message ||
-              'Failed to fetch participants',
+            'Failed to fetch participants',
           );
         }
         return response.data.data.updateInvitationRequests;
@@ -847,7 +847,7 @@ export const useGetPropertyOffersByProperty = (
       if (response.status !== 200 || response.data.errors) {
         throw new Error(
           response.data?.errors?.[0]?.message ||
-            'Failed to fetch property offers',
+          'Failed to fetch property offers',
         );
       }
 
@@ -947,7 +947,7 @@ export const useFetchPropertyCounterOffers = (
       if (status !== 200 || data.errors) {
         throw new Error(
           data?.errors?.[0]?.message ??
-            'Failed to fetch property counter-offers',
+          'Failed to fetch property counter-offers',
         );
       }
 
@@ -1017,7 +1017,7 @@ export const useGetPropertyOfferById = (id: any) =>
       if (response.status !== 200 || response.data.errors) {
         throw new Error(
           response.data?.errors?.[0]?.message ??
-            'Failed to fetch property offer',
+          'Failed to fetch property offer',
         );
       }
 
@@ -1088,7 +1088,7 @@ export const useGetPropertyCounterOfferById = (id: any) =>
       if (response.status !== 200 || response.data.errors) {
         throw new Error(
           response.data?.errors?.[0]?.message ??
-            'Failed to fetch property offer',
+          'Failed to fetch property offer',
         );
       }
 

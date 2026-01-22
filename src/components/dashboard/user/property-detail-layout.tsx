@@ -64,7 +64,7 @@ export interface EngagedPropertyDocumentsInterface {
 
 }
 
-function  PropertyDetailLayout() {
+function PropertyDetailLayout() {
   const { propertyId: id } = useParams<{ propertyId: string; item: string }>();
   const { userPath } = useCurrentUser();
   const [loading, setLoading] = useState(true);
@@ -72,28 +72,30 @@ function  PropertyDetailLayout() {
   const [propertytDocuments, setPropertyDocuments] = useState<EngagedPropertyDocumentsInterface>();
   const {
     getSingleProperty: { isFetching, data, isLoading },
-  } = useGetSingleProperty(id!);
+  }: any = useGetSingleProperty(id!);
   const { getEngagedPropertyByPropertyId } = useAgentConversationApi()
-  const { getEngagedPropertyDocs, uploadNewFile,editDocument } = useMortgageServiceAPI()
+  const { getEngagedPropertyDocs, uploadNewFile, editDocument } = useMortgageServiceAPI()
   const { data: offerDataResponse } = useGetPropertyOffer(id!);
   const { mutate: updateTitleEscrow, isPending: isTitlEscrowLoading } = useUpdateTitleEscrow(id);
-  const property = data?.property as IProperty;  
-  const offerData: IOfferData = offerDataResponse;
+  const property = data?.property as any;
+  const offerData: any = offerDataResponse;
   const currentStatus = offerData?.currentStatus as OfferStatusEnum;
   const [fileUploading, setFileUploading] = useState(false);
+
+  // console.log('DEBUG DASHBOARD:', { id, loading, isLoading, property, propertyData, data });
   const currentUser = useSelector(userData);
-  const engagedProperty = useSelector((state:any)=>state.property?.engagedProperty)
+  const engagedProperty = useSelector((state: any) => state.property?.engagedProperty)
   const handleTitleEscrow = () => {
     updateTitleEscrow();
   };
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [totalItems, setTotalItems] = useState(50);
-  const agentData = engagedProperty?.participants?.filter((item:any)=>item?.userId === currentUser?.id);
+  const agentData = engagedProperty?.participants?.filter((item: any) => item?.userId === currentUser?.id);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const agent = agentData?.filter((item:any)=>item?.userId===currentUser?.id)
-  const {renameUploadedFile} = useRepoManagementApi();
+  const agent = agentData?.filter((item: any) => item?.userId === currentUser?.id)
+  const { renameUploadedFile } = useRepoManagementApi();
 
   const getEngagedProperty = () => {
     setPropertyData({} as EngagedPropertyInterface);
@@ -127,13 +129,13 @@ function  PropertyDetailLayout() {
 
   const queryClient = useQueryClient();
 
-  const handleEditDocument = (documentId:string,name:string) => {
+  const handleEditDocument = (documentId: string, name: string) => {
     setFileUploading(true)
-    renameUploadedFile.mutate({fileName:name,id:documentId}, {
+    renameUploadedFile.mutate({ fileName: name, id: documentId }, {
       onSuccess: (response) => {
-        if(response?.data?.data?.updateUploadedDocument?.id){
+        if (response?.data?.data?.updateUploadedDocument?.id) {
           getPropertyDocuments()
-          queryClient.invalidateQueries({queryKey:[]})
+          queryClient.invalidateQueries({ queryKey: [] })
         }
       },
       onError: (error) => {
@@ -168,7 +170,7 @@ function  PropertyDetailLayout() {
 
   return (
     <div>
-      {!loading ? (
+      {(!loading && !isLoading) ? (
         <div className='grid h-full min-h-screen grid-cols-5 gap-x-6'>
           <div className='items-between container flex h-full flex-col md:col-span-3'>
             <div className='mb-10 flex max-h-[120px] flex-1 items-start justify-between gap-x-4'>
@@ -177,16 +179,16 @@ function  PropertyDetailLayout() {
                 trailColor='#454545'
                 textColor='text-white'
                 pathColor='white'
-                propertyId={propertyData?.propertyId || ""}
-                streetName={propertyData?.propertyName || ""}
-                progress={propertyData?.propertyProgress}
-                address={propertyData?.propertyAddress || ""}
-                image={propertyData?.propertyImage}
+                propertyId={propertyData?.propertyId || id}
+                streetName={propertyData?.propertyName || property?.address?.unparsedAddress || ""}
+                progress={propertyData?.propertyProgress || 0}
+                address={propertyData?.propertyAddress || `${property?.address?.city || ''}, ${property?.address?.stateOrProvince || ''} ${property?.address?.zipCode || ''}` || ""}
+                image={propertyData?.propertyImage || property?.media?.primaryListingImageUrl || property?.media?.photosList?.[0]?.highRes || ""}
                 isManage={true}
               />
 
               <div className='flex h-full flex-auto  flex-col items-center justify-between'>
-                {(agent?.[0]?.is_accepted!=="rejected" && agent?.[0]?.agent?.email) ? (
+                {(agent?.[0]?.is_accepted !== "rejected" && agent?.[0]?.agent?.email) ? (
                   <AgentCard agent={agent?.[0]} property={propertyData} />
                 ) : (
                   <Button
@@ -195,8 +197,13 @@ function  PropertyDetailLayout() {
                     roundness='full'
                   >
                     <Link
-                    href={`/start-process/${propertyData?.propertyId}/transaction-agreement?dashboard=true&engagementId=${propertyData?.id}`}
-                      // href={`${userPath}/property/${propertyData?.propertyId}/add-agent?engagementId=${propertyData?.id}`}
+                      //     href={`/start-process/${propertyData?.propertyId || id}/transaction-agreement?dashboard=true&engagementId=${propertyData?.id || ''}`}
+
+                      href={propertyData?.id
+                        ? `/start-process/${propertyData?.propertyId || id}/transaction-agreement?dashboard=true&engagementId=${propertyData?.id}`
+                        : `/start-process/${id}/transaction-agreement`
+                      }
+                    // href={`${userPath}/property/${propertyData?.propertyId}/add-agent?engagementId=${propertyData?.id}`}
                     >
                       Add Agent
                     </Link>
@@ -208,19 +215,19 @@ function  PropertyDetailLayout() {
             <div className='space-y-10'>
               <TransactionStatus currentStatus={currentStatus} />
 
-              
+
 
               {!offerData && !currentStatus && (
                 <CreateOffer
-                  agentAdded={ engagedProperty?.participants?.some((item:any) => "agent" in item)}
-                  agentDetail = {engagedProperty?.participants?.some((item:any) => "agent" in item) && engagedProperty?.participants?.[0].agent}
+                  agentAdded={engagedProperty?.participants?.some((item: any) => "agent" in item)}
+                  agentDetail={engagedProperty?.participants?.some((item: any) => "agent" in item) && engagedProperty?.participants?.[0].agent}
                   propertyId={engagedProperty?.propertyId}
                 />
               )}
-              <CreateUserOffers limit={2}/>
-               
+              <CreateUserOffers limit={2} />
 
-              {currentStatus === 'pending'&& (
+
+              {currentStatus === 'pending' && (
                 <AwaitingAgent
                   id={property?._id}
                   buyerAgentAcceptance={offerData?.buyerAgentAcceptance}
@@ -271,10 +278,10 @@ export default PropertyDetailLayout;
 type CreateOfferProp = {
   agentAdded: boolean;
   propertyId: string;
-  agentDetail:any
+  agentDetail: any
 };
 
-const CreateOffer = ({ agentAdded, propertyId , agentDetail }: CreateOfferProp) => {
+const CreateOffer = ({ agentAdded, propertyId, agentDetail }: CreateOfferProp) => {
   const { userPath } = useCurrentUser();
   return (
     <div className='mt-10 flex w-full flex-col gap-6 text-center'>

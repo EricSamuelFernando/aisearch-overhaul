@@ -19,7 +19,7 @@ export function SubmitEmail() {
       email: '',
     },
     validate: {
-      email: (value) => (/^\S+@\S+$/.test(value) ? null : 'Invalid email'),
+      email: (value) => (/^\S+@\S+$/.test(value) ? null : '✨ Oops! That email looks a bit off. Double-check and try again!'),
     },
   });
 

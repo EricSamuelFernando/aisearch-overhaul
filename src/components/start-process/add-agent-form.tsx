@@ -47,7 +47,7 @@ export const AddAgentSearchForm: React.FC = () => {
     setEmail(value);
 
     if (!validateEmail(value)) {
-      setEmailError('Invalid email format');
+      setEmailError('✨ Almost there! Please enter a valid email address');
       return;
     } else {
       setEmailError('');
@@ -62,7 +62,7 @@ export const AddAgentSearchForm: React.FC = () => {
       userId: currentUser?.id,
       email,
       is_accepted: "pending",
-      engagementId,
+      engagementId: engagementId || undefined,
     };
 
     externalAgentIvitationMutation.mutateAsync(data, {
@@ -99,7 +99,7 @@ export const AddAgentSearchForm: React.FC = () => {
         <Button
           roundness='full'
           className='w-max min-w-[150px] px-4 text-xs disabled:bg-black/60'
-          disabled={loading || (emailError?.length>0 && email?.length>0 )} 
+          disabled={loading || (emailError?.length > 0 && email?.length > 0)}
           onClick={sendAgentInvitation}
         >
           Contact Agent

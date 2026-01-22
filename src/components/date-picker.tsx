@@ -182,7 +182,7 @@ import {
   startOfMonth,
   subDays,
 } from 'date-fns';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactDatePicker from 'react-datepicker';
 import { Icons } from './icons';
 import { cn } from '../lib/utils';
@@ -196,11 +196,38 @@ interface DatePickerProps {
 
 interface TimePickerProps {
   onTimeChange: (time: string) => void;
-  initialTime?: Date;
+  initialTime?: Date | string;
 }
 
 const TimePicker: React.FC<TimePickerProps> = ({ onTimeChange, initialTime }) => {
-  const [startDate, setStartDate] = useState<Date>(initialTime || new Date());
+  // Parse initialTime - can be Date object or time string (HH:mm:ss)
+  const getInitialTime = (): Date => {
+    if (!initialTime) return new Date();
+    
+    if (initialTime instanceof Date) {
+      return initialTime;
+    }
+    
+    // If it's a string (HH:mm:ss format), parse it
+    if (typeof initialTime === 'string') {
+      const [hours, minutes, seconds] = initialTime.split(':').map(Number);
+      const date = new Date();
+      date.setHours(hours || 0, minutes || 0, seconds || 0, 0);
+      return date;
+    }
+    
+    return new Date();
+  };
+
+  const [startDate, setStartDate] = useState<Date>(getInitialTime());
+
+  // Update when initialTime changes (for editing mode)
+  useEffect(() => {
+    if (initialTime) {
+      const parsedTime = getInitialTime();
+      setStartDate(parsedTime);
+    }
+  }, [initialTime]);
 
   const handleTimeChange = (date: Date | null) => {
     if (!date) return; // null guard
@@ -231,6 +258,24 @@ const DatePicker: React.FC<DatePickerProps> = ({
 }) => {
   const [currentDate, setCurrentDate] = useState<Date>(initialDate || new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(initialDate || null);
+
+  // Update selected date when initialDate changes (for editing mode)
+  useEffect(() => {
+    if (initialDate) {
+      setSelectedDate(initialDate);
+      // Set currentDate to show the month of the initial date
+      setCurrentDate(initialDate);
+    }
+  }, [initialDate]);
+
+  // Update selected date when initialDate changes (for editing mode)
+  useEffect(() => {
+    if (initialDate) {
+      setSelectedDate(initialDate);
+      // Set currentDate to show the month of the initial date
+      setCurrentDate(initialDate);
+    }
+  }, [initialDate]);
 
   const handleNext = () => {
     setCurrentDate((prevDate) => addDays(prevDate, 3));

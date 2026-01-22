@@ -21,7 +21,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   onUploadSuccess,
   setFileDetails
 }) => {
-  const AI_SEARCH_ENDPOINT = process.env.NEXT_PUBLIC_AI_SEARCH_ENDPOINT || "https://ai.snaphomz.com";
+  const AI_SEARCH_ENDPOINT = process.env.NEXT_PUBLIC_AI_SEARCH_ENDPOINT || "https://demo-ai.snaphomz.com";
   const { files, setFiles, handleUpload, thumbnails } = useFileUpload();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState<boolean>(false);

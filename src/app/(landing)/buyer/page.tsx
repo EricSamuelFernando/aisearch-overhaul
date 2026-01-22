@@ -168,12 +168,11 @@ export default function BuyerPage() {
             text="From browsing to signing, everything just flowed. The listings were clear, the agents responsive, and the process — smooth. I found my home faster than I expected."
           />
           <TestimonialCard
-           name="Alex Richard"
+            name="Alex Richard"
             title="Product Manager, Chicago"
             image="/assets/images/agents/5.jpg"
             text="Snaphomz helps me connect with serious buyers quickly. The interface is clean, and the snap tools make updates and scheduling super efficient. I’ve closed more deals in less time."
-          /> 
-          
+          />
         </div>
       </section>
 

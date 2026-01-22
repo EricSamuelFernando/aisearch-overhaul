@@ -82,7 +82,7 @@ export const useMortgageServiceAPI = (handleCb?: () => void) => {
             });
             success({ message: "Success! Your file is now uploaded" })
             console.log("File uploaded successfully:", response.data);
-            return response.data;
+            return response.data.data;
         } catch (error: any) {
             console.error("Error uploading file:", error.message);
 

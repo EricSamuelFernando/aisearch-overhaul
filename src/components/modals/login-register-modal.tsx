@@ -6,6 +6,7 @@ import { Button } from '../ui/button';
 import { cn } from '@/lib/utils';
 import { LoginModal } from './login-modal';
 import RegisterModal from './register-modal';
+import { PasswordResetModal } from './password-reset-modal';
 
 const LoginRegisterModal = ({
   initialStage,
@@ -29,6 +30,7 @@ const LoginRegisterModal = ({
 }) => {
   const [currentForm, setCurrentForm] = useState<number>(initialStage | 0);
   const [isOpen, setIsOpen] = useState(false);
+  const [isPasswordResetOpen, setIsPasswordResetOpen] = useState(false);
 
   useEffect(() => {
     if (!isOpen) {
@@ -45,17 +47,35 @@ const LoginRegisterModal = ({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant={variant} className={(cn('w-full'), className)}>
-          {label}
-        </Button>
-      </DialogTrigger>
-      <DialogContent className='w-[22rem] rounded-[20px] md:w-[36rem]'>
-        {currentForm === 0 && <LoginModal handleStage={handleNextForm} setIsOpen={setIsOpen} />}
-        {currentForm === 1 && <RegisterModal handleStage={handlePrevForm} />}
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogTrigger asChild>
+          <Button variant={variant} className={(cn('w-full'), className)}>
+            {label}
+          </Button>
+        </DialogTrigger>
+        <DialogContent className='w-[22rem] rounded-[20px] md:w-[36rem]'>
+          {currentForm === 0 && (
+            <LoginModal 
+              handleStage={handleNextForm} 
+              setIsOpen={setIsOpen}
+              onForgotPassword={() => {
+                setIsOpen(false);
+                setTimeout(() => {
+                  setIsPasswordResetOpen(true);
+                }, 100);
+              }}
+            />
+          )}
+          {currentForm === 1 && <RegisterModal handleStage={handlePrevForm} />}
+        </DialogContent>
+      </Dialog>
+      
+      <PasswordResetModal 
+        isOpen={isPasswordResetOpen} 
+        setIsOpen={setIsPasswordResetOpen} 
+      />
+    </>
   );
 };
 

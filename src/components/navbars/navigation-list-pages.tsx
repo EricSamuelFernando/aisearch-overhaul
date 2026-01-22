@@ -2,15 +2,47 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { NavigationMenu, NavigationMenuContent, NavigationMenuItem, NavigationMenuLink, NavigationMenuList, NavigationMenuTrigger } from '@/components/ui/navigation-menu';
 import { AGENT_APPLICATIONS } from '@/shared/constants/env';
-export function NavigationListPages() {
+
+export function NavigationListPages({ isScrolled = false }: { isScrolled?: boolean }) {
+  const pathname = usePathname();
+
+  // Determine text color based on route
+  const getTextColor = (route: string) => {
+    if (pathname?.startsWith('/home') || pathname === '/home' || pathname === '/home/buy') {
+      return 'text-white';
+    } else if (pathname === '/sell') {
+      return 'text-black';
+    } else if (pathname === '/agents') {
+      return 'text-black';
+    } else if (pathname === '/company') {
+      return 'text-white';
+    }
+    // Default to white for other routes
+    return 'text-white';
+  };
+
+  // Check if a route is active
+  const isActive = (route: string) => {
+    if (route === '/home') {
+      return pathname === '/home' || pathname === '/home/buy' || pathname?.startsWith('/home/buy');
+    }
+    return pathname === route || pathname?.startsWith(route + '/');
+  };
+
+  const baseTextColorClass = getTextColor(pathname || '');
+  // When scrolled, use appropriate text color based on page type (light pages use black, dark pages use white)
+  const textColorClass = isScrolled 
+    ? (pathname === '/sell' || pathname === '/agents' ? 'text-black' : 'text-white')
+    : baseTextColorClass;
   return (
     <NavigationMenu>
       <NavigationMenuList>
         <NavigationMenuItem>
           <NavigationMenuTrigger className='bg-transparent px-4 hover:bg-transparent hover:underline focus:bg-transparent'>
-            <Link href='/home' className='text-white'>
+            <Link href='/home' className={isActive('/home') ? (isScrolled ? 'text-white' : 'text-white') : textColorClass}>
               Buy
             </Link>
           </NavigationMenuTrigger>
@@ -46,7 +78,7 @@ export function NavigationListPages() {
 
         <NavigationMenuItem>
           <NavigationMenuTrigger className='bg-transparent px-4 hover:bg-transparent hover:underline focus:bg-transparent'>
-            <Link href='/sell' className='text-white'>
+            <Link href='/sell' className={isActive('/sell') ? (isScrolled ? 'text-black' : 'text-black') : textColorClass}>
               Sell
             </Link>
           </NavigationMenuTrigger>
@@ -81,8 +113,8 @@ export function NavigationListPages() {
         </NavigationMenuItem>
 
         <NavigationMenuItem>
-            <NavigationMenuTrigger className='bg-transparent px-4 font-medium text-white'>
-                <Link href='/agents' legacyBehavior passHref>
+            <NavigationMenuTrigger className={`bg-transparent px-4 font-medium hover:bg-transparent hover:underline focus:bg-transparent ${isActive('/agents') ? (isScrolled ? 'text-black' : 'text-black') : textColorClass}`}>
+                <Link href='/agents' className={isActive('/agents') ? (isScrolled ? 'text-black' : 'text-black') : textColorClass}>
               Agents
               </Link>
             </NavigationMenuTrigger>
@@ -102,7 +134,7 @@ export function NavigationListPages() {
 
         <NavigationMenuItem>
           <Link href='/company' legacyBehavior passHref>
-            <NavigationMenuLink className='bg-transparent px-4 font-medium text-white '>
+            <NavigationMenuLink className={`bg-transparent px-4 font-medium ${isActive('/company') ? (isScrolled ? 'text-white' : 'text-white') : textColorClass}`}>
               Company
             </NavigationMenuLink>
           </Link>

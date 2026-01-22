@@ -321,7 +321,7 @@ import CustomModal from '../shared/custom-modal';
 import { Button } from '../ui/button';
 import { cn } from '@/lib/utils';
 import { useUserSnapAPIs } from '@/hooks/api/auth/snaps.API';
-import { success } from '../alert/notify';
+import { success, error } from '../alert/notify';
 import { useRouter } from 'next/navigation';
 import { reverse } from 'lodash';
 
@@ -330,13 +330,15 @@ interface CollectionModalProps {
   onClose: () => void;
   propertyId?: string;
   propertyImage?: string;
+  onSuccess?: () => void;
 }
 
 const CollectionModal: React.FC<CollectionModalProps> = ({
   isOpen,
   onClose,
   propertyId,
-  propertyImage
+  propertyImage,
+  onSuccess
 }) => {
   const router = useRouter();
   const [snaps, setSnaps] = useState<any[]>([]);
@@ -396,7 +398,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
 
   const handleToggleFavourite = (snapId: string) => {
     if (!snapId) return;
-  
+
     const input = {
       snapId,
       name: propertyData?.listing?.courtesyOf,
@@ -411,7 +413,6 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
       listingId: propertyData?.listingId,
       propertyId: propertyData?.id || "",
     };
-   
 
     toggleFavourite.mutate(
       { snapId, propertyId: input.propertyId, listingId: input.listingId, createFavouritesInput: input },
@@ -422,7 +423,8 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
           } else {
             success({ message: "Removed from favorites" });
           }
-          getAllSnapsByUserId(); // 
+          getAllSnapsByUserId();
+          if (onSuccess) onSuccess();
         },
         onError: (error) => {
           console.error("Error toggling favourite:", error);
@@ -431,6 +433,53 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
     );
   };
 
+  // const handleCreateFavourite = (snapId: string) => {
+  //   if (snapId) {
+  //     const data = {
+  //       snapId,
+  //       name: propertyData?.listing?.courtesyOf,
+  //       address: propertyData?.listing?.address?.unparsedAddress,
+  //       city: propertyData?.listing?.address?.city,
+  //       zipCode: propertyData?.listing?.address?.zipCode,
+  //       price: +propertyData?.listing?.listPriceLow,
+  //       image: propertyData?.public?.imageUrl,
+  //       bedRooms: +propertyData?.listing?.property?.bedroomsTotal || +propertyData?.property?.bedroomsTotal || 0,
+  //       bathRooms: "" + propertyData?.listing.property?.bathroomsTotal || "" + propertyData?.property?.bathroomsTotal,
+  //       sqft: "" + propertyData?.listing?.property?.livingArea,
+  //       listingId: propertyData?.listingId,
+  //       propertyId: propertyData?.id || ""
+  //     };
+
+
+
+  //     createFavourite.mutate(data, {
+  //       onSuccess: async(data) => {
+  //         const selectedSnap: any = await snaps.filter((item) => item?.id === snapId);
+  //         selectedSnap[0].favourites = [
+  //           {
+  //             id: data?.data?.createFavourite?.id,
+  //             listingId: propertyData?.listingId,
+  //             propertyId: propertyData?.id || ""
+  //           },
+  //           ...selectedSnap?.[0].favourites
+  //         ]
+  //         const finalSnaps = snaps.filter((item) => item?.id !== snapId)
+  //         setSnaps((prev) => ([
+  //           ...finalSnaps,
+  //           ...selectedSnap
+  //         ]))
+
+  //         success({
+  //           message: "All set! It’s now in your favorites"
+  //         });
+  //         onClose();
+  //       },
+  //       onError: (error) => {
+  //         console.log("Error creating favourite:", error);
+  //       }
+  //     });
+  //   }
+  // };
 
   const createSnap = () => {
     createNewSnap.mutate({
@@ -442,6 +491,9 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
         setSnaps((prev) => [...prev, data?.data?.createSnap]);
         setCreatedSnapId(data?.data?.createSnap?.id);
         setStep(2);
+      },
+      onError: (err: any) => {
+        error({ message: err.message || "Failed to create snap" });
       }
     });
   };
@@ -458,11 +510,16 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
   }
 
   const getAllSnapsByUserId = () => {
-    getAllSnaps.mutate(userData?.id, {
-      onSuccess: (data) => {
-        setSnaps(data);
-      }
-    });
+    if (userData?.id) {
+      getAllSnaps.mutate(userData.id, {
+        onSuccess: (data) => {
+          setSnaps(data);
+        },
+        onError: (error) => {
+          console.error("Error fetching snaps:", error);
+        }
+      });
+    }
   };
 
   useEffect(() => {
@@ -473,8 +530,6 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
     if (!Array.isArray(snap?.favourites)) {
       return false;
     }
-    debugger
-    console.log(snap)
     const isAvailable = snap?.favourites?.some((favourite: any) => {
       const propertyIdMatch = favourite?.propertyId === propertyData?.id;
       const listingIdMatch = favourite?.listingId === propertyData?.listingId;
@@ -636,3 +691,4 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
 };
 
 export default CollectionModal;
+

@@ -345,9 +345,9 @@ function BuyerPropertyListing() {
 
           {/* Sidebar - Tours, Notifications, and Agents */}
           <section className="col-span-1 space-y-6">
-            {/* <div className="bg-white rounded-lg overflow-hidden">
+            <div className="bg-white rounded-lg overflow-hidden">
               <ToursList properties={properties} />
-            </div> */}
+            </div>
 
             <div className="bg-white  overflow-hidden">
               <NotificationList />

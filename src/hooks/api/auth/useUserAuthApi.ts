@@ -50,6 +50,7 @@ import { updateSavedSearchQuery } from '@/slices/onboarding/onboarding-slice';
 import axios from 'axios';
 import { update } from 'lodash';
 import { useCallback, useState } from 'react';
+import useCognitoGoogleAuth from './useCognitoGoogleAuth';
 
 interface ResetPasswordInput {
   token: string;
@@ -57,11 +58,11 @@ interface ResetPasswordInput {
 }
 
 export const useUserAuthApi = (handleCb?: () => void) => {
-  // debugger
   const router = useRouter();
   const searchParams = useSearchParams();
   const { close } = useAuthModalActions();
   const { user } = useAuth();
+  const { cognitoLogout } = useCognitoGoogleAuth();
   const currentUser = user?.account_type;
   const searchTerm = useAppSelector(savedSearchQuery);
   const dispatch = useAppDispatch();
@@ -72,9 +73,6 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     manageConversationUnread,
     manageMessageUnread
   } = useAuthActions();
-
-
-  const typeParam :any = searchParams.get("redirection") || "null";
 
   const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql"
 
@@ -202,13 +200,22 @@ export const useUserAuthApi = (handleCb?: () => void) => {
         variables: { email },
       });
 
-      return response.data?.data?.forgotPassword;
+      if (response.data?.errors) {
+        throw new Error(response.data.errors[0]?.message || 'Failed to send password reset code');
+      }
+
+      return { message: response.data?.data?.forgotPassword, email };
     },
-    onSuccess: (message) => {
-      success({ message: message || 'Password reset link sent to your email.' });
+    onSuccess: (data) => {
+      success({ message: data?.message || 'Password reset code sent to your email.' });
+      // Store email in localStorage for the next step
+      if (data?.email) {
+        localStorage.setItem('forgotPasswordEmail', data.email);
+      }
+      router.push(`/password-reset?step=verify-code`);
     },
     onError: (err: any) => {
-      error({ message: err?.response?.data?.errors?.[0]?.message || 'Something went wrong' });
+      error({ message: err?.response?.data?.errors?.[0]?.message || err?.message || 'Something went wrong' });
     },
   });
 
@@ -231,6 +238,33 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     },
     onError: (err: any) => {
       error({ message: err?.response?.data?.errors?.[0]?.message || 'Reset failed' });
+    },
+  });
+
+  const confirmForgotPasswordMutation = useMutation({
+    mutationKey: ['confirm-forgot-password'],
+    mutationFn: async ({ email, code, newPassword }: { email: string; code: string; newPassword: string }) => {
+      const response = await axios.post(GRAPHQL_URI, {
+        query: `
+              mutation ConfirmForgotPassword($email: String!, $code: String!, $newPassword: String!) {
+                confirmForgotPassword(email: $email, code: $code, newPassword: $newPassword)
+              }
+            `,
+        variables: { email, code, newPassword },
+      });
+
+      if (response.data?.errors) {
+        throw new Error(response.data.errors[0]?.message || 'Failed to reset password');
+      }
+
+      return response.data?.data?.confirmForgotPassword;
+    },
+    onSuccess: () => {
+      success({ message: 'Password has been reset successfully.' });
+      router.push('/home');
+    },
+    onError: (err: any) => {
+      error({ message: err?.response?.data?.errors?.[0]?.message || err?.message || 'Failed to reset password' });
     },
   });
 
@@ -295,14 +329,8 @@ export const useUserAuthApi = (handleCb?: () => void) => {
         setAuthToken(token);
         login(user);
         storeCookie({ key: AUTH_TOKEN, value: token });
-        debugger
-          if (typeParam ==='preapproval') {
-          router.push(process.env.NEXT_PUBLIC_PREAPPROVAL_URL || "http://localhost:3000");
-          return
-        }
         if (user?.id) {
           close();
-       
           return router.push('/dashboard/agent');
         }
       }
@@ -344,11 +372,6 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       });
     },
     onSuccess: (data: any) => {
-      debugger
-
-      console.log(typeParam, "typeParam");
-
-
       if (data?.data?.errors?.length) {
         error({ message: data?.data?.errors?.[0]?.message })
       }
@@ -360,15 +383,10 @@ export const useUserAuthApi = (handleCb?: () => void) => {
           key: AUTH_TOKEN,
           value: (data as any)?.data?.data?.verifyOtp?.access_token,
         });
-
-        // if (typeParam ==='preapproval') {
-        //   router.push(process.env.NEXT_PUBLIC_PREAPPROVAL_URL || "http://localhost:3000");
-        //   return
-        // }
         if (data?.data?.data?.verifyOtp?.accountType === "buyer") {
-          router.push("/complete-onboarding?redirectionUrl=" + typeParam);
+          router.push("/property-preference");
         } else {
-          router.push("/complete-onboarding?redirectionUrl=" + typeParam);
+          router.push("/complete-onboarding");
         }
       }
     },
@@ -411,7 +429,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
         }
       })
       // success({ message: "File Uploaded successfully" })
-      return response.data
+      return response.data.data
     } catch (error: any) {
       console.error('Error uploading file:', error.message)
       // Handle HTTP errors gracefully
@@ -1287,8 +1305,18 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       if (handleCb) handleCb();
       console.log("DAta : ", data);
       if (data?.id) {
+        // Logout from local state first
         logout();
-        router.push('/home');
+
+        // Then logout from Cognito (for OAuth users)
+        // This will redirect to Cognito logout endpoint if user logged in via Google
+        try {
+          cognitoLogout();
+        } catch (error) {
+          console.error('Error during Cognito logout:', error);
+          // If Cognito logout fails, just redirect to home
+          router.push('/home');
+        }
       }
 
     },
@@ -1327,6 +1355,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     getBuyPropertyDocuments,
     forgotPasswordMutation,
     resetPasswordMutation,
+    confirmForgotPasswordMutation,
     updateUserMutation,
     uploadprofile,
     createUserByEmailMutation,
@@ -1369,7 +1398,15 @@ export const useTokenLoginMutation = (handleCb?: () => void) => {
               email,
               accountType,
               status,
-              profile
+              profile,
+              propertyPreference {
+                propertyType,
+                preferredPropertyAddress,
+                spendAmount {
+                  min,
+                  max
+                }
+              }
             }
           }
         `,
@@ -1394,6 +1431,7 @@ export const useTokenLoginMutation = (handleCb?: () => void) => {
         email,
         accountType,
         profile,
+        propertyPreference,
         messageUnreadCount,
         conversationUnreadCount
       } = data?.data?.getUserDetails;
@@ -1406,7 +1444,8 @@ export const useTokenLoginMutation = (handleCb?: () => void) => {
         email,
         profile,
         account_type: accountType,
-        access_token: data.access_token
+        access_token: data.access_token,
+        propertyPreference: propertyPreference || null
       };
 
       localStorage.setItem('userEmail', email);
@@ -1467,8 +1506,8 @@ export function useUploadprofile() {
         },
       });
 
-      setData(response.data);
-      return response.data;
+      setData(response.data.data);
+      return response.data.data;
     } catch (err: any) {
       console.error('Error uploading file:', err.message);
       if (err.response) {

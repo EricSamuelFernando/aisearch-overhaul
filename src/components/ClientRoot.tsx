@@ -5,27 +5,22 @@ import { ReactNode, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import NextTopLoader from 'nextjs-toploader';
 import { Providers } from '../app/providers';
-import CookieConsent from './CookieConsent';
+
 // dynamically import so it only runs in the browser
-// const CookieConsent = dynamic(
-//   () => import('react-cookie-consent'),
-//   { ssr: false }
-// );
+const CookieConsent = dynamic(
+  () => import('react-cookie-consent'),
+  { ssr: false }
+);
 
 export function ClientRoot({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
 
+  // only render after hydration, so cloudinary / maps scripts don’t SSR-crash
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Show a spinner until the client has mounted
-  if (!mounted)
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-white">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-gray-900"></div>
-      </div>
-    );
+  if (!mounted) return null;
 
   return (
     <>
@@ -34,11 +29,8 @@ export function ClientRoot({ children }: { children: ReactNode }) {
         showSpinner={false}
         showForHashAnchor={false}
       />
-        <div className="hidden md:block">
-           <CookieConsent />
-        </div>
 
-      {/* <CookieConsent
+      <CookieConsent
         location="bottom"
         buttonText="Got it!"
         cookieName="user-consent"
@@ -59,7 +51,7 @@ export function ClientRoot({ children }: { children: ReactNode }) {
       >
         This website uses cookies to enhance the user experience. By using this site,
         you agree to our cookie policy.
-      </CookieConsent> */}
+      </CookieConsent>
 
       <Providers>{children}</Providers>
     </>

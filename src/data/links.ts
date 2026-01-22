@@ -6,25 +6,25 @@ export const footerLinks: Record<string, IFooterItems> = {
     title: 'Company',
     links: [
       {
-        title: 'About Us',
+        title: 'About us',
         href: '/about',
       },
       {
         title: 'Career',
         href: '/career',
       },
-      // {
-      //   title: 'Investor',
-      //   href: '/investor',
-      // },
       {
-        title: 'Blog',
-        href: '/blogs',
+        title: 'Investor',
+        href: '/investor',
+      },
+      {
+        title: 'Insight',
+        href: '/blog',
       },
     ],
   },
   contact: {
-    title: 'Company',
+    title: 'Contact',
     links: [
       {
         title: 'Help and Support',
@@ -45,7 +45,7 @@ export const footerLinks: Record<string, IFooterItems> = {
     links: [
       {
         title: 'Terms and Conditions',
-        href: '/terms-conditions',
+        href: '/terms-and-conditions',
       },
       {
         title: 'Privacy Policy',
@@ -71,19 +71,13 @@ export const socialLinks: MainNavItem[] = [
   {
     title: 'facebook',
     external: true,
-    href: 'https://instagram.com',
+    href: 'https://facebook.com',
     icon: Facebook,
-  },
-  {
-    title: 'twitter',
-    external: true,
-    href: 'https://instagram.com',
-    icon: TwitterIcon,
   },
   {
     title: 'linkedin',
     external: true,
-    href: 'https://instagram.com',
+    href: 'https://linkedin.com',
     icon: Linkedin,
   },
   {
@@ -95,8 +89,14 @@ export const socialLinks: MainNavItem[] = [
   {
     title: 'rss',
     external: true,
-    href: 'https://instagram.com',
+    href: 'https://rss.com',
     icon: Rss,
+  },
+  {
+    title: 'twitter',
+    external: true,
+    href: 'https://twitter.com',
+    icon: TwitterIcon,
   },
 ];
 
@@ -120,6 +120,11 @@ export const mainNavsLinks: MainNavItem[] = [
     title: 'Company',
     external: true,
     href: '/company',
+  },
+  {
+    title: 'Blog',
+    external: true,
+    href: '/blog',
   },
 ];
 

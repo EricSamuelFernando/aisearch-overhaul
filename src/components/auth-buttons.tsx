@@ -75,6 +75,7 @@ export const AuthButtons = ({ origin }: { origin?: 'page' | 'modal' }) => {
     const googleData = { token: 'your-google-token' };
 
     // Trigger the mutation
+    debugger
     googleLoginMutation.mutate(googleData);
   };
 

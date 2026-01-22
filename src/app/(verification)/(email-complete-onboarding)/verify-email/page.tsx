@@ -10,7 +10,7 @@ import { Navigate } from '@/lib/Navigate';
 import { useAppSelector } from '@/lib/hook';
 import { savedUserType } from '@/slices/onboarding/onboarding-selectors';
 import Image from 'next/image';
-import { useSearchParams } from 'next/navigation';
+
 const EmailVerification = () => {
   const form = useForm({
     initialValues: {
@@ -24,9 +24,7 @@ const EmailVerification = () => {
     useUserAuthApi();
 
   const userType = useAppSelector(savedUserType);
- const searchParams = useSearchParams();
 
- const typeParam = searchParams.get("redirection") || null;
   // const link =
   //   userType === 'buyer' ? '/property-preference' : '/complete-onboarding';
 

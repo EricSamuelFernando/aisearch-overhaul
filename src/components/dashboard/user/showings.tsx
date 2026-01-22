@@ -694,6 +694,8 @@ import { formatDate, formatTime24to12 } from '@/lib/utils';
 import PaymentModal from '@/components/modals/payment-modal/payment-modal';
 import { LockIcon } from '@public/assets/icons';
 // import PaymentModal from '../main/payment-modal';
+import { userData } from '@/slices/auth/auth.slice';
+import { useSelector } from 'react-redux';
 
 type Props = {};
 
@@ -714,7 +716,8 @@ type FormType = {
 const Showings = ({ }: Props) => {
   const { propertyId } = useParams<{ propertyId: string }>();
   const engagedProperty = useAppSelector((state: RootState) => state.property.engagedProperty);
-
+  const currentUser = useSelector(userData);
+  const role = currentUser?.account_type?.toLowerCase();
   // Initialize default values with propertyId and listingId in events
   const initialValues: FormType = useMemo(() => ({
     fullName: '',
@@ -819,6 +822,10 @@ const Showings = ({ }: Props) => {
         propertyId,
         listingId: engagedProperty?.listingId?.toString(),
         engagementId: engagedProperty?.id,
+        sellerId: "fba66f74-90a2-4c21-8685-374055a7120d",
+        sellerAgentId: "1b5ea235-556b-40db-a4a7-f71fd5ac5a37",
+        buyerId:currentUser?.id
+
       };
 
     if (editingTour) {
@@ -847,17 +854,20 @@ const Showings = ({ }: Props) => {
       console.error("Error updating event:", error);
     }
   };
-  console.log( 'propertyTourId' , engagedProperty?.tours,)
+  console.log('propertyTourId', engagedProperty?.tours,)
 
   const handleAddTourEvent = () => {
     setAction(true);
     const values = getValues();
-
+    debugger
 
     const tourInput = {
       propertyTourId: engagedProperty?.tours?.id,
       propertyId,
       listingId: engagedProperty?.listingId?.toString(),
+      sellerId: "fba66f74-90a2-4c21-8685-374055a7120d",
+      sellerAgentId: "1b5ea235-556b-40db-a4a7-f71fd5ac5a37",
+      buyerId:currentUser?.id,
       events: values.events.map(e => ({
         ...e,
         propertyId: propertyId || '',

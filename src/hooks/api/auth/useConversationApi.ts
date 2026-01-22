@@ -5,10 +5,12 @@ import { setSelectedThreadInfo } from "@/slices/chat/chat.slice";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { useDispatch } from "react-redux";
+import { setEngagedProperty } from "@/slices/property/property-slice";
 
-const MORTGAGE_GRAPHQL_URI = process.env.NEXT_PUBLIC_MORTGAGE_SERIVCE_GRAPHQL_URL|| "http://localhost:4001/graphql";
+const MORTGAGE_GRAPHQL_URI = process.env.NEXT_PUBLIC_MORTGAGE_SERIVCE_GRAPHQL_URL || "http://localhost:4001/graphql";
 
 export const useAgentConversationApi = (handleCb?: () => void) => {
+  const dispatch = useAppDispatch();
   const GRAPHQL_URI =
     process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
     'http://localhost:4000/graphql';
@@ -434,7 +436,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
         throw error;
       }
     },
-    onSuccess: (data) => {},
+    onSuccess: (data) => { },
     onError: (error: any) => {
       console.error('Error fetching threads:', error);
       const errorMessage =
@@ -469,6 +471,44 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
                   userId,
                   propertyProgress,
                   status,
+                  tours{
+                    id
+                    fullName,
+                    phoneNumber,
+                    events
+                    {
+                      eventDate,
+                      tourTime,
+                      id
+                    }
+                  }
+                  coBuyers {
+                    id
+                    firstName
+                    lastName
+                    email
+                    phone
+                  }
+                  user {
+                    id
+                    firstName
+                    lastName
+                    email
+                    phone
+                  }
+                  participants{
+                    id
+                    userId
+                    bra_id
+                    is_accepted
+                    agent{
+                      email
+                      id
+                      firstName
+                      lastName
+                      phone
+                    }
+                  }
                 }
               }`,
             variables: {
@@ -496,6 +536,10 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
     },
     onSuccess: (data) => {
       console.log('Fetched threads:', data);
+      const engagement = data?.data?.data?.getUserEngagementsByPropertyId;
+      if (engagement) {
+        dispatch(setEngagedProperty(engagement));
+      }
     },
     onError: (error: any) => {
       console.error('Error fetching threads:', error);
@@ -814,6 +858,129 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
     },
   });
 
+  const getAllSnapzRequest = useMutation({
+    mutationKey: ['get_snapz_request'],
+    mutationFn: async (snapData: any) => {
+      const token = getAuthToken() || localStorage.getItem('userAccessToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await axios.post(
+        GRAPHQL_URI,
+        {
+          query: `
+            query findAllSnapsParticipants($snapData: SearchParticipentDTO!) {
+              findAllSnapsParticipants(snapData: $snapData) {
+                id
+                status
+                snap {
+                  id
+                  name
+                  link
+                  user{
+                    id
+                    email
+                    firstName
+                    lastName
+                  }
+                }
+                participant {
+                  id
+                  email
+                  firstName
+                  lastName
+                }
+              }
+            }
+          `,
+          variables: {
+            snapData,
+          },
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      if (response.status !== 200 || response.data.errors) {
+        throw new Error(
+          response.data?.errors?.[0]?.message ||
+          'Failed to fetch Snapz requests',
+        );
+      }
+
+      return response.data.data.findAllSnapsParticipants;
+    },
+    onSuccess: (data) => {
+      console.log('Fetched Snapz requests:', data);
+    },
+    onError: (err: any) => {
+      console.error('Error fetching Snapz requests:', err);
+      const errorMessage =
+        err?.response?.data?.errors?.[0]?.message ||
+        err.message ||
+        'An error occurred';
+      console.error(errorMessage);
+    },
+  });
+
+  const updateSnapzById = useMutation({
+    mutationKey: ['update_snapz_participant'],
+    mutationFn: async (input: any) => {
+      const token = getAuthToken() || localStorage.getItem('userAccessToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await axios.post(
+        GRAPHQL_URI,
+        {
+          query: `
+            mutation updateSnapsParticipant($updateSnapsParticipantsInput: UpdateSnapsParticipantsInput!) {
+              updateSnapsParticipant(updateSnapsParticipantsInput: $updateSnapsParticipantsInput) {
+                id
+                status
+              }
+            }
+          `,
+          variables: {
+            updateSnapsParticipantsInput: input,
+          },
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      if (response.status !== 200 || response.data.errors) {
+        throw new Error(
+          response.data?.errors?.[0]?.message ||
+          'Failed to update Snapz participant',
+        );
+      }
+
+      return response.data.data.updateSnapsParticipant;
+    },
+    onSuccess: (data) => {
+      console.log('Updated Snapz participant:', data);
+    },
+    onError: (err: any) => {
+      console.error('Error updating Snapz participant:', err);
+      const errorMessage =
+        err?.response?.data?.errors?.[0]?.message ||
+        err.message ||
+        'An error occurred';
+      console.error(errorMessage);
+    },
+  });
+
   const removeAgentInvitation = useMutation({
     mutationKey: ['remove-agent-invitation'],
     mutationFn: async (data: any) => {
@@ -893,6 +1060,8 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
     getThreadById,
     getConversationMessagesMutation,
     removeAgentInvitation,
+    getAllSnapzRequest,
+    updateSnapzById,
   };
 };
 const GRAPHQL_URI =
@@ -939,19 +1108,19 @@ export const useGetExternalAgentDetails = (userId?: string) =>
   });
 
 
-  export const useGetUserThreadByProperty = (propertyId?: string) =>
-    useQuery({
-      queryKey: ['getUserThreadByPropertyId', propertyId],
-      queryFn: async ({ queryKey }) => {
-        const [, propId] = queryKey;
-  
-       //const dispatch = useAppDispatch();
-  
-        try {
-          const response = await axios.post(
-            GRAPHQL_URI,
-            {
-              query: `
+export const useGetUserThreadByProperty = (propertyId?: string) =>
+  useQuery({
+    queryKey: ['getUserThreadByPropertyId', propertyId],
+    queryFn: async ({ queryKey }) => {
+      const [, propId] = queryKey;
+
+      //const dispatch = useAppDispatch();
+
+      try {
+        const response = await axios.post(
+          GRAPHQL_URI,
+          {
+            query: `
                 query GetUserThreadByPropertyId($propertyId: String!) {
                   getUserThreadByPropertyId(propertyId: $propertyId) {
                     id
@@ -962,52 +1131,52 @@ export const useGetExternalAgentDetails = (userId?: string) =>
                   }
                 }
               `,
-              variables: { propertyId: propId },
+            variables: { propertyId: propId },
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${getAuthToken() || localStorage.getItem('userAccessToken')}`,
             },
-            {
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${getAuthToken() || localStorage.getItem('userAccessToken')}`,
-              },
-            }
-          );
-  
-          if (response.status !== 200 || response.data.errors) {
-            throw new Error(response.data?.errors?.[0]?.message || 'Failed to fetch thread');
           }
+        );
 
-          console.log()
-  
-          const thread = response.data.data.getUserThreadByPropertyId;
-         //dispatch(setSelectedThreadInfo(thread));
-  
-          return thread;
-        } catch (error: any) {
-          console.error('Error fetching user thread:', error.message || error);
-          throw error;
+        if (response.status !== 200 || response.data.errors) {
+          throw new Error(response.data?.errors?.[0]?.message || 'Failed to fetch thread');
         }
-      },
-      enabled: !!propertyId,
-    });
-  
 
-    interface Answer {
-      stepId: string;
-      questionId: string;
-      response: string;
-    }
-    
-    export const useGetAnswersByUser = (userId?: string, propertyId?: string) =>
-      useQuery({
-        queryKey: ['getAnswersByUser', userId, propertyId],
-        queryFn: async ({ queryKey }) => {
-          const [, uid, pid] = queryKey;
-    
-          try {
-            const response = await axios.post(
-              MORTGAGE_GRAPHQL_URI,
-              {
-                query: `
+        console.log()
+
+        const thread = response.data.data.getUserThreadByPropertyId;
+        //dispatch(setSelectedThreadInfo(thread));
+
+        return thread;
+      } catch (error: any) {
+        console.error('Error fetching user thread:', error.message || error);
+        throw error;
+      }
+    },
+    enabled: !!propertyId,
+  });
+
+
+interface Answer {
+  stepId: string;
+  questionId: string;
+  response: string;
+}
+
+export const useGetAnswersByUser = (userId?: string, propertyId?: string) =>
+  useQuery({
+    queryKey: ['getAnswersByUser', userId, propertyId],
+    queryFn: async ({ queryKey }) => {
+      const [, uid, pid] = queryKey;
+
+      try {
+        const response = await axios.post(
+          MORTGAGE_GRAPHQL_URI,
+          {
+            query: `
                   query GetAnswersByUser($userId: String!, $propertyId: String!) {
                     getAnswersByUser(userId: $userId, propertyId: $propertyId) {
                       stepId
@@ -1016,28 +1185,28 @@ export const useGetExternalAgentDetails = (userId?: string) =>
                     }
                   }
                 `,
-                variables: {
-                  userId: uid,
-                  propertyId: pid,
-                },
-              },
-              {
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${getAuthToken() || localStorage.getItem('userAccessToken')}`,
-                },
-              }
-            );
-    
-            if (response.status !== 200 || response.data.errors) {
-              throw new Error(response.data?.errors?.[0]?.message || 'Failed to fetch answers');
-            }
-    
-            return response.data.data.getAnswersByUser as Answer[];
-          } catch (error: any) {
-            console.error('Error fetching answers:', error.message || error);
-            throw error;
+            variables: {
+              userId: uid,
+              propertyId: pid,
+            },
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${getAuthToken() || localStorage.getItem('userAccessToken')}`,
+            },
           }
-        },
-        enabled: !!userId && !!propertyId,
-      });
+        );
+
+        if (response.status !== 200 || response.data.errors) {
+          throw new Error(response.data?.errors?.[0]?.message || 'Failed to fetch answers');
+        }
+
+        return response.data.data.getAnswersByUser as Answer[];
+      } catch (error: any) {
+        console.error('Error fetching answers:', error.message || error);
+        throw error;
+      }
+    },
+    enabled: !!userId && !!propertyId,
+  });

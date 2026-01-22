@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import ChatItem from './chat-item';
 import PropertyDetailCard from './property-detail-card';
 import { useAuth } from '@/shared/hooks/useAuth';
-import socket from '@/lib/socket';
+import { SocketContext } from '@/providers/socket.context';
 import { property } from './data';
 
 interface AgentPropertyListProps {
@@ -23,6 +23,7 @@ export default function AgentPropertyList({
   setStatusMessage,
   activeAgent,
 }: AgentPropertyListProps) {
+  const { socket } = useContext(SocketContext);
   const [isOpen, setIsOpen] = useState(false);
   const {user}= useAuth()
   const [activePropertyId, setActivePropertyId] = useState<string | null>(null);
@@ -30,15 +31,44 @@ export default function AgentPropertyList({
  
 
   const joinConversation = async (createConversationDto:any) => {
-    console.log(createConversationDto)
-    socket.emit('createOrJoinConversation', createConversationDto, (response:any) => {
+    console.log("[agent-property-list] Joining conversation:", createConversationDto);
+    
+    const handleConversationResponse = (response:any) => {
+      console.log("[agent-property-list] createOrJoinConversation_response:", response);
       if (response.status === 'success') {
-        setConversationId(response.data._id);
-        setStatusMessage(response.message);
+        // Handle both MongoDB _id and PostgreSQL id formats
+        const conversationId = response.data?._id || response.data?.id;
+        setConversationId(conversationId);
+        setStatusMessage(response.message || 'Joined conversation');
+        
+        // Join the room after successful conversation creation
+        if (conversationId && socket && socket.joinRoom) {
+          socket.joinRoom(conversationId);
+        }
       } else {
-        setStatusMessage(response.message);
+        setStatusMessage(response.message || 'Failed to join conversation');
       }
-    });
+      if (socket) {
+        socket.off('createOrJoinConversation_response', handleConversationResponse);
+      }
+    };
+
+    if (socket) {
+      socket.on('createOrJoinConversation_response', handleConversationResponse);
+      
+      // Use the proper createOrJoinRoom method from websocket-client
+      if (socket.createOrJoinRoom) {
+        socket.createOrJoinRoom({
+          propertyId: createConversationDto.propertyId,
+          userId: user?.id,
+          participants: createConversationDto.participants,
+          ...createConversationDto
+        });
+      } else {
+        // Fallback to emit for backward compatibility
+        socket.emit('createOrJoinConversation', createConversationDto);
+      }
+    }
   };
 
 

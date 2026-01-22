@@ -11,17 +11,25 @@ import { Button } from '@/components/ui/button';
 import { ButtonLoader } from '@/components/loader';
 import { AuthButton } from '@/components/AuthButton';
 import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
-import useGoogleAuth from '@/hooks/api/auth/useGoogleAuth';
+import useCognitoGoogleAuth from '@/hooks/api/auth/useCognitoGoogleAuth';
 import { cn } from '@/lib/utils';
 import axios from 'axios';
 import { error, success } from '../alert/notify';
 
-export const LoginModal = ({ handleStage,setIsOpen }: { handleStage: () => void,setIsOpen:any }) => {
+export const LoginModal = ({ 
+  handleStage, 
+  setIsOpen,
+  onForgotPassword 
+}: { 
+  handleStage: () => void;
+  setIsOpen: any;
+  onForgotPassword?: () => void;
+}) => {
   const [magicLogin, setMagicLogin] = useState(false);
   const [loading,setLoading] = useState(false);
   const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql"
   const { loginMutation } = useUserAuthApi();
-  const { googleLogin } = useGoogleAuth();
+  const { cognitoGoogleLogin } = useCognitoGoogleAuth();
 
   const form = useForm({
     initialValues: {
@@ -29,7 +37,7 @@ export const LoginModal = ({ handleStage,setIsOpen }: { handleStage: () => void,
       password: '',
     },
     validate: {
-      email: (value) => (/^\S+@\S+$/.test(value) ? null : 'Invalid email'),
+      email: (value) => (/^\S+@\S+$/.test(value) ? null : '💌 Let\'s make sure your email is perfect! Check the format and try again'),
       password: (value) =>
         magicLogin || !value
           ? null
@@ -109,7 +117,7 @@ export const LoginModal = ({ handleStage,setIsOpen }: { handleStage: () => void,
             {magicLogin ? 'Send Magic Link' : 'Continue'}
           </Button>
 
-          <Button className='h-12 w-full max-w-xl text-lg cursor-pointer font-bold'>
+          {/* <Button className='h-12 w-full max-w-xl text-lg cursor-pointer font-bold'>
           
             <p
               // className='text-sm font-medium text-white '
@@ -118,23 +126,33 @@ export const LoginModal = ({ handleStage,setIsOpen }: { handleStage: () => void,
               {magicLogin ? 'Use password instead' : 'Login with Link'}
             </p>
           
-          </Button>
+          </Button> */}
 
           <AuthButton
             className='justify-center gap-x-4'
             imageSrc='/assets/images/google.svg'
             imageAlt='Google Logo'
             text='Continue with Google'
-            onClick={googleLogin}
+            onClick={cognitoGoogleLogin}
           />
         </div>
 
         <section className='flex w-full items-center justify-between'>
           <div>
             {!magicLogin && (
-              <Link href='/password-reset' className='text-sm'>
-                <span className='cursor-pointer font-medium text-primary-main'>Forgot Password</span>
-              </Link>
+              <button
+                type='button'
+                onClick={() => {
+                  if (onForgotPassword) {
+                    onForgotPassword();
+                  } else {
+                    setIsOpen(false);
+                  }
+                }}
+                className='text-sm cursor-pointer font-medium text-primary-main'
+              >
+                Forgot Password
+              </button>
             )}
           </div>
          

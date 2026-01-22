@@ -1,28 +1,13 @@
-import { getAuthToken } from '@/lib/storage';
-import { useEffect, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
+// ⚠️ DISABLED: This hook creates duplicate WebSocket connections
+// Use SocketContext instead to get the socket instance
+// import { useEffect, useState } from 'react';
+// import { WebSocketClient, createWebSocketClient } from '@/lib/websocket-client';
+import { useContext } from 'react';
+import { SocketContext } from '@/providers/socket.context';
 
-const useSocket = (): Socket | null => {
-  const [socket, setSocket] = useState<Socket | null>(null);
-  const [isConnected,setIsConnected] = useState(false)
-  const token = getAuthToken()
-  // useEffect(() => {
-  //   const socketInstance = io('ws://localhost:4000',{
-  //     query:{
-  //       token
-  //     }
-  //   });
-  //   setSocket(socketInstance);
-  //   socketInstance.on('connect', () => {
-  //     setIsConnected(true);
-  //     // const userEmail = userData
-  //     // socketInstance.emit('userConnected',userEmail);
-  //   });
-  //   return () => {
-  //     socketInstance.disconnect();
-  //   };
-  // }, []);
-
+const useSocket = () => {
+  // Use SocketContext instead of creating a new connection
+  const { socket } = useContext(SocketContext);
   return socket;
 };
 

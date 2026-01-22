@@ -239,7 +239,7 @@
 //                 Or import with
 //               </label>
 //               <button onClick={() => open()} disabled={!ready} className="ml-4">
-//                 <Image src="/plaid_logo.svg" alt="Plaid" width={72} height={72} />
+//                 <Image src="/assets/plaid_logo.svg" alt="Plaid" width={72} height={72} />
 //               </button>
 //             </div>
 //           </div>
@@ -539,7 +539,7 @@
 //                 Or import with
 //               </label>
 //               <button onClick={() => open()} disabled={!ready} className="ml-4">
-//                 <Image src="/plaid_logo.svg" alt="Plaid" width={72} height={72} />
+//                 <Image src="/assets/plaid_logo.svg" alt="Plaid" width={72} height={72} />
 //               </button>
 //             </div>
 //           </div>
@@ -823,7 +823,7 @@
 //                 Or import with
 //               </label>
 //               <button onClick={() => open()} disabled={!ready} className="ml-4">
-//                 <Image src="/plaid_logo.svg" alt="Plaid" width={72} height={72} />
+//                 <Image src="/assets/plaid_logo.svg" alt="Plaid" width={72} height={72} />
 //               </button>
 //             </div>
 //           </div>

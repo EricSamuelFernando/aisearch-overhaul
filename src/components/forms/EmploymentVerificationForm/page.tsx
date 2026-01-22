@@ -424,7 +424,7 @@
 //               </label>
 //               <button onClick={() => open()} disabled={!ready} className="ml-4">
 //                 <Image
-//                   src="/plaid_logo.svg"
+//                   src="/assets/plaid_logo.svg"
 //                   alt="Plaid"
 //                   width={72}
 //                   height={72}
@@ -527,7 +527,7 @@
 //               </label>
 //               <button onClick={() => open()} disabled={!ready} className="ml-4">
 //                 <Image
-//                   src="/plaid_logo.svg"
+//                   src="/assets/plaid_logo.svg"
 //                   alt="Plaid"
 //                   width={72}
 //                   height={72}
@@ -1213,7 +1213,7 @@
 //               </label>
 //               <button onClick={() => open()} disabled={!ready} className="ml-4">
 //                 <Image
-//                   src="/plaid_logo.svg"
+//                   src="/assets/plaid_logo.svg"
 //                   alt="Plaid"
 //                   width={72}
 //                   height={72}
@@ -1387,7 +1387,7 @@
 //               </label>
 //               <button onClick={() => open()} disabled={!ready} className="ml-4">
 //                 <Image
-//                   src="/plaid_logo.svg"
+//                   src="/assets/plaid_logo.svg"
 //                   alt="Plaid"
 //                   width={72}
 //                   height={72}
@@ -2059,7 +2059,7 @@
 //               </label>
 //               <button onClick={() => open()} disabled={!ready} className="ml-4">
 //                 <Image
-//                   src="/plaid_logo.svg"
+//                   src="/assets/plaid_logo.svg"
 //                   alt="Plaid"
 //                   width={72}
 //                   height={72}
@@ -2228,7 +2228,7 @@
 //               </label>
 //               <button onClick={() => open()} disabled={!ready} className="ml-4">
 //                 <Image
-//                   src="/plaid_logo.svg"
+//                   src="/assets/plaid_logo.svg"
 //                   alt="Plaid"
 //                   width={72}
 //                   height={72}

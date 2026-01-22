@@ -49,7 +49,7 @@ const ListingDetailsPage = () => {
   const [_, seturlAtom] = useAtom(urlAtom);
   const router = useRouter();
   const user = useSelector(userData);
-  const AI_SEARCH_ENDPOINT = process.env.NEXT_PUBLIC_AI_SEARCH_ENDPOINT || "https://ai.snaphomz.com";
+  const AI_SEARCH_ENDPOINT = process.env.NEXT_PUBLIC_AI_SEARCH_ENDPOINT || "https://demo-ai.snaphomz.com";
   const currentProperty = useSelector((state: any) => state.property.claimProperty);
   const [coOwners, setCoOwners] = useState<CoownerInterface[]>([]);
   const [showCoOwners, setShowCoOwners] = useState(false);

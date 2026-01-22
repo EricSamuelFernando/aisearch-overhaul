@@ -40,6 +40,16 @@ export function truncateText(string: string, maxLength: number): string {
   return string.substring(0, maxLength) + '...';
 }
 
+export function isValid(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return false;
+    if (normalized === 'n/a') return false;
+  }
+  return true;
+}
+
 export function validateEmail(email: string): boolean {
   const emailRegex: RegExp =
     /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/;

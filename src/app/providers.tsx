@@ -9,7 +9,6 @@ import {
 } from '../providers/modal-provider';
 import AppQueryProviders from '../providers/query-provider';
 import StoreProvider from '../providers/store-provider';
-import { GoogleOAuthProvider } from '@react-oauth/google';
 import CollectionModalProvider from '@/providers/collection-modal-provider';
 
 import { MantineProvider } from '@mantine/core';
@@ -22,28 +21,9 @@ import './embla.css';
 import './globals.css';
 import { WindowSizeProvider } from '@/providers/window-size-provider';
 import SocketProvider from '@/providers/socket.context';
+import '@/utils/testCognitoConfig'; // Makes testCognitoConfig available in browser console
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '448512456564-p64marq9uat5onc9ncj0mr69uol806s4.apps.googleusercontent.com';
-  const hasValidClientId = googleClientId && googleClientId.trim().length > 0;
-
-  const appContent = (
-    <DisclosureProvider>
-      <AppQueryProviders>
-        <ModalProvider initialModals={initialModals}>
-          <Modals />
-          <SocketProvider>
-            <CollectionModalProvider>
-              {children}
-            </CollectionModalProvider>
-          </SocketProvider>
-          <WindowSizeProvider />
-        </ModalProvider>
-        <Toaster position='top-right' duration={2000} richColors />
-      </AppQueryProviders>
-    </DisclosureProvider>
-  );
-
   return (
     <StoreProvider>
       <MantineProvider 
@@ -65,13 +45,20 @@ export function Providers({ children }: { children: React.ReactNode }) {
         primaryColor: 'ocOrange', // Use ocOrange as primary color for other components
       }}
          >
-        {hasValidClientId ? (
-          <GoogleOAuthProvider clientId={googleClientId}>
-            {appContent}
-          </GoogleOAuthProvider>
-        ) : (
-          appContent
-        )}
+        <DisclosureProvider>
+          <AppQueryProviders>
+            <ModalProvider initialModals={initialModals}>
+              <Modals />
+              <SocketProvider>
+                <CollectionModalProvider>
+                  {children}
+                </CollectionModalProvider>
+              </SocketProvider>
+              <WindowSizeProvider />
+            </ModalProvider>
+            <Toaster position='top-right' duration={2000} richColors />
+          </AppQueryProviders>
+        </DisclosureProvider>
       </MantineProvider>
     </StoreProvider>
   );

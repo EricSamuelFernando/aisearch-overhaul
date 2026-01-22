@@ -24,12 +24,12 @@ const initialState: PropertySearchQuery = {
 // Define actions that can be dispatched to modify the state
 type Action =
   | {
-      type: 'SET_FILTER';
-      payload: {
-        field: keyof PropertySearchQuery;
-        value: string | number | object;
-      };
-    }
+    type: 'SET_FILTER';
+    payload: {
+      field: keyof PropertySearchQuery;
+      value: string | number | object;
+    };
+  }
   | { type: 'RESET_STATE' }
   | { type: 'CHANGE_PAGE'; payload: { page: number } };
 
@@ -55,13 +55,15 @@ const Reducer = (
   }
 };
 
+import queryString from 'query-string';
+
+// ... (keep existing imports)
+
 const fetchAIData = async ({ pageParam = '', query, limit }: FetchParams) => {
-  const url = `${mlsDeploymentEnv}/search`;
-  return await axios
-    .get(url, {
-      params: { query, limit, page: pageParam },
-    })
-    .then(pickResult, pickErrorMessage);
+  // API call removed - returning empty response to prevent multiple calls
+  return {
+    value: [],
+  } as any;
 };
 
 const useFetchAIDBProperties = () => {
@@ -70,8 +72,13 @@ const useFetchAIDBProperties = () => {
   const allPropertyQuery = useQuery<IPropertiesResponse>({
     queryKey: ['get-all-property-query'],
     queryFn: async () => {
-      return await client.get(PROPERTIES).then(pickResult, pickErrorMessage);
+      // API call removed - returning empty response to prevent multiple calls
+      return {
+        result: [],
+        success: true,
+      } as any;
     },
+    enabled: false, // Disabled to prevent GET /property request on home page
   });
 
   const mlsPropertyQuery = useQuery<ODataStrippedResponse, Error>({
@@ -88,6 +95,7 @@ const useFetchAIDBProperties = () => {
         limit: filters.limit || 20,
       });
     },
+    enabled: false, // Disabled - /search route is not available in backend
   });
 
   const setFilter = React.useCallback(

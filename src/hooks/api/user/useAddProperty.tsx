@@ -47,12 +47,12 @@ const initialState: PropertyDetails = {
 // Define actions that can be dispatched to modify the state
 type Action =
   | {
-      type: 'SET_FILTER';
-      payload: {
-        field: keyof PropertyDetails;
-        value: string | number | object;
-      };
-    }
+    type: 'SET_FILTER';
+    payload: {
+      field: keyof PropertyDetails;
+      value: string | number | object;
+    };
+  }
   | { type: 'RESET_STATE' };
 
 /**
@@ -136,7 +136,13 @@ const useAddProperty = () => {
         }
       })
       // success({ message: "File Uploaded successfully" })
-      return response.data
+
+      // Validate that response has required data
+      if (!response.data || !response.data.data.key) {
+        throw new Error('Upload response missing required key field')
+      }
+
+      return response.data.data
     } catch (error: any) {
       console.error('Error uploading file:', error.message)
 
@@ -144,14 +150,14 @@ const useAddProperty = () => {
       if (error.response) {
         console.error('Server responded with status:', error.response.status)
         console.error('Response data:', error.response.data)
+        throw new Error(error.response.data?.message || 'File upload failed. Please try again.')
       } else if (error.request) {
         console.error('No response received:', error.request)
+        throw new Error('No response from server. Please check your connection.')
       } else {
         console.error('Request setup error:', error.message)
+        throw error
       }
-      console.log("Error : ", error);
-
-      // throw new Error('File upload failed. Please try again.')
     }
   }
 

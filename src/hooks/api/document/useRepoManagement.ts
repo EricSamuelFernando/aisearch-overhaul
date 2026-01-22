@@ -501,10 +501,7 @@ export const useGetAccessRequestsByUserId = (userId: string) =>
                 id
                 status
                 createdAt
-                repo {
-                  id
-                  name
-                }
+                repoId
                 
               }
             }

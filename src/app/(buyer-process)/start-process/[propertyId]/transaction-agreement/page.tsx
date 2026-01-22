@@ -19,6 +19,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { setEngagedProperty } from '@/slices/property/property-slice';
+import { showToast } from '@/hooks/utils/toastHelper';
 
 const TransactionAgreementPage: React.FC = () => {
   const { propertyId } = useParams<{ propertyId: string }>();
@@ -53,6 +54,14 @@ const TransactionAgreementPage: React.FC = () => {
   };
 
   const handleNext = () => {
+    // Validate step 2 (Onboard & Engage) - must select an option before proceeding
+    if (currentStep === 1 && !selectedMeans) {
+      showToast('warning', 'Please select an option: Contact your Agent or Snaphomz Agents', {
+        autoClose: 5000,
+      });
+      return;
+    }
+
     const nextStep = currentStep + 1;
     if (nextStep < stepList.length) {
       markStepVisited(nextStep);
@@ -123,6 +132,13 @@ const TransactionAgreementPage: React.FC = () => {
                 step={step}
                 isActive={index === currentStep}
                 onClick={() => {
+                  // Prevent going to step 3+ if step 2 (index 1) doesn't have selection
+                  if (index > 1 && currentStep === 1 && !selectedMeans) {
+                    showToast('warning', 'Please select an option in "Onboard & Engage" step: Contact your Agent or Snaphomz Agents', {
+                      autoClose: 5000,
+                    });
+                    return;
+                  }
                   setCurrentStep(index)
                   if (index === 1) {
                     setIsOnboard(true);
@@ -156,7 +172,7 @@ const TransactionAgreementPage: React.FC = () => {
               </Button>
               <Button
                 onClick={handleNext}
-                disabled={currentStep === stepList.length - 1}
+                disabled={currentStep === stepList.length - 1 || (currentStep === 1 && !selectedMeans)}
               >
                 Next
               </Button>
@@ -164,6 +180,15 @@ const TransactionAgreementPage: React.FC = () => {
           </div>
           {currentStep === 1 ? <div className='flex h-[400px] w-full min-w-[400px] flex-col justify-start gap-10 rounded-2xl bg-white px-14 py-8'>
             <h2 className='text-lg font-bold'>Choose your means</h2>
+
+            {!selectedMeans && (
+              <div className='flex items-center gap-2 rounded-md bg-yellow-50 border border-yellow-200 px-4 py-3'>
+                <CircleAlert className='h-5 w-5 text-yellow-600' />
+                <p className='text-sm text-yellow-800 font-medium'>
+                  Please select an option: Contact your Agent or Snaphomz Agents
+                </p>
+              </div>
+            )}
 
             <RadioGroup
               value={selectedMeans}

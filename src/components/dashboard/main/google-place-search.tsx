@@ -1,6 +1,7 @@
 import CustomInput from '@/components/customs/input';
 import { CustomDropdown } from '@/components/customs/menu';
 import { useLoadScript } from '@react-google-maps/api';
+import { googleMapsApiKey } from '@/shared/constants/env';
 import React, { useMemo, useState } from 'react';
 import usePlacesAutocomplete, {
   Suggestion,
@@ -16,7 +17,8 @@ interface PlacesProps {
 
 const PlacesComponent: React.FC = () => {
   const { isLoaded } = useLoadScript({
-    googleMapsApiKey: process.env.NEXT_PUBLIC_MAP_KEY!,
+    id: 'google-map-script',
+    googleMapsApiKey: googleMapsApiKey!,
     libraries: ['places'],
   });
 

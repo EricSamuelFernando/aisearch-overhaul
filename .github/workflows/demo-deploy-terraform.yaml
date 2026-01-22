@@ -54,5 +54,5 @@ jobs:
         continue-on-error: false
 
       # - name: Terraform Apply
-      #   if: github.ref == 'refs/heads/prod-deploy'
+      #   if: github.ref == 'refs/heads/demo-deploy'
       #   run: terraform apply -auto-approve -input=false

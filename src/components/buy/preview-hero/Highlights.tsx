@@ -19,7 +19,7 @@ import { Tooltip } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useGetLatestFieldsAnswer } from '@/hooks/api/property-tour/usePropertyTour';
 import { useSelector } from 'react-redux';
-import { userData } from '@/slices/auth/auth.slice';
+import { userData, accessToken } from '@/slices/auth/auth.slice';
 import { MORTGAGE_APPLICATION_URL } from '@/shared/constants/env';
 
 interface HeroHighlightsProps {
@@ -29,9 +29,9 @@ interface HeroHighlightsProps {
   id: string;
   offerTerms?: string;
   schoolDistrict?: string;
-  mortgageDisable?:boolean
-  propertyId?:string
-  listingId?:string
+  mortgageDisable?: boolean
+  propertyId?: string
+  listingId?: string
 }
 
 const HeroHighlights: React.FC<HeroHighlightsProps> = ({
@@ -48,6 +48,7 @@ const HeroHighlights: React.FC<HeroHighlightsProps> = ({
   const router = useRouter()
 
   const currentUser = useSelector(userData);
+  const token = useSelector(accessToken);
 
   const { data, error, isLoading, isError } = useGetLatestFieldsAnswer(currentUser?.id, propertyId);
 
@@ -59,7 +60,7 @@ const HeroHighlights: React.FC<HeroHighlightsProps> = ({
       //   'flex h-full w-full flex-col space-y-6 rounded-lg bg-grey-390 px-5 py-6',
       //   className,
       // )}
-      className="flex flex-col space-y-6 rounded-lg  w-full md:w-[23rem]  hover:shadow-xl transition-shadow duration-300"
+      className="flex flex-col space-y-2 rounded-lg  w-full md:w-[23rem]  hover:shadow-xl transition-shadow duration-300"
     >
       {/* <h4 className='text-xl font-medium leading-8'>Highlights</h4>
       <div className='flex w-full flex-col gap-3 border-b border-grey-850  pb-4'>
@@ -69,11 +70,11 @@ const HeroHighlights: React.FC<HeroHighlightsProps> = ({
         <HightLightComponent icon={HouseIcon} title={offerTerms} />
       </div> */}
       <div className="flex w-full flex-col space-y-2">
-        
-           
-         { typeof data?.id === 'number' ?
-         <>
-          {/* <Button className="w-full text-lg font-medium" type="button">
+
+
+        {typeof data?.id === 'number' ?
+          <>
+            {/* <Button className="w-full text-lg font-medium" type="button">
           <Link
             href={""}
             onClick={(e) => {
@@ -85,43 +86,43 @@ const HeroHighlights: React.FC<HeroHighlightsProps> = ({
            Continue The Process
           </Link>
         </Button> */}
-        <Button className="w-full text-lg bg-orange-500 font-medium" type="button">
-           <Link
-             href={""}
-             onClick={(e) => {
-               e.preventDefault();
-               router.push(`/start-process/${id}/transaction-agreement`);
-             }}
-             className="w-full" // Make the link take the full width of the button
-           >
-             Start New Process
-           </Link>
-         </Button>
-        </>
-        :
-      //   <Button className="w-full text-lg font-medium" type="button" disabled>
-      //   <Link
-      //     href={""}
-      //     onClick={(e) => {
-      //       e.preventDefault();
-      //       router.push(`/start-process/${id}/transaction-agreement`);
-      //     }}
-      //     className="w-full" // Make the link take the full width of the button
-      //   >
-      //     Start The Process
-      //   </Link>
-      // </Button>
-       <Tooltip className='cursor-pointer' title="Coming Soon" placement="bottom">
-          <span> {/* Wrap button with a span so the tooltip works */}
-            <Button className="w-full text-lg font-medium" type="button" disabled>
-              <Link href={`/take-tour/${id}/finance-process`} className="w-full">
-                 Start The Process
+            <Button className="w-full text-lg bg-black-500 font-medium" type="button">
+              <Link
+                href={""}
+                onClick={(e) => {
+                  e.preventDefault();
+                  router.push(`/start-process/${id}/transaction-agreement`);
+                }}
+                className="w-full" // Make the link take the full width of the button
+              >
+                Start New Process
               </Link>
             </Button>
-          </span>
-        </Tooltip>
+          </>
+          :
+          <Button className="w-full text-lg font-medium" type="button">
+            <Link
+              href={""}
+              onClick={(e) => {
+                e.preventDefault();
+                router.push(`/start-process/${id}/transaction-agreement`);
+              }}
+              className="w-full" // Make the link take the full width of the button
+            >
+              Start The Process
+            </Link>
+          </Button>
+          //  <Tooltip className='cursor-pointer' title="Coming Soon" placement="bottom">
+          //     <span> {/* Wrap button with a span so the tooltip works */}
+          //       <Button className="w-full text-lg font-medium" type="button">
+          //         <Link href={`/take-tour/${id}/finance-process`} className="w-full">
+          //            Start The Process
+          //         </Link>
+          //       </Button>
+          //     </span>
+          //   </Tooltip>
         }
-       
+
 
         {/* <Tooltip className='cursor-pointer' title="Coming Soon" placement="bottom">
           <span> 

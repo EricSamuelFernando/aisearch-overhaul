@@ -29,22 +29,22 @@ export const MLSSearch = ({
   return (
     <form
       id='buyer-search-hero-form'
-      className='relative items-center mt-4 space-y-3 rounded-md  bg-[#2D2525] p-1 md:flex md:space-y-0'
+      className='relative flex items-center mt-4 space-y-3 rounded-md bg-[#2D2525] p-1 md:space-y-0'
       onSubmit={handleNavigate}
     >
       <SpeechInput
         value={searchTerm}
-        className='bg-transparent'
+        className='bg-transparent flex-1'
         setValue={setSearchTerm}
-        inputClassName='text-white bg-transparent'
+        inputClassName='text-white bg-transparent placeholder:text-gray-400 text-sm md:text-base px-3'
       />
 
       <Button
         type='submit'
         size='lg'
-        className='rounded-md bg-white p-8 font-bold text-black hover:bg-gray-300'
+        className='rounded-md bg-white p-2 md:p-8 font-bold text-[#2A1C14] hover:bg-gray-300 h-10 w-10 md:h-auto md:w-auto flex-shrink-0'
       >
-        <ArrowRight />
+        <ArrowRight className='h-5 w-5 md:h-6 md:w-6' />
       </Button>
     </form>
   );

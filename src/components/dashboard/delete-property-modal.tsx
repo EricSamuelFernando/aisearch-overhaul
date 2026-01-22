@@ -30,7 +30,6 @@ export function DeletePropertyModal({
           variant='outline'
           className='flex-1 items-center justify-center bg-transparent text-sm'
           roundness='full'
-          disabled
         >
           Remove
         </Button>

@@ -32,9 +32,7 @@ function getUserRoleFromCookie(request: NextRequest): string | null {
 export function middleware(request: NextRequest) {
   const { cookies, nextUrl, url } = request;
 
- if (nextUrl.pathname === '/') {
-    return NextResponse.redirect(new URL('/waitlist', request.url));
-  }
+
   const isPublicRoute = APP_PUBLIC_ROUTE.includes(nextUrl.pathname);
   const isPrivateRoute = APP_PRIVATE_ROUTE.includes(nextUrl.pathname);
   const waitlistRoutes = ['/waitlist/subscriber'];
@@ -49,19 +47,16 @@ export function middleware(request: NextRequest) {
   const token = cookies.get(AUTH_TOKEN);
   const isWaitlistExists: any = cookies.get("waitlist")
   const isHome = ['/'].includes(nextUrl.pathname);
-  if(isWaitlistNotAllow && isWaitlistExists?.value==='false'){    
-    return NextResponse.redirect(new URL('/waitlist', url));
-  }
-
-
-
-  // if (isHome && !isPublicRoute) {
-  //   // return NextResponse.next();
-  //   return NextResponse.redirect(new URL('/home', url));
+  // if(isWaitlistNotAllow && isWaitlistExists?.value==='false'){    
+  //   return NextResponse.redirect(new URL('/waitlist', url));
   // }
+
+
+
   if (isHome && !isPublicRoute) {
-  return NextResponse.rewrite(new URL('/', request.url));
-}
+    // return NextResponse.next();
+    return NextResponse.redirect(new URL('/home', url));
+  }
 
 
   if (isPrivate(nextUrl.pathname) || isPrivateRoute) {
@@ -128,7 +123,7 @@ export const config = {
     '/unauthorized',
     '/property/:path*',
     '/start-process/:path*',
-    '/waitlist',
     // '/waitlist/subscriber',
   ],
 };
+

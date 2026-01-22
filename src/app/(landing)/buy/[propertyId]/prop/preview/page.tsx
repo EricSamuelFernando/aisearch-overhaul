@@ -3,12 +3,16 @@ import Footer from '@/components/footer/Footer';
 
 function Page() {
   return (
-    <>
-      <section className='relative mx-auto w-full max-w-7xl bg-white px-4 pt-4 sm:pt-6 md:px-8 md:pt-8'>
-        <PropertyPreview />
-      </section>
-    
-    </>
+    <div className='min-h-screen flex flex-col bg-white'>
+      <main className='flex-1 w-full overflow-x-hidden'>
+        <section className='mx-auto w-full max-w-7xl bg-white px-4 pt-4 sm:pt-6 md:px-8 md:pt-8 pb-20 md:pb-24'>
+          <PropertyPreview />
+        </section>
+      </main>
+      <footer className='w-full mt-auto bg-black'>
+        <Footer />
+      </footer>
+    </div>
   );
 }
 

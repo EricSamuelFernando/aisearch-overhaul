@@ -195,21 +195,7 @@ export default function PropertyTabs(props: any) {
           </div>
         )}
 
-        {/* {activeTab === 'Tours' && <Showings />} */}
-        {activeTab === 'Tours' && (
-          <div className='flex h-[inherit] flex-col items-center justify-center p-6'>
-            <div className='relative h-48 w-48'>
-              <Image
-                src='/assets/images/feeds.svg'
-                className='object-contain object-center'
-                fill
-                alt='empty-feed'
-              />
-            </div>
-            <p className='py-1 text-grey-450'>No tours created by the buyer</p>
-            <p className='py-2 text-2xl font-[500]'>Stay Informed!</p>
-          </div>
-        )}
+        {activeTab === 'Tours' && <Showings />}
       </div>
     </div>
   );

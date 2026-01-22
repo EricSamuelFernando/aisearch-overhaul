@@ -71,7 +71,7 @@ const SpokenToLendersPage: React.FC = () => {
           userId: currentUser?.id,
           answers: undefined,
           propertyProgress: 10,
-          fullAddress:`${engagementData?.public?.address?.label}, USA`
+          fullAddress: `${engagementData?.public?.address?.label}, USA`
         }, {
         onSuccess: (response: any) => {
           console.log("Response   ", response);

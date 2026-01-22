@@ -159,7 +159,7 @@ export const usePropertyServiceAPI = (handleCb?: () => void) => {
                 }
             })
             // success({ message: "File Uploaded successfully" })
-            return response.data
+            return response.data.data
         } catch (error: any) {
             console.error('Error uploading file:', error.message)
 
@@ -767,21 +767,21 @@ export const usePropertyServiceAPI = (handleCb?: () => void) => {
                 throw error;
             }
         },
-        
+
     });
     const useUpdatePropertyOffer = useMutation({
         mutationKey: ['acceptPropertyOffer'],
         mutationFn: async (input: { offerId: string; status: string }) => {
-          const token = getAuthToken() || localStorage.getItem('userAccessToken');
-          if (!token) {
-            throw new Error('No authentication token found');
-          }
-    
-          try {
-            const response = await axios.post(
-              GRAPHQL_URI,
-              {
-                query: `
+            const token = getAuthToken() || localStorage.getItem('userAccessToken');
+            if (!token) {
+                throw new Error('No authentication token found');
+            }
+
+            try {
+                const response = await axios.post(
+                    GRAPHQL_URI,
+                    {
+                        query: `
                     mutation AcceptPropertyOffer($input: UpdateOfferStatusDto!) {
                       updatePropertyOfferStatus(input: $input) {
                         id
@@ -789,43 +789,43 @@ export const usePropertyServiceAPI = (handleCb?: () => void) => {
                       }
                     }
                   `,
-                variables: {
-                  input
+                        variables: {
+                            input
+                        }
+                    },
+                    {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${token}`
+                        }
+                    }
+                );
+
+                if (response.status !== 200 || response.data.errors) {
+                    throw new Error(response?.data?.errors?.[0]?.message || 'Failed to accept offer');
                 }
-              },
-              {
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${token}`
-                }
-              }
-            );
-    
-            if (response.status !== 200 || response.data.errors) {
-              throw new Error(response?.data?.errors?.[0]?.message || 'Failed to accept offer');
+
+                return response.data.data.updatePropertyOfferStatus;
+            } catch (error) {
+                console.error('Error accepting offer:', error);
+                throw error;
             }
-    
-            return response.data.data.updatePropertyOfferStatus;
-          } catch (error) {
-            console.error('Error accepting offer:', error);
-            throw error;
-          }
         },
         onSuccess: (data) => {
-          console.log(data)
-          if (data?.id) {
-            success({ message: 'Offer status updated successfully.' });
-           // router.push('/dashboard/buy'); // Redirect after successful acceptance
-          }
+            console.log(data)
+            if (data?.id) {
+                success({ message: 'Offer status updated successfully.' });
+                // router.push('/dashboard/buy'); // Redirect after successful acceptance
+            }
         },
         onError: (error: any) => {
-          const errorMessage =
-            error?.response?.data?.errors?.[0]?.message ||
-            error.message ||
-            'An error occurred';
-          console.error('Offer acceptance failed:', errorMessage);
+            const errorMessage =
+                error?.response?.data?.errors?.[0]?.message ||
+                error.message ||
+                'An error occurred';
+            console.error('Offer acceptance failed:', errorMessage);
         }
-      });
+    });
 
     return {
         getAgentDetail,
@@ -987,9 +987,9 @@ export const useFetchPropertyCounterOffers = (
             }
 
             return data.data.propertyCounterOffers;
-          },
-        });
- 
+        },
+    });
+
 
 
 export const useGetPropertyOfferById = (id: string) =>
@@ -1064,22 +1064,22 @@ export const useGetPropertyOfferById = (id: string) =>
         },
     });
 
-export const useGetUserEngagementsAgents = () => 
+export const useGetUserEngagementsAgents = () =>
     useQuery({
-           queryKey:['getUserEngagementsAgents'],
-           enabled: !!getAuthToken(),
-           queryFn: async () => {
-     
+        queryKey: ['getUserEngagementsAgents'],
+        enabled: !!getAuthToken(),
+        queryFn: async () => {
+
             const token = getAuthToken() || localStorage.getItem('userAccessToken');
             if (!token) throw new Error('No authentication token found');
 
             const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ??
-              'http://localhost:4000/graphql';
+                'http://localhost:4000/graphql';
 
             const response = await axios.post(
-              GRAPHQL_URI,
-              {
-                query: `
+                GRAPHQL_URI,
+                {
+                    query: `
                   query getUserEngagementsAgents {
                     getUserEngagementsAgents {
                       id
@@ -1090,42 +1090,42 @@ export const useGetUserEngagementsAgents = () =>
                     }
                   }
                 `
-              },
-              {
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${token}`,
                 },
-              }
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
             );
 
             if (response.status !== 200 || response.data.errors) {
-              throw new Error(
-                response.data?.errors?.[0]?.message ?? 'Failed to fetch agents'
-              );
+                throw new Error(
+                    response.data?.errors?.[0]?.message ?? 'Failed to fetch agents'
+                );
             }
-      
+
             return response.data.data.getUserEngagementsAgents;
-          }
-         });
-      
+        }
+    });
 
 
-export const useGetAllUserPropertyOffers = (propertyId:string) => {
-       return  useQuery({
-                queryKey: ['getAllUserPropertyOffers' , propertyId ],
-                enabled:!!propertyId,
-                queryFn: async () => {
-             
-                    const token = getAuthToken() || localStorage.getItem('userAccessToken');
-                    if (!token) throw new Error('No authentication token found');
-        
-                    const GRAPHQL_URI =process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ?? 'http://localhost:4000/graphql';
-   
-                    const response = await axios.post(
-                        GRAPHQL_URI,
-                        {
-                            query: `
+
+export const useGetAllUserPropertyOffers = (propertyId: string) => {
+    return useQuery({
+        queryKey: ['getAllUserPropertyOffers', propertyId],
+        enabled: !!propertyId,
+        queryFn: async () => {
+
+            const token = getAuthToken() || localStorage.getItem('userAccessToken');
+            if (!token) throw new Error('No authentication token found');
+
+            const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ?? 'http://localhost:4000/graphql';
+
+            const response = await axios.post(
+                GRAPHQL_URI,
+                {
+                    query: `
                                 query getAllUserPropertyOffers($propertyId: String!)  {
                                     getAllUserPropertyOffers(propertyId:$propertyId) {
                                         id
@@ -1147,27 +1147,27 @@ export const useGetAllUserPropertyOffers = (propertyId:string) => {
                                         
                                     }
                                 }
-                            `,      
-                           variables: { propertyId},
-                        },
-                        {
-                            headers: {
-                                'Content-Type': 'application/json',
-                                Authorization: `Bearer ${token}`,
-                            },
-                        }
-                    );
-        
-                    // 4. Error handling
-                    if (response.status !== 200 || response.data.errors) {
-                        throw new Error(
-                            response.data?.errors?.[0]?.message ??
-                            'Failed to fetch user property offers'
-                        );
-                    }
-        
-                    // 5. Return result
-                    return response.data.data.getAllUserPropertyOffers;
+                            `,
+                    variables: { propertyId },
                 },
-            });
-        };
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+
+            // 4. Error handling
+            if (response.status !== 200 || response.data.errors) {
+                throw new Error(
+                    response.data?.errors?.[0]?.message ??
+                    'Failed to fetch user property offers'
+                );
+            }
+
+            // 5. Return result
+            return response.data.data.getAllUserPropertyOffers;
+        },
+    });
+};

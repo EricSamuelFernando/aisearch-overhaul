@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-const usePlacesAutocomplete = (input: string , searchType="nlp") => {
+const usePlacesAutocomplete = (input: string, searchType = "nlp") => {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [debouncedInput, setDebouncedInput] = useState('');
 
@@ -10,20 +10,20 @@ const usePlacesAutocomplete = (input: string , searchType="nlp") => {
   };
   useEffect(() => {
     const timer = setTimeout(() => {
-      if(searchType === 'nlp') {
+      if (searchType === 'nlp') {
         const lastWord = getLastWord(input);
         setDebouncedInput(lastWord);
       }
-      else{
+      else {
         setDebouncedInput(input)
       }
-      
+
     }, 400);
 
     return () => clearTimeout(timer);
   }, [input]);
 
-  console.log(searchType)
+
 
   useEffect(() => {
     if (!debouncedInput || debouncedInput.length < 2 || typeof window === 'undefined') {
@@ -35,9 +35,9 @@ const usePlacesAutocomplete = (input: string , searchType="nlp") => {
     }
     const autocompleteService = new window.google.maps.places.AutocompleteService();
     autocompleteService.getPlacePredictions(
-      { 
-        input: debouncedInput, 
-        types:searchType === "nlp" ? ['(cities)']: ['address'],
+      {
+        input: debouncedInput,
+        types: searchType === "nlp" ? ['(cities)'] : ['address'],
         componentRestrictions: { country: 'us' },
       },
       (predictions, status) => {

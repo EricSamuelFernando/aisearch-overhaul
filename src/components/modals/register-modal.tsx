@@ -24,7 +24,7 @@ import { UserCard } from '@/components/modals/user-card';
 import { useAtom } from 'jotai';
 import { agentEmailAtom } from '@/hooks/atoms';
 import { Loader2 } from 'lucide-react';
-import useGoogleAuth from '@/hooks/api/auth/useGoogleAuth';
+import useCognitoGoogleAuth from '@/hooks/api/auth/useCognitoGoogleAuth';
 
 interface IFormInput {
   email: string;
@@ -36,20 +36,13 @@ const schema = z.object({
 
 export default function RegisterModal({
   handleStage,
-  viewParam,
-  accountTypes,
-  userRedirection
-
 }: {
   handleStage: () => void;
-  viewParam?: 'account-selection' | 'send-code';
-  accountTypes?: 'buyer' | 'seller' | 'agent';
-  userRedirection?: string;
 }) {
   const [view, setView] = useState<'account-selection' | 'send-code'>(
-    viewParam || 'account-selection',
+    'account-selection',
   );
-  const [activeUserType, setActiveUserType] = useState< UserType | null>(accountTypes || null);
+  const [activeUserType, setActiveUserType] = useState<UserType | null>(null);
   const { selectAccountType } = useRegisterActions();
   const [isLoading , setLoading] = useState(false)
   const dispatch = useAppDispatch();
@@ -110,9 +103,9 @@ export default function RegisterModal({
   const [, setAgentEmail] = useAtom(agentEmailAtom);
   const { selectEmail } = useRegisterActions();
   const payload = useRegister();
-  const {googleLogin} = useGoogleAuth()
+  const { cognitoGoogleLogin } = useCognitoGoogleAuth();
   const handleGoogleLogin = () => {
-    googleLogin()
+    cognitoGoogleLogin();
   };
 
   const onSubmit = (values: { email: string }) => {
@@ -132,16 +125,43 @@ export default function RegisterModal({
       )
       .then((res) => {
         setLoading(false)
+        // Check for GraphQL errors first
+        if (res?.data?.errors && res.data.errors.length > 0) {
+          const errorMessage = res.data.errors[0]?.message || 'An error occurred';
+          // Check if it's a user already exists error
+          if (errorMessage.toLowerCase().includes('already exists') || 
+              errorMessage.toLowerCase().includes('user with email')) {
+            error({ message: 'User already exists. Please login instead.' });
+          } else {
+            error({ message: errorMessage });
+          }
+          return;
+        }
+        
+        // Check for successful response
         if (res?.data?.data?.sendVerification === 'Email sent successfully') {
           setAgentEmail(values.email);
           success({ message: res?.data?.data?.sendVerification });
-          router.push('/verify-email?redirection=' + userRedirection);
+          router.push('/verify-email');
         } else {
-          error({ message: res?.data?.errors?.[0]?.message });
+          error({ message: 'An unexpected error occurred. Please try again.' });
         }
       })
       .catch((err) => {
-        error({ message: err?.message });
+        setLoading(false)
+        // Handle axios errors
+        const errorMessage = err?.response?.data?.errors?.[0]?.message || 
+                           err?.response?.data?.message || 
+                           err?.message || 
+                           'An error occurred. Please try again.';
+        
+        // Check if it's a user already exists error
+        if (errorMessage.toLowerCase().includes('already exists') || 
+            errorMessage.toLowerCase().includes('user with email')) {
+          error({ message: 'User already exists. Please login instead.' });
+        } else {
+          error({ message: errorMessage });
+        }
       });
   };
 
@@ -231,13 +251,13 @@ export default function RegisterModal({
                   'Continue'
                 )}
               </Button>
-              {userRedirection != 'preapproval' && <AuthButton
+              <AuthButton
                 className='justify-center gap-x-4'
                 imageSrc='/assets/images/google.svg'
                 imageAlt='Google Logo'
                 text='Continue with Google'
                 onClick={handleGoogleLogin}
-              />}
+              />
             </div>
           </form>
 

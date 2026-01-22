@@ -3,9 +3,9 @@ import { BuyerPropertiesProvider } from '@/providers/buyer-porperty-context';
 
 function Dashboard() {
   return (
-    <BuyerPropertiesProvider>
+    // <BuyerPropertiesProvider>
       <BuyerDashboard />
-    </BuyerPropertiesProvider>
+    // </BuyerPropertiesProvider>
   );
 }
 

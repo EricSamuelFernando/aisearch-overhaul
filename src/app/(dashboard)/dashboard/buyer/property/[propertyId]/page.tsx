@@ -11,16 +11,16 @@ import { useDispatch, useSelector } from 'react-redux';
 
 function BuyerProperty() {
   const params = useParams()
-  const {propertyId} = params
-  console.log("Parameter" , params)
+  const { propertyId } = params
+  console.log("Parameter", params)
   const engagedProperty = useSelector((state: any) => state.property?.engagedProperty)
   const currentUser = useSelector((state: any) => state.auth?.user)
   const { searchEngagedProperty, } = useAgentConversationApi()
-  const {selectedThreadInfo} = useAppSelector((state) => state.chat )
+  const { selectedThreadInfo } = useAppSelector((state) => state.chat)
 
-  console.log('Redux Thread ',selectedThreadInfo)
-  const {data:threadInfo  } = useGetUserThreadByProperty(propertyId?.toString())
-  console.log("thread data" , threadInfo )
+  console.log('Redux Thread ', selectedThreadInfo)
+  const { data: threadInfo } = useGetUserThreadByProperty(propertyId?.toString())
+  console.log("thread data", threadInfo)
   const dispatch = useDispatch();
   const searchEnagagedProperties = async () => {
     try {
@@ -45,9 +45,9 @@ function BuyerProperty() {
     searchEnagagedProperties()
   }, [])
 
-  useEffect(() =>{
-      dispatch(setSelectedThreadInfo(threadInfo))
-  } ,[threadInfo])
+  useEffect(() => {
+    dispatch(setSelectedThreadInfo(threadInfo))
+  }, [threadInfo])
 
   return <PropertyDetailLayout />;
 }

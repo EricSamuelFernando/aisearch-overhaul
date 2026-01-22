@@ -33,23 +33,10 @@ const getAllMLSSearchData = async ({
   sqTfMax,
   propertyType,
 }: FetchParams): Promise<ODataStrippedResponse> => {
-  const url = `${mlsDeploymentEnv}/search`;
-  return await axios
-    .get(url, {
-      params: {
-        query: query,
-        page,
-        limit,
-        priceMin,
-        priceMax,
-        bedRooms,
-        bathRooms,
-        sqTfMin,
-        sqTfMax,
-        propertyType,
-      },
-    })
-    .then(pickResult, pickErrorMessage);
+  // API call removed - returning empty response to prevent multiple calls
+  return {
+    value: [],
+  } as any;
 };
 
 export const useGetAllMLSSearchData = (
@@ -75,6 +62,6 @@ export const useGetAllMLSSearchData = (
         ...filters,
       });
     },
-    enabled: !!query,
+    enabled: false, // Disabled - /search route is not available in backend
   });
 };

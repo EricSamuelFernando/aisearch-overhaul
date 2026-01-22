@@ -38,14 +38,21 @@ export interface AgentResponse {
 }
 
 const getUserInvitedAgents = async (): Promise<AgentResponse> => {
-  return await client
-    .get('agent/user/invited-agents')
-    .then(pickResult, pickErrorMessage);
+  // API call removed - returning empty response to prevent multiple calls
+  return {
+    message: '',
+    result: [],
+    total: 0,
+    page: 1,
+    limit: 10,
+    success: true,
+  } as AgentResponse;
 };
 
 export const useGetUserInvitedAgents = () => {
   return useQuery<AgentResponse>({
     queryKey: ['userInvitedAgents'],
     queryFn: getUserInvitedAgents,
+    enabled: false, // Disabled to prevent /agent/user/invited-agents API calls
   });
 };

@@ -11,14 +11,20 @@ import { Icons } from '@/components/icons';
 import { useAppSelector } from '@/lib/hook';
 import EmblaCarousel from '@/components/customs/carousel/embla-carousel';
 import { useRouter } from 'next/navigation';
-import { Bath, BedDouble, Ruler } from 'lucide-react';
+import { Bath, BedDouble, Ruler, Heart, MessageCircle } from 'lucide-react';
+import CommentsModal from '@/components/modals/comments-modal';
 
-type PropertyCardsProps = IProperty;
+type PropertyCardsProps = IProperty & {
+  isWishlisted?: boolean;
+};
 
 const FavouritePropertyCards = (props: any) => {
   const { saveCurrenctProperty } = usePropertyActions();
   const router = useRouter();
   const [carouselEvent, setCarouselEvent] = useState(false);
+  const [showCommentsModal, setShowCommentsModal] = useState(false);
+  // Default to true since this is the favourites card, but respect prop if passed
+  const isWishlisted = props.isWishlisted !== undefined ? props.isWishlisted : true;
 
   const slides = props?.listing?.media?.photosList?.slice(0, 4)?.map((image: any, idx: number) => {
     if (!image?.lowRes) return (
@@ -52,12 +58,22 @@ const FavouritePropertyCards = (props: any) => {
     setTimeout(() => setCarouselEvent(false), 300);
   };
 
+  const handleCommentClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowCommentsModal(true);
+  };
+
   return (
     <div
       onClick={handleClick}
-      className="flex w-full min-h-[520px] max-h-[520px] cursor-pointer flex-col overflow-hidden rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl bg-black border border-gray-800 hover:border-ocOrange hover:scale-[1.02] group"
+      className="flex w-full min-h-[520px] max-h-[520px] cursor-pointer flex-col overflow-hidden rounded-xl shadow-lg hover:shadow-xl bg-black border border-gray-800 hover:border-ocOrange group relative"
     >
       <div className="relative h-60 w-full overflow-hidden">
+        {isWishlisted && (
+          <div className="absolute top-3 right-3 z-20">
+            <Heart className="w-6 h-6 text-[#FF8700] fill-[#FF8700]" />
+          </div>
+        )}
         {props?.listing?.media?.photosList?.length ? (
           <div className="relative h-full">
             <EmblaCarousel
@@ -65,7 +81,7 @@ const FavouritePropertyCards = (props: any) => {
               options={{ loop: true }}
               onScrollButtonClick={handleCarouselButtonClick}
             />
-            <div className="absolute top-3 left-3 bg-ocOrange px-2 py-1 rounded-md shadow-sm">
+            <div className="absolute top-3 left-3 bg-ocOrange px-2 py-1 rounded-md shadow-sm z-10">
               <span className="text-white text-xs font-bold">
                 {props?.listing?.standardStatus || 'FOR SALE'}
               </span>
@@ -96,7 +112,24 @@ const FavouritePropertyCards = (props: any) => {
           <h3 className="text-2xl font-bold text-white group-hover:text-ocOrange transition-colors duration-300">
             {formatCurrency(props?.price || 0, 'USD')}
           </h3>
+          {isWishlisted && (
+            <div onClick={handleCommentClick} className="cursor-pointer hover:scale-110 transition-transform">
+              <MessageCircle className="w-6 h-6 text-[#FF8700]" />
+            </div>
+          )}
         </div>
+
+        {showCommentsModal && (
+          <div onClick={(e) => e.stopPropagation()}>
+            <CommentsModal
+              isOpen={showCommentsModal}
+              onClose={() => setShowCommentsModal(false)}
+              property={props}
+              snapId={props.snapId} // Pass snapId prop
+              onCommentAdded={props.onCommentAdded}
+            />
+          </div>
+        )}
 
         <p className="text-sm text-gray-300">{props?.name || 'Property Name'}</p>
 

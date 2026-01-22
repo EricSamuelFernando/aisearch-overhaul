@@ -1,8 +1,8 @@
 'use client';
 import { SearchInput } from "@/components/SearchInput";
-import socket from "@/lib/socket";
+import { SocketContext } from "@/providers/socket.context";
 import { ScrollArea } from "@mantine/core";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useContext } from "react";
 import AgentPropertyList from "./agent-property-list";
 import axios from "axios";
 import { useGetPresignedUrl } from "@/hooks/api/property/useGetPresignedUrl";
@@ -15,7 +15,41 @@ import { useAuth } from "@/shared/hooks/useAuth";
 import MessageSkeleton from "./message-skeleton";
 import PropertyThreadList from "./agent-property-thread-list";
 
+// Type definitions
+interface Property {
+  _id?: string;
+  id?: string;
+  name?: string;
+  [key: string]: any;
+}
+
+interface Agent {
+  _id?: string;
+  id?: string;
+  firstName?: string;
+  lastName?: string;
+  firstname?: string;
+  lastname?: string;
+  fullname?: string;
+  [key: string]: any;
+}
+
+interface Message {
+  _id?: string;
+  id?: string;
+  content?: string;
+  message?: string;
+  sender?: string;
+  senderId?: string;
+  timestamp?: string;
+  createdAt?: string;
+  documents?: string[];
+  threadId?: string;
+  [key: string]: any;
+}
+
 export default function ConversationTab() {
+  const { socket } = useContext(SocketContext);
   const [activeProperty, setActiveProperty] = useState<Property | null>(null);
   const [activeAgent, setActiveAgent] = useState<Agent | null>(null);
   const [newMessage, setNewMessage] = useState('');
@@ -78,15 +112,42 @@ export default function ConversationTab() {
     };
   
   const sendMessage = () => {
-    if (conversationId && newMessage.trim()) {
-      console.log("Called")
-      socket.emit('sendMessage', { conversationId , message: newMessage , userId:user?.id }, (response:any) => {
+    if (!socket) {
+      console.error("[message-tab] Socket is not available");
+      return;
+    }
+    
+    if (conversationId && newMessage.trim() && user?.id) {
+      console.log("[message-tab] Sending message via websocket:", { conversationId, message: newMessage, userId: user.id });
+      
+      const handleSendMessageResponse = (response: any) => {
+        console.log("[message-tab] sendMessage_response:", response);
         if (response.status === 'success') {
           setNewMessage('');
-          
+          setStatusMessage('Message sent successfully');
+        } else {
+          setStatusMessage(response.message || 'Failed to send message');
         }
-        setStatusMessage(response.message);
-      });
+        if (socket) {
+          socket.off('sendMessage_response', handleSendMessageResponse);
+        }
+      };
+
+      if (socket) {
+        socket.on('sendMessage_response', handleSendMessageResponse);
+        
+        // Use the proper sendMessage method from websocket-client
+        if (socket.sendMessage) {
+          socket.sendMessage({
+            threadId: conversationId,
+            message: newMessage,
+            userId: user.id,
+            messageType: 'text'
+          });
+        } else {
+          console.error("[message-tab] socket.sendMessage is not available");
+        }
+      }
     }
   };
 
@@ -94,14 +155,14 @@ export default function ConversationTab() {
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const files = event.target.files;
       if (files) {
-        setSelectedFiles((prevFiles) => [...prevFiles, ...Array.from(files)]);
+        setSelectedFiles((prevFiles: File[]) => [...prevFiles, ...Array.from(files)]);
       }
     },
     [],
   );
 
   const removeFile = useCallback((index: number) => {
-    setSelectedFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
+    setSelectedFiles((prevFiles: File[]) => prevFiles.filter((_: File, i: number) => i !== index));
   }, []);
 
   const uploadToPresignedUrl = async ({
@@ -171,22 +232,42 @@ export default function ConversationTab() {
   console.log("MESSAGES" , messages , conversationId)
 
   useEffect(() => {
-    const fetchedMessages = messageThreads?.find((thread:any) => thread?._id === conversationId)?.messages|| []
-    setMessages(fetchedMessages)
-  },[conversationId])
+    const fetchedMessages = messageThreads?.find((thread: any) => thread?._id === conversationId)?.messages || [];
+    setMessages(fetchedMessages);
+  }, [conversationId, messageThreads]);
 
   // Listen for new messages
   useEffect(() => {
-    socket.on('newMessage', (data:Message) => {
-      console.log()
-      setMessages((prevMessages) => [...prevMessages, data]);
-    });
+    if (!socket) return;
+    
+    const handleNewMessage = (data: any) => {
+      console.log("[message-tab] Received newMessage:", data);
+      const messageThreadId = data.threadId || data.thread_id;
+      
+      // Only add message if it's for the current conversation
+      if (messageThreadId === conversationId) {
+        setMessages((prevMessages: Message[]) => [...prevMessages, {
+          ...data,
+          content: data.message || data.content,
+          threadId: messageThreadId
+        }]);
+        
+        // Scroll to bottom when new message arrives
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      }
+    };
+
+    socket.on('newMessage', handleNewMessage);
 
     // Cleanup
     return () => {
-      socket.off('newMessage');
+      if (socket) {
+        socket.off('newMessage', handleNewMessage);
+      }
     };
-  }, []);
+  }, [socket, conversationId]);
     // Render helpers
     const renderMessageContent = (message: Message) => (
       <div className='rounded-lg bg-white p-4 py-3 shadow-sm'>
@@ -291,7 +372,7 @@ export default function ConversationTab() {
           ) : messages && messages.length > 0 ? (
             <>
               <div className='sticky top-0 z-10 flex h-[3.6245rem] items-center justify-between border-b border-[#C2C2C2] bg-[#F7F2EB] px-8 py-[6px] font-bold'>
-                <h3>`{activeAgent?.firstName} {activeAgent?.lastName}`</h3>
+                <h3>{activeAgent?.firstName} {activeAgent?.lastName}</h3>
                 <Link
                   href={`/dashboard/buyer/property/${activeProperty._id}`}
                   className='font-bold text-[#E8804C]'
@@ -303,9 +384,11 @@ export default function ConversationTab() {
                 {messages
                   .slice()
                   .sort(
-                    (a: Message, b: Message) =>
-                      new Date(a.timestamp).getTime() -
-                      new Date(b.timestamp).getTime(),
+                    (a: Message, b: Message) => {
+                      const aTime = a.timestamp || a.createdAt || '0';
+                      const bTime = b.timestamp || b.createdAt || '0';
+                      return new Date(aTime).getTime() - new Date(bTime).getTime();
+                    }
                   )
                   .map((message: Message) => (
                     <div
@@ -319,13 +402,15 @@ export default function ConversationTab() {
                       <div className='flex flex-col gap-1'>
                         {renderMessageContent(message)}
                         <p className='mt-1 text-right text-[10px] text-gray-500'>
-                          {new Date(message.timestamp).toLocaleTimeString(
-                            [],
-                            {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            },
-                          )}
+                          {(message.timestamp || message.createdAt) 
+                            ? new Date(message.timestamp || message.createdAt || new Date().toISOString()).toLocaleTimeString(
+                                [],
+                                {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                },
+                              )
+                            : ''}
                         </p>
                       </div>
                     </div>

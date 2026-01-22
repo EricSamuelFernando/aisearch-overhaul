@@ -21,25 +21,8 @@ const IdleTimeout: React.FC<IdleTimeoutProps> = ({ timeout, children }) => {
     const statusOption = userChatStatusOptions[onlineStatus];
     console.log("new socket",socket);
     
-    // socket.on("user_status_update",(data) => {
-    //   console.log("Updated user status received:", data);
-    //   // You can update Redux or state here if needed
-    // });
-    socket?.emit(
-      "user_status_update",
-      {
-        userId: userData?.user?.id,
-        chatStatusData: statusOption,
-      },
-      (ack:any) => {
-        console.log("ack", ack);
-        
-        if (ack?.success) {
-          // dispatch(handleUpdateOnlineUser({ [userData?.id]: onlineStatus }));
-        }
-      }
-    );
-    socket?.off();
+    // Removed user_status_update events - not supported by backend WebSocket handler
+    // User status updates should be handled via REST API if needed
   };
 
   const updatedStatus: { status?: string } | null = JSON.parse(

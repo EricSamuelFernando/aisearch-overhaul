@@ -24,7 +24,7 @@ import axios from 'axios';
 import { useRegister } from '@/hooks/api/auth/useRegister';
 import { maskEmail } from '@/lib/utils';
 import { PROPERTY_SEARCH_PREFERENCE_AI_URL } from '@/shared/constants/env';
-import {useSearchParams } from  'next/navigation';
+
 const steps = Object.values(BuyerOnboardingProgress).map((step) => step);
 
 const BuyerProgressLine: React.FC = () => {
@@ -47,9 +47,6 @@ const BuyerProgressButton: React.FC = () => {
   const router = useRouter();
   const { isLoggedIn, user } = useAuth();
   //const data = useRegister();
-     const searchParams = useSearchParams();
-    
-     const typeParam :any= searchParams.get("redirectionUrl") || "null";
 
   const { mutateAsync } = useSavePropertyPreference();
 
@@ -83,7 +80,7 @@ const BuyerProgressButton: React.FC = () => {
     const link =
       isLoggedIn || user?.account_type === 'buyer'
         ? '/dashboard'
-        :  `/complete-onboarding?redirectionUrl=${encodeURIComponent(typeParam)}`;
+        : '/complete-onboarding';
     router.push(link);
     // await completePreferenceMutation(preferenceValues);
     //dispatch(resetOnboardingSlice());

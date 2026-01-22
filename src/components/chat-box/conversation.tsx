@@ -212,7 +212,7 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
   const scrollContainerRef = useRef(null);
   const PROPERTY_DETAIL_SEARCH_AI_URL =
     process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI ||
-    'https://ai.snaphomz.com';
+    'https://demo-ai.snaphomz.com';
   const [email, setEmail] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [page, setPage] = useState(1);
@@ -295,6 +295,12 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
     if (selectedThread === thread?.id) {
       return null;
     }
+    
+    // Leave previous room if exists
+    if (selectedThread && socket && socket.leaveRoom) {
+      socket.leaveRoom(selectedThread);
+    }
+    
     setIsDetails(false);
     setSelectedThread(thread?.id);
     // setSelectedThread("")
@@ -317,11 +323,43 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
         propertyName: thread.propertyName,
       },
     }));
+    
+    // Join the room for this thread
+    if (socket && thread?.id && userData?.id) {
+      console.log('[conversation] Joining room for thread:', thread.id);
+      
+      // First, try to create or join conversation
+      socket.createOrJoinRoom({
+        threadId: thread.id,
+        propertyId: thread.propertyId,
+        userId: userData.id,
+        userType: 'buyer',
+        propertyOwnerId: thread.propertyOwnerId,
+        buyerAgentId: thread.buyerAgent?.id,
+        sellerAgentId: thread.sellerAgent?.id,
+        roomId: thread.id,
+        threadName: thread.threadName,
+        propertyName: thread.propertyName,
+        propertyAddress: thread.propertyAddress,
+      });
+      
+      // Also join the room directly (joinRoom expects roomId as string)
+      if (socket.joinRoom && userData?.id) {
+        socket.joinRoom(thread.id);
+      }
+    }
   };
   const handleBackToThreads = () => {
+    // Leave the room when going back to threads
+    if (selectedThread && socket && socket.leaveRoom) {
+      console.log('[conversation] Leaving room for thread:', selectedThread);
+      socket.leaveRoom(selectedThread);
+    }
+    
     setShowThreads(true);
     setShowChat(false);
     setSelectedChannel(null);
+    setSelectedThread('');
   };
   useEffect(() => {
     if (scrollRef.current) {
@@ -539,22 +577,19 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
             content: base64Content,
             sender: userData,
           };
-          socket?.emit('save_file', fileData, (response: any) => {
+          
+          // Listen for save_file_response event
+          const handleFileResponse = (response: any) => {
             if (response?.success) {
               // const message = encryptMessage(response.data.message);
               const message = response.data.message;
-              socket?.emit(
-                'sendMessage',
-                {
-                  ...newMessage,
-                  ...response?.data,
-                  message,
-                },
-                {
-                  reciepent: receiverId,
-                  userName: `${userData?.firstName} ${userData?.lastName}`,
-                },
-              );
+              socket?.emit('sendMessage', {
+                ...newMessage,
+                ...response?.data,
+                message,
+                reciepent: receiverId,
+                userName: `${userData?.firstName} ${userData?.lastName}`,
+              });
               setTimeout(() => {
                 setAllMessages((prev) => [
                   {
@@ -565,22 +600,68 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
                 ]);
               }, 1000);
             }
-          });
+            // Remove listener after handling
+            socket?.off('save_file_response', handleFileResponse);
+          };
+
+          // Listen for errors
+          const handleFileError = (errorData: any) => {
+            console.error('[handleSendMessage] File upload error:', errorData);
+            socket?.off('save_file_error', handleFileError);
+          };
+
+          // Removed save_file event - not supported by backend WebSocket handler
+          // File upload should be handled via REST API first, then send file URL using sendMessage
+          console.error('[conversation] File upload via WebSocket not supported. Use REST API for file uploads.');
+          // socket?.on('save_file_response', handleFileResponse);
+          // socket?.on('save_file_error', handleFileError);
+          // socket?.emit('save_file', fileData);
         }
         if (message.trim() !== '') {
-          socket?.emit(
-            'sendMessage',
-            {
+          // Use the proper sendMessage method from websocket-client
+          if (socket && socket.sendMessage && selectedThread && userData?.id) {
+            console.log('[conversation] Sending message via websocket:', {
+              threadId: selectedThread,
+              userId: userData.id,
+              messageLength: message.length
+            });
+            
+            socket.sendMessage({
+              threadId: selectedThread,
+              message: message,
+              userId: userData.id,
+              messageType: 'text'
+            });
+            
+            // Handle response
+            const handleSendMessageResponse = (response: any) => {
+              console.log('[conversation] sendMessage_response:', response);
+              if (response.status === 'success') {
+                // Message sent successfully, it will be broadcasted via newMessage event
+                setMessage('');
+              } else {
+                error({ message: response.message || 'Failed to send message' });
+              }
+              socket?.off('sendMessage_response', handleSendMessageResponse);
+            };
+            
+            socket.on('sendMessage_response', handleSendMessageResponse);
+            
+            // Add message to local state for immediate UI update (will be updated via newMessage event)
+            setAllMessages((prev) => [{ ...newMessage, message }, ...prev]);
+            setMessage('');
+          } else {
+            // Fallback to old method if websocket methods not available
+            socket?.emit('sendMessage', {
               ...newMessage,
               messageType: 'text',
               fileType: 'text',
-            },
-            {
               reciepent: receiverId,
               userName: `${userData?.firstName} ${userData?.lastName}`,
-            },
-          );
-          setAllMessages((prev) => [{ ...newMessage, message }, ...prev]);
+            });
+            setAllMessages((prev) => [{ ...newMessage, message }, ...prev]);
+            setMessage('');
+          }
         }
         // if (messagesEndRef.current) {
         //   messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
@@ -688,30 +769,59 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
         }
       });
       socket.on('recievedMessage', (newMessage: Message) => {
-        setShowNewMessageTag(true);
-        setAllMessages((prevMessages) => [newMessage, ...prevMessages]);
+        // Only add message if it's for the current thread
+        if (newMessage.threadId === selectedThread) {
+          setShowNewMessageTag(true);
+          setAllMessages((prevMessages) => [newMessage, ...prevMessages]);
+        }
       });
+      
+      // Handle newMessage event from websocket backend (Lambda/API Gateway)
+      const handleNewMessage = (messageData: any) => {
+        console.log('[conversation] Received newMessage:', messageData);
+        const threadId = messageData.threadId || messageData.thread_id;
+        
+        // Only add message if it's for the current thread
+        if (threadId === selectedThread) {
+          setShowNewMessageTag(true);
+          setAllMessages((prevMessages) => [{
+            ...messageData,
+            threadId: threadId,
+            message: messageData.message || messageData.content,
+          }, ...prevMessages]);
+        }
+      };
+      
+      socket.on('newMessage', handleNewMessage);
+      
       socket.on('typingStatus', (typing: boolean) => {
         setIsTyping(typing);
       });
+      
+      // Handle websocket response events
+      socket.on('createOrJoinConversation_response', (response: any) => {
+        console.log('[conversation] createOrJoinConversation_response:', response);
+      });
+      
+      socket.on('joinRoom_response', (response: any) => {
+        console.log('[conversation] joinRoom_response:', response);
+      });
+      
       const interval = setInterval(saveAllMessages, 5000);
       return () => {
         socket.off('recievedMessage');
+        socket.off('newMessage', handleNewMessage);
         socket.off('thread_marked_as_read');
+        socket.off('createOrJoinConversation_response');
+        socket.off('joinRoom_response');
         clearInterval(interval);
         saveAllMessages();
       };
     }
     return () => {
-      setState((prev: any) => ({
-        ...prev,
-        selectedChannel: {
-          id: null,
-          propertyName: '',
-        },
-      }));
+      // Cleanup when component unmounts or thread changes
     };
-  }, [socket]);
+  }, [socket, selectedThread, allMessages]);
 
   useEffect(() => {
     if (state?.newMessage) {
@@ -783,9 +893,16 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
 
   const saveAllMessages = () => {
     if (socket) {
-      socket.emit('save_messages', () => {
-        console.log('Save message event called');
-      });
+      // Removed save_messages event - not supported by backend WebSocket handler
+      // Message saving should be handled via REST API, not WebSocket
+      console.log('[conversation] Message saving removed - use REST API instead');
+      // const handleSaveMessagesResponse = () => {
+      //   console.log('Save message event called');
+      //   socket?.off('save_messages_response', handleSaveMessagesResponse);
+      // };
+
+      // socket.on('save_messages_response', handleSaveMessagesResponse);
+      // socket.emit('save_messages');
     }
   };
   setTimeout(() => {

@@ -2,25 +2,32 @@
 
 import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
 import { useForm } from '@mantine/form';
+import { useRouter } from 'next/navigation';
 import { ButtonLoader } from '@/components/loader';
 import { Button } from '@/components/ui/button';
 import CustomTextInput from '@/components/text-input';
 
 export const VerifyForgotPasswordCodeForm = () => {
+  const router = useRouter();
   const codeForm = useForm({
     initialValues: {
       code: '',
     },
   });
 
-  const { verifyPasswordResetCodeMutation } = useUserAuthApi();
+  const handleSubmit = (values: { code: string }) => {
+    // Store the code in localStorage
+    if (values?.code) {
+      localStorage.setItem('forgotPasswordCode', values.code);
+    }
+    // Redirect to set-password page
+    router.push('/set-password');
+  };
 
   return (
     <form
       className='h-max min-w-[400px]'
-      onSubmit={codeForm.onSubmit((values) => {
-        verifyPasswordResetCodeMutation.mutate({ code: values?.code });
-      })}
+      onSubmit={codeForm.onSubmit(handleSubmit)}
     >
       <section>
         <section className=''>
@@ -39,17 +46,13 @@ export const VerifyForgotPasswordCodeForm = () => {
           {...codeForm.getInputProps('code')}
         />
         <Button
-          disabled={
-            verifyPasswordResetCodeMutation.isPending ||
-            codeForm.values.code.length !== 6
-          }
+          disabled={codeForm.values.code.length !== 6}
           size='lg'
           className='w-full disabled:bg-primary-main/20'
           roundness='md'
           type='submit'
           variant='ocreal'
         >
-          {verifyPasswordResetCodeMutation.isPending ? <ButtonLoader /> : null}
           Continue
         </Button>
       </section>

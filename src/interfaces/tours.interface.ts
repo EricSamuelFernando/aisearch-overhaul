@@ -134,6 +134,7 @@ interface EventDate {
 }
 
 export interface ITour {
+  id: string | null;
   _id: string;
   property: Property;
   buyer: User;

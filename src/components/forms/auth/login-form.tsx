@@ -14,6 +14,7 @@ import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
 import { cn } from '@/lib/utils';
 import { useModalContext } from '@/providers/modal-provider';
 import { AuthButton } from '@/components/AuthButton';
+import useCognitoGoogleAuth from '@/hooks/api/auth/useCognitoGoogleAuth';
 
 export const LoginForm = ({
   handleSuccess,
@@ -27,8 +28,10 @@ export const LoginForm = ({
 
   const { closeModal, openModal, updateCloseDisabled } = useModalContext();
 
+  const { cognitoGoogleLogin } = useCognitoGoogleAuth();
+  
   const handleGoogleLogin = () => {
-    window.location.href = ` ${process.env.NEXT_PUBLIC_ENVIRONMENT_URL}/auth/google`;
+    cognitoGoogleLogin();
   };
 
   React.useEffect(() => {
@@ -59,7 +62,7 @@ export const LoginForm = ({
       email: '',
     },
     validate: {
-      email: (value) => (/^\S+@\S+$/.test(value) ? null : 'Invalid email'),
+      email: (value) => (/^\S+@\S+$/.test(value) ? null : '🌟 Hmm, that email needs a little tweak! Make sure it includes @ and a domain'),
       password: (value) =>
         /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/.test(
           value,

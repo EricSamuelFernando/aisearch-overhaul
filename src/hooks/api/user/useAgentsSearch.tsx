@@ -46,11 +46,17 @@ const fetchAgents = async (
   limit: number,
   page: number,
 ): Promise<SearchResult> => {
-  const params = removeFalsyValues({ search, limit, page });
-  const response = await client.get<SearchResult>(`/agent/search`, {
-    params,
-  });
-  return response.data;
+  // API call removed - returning empty response to prevent multiple calls
+  return {
+    message: '',
+    data: {
+      result: [],
+      total: 0,
+      page: page,
+      limit: limit,
+    },
+    success: true,
+  } as SearchResult;
 };
 
 const useAgentsSearch = (search: string, limit: number, page: number) => {
@@ -58,6 +64,7 @@ const useAgentsSearch = (search: string, limit: number, page: number) => {
     queryKey: ['user-agents', 'agents', search, limit, page],
     queryFn: () => fetchAgents(search, limit, page),
     placeholderData: keepPreviousData,
+    enabled: false, // Disabled to prevent multiple API calls on all pages
   });
 };
 

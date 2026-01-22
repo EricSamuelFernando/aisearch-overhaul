@@ -18,7 +18,7 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
     try {
       const url = new URL(documentUrl);
       const pathname = url.pathname;
-      const extension = pathname.split('.').pop()?.toLowerCase()||"";
+      const extension = pathname.split('.').pop()?.toLowerCase() || "";
 
       // Direct view for AWS S3 pre-signed PDFs
       if (type === 'preSignedViewUrl' && extension === 'pdf') {
@@ -32,6 +32,10 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
 
       // Plain text files
       if (extension === 'txt') {
+        return documentUrl;
+      }
+
+      if (extension === 'png' || extension === 'jpeg') {
         return documentUrl;
       }
 

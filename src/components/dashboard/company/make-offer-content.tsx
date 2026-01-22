@@ -28,8 +28,8 @@ const Editor = dynamic(() => import('@/components/custom-editor'), {
 export default function MakeOfferContent() {
   const { propertyId: id } = useParams<{ propertyId: string; item: string }>();
 
-  const { getSingleProperty } = useGetSingleProperty(id!);
-  const property = getSingleProperty?.data?.data?.data?.property as IProperty;
+  const { getSingleProperty } :any= useGetSingleProperty(id!);
+  const property :any= getSingleProperty?.data?.data?.data?.property as IProperty;
   const loading = getSingleProperty.isFetching || getSingleProperty.isLoading;
 
   const [files, setFiles] = useState<FileWithPath[]>([]);

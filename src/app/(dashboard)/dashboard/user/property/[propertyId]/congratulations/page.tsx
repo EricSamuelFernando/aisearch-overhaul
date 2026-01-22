@@ -12,8 +12,8 @@ type Props = {};
 
 function Congratulations({}: Props) {
   const { propertyId: id } = useParams<{ propertyId: string; item: string }>();
-  const { getSingleProperty } = useGetSingleProperty(id!);
-  const property = getSingleProperty?.data?.data?.data?.property as IProperty;
+  const { getSingleProperty }:any = useGetSingleProperty(id!);
+  const property :any = getSingleProperty?.data?.data?.data?.property as IProperty;
 
   return (
     <section className="grid h-full place-content-center bg-[url('../../public/assets/images/v2/left-confetti.png')] bg-left px-4">

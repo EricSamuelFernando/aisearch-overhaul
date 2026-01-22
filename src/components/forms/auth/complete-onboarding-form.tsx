@@ -16,7 +16,7 @@ import { UserPasswordInput } from '@/components/PasswordInput';
 import { PhoneNumberInput } from '@/components/PhoneNumberInput';
 import { agentEmailAtom } from '@/hooks/atoms';
 import { useAtom } from 'jotai';
-import { useRouter, useSearchParams } from 'next/navigation';
+
 export function CompleteOnboardingForm() {
   const account_type = getActiveUserRole();
   const form = useForm({
@@ -35,10 +35,10 @@ export function CompleteOnboardingForm() {
     validate: {
       firstName: (value) => (value.length < 1 ? 'First Name is required' : null),
       lastName: (value) => (value.length < 1 ? 'Last Name is required' : null),
-      // licenseNumber: (value) =>
-      //   account_type === 'agent' && value.length < 1 ? 'License Number is required' : null,
-      // region: (value) =>
-      //   account_type === 'agent' && value.length < 1 ? 'Region is required' : null,
+      licenseNumber: (value) =>
+        account_type === 'agent' && value.length < 1 ? 'License Number is required' : null,
+      region: (value) =>
+        account_type === 'agent' && value.length < 1 ? 'Region is required' : null,
       password: (value) =>
         /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/.test(value)
           ? null
@@ -53,10 +53,6 @@ export function CompleteOnboardingForm() {
     },
   });
 
-  const searchParams = useSearchParams();
-
-  const typeParam = searchParams.get("redirectionUrl") || "null";
-  const router = useRouter();
 
   const { onBoardingMutation, loginMutation } = useUserAuthApi();
   const [agentEmail] = useAtom(agentEmailAtom);
@@ -81,24 +77,15 @@ export function CompleteOnboardingForm() {
   );
 
   const handleSubmit = async (values: typeof form.values) => {
-     debugger
     try {
-     
       await onBoardingMutation.mutateAsync(onBoardingPayload, {
         onSuccess: (response: any) => {
           if (response?.data?.data?.completeSignUp?.id) {
-            if (typeParam === 'preapproval') {
-              router.push(process.env.NEXT_PUBLIC_PREAPPROVAL_URL || "http://localhost:3000");
-              return
-            }else{
-              router.push('/login');
-            }
-
-            // loginMutation.mutateAsync({
-            //   email: response?.data?.data?.completeSignUp?.email,
-            //   password: values.password,
-            //   isHome: true,
-            // });
+            loginMutation.mutateAsync({
+              email: response?.data?.data?.completeSignUp?.email,
+              password: values.password,
+              isHome: true,
+            });
           }
         },
       });
@@ -127,7 +114,7 @@ export function CompleteOnboardingForm() {
           />
         </div>
 
-        {/* {account_type === 'agent' && (
+        {account_type === 'agent' && (
           <Fragment>
             <CustomTextInput
               placeholder="License Number"
@@ -140,7 +127,7 @@ export function CompleteOnboardingForm() {
               {...form.getInputProps('region')}
             />
           </Fragment>
-        )} */}
+        )}
 
         <div className="flex flex-col w-full">
           <PhoneNumberInput
@@ -179,24 +166,18 @@ export function CompleteOnboardingForm() {
           </div>
         </div>
 
-        {/* <button
+        <button
           className={`${onBoardingMutation.isPending || loginMutation.isPending
             ? 'bg-black/20'
             : 'bg-black'
             } space-b-8 w-full rounded-md py-3 font-bold text-white`}
           type="submit"
-          // disabled={onBoardingMutation.isPending || loginMutation.isPending}
+          disabled={onBoardingMutation.isPending || loginMutation.isPending}
         >
-        
-            Submit
-        </button> */}
-        <button
-          className="bg-black space-b-8 w-full rounded-md py-3 font-bold text-white"
-          type="submit"
-        >
-          Submit
+          {onBoardingMutation.isPending || loginMutation.isPending
+            ? 'Loading...'
+            : 'Next'}
         </button>
-
 
         <section className="my-4 flex w-full items-center justify-between">
           <div></div>

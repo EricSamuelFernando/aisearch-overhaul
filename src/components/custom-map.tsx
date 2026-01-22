@@ -4,6 +4,7 @@ import {
   GoogleMap,
   InfoWindow,
   Marker,
+  Libraries,
   useJsApiLoader,
 } from '@react-google-maps/api';
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
@@ -33,6 +34,7 @@ type Props = {
 };
 
 const DEFAULT_COORD = { lat: 36.778, lng: -119.417 };
+const libraries: Libraries = ['places'];
 
 const CustomMap: React.FC<Props> = ({
   properties = [],
@@ -46,6 +48,7 @@ const CustomMap: React.FC<Props> = ({
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: googleMapsApiKey!,
+    libraries,
   });
 
   const [mapInstance, setMap] = useState<google.maps.Map | null>(null);
@@ -53,7 +56,7 @@ const CustomMap: React.FC<Props> = ({
 
   const containerStyle = {
     height: height || '100%',
-    width: width || '100%',
+    width: '100%',
     minHeight: '350px',
     minWidth: '500px',
   };

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useDeferredValue } from 'react';
 import Image from 'next/image';
 import { notFound, useParams, useSearchParams } from 'next/navigation';
 import Lightbox from "yet-another-react-lightbox";
@@ -27,9 +28,11 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { NewFeatureCard } from './multi-feature-card';
 import { PROPERTY_DETAIL_SEARCH_AI_URL } from "@/shared/constants/env"
+
 import { useSelector } from 'react-redux';
+import CategorizedPhotosModal from '../CategorizedPhotosModal'; // Import the new modal
 import PropertyDetailsCard from '../propertyDetailsCard';
-import { BookmarkCheck, ChevronDown, ChevronUp } from 'lucide-react';
+import { BookmarkCheck, ChevronDown, ChevronUp, Info, Mail, Search, Loader2, X, Star, ArrowRight } from 'lucide-react';
 import { EstimatedMarketValue } from '../preview-hero/EstimatedMarketValue';
 import HomeHighlights from '../preview-hero/HomeHighlights';
 import SchoolsNearAddress from '../preview-hero/SchoolsNearAddress';
@@ -39,7 +42,34 @@ import PropertyHistorySection from '../preview-hero/PropertyHistorySection';
 import InterestRatePredictor from '../preview-hero/InterestRatePredictor';
 import PaymentCalculator from '../preview-hero/PaymentCalculator';
 import NearbyHomesSection from '../preview-hero/NearbyHomesSection';
-
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAgentConversationApi } from '@/hooks/api/auth/useConversationApi';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { usePropertyAPI } from '@/hooks/api/auth/engagementAPI';
+import { userData } from '@/slices/auth/auth.slice';
+import { error } from '@/components/alert/notify';
+import { AgentDirectoryBox } from '@/components/start-process/agent-directory-box';
+import { AgentCard } from '@/components/start-process/agent-card';
+import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
+import { useDispatch } from 'react-redux';
+import { setEngagedProperty } from '@/slices/property/property-slice';
+import { SocketContext } from '@/providers/socket.context';
+import { success } from '@/components/alert/notify';
+import type { WebSocketClient } from '@/lib/websocket-client';
+import { AgentDirectoryWrapper } from './agent-directory-wrapper';
 const defaultEstimatedData: any = {
   houseValue: "$450,460",
   houseValueDescription: "Overall readiness assessment",
@@ -80,9 +110,9 @@ const PropertyPreview: React.FC = () => {
 
     };
   }
-
+  const [open, setOpen] = React.useState<number | null>(null);
   const [propertyDetails, setPropertyDetails] = React.useState<PropertyDetails | null>(null);
-  const property: any = useAppSelector((state:any) => state.property.property);
+  const property: any = useAppSelector((state: any) => state.property.property);
   const [tags, setTags] = React.useState<any>([])
   // const propertyData: any = useAppSelector((state) => state);
   const [loading, setLoading] = React.useState(false)
@@ -99,6 +129,305 @@ const PropertyPreview: React.FC = () => {
   const mostRecentStatus = searchParams.get('mostRecentStatus') || ""
   const { getSingleProperty: { isFetching } } = useGetSingleProperty(id!);
   const propertyData = useSelector((state: any) => state.property.property)
+  const engagedProperty = useSelector((state: any) => state.property.engagedProperty);
+  const { getEngagedPropertyByPropertyId } = useAgentConversationApi();
+  const currentUser = useSelector(userData);
+  const { propertyEngagementMutation } = usePropertyAPI();
+  const router = useRouter();
+  const dispatch = useDispatch();
+  const { socket } = React.useContext(SocketContext);
+  const [isContactAgentDialogOpen, setIsContactAgentDialogOpen] = React.useState(false);
+  const [isSearchAgentModalOpen, setIsSearchAgentModalOpen] = React.useState(false);
+  const [isInviteAgentModalOpen, setIsInviteAgentModalOpen] = React.useState(false);
+  const [engagementIdForModal, setEngagementIdForModal] = React.useState<string | null>(null);
+  const [isProcessingInvitation, setIsProcessingInvitation] = React.useState(false);
+  const [inviteAgentEmail, setInviteAgentEmail] = React.useState('');
+  const [inviteEmailError, setInviteEmailError] = React.useState('');
+  const { externalAgentIvitationMutation } = useUserAuthApi();
+
+  React.useEffect(() => {
+    if (id) {
+      getEngagedPropertyByPropertyId.mutate(id)
+    }
+  }, [id])
+
+  console.log("DEBUG PREVIEW:", { id, engagedProperty, propertyData });
+
+  const createEngagementAndNavigate = (meanType?: string) => {
+    if (!currentUser?.id) {
+      error({ message: "Please login to contact an agent" });
+      return;
+    }
+
+    if (!propertyData?.id) {
+      error({ message: "Property data is not available" });
+      return;
+    }
+
+    // Create engagement
+    propertyEngagementMutation.mutate(
+      {
+        propertyName: propertyData?.listing?.courtesyOf || propertyData?.public?.address?.label,
+        price: propertyData?.listing?.listPriceLow || propertyData?.listPrice,
+        listingId: +propertyData?.listingId || +listingId,
+        propertyId: propertyData?.id || +id,
+        city: propertyData?.address?.city || propertyData?.public?.address?.city || "Los angeles",
+        zipCode: propertyData?.listing?.address?.zipCode || propertyData?.public?.address?.zipCode,
+        propertyAddress: propertyData?.listing?.address?.unparsedAddress || propertyData?.public?.address?.unparsedAddress || propertyData?.public?.address?.label,
+        propertyImage: propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.media?.primaryListingImageUrl,
+        userId: currentUser?.id,
+        answers: undefined,
+        propertyProgress: 10,
+        fullAddress: propertyData?.public?.address?.label || propertyData?.listing?.address?.unparsedAddress || `${propertyData?.address?.city || ''}, USA`
+      },
+      {
+        onSuccess: (response: any) => {
+          console.log("Engagement created:", response);
+          const engagementId = response?.data?.createEngagement?.id;
+          if (engagementId) {
+            const url = meanType 
+              ? `/dashboard/buyer/property/${propertyData?.id || id}/add-agent?engagementId=${engagementId}&mean_type=${meanType}`
+              : `/dashboard/buyer/property/${propertyData?.id || id}/add-agent?engagementId=${engagementId}`;
+            router.push(url);
+            setIsContactAgentDialogOpen(false);
+          } else {
+            error({ message: "Failed to create engagement" });
+          }
+        },
+        onError: (err: any) => {
+          console.error("Error creating engagement:", err);
+          error({ message: "Failed to create engagement. Please try again." });
+        }
+      }
+    );
+  };
+
+  const handleContactAgent = () => {
+    if (!currentUser?.id) {
+      error({ message: "Please login to contact an agent" });
+      return;
+    }
+    setIsContactAgentDialogOpen(true);
+  };
+
+  const handleSearchAgent = () => {
+    if (isProcessingInvitation) {
+      return; // Prevent multiple simultaneous calls
+    }
+
+    if (!currentUser?.id) {
+      error({ message: "Please login to contact an agent" });
+      return;
+    }
+
+    if (!propertyData?.id) {
+      error({ message: "Property data is not available" });
+      return;
+    }
+
+    setIsProcessingInvitation(true);
+
+    // Check if engagement already exists
+    if (engagedProperty?.id) {
+      setEngagementIdForModal(engagedProperty.id);
+      setIsContactAgentDialogOpen(false);
+      setIsSearchAgentModalOpen(true);
+      setIsProcessingInvitation(false);
+      return;
+    }
+
+    // Create engagement only if it doesn't exist
+    propertyEngagementMutation.mutate(
+      {
+        propertyName: propertyData?.listing?.courtesyOf || propertyData?.public?.address?.label,
+        price: propertyData?.listing?.listPriceLow || propertyData?.listPrice,
+        listingId: +propertyData?.listingId || +listingId,
+        propertyId: propertyData?.id || +id,
+        city: propertyData?.address?.city || propertyData?.public?.address?.city || "Los angeles",
+        zipCode: propertyData?.listing?.address?.zipCode || propertyData?.public?.address?.zipCode,
+        propertyAddress: propertyData?.listing?.address?.unparsedAddress || propertyData?.public?.address?.unparsedAddress || propertyData?.public?.address?.label,
+        propertyImage: propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.media?.primaryListingImageUrl,
+        userId: currentUser?.id,
+        answers: undefined,
+        propertyProgress: 10,
+        fullAddress: propertyData?.public?.address?.label || propertyData?.listing?.address?.unparsedAddress || `${propertyData?.address?.city || ''}, USA`
+      },
+      {
+        onSuccess: (response: any) => {
+          console.log("Engagement created:", response);
+          const engagementId = response?.data?.createEngagement?.id;
+          if (engagementId) {
+            setEngagementIdForModal(engagementId);
+            setIsContactAgentDialogOpen(false);
+            setIsSearchAgentModalOpen(true);
+          } else {
+            error({ message: "Failed to create engagement" });
+          }
+          setIsProcessingInvitation(false);
+        },
+        onError: (err: any) => {
+          console.error("Error creating engagement:", err);
+          error({ message: "Failed to create engagement. Please try again." });
+          setIsProcessingInvitation(false);
+        }
+      }
+    );
+  };
+
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const handleInviteAgent = () => {
+    if (isProcessingInvitation) {
+      return; // Prevent multiple simultaneous calls
+    }
+
+    if (!currentUser?.id) {
+      error({ message: "Please login to contact an agent" });
+      return;
+    }
+
+    if (!propertyData?.id) {
+      error({ message: "Property data is not available" });
+      return;
+    }
+
+    setIsProcessingInvitation(true);
+
+    // Check if engagement already exists
+    if (engagedProperty?.id) {
+      setEngagementIdForModal(engagedProperty.id);
+      setIsContactAgentDialogOpen(false);
+      setIsInviteAgentModalOpen(true);
+      setIsProcessingInvitation(false);
+      return;
+    }
+
+    // Create engagement first, then open modal
+    propertyEngagementMutation.mutate(
+      {
+        propertyName: propertyData?.listing?.courtesyOf || propertyData?.public?.address?.label,
+        price: propertyData?.listing?.listPriceLow || propertyData?.listPrice,
+        listingId: +propertyData?.listingId || +listingId,
+        propertyId: propertyData?.id || +id,
+        city: propertyData?.address?.city || propertyData?.public?.address?.city || "Los angeles",
+        zipCode: propertyData?.listing?.address?.zipCode || propertyData?.public?.address?.zipCode,
+        propertyAddress: propertyData?.listing?.address?.unparsedAddress || propertyData?.public?.address?.unparsedAddress || propertyData?.public?.address?.label,
+        propertyImage: propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.media?.primaryListingImageUrl,
+        userId: currentUser?.id,
+        answers: undefined,
+        propertyProgress: 10,
+        fullAddress: propertyData?.public?.address?.label || propertyData?.listing?.address?.unparsedAddress || `${propertyData?.address?.city || ''}, USA`
+      },
+      {
+        onSuccess: (response: any) => {
+          console.log("Engagement created:", response);
+          const engagementId = response?.data?.createEngagement?.id;
+          if (engagementId) {
+            setEngagementIdForModal(engagementId);
+            setIsContactAgentDialogOpen(false);
+            setIsInviteAgentModalOpen(true);
+          } else {
+            error({ message: "Failed to create engagement" });
+          }
+        },
+        onError: (err: any) => {
+          console.error("Error creating engagement:", err);
+          error({ message: "Failed to create engagement. Please try again." });
+        }
+      }
+    );
+  };
+
+  const handleInviteEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setInviteAgentEmail(value);
+
+    if (!validateEmail(value)) {
+      setInviteEmailError('✨ Almost there! Please enter a valid email address');
+      return;
+    } else {
+      setInviteEmailError('');
+    }
+  };
+
+  const sendInviteByEmail = () => {
+    if (!inviteAgentEmail || !validateEmail(inviteAgentEmail)) {
+      setInviteEmailError('Please enter a valid email address');
+      return;
+    }
+
+    if (!engagementIdForModal) {
+      error({ message: "Engagement ID is not available" });
+      return;
+    }
+
+    if (!currentUser?.id) {
+      error({ message: "Please login to send invitation" });
+      return;
+    }
+
+    const data = {
+      agentType: currentUser?.account_type,
+      userId: currentUser?.id,
+      email: inviteAgentEmail,
+      is_accepted: "pending",
+      engagementId: engagementIdForModal,
+      // threadId is now optional in the backend DTO
+      ...(engagedProperty?.threadId && { threadId: engagedProperty.threadId }),
+    };
+
+    externalAgentIvitationMutation.mutateAsync(data, {
+      onSuccess: (response: any) => {
+        const { message, success: successStatus, agentId, participantId } = response || {};
+        if (successStatus) {
+          // Send socket notification for email invitation (same as search agent flow)
+          if (socket && agentId && participantId) {
+            socket.emit('send_property_invitation', {
+              reciepent: agentId,
+              userName: `${currentUser.firstname} ${currentUser.lastname}`,
+              userEmail: currentUser?.email,
+              propertyImage: propertyData?.propertyImage || propertyData?.listing?.media?.primaryListingImageUrl,
+              propertyAddress: propertyData?.propertyAddress || propertyData?.public?.address?.label,
+              id: participantId,
+            });
+          }
+
+          // Update engaged property state if available
+          if (engagedProperty && participantId && agentId) {
+            const participent = [{
+              id: participantId,
+              userId: currentUser?.id,
+              bra_id: null,
+              is_accepted: "pending",
+              agent: { id: agentId, email: inviteAgentEmail }
+            }];
+            dispatch(setEngagedProperty({
+              ...engagedProperty,
+              participants: participent
+            }));
+          }
+
+          success({ message: message || 'Invitation sent successfully!' });
+          setInviteAgentEmail('');
+          setInviteEmailError('');
+          setIsInviteAgentModalOpen(false);
+          // Navigate to dashboard after successful invitation
+          router.push('/dashboard/buyer');
+        } else {
+          error({ message: message || 'Failed to send invitation' });
+        }
+      },
+      onError: (err: any) => {
+        console.error('Error sending agent invitation:', err);
+        const errorMessage = err?.response?.data?.errors?.[0]?.message || err?.message || 'Failed to send invitation. Please try again.';
+        error({ message: errorMessage });
+      },
+    });
+  };
+
   // React.useEffect(() => {
   //   getSingleProperty.mutate()
   // }, [])
@@ -244,6 +573,7 @@ const PropertyPreview: React.FC = () => {
     };
   }, []);
 
+
   React.useEffect(() => {
     if (property?.listingId) {
       getPropertyDetails(property?.listingId)
@@ -264,7 +594,7 @@ const PropertyPreview: React.FC = () => {
     };
   }, [proprtyData, id]);
 
-  console.log(propertyDatas, "propertyDatas")
+  console.log(transformData, "propertyDatas")
   const [showAllSchools, setShowAllSchools] = React.useState(false);
   const [sortedSchools, setSortedSchools] = React.useState<any[]>([]);
 
@@ -348,6 +678,7 @@ const PropertyPreview: React.FC = () => {
   const displayedSchools = showAllSchools ? sortedSchools : sortedSchools.slice(0, 3);
 
   const [isOpen, setIsOpen] = React.useState(false);
+  const [isCategorizedModalOpen, setIsCategorizedModalOpen] = React.useState(false); // New state
   const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
 
   const images = React.useMemo(() => {
@@ -368,10 +699,155 @@ const PropertyPreview: React.FC = () => {
     setCurrentImageIndex(index);
     setIsOpen(true);
   };
+
+
+
+
+  const toggle = (i: number) => {
+    setOpen(open === i ? null : i);
+  };
+
+  const items = [
+    "What should I look out for?",
+    "Will I like my neighbors?",
+    "Can I raise a family here?"
+  ];
+
+  // Generate unique IDs for SVG gradients and masks
+  const svgId = React.useId();
+  const gradientId = `paint0_linear_${svgId.replace(/:/g, '_')}`;
+  const mask1Id = `path-2-inside-1_${svgId.replace(/:/g, '_')}`;
+  const mask2Id = `path-3-inside-2_${svgId.replace(/:/g, '_')}`;
+
   return (
-    <>
+    <div>
       <ItemNav cardRef={cardRef} />
       <div className='mt-12 sm:mt-16 md:mt-24' />
+      
+      {/* Contact Agent Dialog */}
+      <Dialog open={isContactAgentDialogOpen} onOpenChange={setIsContactAgentDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Contact Agent</DialogTitle>
+            <DialogDescription>
+              Choose how you would like to contact an agent for this property.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 mt-4">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!isProcessingInvitation && !propertyEngagementMutation.isPending) {
+                  handleSearchAgent();
+                }
+              }}
+              disabled={propertyEngagementMutation.isPending || isProcessingInvitation}
+              className="w-full bg-black text-white px-6 py-3 rounded-full text-base font-normal hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {propertyEngagementMutation.isPending || isProcessingInvitation ? "Creating..." : "Search Agent"}
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!isProcessingInvitation && !propertyEngagementMutation.isPending) {
+                  handleInviteAgent();
+                }
+              }}
+              disabled={propertyEngagementMutation.isPending || isProcessingInvitation}
+              className="w-full bg-white text-black border-2 border-black px-6 py-3 rounded-full text-base font-normal hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {propertyEngagementMutation.isPending || isProcessingInvitation ? "Creating..." : "Invite Agent"}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Search Agent Modal - Large modal with agent directory */}
+      <Dialog open={isSearchAgentModalOpen} onOpenChange={setIsSearchAgentModalOpen}>
+        <DialogContent className="max-w-6xl w-[95vw] h-[90vh] max-h-[90vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
+            <DialogTitle className="text-2xl font-semibold">Search Agents</DialogTitle>
+            <DialogDescription>
+              Browse and search for agents to invite to this property.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+            {engagementIdForModal ? (
+              <div className="flex-1 overflow-y-auto px-6 pb-6 min-h-0">
+                <AgentDirectoryWrapper 
+                  engagementId={engagementIdForModal}
+                  propertyId={propertyData?.id || id}
+                  onClose={() => setIsSearchAgentModalOpen(false)}
+                />
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center p-6">
+                <div className="text-center">
+                  <Loader2 className="animate-spin text-gray-600 mx-auto mb-4" size={32} />
+                  <p className="text-gray-600">Loading...</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Invite Agent by Email Modal */}
+      <Dialog open={isInviteAgentModalOpen} onOpenChange={setIsInviteAgentModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Invite Agent by Email</DialogTitle>
+            <DialogDescription>
+              Enter the email address of the agent you would like to invite to this property.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 space-y-4">
+            <div>
+              <input
+                type="email"
+                placeholder="Enter agent email address"
+                value={inviteAgentEmail}
+                onChange={handleInviteEmailChange}
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-orange-500 transition-colors"
+                autoFocus
+              />
+              {inviteEmailError && (
+                <p className="text-red-500 text-sm mt-2">{inviteEmailError}</p>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setIsInviteAgentModalOpen(false);
+                  setInviteAgentEmail('');
+                  setInviteEmailError('');
+                }}
+                className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={sendInviteByEmail}
+                disabled={externalAgentIvitationMutation.isPending || !inviteAgentEmail || !!inviteEmailError}
+                className="flex-1 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {externalAgentIvitationMutation.isPending ? (
+                  <span className="flex items-center justify-center">
+                    <Loader2 className="animate-spin mr-2" size={16} />
+                    Sending...
+                  </span>
+                ) : (
+                  'Send Invitation'
+                )}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       {loading ? (
         <div className='grid grid-flow-row place-items-center gap-3 sm:gap-4 md:gap-6 md:h-[28rem] md:grid-cols-12 md:gap-7 animate-pulse px-4 sm:px-6 md:px-0'>
           <SkeletonLoader className='h-[200px] sm:h-[250px] md:h-[392px] w-full bg-gray-200 md:col-span-9 rounded-lg' />
@@ -392,86 +868,138 @@ const PropertyPreview: React.FC = () => {
                   [{ highRes: transformData.prop?.media?.primaryListingImageUrl }]
               }
               onImageClick={handleImageClick}
+              onShowAllPhotos={() => setIsCategorizedModalOpen(true)}
             />
-            <div className='mt-3 flex flex-col sm:flex-row w-full justify-between items-start sm:items-center gap-3 sm:gap-4 md:gap-0'>
-              <div className="space-y-1 w-full sm:w-auto">
-                <div className='inline-flex flex-wrap items-center gap-2 sm:gap-3'>
-                  <h2 className='text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900'>
-                    {`$ ${transformData.prop?.listPrice && transformData.prop?.listPrice.toLocaleString('en-US') || 0}`}
+
+            <CategorizedPhotosModal
+              isOpen={isCategorizedModalOpen}
+              onClose={() => setIsCategorizedModalOpen(false)}
+              listingId={String(propertyDatas?.data?.listingId || listingId || property?.listingId || '')}
+              propertyId={String(propertyDatas?.data?.propertyId || property?.propertyId || '')}
+              fallbackPhotos={transformData.prop?.media?.photosList?.map((img: any) => img.highRes) || []}
+              address={transformData.prop?.address?.unparsedAddress || propertyDatas?.data?.address?.unparsedAddress}
+              city={transformData.prop?.address?.city || propertyDatas?.data?.address?.city}
+              state={transformData.prop?.address?.stateOrProvince || propertyDatas?.data?.address?.stateOrProvince}
+              zip={transformData.prop?.address?.zipCode || propertyDatas?.data?.address?.zipCode}
+              price={transformData.prop?.listPrice || propertyDatas?.data?.listPrice}
+              beds={Number(transformData.prop?.property?.bedroomsTotal || propertyDatas?.data?.property?.bedroomsTotal || 0)}
+              baths={Number(transformData.prop?.property?.bathroomsTotal || propertyDatas?.data?.property?.bathroomsTotal || 0)}
+              sqft={Number(transformData.prop?.property?.livingArea || propertyDatas?.data?.property?.livingArea || 0)}
+              description={transformData.prop?.remarks || propertyDatas?.data?.property?.description || ""}
+            />
+            {/* Top Section: Price/Address and Agent Card */}
+            <div className='mt-3 flex flex-col sm:flex-row w-full justify-between items-start sm:items-center gap-4 mb-4'>
+              {/* Left: Price and Address */}
+              <div className="space-y-1 w-full sm:w-auto flex-1">
+                <div className='inline-flex items-baseline gap-1'>
+                  <span className='text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900'>$</span>
+                  <h2 className='text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 relative inline-block'>
+                    {transformData.prop?.listPrice ? transformData.prop.listPrice.toLocaleString('en-US') : '0'}
+                    <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#60A5FA]"></span>
                   </h2>
                 </div>
-                <p className='truncate text-clip text-lg font-bold sm:text-base text-gray-600 leading-5 sm:leading-6' style={{ fontFamily: "Satoshi" }}>
-                  {`${transformData.prop?.address?.unparsedAddress || propertyDatas?.property_detail?.data?.propertyInfo?.address?.address || "N/A"}, ${transformData.prop?.address?.city || propertyDatas?.property_detail?.data?.propertyInfo?.address?.city || "N/A"}, ${transformData.prop?.address?.stateOrProvince || propertyDatas?.property_detail?.data?.propertyInfo?.address?.stateOrProvince || "N/A"}, ${transformData.prop?.address?.zipCode || propertyDatas?.property_detail?.data?.propertyInfo?.address?.zip || "N/A"}` || transformData.prop?.listingAgent?.fullName || "N/A"}
+                <p className='truncate text-clip text-base text-gray-600 leading-6' style={{ fontFamily: "Satoshi" }}>
+                  {`${transformData.prop?.address?.unparsedAddress || propertyDatas?.property_detail?.data?.propertyInfo?.address?.address || "N/A"}, ${transformData.prop?.address?.city || propertyDatas?.property_detail?.data?.propertyInfo?.address?.city || "N/A"}, ${transformData.prop?.address?.stateOrProvince || propertyDatas?.property_detail?.data?.propertyInfo?.address?.stateOrProvince || "N/A"} ${transformData.prop?.address?.zipCode || propertyDatas?.property_detail?.data?.propertyInfo?.address?.zip || "N/A"}`}
                 </p>
+              </div>
+
+              {/* Right: Agent Card */}
+              <div className="w-full sm:w-auto sm:min-w-[280px]">
+                <div className="rounded-xl bg-[#F5E6D3] shadow-sm px-4 py-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden shrink-0">
+                      {transformData?.prop?.listingAgent?.photo ? (
+                        <Image
+                          src={transformData.prop.listingAgent.photo}
+                          alt={transformData?.prop?.listingAgent?.fullName || "Agent"}
+                          width={48}
+                          height={48}
+                          className="rounded-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-base font-medium text-gray-600">
+                          {transformData?.prop?.listingAgent?.fullName?.charAt(0) || "A"}
+                        </span>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-gray-900 truncate">
+                        {transformData?.prop?.listingAgent?.fullName || "Snaphomz Agent"}
+                      </p>
+                      <p className="text-xs text-gray-500">Listing Agent</p>
+                    </div>
+                  </div>
+                  <button className="shrink-0 ml-2">
+                    <Mail className="h-5 w-5 text-[#E8804C]" strokeWidth={1.5} />
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div className='flex items-stretch justify-between gap-x-2 sm:gap-x-3 mt-4 md:gap-x-3 py-3 sm:py-4 border border-gray-200 rounded-xl px-2 sm:px-4 bg-white shadow-sm'>
+            {/* Bottom Section: Estimated Payment and Start The Process Button */}
+            <div className='flex flex-col sm:flex-row w-full justify-between items-center gap-4 mb-4'>
+              {/* Left: Estimated Payment Section */}
+              <div className="rounded-xl bg-[#FAE6DB] shadow-sm px-4 py-3 flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">Est. payment:</span>
+                  <span className="text-sm font-bold text-gray-900">
+                    ${(() => {
+                      const price = transformData.prop?.listPrice || 0;
+                      const monthlyPayment = Math.round(price * 0.0065); // Approximate calculation
+                      return monthlyPayment.toLocaleString('en-US');
+                    })()}/mo
+                  </span>
+                </div>
+                <div className="h-5 w-5 rounded-full bg-[#E8804C]-300 flex items-center justify-center shrink-0">
+                  <Info className="h-3 w-3 text-[#E8804C]-600" />
+                </div>
+                <button className="text-sm text-[#E8804C] hover:underline whitespace-nowrap">
+                  Get pre-qualified
+                </button>
+              </div>
 
-              {[
-                {
-                  value: transformData.prop?.property?.yearBuilt || propertyDatas?.property_detail?.data?.propertyInfo?.yearBuilt || "N/A",
-                  label: "Year Built",
-                  iconSrc: '/assets/images/residental.png', // Checkbox-like icon
-                  iconAlt: 'year built',
-                  isPrice: false,
-                },
-                {
-                  value: transformData.prop?.property?.propertyType || propertyDatas?.property_detail?.data?.propertyInfo?.propertyType || "N/A",
-                  label: "Family Residence",
-                  iconSrc: '/assets/images/resd.png',
-                  iconAlt: 'property type',
-                  isPrice: false,
-                },
-                {
-                  value: `${transformData.prop?.property?.livingArea || propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet || "N/A"}`,
-                  label: "Sqft Area",
-                  iconSrc: '/assets/images/area-black.svg',
-                  iconAlt: 'area',
-                  isPrice: false,
-                },
-                {
-                  value: "281", // Static value matching screenshot
-                  label: "Price/sqft",
-                  iconSrc: null, // Custom price icon
-                  iconAlt: 'price per sqft',
-                  isPrice: true,
-                },
-              ].map((item, index) => (
-                <React.Fragment key={item.label}>
-                  <div className='flex h-max flex-1 items-center gap-x-2 sm:gap-x-3 py-1 sm:py-2 text-left justify-center sm:justify-start min-w-[22%]'>
-                    {/* Icon/Symbol */}
-                    {item.iconSrc ? (
-                      <Image
-                        alt={item.iconAlt}
-                        height={18} // Smaller on mobile
-                        width={18}
-                        className="h-4 w-4 sm:h-6 sm:w-6 shrink-0"
-                        src={item.iconSrc}
-                      />
-                    ) : (
-                      <div className="text-lg font-bold text-gray-800 leading-none shrink-0">$</div>
-                    )}
+              {/* Right: Start The Process Button */}
+              {/* Right: Buttons Section */}
+              <div className="flex flex-col gap-3 w-full sm:w-auto">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="w-full sm:w-auto" style={{ width: "270px" }}>
+                        <button
+                          disabled
+                          className="w-full bg-gray-400 text-white px-8 py-3 rounded-full text-base font-normal cursor-not-allowed transition-colors whitespace-nowrap"
+                        >
+                          Start The Process
+                        </button>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Coming Soon</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
 
-                    {/* Text Content */}
-                    <div className='flex flex-col text-left'>
-                      <p className='text-sm sm:text-lg font-semibold text-gray-800 leading-none whitespace-nowrap'>
-                        {item.value}
-                      </p>
-                      <p className='text-xs font-light text-gray-500 whitespace-nowrap'>
-                        {item.label}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Vertical Divider (Hidden between items on very small screens, shown on sm+) */}
-                  {index < 3 && <div className="hidden sm:block h-10 w-px bg-gray-200 self-center"></div>}
-
-                  {/* Mobile Divider (Ensures proper spacing on mobile for stats that wrap/stack if necessary) */}
-                  {index === 1 && <div className="block sm:hidden h-10 w-px bg-gray-200 self-center"></div>}
-                </React.Fragment>
-              ))}
+                <button 
+                  className="w-full sm:w-auto bg-black text-white px-8 py-3 rounded-full text-base font-normal hover:bg-gray-800 transition-colors whitespace-nowrap" 
+                  style={{ width: "270px" }}
+                  onClick={handleContactAgent}
+                  disabled={propertyEngagementMutation.isPending}
+                >
+                  {propertyEngagementMutation.isPending ? "Creating..." : "Contact Agent"}
+                </button>
+              </div>
             </div>
+
+            {/* Hero Highlights - moved below */}
+            {/* <div className="w-full">
+              <HeroHighlights
+                className="h-[210px] sm:h-[260px] md:h-[25.4rem] w-full shadow-lg hover:shadow-xl transition-shadow duration-300"
+                id={id}
+                propertyId={propertyData?.id}
+                listingId={propertyData?.listingId}
+              />
+            </div> */}
+
 
             {/* Estimated Market Value (image_60fd3b.png) */}
             <div className='flex flex-wrap items-center justify-between gap-2 sm:gap-3 py-2 sm:py-2'>
@@ -481,7 +1009,7 @@ const PropertyPreview: React.FC = () => {
 
 
           <div className="relative right-0  mr-0 md:mr-4 transition-all duration-300 ease-in-out w-[325px] md:w-auto">
-            <ListingAgentCard
+            {/* <ListingAgentCard
               agentName={`${transformData?.prop?.listingAgent?.fullName || "Snaphomz Agent"}`}
               email={transformData?.prop?.listingAgent?.email}
               className="h-fit w-full md:w-[23rem] shadow-lg hover:shadow-xl transition-shadow duration-300"
@@ -492,29 +1020,203 @@ const PropertyPreview: React.FC = () => {
               id={id}
               propertyId={propertyData?.id}
               listingId={propertyData?.listingId}
-            />
-          </div>
-          {/* <div className="md:col-span-3 col-span-12 relative w-full transition-all duration-300 ease-in-out">
-       
-        <ListingAgentCard
-          agentName={`${transformData?.prop?.listingAgent?.fullName || "Snaphomz Agent"}`}
-          email={transformData?.prop?.listingAgent?.email}
-          className="h-fit w-full shadow-lg hover:shadow-xl transition-shadow duration-300"
-        />
-        
-      
-        <br  />
-        
-       
-        <HeroHighlights
-          className="h-auto md:h-[25.4rem] w-full shadow-lg hover:shadow-xl transition-shadow duration-300"
-          id={id}
-          propertyId={propertyData?.id}
-          listingId={propertyData?.listingId}
-        />
-    </div> */}
+            /> */}
+            <div className="w-[380px] rounded-2xl bg-[#FCFCFB] shadow-sm border border-[#EDEDED] p-6">
+              {(() => {
+                // Calculate dynamic values
+                const beds = transformData.prop?.property?.bedroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bedroomsTotal || 0;
+                const baths = transformData.prop?.property?.bathroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bathroomsTotal || 0;
+                const sqft = transformData.prop?.property?.livingArea || propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet || 0;
+                const yearBuilt = transformData.prop?.property?.yearBuilt || propertyDatas?.property_detail?.data?.propertyInfo?.yearBuilt || "N/A";
+                const propertyType = transformData.prop?.property?.propertyType || propertyDatas?.property_detail?.data?.propertyInfo?.propertyType || "N/A";
+                const sqftArea = transformData.prop?.property?.livingArea || propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet || 0;
+                const listPrice = transformData.prop?.listPrice || propertyDatas?.data?.listPrice || 0;
+                const pricePerSqft = sqft && listPrice ? Math.round(listPrice / sqft) : 0;
+                const status = mostRecentStatus || transformData.prop?.mostRecentStatus || "For sale";
+                const propertyTypeShort = propertyType?.split(' ')[0] || "Single";
 
-          <div className="col-span-12 divide-y divide-gray-200 border-t border-gray-200 mt-6">
+                return (
+                  <>
+                    {/* Status Badge */}
+                    <div className="inline-flex items-center gap-2 bg-[#F7F7F7] px-3 py-1 rounded-xl text-[13px] font-medium mb-4">
+                      <span className="h-[8px] w-[8px] rounded-full bg-red-500"></span>
+                      {status}
+                    </div>
+
+                    {/* Top stats */}
+                    <div className="flex items-end gap-8 mb-4">
+                      <div>
+                        <p className="text-[34px] font-semibold leading-none">{beds}</p>
+                        <p className="text-[13px] text-gray-500 mt-1">beds</p>
+                      </div>
+
+                      <div>
+                        <p className="text-[34px] font-semibold leading-none">{baths}</p>
+                        <p className="text-[13px] text-gray-500 mt-1">baths</p>
+                      </div>
+
+                      <div>
+                        <p className="text-[34px] font-semibold leading-none tracking-tight">
+                          {sqft ? sqft.toLocaleString('en-US') : "0"}
+                        </p>
+                        <p className="text-[13px] text-gray-500 mt-1">sqft</p>
+                      </div>
+                    </div>
+
+                    {/* Open house - optional, can be made dynamic if data is available */}
+                    {transformData.prop?.openHouse && (
+                      <p className="text-[13px] text-gray-600 mb-4">
+                        Open : {transformData.prop.openHouse}
+                      </p>
+                    )}
+
+                    <div className="border-t border-gray-200 mb-4"></div>
+
+                    {/* Middle grid info with SVG icons */}
+                    <div className="grid grid-cols-2 gap-y-4 text-[13px]">
+                      <div>
+                        <Image
+                          src="/assets/images/residental.png"
+                          alt="Year Built"
+                          width={18}
+                          height={18}
+                          className="h-4 w-4 mb-1"
+                        />
+                        <p className="text-[15px] font-semibold">{yearBuilt}</p>
+                        <p className="text-gray-500 mt-1">Year Built</p>
+                      </div>
+
+                      <div>
+                        <Image
+                          src="/assets/images/resd.png"
+                          alt="Property Type"
+                          width={18}
+                          height={18}
+                          className="h-4 w-4 mb-1"
+                        />
+                        <p className="text-[15px] font-semibold">{propertyTypeShort}</p>
+                        <p className="text-gray-500 mt-1">Family Residence</p>
+                      </div>
+
+                      <div>
+                        <Image
+                          src="/assets/images/area-black.svg"
+                          alt="Sqft Area"
+                          width={18}
+                          height={18}
+                          className="h-4 w-4 mb-1"
+                        />
+                        <p className="text-[15px] font-semibold">
+                          {sqftArea ? sqftArea.toLocaleString('en-US') : "N/A"}
+                        </p>
+                        <p className="text-gray-500 mt-1">Sqft Area</p>
+                      </div>
+
+                      <div>
+                        <div className="text-[15px] font-bold text-gray-800 leading-none mb-1">$</div>
+                        <p className="text-[15px] font-semibold">
+                          {pricePerSqft ? `$${pricePerSqft}` : "N/A"}
+                        </p>
+                        <p className="text-gray-500 mt-1">Price/sqft</p>
+                      </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="flex justify-between items-center mt-6">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button className="flex items-center gap-2 text-[14px] border px-4 py-2 rounded-full">
+                              <span>📍</span>
+                              Street view
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Coming soon</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button className="text-[14px] underline">
+                              Schedule a tour
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Coming soon</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+
+            <div className="w-[380px] rounded-2xl bg-white shadow-lg border border-[#EDEDED] p-6 mt-5">
+              {/* Header */}
+              <div className="flex items-center gap-2 mb-2">
+                <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M15.0645 1C22.8233 0.998533 29.122 7.31736 29.1221 15.1211V25.0967C29.1221 26.201 28.6985 27.1986 28.0068 27.9336L28.0049 27.9355C27.2517 28.7409 26.1847 29.2393 25.001 29.2393H5.12109C2.85069 29.2393 1 27.3893 1 25.0986V15.123C1 7.31903 7.30043 1 15.0645 1Z" fill="black" stroke={`url(#${gradientId})`} strokeWidth="2" />
+                  <mask id={mask1Id} fill="white">
+                    <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" />
+                  </mask>
+                  <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" fill="white" stroke="white" strokeWidth="4" mask={`url(#${mask1Id})`} />
+                  <mask id={mask2Id} fill="white">
+                    <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" />
+                  </mask>
+                  <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" fill="white" stroke="white" strokeWidth="4" mask={`url(#${mask2Id})`} />
+                  <defs>
+                    <linearGradient id={gradientId} x1="15.061" y1="0" x2="15.061" y2="30.2391" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#E8804C" stopOpacity="1" />
+                      <stop offset="0.5" stopColor="#E84C85" stopOpacity="1" />
+                      <stop offset="0.75" stopColor="#A64EBA" stopOpacity="1" />
+                      <stop offset="1" stopColor="#654FEF" stopOpacity="1" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <h3 className="text-[20px] font-semibold">Ask AI</h3>
+              </div>
+
+              <p className="text-[14px] text-gray-600 leading-relaxed mb-5">
+                Your AI real estate assistant. We'll answer pretty much any question about this home.
+              </p>
+
+              {/* Accordion */}
+              <div className="space-y-3 mb-6">
+                {items.map((label: any, index: any) => (
+                  <div
+                    key={index}
+                    onClick={() => toggle(index)}
+                    className="w-full rounded-xl bg-[#F6F6F6] px-4 py-3 cursor-pointer flex items-center justify-between text-[14px] hover:bg-[#F0F0F0] transition-colors"
+                  >
+                    <span>{label}</span>
+                    {open === index ? (
+                      <ChevronUp className="h-4 w-4 text-gray-600" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-gray-600" />
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Input */}
+              <input
+                type="text"
+                placeholder="Ask me anything about this home..."
+                className="w-full border border-[#D9D9D9] rounded-xl px-4 py-3 text-[14px] mb-5 outline-none focus:ring-0 focus:border-gray-400 transition-colors"
+              />
+
+              {/* Button */}
+              <button className="w-full bg-black text-white py-3 rounded-full text-[16px] font-medium hover:bg-gray-800 transition-colors">
+                Send
+              </button>
+            </div>
+          </div>
+
+          <div className="md:col-span-9 col-span-12  divide-y divide-gray-200 border-t border-gray-200 mt-6">
             {/* Accordion List (Home Highlights, Schools, Offers, History, etc.) */}
             {sections.map((section) => (
               <div key={section.id} className="border-b border-gray-200">
@@ -543,21 +1245,24 @@ const PropertyPreview: React.FC = () => {
             ))}
 
             {/* Nearby Homes Section (Similar Homes) */}
-            <div>
-              <h2 className='text-xl font-bold mt-8 mb-4'>Nearby Homes</h2>
-              <NearbyHomesSection nearbyHomes={propertyDatas?.nearbyHomes?.data} />
+            <div className="pb-8 md:pb-12 mb-16 md:mb-20">
+              {/* <h2 className='text-xl font-bold mt-8 mb-4'>Similar homes</h2> */}
+              {propertyDatas?.nearbyHomes?.data && propertyDatas.nearbyHomes.data.length > 0 ? (
+                <NearbyHomesSection nearbyHomes={propertyDatas.nearbyHomes.data} />
+              ) : (
+                <div className="flex items-center justify-center py-12 px-4">
+                  <p className="text-gray-500 text-base">Similar homes not available</p>
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Commented out sections kept for reference */}
-          {/* ... (rest of the original component structure) */}
 
         </div>
 
       ) : (
         <div className='h-full w-full'>{notFound()}</div>
       )}
-    </>
+    </div>
   );
 };
 

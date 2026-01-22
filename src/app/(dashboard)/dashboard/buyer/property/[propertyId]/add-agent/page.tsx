@@ -23,10 +23,10 @@ function AddAgentPage() {
   };
 
   return (
-    <section className='px-16 py-8'>
+    <section className='px-16 py-8 bg-[#FFF6EC] min-h-screen'>
       <UserBackButton />
 
-      <div className='relative my-5  place-items-baseline w-full'>
+      <div className='relative my-5 place-items-baseline w-full'>
         {meansType === "snaphomz_agents" ? 
         <div className='col-span-3 w-full'>
           <AgentDirectoryBox />

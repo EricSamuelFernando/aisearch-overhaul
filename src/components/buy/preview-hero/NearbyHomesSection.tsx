@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import NImage from "next/image";
-import PropertyCardBrows from "../browse/property-card-listing";
+import PropertyCardHomes from "../browse/property-card-nearby";
 
 const NearbyHomesSection = ({ nearbyHomes }: any) => {
-
+ console.log("Nearby Homes:",nearbyHomes);
   if (!nearbyHomes?.length) return null;
   const [activeTab, setActiveTab] = useState<'For Sale' | 'Sold'>('For Sale');
   return (
@@ -17,12 +17,12 @@ const NearbyHomesSection = ({ nearbyHomes }: any) => {
             Similar homes comparable in price and location to this property.
           </p>
         </div>
-        <button
+        {/* <button
           className="px-4 py-2 bg-gray-100 text-gray-900 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
           aria-live="polite"
         >
           (0) Selected to Compare
-        </button>
+        </button> */}
       </div>
 
       <div className="flex border-b border-gray-200 mb-6">
@@ -37,7 +37,7 @@ const NearbyHomesSection = ({ nearbyHomes }: any) => {
           For Sale
         </button>
 
-        <button
+        {/* <button
           onClick={() => setActiveTab('Sold')}
           className={`px-4 pb-2 text-lg font-medium transition-colors ml-4 ${activeTab === 'Sold'
               ? 'text-gray-900 border-b-2 border-black'
@@ -45,7 +45,7 @@ const NearbyHomesSection = ({ nearbyHomes }: any) => {
             }`}
         >
           Sold
-        </button>
+        </button> */}
       </div>
 
       {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -65,7 +65,7 @@ const NearbyHomesSection = ({ nearbyHomes }: any) => {
             className="min-w-[90%] sm:min-w-[45%] md:min-w-0 w-full 
                  snap-start"
           >
-            <PropertyCardBrows listing={home.listing} />
+            <PropertyCardHomes listing={home} />
           </div>
         ))}
       </div>

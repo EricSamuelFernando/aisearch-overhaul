@@ -414,7 +414,7 @@ function PropertyFilter() {
         </Listbox>
       </div> */}
 
-      <div className="mt-6 space-y-4">
+      <div className="space-y-4">
         {/* Always show filters */}
         <div className="flex flex-wrap gap-2">
           {subCategories.map((sub) => {

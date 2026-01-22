@@ -11,15 +11,14 @@ import { ButtonLoader } from '@/components/loader';
 import { PasswordInput2 } from '@/components/password-input-2';
 import { Button } from '@/components/ui/button';
 import { AuthButton } from '@/components/AuthButton';
-import useGoogleAuth from '@/hooks/api/auth/useGoogleAuth';
-import { useGoogleOneTapLogin } from '@react-oauth/google';
+import useCognitoGoogleAuth from '@/hooks/api/auth/useCognitoGoogleAuth';
 
 export const LoginPageForm = () => {
   const router = useRouter();
-  const {googleLogin , GoogleOneTap} = useGoogleAuth()
+  const { cognitoGoogleLogin } = useCognitoGoogleAuth();
 
   const handleGoogleLogin = () => {
-    googleLogin() 
+    cognitoGoogleLogin();
   };
   const { loginMutation  } = useUserAuthApi();
   const form = useForm({
@@ -28,7 +27,7 @@ export const LoginPageForm = () => {
       email: '',
     },
     validate: {
-      email: (value) => (/^\S+@\S+$/.test(value) ? null : 'Invalid email'),
+      email: (value) => (/^\S+@\S+$/.test(value) ? null : '🎯 Almost there! Please enter a valid email address'),
       password: (value) =>
         /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/.test(
           value,

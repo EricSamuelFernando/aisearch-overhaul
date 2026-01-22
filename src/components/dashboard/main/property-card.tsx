@@ -11,20 +11,19 @@ import { DeletePropertyModal } from '../delete-property-modal';
 import { useRouter } from 'next/navigation';
 import { useDispatch } from 'react-redux';
 import { setEngagedProperty } from '@/slices/property/property-slice';
-import Tooltip from '@mui/material/Tooltip';
 
-interface Props {
+interface Props  {
   infoCard?: React.ReactNode;
   className?: string;
   propertyImage?: string;
-  propertyAddress?: string;
-  propertyProgress?: number;
+  propertyAddress?:string;
+  propertyProgress?:number;
   propertyId?: string;
   listingId?: string | number;
   id: string,
-  propertyName: string,
-  selectedProperty?: any,
-  handleRemoveProperty: (id: string) => void
+  propertyName:string,
+  selectedProperty?:any,
+  handleRemoveProperty: (id:string)=>void
 }
 
 function BuyerListingItem(props: Props) {
@@ -33,7 +32,7 @@ function BuyerListingItem(props: Props) {
     className,
     handleRemoveProperty,
     selectedProperty
-  } = props;
+  } = props;  
   const {
     mutate: deleteProperty,
     isPending,
@@ -54,13 +53,13 @@ function BuyerListingItem(props: Props) {
     >
       <PropertyOverview
         streetName={props.propertyName}
-        address={props.propertyAddress || ''}
+        address={props.propertyAddress||''}
         image={props?.propertyImage}
         textColor='text-black text-lg'
-        progress={props?.propertyProgress || 0}
+        progress={props?.propertyProgress ||0}
       />
       <div className='mx-auto mb-2 mt-12 flex items-center justify-center gap-x-2 gap-y-4'>
-        {/* <Button className='font-700 flex-1 text-sm' asChild roundness='full' disabled>
+        <Button className='font-700 flex-1 text-sm' asChild roundness='full'>
           <Link href=""
           onClick={(e)=>{
             e.preventDefault();
@@ -70,41 +69,22 @@ function BuyerListingItem(props: Props) {
           >
           Open
           </Link>
-        </Button> */}
+        </Button>
 
-
-        <Tooltip className='cursor-pointer' title="Coming Soon" placement="bottom">
-
-          <Button className='font-700 flex-1 text-sm' asChild roundness='full' disabled>
-            <Link href=""
-            // onClick={(e) => {
-            //   e.preventDefault();
-            //   dispatch(setEngagedProperty(selectedProperty));
-            //   router.push(`/dashboard/buyer/property/${props?.propertyId}`);
-            // }}
-            >
-              Open
-            </Link>
-          </Button>
-        </Tooltip>
-
-
-
-        <Tooltip className='cursor-pointer' title="Coming Soon" placement="bottom">
-
-          <Button  asChild roundness='full' disabled
-            variant='outline'
-            className='font-700 flex-1 bg-transparent text-sm'
-          >
-            <Link href=""
-              // onClick={(e) => {
-              //   e.preventDefault()
-              //   dispatch(setEngagedProperty(selectedProperty));
-              //   router.push(`/dashboard/buyer/property/${props?.propertyId}/manage`);
-              // }}
-            >Manage</Link>
-          </Button>
-        </Tooltip>
+        <Button
+          variant='outline'
+          className='font-700 flex-1 bg-transparent text-sm'
+          asChild
+          roundness='full'
+        >
+          <Link href=""
+            onClick={(e)=>{
+              e.preventDefault()
+              dispatch(setEngagedProperty(selectedProperty));
+              router.push(`/dashboard/buyer/property/${props?.propertyId}/manage`);
+            }}
+          >Manage</Link>
+        </Button>
 
         <DeletePropertyModal
           isPending={isPending}

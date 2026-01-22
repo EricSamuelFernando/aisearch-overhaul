@@ -22,6 +22,7 @@ import { Download, EllipsisVertical, Eye, FileText, MoreVertical, UserPlus, Plus
 import { useGetUserInvitedAgents } from '@/hooks/api/user/useGetUserInvitedAgents';
 import ProfileCircle from '@/components/dashboard/user/profile-circle';
 import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
+import { useAgentConversationApi } from '@/hooks/api/auth/useConversationApi';
 import { error, success } from '@/components/alert/notify';
 import { useSelector } from 'react-redux';
 import { useUserSnapAPIs } from '@/hooks/api/auth/snaps.API';
@@ -30,6 +31,7 @@ import SendSnapLinkModal from '@/components/send_snap.modal';
 import DeleteCollectionConfirmationModal from '@/components/delete-snap.modal';
 import RenameCollectionModal from '@/components/rename-snap.modal';
 import FavouritePropertyCards from '@/components/dashboard/main/fvourites.card';
+import RecentCommentsSidebar from '@/components/dashboard/main/recent-comments-sidebar';
 
 
 interface InvitationInterface {
@@ -91,6 +93,8 @@ export default function AccountPage() {
   const documents = userDocuments?.result;
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [inviteUsers, setInviteUsers] = useState<InvitationInterface[]>([])
+  const [commentRefreshTrigger, setCommentRefreshTrigger] = useState(0);
+
   const handleDeleteCollection = () => {
     console.log('Collection deleted!');
     // Your delete API call here
@@ -170,11 +174,30 @@ export default function AccountPage() {
 
   const getAllCollections = () => {
     if (userData?.id) {
+      console.log("Fetching collections for user:", userData.id);
+      // Fetch owned snaps
       getAllSnaps.mutate(userData?.id, {
-        onSuccess: (response) => {
-          if (response) {
-            setSnaps(response);
-          }
+        onSuccess: (ownedSnaps) => {
+          console.log("Owned Snaps fetched:", ownedSnaps);
+          // Fetch accepted shared snaps
+          getAllSnapzRequest.mutateAsync({
+            status: "accepted",
+            participentId: userData?.id
+          }).then((sharedRequests: any) => {
+            console.log("Shared Requests fetched:", sharedRequests);
+            const sharedSnaps = sharedRequests?.map((req: any) => req.snap) || [];
+            console.log("Mapped Shared Snaps:", sharedSnaps);
+            // Filter out duplicates if any (though shouldn't prevent duplicate view if intended)
+            // For now, simple merge
+            const allSnaps = [...(ownedSnaps || []), ...sharedSnaps];
+            console.log("Merged Snaps:", allSnaps);
+            setSnaps(allSnaps);
+          }).catch(err => {
+            console.error("Error fetching shared snaps", err);
+            // Fallback to just owned snaps if shared fails
+            if (ownedSnaps) setSnaps(ownedSnaps);
+          });
+
         },
         onError: (error) => {
           console.log("Error fetching collections: ", error);
@@ -289,6 +312,51 @@ export default function AccountPage() {
     }
   }, [selectedSnap])
 
+  const { getAllSnapzRequest, updateSnapzById } = useAgentConversationApi();
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [isRequestsModalOpen, setIsRequestsModalOpen] = useState(false);
+
+  const fetchPendingRequests = () => {
+    if (userData?.id) {
+      getAllSnapzRequest.mutateAsync({
+        status: "pending",
+        participentId: userData?.id
+      }, {
+        onSuccess: (response: any) => {
+          setPendingRequests(response);
+          if (response?.length > 0) {
+            setIsRequestsModalOpen(true);
+          } else {
+            success({ message: "No pending requests found." });
+          }
+        },
+        onError: (err) => {
+          console.error("Error fetching requests:", err);
+        }
+      });
+    }
+  };
+
+  const handleRequestAction = (id: string, action: "accept" | "reject") => {
+    const status = action === "accept" ? "accepted" : "rejected";
+    updateSnapzById.mutateAsync({
+      id: id,
+      status: status
+    }, {
+      onSuccess: (response) => {
+        success({ message: `Request ${action === "accept" ? "accepted" : "rejected"} successfully` });
+        fetchPendingRequests(); // Refresh list
+        // If accepted, we might want to refresh collections too
+        if (action === "accept") {
+          getAllCollections();
+        }
+      },
+      onError: (err) => {
+        error({ message: "Failed to update request status" });
+      }
+    });
+  };
+
   return (
     <main className='mx-auto flex min-h-[90vh] flex-col bg-[#F4F9F5] px-12 pb-10'>
       <h1 className=' py-10 text-4xl font-bold leading-[3.88125rem] 2xl:text-[2.875rem]'>
@@ -399,32 +467,55 @@ export default function AccountPage() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            ) : <Button variant="outline" className="flex border-none bg-transparent items-center gap-2">
-              <span>Add New Snapz</span>
-              <span>+</span>
-            </Button>}
+            ) : (
+              <div className="flex gap-2">
+                <Button
+                  className="bg-orange-500 hover:bg-orange-600 text-white"
+                  onClick={fetchPendingRequests}
+                >
+                  View Requests
+                </Button>
+                <Button variant="outline" className="flex border-none bg-transparent items-center gap-2">
+                  <span>Add New Snapz</span>
+                  <span>+</span>
+                </Button>
+              </div>
+            )}
           </div>
           {
             selectedSnap ? (
-              <ScrollArea className='w-full max-h-[70vh] overflow-y-auto'>
-                <div className='grid grid-cols-3 gap-6 p-2'>
-               {[...favourites].reverse().map((property: any) => {
-  const safeProperty = {
-    id: property.id || Math.random().toString(),
-    name: property.name || 'Property',
-    image: property.image || '/assets/images/placeholder.svg',
-    bedRooms: property.bedRooms || 0,
-    bathRooms: property.bathRooms || 0,
-    sqft: property.sqft || 0,
-    ...property,
-  };
+              <div className="flex gap-6 items-start h-[70vh]">
+                <ScrollArea className='flex-1 h-full overflow-y-auto pr-4'>
+                  <div className='grid grid-cols-2 xl:grid-cols-3 gap-6 p-2'>
+                    {[...favourites].reverse().map((property: any) => {
+                      const safeProperty = {
+                        id: property.id || Math.random().toString(),
+                        name: property.name || 'Property',
+                        image: property.image || '/assets/images/placeholder.svg',
+                        bedRooms: property.bedRooms || 0,
+                        bathRooms: property.bathRooms || 0,
+                        sqft: property.sqft || 0,
+                        ...property,
+                      };
 
-  return <FavouritePropertyCards key={safeProperty.id} {...safeProperty} />;
-})}
+                      return <FavouritePropertyCards
+                        key={safeProperty.id}
+                        {...safeProperty}
+                        snapId={selectedSnap?.id}
+                        isWishlisted={true}
+                        onCommentAdded={() => setCommentRefreshTrigger(prev => prev + 1)}
+                      />;
+                    })}
 
+                  </div>
+                  <ScrollBar orientation='vertical' className='h-full' />
+                </ScrollArea>
+
+                {/* Recent Comments Sidebar */}
+                <div className="w-[320px] xl:w-[380px] flex-shrink-0">
+                  <RecentCommentsSidebar properties={favourites} refreshTrigger={commentRefreshTrigger} />
                 </div>
-                <ScrollBar orientation='vertical' className='h-full' />
-              </ScrollArea>
+              </div>
             ) : <div className="border rounded-md p-6 border-none">
               <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                 {
@@ -627,6 +718,68 @@ export default function AccountPage() {
         onRename={handleUpdateSnap}
         currentName={selectedSnap?.name || ""}
       />
+
+      {/* Requests Modal */}
+      {isRequestsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-[500px] rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="space-y-4 min-h-[200px]">
+              {pendingRequests.length === 0 ? (
+                <div className="flex justify-center items-center h-full">
+                  <p className="text-center text-gray-500 py-4">No requests available yet.</p>
+                </div>
+              ) : (
+                pendingRequests.map((req, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-4">
+                      {/* Avatar Logic */}
+                      {req?.snap?.user?.image ? (
+                        <img src={req?.snap?.user?.image} alt={req?.snap?.user?.firstName} className="w-10 h-10 rounded-full" />
+                      ) : (
+                        <div className="w-10 h-10 flex items-center justify-center bg-gray-200 text-gray-600 font-bold rounded-full text-sm">
+                          {req?.snap?.user?.firstName?.charAt(0).toUpperCase()}{req?.snap?.user?.lastName?.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+
+                      <div>
+                        <p className="text-sm text-gray-900">
+                          <span className="font-bold">{req?.snap?.user?.firstName} {req?.snap?.user?.lastName}</span> has invited you to join his snapz - <span className="font-bold">{req?.snap?.name}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        className="bg-black text-white hover:bg-gray-800 h-8 text-xs px-3"
+                        onClick={() => handleRequestAction(req.id, "accept")}
+                      >
+                        Accept
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs px-3 border-black text-black hover:bg-gray-100"
+                        onClick={() => handleRequestAction(req.id, "reject")}
+                      >
+                        Decline
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="mt-6 flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setIsRequestsModalOpen(false)}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

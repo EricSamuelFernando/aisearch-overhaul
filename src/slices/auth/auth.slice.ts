@@ -4,6 +4,7 @@ import { clearItem, deleteStorageCookie, storeCookie } from '@/lib/storage';
 import { AUTH_TOKEN, USER_ROLE } from '@/shared/constants/env';
 import { createPersistStorage } from '@/lib/store';
 import { generateTempUserId } from '@/utils/math-utilities';
+import CognitoAuth from '@/lib/cognito';
 
 interface AuthState {
   isLoggedIn: boolean;
@@ -41,9 +42,26 @@ const authSlice = createSlice({
       storeCookie({ key: USER_ROLE, value: action.payload });
     },
     logout: () => {
+      // Sign out from Cognito (clears local Cognito session)
+      try {
+        CognitoAuth.logout();
+      } catch (error) {
+        console.error('Error signing out from Cognito:', error);
+        // Continue with logout even if Cognito logout fails
+      }
+      
+      // Clear local storage and cookies
       clearItem();
       deleteStorageCookie({ key: AUTH_TOKEN });
       deleteStorageCookie({ key: USER_ROLE });
+      
+      // Clear Cognito-related localStorage items
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('userAccessToken');
+        localStorage.removeItem('userDetails');
+      }
+      
       return initialState;
     },
   },

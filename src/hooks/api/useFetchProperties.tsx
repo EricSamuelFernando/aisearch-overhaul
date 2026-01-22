@@ -35,14 +35,14 @@ function removeNulls(params: Params) {
   return result;
 }
 
+// fetchAIProperty change
 export const fetchAIProperty = async (
   params: UserQueryParams,
   nextLink?: string,
 ) => {
 
-  const res = await aiClient.get(`/search`, {
+  const res = await aiClient.post(`/`, params, {
     baseURL: PROPERTY_SEARCH_AI_URL,
-    params:params,
   });
   return res.data;
 };
@@ -53,18 +53,19 @@ interface FetchParams {
   limit: number;
 }
 
+// fetchPaginatedData change
 const fetchPaginatedData = async ({
   pageParam = '',
   query,
   limit,
 }: FetchParams): Promise<ODataResponse> => {
-  const param = typeof pageParam === 'string' ? pageParam : '';
-  let url = param || `${mlsDeploymentEnv}/search?limit=${limit}`;
-  if (!pageParam && query) {
-    url += `&query=${encodeURIComponent(query)}`;
-  }
-  const response = await axios.get<ODataResponse>(url);
-  return response.data;
+  // API call removed - returning empty response to prevent multiple calls
+  return {
+    data: {
+      value: [],
+      '@odata.nextLink': null,
+    },
+  } as any;
 };
 
 const initialState: PropertySearchQuery = {
@@ -78,12 +79,12 @@ const initialState: PropertySearchQuery = {
 // Define actions that can be dispatched to modify the state
 type Action =
   | {
-      type: 'SET_FILTER';
-      payload: {
-        field: keyof PropertySearchQuery;
-        value: string | number | object;
-      };
-    }
+    type: 'SET_FILTER';
+    payload: {
+      field: keyof PropertySearchQuery;
+      value: string | number | object;
+    };
+  }
   | { type: 'RESET_STATE' };
 
 export const useFetchProperties = () => {
@@ -172,6 +173,7 @@ export const useFetchProperties = () => {
     initialPageParam: 0,
     getNextPageParam: (lastPage: ODataResponse, pages: ODataResponse[]) =>
       lastPage.data['@odata.nextLink'] || null,
+    enabled: false, // Disabled - /search route is not available in backend
   });
 
   const Properties = {
@@ -201,8 +203,8 @@ export const useFetchAiProperty = (question: string) => {
       return fetchAIProperty({ question });
     },
     initialPageParam: 0,
-    getNextPageParam: (lastPage: ODataResponse, pages: ODataResponse[]) =>
-      lastPage.data['@odata.nextLink'],
+    getNextPageParam: (lastPage: any, pages: ODataResponse[]) =>
+      lastPage.data?.['@odata.nextLink'] || lastPage['@odata.nextLink'],
   });
 
   return aiData;

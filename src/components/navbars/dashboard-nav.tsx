@@ -43,34 +43,34 @@ const DashboardNav: React.FC<DashboardNavProps> = ({ navClass }) => {
     //   </div>
     // </header>
     <header className={cn(
-  `fixed top-0 left-0 z-10 w-full bg-primary-100`,
-  `${navClass}`
-)}>
-  <div className="mx-auto flex w-full items-center justify-between px-4 sm:px-6 md:px-10 lg:px-[3.219rem] py-3">
-    {/* Logo Section */}
-    <div className="logo">
-      <Link href={ user?.email ? "/dashboard"  :"/"}>
-        <Image
-          src={SnapHomz}
-          alt="logo"
-          className="h-12 w-32 sm:h-[3.75rem] sm:w-44"
-        />
-      </Link>
-    </div>
+      `fixed top-0 left-0 z-50 w-full bg-primary-100`,
+      `${navClass}`
+    )}>
+      <div className="mx-auto flex w-full items-center justify-between px-4 sm:px-6 md:px-10 lg:px-[3.219rem] py-3">
+        {/* Logo Section */}
+        <div className="logo">
+          <Link href={user?.email ? "/dashboard" : "/home"}>
+            <Image
+              src={SnapHomz}
+              alt="logo"
+              className="h-12 w-32 sm:h-[3.75rem] sm:w-44"
+            />
+          </Link>
+        </div>
 
-    {/* Right Section: Tabs & Dropdowns */}
-    <div className="flex items-center gap-4 sm:gap-5 md:gap-6">
-      <UserSwitchTab />
-      <NotificationDropdown />
-      <AccountDropdown
-        username={user?.fullname!}
-        avatar={user?.profile || null}
-        firstName={user?.firstname!}
-        lastName={user?.lastname!}
-      />
-    </div>
-  </div>
-</header>
+        {/* Right Section: Tabs & Dropdowns */}
+        <div className="flex items-center gap-4 sm:gap-5 md:gap-6">
+          <UserSwitchTab />
+          <NotificationDropdown />
+          <AccountDropdown
+            username={user?.fullname!}
+            avatar={user?.profile || null}
+            firstName={user?.firstname!}
+            lastName={user?.lastname!}
+          />
+        </div>
+      </div>
+    </header>
 
   );
 };
@@ -90,7 +90,7 @@ export const UserSwitchTab = () => {
       switchUser('seller');
       storeCookie({ key: USER_ROLE, value: 'seller' });
     }
-     else if (userType === 'seller') {
+    else if (userType === 'seller') {
       console.log('SELLER')
       switchUser('buyer');
       storeCookie({ key: USER_ROLE, value: 'buyer' });

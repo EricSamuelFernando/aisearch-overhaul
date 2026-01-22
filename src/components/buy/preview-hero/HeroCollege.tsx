@@ -12,7 +12,8 @@ const imageLoader = ({ src }: { src: string }) => src;
 interface CarouselProps {
   className?: any;
   imageURLs: Array<{ highRes: string }>;
-  onImageClick?: (index: number) => void; 
+  onImageClick?: (index: number) => void;
+  onShowAllPhotos?: () => void;
 }
 
 const HeroCollege: React.FC<React.PropsWithChildren<CarouselProps>> = ({
@@ -20,6 +21,7 @@ const HeroCollege: React.FC<React.PropsWithChildren<CarouselProps>> = ({
   children,
   imageURLs = [],
   onImageClick,
+  onShowAllPhotos,
 }) => {
   const [currentIndex, setCurrentIndex] = React.useState(0);
 
@@ -42,7 +44,7 @@ const HeroCollege: React.FC<React.PropsWithChildren<CarouselProps>> = ({
     <div
       key={imgUrl + index.toString()}
       className={cn('h-full w-full flex-shrink-0 cursor-pointer', className)}
-      // Removed onClick here to rely on the parent div click, preventing double triggers.
+    // Removed onClick here to rely on the parent div click, preventing double triggers.
     >
       <Image
         loader={imageLoader}
@@ -80,52 +82,52 @@ const HeroCollege: React.FC<React.PropsWithChildren<CarouselProps>> = ({
     <div
       // GRID FIX: Start with a single column on mobile, switch to 12-column grid on md screens
       className={cn(
-        'relative h-[300px] md:h-[500px] w-full select-none rounded-lg overflow-hidden grid grid-cols-1 md:grid-cols-12 gap-2', 
+        'relative h-[300px] md:h-[500px] w-full select-none rounded-lg overflow-hidden grid grid-cols-1 md:grid-cols-12 gap-2',
         className,
       )}
     >
       {children}
-      
+
       {/* --- 1. Main Image (Always 12 columns on mobile, 9 on desktop) --- */}
-      <div 
+      <div
         // COL-SPAN FIX: Use col-span-12 for mobile, then md:col-span-9 for desktop
         className='relative col-span-12 md:col-span-9 h-full w-full'
         onClick={() => onImageClick && onImageClick(currentIndex)} // Click handler on the main image container
       >
         {renderImage(
-          imageURLs[currentIndex]?.highRes, 
-          currentIndex, 
+          imageURLs[currentIndex]?.highRes,
+          currentIndex,
           // ROUNDING FIX: Only round the right edge on desktop if it's the 9-column layout
-          'rounded-lg md:rounded-r-none', 
+          'rounded-lg md:rounded-r-none',
           true
         )}
 
         {/* Navigation Overlays (positioned on the main image) */}
         <div className='absolute bottom-4 sm:bottom-8 w-full px-4 sm:px-7 z-10'>
           <div className='flex w-full items-center justify-between'>
-            
+
             {/* Counter */}
             <div className='rounded bg-black/40 p-1 px-2 text-white'>
               <h2 className='text-sm font-medium leading-6'>
                 {currentIndex + 1}/{imageURLs.length}
               </h2>
             </div>
-            
+
             {/* Chevrons (Navigation) */}
             <div className='inline-flex items-center space-x-2 sm:space-x-5'>
-              <div 
+              <div
                 className='flex h-8 w-8 sm:h-11 sm:w-11 cursor-pointer items-center justify-center rounded-full bg-white transition-all hover:bg-gray-100'
                 onClick={(e) => {
-                  e.stopPropagation(); 
+                  e.stopPropagation();
                   goToSlide(currentIndex - 1);
                 }}
               >
-                <ChevronLeftIcon size={24} className="sm:size-32" /> 
+                <ChevronLeftIcon size={24} className="sm:size-32" />
               </div>
-              <div 
+              <div
                 className='flex h-8 w-8 sm:h-11 sm:w-11 cursor-pointer items-center justify-center rounded-full bg-white transition-all hover:bg-gray-100'
                 onClick={(e) => {
-                  e.stopPropagation(); 
+                  e.stopPropagation();
                   goToSlide(currentIndex + 1);
                 }}
               >
@@ -134,13 +136,17 @@ const HeroCollege: React.FC<React.PropsWithChildren<CarouselProps>> = ({
             </div>
           </div>
         </div>
-        
+
         {/* --- MOBILE ONLY: Show all photos button (Overlay) --- */}
         <div className='absolute top-4 right-4 z-10 md:hidden'>
           <button
             onClick={(e) => {
               e.stopPropagation(); // Prevent main image click handler from firing
-              onImageClick && onImageClick(currentIndex); 
+              if (onShowAllPhotos) {
+                onShowAllPhotos();
+              } else {
+                onImageClick && onImageClick(currentIndex);
+              }
             }}
             className='flex items-center space-x-2 rounded-lg bg-white/90 px-3 py-1 text-xs font-semibold text-gray-800 shadow-xl border border-gray-200 hover:bg-white transition-colors'
           >
@@ -152,9 +158,9 @@ const HeroCollege: React.FC<React.PropsWithChildren<CarouselProps>> = ({
 
       {/* --- 2. Side Images & Button (Hidden on mobile, visible on desktop) --- */}
       <div className='hidden md:col-span-3 md:grid grid-rows-2 gap-2 h-full w-full'>
-        
+
         {/* Top side image */}
-        <div 
+        <div
           className='relative row-span-1'
           onClick={() => imageURLs.length > 1 && onImageClick && onImageClick(secondImageIndex)}
         >
@@ -166,7 +172,7 @@ const HeroCollege: React.FC<React.PropsWithChildren<CarouselProps>> = ({
         </div>
 
         {/* Bottom side image with 'Show all photos' button */}
-        <div 
+        <div
           className='relative row-span-1'
           onClick={() => imageURLs.length > 2 && onImageClick && onImageClick(thirdImageIndex)}
         >
@@ -175,13 +181,17 @@ const HeroCollege: React.FC<React.PropsWithChildren<CarouselProps>> = ({
             thirdImageIndex,
             'rounded-lg',
           )}
-          
+
           {/* 'Show all photos' button overlay (Desktop) */}
           <div className='absolute inset-0 flex items-center justify-center z-10'>
             <button
               onClick={(e) => {
-                e.stopPropagation(); 
-                onImageClick && onImageClick(currentIndex); 
+                e.stopPropagation();
+                if (onShowAllPhotos) {
+                  onShowAllPhotos();
+                } else {
+                  onImageClick && onImageClick(currentIndex);
+                }
               }}
               className='flex items-center space-x-2 rounded-lg bg-white/90 px-4 py-2 text-sm font-semibold text-gray-800 shadow-xl border border-gray-200 hover:bg-white transition-colors'
             >

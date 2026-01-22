@@ -21,7 +21,7 @@ import { AuthButton } from '../AuthButton';
 import { useGoogleAuthMutation } from '@/hooks/api/useGoogleAuthMutation';
 import { useRouter } from 'next/navigation';
 import { error } from '../alert/notify';
-import useGoogleAuth from '@/hooks/api/auth/useGoogleAuth';
+import useCognitoGoogleAuth from '@/hooks/api/auth/useCognitoGoogleAuth';
 
 interface IFormInput {
   email: string;
@@ -57,10 +57,10 @@ export function EmailForm({ origin = 'page', onSetView }: Readonly<Prop>) {
     onSetView?.(null);
   };
   
-  const {googleLogin} = useGoogleAuth()
+  const { cognitoGoogleLogin } = useCognitoGoogleAuth();
 
   const handleGoogleLogin = () => {
-    googleLogin() 
+    cognitoGoogleLogin();
   };
 
   const onSubmit = (values: { email: string }) => {

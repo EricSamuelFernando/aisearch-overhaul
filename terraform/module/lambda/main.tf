@@ -1,5 +1,5 @@
 locals {
-  function_name = "${var.project_name}-nextjs-frontend-${var.env}"
+  function_name = "${var.project_name}-frontend-${var.env}"
 }
 
 data "aws_iam_policy_document" "assume_role_policy_document" {
@@ -17,7 +17,7 @@ data "aws_iam_policy_document" "assume_role_policy_document" {
 
 # IAM role for Lambda
 resource "aws_iam_role" "this" {
-  name               = "${local.function_name}-lambda-role"
+  name               = "${local.function_name}-lambda-role-${var.env}-terraform"
   assume_role_policy = data.aws_iam_policy_document.assume_role_policy_document.json
 }
 
@@ -28,7 +28,7 @@ resource "aws_iam_role_policy_attachment" "basic_execution" {
 
 # Lambda function backed by container image
 resource "aws_lambda_function" "this" {
-  function_name = local.function_name
+  function_name = "${local.function_name}-terraform"
   package_type  = "Image"
   image_uri     = "${var.image_uri}:latest"
   role          = aws_iam_role.this.arn
@@ -38,13 +38,11 @@ resource "aws_lambda_function" "this" {
   environment {
     variables = {
       Environment = var.env
-      # NEXT_PUBLIC_ASSET_PREFIX = "https://${var.NEXT_PUBLIC_ASSET_PREFIX}"
-      # NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL = "${var.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL}graphql"
     }
   }
 
   tags = {
-    Name        = local.function_name
+    Name        = "${local.function_name}-terraform"
     Environment = var.env
   }
 }

@@ -28,17 +28,9 @@ module "cloudfront" {
   s3_domain_name      = module.s3.domain_name
   project_name        = var.project_name
   lambda_function_url = module.lambda.function_url
-  # acm_certificate_arn = module.route53.acm_certificate_arn
+  acm_certificate_arn = var.acm_certificate_arn
+  cloudfront_aliases  = var.cloudfront_aliases
 }
 
-# module "route53" {
-#   source                 = "./module/route53"
-#   domain                 = var.domain
-#   hosted_zone_id         = var.hosted_zone_id
-#   cdn_hosted_zone_id     = module.cloudfront.hosted_zone_id
-#   cloudfront_domain_name = module.cloudfront.domain_name
-#   env                    = var.environment
-#   providers = {
-#     "aws" = "us-east-1"
-#   }
-# }
+# demo -> terraform init -backend-config="key=snaphomz-frontend-terraform/demo/terraform.tfstate"
+# prod -> terraform init -backend-config="key=snaphomz-frontend-terraform/prod/terraform.tfstate"

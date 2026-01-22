@@ -1,5 +1,5 @@
 locals {
-  bucket_name = "${var.project_name}-nextjs-frontend-${var.env}"
+  bucket_name = "${var.project_name}-frontend-${var.env}-terraform"
 }
 
 data "aws_iam_policy_document" "s3_bucket_policy" {

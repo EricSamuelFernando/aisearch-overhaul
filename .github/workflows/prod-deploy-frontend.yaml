@@ -1,10 +1,9 @@
-name: Deploying microservices frontend Demo PROD using lambda in AWS
+name: Deploying microservices frontend PROD ENV using lambda in AWS
 
 on:
   push:
     branches:
       - prod-deploy
-      - lambda-cicd
 
     paths-ignore: ["terraform/**", "README.md", ".github/workflows/prod-deploy-terraform.yaml"]
 
@@ -19,7 +18,7 @@ env:
 
 jobs:
   deploy-frontend-prod:
-    name: Deploy NextJS Demo PROD frontend
+    name: Deploy NextJS PROD ENV frontend
     runs-on: ubuntu-latest
 
     steps:

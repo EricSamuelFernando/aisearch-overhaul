@@ -1,0 +1,58 @@
+name: Deploying PROD ENV Terraform Resources in AWS
+
+on:
+  push:
+    branches:
+      - prod-deploy
+
+    paths: ['terraform/**', '.github/workflows/demo-deploy-terraform.yaml']
+
+env:
+  environment: prod
+  AWS_REGION: us-west-1
+
+jobs:
+  deploy-terraform-prod:
+    name: Deploy PROD ENV Terraform Resources
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.13.5'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform fmt
+        id: fmt
+        run: terraform fmt -check
+        continue-on-error: true
+
+      - name: Terraform Init
+        id: init
+        run: terraform init -backend-config="key=snaphomz-frontend-terraform/prod/terraform.tfstate"
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color -input=false
+        continue-on-error: false
+
+      # - name: Terraform Apply
+      #   if: github.ref == 'refs/heads/prod-deploy'
+      #   run: terraform apply -auto-approve -input=false

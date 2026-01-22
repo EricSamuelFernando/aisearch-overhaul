@@ -5,7 +5,7 @@ on:
     branches:
       - demo-deploy
 
-    paths-ignore: ["terraform/**", "README.md", ".github/workflows/demo-deploy-terraform.yaml"]
+    paths-ignore: ["terraform/**", "README.md", ".github/workflows/demo-deploy-frontend.yaml"]
 
 env:
   AWS_REGION: us-west-1

@@ -5,7 +5,7 @@ on:
     branches:
       - prod-deploy
 
-    paths: ['terraform/**', '.github/workflows/demo-deploy-terraform.yaml']
+    paths: ['terraform/**', '.github/workflows/prod-deploy-terraform.yaml']
 
 env:
   environment: prod

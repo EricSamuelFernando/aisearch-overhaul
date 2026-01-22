@@ -9,3 +9,7 @@ variable "project_name" {
 variable "cloudfront_arn" {
   type = string
 }
+
+variable "allowed_origins" {
+  type = list(string)
+}

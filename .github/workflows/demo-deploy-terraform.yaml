@@ -1,19 +1,19 @@
-name: Deploying PROD ENV Terraform Resources in AWS
+name: Deploying DEMO ENV Terraform Resources in AWS
 
 on:
   push:
     branches:
-      - prod-deploy
+      - demo-deploy
 
     paths: ['terraform/**', '.github/workflows/demo-deploy-terraform.yaml']
 
 env:
-  environment: prod
+  environment: demo
   AWS_REGION: us-west-1
 
 jobs:
-  deploy-terraform-prod:
-    name: Deploy PROD ENV Terraform Resources
+  deploy-terraform-demo:
+    name: Deploy DEMO ENV Terraform Resources
     runs-on: ubuntu-latest
 
     defaults:
@@ -42,7 +42,7 @@ jobs:
 
       - name: Terraform Init
         id: init
-        run: terraform init -backend-config="key=snaphomz-frontend-terraform/prod/terraform.tfstate"
+        run: terraform init -backend-config="key=snaphomz-frontend-terraform/demo/terraform.tfstate"
 
       - name: Terraform Validate
         id: validate
@@ -50,7 +50,7 @@ jobs:
 
       - name: Terraform Plan
         id: plan
-        run: terraform plan -no-color -input=false -var-file="prod.tfvars"
+        run: terraform plan -no-color -input=false -var-file="demo.tfvars"
         continue-on-error: false
 
       # - name: Terraform Apply

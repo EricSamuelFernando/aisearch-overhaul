@@ -1,6 +1,5 @@
 variable "environment" {
-  type    = string
-  default = "prod"
+  type = string
 }
 
 variable "project_name" {
@@ -11,18 +10,15 @@ variable "project_name" {
 variable "lambda_timeout" {
   description = "Lambda function timeout in seconds"
   type        = number
-  default     = 60
 }
 
 variable "lambda_memory_size" {
   description = "Lambda function memory size in MB"
   type        = number
-  default     = 512
 }
 
 variable "domain" {
-  type    = string
-  default = "waitlist.snaphomz.com"
+  type = string
 }
 
 variable "hosted_zone_id" {
@@ -31,11 +27,17 @@ variable "hosted_zone_id" {
 }
 
 variable "acm_certificate_arn" {
-  type    = string
-  default = "arn:aws:acm:us-east-1:075502422618:certificate/5502616a-cd7d-44d7-8846-d905e2feeb6d"
+  type = string
 }
 
 variable "cloudfront_aliases" {
-  type    = list(string)
-  default = ["snaphomz.com", "www.snaphomz.com", "waitlist.snaphomz.com"]
+  type = list(string)
+}
+
+variable "lambda_env_variables" {
+  type = map(any)
+}
+
+variable "allowed_origins" {
+  type = list(string)
 }

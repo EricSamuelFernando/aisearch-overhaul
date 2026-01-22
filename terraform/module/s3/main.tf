@@ -46,12 +46,7 @@ resource "aws_s3_bucket_cors_configuration" "frontend" {
 
   cors_rule {
     allowed_methods = ["GET", "HEAD"]
-    allowed_origins = [
-      "https://d3t6xtiakz1dzi.cloudfront.net",
-      "https://www.snaphomz.com",
-      "https://snaphomz.com",
-      "https://waitlist.snaphomz.com"
-    ]
+    allowed_origins = var.allowed_origins
     allowed_headers = ["*"]
     expose_headers  = []
     max_age_seconds = 3000

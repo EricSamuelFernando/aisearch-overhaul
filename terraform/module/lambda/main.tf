@@ -36,9 +36,7 @@ resource "aws_lambda_function" "this" {
   memory_size   = var.memory_size
 
   environment {
-    variables = {
-      Environment = var.env
-    }
+    variables = var.lambda_env_variables
   }
 
   tags = {

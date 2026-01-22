@@ -25,6 +25,10 @@ variable "env" {
   type        = string
 }
 
+variable "lambda_env_variables" {
+  type = map(any)
+}
+
 # variable "NEXT_PUBLIC_ASSET_PREFIX" {
 #   type = string
 # }

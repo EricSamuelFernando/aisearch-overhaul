@@ -5,19 +5,21 @@ module "ecr" {
 }
 
 module "s3" {
-  source         = "./module/s3"
-  env            = var.environment
-  project_name   = var.project_name
-  cloudfront_arn = module.cloudfront.cloudfront_arn
+  source          = "./module/s3"
+  env             = var.environment
+  project_name    = var.project_name
+  cloudfront_arn  = module.cloudfront.cloudfront_arn
+  allowed_origins = var.allowed_origins
 }
 
 module "lambda" {
-  source       = "./module/lambda"
-  env          = var.environment
-  image_uri    = module.ecr.ecr_repository_url
-  memory_size  = var.lambda_memory_size
-  timeout      = var.lambda_timeout
-  project_name = var.project_name
+  source               = "./module/lambda"
+  env                  = var.environment
+  image_uri            = module.ecr.ecr_repository_url
+  memory_size          = var.lambda_memory_size
+  timeout              = var.lambda_timeout
+  project_name         = var.project_name
+  lambda_env_variables = var.lambda_env_variables
 }
 
 module "cloudfront" {
@@ -34,3 +36,6 @@ module "cloudfront" {
 
 # demo -> terraform init -backend-config="key=snaphomz-frontend-terraform/demo/terraform.tfstate"
 # prod -> terraform init -backend-config="key=snaphomz-frontend-terraform/prod/terraform.tfstate"
+
+# demo -> terraform apply -var-file="demo.tfvars"
+# prod -> terraform apply -var-file="demo.tfvars"

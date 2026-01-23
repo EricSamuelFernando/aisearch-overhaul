@@ -117,13 +117,13 @@ jobs:
             --output text)
           echo "Lambda function published with version: $LAMBDA_VERSION"
 
-      - name: Update alias to point to new version
-        run: |
-          aws lambda update-alias \
-            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
-            --name prod \
-            --function-version $LAMBDA_VERSION
-          echo "Lambda alias updated to point to version: $LAMBDA_VERSION"
+      # - name: Update alias to point to new version
+      #   run: |
+      #     aws lambda update-alias \
+      #       --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+      #       --name prod \
+      #       --function-version $LAMBDA_VERSION
+      #     echo "Lambda alias updated to point to version: $LAMBDA_VERSION"
 
 
       - name: Upload static file to s3

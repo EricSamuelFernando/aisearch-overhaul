@@ -57,21 +57,36 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
-        run: |
-          docker build -t ${{env.ECR_REGISTRY}}/${{env.ECR_REPOSITORY}}:latest .
-          echo "Docker image built successfully"
+      # - name: Build Docker image
+      #   run: |
+      #     docker build -t ${{env.ECR_REGISTRY}}/${{env.ECR_REPOSITORY}}:latest .
+      #     echo "Docker image built successfully"
 
-      - name: Push Docker image
+      # - name: Push Docker image
+      #   run: |
+      #     docker push ${{env.ECR_REGISTRY}}/${{env.ECR_REPOSITORY}}:latest
+      #     echo "Docker image push successfully"
+
+      - name: Set image tag (commit SHA)
+        run: echo "IMAGE_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+      - name: Build Docker image (tagged with commit id)
         run: |
-          docker push ${{env.ECR_REGISTRY}}/${{env.ECR_REPOSITORY}}:latest
-          echo "Docker image push successfully"
+          docker build -t ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }} .
+          docker tag  ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }} \
+                      ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
+          echo "Docker image built successfully: ${{ env.IMAGE_TAG }}"
+
+      - name: Push image
+        run: |
+          docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+          docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
 
       - name: Update lambda image
         run: |
           aws lambda update-function-code \
           --function-name ${{env.LAMBDA_FUNCTION_NAME}}  \
-          --image-uri ${{env.ECR_REGISTRY}}/${{env.ECR_REPOSITORY}}:latest
+          --image-uri ${{env.ECR_REGISTRY}}/${{env.ECR_REPOSITORY}}:${{ env.IMAGE_TAG }}
           echo "Lambda image updated successfully"
 
       - name: Upload static file to s3

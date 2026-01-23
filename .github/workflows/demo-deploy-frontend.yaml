@@ -89,27 +89,42 @@ jobs:
       #     --image-uri ${{env.ECR_REGISTRY}}/${{env.ECR_REPOSITORY}}:${{ env.IMAGE_TAG }}
       #     echo "Lambda image updated successfully"
 
-      - name: Update Lambda image and publish new version
+      - name: Update Lambda function code with the new Docker image tag
         run: |
-          # Update Lambda function code with the new Docker image tag
           aws lambda update-function-code \
             --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
             --image-uri ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
           echo "Lambda image updated successfully"
 
-          # Publish a new version after updating the Lambda function
+      - name: Wait for Lambda update to finish
+        run: |
+          while true; do
+            STATUS=$(aws lambda get-function --function-name ${{ env.LAMBDA_FUNCTION_NAME }} --query 'Configuration.LastUpdateStatus' --output text)
+            if [[ "$STATUS" == "Successful" ]]; then
+              echo "Lambda function update is complete."
+              break
+            else
+              echo "Lambda function update is in progress, waiting..."
+              sleep 30
+            fi
+          done
+
+      - name: Publish new version for Lambda
+        run: |
           LAMBDA_VERSION=$(aws lambda publish-version \
             --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
             --query 'Version' \
             --output text)
           echo "Lambda function published with version: $LAMBDA_VERSION"
 
-          # Optionally, update an alias to point to the new version (e.g., prod alias)
+      - name: Update alias to point to new version
+        run: |
           aws lambda update-alias \
             --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
             --name prod \
             --function-version $LAMBDA_VERSION
           echo "Lambda alias updated to point to version: $LAMBDA_VERSION"
+
 
       - name: Upload static file to s3
         run: |

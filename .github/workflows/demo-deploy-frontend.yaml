@@ -6,8 +6,6 @@ on:
       - demo-deploy
 
     paths-ignore:
-      - ".github/**"
-      - "!/.github/workflows/demo-deploy-frontend.yaml"
       - "terraform/**"
       - "README.md"
       - ".gitignore"

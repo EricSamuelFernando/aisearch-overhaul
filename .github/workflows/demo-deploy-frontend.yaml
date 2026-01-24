@@ -145,7 +145,7 @@ jobs:
 
           # Check if the alias exists
           ALIAS_EXISTS=$(aws lambda get-alias \
-            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+            --function-name snaphomz-frontend-demo-terraform \
             --name ${{ env.ENVIRONMENT }} \
             --query 'Name' --output text 2>/dev/null || echo "Alias not found")
 
@@ -153,14 +153,14 @@ jobs:
           if [[ "$ALIAS_EXISTS" == "${{ env.ENVIRONMENT }}" ]]; then
             echo "Alias '${{ env.ENVIRONMENT }}' exists. Updating alias to point to version $LAMBDA_VERSION..."
             aws lambda update-alias \
-              --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+              --function-name snaphomz-frontend-demo-terraform \
               --name ${{ env.ENVIRONMENT }} \
               --function-version $LAMBDA_VERSION
             echo "Lambda alias '${{ env.ENVIRONMENT }}' updated to point to version: $LAMBDA_VERSION"
           else
             echo "Alias '${{ env.ENVIRONMENT }}' does not exist. Creating alias and pointing it to version $LAMBDA_VERSION..."
             aws lambda create-alias \
-              --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+              --function-name snaphomz-frontend-demo-terraform \
               --name ${{ env.ENVIRONMENT }} \
               --function-version $LAMBDA_VERSION
             echo "Lambda alias '${{ env.ENVIRONMENT }}' created and pointing to version: $LAMBDA_VERSION"
@@ -169,10 +169,11 @@ jobs:
           # Update or create provisioned concurrency for the alias
           echo "Creating or updating provisioned concurrency for alias '${{ env.ENVIRONMENT }}' and version $LAMBDA_VERSION..."
           aws lambda put-provisioned-concurrency-config \
-            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+            --function-name snaphomz-frontend-demo-terraform \
             --qualifier ${{ env.ENVIRONMENT }} \
             --provisioned-concurrent-executions ${{ env.PROVISIONED-CONCURRENT-EXECUTIONS }}
           echo "Provisioned concurrency created or updated for alias: ${{ env.ENVIRONMENT }}"
+
 
       - name: Upload static file to s3
         run: |

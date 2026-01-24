@@ -119,7 +119,7 @@ export default function HomeDisclosure() {
             Understand Home <br /> Disclosures <span className='font-light'>In Seconds</span>
           </h2>
           <p className="mt-4 text-sm md:text-base text-[#CEB28B] max-w-md">
-            Upload your closing disclosure PDF to get a clear detailed summaries & breakdown of your closing cost.
+            Upload your closing disclosure PDF to get a clear detailed summary and breakdown of your closing cost.
           </p>
         </div>
 

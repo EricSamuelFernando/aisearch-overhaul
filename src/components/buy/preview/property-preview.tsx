@@ -141,6 +141,7 @@ const PropertyPreview: React.FC = () => {
   const [isInviteAgentModalOpen, setIsInviteAgentModalOpen] = React.useState(false);
   const [engagementIdForModal, setEngagementIdForModal] = React.useState<string | null>(null);
   const [isProcessingInvitation, setIsProcessingInvitation] = React.useState(false);
+  const [contactActionInProgress, setContactActionInProgress] = React.useState<"search" | "invite" | null>(null);
   const [inviteAgentEmail, setInviteAgentEmail] = React.useState('');
   const [inviteEmailError, setInviteEmailError] = React.useState('');
   const { externalAgentIvitationMutation } = useUserAuthApi();
@@ -226,6 +227,7 @@ const PropertyPreview: React.FC = () => {
     }
 
     setIsProcessingInvitation(true);
+    setContactActionInProgress("search");
 
     // Check if engagement already exists
     if (engagedProperty?.id) {
@@ -233,6 +235,7 @@ const PropertyPreview: React.FC = () => {
       setIsContactAgentDialogOpen(false);
       setIsSearchAgentModalOpen(true);
       setIsProcessingInvitation(false);
+      setContactActionInProgress(null);
       return;
     }
 
@@ -264,11 +267,13 @@ const PropertyPreview: React.FC = () => {
             error({ message: "Failed to create engagement" });
           }
           setIsProcessingInvitation(false);
+          setContactActionInProgress(null);
         },
         onError: (err: any) => {
           console.error("Error creating engagement:", err);
           error({ message: "Failed to create engagement. Please try again." });
           setIsProcessingInvitation(false);
+          setContactActionInProgress(null);
         }
       }
     );
@@ -295,6 +300,7 @@ const PropertyPreview: React.FC = () => {
     }
 
     setIsProcessingInvitation(true);
+    setContactActionInProgress("invite");
 
     // Check if engagement already exists
     if (engagedProperty?.id) {
@@ -302,6 +308,7 @@ const PropertyPreview: React.FC = () => {
       setIsContactAgentDialogOpen(false);
       setIsInviteAgentModalOpen(true);
       setIsProcessingInvitation(false);
+      setContactActionInProgress(null);
       return;
     }
 
@@ -332,10 +339,14 @@ const PropertyPreview: React.FC = () => {
           } else {
             error({ message: "Failed to create engagement" });
           }
+          setIsProcessingInvitation(false);
+          setContactActionInProgress(null);
         },
         onError: (err: any) => {
           console.error("Error creating engagement:", err);
           error({ message: "Failed to create engagement. Please try again." });
+          setIsProcessingInvitation(false);
+          setContactActionInProgress(null);
         }
       }
     );
@@ -366,6 +377,18 @@ const PropertyPreview: React.FC = () => {
 
     if (!currentUser?.id) {
       error({ message: "Please login to send invitation" });
+      return;
+    }
+
+    const hasExistingInvite = engagedProperty?.participants?.some((participant: any) => {
+      const participantEngagementId = participant?.engagementId;
+      const engagementMatches = !participantEngagementId || participantEngagementId === engagementIdForModal;
+      const status = participant?.is_accepted || "pending";
+      return engagementMatches && ["pending", "accepted"].includes(status);
+    });
+
+    if (hasExistingInvite) {
+      error({ message: "This property already has an invited agent." });
       return;
     }
 
@@ -719,6 +742,10 @@ const PropertyPreview: React.FC = () => {
   const mask1Id = `path-2-inside-1_${svgId.replace(/:/g, '_')}`;
   const mask2Id = `path-3-inside-2_${svgId.replace(/:/g, '_')}`;
 
+  const isAnyContactActionPending = isProcessingInvitation || propertyEngagementMutation.isPending;
+  const isSearchActionPending = contactActionInProgress === "search" && isAnyContactActionPending;
+  const isInviteActionPending = contactActionInProgress === "invite" && isAnyContactActionPending;
+
   return (
     <div>
       <ItemNav cardRef={cardRef} />
@@ -743,10 +770,10 @@ const PropertyPreview: React.FC = () => {
                   handleSearchAgent();
                 }
               }}
-              disabled={propertyEngagementMutation.isPending || isProcessingInvitation}
+              disabled={isAnyContactActionPending}
               className="w-full bg-black text-white px-6 py-3 rounded-full text-base font-normal hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {propertyEngagementMutation.isPending || isProcessingInvitation ? "Creating..." : "Search Agent"}
+              {isSearchActionPending ? "Creating..." : "Search Agent"}
             </button>
             <button
               type="button"
@@ -757,10 +784,10 @@ const PropertyPreview: React.FC = () => {
                   handleInviteAgent();
                 }
               }}
-              disabled={propertyEngagementMutation.isPending || isProcessingInvitation}
+              disabled={isAnyContactActionPending}
               className="w-full bg-white text-black border-2 border-black px-6 py-3 rounded-full text-base font-normal hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {propertyEngagementMutation.isPending || isProcessingInvitation ? "Creating..." : "Invite Agent"}
+              {isInviteActionPending ? "Creating..." : "Invite Agent"}
             </button>
           </div>
         </DialogContent>

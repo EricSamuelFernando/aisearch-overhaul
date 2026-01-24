@@ -274,7 +274,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       console.log(data)
       const token = getAuthToken()
       //console.log(Role)
-      return await axios.post(
+      const response = await axios.post(
         GRAPHQL_URI,
         {
           query: `mutation {
@@ -299,14 +299,18 @@ export const useUserAuthApi = (handleCb?: () => void) => {
           },
         }
       );
+      if (response.data?.errors?.length) {
+        throw new Error(response.data.errors[0]?.message || 'Failed to complete signup');
+      }
+      return response;
     },
     onSuccess: (data) => {
-      if ((data as any).status === 200) {
+      if ((data as any)?.data?.data?.completeSignUp?.id) {
         success({ message: 'Registration completed successfully' });
       }
     },
-    onError: (err) => {
-      error({ message: 'An Error  Occurred' });
+    onError: (err:any) => {
+      error({ message: err?.message || err?.response?.data?.errors?.[0]?.message || 'An error occurred' });
     },
   });
 
@@ -469,6 +473,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
   const updateUserMutation = useMutation({
     mutationKey: ['update-user-mutation'],
     mutationFn: async (input: any) => {
+      const token = getAuthToken() || localStorage.getItem('userAccessToken') || '';
       const response = await axios.post(GRAPHQL_URI, {
         query: `
           mutation UpdateUser($input: UpdateUserInput!) {
@@ -483,7 +488,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
         variables: { input },
       }, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('userAccessToken') || ''}`,
+          Authorization: `Bearer ${token}`,
         },
       });
       if (response.data.errors) {

@@ -1,6 +1,6 @@
 'use client';
 import { useForm } from '@mantine/form';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { ButtonLoader } from '@/components/loader';
 import { PasswordInput2 } from '@/components/password-input-2';
@@ -12,6 +12,7 @@ import { useAuth, useAuthActions } from '@/shared/hooks/useAuth';
 import { useUploadprofile, useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
 import { CustomFileInput } from './CustomFileInput';
 import Image from "next/image"
+import CognitoAuth from '@/lib/cognito';
 
 type Props = {
   cb?: () => void;
@@ -221,7 +222,8 @@ export function PersonalInfoForm({ cb }: Props) {
 
 export function EditEmailForm({ cb }: Props) {
   const { user } = useAuth();
-  const { updateUserProfileMutation } = useUserAuthApi();
+  const { updateUserMutation } = useUserAuthApi();
+  const { login } = useAuthActions();
 
   const form = useForm({
     initialValues: {
@@ -230,16 +232,24 @@ export function EditEmailForm({ cb }: Props) {
   });
 
   useEffect(() => {
-    if (updateUserProfileMutation.isSuccess) {
+    if (updateUserMutation.isSuccess) {
+      const updateUser = {
+        ...user,
+        email: form.values.email,
+        id: user?.id || '',
+        firstname: user?.firstname || '',
+        lastname: user?.lastname || '',
+      };
+      login(updateUser);
       cb?.();
     }
-  }, [updateUserProfileMutation.isSuccess]);
+  }, [updateUserMutation.isSuccess]);
 
   return (
     <form
       className='mt-4'
       onSubmit={form.onSubmit((values) => {
-        updateUserProfileMutation.mutate({ email: values?.email });
+        updateUserMutation.mutate({ email: values?.email });
       })}
     >
       <h2 className='text-2xl font-bold'>Personal Information</h2>
@@ -253,13 +263,10 @@ export function EditEmailForm({ cb }: Props) {
         <Button
           size='lg'
           className={cn('w-full font-semibold')}
-          disabled={
-            form.values.email === user?.email ||
-            updateUserProfileMutation.isPending
-          }
+          disabled={form.values.email === user?.email || updateUserMutation.isPending}
         >
-          {updateUserProfileMutation.isPending ? <ButtonLoader /> : null}
-          {updateUserProfileMutation.isPending ? 'Saving...' : 'Save'}
+          {updateUserMutation.isPending ? <ButtonLoader /> : null}
+          {updateUserMutation.isPending ? 'Saving...' : 'Save'}
         </Button>
       </aside>
     </form>
@@ -268,6 +275,8 @@ export function EditEmailForm({ cb }: Props) {
 
 export function EditPasswordForm({ cb }: Props) {
   const { updateUserMutation } = useUserAuthApi();
+  const [cognitoError, setCognitoError] = useState<string | null>(null);
+  const [isCognitoUpdating, setIsCognitoUpdating] = useState(false);
 
   const form = useForm({
     initialValues: {
@@ -300,7 +309,28 @@ export function EditPasswordForm({ cb }: Props) {
   return (
     <form
       className='mt-4'
-      onSubmit={form.onSubmit((values) => {
+      onSubmit={form.onSubmit(async (values) => {
+        setCognitoError(null);
+        const hasCognitoUser = !!CognitoAuth.getCurrentUser();
+
+        if (hasCognitoUser) {
+          try {
+            setIsCognitoUpdating(true);
+            await CognitoAuth.changePassword(
+              values.currentPassword,
+              values.newPassword
+            );
+          } catch (err: any) {
+            setIsCognitoUpdating(false);
+            const message =
+              err?.message || 'Failed to change password in Cognito';
+            setCognitoError(message);
+            return;
+          } finally {
+            setIsCognitoUpdating(false);
+          }
+        }
+
         updateUserMutation.mutate({
           currentPassword: values.currentPassword,
           newPassword: values.newPassword,
@@ -309,6 +339,9 @@ export function EditPasswordForm({ cb }: Props) {
     >
       <h2 className='text-2xl font-bold'>Change Password</h2>
       <aside className='my-3 space-y-2'>
+        {cognitoError && (
+          <p className="text-sm text-red-600">{cognitoError}</p>
+        )}
         <div>
           <label className='mb-2 block font-medium text-gray-700'>
             Current Password
@@ -346,10 +379,12 @@ export function EditPasswordForm({ cb }: Props) {
           type='submit'
           size='lg'
           className={cn('w-full font-semibold')}
-          disabled={!isValid || updateUserMutation.isPending}
+          disabled={!isValid || updateUserMutation.isPending || isCognitoUpdating}
         >
-          {updateUserMutation.isPending ? <ButtonLoader /> : null}
-          {updateUserMutation.isPending ? 'Saving...' : 'Change Password'}
+          {updateUserMutation.isPending || isCognitoUpdating ? <ButtonLoader /> : null}
+          {updateUserMutation.isPending || isCognitoUpdating
+            ? 'Saving...'
+            : 'Change Password'}
         </Button>
       </aside>
     </form>

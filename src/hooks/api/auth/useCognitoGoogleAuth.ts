@@ -13,7 +13,7 @@ function useCognitoGoogleAuth(handleCb?: () => void) {
     process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || 'http://localhost:4000/graphql';
   const { login } = useAuthActions();
 
-  const handleAuthSuccess = React.useCallback(async (cognitoIdToken: string) => {
+  const handleAuthSuccess = React.useCallback(async (cognitoIdToken: string, profileHint?: string) => {
     try {
       console.log('handleAuthSuccess started. Querying backend with token...');
       const response = await axios.post(GRAPHQL_URI, {
@@ -25,7 +25,8 @@ function useCognitoGoogleAuth(handleCb?: () => void) {
               lastName,
               email,
               accountType,
-              access_token
+              access_token,
+              profile
             }
           }
         `,
@@ -39,13 +40,33 @@ function useCognitoGoogleAuth(handleCb?: () => void) {
       const data = response.data?.data?.cognitoGoogleLogin;
       if (data) {
         console.log('User data received, saving to storage...', data);
-        const { firstName, lastName, email, accountType, access_token, id } = data;
+        const { firstName, lastName, email, accountType, access_token, id, profile } = data;
+
+        const decodeJwtPayload = (token: string) => {
+          try {
+            const payload = token.split('.')[1];
+            const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+            const padded = normalized.padEnd(
+              normalized.length + ((4 - (normalized.length % 4)) % 4),
+              '='
+            );
+            const decoded = atob(padded);
+            return JSON.parse(decoded);
+          } catch {
+            return null;
+          }
+        };
+
+        const tokenPayload = decodeJwtPayload(cognitoIdToken);
+        const googlePicture = tokenPayload?.picture;
+        const profileUrl = profile || profileHint || googlePicture || '';
         const user: any = {
           firstname: firstName,
           lastname: lastName,
           email,
           account_type: accountType,
           id,
+          profile: profileUrl,
         };
 
         localStorage.setItem('userEmail', email);
@@ -58,6 +79,26 @@ function useCognitoGoogleAuth(handleCb?: () => void) {
         storeCookie({ key: AUTH_TOKEN, value: access_token });
         storeCookie({ key: USER_ROLE, value: accountType });
         console.log('Cookies and Redux updated. Redirecting...');
+        if (profileUrl && access_token) {
+          await axios.post(
+            GRAPHQL_URI,
+            {
+              query: `
+                mutation UpdateUser($input: UpdateUserInput!) {
+                  updateUser(input: $input) {
+                    id
+                  }
+                }
+              `,
+              variables: { input: { profile: profileUrl } },
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${access_token}`,
+              },
+            }
+          );
+        }
         router.push(`/home`);
         handleCb?.();
       } else {
@@ -212,7 +253,24 @@ function useCognitoGoogleAuth(handleCb?: () => void) {
 
       if (idToken) {
         console.log('ID Token received, calling handleAuthSuccess...');
-        await handleAuthSuccess(idToken);
+        let profileHint: string | undefined;
+        const accessToken = tokenResponse.data.access_token;
+        if (accessToken) {
+          try {
+            const userInfoResponse = await axios.get(
+              `${formattedDomain}/oauth2/userInfo`,
+              {
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                },
+              }
+            );
+            profileHint = userInfoResponse.data?.picture;
+          } catch (error) {
+            console.warn('Unable to fetch Cognito userInfo:', error);
+          }
+        }
+        await handleAuthSuccess(idToken, profileHint);
       } else {
         console.error('No ID token in response:', tokenResponse.data);
         throw new Error('No ID token received from Cognito');

@@ -210,6 +210,41 @@ export class CognitoAuth {
       });
     });
   }
+
+  /**
+   * Change password for current Cognito user
+   */
+  static async changePassword(
+    oldPassword: string,
+    newPassword: string
+  ): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const cognitoUser = this.getCurrentUser();
+      if (!cognitoUser) {
+        reject(new Error('No current user'));
+        return;
+      }
+
+      cognitoUser.getSession((err: any, session: any) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        if (!session?.isValid?.()) {
+          reject(new Error('Session is not valid'));
+          return;
+        }
+
+        cognitoUser.changePassword(oldPassword, newPassword, (error, result) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve(result);
+        });
+      });
+    });
+  }
 }
 
 export default CognitoAuth;

@@ -438,7 +438,7 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
       setFileErrorMsg('');
       setSelectedFile(null);
 
-      const maxSize = 20 * 1024 * 1024;
+      const maxSize = 25 * 1024 * 1024;
 
       if (!allowedFileTypes.includes(file.type)) {
         setFileErrorMsg(
@@ -447,7 +447,7 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
         return;
       }
       if (file.size > maxSize) {
-        setFileErrorMsg('File size exceeds the 20MB limit.');
+        setFileErrorMsg('File size exceeds the 25MB limit.');
         return;
       }
 

@@ -52,6 +52,9 @@ export default function AgentProfilePage() {
   const [agent, setAgent] = useState<any | null>(null);
   const [status, setStatus] = useState<LoadStatus>('loading');
   const [activeSection, setActiveSection] = useState<SectionId>('agent-info');
+  const GRAPHQL_URI =
+    process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
+    'http://localhost:4000/auth/graphql';
 
   useEffect(() => {
     if (!id) return;
@@ -61,13 +64,78 @@ export default function AgentProfilePage() {
     async function loadAgent() {
       setStatus('loading');
       try {
-        const res = await fetch(`/api/agents/${id}`, { signal: controller.signal });
+        const res = await fetch(GRAPHQL_URI, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apollo-require-preflight': 'true',
+          },
+          body: JSON.stringify({
+            query: `
+              query ExternalAgentById($id: String!) {
+                externalAgentById(id: $id) {
+                  id
+                  full_name
+                  email
+                  phone
+                  brokerage
+                  locationRaw
+                  city
+                  state
+                  primary_service_regions
+                  profile_image_url
+                  jobTitle
+                  licenseNumber
+                  languages
+                  avgRating
+                  avgRatingForCustomerDisplay
+                  dealVolume
+                  salesVolumeLastYear
+                  purchaseVolumeLastYear
+                  transactionVolumeLastYear
+                  estimated_gci
+                  commission_rate
+                  homesSoldLastYear
+                  homesPurchasedLastYear
+                  homeTransactionsLastYear
+                  numHomesClosed
+                  totalDeals
+                  averagePurchasePriceLastYear
+                  averageSalePriceLastYear
+                  averageTransactionPriceLastYear
+                  highestPurchasePriceLastYear
+                  highestSalePriceLastYear
+                  highestTransactionPriceLastYear
+                  highestDealPrice
+                  active_listings_count
+                  active_listings_json
+                  description
+                  website
+                  profileUrl
+                  recommendationsCount
+                  socialMediaUrls
+                  forSaleCount
+                  forSaleMin
+                  forSaleMax
+                  recentlySoldCount
+                  recentlySoldMin
+                  recentlySoldMax
+                  address
+                  office
+                }
+              }
+            `,
+            variables: { id },
+          }),
+          signal: controller.signal,
+        });
         if (!res.ok) {
           setAgent(null);
           setStatus('not-found');
           return;
         }
-        const data: Agent = await res.json();
+        const json = await res.json();
+        const data: Agent | null = json?.data?.externalAgentById || null;
         if (!data) {
           setAgent(null);
           setStatus('not-found');

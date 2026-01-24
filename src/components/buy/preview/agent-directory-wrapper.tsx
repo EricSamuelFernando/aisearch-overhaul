@@ -89,6 +89,11 @@ function normalizeLocationQuery(rawQuery: string): string | null {
   return null;
 }
 
+function normalizeNameForSearch(raw: string): string {
+  if (!raw) return '';
+  return String(raw).replace(/^[^a-z0-9]+/i, '').trim().toLowerCase();
+}
+
 function buildLocationSuggestions(
   rawQuery: string,
   agents: any[],
@@ -193,11 +198,84 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
   const [searchMode, setSearchMode] = React.useState<'location' | 'name'>('name');
   const [locationSuggestions, setLocationSuggestions] = React.useState<any[]>([]);
   const [locationAgents, setLocationAgents] = React.useState<any[]>([]);
+  const [totalAgents, setTotalAgents] = React.useState(0);
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const pageSize = 100;
+  const isFetchingMoreRef = React.useRef(false);
   const searchContainerRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const agentsPreservedRef = React.useRef<any[]>([]);
   const searchQueryPreservedRef = React.useRef<string>('');
   const userClearedRef = React.useRef(false);
+
+  const GRAPHQL_URI =
+    process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
+    'http://localhost:4000/auth/graphql';
+
+  const fetchExternalAgents = React.useCallback(
+    async ({
+      limit,
+      offset,
+      search,
+      signal,
+    }: {
+      limit: number;
+      offset?: number;
+      search?: string;
+      signal: AbortSignal;
+    }): Promise<{ data: any[]; total: number }> => {
+      const response = await fetch(GRAPHQL_URI, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apollo-require-preflight': 'true',
+        },
+        body: JSON.stringify({
+          query: `
+            query ExternalAgents($limit: Int, $offset: Int, $search: String) {
+              externalAgents(limit: $limit, offset: $offset, search: $search) {
+                total
+                data {
+                  id
+                  full_name
+                  email
+                  phone
+                  brokerage
+                  locationRaw
+                  profile_image_url
+                }
+              }
+            }
+          `,
+          variables: {
+            limit,
+            offset: offset ?? 0,
+            search,
+          },
+        }),
+        signal,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch agents');
+      }
+
+      const json = await response.json();
+      const payload = json?.data?.externalAgents || { data: [], total: 0 };
+      const data = payload?.data || [];
+      return {
+        total: Number(payload?.total || 0),
+        data: data.map((agent: any) => ({
+        ...agent,
+        Name: agent.full_name || '',
+        agentEmail: agent.email || undefined,
+        Location: agent.locationRaw || undefined,
+        Brokerage: agent.brokerage || undefined,
+        })),
+      };
+    },
+    [GRAPHQL_URI],
+  );
   
   const engagedProperty = useSelector((state: any) => state.property.engagedProperty);
   const wrapperCurrentUser = useSelector(userData);
@@ -206,6 +284,7 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
   // Use deferred value exactly like agents-hero.tsx
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const query = deferredSearchQuery.toLowerCase().trim();
+  const immediateQuery = searchQuery.toLowerCase().trim();
   
   // Always preserve searchQuery in ref - this is the source of truth
   React.useEffect(() => {
@@ -227,36 +306,48 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
   // Load all agents on mount when in name mode
   React.useEffect(() => {
     const controller = new AbortController();
-    
-    const loadAllAgents = async () => {
+
+    const loadAgentsPage = async () => {
       if (searchMode !== 'name') {
         return;
       }
 
       setLoading(true);
       try {
-        const res = await fetch('/api/agents', { signal: controller.signal });
-        if (!res.ok) {
-          setLoading(false);
-          return;
-        }
-        const data = await res.json();
-        const agents = Array.isArray(data) ? data : [];
-        agentsPreservedRef.current = agents;
-        setAllAgents(agents);
+        const { data, total } = await fetchExternalAgents({
+          limit: pageSize,
+          offset: (currentPage - 1) * pageSize,
+          search: immediateQuery || undefined,
+          signal: controller.signal,
+        });
+        setAllAgents((prev) => {
+          const base = currentPage === 1 ? [] : prev;
+          const merged = [...base, ...data];
+          const deduped = merged.filter(
+            (agent, index, arr) =>
+              arr.findIndex(
+                (a) => (a.id || a._id || a.email) === (agent.id || agent._id || agent.email)
+              ) === index
+          );
+          agentsPreservedRef.current = deduped;
+          return deduped;
+        });
+        setTotalAgents(total);
         setLoading(false);
+        isFetchingMoreRef.current = false;
       } catch (err: any) {
         if (err.name !== 'AbortError') {
           console.error('Error loading agents:', err);
         }
         setLoading(false);
+        isFetchingMoreRef.current = false;
       }
     };
-    
-    loadAllAgents();
-    
+
+    loadAgentsPage();
+
     return () => controller.abort();
-  }, [searchMode]);
+  }, [searchMode, currentPage, immediateQuery, fetchExternalAgents]);
 
   // Restore agents from ref if they were lost
   React.useEffect(() => {
@@ -264,6 +355,15 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
       setAllAgents(agentsPreservedRef.current);
     }
   }, [searchMode, allAgents.length]);
+
+  // Reset pagination when search changes
+  React.useEffect(() => {
+    if (searchMode === 'name') {
+      setCurrentPage(1);
+      setAllAgents([]);
+      setTotalAgents(0);
+    }
+  }, [immediateQuery, searchMode]);
 
   // Filter agents client-side exactly like agents-hero.tsx
   const agentsToFilter = React.useMemo(() => {
@@ -276,20 +376,22 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
   
   const filteredAgents = React.useMemo(() => {
     if (searchMode !== 'name') return [];
-    
-    const searchTerm = query || searchQuery.toLowerCase().trim();
+    const searchTerm = immediateQuery;
     if (!searchTerm) return agentsToFilter;
 
-    if (!agentsToFilter || agentsToFilter.length === 0) {
-      return [];
-    }
-
     return agentsToFilter.filter((agent: any) => {
-      const name = (agent.Name || agent.full_name || agent.firstName || agent.firstname || '').toLowerCase();
-      const email = (agent.agentEmail || agent.email || '').toLowerCase();
-      return name.includes(searchTerm) || email.includes(searchTerm);
+      const name = normalizeNameForSearch(
+        agent.Name || agent.full_name || agent.firstName || agent.firstname || ''
+      );
+      return name.startsWith(searchTerm);
     });
-  }, [agentsToFilter, query, searchQuery, searchMode]);
+  }, [agentsToFilter, searchMode, immediateQuery]);
+
+  const hasMoreAgents = React.useMemo(() => {
+    if (searchMode !== 'name') return false;
+    if (!totalAgents) return false;
+    return allAgents.length < totalAgents;
+  }, [searchMode, totalAgents, allAgents.length]);
   
   // Focus input when component mounts
   React.useEffect(() => {
@@ -323,14 +425,11 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
       }
 
       try {
-        const res = await fetch('/api/agents', { signal: controller.signal });
-        if (!res.ok) {
-          setLocationAgents([]);
-          return;
-        }
-        const data = await res.json();
-        const limitedAgents = Array.isArray(data) ? data.slice(0, 1000) : [];
-        setLocationAgents(limitedAgents);
+        const { data } = await fetchExternalAgents({
+          limit: 1000,
+          signal: controller.signal,
+        });
+        setLocationAgents(data);
       } catch (err: any) {
         if (err.name !== 'AbortError') {
           console.error('Error loading agents for location:', err);
@@ -362,7 +461,7 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
   // Highlight match function
   const highlightMatch = React.useCallback(
     (text: string) => {
-      const searchTerm = query || searchQuery.toLowerCase().trim();
+      const searchTerm = immediateQuery || query;
       if (!searchTerm || !text) return text;
       const parts = text.split(new RegExp(`(${searchTerm})`, 'gi'));
       return parts.map((part, i) =>
@@ -383,7 +482,19 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
     const agentId = agent.id || agent._id || '';
     const agentEmail = agent.agentEmail || agent.email || '';
     const identifier = agentId || agentEmail || `agent-${Math.random()}`;
-    
+
+    const hasExistingInvite = engagedProperty?.participants?.some((participant: any) => {
+      const participantEngagementId = participant?.engagementId;
+      const engagementMatches = !participantEngagementId || participantEngagementId === engagementId;
+      const status = participant?.is_accepted || "pending";
+      return engagementMatches && ["pending", "accepted"].includes(status);
+    });
+
+    if (hasExistingInvite) {
+      error({ message: "This property already has an invited agent." });
+      return;
+    }
+
     setLoadingAgentId(identifier);
     
     // Use email-based invitation for MLS data (which has email but may not have valid agentId in our DB)
@@ -688,7 +799,19 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
         </div>
 
         {/* Dropdown Results */}
-        <div className="absolute top-16 left-0 w-full bg-white rounded-b-2xl border-4 border-t-0 border-[#C08C73] shadow-2xl z-40 overflow-hidden min-h-[500px] max-h-[calc(95vh-320px)] overflow-y-auto">
+        <div
+          className="absolute top-16 left-0 w-full bg-white rounded-b-2xl border-4 border-t-0 border-[#C08C73] shadow-2xl z-40 overflow-hidden min-h-[500px] max-h-[calc(95vh-320px)] overflow-y-auto"
+          onScroll={(e) => {
+            if (searchMode !== 'name') return;
+            if (loading || isFetchingMoreRef.current || !hasMoreAgents) return;
+            const target = e.currentTarget;
+            const threshold = 120;
+            if (target.scrollHeight - target.scrollTop - target.clientHeight < threshold) {
+              isFetchingMoreRef.current = true;
+              setCurrentPage((p) => p + 1);
+            }
+          }}
+        >
           {searchMode === 'location' ? (
             <div className="p-4 bg-white h-full flex flex-col">
               <p className="text-gray-500 text-sm mb-3 pl-2">
@@ -719,16 +842,6 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
                 </div>
               ) : null}
             </div>
-          ) : !searchQuery.trim() ? (
-            <div className="p-10 flex flex-col items-center text-center h-full">
-              <div className="w-16 h-16 bg-[#F9F9F9] rounded-full flex items-center justify-center mb-4">
-                <Search className="w-6 h-6 text-[#1A2B49]" />
-              </div>
-              <h3 className="text-lg font-semibold text-black mb-2">Begin your agent search</h3>
-              <p className="text-gray-500 text-sm max-w-md">
-                Type a name or email to find an agent.
-              </p>
-            </div>
           ) : (
             <div className="p-4 bg-white min-h-[500px] flex flex-col">
               {loading ? (
@@ -742,6 +855,14 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
                     {filteredAgents.length} agents found
                   </p>
                   <div className="flex flex-col gap-3 pb-4">{agentCards}</div>
+                  {hasMoreAgents && (
+                    <div className="flex items-center justify-center border-t pt-4 mt-2">
+                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <Loader2 className="animate-spin" size={16} />
+                        Loading more agents...
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="flex flex-col items-center justify-center h-full py-10 text-center">

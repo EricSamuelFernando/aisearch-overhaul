@@ -67,7 +67,7 @@ export default function BuyOrRent() {
         <div className='flex items-start gap-4 rounded-xl bg-[#f1dfc8] p-6 shadow'>
           <div className='relative h-14 w-14'>
             <Image
-              src='/assets/images/buy_or_rent_icons/icon3.svg'
+              src='/assets/images/buy_or_rent_icons/icon2.svg'
               alt='growth icon'
               fill
               className='object-contain'
@@ -82,7 +82,7 @@ export default function BuyOrRent() {
         <div className='flex items-start gap-4 rounded-xl bg-[#f1dfc8] p-6 shadow'>
           <div className='relative h-14 w-14'>
             <Image
-              src='/assets/images/buy_or_rent_icons/icon2.svg'
+              src='/assets/images/buy_or_rent_icons/icon3.svg'
               alt='house icon'
               fill
               className='object-contain'

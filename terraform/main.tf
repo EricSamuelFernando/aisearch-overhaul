@@ -26,7 +26,7 @@ module "cloudfront" {
   source              = "./module/cloudfront"
   domain              = var.domain
   env                 = var.environment
-  price_class         = "PriceClass_100"
+  price_class         = var.price_class
   s3_domain_name      = module.s3.domain_name
   project_name        = var.project_name
   lambda_function_url = module.lambda.function_url

@@ -1,4 +1,4 @@
-FROM node:22-alpine AS production
+FROM node:current-alpine3.23 AS production
 
 ARG NODE_ENV=production
 ARG PORT=8001

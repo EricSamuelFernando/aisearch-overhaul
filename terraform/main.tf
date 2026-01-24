@@ -37,5 +37,5 @@ module "cloudfront" {
 # demo -> terraform init -backend-config="key=snaphomz-frontend-terraform/demo/terraform.tfstate"
 # prod -> terraform init -backend-config="key=snaphomz-frontend-terraform/prod/terraform.tfstate"
 
-# demo -> terraform apply -var-file="demo.tfvars"
-# prod -> terraform apply -var-file="demo.tfvars"
+# demo -> terraform plan -var-file="demo.tfvars"
+# prod -> terraform plan -var-file="demo.tfvars"

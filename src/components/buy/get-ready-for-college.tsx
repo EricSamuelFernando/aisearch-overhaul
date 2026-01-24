@@ -9,7 +9,7 @@ export default function GetReadyForCollege() {
 
         {/* LEFT CONTENT */}
         <div className="flex flex-col justify-center border border-[#B3B1B0] px-6 sm:px-10 lg:px-16 py-8 sm:py-10">
-          <h2 className="text-3xl sm:text-4xl font-bold text-[#1F1F1F]">
+          <h2 className="text-3xl sm:text-4xl font-medium text-[#1F1F1F]">
             Get Ready For <span className="font-light">College</span>
           </h2>
 
@@ -19,16 +19,9 @@ export default function GetReadyForCollege() {
             higher education.
           </p>
 
-          <div className="mt-8 space-y-4 text-sm font-bold text-[#1F1F1F]">
+          <div className="mt-8 space-y-4 text-sm font-medium text-[#1F1F1F]">
             <p className="underline cursor-pointer w-fit">Compare Colleges</p>
-            <a 
-              href="https://snapgrad.snaphomz.com/" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="underline cursor-pointer w-fit block"
-            >
-              Compare High Schools
-            </a>
+            <p className="underline cursor-pointer w-fit">Compare K-12 Schools</p>
           </div>
         </div>
 

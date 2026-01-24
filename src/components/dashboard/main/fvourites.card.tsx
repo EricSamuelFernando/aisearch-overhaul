@@ -47,7 +47,9 @@ const FavouritePropertyCards = (props: any) => {
 
   const handleClick = (e: React.MouseEvent) => {
     if (!carouselEvent) {
-      saveCurrenctProperty(props);
+      // Destructure to remove non-serializable function before saving to Redux
+      const { onCommentAdded, ...serializableProps } = props;
+      saveCurrenctProperty(serializableProps);
       router.push(`/buy/${props.listingId}/prop/preview`);
     }
   };

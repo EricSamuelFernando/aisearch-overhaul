@@ -369,12 +369,12 @@ const stepList: StepProp[] = [
     icon: Icons.Tour,
     content: [
       'Start your journey by securing financing through our trusted lending partners or uploading your pre-approval letter. Understanding your buying power upfront allows you to search confidently within your budget.',
-      'Keep all financial documents securely stored in your personal repository, ensuring quick access when needed. Real-time loan tracking keeps you updated on every step of the approval process. With financing in place, you can move forward without delays or uncertainties.',
+      'Keep all financial documents securely stored in your personal repository, ensuring quick access when needed. Real-time loan tracking keeps you updated on every step of the approval process.With financing in place, you can move forward without delays or uncertainties.',
       "Home buying should be exciting, not stressful—and we make sure it stays that way.",
     ],
   },
   {
-    title: 'Terms & Conditions',
+    title: 'Onboard & Engage',
     desc: 'Select Your Agent & Stay Organized',
     key: 'onboard',
     icon: Icons.Offer,

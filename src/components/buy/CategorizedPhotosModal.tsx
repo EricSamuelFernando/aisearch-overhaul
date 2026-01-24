@@ -19,6 +19,7 @@ interface CategorizedPhotosModalProps {
     baths?: number;
     sqft?: number;
     description?: string;
+    preloadedData?: any; // New prop to accept existing data
 }
 
 // --- Constants & Helpers (Ported from reference) ---
@@ -47,7 +48,8 @@ export default function CategorizedPhotosModal({
     beds,
     baths,
     sqft,
-    description
+    description,
+    preloadedData // Destructure new prop
 }: CategorizedPhotosModalProps) {
     const [cats, setCats] = useState<Record<string, any[]> | null>(null);
     const [analysis, setAnalysis] = useState<any>(null);
@@ -64,7 +66,9 @@ export default function CategorizedPhotosModal({
         }
     }, [isOpen]);
 
-    // Fetch logic
+
+    // --- OLD IMPLEMENTATION (Redundant Fetch) ---
+    /*
     useEffect(() => {
         if (isOpen && listingId) {
             setLoading(true);
@@ -121,6 +125,77 @@ export default function CategorizedPhotosModal({
             fetchCategorizedImages();
         }
     }, [isOpen, listingId]);
+    */
+
+    // --- NEW IMPLEMENTATION (Optimized with preloadedData) ---
+    // Data handling logic
+    useEffect(() => {
+        if (isOpen) {
+            // Function to process data (either from prop or API)
+            const processData = (data: any) => {
+                // Handle the response structure from /get_data
+                // Based on user log: {"categorization": { "categorized_images": { ... } }}
+                // Also keep fallback support for direct structure just in case
+                const images = data?.categorization?.categorized_images ||
+                    data?.data?.categorization?.categorized_images ||
+                    data?.images ||
+                    {};
+
+                const analysisData = data?.categorization?.condition_analysis ||
+                    data?.categorization?.analysis ||
+                    data?.data?.categorization?.condition_analysis ||
+                    data?.data?.categorization?.analysis ||
+                    data?.analysis ||
+                    {};
+
+                setCats(images);
+                setAnalysis(analysisData);
+            };
+
+            // Used preloaded data if available, otherwise fetch
+            if (preloadedData) {
+                console.log('Using preloaded data for CategorizedPhotosModal');
+                processData(preloadedData);
+                return;
+            }
+
+            if (listingId) {
+                setLoading(true);
+
+                const fetchCategorizedImages = async () => {
+                    try {
+                        // Use POST /get_data as confirmed working
+                        const url = `${API_BASE_URL}/get_data`;
+                        const res = await fetch(url, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                listingId: parseInt(listingId, 10),
+                                propertyId: parseInt(propertyId, 10)
+                            })
+                        });
+
+                        if (!res.ok) throw new Error(`Status ${res.status}`);
+                        const data = await res.json();
+
+                        console.log('Full API Response:', data); // Debug: see full response
+                        processData(data);
+
+                    } catch (err) {
+                        console.error("API attempt failed", err);
+                        setCats({});
+                        setAnalysis(null);
+                    } finally {
+                        setLoading(false);
+                    }
+                };
+
+                fetchCategorizedImages();
+            }
+        }
+    }, [isOpen, listingId, preloadedData]);
 
     // Derived state for ordered categories
     const orderedCats = useMemo(() => {
@@ -254,26 +329,42 @@ export default function CategorizedPhotosModal({
                                     <h4 className="text-sm font-semibold text-gray-700 mb-3">EXECUTIVE SUMMARY</h4>
                                     <div className="grid grid-cols-2 gap-3">
                                         {/* Red Alerts */}
-                                        {analysis.executive_summary.find((s: any) => s.label === 'High-priority repairs') && (
-                                            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                                                <div className="text-xs font-semibold text-red-700 mb-1">RED ALERTS</div>
-                                                <div className="text-2xl font-bold text-red-700">
-                                                    {analysis.executive_summary.find((s: any) => s.label === 'High-priority repairs')?.items?.length || 0}
+                                        {(() => {
+                                            const redAlertCount = analysis.insights?.filter((i: any) =>
+                                                i.severity === 'High' || i.classification === 'Red Alert'
+                                            ).length || 0;
+
+                                            if (redAlertCount === 0) return null;
+
+                                            return (
+                                                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                                                    <div className="text-xs font-semibold text-red-700 mb-1">RED ALERTS</div>
+                                                    <div className="text-2xl font-bold text-red-700">
+                                                        {redAlertCount}
+                                                    </div>
+                                                    <div className="text-xs text-red-600 mt-1">Critical risks requiring immediate verification</div>
                                                 </div>
-                                                <div className="text-xs text-red-600 mt-1">Critical risks requiring immediate verification</div>
-                                            </div>
-                                        )}
+                                            );
+                                        })()}
 
                                         {/* Opportunities */}
-                                        {analysis.executive_summary.find((s: any) => s.label === 'Renovation opportunities') && (
-                                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                                                <div className="text-xs font-semibold text-blue-700 mb-1">OPPORTUNITIES</div>
-                                                <div className="text-2xl font-bold text-blue-700">
-                                                    {analysis.executive_summary.find((s: any) => s.label === 'Renovation opportunities')?.items?.length || 0}
+                                        {(() => {
+                                            const opportunityCount = analysis.insights?.filter((i: any) =>
+                                                !(i.severity === 'High' || i.classification === 'Red Alert')
+                                            ).length || 0;
+
+                                            if (opportunityCount === 0) return null;
+
+                                            return (
+                                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                                    <div className="text-xs font-semibold text-blue-700 mb-1">OPPORTUNITIES</div>
+                                                    <div className="text-2xl font-bold text-blue-700">
+                                                        {opportunityCount}
+                                                    </div>
+                                                    <div className="text-xs text-blue-600 mt-1">Renovation or value-add plays for forced appreciation</div>
                                                 </div>
-                                                <div className="text-xs text-blue-600 mt-1">Renovation or value-add plays for forced appreciation</div>
-                                            </div>
-                                        )}
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                             )}
@@ -332,23 +423,18 @@ export default function CategorizedPhotosModal({
                                 <div className="mt-4 bg-emerald-50/50 rounded-lg p-5">
                                     <h4 className="text-base font-semibold text-emerald-800 mb-3">Positive Property Signals</h4>
 
+
+
+
                                     {/* Summary paragraph */}
                                     <div className="mb-4 text-sm text-gray-700">
                                         {analysis.positive_insights.map((positive: any, idx: number) => (
                                             <span key={idx}>
-                                                <span className="font-semibold text-emerald-800">{positive.category || positive.key}: </span>
+                                                <span className="font-semibold text-emerald-800">{positive.title || positive.category || positive.key}: </span>
                                                 <span>{positive.description}</span>
                                                 {idx < analysis.positive_insights.length - 1 && <br className="mb-2" />}
                                             </span>
                                         ))}
-                                    </div>
-
-                                    <div className="text-xs text-gray-500 mb-4 italic">
-                                        Supported by {analysis.positive_insights.reduce((acc: number, p: any) => acc + (p.sample_images?.length || p.image_count || 0), 0)} photos.
-                                        Insights are strictly based on what is visible in the reviewed photos.
-                                        {analysis.positive_insights.some((p: any) => p.evidence_note) && (
-                                            <> Derived from overall photo set even though other areas had visible concerns.</>
-                                        )}
                                     </div>
 
                                     {/* Individual positive signal cards */}
@@ -357,7 +443,7 @@ export default function CategorizedPhotosModal({
                                             <div key={idx} className="bg-white rounded-lg p-4 border border-emerald-100">
                                                 <div className="flex items-start justify-between mb-2">
                                                     <h5 className="text-sm font-bold text-gray-800">
-                                                        LUX {positive.category || positive.key}
+                                                        LUX {positive.title || positive.category || positive.key}
                                                     </h5>
                                                 </div>
 
@@ -445,9 +531,9 @@ export default function CategorizedPhotosModal({
                                                     </div>
 
                                                     {/* Scope */}
-                                                    {insight.where && (
+                                                    {(insight.where || (insight.areas && insight.areas.length > 0)) && (
                                                         <div className="mb-3 text-sm text-gray-600">
-                                                            <span className="font-semibold">Scope:</span> {insight.where}
+                                                            <span className="font-semibold">Scope:</span> {insight.where || insight.areas.join(', ')}
                                                         </div>
                                                     )}
 
@@ -458,18 +544,18 @@ export default function CategorizedPhotosModal({
                                                     </div>
 
                                                     {/* Impact */}
-                                                    {insight.impact && (
+                                                    {(insight.impact || insight.why) && (
                                                         <div className="mb-2">
                                                             <span className="text-sm font-semibold text-gray-900">Impact: </span>
-                                                            <span className="text-sm text-gray-700">{insight.impact}</span>
+                                                            <span className="text-sm text-gray-700">{insight.impact || insight.why}</span>
                                                         </div>
                                                     )}
 
                                                     {/* Recommendation */}
-                                                    {insight.recommendation && (
+                                                    {(insight.recommendation || insight.next_step) && (
                                                         <div className="mb-3">
                                                             <span className="text-sm font-semibold text-gray-900">Recommendation: </span>
-                                                            <span className="text-sm text-gray-700">{insight.recommendation}</span>
+                                                            <span className="text-sm text-gray-700">{insight.recommendation || insight.next_step}</span>
                                                         </div>
                                                     )}
 

@@ -32,6 +32,8 @@ import DeleteCollectionConfirmationModal from '@/components/delete-snap.modal';
 import RenameCollectionModal from '@/components/rename-snap.modal';
 import FavouritePropertyCards from '@/components/dashboard/main/fvourites.card';
 import RecentCommentsSidebar from '@/components/dashboard/main/recent-comments-sidebar';
+import CreateSnapModal from '@/components/create-snap.modal';
+import { v4 as uuidv4 } from 'uuid';
 
 
 interface InvitationInterface {
@@ -315,6 +317,27 @@ export default function AccountPage() {
   const { getAllSnapzRequest, updateSnapzById } = useAgentConversationApi();
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [isRequestsModalOpen, setIsRequestsModalOpen] = useState(false);
+  const [isCreateSnapModalOpen, setIsCreateSnapModalOpen] = useState(false);
+
+  const handleCreateNewSnap = (name: string) => {
+    const snapId = uuidv4();
+    const randomLink = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/snaps/${snapId}`;
+
+    createNewSnap.mutate({
+      name,
+      link: randomLink,
+      userId: userData?.id
+    }, {
+      onSuccess: (data) => {
+        success({ message: "Snapz created successfully!" });
+        getAllCollections();
+        setIsCreateSnapModalOpen(false);
+      },
+      onError: (err: any) => {
+        error({ message: err.message || "Failed to create snap" });
+      }
+    });
+  };
 
   const fetchPendingRequests = () => {
     if (userData?.id) {
@@ -475,7 +498,11 @@ export default function AccountPage() {
                 >
                   View Requests
                 </Button>
-                <Button variant="outline" className="flex border-none bg-transparent items-center gap-2">
+                <Button
+                  variant="outline"
+                  className="flex border-none bg-transparent items-center gap-2"
+                  onClick={() => setIsCreateSnapModalOpen(true)}
+                >
                   <span>Add New Snapz</span>
                   <span>+</span>
                 </Button>
@@ -524,10 +551,10 @@ export default function AccountPage() {
                       return (
                         <div key={idx} className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            {snap?.image ? (
+                            {snap?.favourites?.length > 0 && snap?.favourites[0]?.image ? (
                               <div className="w-12 h-12 rounded overflow-hidden">
                                 <img
-                                  src={snap.image}
+                                  src={snap?.favourites[0]?.image}
                                   alt={snap.name || "Collection"}
                                   className="w-full h-full object-cover"
                                 />                              </div>
@@ -717,6 +744,11 @@ export default function AccountPage() {
         onClose={() => setIsModalOpen("")}
         onRename={handleUpdateSnap}
         currentName={selectedSnap?.name || ""}
+      />
+      <CreateSnapModal
+        isOpen={isCreateSnapModalOpen}
+        onClose={() => setIsCreateSnapModalOpen(false)}
+        onCreate={handleCreateNewSnap}
       />
 
       {/* Requests Modal */}

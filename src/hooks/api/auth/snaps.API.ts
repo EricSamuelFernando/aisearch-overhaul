@@ -88,6 +88,7 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
                   id
                   propertyId
                   listingId
+                  image
                   }
 
                 }

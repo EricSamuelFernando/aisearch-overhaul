@@ -38,15 +38,12 @@ export default function BuyOrRent() {
     focus:outline-none sm:flex-1 sm:text-[20px]'
         />
 
-        <a
-          href="https://rentvsbuy.snaphomz.com/"
-          target="_blank"
-          rel="noopener noreferrer"
+        <button
           className='w-full whitespace-nowrap rounded-full bg-black px-5 py-2 
-      text-center text-sm text-white sm:w-auto block'
+      text-center text-sm text-white sm:w-auto'
         >
           Compare Prices
-        </a>
+        </button>
       </div>
 
       {/* Feature Grid */}
@@ -70,7 +67,7 @@ export default function BuyOrRent() {
         <div className='flex items-start gap-4 rounded-xl bg-[#f1dfc8] p-6 shadow'>
           <div className='relative h-14 w-14'>
             <Image
-              src='/assets/images/buy_or_rent_icons/icon2.svg'
+              src='/assets/images/buy_or_rent_icons/icon3.svg'
               alt='growth icon'
               fill
               className='object-contain'
@@ -85,7 +82,7 @@ export default function BuyOrRent() {
         <div className='flex items-start gap-4 rounded-xl bg-[#f1dfc8] p-6 shadow'>
           <div className='relative h-14 w-14'>
             <Image
-              src='/assets/images/buy_or_rent_icons/icon3.svg'
+              src='/assets/images/buy_or_rent_icons/icon2.svg'
               alt='house icon'
               fill
               className='object-contain'

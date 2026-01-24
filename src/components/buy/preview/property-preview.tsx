@@ -185,7 +185,7 @@ const PropertyPreview: React.FC = () => {
           console.log("Engagement created:", response);
           const engagementId = response?.data?.createEngagement?.id;
           if (engagementId) {
-            const url = meanType 
+            const url = meanType
               ? `/dashboard/buyer/property/${propertyData?.id || id}/add-agent?engagementId=${engagementId}&mean_type=${meanType}`
               : `/dashboard/buyer/property/${propertyData?.id || id}/add-agent?engagementId=${engagementId}`;
             router.push(url);
@@ -723,7 +723,7 @@ const PropertyPreview: React.FC = () => {
     <div>
       <ItemNav cardRef={cardRef} />
       <div className='mt-12 sm:mt-16 md:mt-24' />
-      
+
       {/* Contact Agent Dialog */}
       <Dialog open={isContactAgentDialogOpen} onOpenChange={setIsContactAgentDialogOpen}>
         <DialogContent className="sm:max-w-md">
@@ -778,7 +778,7 @@ const PropertyPreview: React.FC = () => {
           <div className="flex-1 overflow-hidden flex flex-col min-h-0">
             {engagementIdForModal ? (
               <div className="flex-1 overflow-y-auto px-6 pb-6 min-h-0">
-                <AgentDirectoryWrapper 
+                <AgentDirectoryWrapper
                   engagementId={engagementIdForModal}
                   propertyId={propertyData?.id || id}
                   onClose={() => setIsSearchAgentModalOpen(false)}
@@ -864,8 +864,8 @@ const PropertyPreview: React.FC = () => {
               className='h-[200px] sm:h-[250px] md:h-[28rem] w-full rounded-lg shadow-lg overflow-hidden'
               imageURLs={
                 transformData.prop?.media?.photosList?.length ?
-                  transformData.prop?.media?.photosList?.map((img: any) => img) || [''] :
-                  [{ highRes: transformData.prop?.media?.primaryListingImageUrl }]
+                  transformData.prop?.media?.photosList?.map((img: any) => img) || [] :
+                  (transformData.prop?.media?.primaryListingImageUrl ? [{ highRes: transformData.prop?.media?.primaryListingImageUrl }] : [])
               }
               onImageClick={handleImageClick}
               onShowAllPhotos={() => setIsCategorizedModalOpen(true)}
@@ -886,6 +886,7 @@ const PropertyPreview: React.FC = () => {
               baths={Number(transformData.prop?.property?.bathroomsTotal || propertyDatas?.data?.property?.bathroomsTotal || 0)}
               sqft={Number(transformData.prop?.property?.livingArea || propertyDatas?.data?.property?.livingArea || 0)}
               description={transformData.prop?.remarks || propertyDatas?.data?.property?.description || ""}
+              preloadedData={propertyDatas} // Pass existing data to prevent re-fetch
             />
             {/* Top Section: Price/Address and Agent Card */}
             <div className='mt-3 flex flex-col sm:flex-row w-full justify-between items-start sm:items-center gap-4 mb-4'>
@@ -908,7 +909,7 @@ const PropertyPreview: React.FC = () => {
                 <div className="rounded-xl bg-[#F5E6D3] shadow-sm px-4 py-3 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden shrink-0">
-                      {transformData?.prop?.listingAgent?.photo ? (
+                      {transformData?.prop?.listingAgent?.photo && transformData?.prop?.listingAgent?.photo !== "" ? (
                         <Image
                           src={transformData.prop.listingAgent.photo}
                           alt={transformData?.prop?.listingAgent?.fullName || "Agent"}
@@ -979,8 +980,8 @@ const PropertyPreview: React.FC = () => {
                   </Tooltip>
                 </TooltipProvider>
 
-                <button 
-                  className="w-full sm:w-auto bg-black text-white px-8 py-3 rounded-full text-base font-normal hover:bg-gray-800 transition-colors whitespace-nowrap" 
+                <button
+                  className="w-full sm:w-auto bg-black text-white px-8 py-3 rounded-full text-base font-normal hover:bg-gray-800 transition-colors whitespace-nowrap"
                   style={{ width: "270px" }}
                   onClick={handleContactAgent}
                   disabled={propertyEngagementMutation.isPending}

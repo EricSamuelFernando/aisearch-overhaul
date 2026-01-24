@@ -320,7 +320,8 @@ function ItemNav({ cardRef }: Props) {
             <button
               onClick={() => {
                 if (isLoggedIn) {
-                  openCollectionModal(propertyId, '/assets/images/property-placeholder.jpg', fetchSnaps);
+                  const propertyImage = propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.public?.imageUrl || propertyData?.image || '/assets/images/property-placeholder.jpg';
+                  openCollectionModal(propertyId, propertyImage, fetchSnaps);
                 } else {
                   router.push('/login');
                 }
@@ -361,7 +362,8 @@ function ItemNav({ cardRef }: Props) {
           <button
             onClick={() => {
               if (isLoggedIn) {
-                openCollectionModal(propertyId, '/assets/images/property-placeholder.jpg', fetchSnaps);
+                const propertyImage = propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.public?.imageUrl || propertyData?.image || '/assets/images/property-placeholder.jpg';
+                openCollectionModal(propertyId, propertyImage, fetchSnaps);
               } else {
                 router.push('/login');
               }

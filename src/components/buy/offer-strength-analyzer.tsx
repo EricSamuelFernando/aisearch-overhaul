@@ -511,14 +511,9 @@ const OfferStrengthAnalyzer = () => {
                 className="bg-transparent border-none text-gray-700 flex-1 min-w-0"
               />
 
-              <a
-                href="https://snapaudit.snaphomz.com/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-black text-white rounded-full px-6 py-2 hover:bg-gray-800 shrink-0 whitespace-nowrap inline-block text-center"
-              >
+              <Button className="bg-black text-white rounded-full px-6 py-2 hover:bg-gray-800 shrink-0 whitespace-nowrap">
                 Check Strength
-              </a>
+              </Button>
             </div>
           </div>
         </div>

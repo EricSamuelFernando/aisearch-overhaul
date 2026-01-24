@@ -119,19 +119,14 @@ export default function HomeDisclosure() {
             Understand Home <br /> Disclosures <span className='font-light'>In Seconds</span>
           </h2>
           <p className="mt-4 text-sm md:text-base text-[#CEB28B] max-w-md">
-            Upload your closing disclosure PDF to get a clear detailed summary and breakdown of your closing cost.
+            Upload your closing disclosure PDF to get a clear detailed summaries & breakdown of your closing cost.
           </p>
         </div>
 
         {/* CTA Button */}
-        <a 
-          href="https://snapdisclosures.snaphomz.com/" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="bg-orange-500 hover:bg-orange-600 transition text-white px-12 py-2 rounded-full w-fit text-sm md:text-base block text-center"
-        >
+        <button className="bg-orange-500 hover:bg-orange-600 transition text-white px-12 py-2 rounded-full w-fit text-sm md:text-base">
           Upload Disclosure
-        </a>
+        </button>
       </div>
     </section>
   );

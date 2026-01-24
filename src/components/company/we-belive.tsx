@@ -64,7 +64,7 @@ const WeBelive = () => {
             Dedicated to building real estate experience that works better for everyone
           </p>
 
-          <div className="flex flex-nowrap overflow-x-auto md:overflow-x-visible gap-8 md:gap-12 lg:gap-16 xl:gap-20 px-4 sm:px-6 lg:px-0 pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          <div className="flex flex-wrap justify-center gap-8 md:gap-12 lg:gap-16 xl:gap-20 px-4 sm:px-6 lg:px-0">
             {[
               '/assets/images/company-power1.png',
               '/assets/images/company-power2.png',
@@ -73,17 +73,14 @@ const WeBelive = () => {
               <div
                 key={idx}
                 className="
-    relative
-    rounded-2xl
-    overflow-hidden
-    flex-shrink-0
-    max-w-[280px]
-    sm:max-w-[300px]
-    md:max-w-[260px]
-    lg:max-w-[300px]
-    xl:max-w-[340px]
-    shadow-lg
-  "
+                  rounded-2xl overflow-hidden
+                  max-w-[280px]
+                  sm:max-w-[300px]
+                  md:max-w-[260px]
+                  lg:max-w-[300px]
+                  xl:max-w-[340px]
+                  shadow-lg relative
+                "
               >
                 <img
                   src={img}
@@ -91,22 +88,18 @@ const WeBelive = () => {
                   className="w-full h-full object-cover"
                 />
 
-                {/* GRADIENT OVERLAY – perfectly clipped */}
+                {/* CENTERED TEXT OVERLAY */}
                 <div
                   className="
-      absolute inset-0
-      bg-gradient-to-t from-black/80 via-black/30 to-transparent
-      flex items-end justify-center
-      text-white p-4 text-center
-    "
+                    absolute bottom-0 left-0 right-0
+                    bg-gradient-to-t from-black/80 to-transparent
+                    text-white p-4 text-center
+                  "
                 >
-                  <div>
-                    <p className="font-bold">Proper Name</p>
-                    <p className="text-xs">Official Title</p>
-                  </div>
+                  <p className="font-bold">Proper Name</p>
+                  <p className="text-xs">Official Title</p>
                 </div>
               </div>
-
             ))}
           </div>
         </div>

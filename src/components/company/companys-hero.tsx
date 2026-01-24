@@ -15,7 +15,7 @@ export default function HeroLayout() {
       ">
 
         {/* Background */}
-        <div className="absolute inset-0 bg-[#000000]" />
+        <div className="absolute inset-0 bg-[#170800]" />
 
         {/* CONTENT */}
         <div className="

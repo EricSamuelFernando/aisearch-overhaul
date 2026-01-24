@@ -27,7 +27,7 @@ const initialState: NavDialogState = {
   isMobileDrawer: false,
 };
 
-function MainNavPages({ theme }: { theme?: string }) {
+function MainNavPages({ theme }: { theme?: any }) {
   const { isLoggedIn, user } = useAuth();
   const pathname = usePathname();
   const [headerHeight, setHeaderHeight] = React.useState(0);
@@ -74,7 +74,10 @@ function MainNavPages({ theme }: { theme?: string }) {
     ? (pathname === '/sell' || pathname === '/agents' ? 'text-black' : 'text-white')
     : textColorClass;
 
+
   // Determine logo based on text color
+  // const logoSrc = finalTextColorClass === 'text-black'
+  //   ? '/assets/images/logo-black-main.png'
   const logoSrc = finalTextColorClass === 'text-black'
     ? '/assets/images/logo-black-main.png'
     : '/assets/images/logo-main.png';
@@ -114,6 +117,7 @@ function MainNavPages({ theme }: { theme?: string }) {
       // Set scrolled state - using threshold of 10px for better responsiveness
       setIsScrolled(scrollPosition > 10);
     };
+
     // Check initial scroll position after a brief delay to ensure DOM is ready
     const initTimeout = setTimeout(handleScroll, 100);
 
@@ -201,8 +205,8 @@ function MainNavPages({ theme }: { theme?: string }) {
             unoptimized
             alt="logo"
             className={`transition-all duration-300 object-contain ${isScrolled
-              ? 'h-8 w-24 md:h-10 md:w-32'
-              : 'h-9 w-28 md:h-12 md:w-36'
+                ? 'h-8 w-24 md:h-10 md:w-32'
+                : 'h-9 w-28 md:h-12 md:w-36'
               }`}
           />
         </Link>
@@ -233,12 +237,12 @@ function MainNavPages({ theme }: { theme?: string }) {
                 initialStage={1}
                 variant={"ghost"}
                 className={`w-full ${finalTextColorClass} bg-transparent border ${isScrolled
-                  ? (pathname === '/sell' || pathname === '/agents'
-                    ? 'border-black hover:bg-black hover:text-white'
-                    : 'border-white hover:bg-white hover:text-black')
-                  : (pathname === '/sell' || pathname === '/agents'
-                    ? 'border-black hover:bg-black hover:text-white'
-                    : 'border-white hover:bg-white hover:text-black')
+                    ? (pathname === '/sell' || pathname === '/agents'
+                      ? 'border-black hover:bg-black hover:text-white'
+                      : 'border-white hover:bg-white hover:text-black')
+                    : (pathname === '/sell' || pathname === '/agents'
+                      ? 'border-black hover:bg-black hover:text-white'
+                      : 'border-white hover:bg-white hover:text-black')
                   } rounded-full transition-all duration-300`}
               />
             </>

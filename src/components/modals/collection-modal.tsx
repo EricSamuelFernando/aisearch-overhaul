@@ -397,21 +397,21 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
 
 
   const handleToggleFavourite = (snapId: string) => {
-    if (!snapId) return;
+    if (!snapId || toggleFavourite.isPending) return;
 
     const input = {
       snapId,
-      name: propertyData?.listing?.courtesyOf,
-      address: propertyData?.listing?.address?.unparsedAddress,
-      city: propertyData?.listing?.address?.city,
-      zipCode: propertyData?.listing?.address?.zipCode,
-      price: +propertyData?.listing?.listPriceLow,
-      image: propertyData?.public?.imageUrl,
-      bedRooms: +propertyData?.listing?.property?.bedroomsTotal || +propertyData?.property?.bedroomsTotal || 0,
-      bathRooms: "" + propertyData?.listing?.property?.bathroomsTotal || "" + propertyData?.property?.bathroomsTotal,
-      sqft: "" + propertyData?.listing?.property?.livingArea,
+      name: propertyData?.listing?.courtesyOf || propertyData?.name || propertyData?.courtesyOf || "Property Name",
+      address: propertyData?.listing?.address?.unparsedAddress || propertyData?.address?.unparsedAddress || propertyData?.address || "Address not available",
+      city: propertyData?.listing?.address?.city || propertyData?.address?.city || propertyData?.city,
+      zipCode: propertyData?.listing?.address?.zipCode || propertyData?.address?.zipCode || propertyData?.zipCode,
+      price: +propertyData?.listing?.listPriceLow || +propertyData?.listPrice || +propertyData?.price || 0,
+      image: propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.public?.imageUrl || propertyData?.image || propertyData?.primaryPhoto,
+      bedRooms: +propertyData?.listing?.property?.bedroomsTotal || +propertyData?.property?.bedroomsTotal || +propertyData?.bedrooms || 0,
+      bathRooms: "" + (propertyData?.listing?.property?.bathroomsTotal || propertyData?.property?.bathroomsTotal || propertyData?.bathrooms || 0),
+      sqft: "" + (propertyData?.listing?.property?.livingArea || propertyData?.property?.livingArea || propertyData?.sqft || 0),
       listingId: propertyData?.listingId,
-      propertyId: propertyData?.id || "",
+      propertyId: propertyData?.propertyId || propertyData?.id || "",
     };
 
     toggleFavourite.mutate(
@@ -523,16 +523,25 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
   };
 
   useEffect(() => {
-    getAllSnapsByUserId();
-  }, [userData]);
+    if (isOpen) {
+      getAllSnapsByUserId();
+    }
+  }, [userData, isOpen]);
 
   const isPropertyInFavourite = (snap: any) => {
     if (!Array.isArray(snap?.favourites)) {
       return false;
     }
     const isAvailable = snap?.favourites?.some((favourite: any) => {
-      const propertyIdMatch = favourite?.propertyId === propertyData?.id;
-      const listingIdMatch = favourite?.listingId === propertyData?.listingId;
+      if (!favourite) return false;
+
+      const currentPropertyId = propertyData?.propertyId || propertyData?.id;
+      const currentListingId = propertyData?.listingId;
+
+      // Use loose equality for ID comparisons to handle string/number differences
+      const propertyIdMatch = !!currentPropertyId && favourite?.propertyId == currentPropertyId;
+      const listingIdMatch = !!currentListingId && favourite?.listingId == currentListingId;
+
       return propertyIdMatch || listingIdMatch;
     });
 
@@ -551,7 +560,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
           {propertyImage && (
             <div className="relative h-14 w-14 rounded-md overflow-hidden">
               <img
-                src={propertyData?.listing?.media?.primaryListingImageUrl}
+                src={propertyImage || propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.public?.imageUrl || propertyData?.image || "/assets/images/placeholder.svg"}
                 alt="Property"
                 className="object-cover"
               />
@@ -562,7 +571,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
             <p className="text-gray-500 text-sm">Private</p>
           </div>
           <div className="ml-auto">
-            <Heart className={`h-6 w-6 ${isPropertyInFavourite(snaps) ? 'fill-red-500 text-red-500' : 'fill-orange-500 text-orange-500'}`} />
+            <Heart className={`h-6 w-6 ${snaps?.some(snap => isPropertyInFavourite(snap)) ? 'fill-red-500 text-red-500' : 'fill-orange-500 text-orange-500'}`} />
           </div>
         </div>
 

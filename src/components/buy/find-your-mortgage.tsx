@@ -134,14 +134,9 @@ export default function FindPerfectMortgage() {
           </div>
 
           {/* CTA */}
-          <a 
-            href="https://snapinterest.snaphomz.com/" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="w-full bg-black text-white py-4 rounded-full text-sm font-semibold hover:opacity-90 transition block text-center"
-          >
+          <button className="w-full bg-black text-white py-4 rounded-full text-sm font-semibold hover:opacity-90 transition">
             Calculate Rate
-          </a>
+          </button>
         </div>
 
         {/* RIGHT IMAGE */}

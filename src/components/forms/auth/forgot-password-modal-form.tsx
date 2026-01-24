@@ -5,9 +5,9 @@ import CustomInput from '@/components/customs/input';
 import { Button } from '@/components/ui/button';
 import { ButtonLoader } from '@/components/loader';
 import { useMutation } from '@tanstack/react-query';
-import axios from 'axios';
 import { error, success } from '@/components/alert/notify';
 import { cn } from '@/lib/utils';
+import CognitoAuth from '@/lib/cognito';
 
 interface ForgotPasswordModalFormProps {
   onEmailSubmit: (email: string) => void;
@@ -24,25 +24,11 @@ export const ForgotPasswordModalForm = ({ onEmailSubmit, onBack }: ForgotPasswor
     },
   });
 
-  const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql";
-
   const forgotPasswordMutation = useMutation({
     mutationKey: ['forgot-password'],
     mutationFn: async (email: string) => {
-      const response = await axios.post(GRAPHQL_URI, {
-        query: `
-            mutation ForgotPassword($email: String!) {
-              forgotPassword(email: $email)
-            }
-          `,
-        variables: { email },
-      });
-
-      if (response.data?.errors) {
-        throw new Error(response.data.errors[0]?.message || 'Failed to send password reset code');
-      }
-
-      return { message: response.data?.data?.forgotPassword, email };
+      await CognitoAuth.forgotPassword(email);
+      return { message: 'Password reset code sent to your email.', email };
     },
     onSuccess: (data) => {
       success({ message: data?.message || 'Password reset code sent to your email.' });

@@ -42,9 +42,13 @@ export const getInitials = (
   firstName: string | undefined,
   lastName: string | undefined,
 ): string => {
-  const firstInitial = firstName ? firstName[0] : '';
-  const lastInitial = lastName ? lastName[0] : '';
-  const abbreviation = `${firstInitial}${lastInitial}`.toUpperCase();
+  const first = (firstName || '').trim();
+  const last = (lastName || '').trim();
+  const firstInitial = first ? first[0] : '';
+  const lastInitial = last ? last[0] : '';
+  const fallback =
+    first && !last ? first.slice(0, 2) : last && !first ? last.slice(0, 2) : '';
+  const abbreviation = `${firstInitial}${lastInitial}`.toUpperCase() || fallback.toUpperCase();
 
   return abbreviation;
 };

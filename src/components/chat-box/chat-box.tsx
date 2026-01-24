@@ -632,14 +632,14 @@ export default function ChatBoxComponent(props: any) {
       setSelectedFile(null)
       setShowUploadMenu(false) // Close upload menu when file is selected
 
-      const maxSize = 5 * 1024 * 1024 // 5MB
+      const maxSize = 25 * 1024 * 1024 // 25MB
 
       if (!allowedFileTypes.includes(file.type)) {
         setFileErrorMsg("Invalid file type. Only images, videos, and PDF are allowed.")
         return
       }
       if (file.size > maxSize) {
-        setFileErrorMsg("File size exceeds the 5MB limit.")
+        setFileErrorMsg("File size exceeds the 25MB limit.")
         return
       }
 

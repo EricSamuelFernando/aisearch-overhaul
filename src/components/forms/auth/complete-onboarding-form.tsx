@@ -40,9 +40,9 @@ export function CompleteOnboardingForm() {
       region: (value) =>
         account_type === 'agent' && value.length < 1 ? 'Region is required' : null,
       password: (value) =>
-        /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/.test(value)
+        /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/.test(value)
           ? null
-          : 'Minimum 8 characters, at least 1 letter, 1 number and 1 special character',
+          : 'Minimum 8 characters with 1 uppercase, 1 lowercase, 1 number, and 1 special character',
       confirm_password: (value, values) =>
         value !== values.password ? 'Passwords did not match' : null,
       phoneNumber: (value) => {

@@ -68,7 +68,7 @@ function PropertyDetailLayout() {
   const { propertyId: id } = useParams<{ propertyId: string; item: string }>();
   const { userPath } = useCurrentUser();
   const [loading, setLoading] = useState(true);
-  const [propertyData, setPropertyData] = useState<EngagedPropertyInterface>();
+  const [propertyData, setPropertyData] = useState<any>();
   const [propertytDocuments, setPropertyDocuments] = useState<EngagedPropertyDocumentsInterface>();
   const {
     getSingleProperty: { isFetching, data, isLoading },
@@ -191,23 +191,38 @@ function PropertyDetailLayout() {
                 {(agent?.[0]?.is_accepted !== "rejected" && agent?.[0]?.agent?.email) ? (
                   <AgentCard agent={agent?.[0]} property={propertyData} />
                 ) : (
-                  <Button
-                    asChild
-                    className='font-bold md:min-w-[150px]'
-                    roundness='full'
-                  >
-                    <Link
-                      //     href={`/start-process/${propertyData?.propertyId || id}/transaction-agreement?dashboard=true&engagementId=${propertyData?.id || ''}`}
-
-                      href={propertyData?.id
-                        ? `/start-process/${propertyData?.propertyId || id}/transaction-agreement?dashboard=true&engagementId=${propertyData?.id}`
-                        : `/start-process/${id}/transaction-agreement`
-                      }
-                    // href={`${userPath}/property/${propertyData?.propertyId}/add-agent?engagementId=${propertyData?.id}`}
+                  <div className='flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-center'>
+                    <Button
+                      asChild
+                      className='w-full font-bold sm:w-auto sm:min-w-[160px]'
+                      roundness='full'
                     >
-                      Add Agent
-                    </Link>
-                  </Button>
+                      <Link
+                        href={propertyData?.id
+                          ? `/start-process/${propertyData?.propertyId || id}/transaction-agreement?dashboard=true&engagementId=${propertyData?.id}`
+                          : `/start-process/${id}/transaction-agreement`
+                        }
+                      >
+                        Add Agent
+                      </Link>
+                    </Button>
+                    <Button
+                      asChild
+                      variant='ocreal'
+                      className={cn('w-full sm:w-auto sm:min-w-[160px]')}
+                      roundness='full'
+                    >
+                      <Link
+                        href={{
+                          pathname: `/buy/${propertyData?.propertyId}/prop/preview`,
+                          query: { listingId: propertyData?.listingId, propertyId: propertyData?.propertyId },
+                        }}
+                      >
+                        Visit Property
+                      </Link>
+                    </Button>
+                  </div>
+
                 )}
               </div>
             </div>

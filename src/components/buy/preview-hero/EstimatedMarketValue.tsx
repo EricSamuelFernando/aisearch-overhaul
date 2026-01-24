@@ -25,13 +25,13 @@ const defaultEstimatedData: EstimatedMarketData = {
     rentChange: "-$250",
     rentDescription: "Valued in Rent and lost in Mortgage",
     projectedGain: "22.6%",
-    projectedGainDescription: "Post-graduation enrolment rates",
+    projectedGainDescription: "Post-graduation enrollment rates",
 };
 
 const ViewButton = () => (
-    <button className="flex items-center space-x-1 px-3 py-2 bg-white rounded-full shadow-md text-sm transition-shadow hover:shadow-lg">
+    <button className="flex items-center space-x-1 px-4 py-2 bg-white rounded-full shadow-md text-sm transition-shadow hover:shadow-lg flex-shrink-0">
         {/* Correct Green Up-Arrow Graph Icon */}
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <g clip-path="url(#clip0_1222_158)">
                 <path d="M16.2856 6H23.1428V12.8571" stroke="#077414" style={{ stroke: '#077414', color: 'rgb(6.8, 116, 19.5)', strokeOpacity: 1 }} strokeWidth="1.71429" strokeLinecap="round" strokeLinejoin="round" />
                 <path d="M23.1429 6L13.4572 15.6857C13.297 15.8428 13.0815 15.9307 12.8572 15.9307C12.6328 15.9307 12.4174 15.8428 12.2572 15.6857L8.31432 11.7429C8.1541 11.5858 7.93868 11.4978 7.71432 11.4978C7.48996 11.4978 7.27455 11.5858 7.11432 11.7429L0.857178 18" stroke="#077414" style={{ stroke: '#077414', color: 'rgb(6.8, 116, 19.5)', strokeOpacity: 1 }} strokeWidth="1.71429" strokeLinecap="round" strokeLinejoin="round" />
@@ -43,7 +43,7 @@ const ViewButton = () => (
             </defs>
         </svg>
 
-        <span className="text-gray-900 font-semibold ml-4">View</span>
+        <span className="text-gray-900 font-semibold ml-2">View</span>
     </button>
 );
 
@@ -100,8 +100,8 @@ const EstimatedMarketValue: React.FC<any> = ({ estimatedData }) => {
                             </p>
                             <span
                                 className={`font-semibold text-lg ${data.rentChange.startsWith('-')
-                                        ? 'text-orange-500'
-                                        : 'text-green-500'
+                                    ? 'text-orange-500'
+                                    : 'text-green-500'
                                     }`}
                             >
                                 {data.rentChange}
@@ -109,7 +109,7 @@ const EstimatedMarketValue: React.FC<any> = ({ estimatedData }) => {
                         </div>
                     </div>
                     <div className="flex justify-between items-center text-gray-500 text-sm">
-                        <p className="p-2">{data.rentDescription}</p>
+                        <p className="line-clamp-2">{data.rentDescription}</p>
                         <ViewButton />
                     </div>
                 </div>

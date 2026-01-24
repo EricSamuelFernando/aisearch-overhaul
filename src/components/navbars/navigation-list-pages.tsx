@@ -37,6 +37,12 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
   const textColorClass = isScrolled 
     ? (pathname === '/sell' || pathname === '/agents' ? 'text-black' : 'text-white')
     : baseTextColorClass;
+
+  // Add special class for company page dropdowns
+  const dropdownContentClass = pathname === '/company' 
+    ? 'w-full min-w-[600px] bg-[#FAF9F5] text-black company-dropdown-content'
+    : 'w-full min-w-[600px] bg-[#FAF9F5] text-black';
+
   return (
     <NavigationMenu>
       <NavigationMenuList>
@@ -46,28 +52,28 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
               Buy
             </Link>
           </NavigationMenuTrigger>
-          <NavigationMenuContent className='w-full min-w-[600px] bg-[#FAF9F5]'>
-            <div className='flex w-full flex-row divide-x divide-white p-6 font-medium'>
+          <NavigationMenuContent className={dropdownContentClass}>
+            <div className='flex w-full flex-row divide-x divide-white p-6 font-medium text-black'>
               <div className='flex flex-col space-y-4 pr-8'>
                 {/* <h4 className='text-lg font-medium'>Buy a Home With</h4> */}
                 <div className='flex flex-col space-y-3'>
-                  <Link href='/agents' className='hover:text-primary hover:underline'>
+                  <Link href='/agents' className='text-black hover:text-primary hover:underline'>
                     Your Agent
                   </Link>
-                  <Link  href={AGENT_APPLICATIONS ||""} className='hover:text-primary hover:underline'>
+                  <Link  href={AGENT_APPLICATIONS ||""} className='text-black hover:text-primary hover:underline'>
                     Our Real Estate Agents
                   </Link>
-                  <Link href='/home/buyer-how-it-works' className='hover:text-primary hover:underline'>
+                  <Link href='/home/buyer-how-it-works' className='text-black hover:text-primary hover:underline'>
                      How it Works
                   </Link>
                 </div>
               </div>
                 <div className='flex flex-col space-y-4 pl-8'>
                 <div className='flex flex-col space-y-3'>
-                  <Link href='#offer-strength' className='hover:text-primary hover:underline'>
+                  <Link href='#offer-strength' className='text-black hover:text-primary hover:underline'>
                     Offer Strength Analyzer
                   </Link>
-                  <Link href="#testimonials" className='hover:text-primary hover:underline'>
+                  <Link href="#testimonials" className='text-black hover:text-primary hover:underline'>
                      Testimonials
                   </Link>
                 </div>
@@ -82,28 +88,28 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
               Sell
             </Link>
           </NavigationMenuTrigger>
-          <NavigationMenuContent className='w-full min-w-[600px] bg-[#FAF9F5]'>
-                   <div className='flex w-full flex-row divide-x divide-white p-6 font-medium'>
+          <NavigationMenuContent className={dropdownContentClass}>
+                   <div className='flex w-full flex-row divide-x divide-white p-6 font-medium text-black'>
               <div className='flex flex-col space-y-4 pr-8'>
                 {/* <h4 className='text-lg font-medium'>Buy a Home With</h4> */}
                 <div className='flex flex-col space-y-3'>
-                  <Link href='/agents' className='hover:text-primary hover:underline'>
+                  <Link href='/agents' className='text-black hover:text-primary hover:underline'>
                    With an agents
                   </Link>
-                  <Link href={AGENT_APPLICATIONS ||""} className='hover:text-primary hover:underline'>
+                  <Link href={AGENT_APPLICATIONS ||""} className='text-black hover:text-primary hover:underline'>
                     Our Real Estate Agents
                   </Link>
-                  <Link href='/home/seller-how-it-works' className='hover:text-primary hover:underline'>
+                  <Link href='/home/seller-how-it-works' className='text-black hover:text-primary hover:underline'>
                      How it Works
                   </Link>
                 </div>
               </div>
                 <div className='flex flex-col space-y-4 pl-8'>
                 <div className='flex flex-col space-y-3'>
-                  <Link href='#home-estimator' className='hover:text-primary hover:underline'>
+                  <Link href='#home-estimator' className='text-black hover:text-primary hover:underline'>
                    Home Estimator
                   </Link>
-                  <Link href="#testimonials" className='hover:text-primary hover:underline'>
+                  <Link href="#testimonials" className='text-black hover:text-primary hover:underline'>
                      Testimonials
                   </Link>
                 </div>
@@ -118,12 +124,12 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
               Agents
               </Link>
             </NavigationMenuTrigger>
-                    <NavigationMenuContent className='w-full min-w-[600px] bg-[#FAF9F5]'>
-                   <div className='flex w-full flex-row divide-x divide-white p-6 font-medium'>
+                    <NavigationMenuContent className={dropdownContentClass}>
+                   <div className='flex w-full flex-row divide-x divide-white p-6 font-medium text-black'>
               <div className='flex flex-col space-y-4 pr-8'>
                 {/* <h4 className='text-lg font-medium'>Buy a Home With</h4> */}
                 <div className='flex flex-col space-y-3'>
-                  <Link href='/home/agents-how-it-works' className='hover:text-primary hover:underline'>
+                  <Link href='/home/agents-how-it-works' className='text-black hover:text-primary hover:underline'>
                      How it Works
                   </Link>
                 </div>

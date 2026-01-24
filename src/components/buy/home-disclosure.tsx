@@ -124,9 +124,14 @@ export default function HomeDisclosure() {
         </div>
 
         {/* CTA Button */}
-        <button className="bg-orange-500 hover:bg-orange-600 transition text-white px-12 py-2 rounded-full w-fit text-sm md:text-base">
+        <a 
+          href="https://snapdisclosures.snaphomz.com/" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="bg-orange-500 hover:bg-orange-600 transition text-white px-12 py-2 rounded-full w-fit text-sm md:text-base block text-center"
+        >
           Upload Disclosure
-        </button>
+        </a>
       </div>
     </section>
   );

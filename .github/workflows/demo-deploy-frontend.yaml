@@ -5,16 +5,26 @@ on:
     branches:
       - demo-deploy
 
-    paths-ignore: ["terraform/**", "README.md", '.github/workflows/demo-deploy-terraform.yaml']
+     paths-ignore:
+      - ".github/**"
+      - "!/.github/workflows/demo-deploy-frontend.yaml"
+      - "terraform/**"
+      - "README.md"
+      - ".gitignore"
+      - ".env.development"
+      - ".env.production"
+      - "docker-compose.yml"
 
 env:
   AWS_REGION: us-west-1
   ECR_REGISTRY: "075502422618.dkr.ecr.us-west-1.amazonaws.com"
   ECR_REPOSITORY: "snaphomz-frontend-demo-terraform"
   LAMBDA_FUNCTION_NAME: "snaphomz-frontend-demo-terraform"
-  NODE_VERSION: "22.x"
+  NODE_VERSION: "24.x"
   S3_BUCKET: "snaphomz-frontend-demo-terraform"
   CLOUDFRONT_DISTRIBUTION_ID: "E27MB2F0VHAUFH"
+  ENVIRONMENT: demo
+  PROVISIONED-CONCURRENT-EXECUTIONS: 1
 
 jobs:
   deploy-frontend-demo:
@@ -29,6 +39,16 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{env.NODE_VERSION}}
+
+      - name: Cache Yarn dependencies
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.yarn/cache
+            node_modules
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
 
       - name: Package Installtion
         run: |
@@ -57,43 +77,21 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # - name: Build Docker image
-      #   run: |
-      #     docker build -t ${{env.ECR_REGISTRY}}/${{env.ECR_REPOSITORY}}:latest .
-      #     echo "Docker image built successfully"
-
-      # - name: Push Docker image
-      #   run: |
-      #     docker push ${{env.ECR_REGISTRY}}/${{env.ECR_REPOSITORY}}:latest
-      #     echo "Docker image push successfully"
-
-      - name: Set image tag (commit SHA)
-        run: echo "IMAGE_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
-
-      - name: Build Docker image (tagged with commit id)
+      - name: Build Docker image
         run: |
-          docker build -t ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }} .
-          docker tag  ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }} \
-                      ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
-          echo "Docker image built successfully: ${{ env.IMAGE_TAG }}"
+          docker build -t ${{env.ECR_REGISTRY}}/${{env.ECR_REPOSITORY}}:latest .
+          echo "Docker image built successfully"
 
-      - name: Push image
+      - name: Push Docker image
         run: |
-          docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
-          docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
+          docker push ${{env.ECR_REGISTRY}}/${{env.ECR_REPOSITORY}}:latest
+          echo "Docker image push successfully"
 
-      # - name: Update lambda image
-      #   run: |
-      #     aws lambda update-function-code \
-      #     --function-name ${{env.LAMBDA_FUNCTION_NAME}}  \
-      #     --image-uri ${{env.ECR_REGISTRY}}/${{env.ECR_REPOSITORY}}:${{ env.IMAGE_TAG }}
-      #     echo "Lambda image updated successfully"
-
-      - name: Update Lambda function code with the new Docker image tag
+      - name: Update lambda image
         run: |
           aws lambda update-function-code \
-            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
-            --image-uri ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+          --function-name ${{env.LAMBDA_FUNCTION_NAME}}  \
+          --image-uri ${{env.ECR_REGISTRY}}/${{env.ECR_REPOSITORY}}:latest
           echo "Lambda image updated successfully"
 
       - name: Wait for Lambda update to finish
@@ -105,7 +103,7 @@ jobs:
               break
             else
               echo "Lambda function update is in progress, waiting..."
-              sleep 30
+              sleep 10
             fi
           done
 
@@ -117,14 +115,51 @@ jobs:
             --output text)
           echo "Lambda function published with version: $LAMBDA_VERSION"
 
-      # - name: Update alias to point to new version
-      #   run: |
-      #     aws lambda update-alias \
-      #       --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
-      #       --name prod \
-      #       --function-version $LAMBDA_VERSION
-      #     echo "Lambda alias updated to point to version: $LAMBDA_VERSION"
+      - name: Wait for Lambda update to finish
+        run: |
+          while true; do
+            STATUS=$(aws lambda get-function --function-name ${{ env.LAMBDA_FUNCTION_NAME }} --query 'Configuration.LastUpdateStatus' --output text)
+            if [[ "$STATUS" == "Successful" ]]; then
+              echo "Lambda function update is complete."
+              break
+            else
+              echo "Lambda function update is in progress, waiting..."
+              sleep 5
+            fi
+          done
 
+      - name: Publish new version for Lambda
+        run: |
+          LAMBDA_VERSION=$(aws lambda publish-version \
+            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+            --query 'Version' \
+            --output text)
+          echo "Lambda function published with version: $LAMBDA_VERSION"
+          echo "LAMBDA_VERSION=$LAMBDA_VERSION" >> $GITHUB_ENV  # Save the version to GITHUB_ENV
+
+      - name: Update Lambda Provisioned Concurrency and Alias with New Version
+        run: |
+          # Ensure that LAMBDA_VERSION is available
+          if [ -z "$LAMBDA_VERSION" ]; then
+            echo "Error: LAMBDA_VERSION is not set!"
+            exit 1
+          fi
+
+          # Update or create provisioned concurrency for the alias
+          echo "Creating or updating provisioned concurrency for alias '${{ env.ENVIRONMENT }}' and version $LAMBDA_VERSION..."
+          aws lambda put-provisioned-concurrency-config \
+            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+            --qualifier ${{ env.ENVIRONMENT }} \
+            --provisioned-concurrent-executions ${{env.PROVISIONED-CONCURRENT-EXECUTIONS}}
+          echo "Provisioned concurrency created or updated for alias: ${{ env.ENVIRONMENT }}"
+
+          # Update the alias to point to the new version
+          echo "Updating alias '${{ env.ENVIRONMENT }}' to point to new version: $LAMBDA_VERSION"
+          aws lambda update-alias \
+            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+            --name ${{ env.ENVIRONMENT }} \
+            --function-version $LAMBDA_VERSION
+          echo "Lambda alias '${{ env.ENVIRONMENT }}' updated to point to version: $LAMBDA_VERSION"
 
       - name: Upload static file to s3
         run: |

@@ -4,6 +4,8 @@ lambda_timeout = 60
 
 lambda_memory_size = 1024
 
+price_class = "PriceClass_All"
+
 domain = "demo.snaphomz.com"
 
 acm_certificate_arn = "arn:aws:acm:us-east-1:075502422618:certificate/a3be7146-4c1c-44b3-bc89-f1a121f45894"

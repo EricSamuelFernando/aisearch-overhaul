@@ -126,3 +126,4 @@ export const config = {
     // '/waitlist/subscriber',
   ],
 };
+

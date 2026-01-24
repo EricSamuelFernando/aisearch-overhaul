@@ -27,7 +27,7 @@ const initialState: NavDialogState = {
   isMobileDrawer: false,
 };
 
-function MainNavPages() {
+function MainNavPages({ theme }: { theme?: string }) {
   const { isLoggedIn, user } = useAuth();
   const pathname = usePathname();
   const [headerHeight, setHeaderHeight] = React.useState(0);
@@ -201,8 +201,8 @@ function MainNavPages() {
             unoptimized
             alt="logo"
             className={`transition-all duration-300 object-contain ${isScrolled
-                ? 'h-8 w-24 md:h-10 md:w-32'
-                : 'h-9 w-28 md:h-12 md:w-36'
+              ? 'h-8 w-24 md:h-10 md:w-32'
+              : 'h-9 w-28 md:h-12 md:w-36'
               }`}
           />
         </Link>
@@ -233,12 +233,12 @@ function MainNavPages() {
                 initialStage={1}
                 variant={"ghost"}
                 className={`w-full ${finalTextColorClass} bg-transparent border ${isScrolled
-                    ? (pathname === '/sell' || pathname === '/agents'
-                      ? 'border-black hover:bg-black hover:text-white'
-                      : 'border-white hover:bg-white hover:text-black')
-                    : (pathname === '/sell' || pathname === '/agents'
-                      ? 'border-black hover:bg-black hover:text-white'
-                      : 'border-white hover:bg-white hover:text-black')
+                  ? (pathname === '/sell' || pathname === '/agents'
+                    ? 'border-black hover:bg-black hover:text-white'
+                    : 'border-white hover:bg-white hover:text-black')
+                  : (pathname === '/sell' || pathname === '/agents'
+                    ? 'border-black hover:bg-black hover:text-white'
+                    : 'border-white hover:bg-white hover:text-black')
                   } rounded-full transition-all duration-300`}
               />
             </>

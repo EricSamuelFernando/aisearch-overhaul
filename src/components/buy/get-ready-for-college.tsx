@@ -21,7 +21,14 @@ export default function GetReadyForCollege() {
 
           <div className="mt-8 space-y-4 text-sm font-bold text-[#1F1F1F]">
             <p className="underline cursor-pointer w-fit">Compare Colleges</p>
-            <p className="underline cursor-pointer w-fit">Compare K-12 Schools</p>
+            <a 
+              href="https://snapgrad.snaphomz.com/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="underline cursor-pointer w-fit block"
+            >
+              Compare High Schools
+            </a>
           </div>
         </div>
 

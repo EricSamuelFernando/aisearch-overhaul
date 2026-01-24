@@ -38,12 +38,15 @@ export default function BuyOrRent() {
     focus:outline-none sm:flex-1 sm:text-[20px]'
         />
 
-        <button
+        <a
+          href="https://rentvsbuy.snaphomz.com/"
+          target="_blank"
+          rel="noopener noreferrer"
           className='w-full whitespace-nowrap rounded-full bg-black px-5 py-2 
-      text-center text-sm text-white sm:w-auto'
+      text-center text-sm text-white sm:w-auto block'
         >
           Compare Prices
-        </button>
+        </a>
       </div>
 
       {/* Feature Grid */}

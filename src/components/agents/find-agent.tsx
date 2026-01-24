@@ -5,6 +5,7 @@ import { Input } from '../ui/input';
 import { FormEventHandler, useEffect, useState } from 'react';
 import { useDebounce } from '@/hooks/utils/useDebounce';
 import { useForm } from 'react-hook-form';
+import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
 import { Loader2 } from 'lucide-react'; // Spinner icon
 import { useRouter } from 'next/navigation';
 
@@ -14,20 +15,25 @@ const FindAgent = () => {
   const debouncedSearch = useDebounce(searchValue, 500);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<any[]>([]);
+  const { searchAllAgents } = useUserAuthApi();
   const router = useRouter()
   const handleSearch = async (value: string) => {
     try {
       setLoading(true);
       setResults([]);
-      const res = await fetch(`/api/agents?q=${encodeURIComponent(value)}`);
-      if (!res.ok) {
-        setLoading(false);
-        setResults([]);
-        return;
-      }
-      const data = await res.json();
-      setResults(Array.isArray(data) ? data.slice(0, 10) : []);
-      setLoading(false);
+      searchAllAgents.mutateAsync(
+        { search: value, offset: 0, limit: 10 },
+        {
+          onSuccess: (response) => {
+            setLoading(false);
+            setResults(response?.data?.searchAllAgents || []);
+          },
+          onError: (err: any) => {
+            setLoading(false);
+            console.error(err);
+          },
+        }
+      );
     } catch (err) {
       setLoading(false);
       console.error('Search failed:', err);
@@ -44,7 +50,7 @@ const FindAgent = () => {
     <section className="bg-[#FFF6EC] px-4 py-8 sm:py-16 lg:py-20 flex flex-col items-center">
       <p className="max-w-lg text-center text-sm text-gray-700 mb-8">
         Start your journey with the right guide — explore our trusted directory of experienced agents
-        or invite someone you already trust to walk the process with you.
+        or invite someone you already trust to through walk the process with you.
       </p>
 
       <div className="relative max-w-md w-full border border-[#E0D8C7] rounded-2xl p-8">
@@ -73,15 +79,14 @@ const FindAgent = () => {
             results.map((agent, idx) => (
               <div key={idx} className="border cursor-pointer rounded-md p-3 bg-white shadow-sm"
                 onClick={()=>{
+                  localStorage.setItem('agent',JSON.stringify(agent));
                   router.push(`/agents/${agent?.id}`)
                 }}
               >
                 <p className="font-medium">
-                  {agent.Name || `${agent.firstName || ''} ${agent.lastName || ''}`.trim()}
+                  {agent.firstName} {agent.lastName}
                 </p>
-                <p className="text-sm text-muted-foreground">
-                  {agent.agentEmail || agent.email}
-                </p>
+                <p className="text-sm text-muted-foreground">{agent.email}</p>
               </div>
             ))
           ) : (

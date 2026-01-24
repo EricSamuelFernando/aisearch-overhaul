@@ -27,7 +27,7 @@ const initialState: NavDialogState = {
   isMobileDrawer: false,
 };
 
-function MainNavPages({ theme }: { theme?: any }) {
+function MainNavPages() {
   const { isLoggedIn, user } = useAuth();
   const pathname = usePathname();
   const [headerHeight, setHeaderHeight] = React.useState(0);
@@ -74,10 +74,7 @@ function MainNavPages({ theme }: { theme?: any }) {
     ? (pathname === '/sell' || pathname === '/agents' ? 'text-black' : 'text-white')
     : textColorClass;
 
-
   // Determine logo based on text color
-  // const logoSrc = finalTextColorClass === 'text-black'
-  //   ? '/assets/images/logo-black-main.png'
   const logoSrc = finalTextColorClass === 'text-black'
     ? '/assets/images/logo-black-main.png'
     : '/assets/images/logo-main.png';
@@ -117,7 +114,6 @@ function MainNavPages({ theme }: { theme?: any }) {
       // Set scrolled state - using threshold of 10px for better responsiveness
       setIsScrolled(scrollPosition > 10);
     };
-
     // Check initial scroll position after a brief delay to ensure DOM is ready
     const initTimeout = setTimeout(handleScroll, 100);
 

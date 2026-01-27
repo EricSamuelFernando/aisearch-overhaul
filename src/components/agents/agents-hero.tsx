@@ -407,16 +407,16 @@ export default function HeroLayout({
               className="object-cover"
               priority
             />
-            <div className="absolute inset-0 bg-black/40 z-10" />
           </div>
 
           <div className="absolute inset-0 flex flex-col items-center px-4 sm:px-6 md:px-12 lg:px-20 z-20">
             <div className="pt-20 md:pt-24 lg:pt-32" />
 
-            <h1 className="text-center text-3xl sm:text-4xl lg:text-5xl font-semibold text-white drop-shadow-lg mb-10">
-              Discover Agent Possibilities
+            <h1 className="text-center text-3xl sm:text-4xl lg:text-5xl font-semibold text-black drop-shadow-lg mb-10">
+              Discover Agent Possibilities 
               <br />
-              With <span className="italic">Snaphomz</span>
+              <span className=''>With</span>
+               <span className="italic font-light">Snaphomz</span>
             </h1>
 
             <div className="w-full max-w-2xl relative" ref={searchContainerRef}>

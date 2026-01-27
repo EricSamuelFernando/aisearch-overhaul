@@ -71,9 +71,6 @@
 // export default ChooseYourMeans;
 
 
-import { SellChooseYourMeansCardData } from '@/data/card';
-import SellMeansCard from './sell-means-card';
-
 const ChooseYourMeans = () => {
   return (
     <section className="bg-[#FAF0E6] pt-32 px-4 sm:px-16 mb-20 text-center">
@@ -104,7 +101,7 @@ const ChooseYourMeans = () => {
             />
             <div className="absolute rounded-2xl flex flex-col items-center gap-1 bottom-0 left-0 right-0 text-white p-6 text-center">
               <p className="font-bold text-lg text-center">Our Agent</p>
-              <p className="text-md text-center w-[60%]">
+              <p className="text-md text-center w-[60%] text-[#E5E3E3]">
                 Choose from our directory list of vetted agents
               </p>
               <button className="mt-4 px-6 py-2 bg-transparent border border-white text-white text-xs rounded-full transition duration-200">
@@ -122,7 +119,7 @@ const ChooseYourMeans = () => {
             />
             <div className="absolute rounded-2xl flex flex-col items-center gap-1 bottom-0 left-0 right-0 text-white p-6 text-center">
               <p className="font-bold text-lg text-center">Your Agent</p>
-              <p className="text-md text-center w-[60%]">
+              <p className="text-md text-center w-[60%] text-[#E5E3E3]">
                 Onboard or invite your personal agent
               </p>
               <button className="mt-4 px-6 py-2 bg-transparent border border-white text-white text-xs rounded-full transition duration-200">
@@ -140,7 +137,7 @@ const ChooseYourMeans = () => {
             />
             <div className="absolute rounded-2xl opacity-70 flex flex-col items-center gap-1 bottom-0 left-0 right-0 text-white p-6 text-center">
               <p className="font-bold text-lg text-center">Do It Yourself</p>
-              <p className="text-md text-center w-[70%]">
+              <p className="text-md text-center w-[70%] text-[#E5E3E3]">
                 We will guide you step-by-step using our detailed seller’s guide
               </p>
               <button className="mt-4 px-6 py-2 bg-transparent border border-white text-white text-xs rounded-full transition duration-200">

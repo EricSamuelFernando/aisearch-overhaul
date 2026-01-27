@@ -1250,7 +1250,9 @@ export default function Home() {
                   height={120}
                   unoptimized
                   className="rounded-3xl w-full h-full"
-                  style={{ objectFit: 'contain', transform: getImageRotation(231.43) }}
+                                   style={{ objectFit: 'contain', transform: 'rotate(458deg)' }}
+
+                  // style={{ objectFit: 'contain', transform: getImageRotation(231.43) }}
                 />
               </div>
 

@@ -766,7 +766,8 @@ const Showings = ({ }: Props) => {
       values: hasErrors ? {} : values,
       errors,
     };
-  };
+  }
+
 
   const form = useForm<FormType>({
     defaultValues: initialValues,

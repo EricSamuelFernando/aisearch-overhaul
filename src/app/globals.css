@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap');
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -81,6 +84,14 @@
 @font-face {
   font-family: 'Satoshi';
   src: url('../../public//assets/fonts/satoshi.ttf');
+}
+
+.font-unbounded {
+  font-family: 'Unbounded', sans-serif;
+}
+
+.font-outfit {
+  font-family: 'Outfit', sans-serif;
 }
 
 html,
@@ -538,4 +549,39 @@ div.make-it-easy-component {
 .company-navbar.bg-white,
 .company-navbar.bg-black {
   background-color: #000000 !important;
+}
+
+/* Company dropdown text enforcement when navbar is dark */
+.company-navbar .company-dropdown-content,
+.company-navbar .company-dropdown-content * {
+  color: #000000 !important;
+}
+
+.company-navbar .company-dropdown-content {
+  background-color: #FAF9F5 !important;
+}
+/* ============================= */
+/* AGENTS PAGE NAVBAR OVERRIDE */
+/* ============================= */
+
+.agents-navbar {
+  /* Allow header classes to control colors; defaults come from component logic */
+  background-color: transparent;
+  color: inherit;
+}
+
+.agents-navbar a,
+.agents-navbar button,
+.agents-navbar svg {
+  color: inherit;
+}
+
+/* Agents dropdown text enforcement when navbar is dark */
+.agents-navbar .agents-dropdown-content,
+.agents-navbar .agents-dropdown-content * {
+  color: #000000 !important;
+}
+
+.agents-navbar .agents-dropdown-content {
+  background-color: #FAF9F5 !important;
 }

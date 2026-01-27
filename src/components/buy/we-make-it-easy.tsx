@@ -157,7 +157,7 @@ const WeMakeItEasy = () => {
   const slideSize = isSmallScreen
     ? '90%'          // reduced width on mobile
     : isMediumScreen
-      ? '50%'
+      ? '40%'
       : '33.3333%';
 
 

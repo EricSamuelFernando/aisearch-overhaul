@@ -19,17 +19,21 @@ export default function GetReadyForCollege() {
             higher education.
           </p>
 
-          <div className="mt-6 sm:mt-8 space-y-3 sm:space-y-4 text-xs sm:text-sm md:text-base font-bold text-[#1F1F1F]">
-            <p className="underline cursor-pointer w-fit">Compare Colleges</p>
-            <a 
-              href="https://snapgrad.snaphomz.com/" 
-              target="_blank" 
+          <div className="mt-6 sm:mt-8 space-y-3 sm:space-y-4 text-xs sm:text-sm md:text-base text-[#1F1F1F]">
+            <p className="underline cursor-pointer w-fit font-unbounded font-weight-600 font-semibold">
+              Compare Colleges
+            </p>
+
+            <a
+              href="https://snapgrad.snaphomz.com/"
+              target="_blank"
               rel="noopener noreferrer"
-              className="underline cursor-pointer w-fit block"
+              className="underline cursor-pointer w-fit block font-unbounded font-semibold"
             >
               Compare High Schools
             </a>
           </div>
+
         </div>
 
         {/* RIGHT VISUAL */}

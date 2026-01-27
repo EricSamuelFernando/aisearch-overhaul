@@ -25,10 +25,14 @@ const ChooseYourMeans = () => {
 
         {/* Card Grid Layout */}
         <div
-          className="flex flex-nowrap gap-6 overflow-x-auto pb-4 bg-transparent scrollbar-hide snap-x snap-mandatory"
+          className="
+    flex gap-6 overflow-x-auto pb-4 bg-transparent
+  lg:grid lg:grid-cols-3 lg:gap-12
+  scrollbar-hide
+  "
         >
           {/* Team member 1 */}
-          <div className="flex-none min-w-[240px] sm:min-w-[260px] md:min-w-[280px] lg:min-w-[300px] rounded-2xl overflow-hidden relative cursor-pointer snap-start">
+          <div className="min-w-[260px] sm:min-w-0 rounded-2xl overflow-hidden relative cursor-pointer">
             <img
               src="/assets/images/landing-means.png"
               alt="Proper Name"
@@ -45,7 +49,7 @@ const ChooseYourMeans = () => {
 
 
           {/* Team member 2 */}
-          <div className="flex-none min-w-[240px] sm:min-w-[260px] md:min-w-[280px] lg:min-w-[300px] rounded-2xl overflow-hidden relative cursor-pointer snap-start">
+          <div className="min-w-[260px] sm:min-w-0 rounded-2xl overflow-hidden relative cursor-pointer">
             <img
               src="/assets/images/landing-means1.png"
               alt="Proper Name"
@@ -61,7 +65,7 @@ const ChooseYourMeans = () => {
           </div>
 
           {/* Team member 3 */}
-          <div className="flex-none min-w-[240px] sm:min-w-[260px] md:min-w-[280px] lg:min-w-[300px] rounded-2xl overflow-hidden relative cursor-pointer snap-start">
+          <div className="min-w-[260px] sm:min-w-0 rounded-2xl overflow-hidden relative cursor-pointer">
             <img
               src="/assets/images/landing-means2.png"
               alt="Proper Name"

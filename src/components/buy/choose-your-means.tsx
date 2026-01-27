@@ -25,12 +25,7 @@ const ChooseYourMeans = () => {
 
         {/* Card Grid Layout */}
         <div
-          className="
-    flex gap-6 overflow-x-auto pb-4 bg-transparent
-    sm:grid sm:grid-cols-2 sm:gap-12
-    lg:grid-cols-3
-    scrollbar-hide
-  "
+          className="flex flex-nowrap gap-6 overflow-x-auto pb-4 bg-transparent scrollbar-hide snap-x snap-mandatory"
         >
           {/* Team member 1 */}
           <div className="min-w-[260px] sm:min-w-0 rounded-2xl overflow-hidden relative cursor-pointer">

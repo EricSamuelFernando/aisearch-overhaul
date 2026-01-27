@@ -234,82 +234,15 @@ export default function HeroLayout({
   agents = [],
 }: HeroLayoutProps) {
   const router = useRouter();
-  const GRAPHQL_URI =
-    process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
-    'http://localhost:4000/auth/graphql';
 
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMode, setSearchMode] = useState<SearchMode>('location');
   const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
-  const [nameAgents, setNameAgents] = useState<any[]>(agents);
-  const [locationAgents, setLocationAgents] = useState<any[]>(agents);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const query = deferredSearchQuery.toLowerCase().trim();
-  const immediateQuery = searchQuery.toLowerCase().trim();
-
-  const fetchExternalAgents = useCallback(
-    async ({
-      limit,
-      search,
-      signal,
-    }: {
-      limit: number;
-      search?: string;
-      signal: AbortSignal;
-    }) => {
-      const response = await fetch(GRAPHQL_URI, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apollo-require-preflight': 'true',
-        },
-        body: JSON.stringify({
-          query: `
-            query ExternalAgents($limit: Int, $offset: Int, $search: String) {
-              externalAgents(limit: $limit, offset: $offset, search: $search) {
-                data {
-                  id
-                  full_name
-                  email
-                  phone
-                  brokerage
-                  locationRaw
-                  profile_image_url
-                  avgRating
-                  avgRatingForCustomerDisplay
-                  homesSoldLastYear
-                }
-              }
-            }
-          `,
-          variables: {
-            limit,
-            offset: 0,
-            search,
-          },
-        }),
-        signal,
-      });
-
-      if (!response.ok) {
-        return [];
-      }
-
-      const json = await response.json();
-      const data = json?.data?.externalAgents?.data || [];
-      return data.map((agent: any) => ({
-        ...agent,
-        Name: agent.full_name || '',
-        agentEmail: agent.email || undefined,
-        Location: agent.locationRaw || undefined,
-        Brokerage: agent.brokerage || undefined,
-      }));
-    },
-    [GRAPHQL_URI]
-  );
 
   const goToSearchPage = () => {
     setIsSearchFocused(false);
@@ -365,67 +298,22 @@ export default function HeroLayout({
     const showAllWhenEmpty = !query;
     const suggestions = buildLocationSuggestions(
       deferredSearchQuery,
-      locationAgents,
+      agents,
       showAllWhenEmpty
     );
     setLocationSuggestions(suggestions);
-  }, [deferredSearchQuery, searchMode, locationAgents, query]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    async function loadNameAgents() {
-      if (searchMode !== 'name') return;
-      try {
-        const data = await fetchExternalAgents({
-          limit: 100,
-          search: immediateQuery || undefined,
-          signal: controller.signal,
-        });
-        setNameAgents(data);
-      } catch (err: any) {
-        if (err?.name !== 'AbortError') {
-          console.error('Error loading agents:', err);
-        }
-      }
-    }
-
-    loadNameAgents();
-    return () => controller.abort();
-  }, [searchMode, immediateQuery, fetchExternalAgents]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    async function loadLocationAgents() {
-      if (searchMode !== 'location') return;
-      try {
-        const data = await fetchExternalAgents({
-          limit: 1000,
-          signal: controller.signal,
-        });
-        setLocationAgents(data);
-      } catch (err: any) {
-        if (err?.name !== 'AbortError') {
-          console.error('Error loading agents for location:', err);
-        }
-      }
-    }
-
-    loadLocationAgents();
-    return () => controller.abort();
-  }, [searchMode, fetchExternalAgents]);
+  }, [deferredSearchQuery, searchMode, agents, query]);
 
   const filteredAgents = useMemo(() => {
     if (searchMode !== 'name') return [];
-    if (!query) return nameAgents;
+    if (!query) return agents;
 
-    return nameAgents.filter((agent) => {
+    return agents.filter((agent) => {
       const name = (agent.Name || '').toLowerCase();
       const email = (agent.agentEmail || '').toLowerCase();
       return name.includes(query) || email.includes(query);
     });
-  }, [nameAgents, query, searchMode]);
+  }, [agents, query, searchMode]);
 
   const highlightMatch = useCallback(
     (text: string) => {
@@ -510,8 +398,8 @@ export default function HeroLayout({
       </div>
 
       <div className={`text-black min-h-screen relative pt-28 -mt-28 overflow-visible ${className}`}>
-        <div className="relative min-h-[100vh] w-full overflow-visible">
-          <div className="absolute inset-0 z-0">
+        <div className="relative min-h-[100vh] sm:min-h-[100vh] md:min-h-[100vh] w-full overflow-visible pb-20 sm:pb-0">
+          <div className="absolute inset-0 z-0 min-h-full">
             <Image
               src="/assets/images/agents-hero.jpg"
               alt="Agents Hero"
@@ -519,16 +407,16 @@ export default function HeroLayout({
               className="object-cover"
               priority
             />
-            <div className="absolute inset-0 bg-black/40 z-10" />
           </div>
 
-          <div className="absolute inset-0 flex flex-col items-center px-4 sm:px-6 md:px-12 lg:px-20 z-20">
+          <div className="relative inset-0 flex flex-col items-center px-4 sm:px-6 md:px-12 lg:px-20 z-20 pb-8 sm:pb-12">
             <div className="pt-20 md:pt-24 lg:pt-32" />
 
-            <h1 className="text-center text-3xl sm:text-4xl lg:text-5xl font-semibold text-white drop-shadow-lg mb-10">
+            <h1 className="text-center text-3xl sm:text-4xl lg:text-5xl font-semibold text-black drop-shadow-lg mb-10">
               Discover Agent Possibilities
               <br />
-              With <span className="italic">Snaphomz</span>
+              <span className=''>With</span>
+              <span className="italic font-light">Snaphomz</span>
             </h1>
 
             <div className="w-full max-w-2xl relative" ref={searchContainerRef}>
@@ -568,8 +456,8 @@ export default function HeroLayout({
                       type="button"
                       onClick={() => setSearchMode('location')}
                       className={`h-full flex items-center px-4 rounded-full transition-colors text-sm font-medium ${searchMode === 'location'
-                          ? 'bg-black text-white shadow-sm'
-                          : 'text-gray-600 hover:text-black'
+                        ? 'bg-black text-white shadow-sm'
+                        : 'text-gray-600 hover:text-black'
                         }`}
                     >
                       Location
@@ -578,8 +466,8 @@ export default function HeroLayout({
                       type="button"
                       onClick={() => setSearchMode('name')}
                       className={`h-full flex items-center px-4 rounded-full transition-colors text-sm font-medium ${searchMode === 'name'
-                          ? 'bg-black text-white shadow-sm'
-                          : 'text-gray-600 hover:text-black'
+                        ? 'bg-black text-white shadow-sm'
+                        : 'text-gray-600 hover:text-black'
                         }`}
                     >
                       Agent name

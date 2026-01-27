@@ -2,8 +2,7 @@ environment = "demo"
 
 lambda_timeout = 60
 
-lambda_memory_size = 1024
-
+lambda_memory_size = 256
 price_class = "PriceClass_All"
 
 domain = "demo.snaphomz.com"
@@ -32,11 +31,11 @@ lambda_env_variables = {
 
   NEXT_PUBLIC_MORTGAGE_SERIVCE_URL = "https://api.snaphomz.com/mortgage",
 
-  NEXT_PUBLIC_COMMUNICATION_SOCKET_URI = "wss://ge7k22aqak.execute-api.us-west-1.amazonaws.com/ws",
+  NEXT_PUBLIC_COMMUNICATION_SOCKET_URI = "wss://demo-ws.snaphomz.com",
 
   NEXT_PUBLIC_COMMUNICATION_SERVICE_URI = "https://api.snaphomz.com/communication",
 
-  NEXT_PUBLIC_AUTH_SERIVCE_SOCKET_URL = "wss://ge7k22aqak.execute-api.us-west-1.amazonaws.com/ws",
+  NEXT_PUBLIC_AUTH_SERIVCE_SOCKET_URL = "wss://demo-ws.snaphomz.com",
 
   NEXT_PUBLIC_APPLICATION_URL = "https://demo.snaphomz.com",
 

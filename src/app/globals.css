@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;700&display=swap');
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -81,6 +83,10 @@
 @font-face {
   font-family: 'Satoshi';
   src: url('../../public//assets/fonts/satoshi.ttf');
+}
+
+.font-unbounded {
+  font-family: 'Unbounded', sans-serif;
 }
 
 html,

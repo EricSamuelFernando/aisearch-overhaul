@@ -152,13 +152,18 @@ const WeMakeItEasy = () => {
   const [activeCategory, setActiveCategory] = useState('Transaction');
 
   // Responsive breakpoints for slide size
+  // const isSmallScreen = useMediaQuery('(max-width: 768px)');
+  // const isMediumScreen = useMediaQuery('(max-width: 992px)');
+  // const slideSize = isSmallScreen
+  //   ? '90%'          // reduced width on mobile
+  //   : isMediumScreen
+  //     ? '40%'
+  //     : '33.3333%';
+
   const isSmallScreen = useMediaQuery('(max-width: 768px)');
-  const isMediumScreen = useMediaQuery('(max-width: 992px)');
-  const slideSize = isSmallScreen
-    ? '90%'          // reduced width on mobile
-    : isMediumScreen
-      ? '40%'
-      : '33.3333%';
+
+  const slideSize = isSmallScreen ? '90%' : '33.3333%';
+
 
 
   // Only show features matching the selected tab
@@ -167,7 +172,7 @@ const WeMakeItEasy = () => {
   );
 
   return (
-    <section className="bg-[#FAF0E6] pt-20 pb-20 px-4 sm:px-6 lg:px-24 overflow-x-hidden">
+    <section className="bg-[#FFF6EC] pt-20 pb-20 px-4 sm:px-6 lg:px-24 overflow-x-hidden">
       <div className=" mx-auto text-center">
         {/* Heading */}
         <h2 className=" satoshi text-3xl sm:text-4xl font-semibold ">
@@ -247,7 +252,7 @@ const WeMakeItEasy = () => {
                   borderLeft: 'none !important',
                   marginLeft: 0,
                 },
-                
+
                 // Ensure proper spacing with gap
                 margin: 0,
 
@@ -260,18 +265,18 @@ const WeMakeItEasy = () => {
                   border: 'none !important',
                   fontWeight: 600, // Slightly bolder on hover for better visibility
                 },
-                
+
                 // Target label text on hover
                 '&:hover label': {
                   color: '#ffffff !important',
                   fontWeight: 600,
                 },
-                
+
                 '&:hover .mantine-SegmentedControl-label': {
                   color: '#ffffff !important',
                   fontWeight: 600,
                 },
-                
+
                 // Active focus state for accessibility
                 '&:focus': {
                   backgroundColor: '#323131',

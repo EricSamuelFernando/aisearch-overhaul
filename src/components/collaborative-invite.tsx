@@ -8,12 +8,14 @@ interface InviteUserModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSend: (email: string) => void;
+  title?: string;
 }
 
 const InviteUserModal: React.FC<InviteUserModalProps> = ({
   isOpen,
   onClose,
   onSend,
+  title = "Invite a User"
 }) => {
   const [email, setEmail] = useState('');
 
@@ -31,7 +33,7 @@ const InviteUserModal: React.FC<InviteUserModalProps> = ({
         <Dialog.Panel className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
           <div className="flex items-center justify-between mb-6">
             <Dialog.Title className="text-xl font-semibold text-orange-600">
-              Invite a User
+              {title}
             </Dialog.Title>
             <button
               onClick={onClose}

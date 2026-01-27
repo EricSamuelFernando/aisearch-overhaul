@@ -27,6 +27,7 @@ import { error, success } from '@/components/alert/notify';
 import { useSelector } from 'react-redux';
 import { useUserSnapAPIs } from '@/hooks/api/auth/snaps.API';
 import InviteUserModal from '@/components/collaborative-invite';
+import CollaborateModal from '@/components/collaborative-invite-modal';
 import SendSnapLinkModal from '@/components/send_snap.modal';
 import DeleteCollectionConfirmationModal from '@/components/delete-snap.modal';
 import RenameCollectionModal from '@/components/rename-snap.modal';
@@ -90,6 +91,7 @@ export default function AccountPage() {
   const [selectedSnap, setSelectedSnap] = useState<SnapCollection | null>(null)
   const [agents, setAgents] = useState<Agent[]>([]);
   const [isModalOpen, setIsModalOpen] = useState("");
+  const [isCollaborateModalOpen, setIsCollaborateModalOpen] = useState(false);
   const { isPending: isInvitedAgentsPending } = useGetUserInvitedAgents();
   const { handleDownload } = useDocumentHandlers(undefined);
   const documents = userDocuments?.result;
@@ -288,22 +290,32 @@ export default function AccountPage() {
     })
   }
 
-  const inviteAgent = (email: string) => {
+  const inviteCollaborator = (email: string, type: 'agent' | 'co-buyer') => {
     const data = {
       snapId: selectedSnap?.id,
       email: email,
-      status: "pending"
+      status: "pending",
+      accountType: type === 'agent' ? 'agent' : 'buyer'
     }
     createParticipents.mutateAsync(data, {
       onSuccess: (response: any) => {
         console.log("Response : ", response);
-        if (response?.data?.createSnapsParticipant?.success === "true") {
-          success({ message: "Great! Your invite is on its way" })
-          setIsModalOpen("")
+        const successValue = response?.data?.createSnapsParticipant?.success;
+        if (successValue === true || successValue === "true") {
+          success({ message: `Great! Your ${type === 'agent' ? 'agent' : 'co-buyer'} invite is on its way` })
+          setIsCollaborateModalOpen(false);
+        } else {
+          error({ message: response?.data?.createSnapsParticipant?.message || "Failed to send invite" });
         }
+      },
+      onError: (err: any) => {
+        error({ message: err.message || "Failed to send invite" });
       }
     })
+  };
 
+  const inviteAgent = (email: string) => {
+    inviteCollaborator(email, 'co-buyer'); // Fallback for old modal if needed
   };
 
   useEffect(() => {
@@ -450,7 +462,7 @@ export default function AccountPage() {
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuItem
                     onClick={() => {
-                      setIsModalOpen("invite")
+                      setIsCollaborateModalOpen(true);
                     }}
                   >
                     <UserPlus className="mr-2 h-4 w-4" />
@@ -468,10 +480,7 @@ export default function AccountPage() {
                     <Share2 className="mr-2 h-4 w-4" />
                     <span>Share snapz link</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Edit2 className="mr-2 h-4 w-4" />
-                    <span>Select and edit in this snapz</span>
-                  </DropdownMenuItem>
+
                   <DropdownMenuItem
                     onClick={() => {
                       setIsModalOpen("rename")
@@ -722,10 +731,16 @@ export default function AccountPage() {
 
         </TabsContent>
       </Tabs>
+      <CollaborateModal
+        isOpen={isCollaborateModalOpen}
+        onClose={() => setIsCollaborateModalOpen(false)}
+        onSend={inviteCollaborator}
+      />
       <InviteUserModal
         isOpen={isModalOpen === "invite"}
         onClose={() => setIsModalOpen("")}
         onSend={inviteAgent}
+        title="Invite Co-buyer"
       />
       <SendSnapLinkModal
         isOpen={isModalOpen === "share"}

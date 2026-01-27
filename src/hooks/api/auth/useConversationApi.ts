@@ -884,6 +884,9 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
                     firstName
                     lastName
                   }
+                  favourites {
+                    image
+                  }
                 }
                 participant {
                   id

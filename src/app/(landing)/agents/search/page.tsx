@@ -724,7 +724,7 @@ export default function AgentSearchPage() {
 
   return (
     <div className="min-h-screen bg-white text-black">
-      <MainNavPages />
+      <MainNavPages theme="light" />
 
       <div className="pt-28 pb-20">
         <div

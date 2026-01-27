@@ -82,7 +82,7 @@ export default function OurClients({ bgColor = '#FAF0E6' }: { bgColor?: string }
               <Carousel.Slide key={idx}>
                 <div className="bg-[#F4E5D0] rounded-2xl p-6 sm:p-8 h-full flex flex-col justify-between shadow">
                   <div className="text-left mb-6">
-                    <h3 className="font-bold font-outfit text-sm mb-1">{name}</h3>
+                    <h3 className="font-bold text-sm mb-1">{name}</h3>
                     <p className="text-xs text-[#606060]">{title}</p>
                     <p className="text-xs mt-4 text-[#595858] leading-relaxed">{text}</p>
                   </div>

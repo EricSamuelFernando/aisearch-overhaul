@@ -4,56 +4,45 @@ import Image from 'next/image';
 
 export default function GetReadyForCollege() {
   return (
-    <section className="w-full bg-[#FFF6EC] py-6 sm:py-8 lg:py-10">
-      <div className="grid grid-cols-1 lg:grid-cols-2 min-h-auto lg:min-h-[560px] gap-0">
+    <section className="w-full bg-[#FFF6EC] py-8 sm:py-10 lg:py-10">
+      <div className="grid grid-cols-1 lg:grid-cols-2 min-h-[560px]">
 
         {/* LEFT CONTENT */}
-        <div className="flex flex-col justify-center border border-[#B3B1B0] px-4 sm:px-6 md:px-10 lg:px-16 py-6 sm:py-8 lg:py-10">
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#1F1F1F]">
+        <div className="flex flex-col justify-center border border-[#B3B1B0] px-6 sm:px-10 lg:px-16 py-8 sm:py-10">
+          <h2 className="text-3xl sm:text-4xl font-medium text-[#1F1F1F]">
             Get Ready For <span className="font-light">College</span>
           </h2>
 
-          <p className="mt-3 sm:mt-4 max-w-md text-xs sm:text-sm md:text-base text-[#6F6F6F] leading-relaxed">
+          <p className="mt-4 max-w-md text-sm sm:text-base text-[#6F6F6F]">
             SnapGrad is your personalized guide to the college journey,
             helping students seamlessly transition from high school to
             higher education.
           </p>
 
-          <div className="mt-6 sm:mt-8 space-y-3 sm:space-y-4 text-xs sm:text-sm md:text-base text-[#1F1F1F]">
-            <p className="underline cursor-pointer w-fit font-unbounded font-weight-600 font-semibold">
-              Compare Colleges
-            </p>
-
-            <a
-              href="https://snapgrad.snaphomz.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline cursor-pointer w-fit block font-unbounded font-semibold"
-            >
-              Compare High Schools
-            </a>
+          <div className="mt-8 space-y-4 text-sm font-medium text-[#1F1F1F]">
+            <p className="underline cursor-pointer w-fit">Compare Colleges</p>
+            <p className="underline cursor-pointer w-fit">Compare K-12 Schools</p>
           </div>
-
         </div>
 
         {/* RIGHT VISUAL */}
-        <div className="relative bg-[#E87033] flex items-center justify-center overflow-hidden py-8 sm:py-10 lg:py-0 px-4 sm:px-6">
+        <div className="relative bg-[#E87033] flex items-center justify-center overflow-hidden">
 
           {/* Vertical divider */}
           <div className="absolute left-0 top-0 h-full w-[1px] bg-[#B9B9B9] hidden lg:block" />
 
           {/* Cards container */}
-          <div className="relative w-full max-w-sm lg:max-w-md px-2 sm:px-0">
+          <div className="relative w-full max-w-md px-4 sm:px-0">
 
             {/* BACK CARD (NEW YORK) */}
             <div
               className="
-                absolute top-8 sm:top-12 lg:top-16 right-0 z-10 w-full
-                bg-white rounded-xl sm:rounded-2xl
-                px-4 sm:px-6 py-3 sm:py-4
+                absolute top-16 right-0 z-10 w-full
+                bg-white rounded-2xl
+                px-6 py-4
                 shadow-lg
                 transform rotate-[2deg]
-                min-h-[180px] sm:min-h-[210px]
+                min-h-[210px]
                 hidden sm:block
               "
             >
@@ -64,12 +53,12 @@ export default function GetReadyForCollege() {
             <div
               className="
                 relative z-20
-                mt-4 sm:mt-8 lg:mt-18
-                w-full bg-white rounded-xl sm:rounded-2xl
-                px-4 sm:px-6 py-3 sm:py-4
+                mt-8 sm:mt-18
+                w-full bg-white rounded-2xl
+                px-6 py-4
                 shadow-xl
                 transform sm:rotate-[7deg]
-                min-h-[180px] sm:min-h-[210px]
+                min-h-[210px]
               "
             >
               <CardContent withImage />
@@ -95,7 +84,7 @@ function CardContent({
     <div>
       {/* Header */}
       <div className="relative">
-        <h2 className="font-bold text-xs sm:text-sm md:text-base text-[#1F1F1F] pr-12 sm:pr-16">
+        <h2 className="font-bold text-sm text-[#1F1F1F] pr-16">
           Noble Charter High School
         </h2>
 
@@ -103,7 +92,7 @@ function CardContent({
         {withImage && (
           <>
             {/* Floating round image */}
-            <div className="absolute -top-8 sm:-top-10 right-6 sm:right-10 w-16 sm:w-24 h-16 sm:h-24 rounded-full overflow-hidden border-2 border-white shadow-lg flex-shrink-0">
+            <div className="absolute -top-10 right-10 w-24 h-24 rounded-full overflow-hidden border-2 border-white shadow-lg">
               <Image
                 src="/assets/images/buyer-get-ready.jpg"
                 alt="School"
@@ -121,9 +110,8 @@ function CardContent({
               <Image
                 src="/assets/images/icons_heart.png"
                 alt="Save"
-                width={24}
-                height={24}
-                className="sm:w-8 sm:h-8"
+                width={32}
+                height={32}
               />
             </button>
           </>
@@ -132,15 +120,15 @@ function CardContent({
       </div>
 
       {/* Pills */}
-      <div className="flex gap-2 mt-2 sm:mt-3 text-[10px] sm:text-xs text-black">
-        <span className="px-2 sm:px-3 py-1 border border-black rounded-md">Public</span>
-        <span className="px-2 sm:px-3 py-1 border border-black rounded-md">Highschool</span>
+      <div className="flex gap-2 mt-3 text-xs text-black">
+        <span className="px-3 py-1 border border-black rounded-md">Public</span>
+        <span className="px-3 py-1 border border-black rounded-md">Highschool</span>
       </div>
 
       {/* Ratings */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 mt-3 sm:mt-4 text-[10px] sm:text-sm">
+      <div className="flex items-center justify-between mt-4 text-sm">
         <div className="flex items-center gap-2">
-          <span className="w-6 sm:w-7 h-6 sm:h-7 rounded-full bg-[#E8560C] text-white flex items-center justify-center text-[8px] sm:text-xs font-semibold">
+          <span className="w-7 h-7 rounded-full bg-[#E8560C] text-white flex items-center justify-center text-xs font-semibold">
             6/10
           </span>
           <span className="text-black font-semibold">
@@ -149,7 +137,7 @@ function CardContent({
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="w-6 sm:w-7 h-6 sm:h-7 rounded-full bg-[#E8560C] text-white flex items-center justify-center text-[8px] sm:text-xs font-semibold">
+          <span className="w-7 h-7 rounded-full bg-[#E8560C] text-white flex items-center justify-center text-xs font-semibold">
             10
           </span>
           <span className="text-black font-semibold">
@@ -159,12 +147,12 @@ function CardContent({
       </div>
 
       {/* Divider */}
-      <div className="h-px w-full bg-[#B9B9B9] my-2 sm:my-3" />
+      <div className="h-px w-full bg-[#B9B9B9] my-3" />
 
       {/* Footer */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 sm:gap-0 text-[9px] sm:text-xs text-[#555555]">
-        <span className="break-words">{location}</span>
-        <span className="flex items-center gap-1 text-[#1F1F1F] whitespace-nowrap">
+      <div className="flex items-center justify-between text-xs text-[#555555]">
+        <span>{location}</span>
+        <span className="flex items-center gap-1 text-[#1F1F1F]">
           ⭐ 4.9 <strong>300 Reviews</strong>
         </span>
       </div>

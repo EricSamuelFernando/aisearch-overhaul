@@ -510,8 +510,8 @@ export default function HeroLayout({
       </div>
 
       <div className={`text-black min-h-screen relative pt-28 -mt-28 overflow-visible ${className}`}>
-        <div className="relative min-h-[100vh] sm:min-h-[100vh] md:min-h-[100vh] w-full overflow-visible pb-20 sm:pb-0">
-          <div className="absolute inset-0 z-0 min-h-full">
+        <div className="relative min-h-[100vh] w-full overflow-visible">
+          <div className="absolute inset-0 z-0">
             <Image
               src="/assets/images/agents-hero.jpg"
               alt="Agents Hero"
@@ -519,16 +519,16 @@ export default function HeroLayout({
               className="object-cover"
               priority
             />
+            <div className="absolute inset-0 bg-black/40 z-10" />
           </div>
 
-          <div className="relative inset-0 flex flex-col items-center px-4 sm:px-6 md:px-12 lg:px-20 z-20 pb-8 sm:pb-12">
+          <div className="absolute inset-0 flex flex-col items-center px-4 sm:px-6 md:px-12 lg:px-20 z-20">
             <div className="pt-20 md:pt-24 lg:pt-32" />
 
-            <h1 className="text-center text-3xl sm:text-4xl lg:text-5xl font-semibold text-black drop-shadow-lg mb-10">
-              Discover Agent Possibilities 
+            <h1 className="text-center text-3xl sm:text-4xl lg:text-5xl font-semibold text-white drop-shadow-lg mb-10">
+              Discover Agent Possibilities
               <br />
-              <span className=''>With</span>
-               <span className="italic font-light">Snaphomz</span>
+              With <span className="italic">Snaphomz</span>
             </h1>
 
             <div className="w-full max-w-2xl relative" ref={searchContainerRef}>

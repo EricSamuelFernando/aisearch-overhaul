@@ -57,7 +57,7 @@ const WhoWeCompany = () => {
         <div className="relative max-w-6xl w-full">
 
           {/* ========== MOBILE SLIDER (NO SCROLLBAR) ========== */}
-          <div className="lg:hidden absolute top-[115%] left-1/2 -translate-x-1/2 w-full">
+          <div className="sm:hidden absolute top-[115%] left-1/2 -translate-x-1/2 w-full">
             <div className="flex gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-hide scroll-smooth px-4">
 
               <div className="snap-center min-w-[300px] bg-[#F7E9D7] rounded-2xl px-6 py-8 text-center shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
@@ -90,7 +90,7 @@ const WhoWeCompany = () => {
           </div>
 
           {/* ========== DESKTOP GRID ========== */}
-          <div className="hidden lg:grid grid-cols-3 gap-8 absolute top-[92%] left-1/2 -translate-x-1/2 w-full px-4">
+          <div className="hidden sm:grid grid-cols-3 gap-8 absolute top-[92%] left-1/2 -translate-x-1/2 w-full px-4">
 
             <div className="bg-[#F7E9D7] rounded-2xl px-8 py-10 text-center shadow-[0_25px_70px_rgba(0,0,0,0.3)]">
               <h3 className="font-semibold text-xl mb-3">People Driven</h3>

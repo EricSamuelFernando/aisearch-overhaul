@@ -15,7 +15,7 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
       return 'text-white';
     } else if (pathname === '/sell') {
       return 'text-black';
-    } else if (pathname?.startsWith('/agents')) {
+    } else if (pathname === '/agents') {
       return 'text-black';
     } else if (pathname === '/company') {
       return 'text-white';
@@ -35,7 +35,7 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
   const baseTextColorClass = getTextColor(pathname || '');
   // When scrolled, use appropriate text color based on page type (light pages use black, dark pages use white)
   const textColorClass = isScrolled 
-    ? (pathname === '/sell' || pathname?.startsWith('/agents') ? 'text-black' : 'text-white')
+    ? (pathname === '/sell' || pathname === '/agents' ? 'text-black' : 'text-white')
     : baseTextColorClass;
   return (
     <NavigationMenu>

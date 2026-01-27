@@ -44,6 +44,7 @@ function MainNavPages({ theme }: { theme?: string }) {
     } else if (pathname === '/sell') {
       return 'text-black';
     } else if (pathname === '/agents') {
+      // Agents page needs dark text when navbar is transparent over white background
       return 'text-black';
     } else if (pathname === '/company') {
       return 'text-white';
@@ -71,7 +72,7 @@ function MainNavPages({ theme }: { theme?: string }) {
 
   // When scrolled, use appropriate text color based on background
   const finalTextColorClass = isScrolled
-    ? (pathname === '/sell' || pathname === '/agents' ? 'text-black' : 'text-white')
+    ? (pathname === '/sell' ? 'text-black' : pathname === '/agents' ? 'text-white' : 'text-white')
     : textColorClass;
 
   // Determine logo based on text color
@@ -89,7 +90,7 @@ function MainNavPages({ theme }: { theme?: string }) {
     } else if (pathname === '/sell') {
       return 'bg-white';
     } else if (pathname === '/agents') {
-      return 'bg-white';
+      return 'bg-black';
     } else if (pathname === '/company') {
       return 'bg-black';
     }
@@ -181,7 +182,7 @@ function MainNavPages({ theme }: { theme?: string }) {
     <>
       <header
         ref={headerRef}
-        className={`${headerClassName} ${pathname === '/company' ? 'company-navbar' : ''}`}
+        className={`${headerClassName} ${pathname === '/company' ? 'company-navbar' : ''} ${pathname === '/agents' ? 'agents-navbar' : ''}`}
       >
 
 

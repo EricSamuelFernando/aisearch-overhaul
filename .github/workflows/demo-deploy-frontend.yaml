@@ -124,7 +124,7 @@ jobs:
             exit 1
           fi
 
-          # Check if the alias exists
+          # Check if the alias exist
           ALIAS_EXISTS=$(aws lambda get-alias \
             --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
             --name ${{ env.ENVIRONMENT }} \

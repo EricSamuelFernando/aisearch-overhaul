@@ -696,6 +696,7 @@ import { LockIcon } from '@public/assets/icons';
 // import PaymentModal from '../main/payment-modal';
 import { userData } from '@/slices/auth/auth.slice';
 import { useSelector } from 'react-redux';
+import type { FieldErrors, Resolver } from "react-hook-form";
 
 type Props = {};
 
@@ -737,33 +738,39 @@ const Showings = ({ }: Props) => {
   const [action, setAction] = useState(false);
   const [editingTour, setEditingTour] = useState<any>(null);
 
+  const resolver: Resolver<FormType> = async (values: any) => {
+    const errors: FieldErrors<FormType> = {};
+
+    if (!values.fullName) {
+      errors.fullName = {
+        type: 'required',
+        message: 'Full name is required',
+      };
+    }
+    if (!values.phoneNumber) {
+      errors.phoneNumber = {
+        type: 'required',
+        message: 'Phone number is required',
+      };
+    }
+    if (!values.message) {
+      errors.message = {
+        type: 'required',
+        message: 'Message is required',
+      };
+    }
+
+    const hasErrors = Object.keys(errors).length > 0;
+
+    return {
+      values: hasErrors ? {} : values,
+      errors,
+    };
+  };
+
   const form = useForm<FormType>({
     defaultValues: initialValues,
-    resolver: async (values) => {
-      const errors: Record<string, { type: string; message: string }> = {};
-      if (!values.fullName) {
-        errors.fullName = {
-          type: 'required',
-          message: 'Full name is required',
-        };
-      }
-      if (!values.phoneNumber) {
-        errors.phoneNumber = {
-          type: 'required',
-          message: 'Phone number is required',
-        };
-      }
-      if (!values.message) {
-        errors.message = {
-          type: 'required',
-          message: 'Message is required',
-        };
-      }
-      return {
-        values,
-        errors,
-      };
-    },
+    resolver
   });
 
   const {
@@ -824,7 +831,7 @@ const Showings = ({ }: Props) => {
         engagementId: engagedProperty?.id,
         sellerId: "fba66f74-90a2-4c21-8685-374055a7120d",
         sellerAgentId: "1b5ea235-556b-40db-a4a7-f71fd5ac5a37",
-        buyerId:currentUser?.id
+        buyerId: currentUser?.id
 
       };
 
@@ -867,7 +874,7 @@ const Showings = ({ }: Props) => {
       listingId: engagedProperty?.listingId?.toString(),
       sellerId: "fba66f74-90a2-4c21-8685-374055a7120d",
       sellerAgentId: "1b5ea235-556b-40db-a4a7-f71fd5ac5a37",
-      buyerId:currentUser?.id,
+      buyerId: currentUser?.id,
       events: values.events.map(e => ({
         ...e,
         propertyId: propertyId || '',

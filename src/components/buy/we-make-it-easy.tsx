@@ -202,18 +202,26 @@ const WeMakeItEasy = () => {
                 backgroundColor: '#170800',   // dark container background
                 borderRadius: '12px',          // rounded corners
                 overflow: 'hidden',
+                overflowX: 'auto',             // enable horizontal scrolling
                 display: 'flex',
-                width: 380,                    // fixed width
-                maxWidth: '100%',              // prevents overflow on mobile
+                width: '100%',                 // full width
                 margin: '0 auto',
-                padding: '4px',                // padding for inset effect and gap between buttons (matching image)
-                gap: '4px',                    // gap between buttons (matching image)
+                padding: '4px',
+                gap: '4px',
+                scrollbarWidth: 'none',        // hide scrollbar for Firefox
+                '&::-webkit-scrollbar': {
+                  display: 'none',             // hide scrollbar for Chrome/Safari
+                },
+                '@media (min-width: 640px)': {
+                  maxWidth: '380px',           // constrain width on larger screens
+                },
               },
 
 
               control: ({ checked }: { checked: boolean }) => ({
-                flex: 1,
-                padding: '10px 24px',
+                flex: '0 0 auto',              // don't shrink, allow scroll
+                minWidth: '110px',             // minimum width for readability
+                padding: '10px 16px',
                 border: 'none !important',
                 borderLeft: 'none !important',
                 borderRight: 'none !important',
@@ -221,7 +229,7 @@ const WeMakeItEasy = () => {
                 borderBottom: 'none !important',
                 outline: 'none',
                 cursor: 'pointer',
-                fontSize: '0.9rem',
+                fontSize: '0.75rem',
                 fontWeight: 500,
                 transition: 'all 0.2s ease',
                 minHeight: '40px',
@@ -229,6 +237,14 @@ const WeMakeItEasy = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 boxShadow: 'none',
+                whiteSpace: 'nowrap',
+
+                '@media (min-width: 640px)': {
+                  flex: 1,                     // allow equal flex on larger screens
+                  minWidth: 'auto',
+                  padding: '10px 24px',
+                  fontSize: '0.9rem',
+                },
 
                 // Active button (checked): Dark gray background with white text
                 backgroundColor: checked ? '#323131' : 'transparent', // Transparent for inactive

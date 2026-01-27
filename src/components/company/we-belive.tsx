@@ -35,21 +35,18 @@ const WeBelive = () => {
               { img: '/assets/images/company-webelive2.png', text: 'Innovative Growth' },
               { img: '/assets/images/company-webelive3.png', text: 'Shared World' },
             ].map((item, idx) => (
-              <div key={idx} className="flex flex-col items-center w-[200px]">
-                <img
-                  src={item.img}
-                  alt={item.text}
-                  className="
-                    mb-6
-                    w-20 h-20
-                    md:w-24 md:h-24
-                    lg:w-32 lg:h-32
-                    xl:w-36 xl:h-36
-                    2xl:w-40 2xl:h-40
-                    object-contain
-                  "
-                />
-                <h3 className="font-bold text-center">{item.text}</h3>
+              <div key={idx} className="flex flex-col items-center w-[120px] sm:w-[200px]">
+                <div
+                  className="mb-6 flex items-center justify-center w-20 h-20 md:w-24 md:h-24 lg:w-32 lg:h-32 xl:w-36 xl:h-36 2xl:w-40 2xl:h-40"
+                >
+                  <img
+                    src={item.img}
+                    alt={item.text}
+                    className="max-w-full max-h-full object-contain"
+                  />
+                </div>
+
+                <h3 className="font-bold text-center text-xs sm:text-base">{item.text}</h3>
               </div>
             ))}
           </div>
@@ -64,7 +61,7 @@ const WeBelive = () => {
             Dedicated to building real estate experience that works better for everyone
           </p>
 
-          <div className="flex flex-nowrap overflow-x-auto md:overflow-x-visible gap-8 md:gap-12 lg:gap-16 xl:gap-20 px-4 sm:px-6 lg:px-0 pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          <div className="flex flex-row flex-nowrap overflow-x-auto gap-4 sm:gap-6 md:gap-8 lg:gap-12 xl:gap-16 px-4 sm:px-6 lg:px-0 pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] justify-start">
             {[
               '/assets/images/company-power1.png',
               '/assets/images/company-power2.png',
@@ -72,41 +69,22 @@ const WeBelive = () => {
             ].map((img, idx) => (
               <div
                 key={idx}
-                className="
-    relative
-    rounded-2xl
-    overflow-hidden
-    flex-shrink-0
-    max-w-[280px]
-    sm:max-w-[300px]
-    md:max-w-[260px]
-    lg:max-w-[300px]
-    xl:max-w-[340px]
-    shadow-lg
-  "
+                className="relative flex-shrink-0 w-[280px] sm:w-[300px] md:w-[260px] lg:w-[300px] xl:w-[340px] h-[320px] sm:h-[350px] md:h-[280px] lg:h-[350px] xl:h-[400px] shadow-lg rounded-2xl overflow-hidden"
               >
                 <img
                   src={img}
                   alt="Proper Name"
-                  className="w-full h-full object-cover"
+                  className="absolute inset-0 w-full h-full object-cover rounded-2xl"
                 />
 
                 {/* GRADIENT OVERLAY – perfectly clipped */}
-                <div
-                  className="
-      absolute inset-0
-      bg-gradient-to-t from-black/80 via-black/30 to-transparent
-      flex items-end justify-center
-      text-white p-4 text-center
-    "
-                >
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex items-end justify-center text-white p-4 text-center rounded-2xl">
                   <div>
-                    <p className="font-bold">Proper Name</p>
+                    <p className="font-bold text-sm sm:text-base">Proper Name</p>
                     <p className="text-xs">Official Title</p>
                   </div>
                 </div>
               </div>
-
             ))}
           </div>
         </div>
@@ -118,7 +96,7 @@ const WeBelive = () => {
           <h2 className="text-4xl font-semibold mb-4">
             Talk to a Snaphomz <span className="font-light">Agent</span>
           </h2>
-          <p className="text-sm">
+          <p className="text-sm text-[#8E8B8A]">
             Take the first step by chatting with an expert local agent—there’s no pressure or obligation.
           </p>
         </div>

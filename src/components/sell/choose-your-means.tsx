@@ -71,9 +71,6 @@
 // export default ChooseYourMeans;
 
 
-import { SellChooseYourMeansCardData } from '@/data/card';
-import SellMeansCard from './sell-means-card';
-
 const ChooseYourMeans = () => {
   return (
     <section className="bg-[#FAF0E6] pt-32 px-4 sm:px-16 mb-20 text-center">

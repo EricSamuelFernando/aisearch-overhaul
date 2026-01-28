@@ -988,58 +988,57 @@ export const HeroSearchForm = ({
   };
 
   return (
-    <div className="relative flex gap-2 w-full">
+    <div className="relative flex gap-2 w-full overflow-visible">
       <form
-  onSubmit={handleNavigate}
-  className="
-    relative flex w-full items-center gap-2
-    rounded-xl bg-white p-2
-    overflow-visible
-  "
->
-  {/* Star + Input */}
-  <div className="relative flex min-w-0 flex-1 items-center gap-2 overflow-visible">
-    {searchTerm === '' && (
-      <StarIcon />
-    )}
+        onSubmit={handleNavigate}
+        className="
+          relative flex w-full items-center gap-2
+          rounded-xl bg-white p-2
+          overflow-visible
+        "
+      >
+        {/* Star + Input */}
+        <div className="relative flex min-w-0 flex-1 items-center gap-2 overflow-visible">
+          {searchTerm === '' && (
+            <StarIcon />
+          )}
 
-    <SpeechInput
-      value={searchTerm}
-      setValue={setSearchTerm}
-      searchType={searchType}
-      placeholderText={placeholderText}
-      className="w-full min-w-0"
-    />
-  </div>
+          <SpeechInput
+            value={searchTerm}
+            setValue={setSearchTerm}
+            searchType={searchType}
+            placeholderText={placeholderText}
+            className="w-full min-w-0 overflow-visible"
+          />
+        </div>
 
-  {/* Button */}
-  <Button
-    type="submit"
-    size="lg"
-    className="
-      shrink-0
-      rounded-xl
-      bg-[#F07639]
-      font-bold
-      hover:bg-orange-700
-      px-4
-      z-10
-    "
-  >
-    <div className="flex items-center gap-2">
-      {isSearching && (
-        <div
-          className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-e-transparent"
-          role="status"
-        />
-      )}
-      <span className="whitespace-nowrap">
-        Begin Journey
-      </span>
-    </div>
-  </Button>
-</form>
-
+        {/* Button */}
+        <Button
+          type="submit"
+          size="lg"
+          className="
+            shrink-0
+            rounded-xl
+            bg-[#F07639]
+            font-bold
+            hover:bg-orange-700
+            px-4
+            z-10
+          "
+        >
+          <div className="flex items-center gap-2">
+            {isSearching && (
+              <div
+                className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-e-transparent"
+                role="status"
+              />
+            )}
+            <span className="whitespace-nowrap">
+              Begin Journey
+            </span>
+          </div>
+        </Button>
+      </form>
     </div>
   );
 };

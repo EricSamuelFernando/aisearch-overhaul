@@ -26,25 +26,25 @@ import '@/utils/testCognitoConfig'; // Makes testCognitoConfig available in brow
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <StoreProvider>
-      <MantineProvider 
-      theme={{
-        colors: {
-          ocOrange: [
-            '#fff4e6', // lighter
-            '#ffe8cc',
-            '#ffd4a3',
-            '#ffbb75',
-            '#ff9f3d',
-            '#e8804c', // main ocOrange color
-            '#d16f3e', // darker shades
-            '#b44d00',
-            '#873900',
-            '#5c2700',
-          ],
-        },
-        primaryColor: 'ocOrange', // Use ocOrange as primary color for other components
-      }}
-         >
+      <MantineProvider
+        theme={{
+          colors: {
+            ocOrange: [
+              '#fff4e6', // lighter
+              '#ffe8cc',
+              '#ffd4a3',
+              '#ffbb75',
+              '#ff9f3d',
+              '#e8804c', // main ocOrange color
+              '#d16f3e', // darker shades
+              '#b44d00',
+              '#873900',
+              '#5c2700',
+            ],
+          },
+          primaryColor: 'ocOrange', // Use ocOrange as primary color for other components
+        }}
+      >
         <DisclosureProvider>
           <AppQueryProviders>
             <ModalProvider initialModals={initialModals}>
@@ -56,7 +56,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
               </SocketProvider>
               <WindowSizeProvider />
             </ModalProvider>
-            <Toaster position='top-right' duration={2000} richColors />
+            <Toaster position='top-right' duration={2000} richColors style={{ zIndex: 99999 }} />
           </AppQueryProviders>
         </DisclosureProvider>
       </MantineProvider>

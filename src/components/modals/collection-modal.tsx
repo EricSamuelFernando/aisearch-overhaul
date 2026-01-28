@@ -346,7 +346,8 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
   const [showInput, setShowInput] = useState(false);
   const [step, setStep] = useState(1);
   const [createdSnapId, setCreatedSnapId] = useState(null);
-  const [agentEmail, setAgentEmail] = useState('');
+  const [inviteType, setInviteType] = useState<'co-buyer' | 'agent'>('co-buyer');
+  const [partnerEmail, setPartnerEmail] = useState('');
   const propertyData = useSelector((state: any) => state.property.property);
   const {
     createNewSnap,
@@ -374,11 +375,12 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
     setShowInput(true);
   };
 
-  const inviteAgent = () => {
+  const handleInvite = () => {
     const data = {
       snapId: createdSnapId,
-      email: agentEmail,
-      status: "pending"
+      email: partnerEmail,
+      status: "pending",
+      accountType: inviteType === 'agent' ? 'agent' : 'buyer'
     };
     createParticipents.mutateAsync(data, {
       onSuccess: (response: any) => {
@@ -386,13 +388,18 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
           setStep(1);
           // handleCreateFavourite(createdSnapId || "");
           handleToggleFavourite(createdSnapId || "");
-          setAgentEmail('');
-          success({ message: "Great! Your invite is on its way" });
+          setPartnerEmail('');
+          success({ message: `Great! Your ${inviteType === 'agent' ? 'agent' : 'co-buyer'} invite is on its way` });
           onClose();
+        } else {
+          error({ message: response?.data?.createSnapsParticipant?.message || "Failed to send invite" });
         }
+      },
+      onError: (err: any) => {
+        console.error("Invite error:", err);
+        error({ message: "An error occurred while sending invite." });
       }
     });
-    setAgentEmail('');
   };
 
 
@@ -620,22 +627,43 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
                 className="flex flex-col gap-4 mb-6"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  inviteAgent();
+                  handleInvite();
                 }}
               >
-                <input
-                  type="email"
-                  value={agentEmail}
-                  onChange={(e) => setAgentEmail(e.target.value)}
-                  placeholder="Enter agent email"
-                  className="border px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Invite Type
+                    </label>
+                    <select
+                      value={inviteType}
+                      onChange={(e) => setInviteType(e.target.value as 'agent' | 'co-buyer')}
+                      className="w-full rounded-lg border border-gray-300 p-3 focus:border-orange-500 focus:ring-orange-500 bg-white"
+                    >
+                      <option value="co-buyer">Invite Co-buyer</option>
+                      <option value="agent">Invite Agent</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {inviteType === 'co-buyer' ? 'Co-buyer Email' : 'Agent Email'}
+                    </label>
+                    <input
+                      type="email"
+                      value={partnerEmail}
+                      onChange={(e) => setPartnerEmail(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 p-3 focus:border-orange-500 focus:ring-orange-500"
+                      placeholder="example@email.com"
+                    />
+                  </div>
+                </div>
                 <button
                   type="submit"
-                  disabled={!agentEmail.trim()}
-                  className="bg-orange-400 hover:bg-orange-500 text-white font-semibold px-4 py-2 rounded-md transition"
+                  disabled={!partnerEmail.trim()}
+                  className="bg-orange-400 hover:bg-orange-500 text-white font-semibold px-4 py-2 rounded-md transition mt-2"
                 >
-                  Invite Agent
+                  Send Invite
                 </button>
               </form>
             )}
@@ -686,7 +714,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
           </div>
           <div className="text-left">
             <h3 className="font-semibold">Create a collaborative snapz</h3>
-            <p className="text-sm text-gray-500">Invite agents to a saved snapz for collaboration</p>
+            <p className="text-sm text-gray-500">Invite users to a saved snapz for collaboration</p>
           </div>
           <div className="ml-auto">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-gray-400">

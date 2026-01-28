@@ -86,11 +86,11 @@ export default function FindPerfectMortgage() {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={chartData}
-                margin={{ 
-                  top: 20, 
-                  right: 15, 
-                  left: 40, 
-                  bottom: 20 
+                margin={{
+                  top: 20,
+                  right: 15,
+                  left: 40,
+                  bottom: 20
                 }}
               >
                 {/* Horizontal dotted grid lines */}
@@ -106,9 +106,9 @@ export default function FindPerfectMortgage() {
                 <YAxis
                   domain={[5.5, 8.0]}
                   ticks={[5.5, 6.0, 6.5, 7.0, 7.5, 8.0]}
-                  tick={{ 
-                    fill: "#2C1F18", 
-                    fontSize: 11, 
+                  tick={{
+                    fill: "#2C1F18",
+                    fontSize: 11,
                     fontWeight: 600,
                     textAnchor: "end"
                   }}
@@ -134,9 +134,14 @@ export default function FindPerfectMortgage() {
           </div>
 
           {/* CTA */}
-          <button className="w-full bg-black text-white py-4 rounded-full text-sm font-semibold hover:opacity-90 transition">
+          <a
+            href="https://snapinterest.snaphomz.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full bg-black text-white py-4 rounded-full text-sm font-semibold hover:opacity-90 transition block text-center"
+          >
             Calculate Rate
-          </button>
+          </a>
         </div>
 
         {/* RIGHT IMAGE */}

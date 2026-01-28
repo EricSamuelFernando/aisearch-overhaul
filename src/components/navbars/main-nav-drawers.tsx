@@ -48,7 +48,7 @@ const MobileSideDrawer: React.FC<MobileSideDrawerProps> = ({
                 rel={item.external ? 'noreferrer' : ''}
                 className='flex items-center gap-x-2 font-medium uppercase'
                 activeClass='border-black borde-b-[1px]'
-                handleMouseEnter={() => {}}
+                handleMouseEnter={() => { }}
                 handleMouseLeave={handleMouseLeave}
               >
                 {item.title}

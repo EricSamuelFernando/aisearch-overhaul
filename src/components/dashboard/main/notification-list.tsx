@@ -1,6 +1,5 @@
 'use client';
 
-import { useNotificationApi } from '@/hooks/api/user/useNotification';
 import { EmptySkeleton } from '@/components/empty-skeleton';
 import Heading from '@/components/heading';
 import Link from 'next/link';
@@ -9,51 +8,53 @@ import { SocketContext } from '@/providers/socket.context';
 import { useContext, useEffect, useState } from 'react';
 
 export function NotificationList() {
+  const { socket } = useContext(SocketContext);
 
- 
-  const { socket, state, setState } = useContext(SocketContext) 
-  const [notifications , setNotifications] = useState([{
-    id:"",
-    message:""
-  }])
+  const [notifications, setNotifications] = useState([
+    {
+      id: '',
+      message: '',
+    },
+  ]);
 
   useEffect(() => {
-
     socket?.on('new_offer_received', (data) => {
-      console.log('New offer received:', data);
-      
-      // Update the state with the new offer
       setNotifications((prevNoti) => [...prevNoti, data]);
     });
 
+    return () => {
+      socket?.off('new_offer_received');
+    };
   }, [socket]);
 
   return (
-    <div className='w-full'>
-      <div className='my-4 flex w-full items-center text-base font-bold'>
-        <Heading title='Notification' className='text-xl font-bold' />
-        <span className='ml-4 inline-block h-6 w-6 rounded-full bg-ocOrange text-center text-white'>
+    <div className="w-full min-w-0">
+      {/* Header */}
+      <div className="my-4 flex w-full items-center gap-3">
+        <Heading title="Notification" className="text-xl font-bold" />
+
+        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-ocOrange text-white">
           {notifications.length}
         </span>
       </div>
-      <div>
+
+      {/* Content */}
+      <div className="w-full min-w-0">
         {notifications.length > 0 ? (
-          <section>
-            <NotificationCard
-              key={''}
-              body={''}
-            />
-            <div className='my-2 text-right'>
+          <section className="w-full min-w-0">
+            <NotificationCard key={''} body={''} />
+
+            <div className="my-2 text-right">
               <Link
-                href='/dashboard/notifications'
-                className='text-[1.125rem]'
+                href="/dashboard/notifications"
+                className="text-[1.125rem]"
               >
                 View all
               </Link>
             </div>
           </section>
         ) : (
-          <EmptySkeleton className='w-full' />
+          <EmptySkeleton className="w-full" />
         )}
       </div>
     </div>

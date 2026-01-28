@@ -25,7 +25,7 @@ const Modal: React.FC<IModalProps> = ({
     <div
       onClick={handleBackdropClick}
       className={cn(
-        'fixed inset-0 z-[999] grid min-h-screen h-screen w-screen place-items-center bg-black bg-opacity-60 backdrop-blur-sm transition-opacity duration-300',
+        'fixed inset-0 z-[999] grid min-h-screen h-screen w-screen place-items-center bg-black/40 backdrop-blur-sm transition-opacity duration-300',
         {
           'opacity-100 pointer-events-auto': isOpen,
           'opacity-0 pointer-events-none': !isOpen

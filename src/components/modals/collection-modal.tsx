@@ -313,7 +313,7 @@
 // export default CollectionModal;
 
 import React, { useEffect, useState } from 'react';
-import { Heart, PlusIcon, Users } from 'lucide-react';
+import { Heart, PlusIcon, Users, X } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';
 import { useSelector } from 'react-redux';
@@ -546,6 +546,17 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
       contentClassName="p-0 w-[480px] rounded-2xl"
     >
       <div className="flex flex-col p-6">
+        {/* Close Button */}
+        <div className="flex justify-end mb-2">
+          <button
+            onClick={onClose}
+            className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+            aria-label="Close modal"
+          >
+            <X className="h-5 w-5 text-gray-500" />
+          </button>
+        </div>
+
         {/* Header */}
         <div className="flex items-center gap-3">
           {propertyImage && (

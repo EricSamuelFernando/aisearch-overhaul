@@ -30,48 +30,68 @@ API.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 });
 
+const refreshTokenLogic = async (originalRequest: any) => {
+  if (isRefreshing) {
+    return new Promise((resolve, reject) => {
+      failedQueue.push({ resolve, reject });
+    }).then((token) => {
+      originalRequest.headers['Authorization'] = 'Bearer ' + token;
+      return API(originalRequest);
+    });
+  }
+
+  isRefreshing = true;
+  originalRequest._retry = true;
+
+  try {
+    const refreshToken = localStorage.getItem('userRefreshToken');
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050';
+    const { data } = await axios.post(
+      `${apiUrl}/auth/refresh-token`,
+      { refreshToken },
+      {
+        withCredentials: true,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+
+    const newAccessToken = data.accessToken;
+    const newRefreshToken = data.refreshToken;
+
+    localStorage.setItem('userAccessToken', newAccessToken);
+    if (newRefreshToken) {
+      localStorage.setItem('userRefreshToken', newRefreshToken);
+    }
+
+    API.defaults.headers.common['Authorization'] = 'Bearer ' + newAccessToken;
+    originalRequest.headers['Authorization'] = 'Bearer ' + newAccessToken;
+
+    processQueue(null, newAccessToken);
+    return API(originalRequest);
+  } catch (err) {
+    processQueue(err, null);
+    return Promise.reject(err);
+  } finally {
+    isRefreshing = false;
+  }
+};
+
 API.interceptors.response.use(
-  (res) => res,
+  async (res) => {
+    // Check for GraphQL Unauthorized error in 200 OK response
+    if (res.data?.errors?.some((err: any) => err.message === 'Unauthorized')) {
+      const originalRequest = res.config as any;
+      if (!originalRequest._retry) {
+        return refreshTokenLogic(originalRequest);
+      }
+    }
+    return res;
+  },
   async (error: AxiosError) => {
     const originalRequest = error.config as any;
 
     if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        }).then((token) => {
-          originalRequest.headers['Authorization'] = 'Bearer ' + token;
-          return API(originalRequest);
-        });
-      }
-
-      isRefreshing = true;
-
-      try {
-        const { data } = await axios.post(
-          `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh-token`,
-          {},
-          {
-            withCredentials: true,
-            headers: { 'Content-Type': 'application/json' },
-          }
-        );
-
-        const newAccessToken = data.accessToken;
-        localStorage.setItem('userAccessToken', newAccessToken);
-        API.defaults.headers.common['Authorization'] = 'Bearer ' + newAccessToken;
-        originalRequest.headers['Authorization'] = 'Bearer ' + newAccessToken;
-
-        processQueue(null, newAccessToken);
-        return API(originalRequest);
-      } catch (err) {
-        processQueue(err, null);
-        return Promise.reject(err);
-      } finally {
-        isRefreshing = false;
-      }
+      return refreshTokenLogic(originalRequest);
     }
 
     return Promise.reject(error);

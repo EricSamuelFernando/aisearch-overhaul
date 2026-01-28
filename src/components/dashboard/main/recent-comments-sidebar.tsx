@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useContext } from 'react';
-import axios from 'axios';
+import API from '@/lib/api/axios';
 import { format } from 'date-fns';
-import { Loader2, MessageCircle } from 'lucide-react';
+import { Loader2, MessageCircle, RefreshCw } from 'lucide-react';
 import RecentCommentsModal from '@/components/modals/recent-comments-modal';
 import { SocketContext } from '@/providers/socket.context';
 import { getAuthToken } from '@/lib/storage';
@@ -24,9 +24,8 @@ const RecentCommentsSidebar = ({ properties = [], refreshTrigger = 0 }: { proper
     const fetchRecentComments = async () => {
         setLoading(true);
         try {
-            const token = getAuthToken() || localStorage.getItem('__WEB_APP_Ocreal345####btny_ocreal');
             const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || 'http://localhost:4000/auth/graphql';
-            
+
             const query = `
                 query RecentComments($limit: Int) {
                     recentComments(limit: $limit) {
@@ -41,7 +40,7 @@ const RecentCommentsSidebar = ({ properties = [], refreshTrigger = 0 }: { proper
                 }
             `;
 
-            const response = await axios.post(
+            const response = await API.post(
                 GRAPHQL_URI,
                 {
                     query,
@@ -50,7 +49,6 @@ const RecentCommentsSidebar = ({ properties = [], refreshTrigger = 0 }: { proper
                 {
                     headers: {
                         'Content-Type': 'application/json',
-                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
                     },
                 }
             );
@@ -97,7 +95,16 @@ const RecentCommentsSidebar = ({ properties = [], refreshTrigger = 0 }: { proper
         <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-5">
             <div className="flex justify-between items-center mb-4">
                 <h3 className="font-bold text-lg text-gray-800">Recent Activity</h3>
-                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">{comments.length} new</span>
+                <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">{comments.length} new</span>
+                    <button
+                        onClick={() => fetchRecentComments()}
+                        className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                        title="Refresh comments"
+                    >
+                        <RefreshCw className={`w-3 h-3 text-gray-400 ${loading ? 'animate-spin' : ''}`} />
+                    </button>
+                </div>
             </div>
 
             <div className="space-y-4 max-h-[55vh] overflow-y-auto pr-1 custom-scrollbar">

@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext } from 'react';
-import axios from 'axios';
+import API from '@/lib/api/axios';
 import { SocketContext } from '@/providers/socket.context';
 import { getAuthToken } from '@/lib/storage';
 
@@ -28,8 +28,6 @@ export const useComments = (propertyId: string, snapId?: string) => {
         if (!propertyId) return;
         setLoading(true);
         try {
-            const token = getAuthToken() || (typeof window !== 'undefined' ? localStorage.getItem('__WEB_APP_Ocreal345####btny_ocreal') : null);
-            
             const query = `
                 query CommentsByProperty($propertyId: String!, $snapId: String) {
                     commentsByProperty(propertyId: $propertyId, snapId: $snapId) {
@@ -44,7 +42,7 @@ export const useComments = (propertyId: string, snapId?: string) => {
                 }
             `;
 
-            const response = await axios.post(
+            const response = await API.post(
                 GRAPHQL_URI,
                 {
                     query,
@@ -56,7 +54,6 @@ export const useComments = (propertyId: string, snapId?: string) => {
                 {
                     headers: {
                         'Content-Type': 'application/json',
-                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
                     },
                 }
             );
@@ -81,7 +78,7 @@ export const useComments = (propertyId: string, snapId?: string) => {
 
         try {
             const token = getAuthToken() || (typeof window !== 'undefined' ? localStorage.getItem('__WEB_APP_Ocreal345####btny_ocreal') : null);
-            
+
             const mutation = `
                 mutation CreateComment($createCommentInput: CreateCommentDto!) {
                     createComment(createCommentInput: $createCommentInput) {
@@ -96,7 +93,7 @@ export const useComments = (propertyId: string, snapId?: string) => {
                 }
             `;
 
-            const response = await axios.post(
+            const response = await API.post(
                 GRAPHQL_URI,
                 {
                     query: mutation,
@@ -113,7 +110,6 @@ export const useComments = (propertyId: string, snapId?: string) => {
                 {
                     headers: {
                         'Content-Type': 'application/json',
-                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
                     },
                 }
             );

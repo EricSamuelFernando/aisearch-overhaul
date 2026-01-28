@@ -95,6 +95,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
               profile,
               accountType,
               access_token,
+              refresh_token,
               status,
               messageUnreadCount,
               conversationUnreadCount
@@ -139,6 +140,9 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       // Save user details and access token in localStorage
       localStorage.setItem('userEmail', email);
       localStorage.setItem('userAccessToken', access_token); // Store access token in localStorage
+      if (data?.data?.userLogin?.refresh_token) {
+        localStorage.setItem('userRefreshToken', data.data.userLogin.refresh_token);
+      }
       localStorage.setItem('userDetails', JSON.stringify(user)); // Optionally store entire user details
 
       if (conversationUnreadCount) {
@@ -309,7 +313,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
         success({ message: 'Registration completed successfully' });
       }
     },
-    onError: (err:any) => {
+    onError: (err: any) => {
       error({ message: err?.message || err?.response?.data?.errors?.[0]?.message || 'An error occurred' });
     },
   });

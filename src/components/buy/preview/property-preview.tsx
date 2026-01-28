@@ -143,6 +143,8 @@ const PropertyPreview: React.FC = () => {
   const [isProcessingInvitation, setIsProcessingInvitation] = React.useState(false);
   const [inviteAgentEmail, setInviteAgentEmail] = React.useState('');
   const [inviteEmailError, setInviteEmailError] = React.useState('');
+  const [isAskAIModalOpen, setIsAskAIModalOpen] = React.useState(false);
+  const [askAIQuestion, setAskAIQuestion] = React.useState('');
   const { externalAgentIvitationMutation } = useUserAuthApi();
 
   React.useEffect(() => {
@@ -351,6 +353,20 @@ const PropertyPreview: React.FC = () => {
     } else {
       setInviteEmailError('');
     }
+  };
+
+  const handleAskAI = () => {
+    if (!askAIQuestion.trim()) return;
+    
+    // Here you can add the logic to send the question to your AI service
+    console.log('Ask AI Question:', askAIQuestion);
+    
+    // For now, just close the modal and clear the question
+    setIsAskAIModalOpen(false);
+    setAskAIQuestion('');
+    
+    // You can add success message or handle AI response here
+    // success({ message: "Your question has been sent to AI assistant!" });
   };
 
   const sendInviteByEmail = () => {
@@ -1155,7 +1171,7 @@ const PropertyPreview: React.FC = () => {
               })()}
             </div>
 
-            <div className="w-[380px] rounded-2xl bg-white shadow-lg border border-[#EDEDED] p-6 mt-5">
+            <div className="w-[380px] rounded-2xl bg-white shadow-lg border border-[#EDEDED] p-6 mt-5 hidden md:block">
               {/* Header */}
               <div className="flex items-center gap-2 mb-2">
                 <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1262,6 +1278,93 @@ const PropertyPreview: React.FC = () => {
       ) : (
         <div className='h-full w-full'>{notFound()}</div>
       )}
+
+      {/* Floating Ask AI Button - Mobile Only */}
+      <div className="fixed bottom-6 right-6 z-50 md:hidden">
+        <button
+          onClick={() => setIsAskAIModalOpen(true)}
+          className="w-14 h-14 bg-black rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow duration-300"
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="text-white"
+          >
+            <path
+              d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H5C3.89 1 3 1.89 3 3V21C3 22.11 3.89 23 5 23H19C20.11 23 21 22.11 21 21V9M19 9H14V4H19V9Z"
+              fill="currentColor"
+            />
+          </svg>
+        </button>
+      </div>
+
+      {/* Ask AI Modal */}
+      <Dialog open={isAskAIModalOpen} onOpenChange={setIsAskAIModalOpen}>
+        <DialogContent className="sm:max-w-md w-[95vw] max-h-[80vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
+            <DialogTitle className="text-xl font-semibold flex items-center gap-2">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H5C3.89 1 3 1.89 3 3V21C3 22.11 3.89 23 5 23H19C20.11 23 21 22.11 21 21V9M19 9H14V4H19V9Z"
+                  fill="currentColor"
+                />
+              </svg>
+              Ask AI
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-600">
+              Your AI real estate assistant. We'll answer quickly much any question about this home.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
+            <div className="space-y-4">
+              {/* Predefined Questions */}
+              <div className="space-y-2">
+                <button className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+                  <span className="text-sm">What should I look out for?</span>
+                </button>
+                <button className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+                  <span className="text-sm">Will I like my neighbors?</span>
+                </button>
+                <button className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+                  <span className="text-sm">Can I raise a family here?</span>
+                </button>
+              </div>
+              
+              {/* Custom Question Input */}
+              <div className="mt-6">
+                <textarea
+                  placeholder="Ask me anything about this home..."
+                  className="w-full p-3 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows={3}
+                  value={askAIQuestion}
+                  onChange={(e) => setAskAIQuestion(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex-shrink-0 px-6 pb-6">
+            <button
+              onClick={handleAskAI}
+              disabled={!askAIQuestion.trim()}
+              className="w-full bg-black text-white py-3 rounded-lg font-medium disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-gray-800 transition-colors"
+            >
+              Send
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 };

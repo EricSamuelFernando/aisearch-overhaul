@@ -295,12 +295,12 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
     if (selectedThread === thread?.id) {
       return null;
     }
-    
+
     // Leave previous room if exists
     if (selectedThread && socket && socket.leaveRoom) {
       socket.leaveRoom(selectedThread);
     }
-    
+
     setIsDetails(false);
     setSelectedThread(thread?.id);
     // setSelectedThread("")
@@ -323,11 +323,11 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
         propertyName: thread.propertyName,
       },
     }));
-    
+
     // Join the room for this thread
     if (socket && thread?.id && userData?.id) {
       console.log('[conversation] Joining room for thread:', thread.id);
-      
+
       // First, try to create or join conversation
       socket.createOrJoinRoom({
         threadId: thread.id,
@@ -342,7 +342,7 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
         propertyName: thread.propertyName,
         propertyAddress: thread.propertyAddress,
       });
-      
+
       // Also join the room directly (joinRoom expects roomId as string)
       if (socket.joinRoom && userData?.id) {
         socket.joinRoom(thread.id);
@@ -355,7 +355,7 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
       console.log('[conversation] Leaving room for thread:', selectedThread);
       socket.leaveRoom(selectedThread);
     }
-    
+
     setShowThreads(true);
     setShowChat(false);
     setSelectedChannel(null);
@@ -577,7 +577,7 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
             content: base64Content,
             sender: userData,
           };
-          
+
           // Listen for save_file_response event
           const handleFileResponse = (response: any) => {
             if (response?.success) {
@@ -625,14 +625,14 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
               userId: userData.id,
               messageLength: message.length
             });
-            
+
             socket.sendMessage({
               threadId: selectedThread,
               message: message,
               userId: userData.id,
               messageType: 'text'
             });
-            
+
             // Handle response
             const handleSendMessageResponse = (response: any) => {
               console.log('[conversation] sendMessage_response:', response);
@@ -644,9 +644,9 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
               }
               socket?.off('sendMessage_response', handleSendMessageResponse);
             };
-            
+
             socket.on('sendMessage_response', handleSendMessageResponse);
-            
+
             // Add message to local state for immediate UI update (will be updated via newMessage event)
             setAllMessages((prev) => [{ ...newMessage, message }, ...prev]);
             setMessage('');
@@ -775,12 +775,12 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
           setAllMessages((prevMessages) => [newMessage, ...prevMessages]);
         }
       });
-      
+
       // Handle newMessage event from websocket backend (Lambda/API Gateway)
       const handleNewMessage = (messageData: any) => {
         console.log('[conversation] Received newMessage:', messageData);
         const threadId = messageData.threadId || messageData.thread_id;
-        
+
         // Only add message if it's for the current thread
         if (threadId === selectedThread) {
           setShowNewMessageTag(true);
@@ -791,22 +791,22 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
           }, ...prevMessages]);
         }
       };
-      
+
       socket.on('newMessage', handleNewMessage);
-      
+
       socket.on('typingStatus', (typing: boolean) => {
         setIsTyping(typing);
       });
-      
+
       // Handle websocket response events
       socket.on('createOrJoinConversation_response', (response: any) => {
         console.log('[conversation] createOrJoinConversation_response:', response);
       });
-      
+
       socket.on('joinRoom_response', (response: any) => {
         console.log('[conversation] joinRoom_response:', response);
       });
-      
+
       const interval = setInterval(saveAllMessages, 5000);
       return () => {
         socket.off('recievedMessage');
@@ -1245,11 +1245,10 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
                     setIsRead(false);
                     setActiveButton('all');
                   }}
-                  className={`h-8 w-full rounded-full px-2 py-1 text-xs text-gray-600 sm:h-10 sm:px-4 sm:py-2 sm:text-sm ${
-                    activeButton === 'all'
+                  className={`h-8 w-full rounded-full px-2 py-1 text-xs text-gray-600 sm:h-10 sm:px-4 sm:py-2 sm:text-sm ${activeButton === 'all'
                       ? 'bg-white text-gray-800 shadow'
                       : ''
-                  }`}
+                    }`}
                 >
                   All
                 </Button>
@@ -1260,11 +1259,10 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
                     setIsRead(true);
                     setActiveButton('unread');
                   }}
-                  className={`h-8 w-full rounded-full px-2 py-1 text-xs text-gray-600 sm:h-10 sm:px-4 sm:py-2 sm:text-sm ${
-                    activeButton === 'unread'
+                  className={`h-8 w-full rounded-full px-2 py-1 text-xs text-gray-600 sm:h-10 sm:px-4 sm:py-2 sm:text-sm ${activeButton === 'unread'
                       ? 'bg-white text-gray-800 shadow'
                       : ''
-                  }`}
+                    }`}
                 >
                   Unread
                 </Button>
@@ -1543,9 +1541,8 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
 
                                       {/* Message Bubble */}
                                       <div
-                                        className={`mt-2 flex items-start gap-2 sm:mt-4 sm:gap-3 ${
-                                          isSender ? 'justify-end' : ''
-                                        }`}
+                                        className={`mt-2 flex items-start gap-2 sm:mt-4 sm:gap-3 ${isSender ? 'justify-end' : ''
+                                          }`}
                                         ref={
                                           isLastMessage ? messagesEndRef : null
                                         }
@@ -1557,15 +1554,15 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
                                               userData?.firstName || '',
                                             )} */}
                                             {message.senderId ===
-                                            currentThread?.buyerAgent?.id
+                                              currentThread?.buyerAgent?.id
                                               ? getInitials(
-                                                  currentThread?.buyerAgent
-                                                    ?.firstName || '',
-                                                )
+                                                currentThread?.buyerAgent
+                                                  ?.firstName || '',
+                                              )
                                               : getInitials(
-                                                  currentThread?.sellerAgent
-                                                    ?.firstName || '',
-                                                )}
+                                                currentThread?.sellerAgent
+                                                  ?.firstName || '',
+                                              )}
                                           </div>
                                         )}
 
@@ -1583,9 +1580,9 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
                                           {message.messageType === 'file' && (
                                             <div className='mt-1 flex items-center gap-2 rounded-lg sm:gap-3'>
                                               {message.fileType &&
-                                              imageMimeType.includes(
-                                                message.fileType,
-                                              ) ? (
+                                                imageMimeType.includes(
+                                                  message.fileType,
+                                                ) ? (
                                                 <div
                                                   className='group relative cursor-pointer'
                                                   onClick={() =>
@@ -1657,9 +1654,9 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
                                             <span className='text-[10px] text-gray-400 sm:text-xs'>
                                               {message.createdAt
                                                 ? format(
-                                                    new Date(message.createdAt),
-                                                    'HH:mm',
-                                                  )
+                                                  new Date(message.createdAt),
+                                                  'HH:mm',
+                                                )
                                                 : format(new Date(), 'HH:mm')}
                                             </span>
                                             {isSender && (
@@ -1697,7 +1694,7 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
                                 <div className='rounded-lg bg-gray-100 p-3 pr-10'>
                                   <div className='flex items-start'>
                                     {selectedFile.type &&
-                                    imageTypes.includes(selectedFile.type) ? (
+                                      imageTypes.includes(selectedFile.type) ? (
                                       <div className='mr-3'>
                                         <div className='relative h-16 w-16 overflow-hidden rounded-md bg-[#FAF9F5] sm:h-20 sm:w-20'>
                                           <img
@@ -1985,7 +1982,7 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
                             {propertyData?.publicRemarks
                               ? propertyData?.publicRemarks.length > 100
                                 ? propertyData?.publicRemarks.slice(0, 100) +
-                                  '...'
+                                '...'
                                 : propertyData?.publicRemarks
                               : ''}
                             {propertyData?.publicRemarks &&
@@ -2189,9 +2186,9 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
 
               {/* Image preview */}
               {mediaPreview.type &&
-              imageMimeType.includes(mediaPreview.type) &&
-              !mediaPreview.loading &&
-              !mediaPreview.error ? (
+                imageMimeType.includes(mediaPreview.type) &&
+                !mediaPreview.loading &&
+                !mediaPreview.error ? (
                 <div
                   className='relative flex h-full w-full items-center justify-center'
                   style={{

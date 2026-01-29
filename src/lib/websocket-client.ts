@@ -59,7 +59,7 @@ export class WebSocketClientImpl implements WebSocketClient {
   private messageQueue: MessagePacket[] = [];
   public id: string | null = null;
   public connected = false;
-  private isLambda: boolean = false; // Detect if using Lambda/API Gateway
+  private isLambda: boolean = true; // Detect if using Lambda/API Gateway
 
   constructor(url: string) {
     // Convert http:// to ws:// and https:// to wss://
@@ -276,19 +276,17 @@ export class WebSocketClientImpl implements WebSocketClient {
     // Lambda/API Gateway expects: { action: string, data: any }
     // Local NestJS expects: { event: string, data: any }
     // IMPORTANT: If using AWS API Gateway WebSocket, ALWAYS use Lambda format
-    const packet = this.isLambda
-      ? { action: event, data: data || {} }
-      : { event, data: data || {} };
+    const packet = { action: event, data: data || {} }
 
     // Double-check action/event is not undefined
     if (this.isLambda && !packet.action) {
       console.error('[WebSocket] Packet action is undefined after creation:', { event, data, packet });
       return;
     }
-    if (!this.isLambda && !packet.event) {
-      console.error('[WebSocket] Packet event is undefined after creation:', { event, data, packet });
-      return;
-    }
+    // if (!this.isLambda && !packet.event) {
+    //   console.error('[WebSocket] Packet event is undefined after creation:', { event, data, packet });
+    //   return;
+    // }
 
     console.log('[WebSocket] Emitting:', {
       event,

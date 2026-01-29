@@ -240,34 +240,34 @@ function MainNav() {
     <>
       <header
         ref={headerRef}
-        className={`fixed inset-x-0 top-0 z-50 w-full bg-white transition-all duration-300 ${isScrolled ? "shadow-md py-2" : "py-4"}`}
+        className={`fixed inset-x-0 top-0 z-50 w-full bg-[#FAF9F5] transition-all duration-300 ${isScrolled ? "shadow-md py-3" : "py-4"}`}
       >
         {/* Main Navigation Row */}
-        <div className="flex w-full items-center justify-between px-4 md:px-8">
-          {/* Desktop Navigation - Left Side */}
-          <div className="hidden md:flex">
-            <NavigationList />
-          </div>
+        <div className="flex w-full items-center justify-between px-8 md:px-12">
+          {/* Logo + Navigation - Left Side */}
+          <div className="flex items-center gap-x-6">
+            {/* Logo */}
+            <Link href="/home" className="flex items-center">
+              <Image
+                src="/assets/images/logo-01.svg"
+                height={32}
+                width={140}
+                alt="Snaphomz logo"
+                className={`transition-all duration-300 ${isScrolled ? "h-[28px] w-[120px]" : "h-[32px] w-[140px]"}`}
+              />
+            </Link>
 
-          {/* Logo - Center */}
-          <Link
-            href="/home"
-            className="flex-1 flex justify-center md:absolute md:inset-y-0 md:left-1/2 md:transform md:-translate-x-1/2"
-          >
-            <Image
-              src="/assets/images/logo-01.svg"
-              height={59}
-              width={200}
-              alt="logo"
-              className={`transition-all duration-300 ${isScrolled ? "h-[40px] w-[130px] md:h-[50px] md:w-[170px]" : "h-[50px] w-[170px] md:h-[59px] md:w-[200px]"}`}
-            />
-          </Link>
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center">
+              <NavigationList />
+            </div>
+          </div>
 
           {/* Desktop Auth/User Section - Right Side */}
           <div className="hidden md:flex items-center gap-x-4">
             {isLoggedIn ? (
               <>
-                <Link href='/dashboard' className='text-black hover:text-primary'>
+                <Link href='/dashboard' className='text-gray-600 hover:text-black font-normal text-sm'>
                   Dashboard
                 </Link>
                 <AccountDropdown
@@ -283,20 +283,20 @@ function MainNav() {
                   label='Login'
                   initialStage={0}
                   variant={"ghost"}
-                  className='w-full font-bold hover:text-primary'
+                  className='font-normal text-gray-600 hover:text-black bg-transparent hover:bg-transparent text-sm px-0'
                 />
                 <LoginRegisterModal
                   label='Get started'
                   initialStage={1}
-                  variant={"ghost"}
-                  className='w-full text-black bg-transparent border border-black rounded-full hover:bg-black hover:text-white transition-all duration-300'
+                  variant={"default"}
+                  className='rounded-full px-5 py-2 font-normal bg-black text-white hover:bg-gray-800 transition-all duration-300 text-sm'
                 />
               </>
             )}
           </div>
 
           {/* Mobile Auth/Menu Section - Right Side */}
-          <div className="md:hidden flex items-center gap-x-2 ml-auto">
+          <div className="md:hidden flex items-center gap-x-2">
             {isLoggedIn ? (
               <Link href='/dashboard' className='text-black text-sm font-medium hover:text-primary'>
                 Dashboard

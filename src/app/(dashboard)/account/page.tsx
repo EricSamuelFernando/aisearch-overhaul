@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { formatSellerDate } from '@/lib/helpers';
 import PlaceholderImage from '@public/assets/images/placeholder.svg';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -66,6 +67,7 @@ interface Agent {
 }
 
 export default function AccountPage() {
+  const router = useRouter();
   const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
   const [isPdfViewerModalOpen, setIsPdfViewerModalOpen] = useState(false);
   const [agentSearch, setAgentSearch] = useState("");
@@ -468,9 +470,13 @@ export default function AccountPage() {
                     <UserPlus className="mr-2 h-4 w-4" />
                     <span>Invite to collaborate</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      router.push('/home'); // Or /buy/browse depending on detailed requirement, but user said "home"
+                    }}
+                  >
                     <PlusCircle className="mr-2 h-4 w-4" />
-                    <span>Add to this snapz</span>
+                    <span>Add to this Snapz</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => {

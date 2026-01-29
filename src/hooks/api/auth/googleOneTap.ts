@@ -13,7 +13,7 @@ import { setAuthToken } from '@/slices/auth/register.slices';
 const GRAPHQL_URI =
   process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || 'http://localhost:4000/graphql';
 
-const GoogleOneTap = () => {    
+const GoogleOneTap = () => {
   const router = useRouter();
   const { login } = useAuthActions();
 
@@ -80,3 +80,4 @@ const GoogleOneTap = () => {
 };
 
 export default GoogleOneTap;
+

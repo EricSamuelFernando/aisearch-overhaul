@@ -98,8 +98,16 @@ export default function AccountPage() {
   const { handleDownload } = useDocumentHandlers(undefined);
   const documents = userDocuments?.result;
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
   const [inviteUsers, setInviteUsers] = useState<InvitationInterface[]>([])
   const [commentRefreshTrigger, setCommentRefreshTrigger] = useState(0);
+
+  // Pagination State for Invitation Modal
+  const [invitePage, setInvitePage] = useState(1);
+  const [inviteTotal, setInviteTotal] = useState(0);
+  const ITEMS_PER_PAGE = 10;
+
+
 
   const handleDeleteCollection = () => {
     console.log('Collection deleted!');
@@ -110,25 +118,37 @@ export default function AccountPage() {
     // Add your API call here
   };
 
+  const fetchInvitationUsers = (page: number) => {
+    setLoading(true);
+    const offset = (page - 1) * ITEMS_PER_PAGE;
+
+    getAllAgents.mutateAsync({ limit: ITEMS_PER_PAGE, offset }, {
+      onSuccess: (response) => {
+        setLoading(false);
+        setInviteUsers(response?.users || []);
+        setInviteTotal(response?.total || 0);
+      },
+      onError: (error) => {
+        console.log("Error in mutation: ", error);
+        setLoading(false);
+      }
+    });
+  };
+
   const handleSendInvitation = () => {
     try {
-      setIsModalOpen("share")
-      getAllAgents.mutateAsync({ limit: 10, offset: 0 }, {
-        onSuccess: (response) => {
-          setLoading(false);
-          setInviteUsers(response)
-        },
-        onError: (error) => {
-          console.log("Error in mutation: ", error);
-          setLoading(false);
-        }
-
-      })
+      setIsModalOpen("share");
+      setInvitePage(1); // Reset to first page
+      fetchInvitationUsers(1);
     } catch (error) {
       console.log(error);
-
     }
   }
+
+  const handleInvitePageChange = (newPage: number) => {
+    setInvitePage(newPage);
+    fetchInvitationUsers(newPage);
+  };
   const handleOpenPdfViewer = (url: string) => {
     setPdfViewerUrl(url);
     setIsPdfViewerModalOpen(true);
@@ -146,9 +166,35 @@ export default function AccountPage() {
     });
   };
 
-  const handleSendSnapLink = (selectedIds: string[]) => {
-    console.log('Sending Snap Link to:', selectedIds);
-    success({ message: 'Snap link sent successfully!' });
+  const handleSendSnapLink = async (selectedUsers: any[]) => {
+    // console.log('Sending Snap Link to:', selectedUsers);
+    setLoading(true);
+    let successCount = 0;
+
+    for (const user of selectedUsers) {
+      try {
+        const payload = {
+          email: user.email,
+          snapId: selectedSnap?.id,
+          // If accountType is explicitly 'buyer' (case-insensitive), use it. Otherwise default to 'agent' (which covers external agents too)
+          accountType: user.accountType?.toLowerCase() === 'buyer' ? 'buyer' : 'agent',
+          status: 'pending' // As requested: status 'pending'
+        };
+
+        await createParticipents.mutateAsync(payload);
+        successCount++;
+      } catch (err) {
+        console.error(`Failed to invite ${user.email}`, err);
+      }
+    }
+
+    setLoading(false);
+    if (successCount > 0) {
+      success({ message: `Snap link sent successfully to ${successCount} users!` });
+      setIsModalOpen(""); // Close modal on success
+    } else {
+      // error({ message: "Failed to send invitations" });
+    }
   };
 
   const handleAgentSearch = async (e: any) => {
@@ -753,6 +799,10 @@ export default function AccountPage() {
         onClose={() => setIsModalOpen("")}
         users={inviteUsers}
         onSend={handleSendSnapLink}
+        currentPage={invitePage}
+        totalPages={Math.ceil(inviteTotal / ITEMS_PER_PAGE)}
+        onPageChange={handleInvitePageChange}
+        total={inviteTotal}
       />
       <DeleteCollectionConfirmationModal
         isOpen={isDeleteModalOpen}

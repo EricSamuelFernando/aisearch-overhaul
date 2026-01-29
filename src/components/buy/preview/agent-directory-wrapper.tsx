@@ -266,17 +266,17 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
       return {
         total: Number(payload?.total || 0),
         data: data.map((agent: any) => ({
-        ...agent,
-        Name: agent.full_name || '',
-        agentEmail: agent.email || undefined,
-        Location: agent.locationRaw || undefined,
-        Brokerage: agent.brokerage || undefined,
+          ...agent,
+          Name: agent.full_name || '',
+          agentEmail: agent.email || undefined,
+          Location: agent.locationRaw || undefined,
+          Brokerage: agent.brokerage || undefined,
         })),
       };
     },
     [GRAPHQL_URI],
   );
-  
+
   const engagedProperty = useSelector((state: any) => state.property.engagedProperty);
   const wrapperCurrentUser = useSelector(userData);
   const wrapperPropertyData = useSelector((state: any) => state.property.property);
@@ -285,14 +285,14 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const query = deferredSearchQuery.toLowerCase().trim();
   const immediateQuery = searchQuery.toLowerCase().trim();
-  
+
   // Always preserve searchQuery in ref - this is the source of truth
   React.useEffect(() => {
     if (searchQuery) {
       searchQueryPreservedRef.current = searchQuery;
     }
   }, [searchQuery]);
-  
+
   // Restore searchQuery from ref if it gets cleared accidentally
   React.useLayoutEffect(() => {
     if (!searchQuery && searchQueryPreservedRef.current && !userClearedRef.current && searchMode === 'name') {
@@ -373,7 +373,7 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
     }
     return agents;
   }, [allAgents]);
-  
+
   const filteredAgents = React.useMemo(() => {
     if (searchMode !== 'name') return [];
     const searchTerm = immediateQuery;
@@ -392,7 +392,7 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
     if (!totalAgents) return false;
     return allAgents.length < totalAgents;
   }, [searchMode, totalAgents, allAgents.length]);
-  
+
   // Focus input when component mounts
   React.useEffect(() => {
     const timer = setTimeout(() => {
@@ -416,7 +416,7 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
   // Load agents for location suggestions
   React.useEffect(() => {
     const controller = new AbortController();
-    
+
     const loadAgentsForLocation = async () => {
       if (searchMode !== 'location') {
         setLocationSuggestions([]);
@@ -437,9 +437,9 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
         }
       }
     };
-    
+
     loadAgentsForLocation();
-    
+
     return () => controller.abort();
   }, [searchMode]);
 
@@ -496,7 +496,7 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
     }
 
     setLoadingAgentId(identifier);
-    
+
     // Use email-based invitation for MLS data (which has email but may not have valid agentId in our DB)
     // Use agentId-based invitation only if we have a valid agentId and no email
     const useEmailInvitation = !!agentEmail;
@@ -516,7 +516,7 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
         onSuccess: (response: any) => {
           setLoadingAgentId(null);
           const { message, success: successStatus, agentId: returnedAgentId, participantId } = response || {};
-          
+
           if (successStatus) {
             // Send socket notification
             if (wrapperSocket && returnedAgentId && participantId) {
@@ -628,7 +628,7 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
       const agentName = agent.Name || agent.full_name || `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || 'Agent';
       const agentId = agent.id || agent._id || '';
       const agentEmail = agent.agentEmail || agent.email || '';
-      
+
       return (
         <div
           key={agentId || `agent-${Math.random()}`}
@@ -702,9 +702,8 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
       {/* Search Bar */}
       <div className="w-full max-w-3xl mx-auto relative" ref={searchContainerRef}>
         <div
-          className={`relative flex items-center w-full h-16 bg-white border-4 border-[#C08C73] shadow-xl overflow-hidden pl-4 pr-1 z-50 transition-all duration-300 ${
-            isSearchFocused ? 'rounded-t-2xl rounded-b-none border-b-0' : 'rounded-full'
-          }`}
+          className={`relative flex items-center w-full h-16 bg-white border-4 border-[#C08C73] shadow-xl overflow-hidden pl-4 pr-1 z-50 transition-all duration-300 ${isSearchFocused ? 'rounded-t-2xl rounded-b-none border-b-0' : 'rounded-full'
+            }`}
         >
           <button
             type="button"
@@ -770,11 +769,10 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
                     inputRef.current?.focus();
                   }, 0);
                 }}
-                className={`h-full flex items-center px-4 rounded-full transition-colors text-sm font-medium ${
-                  searchMode === 'location'
+                className={`h-full flex items-center px-4 rounded-full transition-colors text-sm font-medium ${searchMode === 'location'
                     ? 'bg-black text-white shadow-sm'
                     : 'text-gray-600 hover:text-black'
-                }`}
+                  }`}
               >
                 Location
               </button>
@@ -786,11 +784,10 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
                     inputRef.current?.focus();
                   }, 0);
                 }}
-                className={`h-full flex items-center px-4 rounded-full transition-colors text-sm font-medium ${
-                  searchMode === 'name'
+                className={`h-full flex items-center px-4 rounded-full transition-colors text-sm font-medium ${searchMode === 'name'
                     ? 'bg-black text-white shadow-sm'
                     : 'text-gray-600 hover:text-black'
-                }`}
+                  }`}
               >
                 Agent name
               </button>
@@ -880,3 +877,4 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
     </div>
   );
 };
+

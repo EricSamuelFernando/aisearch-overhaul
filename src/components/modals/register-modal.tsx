@@ -44,7 +44,7 @@ export default function RegisterModal({
   );
   const [activeUserType, setActiveUserType] = useState<UserType | null>(null);
   const { selectAccountType } = useRegisterActions();
-  const [isLoading , setLoading] = useState(false)
+  const [isLoading, setLoading] = useState(false)
   const dispatch = useAppDispatch();
   const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql"
   const { sendCodeMutation } = useUserAuthApi();
@@ -129,15 +129,15 @@ export default function RegisterModal({
         if (res?.data?.errors && res.data.errors.length > 0) {
           const errorMessage = res.data.errors[0]?.message || 'An error occurred';
           // Check if it's a user already exists error
-          if (errorMessage.toLowerCase().includes('already exists') || 
-              errorMessage.toLowerCase().includes('user with email')) {
+          if (errorMessage.toLowerCase().includes('already exists') ||
+            errorMessage.toLowerCase().includes('user with email')) {
             error({ message: 'User already exists. Please login instead.' });
           } else {
             error({ message: errorMessage });
           }
           return;
         }
-        
+
         // Check for successful response
         if (res?.data?.data?.sendVerification === 'Email sent successfully') {
           setAgentEmail(values.email);
@@ -150,14 +150,14 @@ export default function RegisterModal({
       .catch((err) => {
         setLoading(false)
         // Handle axios errors
-        const errorMessage = err?.response?.data?.errors?.[0]?.message || 
-                           err?.response?.data?.message || 
-                           err?.message || 
-                           'An error occurred. Please try again.';
-        
+        const errorMessage = err?.response?.data?.errors?.[0]?.message ||
+          err?.response?.data?.message ||
+          err?.message ||
+          'An error occurred. Please try again.';
+
         // Check if it's a user already exists error
-        if (errorMessage.toLowerCase().includes('already exists') || 
-            errorMessage.toLowerCase().includes('user with email')) {
+        if (errorMessage.toLowerCase().includes('already exists') ||
+          errorMessage.toLowerCase().includes('user with email')) {
           error({ message: 'User already exists. Please login instead.' });
         } else {
           error({ message: errorMessage });
@@ -277,4 +277,5 @@ export default function RegisterModal({
     </div>
   );
 }
+
 

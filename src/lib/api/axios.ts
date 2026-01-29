@@ -5,7 +5,7 @@ import axios, {
 } from 'axios';
 
 const baseURL =
-  process.env.NEXT_PUBLIC_AUTH_SERVICE_GRAPHQL_URL ||
+  process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
   'http://localhost:5050/zipform';
 
 const API: AxiosInstance & { graphql: typeof graphqlRequest } = axios.create({
@@ -45,18 +45,33 @@ const refreshTokenLogic = async (originalRequest: any) => {
 
   try {
     const refreshToken = localStorage.getItem('userRefreshToken');
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050';
+    const graphqlUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || 'http://localhost:4000/auth/graphql';
+
     const { data } = await axios.post(
-      `${apiUrl}/auth/refresh-token`,
-      { refreshToken },
+      graphqlUrl,
       {
-        withCredentials: true,
+        query: `
+          mutation RefreshToken($refreshToken: String!) {
+            refreshToken(refreshToken: $refreshToken) {
+              accessToken
+              refreshToken
+            }
+          }
+        `,
+        variables: {
+          refreshToken,
+        },
+      },
+      {
         headers: { 'Content-Type': 'application/json' },
       }
     );
 
-    const newAccessToken = data.accessToken;
-    const newRefreshToken = data.refreshToken;
+    if (data.errors) {
+      throw new Error(data.errors[0].message);
+    }
+
+    const { accessToken: newAccessToken, refreshToken: newRefreshToken } = data.data.refreshToken;
 
     localStorage.setItem('userAccessToken', newAccessToken);
     if (newRefreshToken) {
@@ -115,3 +130,4 @@ async function graphqlRequest<T = any>(
 API.graphql = graphqlRequest;
 
 export default API;
+

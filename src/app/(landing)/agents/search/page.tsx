@@ -260,32 +260,32 @@ const AgentsGrid = memo(function AgentsGrid({
         const realtorPriceLabel = forSaleMaxRaw
           ? 'Highest List Price'
           : recentlySoldMaxRaw
-          ? 'Highest Sold Price'
-          : recommendationsRaw !== null
-          ? 'Recommendations'
-          : 'Highest Price';
+            ? 'Highest Sold Price'
+            : recommendationsRaw !== null
+              ? 'Recommendations'
+              : 'Highest Price';
 
         const realtorPriceValue = forSaleMaxRaw
           ? formatMillions(forSaleMaxRaw)
           : recentlySoldMaxRaw
-          ? formatMillions(recentlySoldMaxRaw)
-          : recommendationsRaw !== null
-          ? formatNumber(recommendationsRaw)
-          : 'N/A';
+            ? formatMillions(recentlySoldMaxRaw)
+            : recommendationsRaw !== null
+              ? formatNumber(recommendationsRaw)
+              : 'N/A';
 
         const realtorLeftLabel =
           recentlySoldCountRaw !== null
             ? 'Recently Sold'
             : recommendationsRaw !== null
-            ? 'Recommendations'
-            : 'Active Listings';
+              ? 'Recommendations'
+              : 'Active Listings';
 
         const realtorLeftValue =
           recentlySoldCountRaw !== null
             ? formatNumber(recentlySoldCountRaw)
             : recommendationsRaw !== null
-            ? formatNumber(recommendationsRaw)
-            : activeListingsDisplay;
+              ? formatNumber(recommendationsRaw)
+              : activeListingsDisplay;
 
         const cardId =
           (agent as any).id ??
@@ -775,3 +775,4 @@ export default function AgentSearchPage() {
     </div>
   );
 }
+

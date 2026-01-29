@@ -568,8 +568,8 @@ export default function HeroLayout({
                       type="button"
                       onClick={() => setSearchMode('location')}
                       className={`h-full flex items-center px-4 rounded-full transition-colors text-sm font-medium ${searchMode === 'location'
-                          ? 'bg-black text-white shadow-sm'
-                          : 'text-gray-600 hover:text-black'
+                        ? 'bg-black text-white shadow-sm'
+                        : 'text-gray-600 hover:text-black'
                         }`}
                     >
                       Location
@@ -578,8 +578,8 @@ export default function HeroLayout({
                       type="button"
                       onClick={() => setSearchMode('name')}
                       className={`h-full flex items-center px-4 rounded-full transition-colors text-sm font-medium ${searchMode === 'name'
-                          ? 'bg-black text-white shadow-sm'
-                          : 'text-gray-600 hover:text-black'
+                        ? 'bg-black text-white shadow-sm'
+                        : 'text-gray-600 hover:text-black'
                         }`}
                     >
                       Agent name
@@ -705,3 +705,4 @@ export default function HeroLayout({
     </>
   );
 }
+

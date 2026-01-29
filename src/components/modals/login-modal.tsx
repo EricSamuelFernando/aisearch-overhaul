@@ -16,17 +16,17 @@ import { cn } from '@/lib/utils';
 import axios from 'axios';
 import { error, success } from '../alert/notify';
 
-export const LoginModal = ({ 
-  handleStage, 
+export const LoginModal = ({
+  handleStage,
   setIsOpen,
-  onForgotPassword 
-}: { 
+  onForgotPassword
+}: {
   handleStage: () => void;
   setIsOpen: any;
   onForgotPassword?: () => void;
 }) => {
   const [magicLogin, setMagicLogin] = useState(false);
-  const [loading,setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql"
   const { loginMutation } = useUserAuthApi();
   const { cognitoGoogleLogin } = useCognitoGoogleAuth();
@@ -47,7 +47,7 @@ export const LoginModal = ({
     },
   });
 
-  const handleSubmit = (values: any) => {    
+  const handleSubmit = (values: any) => {
     if (magicLogin) {
       onSubmit(values.email);
     } else {
@@ -55,32 +55,32 @@ export const LoginModal = ({
     }
   };
 
-    const onSubmit = (values: { email: string }) => {
-      axios
-        .post(
-          GRAPHQL_URI,
-          JSON.stringify({
-            query: `mutation { sendLoginLink(sendLoginLinkInput: { email: "${values}" }) }`,
-          }),
-          {
-            headers: {
-              'Content-Type': 'application/json',
-            },
+  const onSubmit = (values: { email: string }) => {
+    axios
+      .post(
+        GRAPHQL_URI,
+        JSON.stringify({
+          query: `mutation { sendLoginLink(sendLoginLinkInput: { email: "${values}" }) }`,
+        }),
+        {
+          headers: {
+            'Content-Type': 'application/json',
           },
-        )
-        .then((res) => {
-          setLoading(false)
-          if (res?.data?.data?.sendLoginLink) {
-            success({ message: res?.data?.data?.sendLoginLink });
-            setIsOpen(false)
-          } else {
-            error({ message: res?.data?.errors?.[0]?.message });
-          }
-        })
-        .catch((err) => {
-          error({ message: err?.message });
-        });
-    };
+        },
+      )
+      .then((res) => {
+        setLoading(false)
+        if (res?.data?.data?.sendLoginLink) {
+          success({ message: res?.data?.data?.sendLoginLink });
+          setIsOpen(false)
+        } else {
+          error({ message: res?.data?.errors?.[0]?.message });
+        }
+      })
+      .catch((err) => {
+        error({ message: err?.message });
+      });
+  };
 
   return (
     <section className={cn('w-full items-center justify-center')}>
@@ -155,7 +155,7 @@ export const LoginModal = ({
               </button>
             )}
           </div>
-         
+
           <div>
             <p className='text-sm font-medium'>
               Don&apos;t have an account? &nbsp;
@@ -172,3 +172,4 @@ export const LoginModal = ({
     </section>
   );
 };
+

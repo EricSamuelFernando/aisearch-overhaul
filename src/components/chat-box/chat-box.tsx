@@ -367,24 +367,24 @@ export default function ChatBoxComponent(props: any) {
 
   const handleThreadSelection = (thread: Thread, participants: any) => {
     if (selectedChannel === thread) return null
-    
+
     console.log('[chat-box] Thread selected:', thread?.id, thread);
-    
+
     // Leave previous room if exists
     if (selectedThread && socket && socket.leaveRoom) {
       console.log('[chat-box] Leaving previous room:', selectedThread);
       socket.leaveRoom(selectedThread);
     }
-    
+
     setIsDetails(false)
     setShowThreads(false)
     setShowChat(true)
     setThreadParticipant(participants)
     setSelectedThreadDetail(thread)
     localStorage.setItem('threadId', thread?.id || '');
-    
+
     setSelectedThread(thread?.id)
-    
+
     // Update state immediately to ensure chat box shows
     setState((prev: any) => ({
       ...prev,
@@ -393,11 +393,11 @@ export default function ChatBoxComponent(props: any) {
         propertyName: thread.propertyName,
       }
     }))
-    
+
     // Join the room using websocket methods
     if (socket && thread?.id && userData?.id) {
       console.log('[chat-box] Joining room for thread:', thread.id);
-      
+
       // First, try to create or join conversation
       socket.createOrJoinRoom({
         threadId: thread.id,
@@ -411,15 +411,15 @@ export default function ChatBoxComponent(props: any) {
         propertyName: thread.propertyName,
         propertyAddress: thread.propertyAddress,
       });
-      
+
       // Also join the room directly
       if (socket.joinRoom) {
         socket.joinRoom(thread.id);
       }
-      
+
       // Removed joinThread event - not supported by backend, use joinRoom instead
     }
-    
+
     // if (TYPE === "messages") {
     getAllThreadMessage(thread?.id)
     if (userData?.id === thread?.buyerAgent?.id) {
@@ -445,7 +445,7 @@ export default function ChatBoxComponent(props: any) {
     //   }
     // }
     getPropertyDetails(thread?.listingId, thread.propertyId)
-    
+
     console.log('[chat-box] Thread selection complete. showChat:', true, 'selectedThread:', thread?.id, 'selectedThreadDetail:', thread?.id);
   }
 
@@ -458,7 +458,7 @@ export default function ChatBoxComponent(props: any) {
       console.log('[chat-box] Leaving room for thread:', selectedThread);
       socket.leaveRoom(selectedThread);
     }
-    
+
     setShowThreads(true)
     setShowChat(false)
     setSelectedChannel(null)
@@ -736,7 +736,7 @@ export default function ChatBoxComponent(props: any) {
 
   //     // Get thread ID from multiple possible sources
   //     const currentThreadId = state?.selectedChannel?.id || selectedThreadDetail?.id || selectedThread || threadId;
-      
+
   //     // Validate required fields
   //     if (!currentThreadId) {
   //       console.error("[handleSendMessage] No thread selected", {
@@ -779,7 +779,7 @@ export default function ChatBoxComponent(props: any) {
   //       } as Message;
 
   //       let fileData = null;
-        
+
   //       if (selectedFile) {
   //         try {
   //           console.log("[handleSendMessage] Processing file upload:", {
@@ -809,21 +809,21 @@ export default function ChatBoxComponent(props: any) {
   //       } else {
   //         // Send text message using websocket sendMessage method
   //         const currentThreadId = state?.selectedChannel?.id || selectedThreadDetail?.id || selectedThread || threadId;
-          
+
   //         if (socket && socket.sendMessage && currentThreadId && userData?.id) {
   //           console.log("[handleSendMessage] Sending message via websocket:", {
   //             threadId: currentThreadId,
   //             userId: userData.id,
   //             messageLength: message.length
   //           });
-            
+
   //           socket.sendMessage({
   //             threadId: currentThreadId,
   //             message: message, // Send plain message (backend can handle encryption if needed)
   //             userId: userData.id,
   //             messageType: 'text'
   //           });
-            
+
   //           // Handle response
   //           const handleSendMessageResponse = (response: any) => {
   //             console.log("[handleSendMessage] sendMessage_response:", response);
@@ -835,9 +835,9 @@ export default function ChatBoxComponent(props: any) {
   //             }
   //             socket.off('sendMessage_response', handleSendMessageResponse);
   //           };
-            
+
   //           socket.on('sendMessage_response', handleSendMessageResponse);
-            
+
   //           // Add message to local state for immediate UI update (will be updated via newMessage event)
   //           setMessages((prev) => [{ ...newMessage, message }, ...prev]);
   //           setMessage('');
@@ -879,93 +879,93 @@ export default function ChatBoxComponent(props: any) {
 
 
   const handleSendMessage = async () => {
-  try {
-    // Validate socket
-    if (!socket) {
-      console.error("[handleSendMessage] Socket missing");
-      return;
-    }
-
-    if (!socket.connected) {
-      socket.connect();
-      return;
-    }
-
-    // Resolve thread ID
-    const currentThreadId =
-      state?.selectedChannel?.id ||
-      selectedThreadDetail?.id ||
-      selectedThread ||
-      threadId;
-
-    if (!currentThreadId || !userData?.id || !receiverId) {
-      console.error("[handleSendMessage] Missing required data");
-      return;
-    }
-
-    const hasText = message.trim() !== "";
-    const hasFile = !!selectedFile;
-
-    if (!hasText && !hasFile) {
-      console.warn("[handleSendMessage] Empty message");
-      return;
-    }
-
-    let fileUrl: string | '' = '';
-
-    // 1️⃣ Upload file first (REST)
-    if (hasFile && selectedFile) {
-      try {
-        fileUrl = await handleFileUpload(selectedFile);
-      } catch {
-        error({ message: "File upload failed" });
+    try {
+      // Validate socket
+      if (!socket) {
+        console.error("[handleSendMessage] Socket missing");
         return;
       }
-    }
 
-    // 2️⃣ Send message via WebSocket
-    socket.sendMessage({
-      threadId: currentThreadId,
-      userId: userData.id,
-      messageType: hasFile ? "file" : "text",
-      message: hasFile ? fileUrl : message,
-      fileType: hasFile ? selectedFile?.type : undefined, // ✅ FIX
+      if (!socket.connected) {
+        socket.connect();
+        return;
+      }
 
-    });
+      // Resolve thread ID
+      const currentThreadId =
+        state?.selectedChannel?.id ||
+        selectedThreadDetail?.id ||
+        selectedThread ||
+        threadId;
 
-    // 3️⃣ Optimistic UI update
-    setMessages((prev:any) => [
-      {
+      if (!currentThreadId || !userData?.id || !receiverId) {
+        console.error("[handleSendMessage] Missing required data");
+        return;
+      }
+
+      const hasText = message.trim() !== "";
+      const hasFile = !!selectedFile;
+
+      if (!hasText && !hasFile) {
+        console.warn("[handleSendMessage] Empty message");
+        return;
+      }
+
+      let fileUrl: string | '' = '';
+
+      // 1️⃣ Upload file first (REST)
+      if (hasFile && selectedFile) {
+        try {
+          fileUrl = await handleFileUpload(selectedFile);
+        } catch {
+          error({ message: "File upload failed" });
+          return;
+        }
+      }
+
+      // 2️⃣ Send message via WebSocket
+      socket.sendMessage({
         threadId: currentThreadId,
-        senderId: userData.id,
-        receiverId,
+        userId: userData.id,
         messageType: hasFile ? "file" : "text",
         message: hasFile ? fileUrl : message,
         fileType: hasFile ? selectedFile?.type : undefined, // ✅ FIX
-        createdAt: new Date().toISOString(),
-        file: hasFile
-          ? {
+
+      });
+
+      // 3️⃣ Optimistic UI update
+      setMessages((prev: any) => [
+        {
+          threadId: currentThreadId,
+          senderId: userData.id,
+          receiverId,
+          messageType: hasFile ? "file" : "text",
+          message: hasFile ? fileUrl : message,
+          fileType: hasFile ? selectedFile?.type : undefined, // ✅ FIX
+          createdAt: new Date().toISOString(),
+          file: hasFile
+            ? {
               name: selectedFile?.name,
               size: selectedFile?.size,
               type: selectedFile?.type,
               url: fileUrl,
             }
-          : null,
-      },
-      ...prev,
-    ]);
+            : null,
+        },
+        ...prev,
+      ]);
 
-    // 4️⃣ Cleanup
-    setMessage("");
-    setSelectedFile(null);
+      // 4️⃣ Cleanup
+      setMessage("");
+      setSelectedFile(null);
 
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 300);
-  } catch (err) {
-    console.error("[handleSendMessage] Unexpected error:", err);
-  }
-};
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 300);
+    } catch (err) {
+      console.error("[handleSendMessage] Unexpected error:", err);
+    }
+  };
 
   const handleTrheadsName = (user: any) => {
     const str1 = "Byuer (" + user?.buyerAgent.firstName + " " + user?.buyerAgent.lastName + ")"
@@ -1055,18 +1055,18 @@ export default function ChatBoxComponent(props: any) {
     // Use fallback pattern to get thread ID
     const currentThreadId = state?.selectedChannel?.id || selectedThreadDetail?.id || selectedThread || threadId;
     if (socket && currentThreadId) {
-      
+
       console.log("[ChatBox] Setting up real-time listeners for thread:", currentThreadId);
-      
+
       socket.on("recievedMessage", (newMessage: Message) => {
         console.log("[ChatBox] Received message:", newMessage);
-        
+
         // Only process messages for the current thread
         if (newMessage.threadId === currentThreadId || newMessage.threadId === selectedThreadDetail?.id) {
           // For file messages, the message field contains the file URL (should not be encrypted)
           // For text messages, decrypt if needed
           let processedMessage = { ...newMessage };
-          
+
           if (newMessage.messageType === "file") {
             // File messages: message field contains the URL, keep it as-is
             processedMessage.message = newMessage.message;
@@ -1082,14 +1082,14 @@ export default function ChatBoxComponent(props: any) {
               processedMessage.message = newMessage.message;
             }
           }
-          
+
           console.log("[ChatBox] Adding message to state:", processedMessage);
           setMessages((prevMessages) => {
             // Check if message already exists to avoid duplicates
             const exists = prevMessages.some(
-              msg => msg.createdAt === processedMessage.createdAt && 
-                     msg.senderId === processedMessage.senderId &&
-                     msg.message === processedMessage.message
+              msg => msg.createdAt === processedMessage.createdAt &&
+                msg.senderId === processedMessage.senderId &&
+                msg.message === processedMessage.message
             );
             if (exists) {
               console.log("[ChatBox] Message already exists, skipping");
@@ -1104,19 +1104,19 @@ export default function ChatBoxComponent(props: any) {
           });
         }
       });
-      
+
       socket.on("typingStatus", (typing: boolean) => {
         setIsTyping(typing);
       });
-      
+
       // Handle newMessage event from websocket backend (Lambda/API Gateway)
       const handleNewMessage = (messageData: any) => {
         console.log('[ChatBox] Received newMessage from websocket:', messageData);
         console.log('[ChatBox] Current thread ID:', currentThreadId, 'Selected thread detail:', selectedThreadDetail?.id);
-        
+
         const threadId = messageData.threadId || messageData.thread_id;
         console.log('[ChatBox] Message thread ID:', threadId);
-        
+
         // Only process messages for the current thread
         if (threadId === currentThreadId || threadId === selectedThreadDetail?.id) {
           console.log('[ChatBox] Message matches current thread, processing...');
@@ -1130,15 +1130,15 @@ export default function ChatBoxComponent(props: any) {
             messageType: messageData.messageType || messageData.message_type || 'text',
             fileType: messageData.fileType || messageData.file_type,
           });
-          
+
           console.log("[ChatBox] Adding newMessage to state:", processedMessage);
           setMessages((prevMessages) => {
             // Check if message already exists to avoid duplicates
             const exists = prevMessages.some(
-              msg => (msg.createdAt === processedMessage.createdAt || 
-                     (msg.id && msg.id === processedMessage.id)) && 
-                     msg.senderId === processedMessage.senderId &&
-                     msg.message === processedMessage.message
+              msg => (msg.createdAt === processedMessage.createdAt ||
+                (msg.id && msg.id === processedMessage.id)) &&
+                msg.senderId === processedMessage.senderId &&
+                msg.message === processedMessage.message
             );
             if (exists) {
               console.log("[ChatBox] Message already exists, skipping");
@@ -1153,27 +1153,27 @@ export default function ChatBoxComponent(props: any) {
           });
         }
       };
-      
+
       socket.on('newMessage', handleNewMessage);
-      
+
       // Handle websocket response events
       socket.on('createOrJoinConversation_response', (response: any) => {
         console.log('[ChatBox] createOrJoinConversation_response:', response);
       });
-      
+
       socket.on('joinRoom_response', (response: any) => {
         console.log('[ChatBox] joinRoom_response:', response);
       });
-      
+
       socket.on('sendMessage_response', (response: any) => {
         console.log('[ChatBox] sendMessage_response:', response);
       });
-      
+
       // Listen for WebSocket errors
       socket.on("error", (errorData: any) => {
         console.error("[ChatBox] WebSocket error:", errorData);
       });
-      
+
       // Listen for connection status
       socket.on("connect", () => {
         console.log("[ChatBox] Socket connected");
@@ -1186,11 +1186,11 @@ export default function ChatBoxComponent(props: any) {
           }
         }
       });
-      
+
       socket.on("disconnect", () => {
         console.warn("[ChatBox] Socket disconnected");
       });
-      
+
       return () => {
         console.log("[ChatBox] Cleaning up real-time listeners");
         socket.off("recievedMessage");
@@ -1279,7 +1279,7 @@ export default function ChatBoxComponent(props: any) {
   };
 
   console.log(message);
-  
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       // Upload dropdown
@@ -1309,9 +1309,9 @@ export default function ChatBoxComponent(props: any) {
 
   console.log("Thread Data: ", threads);
   console.log("[chat-box] Render state - showChat:", showChat, "selectedThread:", selectedThread, "selectedThreadDetail:", selectedThreadDetail?.id, "state.selectedChannel:", state.selectedChannel);
-const isImageFile = (url: string) => {
-  return /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(url);
-};
+  const isImageFile = (url: string) => {
+    return /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(url);
+  };
 
   return (
     <div className="mt-24 max-w-full ">
@@ -1692,7 +1692,7 @@ const isImageFile = (url: string) => {
                                                         {(() => {
                                                           // Get the file URL - ensure it's not encrypted
                                                           let fileUrl = message.message || "";
-                                                          
+
                                                           // If the URL looks encrypted (starts with common encryption patterns), try to decrypt
                                                           // But file URLs from S3 should not be encrypted, so only decrypt if it looks like encrypted text
                                                           if (fileUrl && !fileUrl.startsWith('http') && !fileUrl.startsWith('data:')) {
@@ -1706,7 +1706,7 @@ const isImageFile = (url: string) => {
                                                               console.log("[ChatBox] File URL might not be encrypted:", error);
                                                             }
                                                           }
-                                                          
+
                                                           if (message.fileType && imageMimeType.includes(message.fileType)) {
                                                             return (
                                                               <div
@@ -2268,4 +2268,3 @@ const isImageFile = (url: string) => {
   )
 }
 const hashCode = (str: string) => str.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
-

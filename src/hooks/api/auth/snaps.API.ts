@@ -311,10 +311,14 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
             query: `
               mutation findAllAgents($limit: Float!, $offset: Float!) {
                 findAllAgents(limit: $limit, offset: $offset) {
-                  id
-                  firstName
-                  lastName
-                  email
+                  users {
+                    id
+                    firstName
+                    lastName
+                    email
+                    accountType
+                  }
+                  total
                 }
               }
             `,
@@ -602,3 +606,4 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
     toggleFavourite
   };
 };
+

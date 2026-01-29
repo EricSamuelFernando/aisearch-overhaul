@@ -163,3 +163,4 @@ const RecentCommentsSidebar = ({ properties = [], refreshTrigger = 0 }: { proper
 };
 
 export default RecentCommentsSidebar;
+

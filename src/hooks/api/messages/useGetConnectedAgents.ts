@@ -7,9 +7,9 @@ import { getAuthToken } from '@/lib/storage';
 import { GET_MESSAGE_PROPERTY_MESSAGE_THREADS } from '@/shared/constants/env';
 import { useAuth } from '@/shared/hooks/useAuth';
 
- const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql"
+const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql"
 
- const getConnectedUserAgents = async () => {
+const getConnectedUserAgents = async () => {
   try {
     const token = getAuthToken()
     const response = await axios.post(
@@ -44,7 +44,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
   }
 };
 
-const getConnectedAgentMessageThread = async (userId:string) => {
+const getConnectedAgentMessageThread = async (userId: string) => {
   try {
     const token = getAuthToken()
     const response = await axios.get(
@@ -71,14 +71,14 @@ const getConnectedAgentMessageThread = async (userId:string) => {
 export const useGetConnectedUserAgents = () => {
   return useQuery({
     queryKey: ['get-connected-agents'],
-    queryFn: getConnectedUserAgents ,
+    queryFn: getConnectedUserAgents,
   });
 };
 
-export const useGetConnectedAgentMessageThreads = (userId:string) => {
+export const useGetConnectedAgentMessageThreads = (userId: string) => {
   return useQuery({
     queryKey: ['get-connected-message-thread-agents'],
-    queryFn:() => getConnectedAgentMessageThread(userId),
+    queryFn: () => getConnectedAgentMessageThread(userId),
   });
 };
 
@@ -94,5 +94,6 @@ export const useGetConnectedAgents = () => {
     queryFn: getConnectedAgents,
   });
 };
+
 
 

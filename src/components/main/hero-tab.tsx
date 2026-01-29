@@ -107,7 +107,7 @@
 //       query,
 //       // num_records: process.env.SEARCH_RECORDS || 12,
 //     };
-  
+
 //     const sendSearchRequest = async (body: Record<string, any>) => {
 //       try {
 //         const response = await axios.post(
@@ -118,13 +118,13 @@
 //           }
 //         );
 //         console.log("Response : ",response);
-        
+
 //         clearProperties();
 //         dispatch(incrementSearchCount());
 //         dispatch(setPropertyQuery(response.data?.result.search_query));
 //         setSearchedQuery(response.data?.result.records);
 //         addProperties(response.data?.result.records);
-  
+
 //         if (searchCount + 1 >= 6 && !user?.email) {
 //           success({
 //             message:
@@ -132,7 +132,7 @@
 //           });
 //         }
 //         console.log("Query : ",searchTerm);
-        
+
 //         if (searchTerm) {
 //           router.push(`/buy/browse?q=${searchTerm}`);
 //         }
@@ -146,7 +146,7 @@
 //         setIsSearching(false);
 //       }
 //     };
-  
+
 //     const getLocation = (): Promise<GeolocationCoordinates | null> => {
 //       return new Promise((resolve) => {
 //         if (!navigator.geolocation) {
@@ -154,7 +154,7 @@
 //           resolve(null);
 //           return;
 //         }
-  
+
 //         navigator.geolocation.getCurrentPosition(
 //           (position) => resolve(position.coords),
 //           (err) => {
@@ -164,7 +164,7 @@
 //         );
 //       });
 //     };
-  
+
 //     const coords = await getLocation();
 //     if (coords) {
 //       requestBody.location = {
@@ -178,10 +178,10 @@
 //       };  
 //       setLocation({ latitude: coords.latitude, longitude: coords.longitude });
 //     }
-  
+
 //     await sendSearchRequest(requestBody);
 //   };
-  
+
 //   // Encapsulated API call
 //   const searchWithApi = async (requestBody: any) => {
 //     const { data } = await axios.post(
@@ -275,34 +275,34 @@
 //     e.preventDefault();
 //     setIsSearching(true);
 //     const query = searchTerm.trim();
-  
+
 //     // Base request body without location
 //     const requestBody: Record<string, any> = {
 //       user: userId,
 //       query,
 //       // num_records: process.env.SEARCH_RECORDS,
 //     };
-  
+
 //     const sendSearchRequest = async (body: Record<string, any>) => {
 //       try {
 //         const response = await axios.post(
 //           PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search',
 //           body
 //         );
-  
+
 //         clearProperties();
 //         dispatch(incrementSearchCount());
 //         dispatch(setPropertyQuery(response.data.search_query));
 //         setSearchedQuery(response.data.records);
 //         addProperties(response.data.records);
-  
+
 //         if (searchCount + 1 >= 6 && !user?.email) {
 //           success({
 //             message:
 //               'You have reached the search limit for non-logged-in users. Please create an account to continue.',
 //           });
 //         }
-  
+
 //         if (searchTerm) {
 //           router.push(`/buy/browse`);
 //         }
@@ -316,7 +316,7 @@
 //         setIsSearching(false);
 //       }
 //     };
-  
+
 //     // Use a Promise wrapper for geolocation
 //     const getLocation = (): Promise<GeolocationCoordinates | null> => {
 //       return new Promise((resolve) => {
@@ -325,7 +325,7 @@
 //           resolve(null);
 //           return;
 //         }
-  
+
 //         navigator.geolocation.getCurrentPosition(
 //           (position) => resolve(position.coords),
 //           (err) => {
@@ -335,7 +335,7 @@
 //         );
 //       });
 //     };
-  
+
 //     const coords = await getLocation();
 //     if (coords) {
 //       requestBody.location = {
@@ -347,14 +347,14 @@
 //         heading: coords.heading,
 //         speed: coords.speed,
 //       };
-  
+
 //       // Optionally update state if needed
 //       setLocation({ latitude: coords.latitude, longitude: coords.longitude });
 //     }
-  
+
 //     await sendSearchRequest(requestBody);
 //   };
-  
+
 //   const searchWithApi = async (requestBody: any) => {
 //     const { data } = await axios.post(
 //       PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search',
@@ -504,7 +504,7 @@
 //             ...body
 //           }
 //         );
-        
+
 //         clearProperties();
 //         dispatch(incrementSearchCount());
 //         dispatch(setPropertyQuery(response.data?.result.search_query));
@@ -707,7 +707,7 @@
 //             ...body
 //           }
 //         );
-        
+
 //         clearProperties();
 //         dispatch(incrementSearchCount());
 //         dispatch(setPropertyQuery(response.data?.result.search_query));
@@ -879,7 +879,7 @@ export const HeroSearchForm = ({
   searchType,
 }: {
   placeholderText?: string;
-  searchType?:string;
+  searchType?: string;
 }) => {
   const {
     allProperties,
@@ -910,13 +910,21 @@ export const HeroSearchForm = ({
   const handleNavigate = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSearching(true);
-    const query = searchTerm.trim();  
+    const query = searchTerm.trim();
     const requestBody: Record<string, any> = {
       user: userId,
       query,
     };
 
     const sendSearchRequest = async (body: Record<string, any>) => {
+      if (searchCount + 1 >= 6 && !user?.email) {
+        error({
+          message:
+            'You have reached the search limit for non-logged-in users. Please create an account to continue.',
+        });
+        router.replace("/login")
+        return
+      }
       try {
         const response = await axios.post(
           PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search',
@@ -924,23 +932,17 @@ export const HeroSearchForm = ({
             ...body
           }
         );
-        
+
         clearProperties();
         dispatch(incrementSearchCount());
         dispatch(setPropertyQuery(response.data?.result.search_query));
         setSearchedQuery(response.data?.result.records);
         addProperties(response.data?.result.records);
 
-        if (searchCount + 1 >= 6 && !user?.email) {
-          success({
-            message:
-              'You have reached the search limit for non-logged-in users. Please create an account to continue.',
-          });
-        }
-
         if (searchTerm) {
           router.push(`/buy/browse?q=${searchTerm}`);
         }
+
       } catch (err: any) {
         console.error("Search request failed:", err);
         error({
@@ -980,7 +982,7 @@ export const HeroSearchForm = ({
         altitudeAccuracy: coords.altitudeAccuracy,
         heading: coords.heading,
         speed: coords.speed,
-      };  
+      };
       setLocation({ latitude: coords.latitude, longitude: coords.longitude });
     }
 
@@ -990,33 +992,33 @@ export const HeroSearchForm = ({
   return (
     <div className="relative flex gap-2 w-full">
       <form
-  onSubmit={handleNavigate}
-  className="
+        onSubmit={handleNavigate}
+        className="
     relative flex w-full items-center gap-2
     rounded-xl bg-white p-2
     overflow-visible
   "
->
-  {/* Star + Input */}
-  <div className="relative flex min-w-0 flex-1 items-center gap-2 overflow-visible">
-    {searchTerm === '' && (
-      <StarIcon />
-    )}
+      >
+        {/* Star + Input */}
+        <div className="relative flex min-w-0 flex-1 items-center gap-2 overflow-visible">
+          {searchTerm === '' && (
+            <StarIcon />
+          )}
 
-    <SpeechInput
-      value={searchTerm}
-      setValue={setSearchTerm}
-      searchType={searchType}
-      placeholderText={placeholderText}
-      className="w-full min-w-0"
-    />
-  </div>
+          <SpeechInput
+            value={searchTerm}
+            setValue={setSearchTerm}
+            searchType={searchType}
+            placeholderText={placeholderText}
+            className="w-full min-w-0"
+          />
+        </div>
 
-  {/* Button */}
-  <Button
-    type="submit"
-    size="lg"
-    className="
+        {/* Button */}
+        <Button
+          type="submit"
+          size="lg"
+          className="
       shrink-0
       rounded-xl
       bg-[#F07639]
@@ -1025,20 +1027,20 @@ export const HeroSearchForm = ({
       px-4
       z-10
     "
-  >
-    <div className="flex items-center gap-2">
-      {isSearching && (
-        <div
-          className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-e-transparent"
-          role="status"
-        />
-      )}
-      <span className="whitespace-nowrap">
-        Begin Journey
-      </span>
-    </div>
-  </Button>
-</form>
+        >
+          <div className="flex items-center gap-2">
+            {isSearching && (
+              <div
+                className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-e-transparent"
+                role="status"
+              />
+            )}
+            <span className="whitespace-nowrap">
+              Begin Journey
+            </span>
+          </div>
+        </Button>
+      </form>
 
     </div>
   );

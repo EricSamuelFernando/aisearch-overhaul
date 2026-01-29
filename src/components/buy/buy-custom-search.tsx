@@ -461,7 +461,7 @@ const BuyCustomSearch = () => {
   const { scrollDirection, isScrolling } = useScrollPosition();
   const [isVisible, setIsVisible] = React.useState(true);
   const [filterData, setFilterData] = React.useState({});
-const [showInputBox, setShowInputBox] = React.useState(false);
+  const [showInputBox, setShowInputBox] = React.useState(false);
 
   const { user } = useAuth()
   const { email } = useRegister()
@@ -532,6 +532,16 @@ const [showInputBox, setShowInputBox] = React.useState(false);
   }, [scrollDirection, isScrolling]);
 
   const sendSearchRequest = async () => {
+    if (searchCount + 1 >= 6 && !user?.email) {
+      error({
+        message:
+          'You have reached the search limit for non-logged-in users. Please create an account to continue.',
+      });
+      router.replace("/login")
+      return
+    } else {
+      console.log(`Searching for: ${searchCount}`);
+    }
     setIsSearching(true)
     setIsLoading(true)
     setSearchedQuery("");
@@ -548,11 +558,7 @@ const [showInputBox, setShowInputBox] = React.useState(false);
       dispatch(setPropertyQuery(response.data?.result.search_query));
       setSearchedQuery(response.data?.result.records);
       addProperties(response.data?.result.records);
-      if (searchCount + 1 >= 6 && !user?.email) {
-        success({ message: 'You have reached the search limit for non-logged-in users. Please create an account to continue.' });
-      } else {
-        console.log(`Searching for: ${searchCount}`);
-      }
+
     } catch (err: any) {
 
       console.error(err?.response?.data?.error || "An unexpected error occurred.");
@@ -582,28 +588,28 @@ const [showInputBox, setShowInputBox] = React.useState(false);
 
   return (
     <>
-<div style={{ position: 'fixed', bottom: '16px', right: '16px', zIndex: 50 }}>
+      <div style={{ position: 'fixed', bottom: '16px', right: '16px', zIndex: 50 }}>
         <button
-onClick={() => setShowInputBox(o => !o)}
-style={{
-  height: '48px',
-  width: '48px',
-  borderRadius: '9999px',
-  backgroundColor: '#ff6600', // Replace with your actual ocOrange hex
-  color: '#fff',
-  boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-  fontSize: '1.5rem',
-  lineHeight: '1',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-}}
-          // className="h-12 w-12 rounded-full bg-ocOrange text-white shadow-lg text-2xl leading-none"
+          onClick={() => setShowInputBox(o => !o)}
+          style={{
+            height: '48px',
+            width: '48px',
+            borderRadius: '9999px',
+            backgroundColor: '#ff6600', // Replace with your actual ocOrange hex
+            color: '#fff',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+            fontSize: '1.5rem',
+            lineHeight: '1',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        // className="h-12 w-12 rounded-full bg-ocOrange text-white shadow-lg text-2xl leading-none"
         >
           +
         </button>
       </div>
-<style jsx global>{`
+      <style jsx global>{`
   @keyframes advancedSlideIn {
     0% {
       opacity: 0;
@@ -630,96 +636,96 @@ style={{
 `}</style>
 
 
-{showInputBox && (
-  <div
-      className="animate-advanced"
+      {showInputBox && (
+        <div
+          className="animate-advanced"
 
-   style={{
-    position: 'fixed',
-    bottom: '80px',
-    right: '16px',
-    width: '90vw',
-    maxWidth: '28rem',
-    borderRadius: '0.75rem',
-    backgroundColor: '#fff',
-    boxShadow: '0 10px 15px rgba(0,0,0,0.1)',
-    zIndex: 40,
-    padding: '1.5rem',
-  }}
-  >
-    <form
-      id="buyer-search-hero-form"
-      className="flex flex-col space-y-4"
-      onSubmit={handleSubmit}
-    >
-      <div className="flex h-12 w-full items-center rounded-lg bg-gray-100 pl-4 transition-colors duration-300 hover:bg-white focus-within:bg-white">
-        <SpeechInput
-          value={searchString}
-          setValue={setSearchString}
-          inputClassName="w-full bg-transparent border-none outline-none"
-          className="w-full"
-        />
-      </div>
-      <Button
-        type="submit"
-        size="lg"
-        className="w-full rounded-lg bg-ocOrange font-bold hover:bg-ocOrange-dark"
-      >
-        <div className="flex w-full items-center justify-center gap-2">
-          {isSearching && (
-            <div
-              className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-e-transparent"
-              role="status"
-            >
-              <span className="sr-only">Loading...</span>
-            </div>
-          )}
-          <span>New search</span>
-        </div>
-      </Button>
-    </form>
-  </div>
-)}
-
-
-        <div className="px-6 pt-16 pb-2 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-800">Start a New Search</h2>
-          <p>Snaphomz Conversational Search is Powered By A Custom AI Model</p>
-        </div>
-
-        <form
-          id='buyer-search-hero-form'
-          className="flex flex-col space-y-4 border-t border-gray-100 bg-gray-50 px-6 py-6"
-          onSubmit={handleSubmit}
-          style={{width:'50%'}}
+          style={{
+            position: 'fixed',
+            bottom: '80px',
+            right: '16px',
+            width: '90vw',
+            maxWidth: '28rem',
+            borderRadius: '0.75rem',
+            backgroundColor: '#fff',
+            boxShadow: '0 10px 15px rgba(0,0,0,0.1)',
+            zIndex: 40,
+            padding: '1.5rem',
+          }}
         >
-          <div className="flex h-12 w-full items-center rounded-lg bg-gray-100 pl-4 transition-colors duration-300 hover:bg-white focus-within:bg-white">
-            <SpeechInput
-              value={searchString}
-              setValue={setSearchString}
-              inputClassName='w-full rounded-none border-none outline-none hover:border-none hover:outline-none hover:ring-0 focus:border-none focus:outline-none focus:ring-0 bg-transparent group-hover:bg-white'
-              className='w-full'
-            />
-          </div>
-
-          <Button
-            type='submit'
-            size='lg'
-            className='w-full md:w-auto rounded-lg bg-ocOrange font-bold hover:bg-ocOrange-dark text-center'
+          <form
+            id="buyer-search-hero-form"
+            className="flex flex-col space-y-4"
+            onSubmit={handleSubmit}
           >
-            <div className='flex w-full items-center justify-between gap-2 text-center'>
-              {isSearching ? (
-                <div
-                  className='text-surface inline-block h-5 w-5 animate-spin rounded-full border-2 border-solid border-current border-e-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite] dark:text-white'
-                  role='status'
-                >
-                  <span className='sr-only'>Loading...</span>
-                </div>
-              ) : null}
-              <span>New search</span>
+            <div className="flex h-12 w-full items-center rounded-lg bg-gray-100 pl-4 transition-colors duration-300 hover:bg-white focus-within:bg-white">
+              <SpeechInput
+                value={searchString}
+                setValue={setSearchString}
+                inputClassName="w-full bg-transparent border-none outline-none"
+                className="w-full"
+              />
             </div>
-          </Button>
-        </form>
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full rounded-lg bg-ocOrange font-bold hover:bg-ocOrange-dark"
+            >
+              <div className="flex w-full items-center justify-center gap-2">
+                {isSearching && (
+                  <div
+                    className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-e-transparent"
+                    role="status"
+                  >
+                    <span className="sr-only">Loading...</span>
+                  </div>
+                )}
+                <span>New search</span>
+              </div>
+            </Button>
+          </form>
+        </div>
+      )}
+
+
+      <div className="px-6 pt-16 pb-2 border-b border-gray-200">
+        <h2 className="text-xl font-semibold text-gray-800">Start a New Search</h2>
+        <p>Snaphomz Conversational Search is Powered By A Custom AI Model</p>
+      </div>
+
+      <form
+        id='buyer-search-hero-form'
+        className="flex flex-col space-y-4 border-t border-gray-100 bg-gray-50 px-6 py-6"
+        onSubmit={handleSubmit}
+        style={{ width: '50%' }}
+      >
+        <div className="flex h-12 w-full items-center rounded-lg bg-gray-100 pl-4 transition-colors duration-300 hover:bg-white focus-within:bg-white">
+          <SpeechInput
+            value={searchString}
+            setValue={setSearchString}
+            inputClassName='w-full rounded-none border-none outline-none hover:border-none hover:outline-none hover:ring-0 focus:border-none focus:outline-none focus:ring-0 bg-transparent group-hover:bg-white'
+            className='w-full'
+          />
+        </div>
+
+        <Button
+          type='submit'
+          size='lg'
+          className='w-full md:w-auto rounded-lg bg-ocOrange font-bold hover:bg-ocOrange-dark text-center'
+        >
+          <div className='flex w-full items-center justify-between gap-2 text-center'>
+            {isSearching ? (
+              <div
+                className='text-surface inline-block h-5 w-5 animate-spin rounded-full border-2 border-solid border-current border-e-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite] dark:text-white'
+                role='status'
+              >
+                <span className='sr-only'>Loading...</span>
+              </div>
+            ) : null}
+            <span>New search</span>
+          </div>
+        </Button>
+      </form>
 
     </>
 

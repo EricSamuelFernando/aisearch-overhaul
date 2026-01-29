@@ -1443,7 +1443,7 @@ export default function Home() {
       <FindPerfectMortgage />
       <HomeDisclosure />
       <BuyOrRent />
-      <OfferStrengthAnalyzer />
+      {/* <OfferStrengthAnalyzer /> */}
       <OurClients bgColor='#FFF6EC' />
     </>
   );

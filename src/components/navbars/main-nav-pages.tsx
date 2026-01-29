@@ -265,7 +265,7 @@ function MainNavPages() {
       <MobileSideDrawer
         closeDrawer={toggleClose}
         isDrawerOpen={openDialogs.isMobileDrawer}
-        handleMouseLeave={handleMouseLeave}
+      // handleMouseLeave={handleMouseLeave}
       />
     </>
   );

@@ -28,7 +28,6 @@ function MemoizedSpeechInput({
   const effectiveSearchType = searchType || 'nlp';
   const basePlaceholder = effectiveSearchType === "nlp"? 'Show me homes in San Jose California under 3 Million': '260 Rio Del Mar Blvd APT 8, Aptos, CA 95003';
   const [animatedPlaceholder, setAnimatedPlaceholder] = useState('');
-  const [isTyping, setIsTyping] = useState(false); // Track if user is typing
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const { transcript } = useSpeechToText();
@@ -45,7 +44,6 @@ function MemoizedSpeechInput({
     }
     
     if (value.length > 0) {
-      setIsTyping(true);
       return; // Stop animation when user types
     }
 
@@ -159,7 +157,7 @@ function escapeRegExp(str: string) {
   
   return (
     <div className={cn('relative w-full', className)}>
-      <div className="flex h-12 w-full items-center  rounded-md bg-transparent ">
+      <div className="flex h-12 w-full items-center rounded-md bg-transparent">
         <Input
           ref={inputRef}
           placeholder={displayPlaceholder}
@@ -168,24 +166,30 @@ function escapeRegExp(str: string) {
           autoCorrect="on"
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          className={cn('w-full px-2 border-none outline-none',inputClassName)}
+          className={cn('w-full px-2 border-none outline-none', inputClassName)}
         />
       </div> 
 
       {/* Autocomplete Dropdown */}
       {showSuggestions && suggestions.length > 0 && (
-        <ul className="absolute z-[9999] top-full left-0 right-0 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-gray-300 bg-white shadow-xl">
+        <ul className="absolute z-[99999] top-full left-0 right-0 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-2xl ring-1 ring-black/5">
           {suggestions.map((city, index) => (
             <li
               key={index}
               className={cn(
-                'cursor-pointer text-left text-sm px-4 py-2 hover:bg-gray-100 transition-colors',
-                selectedIndex === index && 'bg-blue-100'
+                'cursor-pointer text-left text-sm px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0',
+                selectedIndex === index && 'bg-blue-50 text-blue-700'
               )}
               onClick={() => handleSuggestionClick(city)}
               onMouseEnter={() => setSelectedIndex(index)}
             >
-              {city}
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span className="truncate">{city}</span>
+              </div>
             </li>
           ))}
         </ul>

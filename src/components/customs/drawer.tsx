@@ -76,7 +76,7 @@ const CustomDrawer: React.FC<DrawerProps> = ({
       />
       <div
         className={cn(
-          `fixed bottom-0 top-0 z-50 overflow-y-auto bg-[#f4e5d0d8] px-20 py-10 shadow-md transition-transform duration-100 ease-in-out`,
+          `fixed bottom-0 top-0 z-50 overflow-y-auto px-20 py-10 shadow-md transition-transform duration-100 ease-in-out`,
           position === 'left' ? 'left-0' : 'right-0',
           className,
         )}

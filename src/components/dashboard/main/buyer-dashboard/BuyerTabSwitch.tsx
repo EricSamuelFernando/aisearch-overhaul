@@ -25,44 +25,37 @@ const BuyerTabSwitch: React.FC<BuyerTabSwitchProps> = ({
   const router = useRouter();
   return (
     <div className={cn('flex h-24 w-full items-center gap-x-2', className)}>
-      <div className='flex h-full items-center justify-center gap-x-6 px-[3.219rem]'>
-        {tabs.map((item) => {
-          return (
-            <Link href="" key={item.query}
-              onClick={(e)=>{
-                e.preventDefault();
-
-                router.push(item.url||"")
-              }}
+      <div className="flex h-full items-center px-2 sm:px-[3.219rem] overflow-x-auto">
+        <div className="flex h-full items-center gap-x-4 sm:gap-x-6 whitespace-nowrap">
+          {tabs.map((item) => {
+        return (
+          <Link
+            href={item.url || ''}
+            key={item.query}
+            onClick={(e) => {
+          e.preventDefault();
+          router.push(item.url || '');
+            }}
+          >
+            <div
+          className={cn(
+            'relative flex h-full cursor-pointer items-center px-2 sm:px-3 text-base sm:text-lg font-normal whitespace-nowrap',
+            activeView === item.query && 'font-semibold'
+          )}
             >
-              <div
-                className={cn(
-                  'relative flex h-full cursor-pointer items-center px-3 text-lg font-normal',
-                  activeView === item.query && 'font-semibold',
-                )}
-                key={item.query}
-                // onClick={(e) => {
-                //   e.stopPropagation();
-                //   // onChangeTab(item.query);
-                // }}
-              >
-                <p className='relative'>
-                  {item.title}
-                  {(item.query === 'messages' && messageUnreadCount) ? (
-                    <span className='absolute -right-6 -top-2 h-[1.5rem] w-[1.5rem] rounded-full bg-ocOrange text-center text-md font-semibold text-white'>
-                      {messageUnreadCount}
-                    </span>
-                  ) : null}
-                  {/* {(item.query === 'conversation' && conversationUnreadCount) ? (
-                    <span className='absolute -right-6 -top-2 h-[1.5rem] w-[1.5rem] rounded-full bg-ocOrange text-center text-md font-semibold text-white'>
-                      {conversationUnreadCount}
-                    </span>
-                  ) : null} */}
-                </p>
-              </div>
-            </Link>
-          );
-        })}
+          <p className="relative">
+            {item.title}
+            {item.query === 'messages' && messageUnreadCount ? (
+              <span className="absolute -right-4 sm:-right-6 -top-2 flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full bg-ocOrange text-[10px] sm:text-xs font-semibold text-white">
+            {messageUnreadCount}
+              </span>
+            ) : null}
+          </p>
+            </div>
+          </Link>
+        );
+          })}
+        </div>
       </div>
     </div>
   );

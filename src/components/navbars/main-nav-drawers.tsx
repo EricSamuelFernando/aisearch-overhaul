@@ -2,61 +2,125 @@
 
 import * as React from 'react';
 import Image from 'next/image';
-import { nanoid } from 'nanoid';
 import Link from 'next/link';
 
 import CustomDrawer from '../customs/drawer';
-import NavLink from '@/components/shared/nav-link';
 import { cn } from '@/lib/utils';
-import { mainNavsLinks } from '@/data/links';
+import { useAuth } from '@/shared/hooks/useAuth';
+import LoginRegisterModal from '../modals/login-register-modal';
+import AccountDropdown from '../account-dropdown';
 
 interface MobileSideDrawerProps {
   closeDrawer: () => void;
   isDrawerOpen?: boolean;
-  handleMouseLeave: () => void;
 }
 
 const MobileSideDrawer: React.FC<MobileSideDrawerProps> = ({
   closeDrawer,
   isDrawerOpen = false,
-  handleMouseLeave,
 }) => {
+  const { isLoggedIn, user } = useAuth();
+
   return (
     <CustomDrawer
       position='right'
       isOpen={isDrawerOpen}
       onClose={closeDrawer}
-      className='flex w-3/4 flex-col p-8'
+      className='w-full max-w-sm px-0 py-0'
     >
-      <button className='flex justify-end' onClick={closeDrawer}>
-        <Image
-          src='/assets/images/close.svg'
-          objectFit='contain'
-          alt='close'
-          height={16}
-          width={16}
-        />
-      </button>
+      <div className="h-full bg-white flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-end px-6 py-4 border-b border-gray-100">
+          <button
+            className='flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 transition-colors'
+            onClick={closeDrawer}
+          >
+            <Image
+              src='/assets/images/close.svg'
+              objectFit='contain'
+              alt='close'
+              height={16}
+              width={16}
+            />
+          </button>
+        </div>
 
-      <nav className='flex-auto'>
-        <ul className='flex h-full flex-col items-center justify-center gap-y-4 text-black '>
-          {mainNavsLinks.map((item) => (
-            <li onClick={closeDrawer} key={nanoid()}>
-              <NavLink
-                slug={item.href?.replace('/', '')!}
-                href={item.href!}
-                rel={item.external ? 'noreferrer' : ''}
-                className='flex items-center gap-x-2 font-medium uppercase'
-                activeClass='border-black borde-b-[1px]'
-                handleMouseEnter={() => { }}
-                handleMouseLeave={handleMouseLeave}
+        {/* Navigation Content */}
+        <div className='flex-1 px-6 py-8'>
+          <div className="space-y-6">
+            <Link
+              href="/home"
+              className="block text-lg font-normal text-gray-900 hover:text-primary transition-colors"
+              onClick={closeDrawer}
+            >
+              Home
+            </Link>
+            <Link
+              href="/sell"
+              className="block text-lg font-normal text-gray-900 hover:text-primary transition-colors"
+              onClick={closeDrawer}
+            >
+              Sell
+            </Link>
+            <Link
+              href="/agents"
+              className="block text-lg font-normal text-gray-900 hover:text-primary transition-colors"
+              onClick={closeDrawer}
+            >
+              Agents
+            </Link>
+            <Link
+              href="/company"
+              className="block text-lg font-normal text-gray-900 hover:text-primary transition-colors"
+              onClick={closeDrawer}
+            >
+              Company
+            </Link>
+          </div>
+        </div>
+
+        {/* Authentication Section */}
+        <div className='px-6 py-6 space-y-4'>
+          {isLoggedIn ? (
+            <div className="space-y-4">
+              <Link
+                href='/dashboard'
+                className='block w-full text-center py-3 px-6 bg-black text-white rounded-full font-medium hover:bg-gray-800 transition-colors'
+                onClick={closeDrawer}
               >
-                {item.title}
-              </NavLink>
-            </li>
-          ))}
-        </ul>
-      </nav>
+                Dashboard
+              </Link>
+              <div className="flex justify-center">
+                <AccountDropdown
+                  username={user?.fullname!}
+                  avatar={user?.profile || null}
+                  firstName={user?.firstname!}
+                  lastName={user?.lastname!}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div onClick={closeDrawer}>
+                <LoginRegisterModal
+                  label='Get Started'
+                  initialStage={1}
+                  variant={"default"}
+                  className='w-full font-medium text-center py-3 px-6 bg-black text-white rounded-full hover:bg-gray-800 transition-colors'
+                />
+              </div>
+              <div onClick={closeDrawer}>
+                <LoginRegisterModal
+                  label='Log in'
+                  initialStage={0}
+                  variant={"ghost"}
+                  className='w-full font-medium text-center py-3 px-6 border border-gray-300 rounded-full transition-colors text-gray-700 hover:text-black'
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </CustomDrawer>
   );
 };

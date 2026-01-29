@@ -18,7 +18,7 @@ function BuyHero() {
             </h3>
           </div>
           <div>
-            <div className='block'>
+            <div className='block overflow-visible'>
               <HeroSearchForm />
             </div>
           </div>

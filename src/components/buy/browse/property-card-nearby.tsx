@@ -15,23 +15,7 @@ const PropertyCardHomes: React.FC<any> = ({ listing }) => {
   const [carouselEvent, setCarouselEvent] = useState(false);
 
   if (!listing?.listing) return null;
-   console.log("Nearby Listing:",listing);
-  // ✅ Create image slides correctly as React elements
-  const slides =
-    listing?.listing?.media?.photosList?.slice(0, 4)?.map((image: any, idx: number) => {
-      if (!image?.lowRes) return null;
-      return (
-        <div key={idx} className="relative w-full h-[400px] aspect-video">
-          <NImage
-            src={image.lowRes}
-            alt={`property-image-${idx}`}
-            fill
-            unoptimized
-            className="object-cover"
-          />
-        </div>
-      );
-    }) || [];
+  console.log("Nearby Listing:", listing);
 
   // ✅ Click handlers
   const handleClick = (e: React.MouseEvent) => {
@@ -49,63 +33,79 @@ const PropertyCardHomes: React.FC<any> = ({ listing }) => {
   return (
     <div
       onClick={handleClick}
-      className="flex w-full min-h-[480px] cursor-pointer flex-col overflow-hidden rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl bg-black border border-gray-800 hover:border-ocOrange hover:scale-[1.02] group"
+      className="relative w-full h-[320px] cursor-pointer overflow-hidden rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl group"
     >
-      {/* Carousel Section */}
-      <div className="relative w-full  overflow-hidden">
-        <div className="w-full h-[250px] bg-gray-900"> 
-            <EmblaCarousel slides={slides} options={{ loop: true }} />
-        </div>
-        {listing?.listing?.leadTypes?.mlsType?.length ? (
-          <div className="absolute top-5 left-5 bg-orange-600 text-white px-3 py-1 rounded text-sm font-medium">
-            {listing?.listing?.leadTypes?.mlsType?.join(", ")}
+      {/* Full Image Background */}
+      <div className="absolute inset-0 w-full h-full">
+        {listing?.listing?.media?.photosList?.[0]?.lowRes ? (
+          <NImage
+            src={listing.listing.media.photosList[0].lowRes}
+            alt="property-image"
+            fill
+            unoptimized
+            className="object-cover rounded-2xl"
+          />
+        ) : (
+          <div className="w-full h-full bg-gray-300 rounded-2xl flex items-center justify-center">
+            <span className="text-gray-500">No Image</span>
           </div>
-        ) : null}
+        )}
       </div>
-
-      {/*  Content Section */}
-      <div className="flex flex-1 flex-col justify-between p-5 space-y-3 bg-black">
-        <div className="flex items-center justify-between">
-          <h3 className="text-3xl font-bold text-white">
-            {formatCurrency(listing?.listing?.listPriceLow || 0, "USD")}
-          </h3>
+      
+      {/* Property Type Badge */}
+      {listing?.listing?.leadTypes?.mlsType?.length ? (
+        <div className="absolute top-4 left-4 bg-orange-600 text-white px-3 py-1 rounded-lg text-sm font-medium z-10">
+          {listing?.listing?.leadTypes?.mlsType?.join(", ")}
         </div>
+      ) : null}
 
-        <p className="text-sm text-gray-400" style={{height:"30px",marginBottom:"10px"}}>{listing?.listing?.courtesyOf}</p>
-        <div className="text-sm text-white leading-snug" >
-          <p className="font-medium">{listing?.listing?.address?.unparsedAddress}</p>
-          <p>
+      {/* Sold Badge */}
+      {(listing?.listing?.standardStatus === 'Sold' || listing?.listing?.standardStatus === 'Closed') && (
+        <div className="absolute top-4 right-4 bg-red-600 text-white px-3 py-1 rounded-lg text-sm font-medium z-10">
+          Sold
+        </div>
+      )}
+
+      {/* Bottom Overlay Content */}
+      <div className="absolute bottom-0 left-0 right-0 bg-black/90 p-4 rounded-b-2xl">
+        {/* Price */}
+        <h3 className="text-xl font-bold text-white mb-1">
+          {formatCurrency(listing?.listing?.listPriceLow || 0, "USD")}
+        </h3>
+
+        {/* Address */}
+        <div className="text-sm text-white/90 mb-3 leading-tight">
+          <p className="font-medium">
+            {listing?.listing?.address?.unparsedAddress}
+          </p>
+          <p className="text-white/70">
             {listing?.listing?.address?.city}, {listing?.listing?.address?.stateOrProvince}{" "}
             {listing?.listing?.address?.zipCode}
           </p>
         </div>
 
-        <div className="flex items-center justify-between pt-4 mt-4 border-t border-gray-700">
-          {[
-            {
-              icon: <BedDouble className="w-4 h-4 text-ocOrange" />,
-              value: listing?.listing?.property?.bedroomsTotal || 0,
-              unit: "Bed",
-            },
-            {
-              icon: <Bath className="w-4 h-4 text-ocOrange" />,
-              value: listing?.listing?.property?.bathroomsTotal || 0,
-              unit: "Bath",
-            },
-            {
-              icon: <Ruler className="w-4 h-4 text-ocOrange" />,
-              value: listing?.listing?.property?.livingArea || 0,
-              unit: "sqft",
-            },
-          ].map((item, idx) => (
-            <div key={idx} className="flex flex-col text-center w-1/3">
-              {item.icon}
-              <div className="flex items-center gap-1 mt-1 text-white text-base font-semibold">
-                <span>{item.value}</span>
-                <span className="text-xs text-gray-400">{item.unit}</span>
-              </div>
-            </div>
-          ))}
+        {/* Property Details - Horizontal Layout with Icons */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1">
+            <BedDouble className="w-4 h-4 text-white/80" />
+            <span className="text-white text-sm font-medium">
+              {listing?.listing?.property?.bedroomsTotal || 0} Bed
+            </span>
+          </div>
+          
+          <div className="flex items-center gap-1">
+            <Bath className="w-4 h-4 text-white/80" />
+            <span className="text-white text-sm font-medium">
+              {listing?.listing?.property?.bathroomsTotal || 0} Bath
+            </span>
+          </div>
+          
+          <div className="flex items-center gap-1">
+            <Ruler className="w-4 h-4 text-white/80" />
+            <span className="text-white text-sm font-medium">
+              {listing?.listing?.property?.livingArea || 0} sqft
+            </span>
+          </div>
         </div>
       </div>
     </div>

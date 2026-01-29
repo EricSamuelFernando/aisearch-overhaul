@@ -990,14 +990,14 @@ export const HeroSearchForm = ({
   };
 
   return (
-    <div className="relative flex gap-2 w-full">
+    <div className="relative flex gap-2 w-full overflow-visible">
       <form
         onSubmit={handleNavigate}
         className="
-    relative flex w-full items-center gap-2
-    rounded-xl bg-white p-2
-    overflow-visible
-  "
+          relative flex w-full items-center gap-2
+          rounded-xl bg-white p-2
+          overflow-visible
+        "
       >
         {/* Star + Input */}
         <div className="relative flex min-w-0 flex-1 items-center gap-2 overflow-visible">
@@ -1010,7 +1010,7 @@ export const HeroSearchForm = ({
             setValue={setSearchTerm}
             searchType={searchType}
             placeholderText={placeholderText}
-            className="w-full min-w-0"
+            className="w-full min-w-0 overflow-visible"
           />
         </div>
 
@@ -1019,14 +1019,14 @@ export const HeroSearchForm = ({
           type="submit"
           size="lg"
           className="
-      shrink-0
-      rounded-xl
-      bg-[#F07639]
-      font-bold
-      hover:bg-orange-700
-      px-4
-      z-10
-    "
+            shrink-0
+            rounded-xl
+            bg-[#F07639]
+            font-bold
+            hover:bg-orange-700
+            px-4
+            z-10
+          "
         >
           <div className="flex items-center gap-2">
             {isSearching && (
@@ -1041,7 +1041,6 @@ export const HeroSearchForm = ({
           </div>
         </Button>
       </form>
-
     </div>
   );
 };

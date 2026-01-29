@@ -369,7 +369,7 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
     }
   });
 
- const getAllThreadsBySellerMutation = useMutation({
+  const getAllThreadsBySellerMutation = useMutation({
     mutationKey: ["get_threads_by_seller"],
     mutationFn: async (data: { sellerAgentId: string }) => {
       const token = getAuthToken() || localStorage.getItem("userAccessToken");
@@ -458,3 +458,4 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
     getAllThreadsBySellerMutation
   };
 };
+

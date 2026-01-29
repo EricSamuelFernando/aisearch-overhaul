@@ -1246,8 +1246,8 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
                     setActiveButton('all');
                   }}
                   className={`h-8 w-full rounded-full px-2 py-1 text-xs text-gray-600 sm:h-10 sm:px-4 sm:py-2 sm:text-sm ${activeButton === 'all'
-                      ? 'bg-white text-gray-800 shadow'
-                      : ''
+                    ? 'bg-white text-gray-800 shadow'
+                    : ''
                     }`}
                 >
                   All
@@ -1260,8 +1260,8 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
                     setActiveButton('unread');
                   }}
                   className={`h-8 w-full rounded-full px-2 py-1 text-xs text-gray-600 sm:h-10 sm:px-4 sm:py-2 sm:text-sm ${activeButton === 'unread'
-                      ? 'bg-white text-gray-800 shadow'
-                      : ''
+                    ? 'bg-white text-gray-800 shadow'
+                    : ''
                     }`}
                 >
                   Unread

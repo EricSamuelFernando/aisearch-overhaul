@@ -78,3 +78,4 @@ export const usePropertyAPI = (handleCb?: () => void) => {
     propertyProgressMutation
   };
 };
+

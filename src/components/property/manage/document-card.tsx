@@ -24,14 +24,14 @@ import { error, success } from '@/components/alert/notify';
 
 interface Props {
   doc: any;
-  key:string;
+  key: string;
   index: number;
   onDownload: (doc: any) => void;
   onEditHandler?: (id: string, name: string) => void;
   onDelete: (id: string,) => void
 }
 
-export const GeneralDocumentCard = ({ doc, index, onDownload, onEditHandler, onDelete,key }: Props) => {
+export const GeneralDocumentCard = ({ doc, index, onDownload, onEditHandler, onDelete, key }: Props) => {
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
   const { data: downloadUrl, isLoading } = useViewUploadedFileUrl(doc?.fileUrl);
   const [editModal, setEditModal] = useState<{ open: boolean; doc: any | null }>({
@@ -85,7 +85,7 @@ export const GeneralDocumentCard = ({ doc, index, onDownload, onEditHandler, onD
   const [viewerUrl, setViewerUrl] = useState('');
 
   const { useGrantAccess: { mutate, data, status } } = useRepoManagementApi()
-  
+
   const handleGrantAcess = async () => {
     try {
       const payload = {
@@ -94,7 +94,7 @@ export const GeneralDocumentCard = ({ doc, index, onDownload, onEditHandler, onD
       }
       mutate(payload)
     }
-     catch (error) {
+    catch (error) {
     }
   }
 
@@ -246,8 +246,8 @@ export const GeneralDocumentCard = ({ doc, index, onDownload, onEditHandler, onD
               <button
                 className="px-4 py-2 bg-orange-500 text-white rounded-md"
                 onClick={() => {
-                  console.log("DAta : ",key,editModal,",",doc);
-                  
+                  console.log("DAta : ", key, editModal, ",", doc);
+
                   onEditHandler?.(editModal.doc.id, documentName);
                   setEditModal({ open: false, doc: null });
                 }}
@@ -275,3 +275,4 @@ export const GeneralDocumentCard = ({ doc, index, onDownload, onEditHandler, onD
     </>
   );
 };
+

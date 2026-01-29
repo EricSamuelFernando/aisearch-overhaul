@@ -82,7 +82,7 @@ function useGoogleAuth(handleCb?: () => void) {
     },
   });
 
-  const GoogleOneTap = () => {   
+  const GoogleOneTap = () => {
     useGoogleOneTapLogin({
       onSuccess: async (credentialResponse) => {
         if (credentialResponse.credential) {
@@ -110,7 +110,8 @@ function useGoogleAuth(handleCb?: () => void) {
     return null;
   }
 
-  return { googleLogin, GoogleOneTap , GoogleOneTapLogin };
+  return { googleLogin, GoogleOneTap, GoogleOneTapLogin };
 }
 
 export default useGoogleAuth;
+

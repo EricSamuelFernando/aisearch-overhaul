@@ -515,7 +515,7 @@ export const useGetAccessRequestsByUserId = (userId: string) =>
       if (response.status !== 200 || response.data.errors) {
         throw new Error(
           response.data?.errors?.[0]?.message ||
-            'Failed to fetch access requests',
+          'Failed to fetch access requests',
         );
       }
 
@@ -553,3 +553,4 @@ export const useViewUploadedFileUrl = (
     enabled: !!fileName, // query runs only if fileName is provided and enabled is true
   });
 };
+

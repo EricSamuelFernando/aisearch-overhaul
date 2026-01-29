@@ -7,10 +7,10 @@ import { useAuth } from '@/shared/hooks/useAuth';
 const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || 'http://localhost:4000/graphql';
 
 export const useSharedPropertyAPI = () => {
-  const {user} = useAuth()
+  const { user } = useAuth()
   const headers = {
-    headers:{
-      'Authorization':getAuthToken()
+    headers: {
+      'Authorization': getAuthToken()
     }
   }
   const createSharedProperty = useMutation({
@@ -26,13 +26,15 @@ export const useSharedPropertyAPI = () => {
             }
           }
         `,
-        variables: {...inputData  },
-        
-      }, { headers:{
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${getAuthToken()}`,
-      
-      } });
+        variables: { ...inputData },
+
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${getAuthToken()}`,
+
+        }
+      });
 
       if (response.status !== 200 || response.data.errors) {
         throw new Error(response.data.errors?.[0]?.message || 'Failed to create shared property');
@@ -107,16 +109,16 @@ export const useSharedPropertyAPI = () => {
 };
 
 
-export const useSharedProperties = ()=> useQuery({
-    queryKey: ['sharedProperties'],
-    queryFn: async () => {
-      const token = getAuthToken() || localStorage.getItem('userAccessToken');
-      if (!token) throw new Error('No authentication token found');
+export const useSharedProperties = () => useQuery({
+  queryKey: ['sharedProperties'],
+  queryFn: async () => {
+    const token = getAuthToken() || localStorage.getItem('userAccessToken');
+    if (!token) throw new Error('No authentication token found');
 
-      const response = await axios.post(
-        GRAPHQL_URI,
-        {
-          query: `
+    const response = await axios.post(
+      GRAPHQL_URI,
+      {
+        query: `
             query {
               sharedProperties {
                 id
@@ -129,21 +131,22 @@ export const useSharedProperties = ()=> useQuery({
               }
             }
           `,
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.status !== 200 || response.data.errors) {
-        throw new Error(response.data.errors?.[0]?.message || 'Failed to fetch shared properties');
       }
+    );
 
-      return response.data.data.sharedProperties;
-    },
-    enabled:true,
+    if (response.status !== 200 || response.data.errors) {
+      throw new Error(response.data.errors?.[0]?.message || 'Failed to fetch shared properties');
+    }
 
-  });
+    return response.data.data.sharedProperties;
+  },
+  enabled: true,
+
+});
+

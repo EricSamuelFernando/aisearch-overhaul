@@ -185,7 +185,7 @@ export const SellerAPIs = (handleCb?: () => void) => {
 
   const uploadSellerDocument = useMutation({
     mutationKey: ['upload_documents'],
-    mutationFn: async (inputData:any) => {
+    mutationFn: async (inputData: any) => {
       try {
         const response = await axios.post(GRAPHQL_URI, {
           query: `
@@ -257,13 +257,13 @@ export const SellerAPIs = (handleCb?: () => void) => {
             input: { id, name, fileKey, propertyId, listingId },
           },
         });
-  
+
         if (response.status !== 200 || response.data.errors) {
           throw new Error(
             response?.data?.errors?.[0]?.message || 'Failed to update seller document'
           );
         }
-  
+
         return response.data.data.updateSellerDocument;
       } catch (error: any) {
         console.error('Error updating seller document:', error);
@@ -292,13 +292,13 @@ export const SellerAPIs = (handleCb?: () => void) => {
             id,
           },
         });
-  
+
         if (response.status !== 200 || response.data.errors) {
           throw new Error(
             response?.data?.errors?.[0]?.message || 'Failed to delete seller document'
           );
         }
-  
+
         return response.data.data.deleteSellerDocument;
       } catch (error: any) {
         console.error('Error deleting seller document:', error);
@@ -315,9 +315,9 @@ export const SellerAPIs = (handleCb?: () => void) => {
 
   const getClaimedPropertyOffersAPI = useMutation({
     mutationKey: ['getPropertyOfferByProperty'],
-    mutationFn: async ({propertyId,listingId}:{
-      propertyId:string,
-      listingId:string
+    mutationFn: async ({ propertyId, listingId }: {
+      propertyId: string,
+      listingId: string
     }) => {
       try {
         const response = await axios.post(GRAPHQL_URI, {

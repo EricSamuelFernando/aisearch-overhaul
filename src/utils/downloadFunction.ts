@@ -33,11 +33,13 @@ export const fetchPresignedUrl = async (fileName: string): Promise<string | null
             }`,
             variables: { fileName },
           },
-          { headers:{
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${getAuthToken()}`,
-          
-          } }
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${getAuthToken()}`,
+
+            }
+          }
         );
 
         if (response.status !== 200 || response.data.errors) {
@@ -54,3 +56,4 @@ export const fetchPresignedUrl = async (fileName: string): Promise<string | null
     return null;
   }
 };
+

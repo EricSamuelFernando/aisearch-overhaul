@@ -8,8 +8,8 @@ const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || 'http://
 
 export const useSellerPropertyAnalyticsAPI = () => {
   const headers = {
-    headers:{
-      'Authorizarin':getAuthToken()
+    headers: {
+      'Authorizarin': getAuthToken()
     }
   }
   const createSellerAnalytics = useMutation({
@@ -34,14 +34,14 @@ export const useSellerPropertyAnalyticsAPI = () => {
           },
         }
       );
-  
+
       return response.data.data.createSellerPropertyAnalytic;
     },
     onError: (err: any) => {
       error({ message: err.message });
     },
   });
-  
+
   const getAnalytics = useMutation({
     mutationKey: ['sellerPropertyAnalytics'],
     mutationFn: async () => {
@@ -68,7 +68,7 @@ export const useSellerPropertyAnalyticsAPI = () => {
       error({ message: err.message });
     },
   });
- 
+
 
   const updateAnalytics = useMutation({
     mutationKey: ['updateSellerPropertyAnalytic'],
@@ -106,11 +106,11 @@ export const useSellerPropertyAnalyticsAPI = () => {
 
 export const getAllPropertyAnalytics = () => useQuery({
   queryKey: ['sharedProperties'],
-  queryFn:async () => {
-      const response = await axios.post(
-        GRAPHQL_URI,
-        {
-          query: `
+  queryFn: async () => {
+    const response = await axios.post(
+      GRAPHQL_URI,
+      {
+        query: `
             query {
               sellerPropertyAnalytics {
                 id
@@ -126,14 +126,15 @@ export const getAllPropertyAnalytics = () => useQuery({
               }
             }
           `,
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${getAuthToken()}`,
         },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${getAuthToken()}`,
-          },
-        }
-      );
-      return response.data.data.sellerPropertyAnalytics;
-    },
+      }
+    );
+    return response.data.data.sellerPropertyAnalytics;
+  },
 })
+

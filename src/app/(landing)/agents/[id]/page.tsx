@@ -205,15 +205,15 @@ export default function AgentProfilePage() {
   const getLinkClass = (sectionId: SectionId) => {
     const isActive = activeSection === sectionId;
     return `text-left pl-4 border-l-2 text-sm transition-colors duration-200 cursor-pointer w-full ${isActive
-        ? 'border-black font-bold text-black'
-        : 'border-transparent text-gray-600 hover:text-black'
+      ? 'border-black font-bold text-black'
+      : 'border-transparent text-gray-600 hover:text-black'
       }`;
   };
 
   if (status === 'loading') {
     return (
       <div className="min-h-screen bg-white text-black">
-        <MainNavPages  />
+        <MainNavPages />
         <div className="pt-28 pb-20 container mx-auto px-4 sm:px-6 lg:px-8">
           <p>Loading agent...</p>
         </div>
@@ -224,7 +224,7 @@ export default function AgentProfilePage() {
   if (status === 'not-found' || !agent) {
     return (
       <div className="min-h-screen bg-white text-black">
-        <MainNavPages  />
+        <MainNavPages />
         <div className="pt-28 pb-20 container mx-auto px-4 sm:px-6 lg:px-8">
           <p>Agent not found.</p>
           <Link href="/agents/search" className="text-blue-600 underline">
@@ -284,7 +284,7 @@ export default function AgentProfilePage() {
 
   return (
     <div className="min-h-screen bg-white text-black font-sans">
-      <MainNavPages  />
+      <MainNavPages />
 
       <div className="pt-28 pb-20 container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
         <div className="text-sm text-gray-500 mb-8 flex items-center gap-2">

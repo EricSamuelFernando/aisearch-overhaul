@@ -29,7 +29,7 @@ const RecentCommentsModal: React.FC<RecentCommentsModalProps> = ({ isOpen, onClo
         try {
             const token = getAuthToken() || localStorage.getItem('__WEB_APP_Ocreal345####btny_ocreal');
             const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || 'http://localhost:4000/auth/graphql';
-            
+
             const query = `
                 query RecentComments($limit: Int) {
                     recentComments(limit: $limit) {
@@ -150,3 +150,4 @@ const RecentCommentsModal: React.FC<RecentCommentsModalProps> = ({ isOpen, onClo
 };
 
 export default RecentCommentsModal;
+

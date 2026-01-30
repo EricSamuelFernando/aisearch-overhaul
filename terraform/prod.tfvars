@@ -21,7 +21,7 @@ lambda_env_variables = {
 
   NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL = "https://prod-api.snaphomz.com/auth/graphql",
 
-  NEXT_PUBLIC_MORTGAGE_FRONTEND_URL = "https://demo-mortgage.snaphomz.com",
+  NEXT_PUBLIC_MORTGAGE_FRONTEND_URL = "https://prod-mortgage.snaphomz.com",
 
   NEXT_PUBLIC_SNAPHOMZ_MAIN_FRONTEND_URL = "https://demo.snaphomz.com",
 

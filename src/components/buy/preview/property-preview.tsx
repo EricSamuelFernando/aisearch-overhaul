@@ -368,14 +368,14 @@ const PropertyPreview: React.FC = () => {
 
   const handleAskAI = () => {
     if (!askAIQuestion.trim()) return;
-    
+
     // Here you can add the logic to send the question to your AI service
     console.log('Ask AI Question:', askAIQuestion);
-    
+
     // For now, just close the modal and clear the question
     setIsAskAIModalOpen(false);
     setAskAIQuestion('');
-    
+
     // You can add success message or handle AI response here
     // success({ message: "Your question has been sent to AI assistant!" });
   };
@@ -555,6 +555,7 @@ const PropertyPreview: React.FC = () => {
       // debugger
       const data = await response.json();
       setpropertyDatas(data)
+      console.log("AI backend response data ", data)
       localStorage.setItem('stateOrProvince', data.data.address.stateOrProvince || '')
       localStorage.setItem('listingId', String(data.data.listingId))
       localStorage.setItem('propertyType', data.data.property.propertyType || '')
@@ -1291,8 +1292,8 @@ const PropertyPreview: React.FC = () => {
             {/* Nearby Homes Section (Similar Homes) */}
             <div className="pb-8 md:pb-12 mb-16 md:mb-20">
               {/* <h2 className='text-xl font-bold mt-8 mb-4'>Similar homes</h2> */}
-              {propertyDatas?.nearbyHomes?.data && propertyDatas.nearbyHomes.data.length > 0 ? (
-                <NearbyHomesSection nearbyHomes={propertyDatas.nearbyHomes.data} />
+              {propertyDatas?.nearbyHomes && propertyDatas.nearbyHomes.length > 0 ? (
+                <NearbyHomesSection nearbyHomes={propertyDatas.nearbyHomes} />
               ) : (
                 <div className="flex items-center justify-center py-12 px-4">
                   <p className="text-gray-500 text-base">Similar homes not available</p>
@@ -1352,7 +1353,7 @@ const PropertyPreview: React.FC = () => {
               Your AI real estate assistant. We'll answer quickly much any question about this home.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
             <div className="space-y-4">
               {/* Predefined Questions */}
@@ -1367,7 +1368,7 @@ const PropertyPreview: React.FC = () => {
                   <span className="text-sm">Can I raise a family here?</span>
                 </button>
               </div>
-              
+
               {/* Custom Question Input */}
               <div className="mt-6">
                 <textarea
@@ -1380,7 +1381,7 @@ const PropertyPreview: React.FC = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="flex-shrink-0 px-6 pb-6">
             <button
               onClick={handleAskAI}

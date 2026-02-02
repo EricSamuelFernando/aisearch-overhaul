@@ -1184,7 +1184,7 @@ export interface EngagedPropertyDocumentsInterface {
 function PropertyDetailLayout() {
   const { propertyId: id } = useParams<{ propertyId: string }>();
   const [loading, setLoading] = useState(true);
-  const [propertyData, setPropertyData] = useState<EngagedPropertyInterface>();
+  const [propertyData, setPropertyData] = useState<any>();
   const [propertytDocuments, setPropertyDocuments] =
     useState<EngagedPropertyDocumentsInterface>();
   const [fileUploading, setFileUploading] = useState(false);

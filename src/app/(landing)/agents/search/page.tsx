@@ -480,6 +480,62 @@ export default function AgentSearchPage() {
   const PAGE_SIZE = 100;
   const searchSectionRef = useRef<HTMLDivElement>(null);
 
+  const GRAPHQL_URI =
+    process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
+    'http://localhost:4000/auth/graphql';
+
+  async function fetchAgents() {
+    const response = await fetch(GRAPHQL_URI, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apollo-require-preflight': 'true',
+      },
+      body: JSON.stringify({
+        query: `
+        query ExternalAgents($limit: Int, $offset: Int) {
+          externalAgents(limit: $limit, offset: $offset) {
+            data {
+              id
+              full_name
+              email
+              phone
+              brokerage
+              locationRaw
+              profile_image_url
+              avgRating
+              active_listings_count
+              recentlySoldCount
+              recommendationsCount
+              avgRatingForCustomerDisplay
+              homesSoldLastYear
+            }
+          }
+        }
+      `,
+        variables: {
+          limit: 1000,
+          offset: 0,
+        },
+      }),
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const json = await response.json();
+    const data = json?.data?.externalAgents?.data || [];
+    return data.map((agent: any) => ({
+      ...agent,
+      Name: agent.full_name || '',
+      agentEmail: agent.email || undefined,
+      Location: agent.locationRaw || undefined,
+      Brokerage: agent.brokerage || undefined,
+    }));
+  }
+
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
 
@@ -500,6 +556,18 @@ export default function AgentSearchPage() {
     setQuery(queryParam);
     setMode(modeParam);
     setSearchInput(modeParam === 'name' ? queryParam : '');
+
+    (async () => {
+      const data: Agent[] = await fetchAgents()
+
+      let final = data;
+      if (mode === 'location' && query.trim()) {
+        final = data.filter((agent) => agentMatchesLocation(agent, query));
+      }
+
+      setAgents(final);
+    })()
+
   }, [searchParams]);
 
   useEffect(() => {
@@ -513,22 +581,24 @@ export default function AgentSearchPage() {
         if (query) qs.push(`q=${encodeURIComponent(query)}`);
         if (mode) qs.push(`mode=${mode}`);
 
-        const url = `/api/agents${qs.length ? `?${qs.join('&')}` : ''}`;
+        // const url = `/api/agents${qs.length ? `?${qs.join('&')}` : ''}`;
 
-        const res = await fetch(url, { signal: controller.signal });
-        if (!res.ok) {
-          setAgents([]);
-          return;
-        }
+        // const res = await fetch(url, { signal: controller.signal });
+        // if (!res.ok) {
+        //   setAgents([]);
+        //   return;
+        // }
 
-        const data: Agent[] = await res.json();
+        // const data: Agent[] = await res.json();
 
-        let final = data;
-        if (mode === 'location' && query.trim()) {
-          final = data.filter((agent) => agentMatchesLocation(agent, query));
-        }
+        // const data: Agent[] = await fetchAgents()
 
-        setAgents(final);
+        // let final = data;
+        // if (mode === 'location' && query.trim()) {
+        //   final = data.filter((agent) => agentMatchesLocation(agent, query));
+        // }
+
+        // setAgents(final);
       } catch (error) {
         if ((error as any).name !== 'AbortError') {
           setAgents([]);
@@ -745,8 +815,8 @@ export default function AgentSearchPage() {
                 <button
                   key={pageNumber}
                   className={`px-4 py-2 rounded-full border ${pageNumber === currentPage
-                      ? 'bg-black text-white border-black'
-                      : 'border-gray-300 text-gray-700 hover:border-black'
+                    ? 'bg-black text-white border-black'
+                    : 'border-gray-300 text-gray-700 hover:border-black'
                     }`}
                   onClick={() => handlePageChange(pageNumber)}
                 >
@@ -770,4 +840,3 @@ export default function AgentSearchPage() {
     </div>
   );
 }
-

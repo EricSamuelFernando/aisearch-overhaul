@@ -575,6 +575,8 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
         engagementId: engagementId || undefined,
       };
 
+      console.log("Agent payload", payload)
+
       agentIvitationMutation.mutateAsync(payload, {
         onSuccess: (response: any) => {
           setLoadingAgentId(null);
@@ -770,8 +772,8 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
                   }, 0);
                 }}
                 className={`h-full flex items-center px-4 rounded-full transition-colors text-sm font-medium ${searchMode === 'location'
-                    ? 'bg-black text-white shadow-sm'
-                    : 'text-gray-600 hover:text-black'
+                  ? 'bg-black text-white shadow-sm'
+                  : 'text-gray-600 hover:text-black'
                   }`}
               >
                 Location
@@ -785,8 +787,8 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
                   }, 0);
                 }}
                 className={`h-full flex items-center px-4 rounded-full transition-colors text-sm font-medium ${searchMode === 'name'
-                    ? 'bg-black text-white shadow-sm'
-                    : 'text-gray-600 hover:text-black'
+                  ? 'bg-black text-white shadow-sm'
+                  : 'text-gray-600 hover:text-black'
                   }`}
               >
                 Agent name

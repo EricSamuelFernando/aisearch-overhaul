@@ -10,6 +10,7 @@ export const API_APP_ID = '';
 
 export const IDENTITY_GATEWAY = '/login';
 export const AUTH_TOKEN = '__WEB_APP_Ocreal345####btny_ocreal';
+export const REFRESH_TOKEN = '__WEB_APP_Ocreal345####refresh_token'; // Added
 export const USER_ROLE = '__WEB_APP_Ocreal345####user_role';
 export const AUTH_APP_STATE = ``;
 export const SECURE_LOGIN_KEY = '__WEB_APP_Ocreal345####btny_yut';

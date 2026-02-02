@@ -3,7 +3,7 @@ import { useAppDispatch } from "@/lib/hook";
 import { getAuthToken } from "@/lib/storage";
 import { setSelectedThreadInfo } from "@/slices/chat/chat.slice";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import axios from "axios";
+import API from "@/lib/api/axios";
 import { useDispatch } from "react-redux";
 import { setEngagedProperty } from "@/slices/property/property-slice";
 
@@ -20,14 +20,9 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
   const createThreadMutation = useMutation({
     mutationKey: ['create-thread'],
     mutationFn: async (createThreadInput: any) => {
-      const token = getAuthToken() || localStorage.getItem('userAccessToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
       try {
         // Sending a POST request to the GraphQL endpoint
-        const response = await axios.post(
+        const response = await API.post(
           GRAPHQL_URI,
           {
             query: `
@@ -40,13 +35,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
             variables: {
               createThreadInput,
             },
-          },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-          },
+          }
         );
 
         // Check if the response is successful
@@ -79,13 +68,8 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
   const getAllThreadsMutation = useMutation({
     mutationKey: ['get-all-threads'],
     mutationFn: async (data: any) => {
-      const token = getAuthToken() || localStorage.getItem('userAccessToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
       try {
-        const response = await axios.post(
+        const response = await API.post(
           GRAPHQL_URI,
           {
             query: `
@@ -100,13 +84,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
                 }
               }
             `,
-          },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-          },
+          }
         );
 
         if (response.status !== 200) {
@@ -137,13 +115,8 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
   const getAllThreadsByUserMutation = useMutation({
     mutationKey: ['get_threads_by_user'],
     mutationFn: async (data: any) => {
-      const token = getAuthToken() || localStorage.getItem('userAccessToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
       try {
-        const response = await axios.post(
+        const response = await API.post(
           GRAPHQL_URI,
           {
             query: `
@@ -176,13 +149,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
               threadName: data.threadName,
               isRead: data.isRead,
             },
-          },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-          },
+          }
         );
 
         if (response.status !== 200) {
@@ -213,13 +180,8 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
   const getAllThreadsByBuyerAgentsMutation = useMutation({
     mutationKey: ['get_threads_by_buyer_agents'],
     mutationFn: async (data: any) => {
-      const token = getAuthToken() || localStorage.getItem('userAccessToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
       try {
-        const response = await axios.post(
+        const response = await API.post(
           GRAPHQL_URI,
           {
             query: `
@@ -253,13 +215,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
               threadName: data.threadName,
               isRead: data.isRead,
             },
-          },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-          },
+          }
         );
 
         if (response.status !== 200) {
@@ -290,13 +246,8 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
   const getAllConversationMessagesMutation = useMutation({
     mutationKey: ['conversationsByThread'],
     mutationFn: async (threadId: string) => {
-      const token = getAuthToken() || localStorage.getItem('userAccessToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
       try {
-        const response = await axios.post(
+        const response = await API.post(
           GRAPHQL_URI,
           {
             query: `
@@ -313,13 +264,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
             variables: {
               threadId: threadId,
             },
-          },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-          },
+          }
         );
 
         if (response.status !== 200) {
@@ -350,13 +295,8 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
   const getAllEngagedProperties = useMutation({
     mutationKey: ['getAllEngagedProperties'],
     mutationFn: async (userId: string) => {
-      const token = getAuthToken() || localStorage.getItem('userAccessToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
       try {
-        const response = await axios.post(
+        const response = await API.post(
           GRAPHQL_URI,
           {
             query: `
@@ -416,13 +356,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
             variables: {
               userId: userId,
             },
-          },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-          },
+          }
         );
 
         if (response.status !== 200) {
@@ -450,12 +384,8 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
   const getEngagedPropertyByPropertyId = useMutation({
     mutationKey: ['getAllEngagedPropertyByPropertyId'],
     mutationFn: async (propertyId: string) => {
-      const token = getAuthToken() || localStorage.getItem('userAccessToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
       try {
-        const response = await axios.post(
+        const response = await API.post(
           GRAPHQL_URI,
           {
             query: `
@@ -514,13 +444,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
             variables: {
               propertyId: propertyId,
             },
-          },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-          },
+          }
         );
 
         if (response.status !== 200) {
@@ -554,12 +478,8 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
   const deleteEngagedPropertyById = useMutation({
     mutationKey: ['deleteEngagedPropertyById'],
     mutationFn: async (propertyId: string) => {
-      const token = getAuthToken() || localStorage.getItem('userAccessToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
       try {
-        const response = await axios.post(
+        const response = await API.post(
           GRAPHQL_URI,
           {
             query: `
@@ -571,13 +491,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
             variables: {
               propertyId: propertyId,
             },
-          },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-          },
+          }
         );
 
         if (response.status !== 200) {
@@ -610,12 +524,8 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
   const searchEngagedProperty = useMutation({
     mutationKey: ['searchUserPropertyEngagements'],
     mutationFn: async (searchData: any) => {
-      const token = getAuthToken() || localStorage.getItem('userAccessToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
       try {
-        const response = await axios.post(
+        const response = await API.post(
           GRAPHQL_URI,
           {
             query: `
@@ -687,13 +597,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
             variables: {
               ...searchData,
             },
-          },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-          },
+          }
         );
 
         if (response.status !== 200) {
@@ -723,13 +627,8 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
   const getThreadById = useMutation({
     mutationKey: ['thread'],
     mutationFn: async (id: string) => {
-      const token = getAuthToken() || localStorage.getItem('userAccessToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
       try {
-        const response = await axios.post(
+        const response = await API.post(
           GRAPHQL_URI,
           {
             query: `
@@ -773,13 +672,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
                 }
         }`,
             variables: { id },
-          },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-          },
+          }
         );
 
         if (response.status !== 200 || response.data.errors) {
@@ -799,13 +692,8 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
   const getConversationMessagesMutation = useMutation({
     mutationKey: ['conversationsByThread'],
     mutationFn: async (threadId: string) => {
-      const token = getAuthToken() || localStorage.getItem('userAccessToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
       try {
-        const response = await axios.post(
+        const response = await API.post(
           GRAPHQL_URI,
           {
             query: `
@@ -824,13 +712,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
             variables: {
               threadId: threadId,
             },
-          },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-          },
+          }
         );
 
         if (response.status !== 200) {
@@ -861,12 +743,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
   const getAllSnapzRequest = useMutation({
     mutationKey: ['get_snapz_request'],
     mutationFn: async (snapData: any) => {
-      const token = getAuthToken() || localStorage.getItem('userAccessToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await axios.post(
+      const response = await API.post(
         GRAPHQL_URI,
         {
           query: `
@@ -897,13 +774,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
           variables: {
             snapData,
           },
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        },
+        }
       );
 
       if (response.status !== 200 || response.data.errors) {
@@ -931,12 +802,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
   const updateSnapzById = useMutation({
     mutationKey: ['update_snapz_participant'],
     mutationFn: async (input: any) => {
-      const token = getAuthToken() || localStorage.getItem('userAccessToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await axios.post(
+      const response = await API.post(
         GRAPHQL_URI,
         {
           query: `
@@ -950,13 +816,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
           variables: {
             updateSnapsParticipantsInput: input,
           },
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        },
+        }
       );
 
       if (response.status !== 200 || response.data.errors) {
@@ -984,12 +844,8 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
   const removeAgentInvitation = useMutation({
     mutationKey: ['remove-agent-invitation'],
     mutationFn: async (data: any) => {
-      const token = getAuthToken() || localStorage.getItem('userAccessToken');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
       try {
-        const response = await axios.post(
+        const response = await API.post(
           GRAPHQL_URI,
           {
             query: `
@@ -1014,13 +870,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
             variables: {
               ...data,
             },
-          },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-          },
+          }
         );
 
         if (response.status !== 200) {
@@ -1074,7 +924,7 @@ export const useGetExternalAgentDetails = (userId?: string) =>
     queryFn: async ({ queryKey }) => {
       const [, uid] = queryKey;
 
-      const response = await axios.post(
+      const response = await API.post(
         GRAPHQL_URI,
         {
           query: `
@@ -1087,13 +937,7 @@ export const useGetExternalAgentDetails = (userId?: string) =>
             }
           `,
           variables: { userId: uid },
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${getAuthToken() || localStorage.getItem('userAccessToken')}`,
-          },
-        },
+        }
       );
 
       if (response.status !== 200 || response.data.errors) {
@@ -1117,7 +961,7 @@ export const useGetUserThreadByProperty = (propertyId?: string) =>
       //const dispatch = useAppDispatch();
 
       try {
-        const response = await axios.post(
+        const response = await API.post(
           GRAPHQL_URI,
           {
             query: `
@@ -1132,12 +976,6 @@ export const useGetUserThreadByProperty = (propertyId?: string) =>
                 }
               `,
             variables: { propertyId: propId },
-          },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${getAuthToken() || localStorage.getItem('userAccessToken')}`,
-            },
           }
         );
 
@@ -1173,7 +1011,7 @@ export const useGetAnswersByUser = (userId?: string, propertyId?: string) =>
       const [, uid, pid] = queryKey;
 
       try {
-        const response = await axios.post(
+        const response = await API.post(
           MORTGAGE_GRAPHQL_URI,
           {
             query: `
@@ -1188,12 +1026,6 @@ export const useGetAnswersByUser = (userId?: string, propertyId?: string) =>
             variables: {
               userId: uid,
               propertyId: pid,
-            },
-          },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${getAuthToken() || localStorage.getItem('userAccessToken')}`,
             },
           }
         );

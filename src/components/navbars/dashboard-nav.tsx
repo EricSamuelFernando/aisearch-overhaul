@@ -51,9 +51,11 @@ const DashboardNav: React.FC<DashboardNavProps> = ({ navClass }) => {
         <div className="logo">
           <Link href={user?.email ? "/dashboard" : "/home"}>
             <Image
-              src={SnapHomz}
+              src="/assets/images/snaphomz-logo-black.png"
               alt="logo"
-              className="h-12 w-32 sm:h-[3.75rem] sm:w-44"
+              width={200}
+              height={59}
+              className="h-12 w-auto sm:h-[3.75rem]"
             />
           </Link>
         </div>

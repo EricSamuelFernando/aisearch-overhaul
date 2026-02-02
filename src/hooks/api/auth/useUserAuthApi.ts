@@ -3,7 +3,7 @@
 import { error, success } from '@/components/alert/notify';
 import { getActiveUserRole, getAuthToken, storeCookie } from '@/lib/storage';
 
-import { AUTH_TOKEN, USER_ROLE } from '@/shared/constants/env';
+import { AUTH_TOKEN, REFRESH_TOKEN, USER_ROLE } from '@/shared/constants/env';
 import { useAuthActions } from '@/shared/hooks/useAuth';
 import {
   AGENT_LOGIN,
@@ -142,6 +142,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       localStorage.setItem('userAccessToken', access_token); // Store access token in localStorage
       if (data?.data?.userLogin?.refresh_token) {
         localStorage.setItem('userRefreshToken', data.data.userLogin.refresh_token);
+        storeCookie({ key: REFRESH_TOKEN, value: data.data.userLogin.refresh_token });
       }
       localStorage.setItem('userDetails', JSON.stringify(user)); // Optionally store entire user details
 

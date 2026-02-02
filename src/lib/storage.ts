@@ -9,12 +9,12 @@ interface StorageProps {
 }
 
 // Assuming deployment environment
-const domain = isProd? 'snaphomz.com' :'localhost';
+const domain = isProd ? 'snaphomz.com' : 'localhost';
 
 export const storeCookie = ({ key, value }: StorageProps): void => {
   const date = new Date();
-  const expireTime = new Date(date.getTime() + 7 * 60 * 60 * 1000);
-  const maxAge = 7 * 60 * 60;
+  const expireTime = new Date(date.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const maxAge = 7 * 24 * 60 * 60;
 
   if (key !== '' && value !== '') {
     setCookie(key, DOMPurify.sanitize(JSON.stringify(value)), {

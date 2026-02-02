@@ -36,7 +36,11 @@ export const footerLinks: Record<string, IFooterItems> = {
       },
       {
         title: 'Email',
-        href: '/email',
+        href: 'mailto:support@snaphomz.com',
+      },
+      {
+        title: 'Do Not Sell or Share Information',
+        href: '/do-not-sell-or-share',
       },
     ],
   },

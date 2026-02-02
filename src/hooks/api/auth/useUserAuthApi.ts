@@ -950,18 +950,18 @@ export const useUserAuthApi = (handleCb?: () => void) => {
         GRAPHQL_URI,
         {
           query: `
-            mutation findAllAgents($limit: Float!, $offset: Float!) {
+            mutation FindAllAgents($limit: Float!, $offset: Float!) {
               findAllAgents(limit: $limit, offset: $offset) {
-                id
-                  firstName
-                  lastName
-                  email
-                  licenseNumber
-                  zipCode
-                  phone
-                  profile
-                  address
-                  bio
+                  users{
+                    id
+                    firstName
+                    lastName
+                    email
+                    phone
+                    profile
+                    address
+                    bio
+                  }
               }
             }
           `,
@@ -978,7 +978,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
         }
       );
 
-      return response.data?.data?.findAllAgents;
+      return response.data?.data?.findAllAgents?.users;
     },
     onSuccess: (data) => {
       console.log('Fetched agents:', data);

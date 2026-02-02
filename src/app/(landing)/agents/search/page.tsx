@@ -149,7 +149,40 @@ const AgentsGrid = memo(function AgentsGrid({
     const name = anyAgent.full_name ?? anyAgent.Name;
     const brokerage = anyAgent.Brokerage ?? anyAgent.brokerageName;
 
-    return isPresent(name) && isPresent(brokerage);
+    const anyMetric = getAny(anyAgent, [
+      // Redfin/performance style
+      'totalDeals',
+      'Total Deals',
+      'numHomesClosed',
+      'homesSoldLastYear',
+      'salesVolumeLastYear',
+      'transactionVolumeLastYear',
+      'dealVolume',
+      'Deal Volume',
+      'highestDealPrice',
+      'Highest Deal Price',
+      'highestSalePriceLastYear',
+      'highestTransactionPriceLastYear',
+      'active_listings_count',
+
+      // Realtor/inventory style
+      'forSaleCount',
+      'For Sale Count',
+      'forSaleMax',
+      'For Sale Max',
+      'recentlySoldCount',
+      'Recently Sold Count',
+      'recentlySoldMax',
+      'Recently Sold Max',
+      'Recommendations Count',
+      'recommendationsCount',
+    ]);
+
+    return (
+      isPresent(name) &&
+      isPresent(brokerage) &&
+      (isValid(anyMetric) || anyMetric === 0)
+    );
   });
 
   if (validAgents.length === 0) {
@@ -437,22 +470,84 @@ const AgentsGrid = memo(function AgentsGrid({
 export default function AgentSearchPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const GRAPHQL_URI =
-    process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
-    'http://localhost:4000/auth/graphql';
 
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<SearchMode>('name');
   const [agents, setAgents] = useState<Agent[] | null>(null);
   const [searchInput, setSearchInput] = useState('');
-  const [totalAgents, setTotalAgents] = useState(0);
-  const [loading, setLoading] = useState(false);
   const deferredSearchInput = useDeferredValue(searchInput);
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 100;
   const searchSectionRef = useRef<HTMLDivElement>(null);
-  const isFetchingMoreRef = useRef(false);
 
+  const GRAPHQL_URI =
+    process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
+    'http://localhost:4000/auth/graphql';
+
+  async function fetchAgents() {
+    const response = await fetch(GRAPHQL_URI, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apollo-require-preflight': 'true',
+      },
+      body: JSON.stringify({
+        query: `
+        query ExternalAgents($limit: Int, $offset: Int) {
+          externalAgents(limit: $limit, offset: $offset) {
+            data {
+              id
+              full_name
+              email
+              phone
+              brokerage
+              locationRaw
+              profile_image_url
+              avgRating
+              active_listings_count
+              recentlySoldCount
+              recommendationsCount
+              avgRatingForCustomerDisplay
+              homesSoldLastYear
+            }
+          }
+        }
+      `,
+        variables: {
+          limit: 1000,
+          offset: 0,
+        },
+      }),
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const json = await response.json();
+    const data = json?.data?.externalAgents?.data || [];
+    return data.map((agent: any) => ({
+      ...agent,
+      Name: agent.full_name || '',
+      agentEmail: agent.email || undefined,
+      Location: agent.locationRaw || undefined,
+      Brokerage: agent.brokerage || undefined,
+    }));
+  }
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+
+    if (searchSectionRef.current) {
+      searchSectionRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   useEffect(() => {
     const queryParam = searchParams.get('query') || '';
@@ -461,133 +556,64 @@ export default function AgentSearchPage() {
     setQuery(queryParam);
     setMode(modeParam);
     setSearchInput(modeParam === 'name' ? queryParam : '');
+
+    (async () => {
+      const data: Agent[] = await fetchAgents()
+
+      let final = data;
+      if (mode === 'location' && query.trim()) {
+        final = data.filter((agent) => agentMatchesLocation(agent, query));
+      }
+
+      setAgents(final);
+    })()
+
   }, [searchParams]);
 
   useEffect(() => {
     const controller = new AbortController();
 
-    async function loadAgentsPage() {
-      setLoading(true);
-      if (currentPage === 1) {
-        setAgents(null);
-      }
+    async function loadAgents() {
+      setAgents(null);
 
       try {
-        const res = await fetch(GRAPHQL_URI, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apollo-require-preflight': 'true',
-          },
-          body: JSON.stringify({
-            query: `
-              query ExternalAgents($limit: Int, $offset: Int, $search: String) {
-                externalAgents(limit: $limit, offset: $offset, search: $search) {
-                  total
-                  data {
-                    id
-                    full_name
-                    email
-                    phone
-                    brokerage
-                    locationRaw
-                    city
-                    state
-                    primary_service_regions
-                    profile_image_url
-                    jobTitle
-                    licenseNumber
-                    languages
-                    avgRating
-                    avgRatingForCustomerDisplay
-                    dealVolume
-                    salesVolumeLastYear
-                    purchaseVolumeLastYear
-                    transactionVolumeLastYear
-                    estimated_gci
-                    commission_rate
-                    homesSoldLastYear
-                    homesPurchasedLastYear
-                    homeTransactionsLastYear
-                    numHomesClosed
-                    totalDeals
-                    averagePurchasePriceLastYear
-                    averageSalePriceLastYear
-                    averageTransactionPriceLastYear
-                    highestPurchasePriceLastYear
-                    highestSalePriceLastYear
-                    highestTransactionPriceLastYear
-                    highestDealPrice
-                    active_listings_count
-                    active_listings_json
-                    description
-                    website
-                    profileUrl
-                    recommendationsCount
-                    socialMediaUrls
-                    forSaleCount
-                    forSaleMin
-                    forSaleMax
-                    recentlySoldCount
-                    recentlySoldMin
-                    recentlySoldMax
-                    address
-                    office
-                  }
-                }
-              }
-            `,
-            variables: {
-              limit: PAGE_SIZE,
-              offset: (currentPage - 1) * PAGE_SIZE,
-              search: mode === 'name' ? query : undefined,
-            },
-          }),
-          signal: controller.signal,
-        });
-        if (!res.ok) {
-          setAgents([]);
-          setLoading(false);
-          isFetchingMoreRef.current = false;
-          return;
-        }
+        const qs: string[] = [];
+        if (query) qs.push(`q=${encodeURIComponent(query)}`);
+        if (mode) qs.push(`mode=${mode}`);
 
-        const json = await res.json();
-        const payload = json?.data?.externalAgents || { data: [], total: 0 };
-        const data: Agent[] = payload?.data || [];
-        const total = Number(payload?.total || 0);
+        // const url = `/api/agents${qs.length ? `?${qs.join('&')}` : ''}`;
 
-        let final = data;
-        if (mode === 'location' && query.trim()) {
-          final = data.filter((agent) => agentMatchesLocation(agent, query));
-        }
+        // const res = await fetch(url, { signal: controller.signal });
+        // if (!res.ok) {
+        //   setAgents([]);
+        //   return;
+        // }
 
-        setAgents((prev) => {
-          const base = currentPage === 1 ? [] : prev || [];
-          const merged = [...base, ...final];
-          return merged;
-        });
-        setTotalAgents(total);
-        setLoading(false);
-        isFetchingMoreRef.current = false;
+        // const data: Agent[] = await res.json();
+
+        // const data: Agent[] = await fetchAgents()
+
+        // let final = data;
+        // if (mode === 'location' && query.trim()) {
+        //   final = data.filter((agent) => agentMatchesLocation(agent, query));
+        // }
+
+        // setAgents(final);
       } catch (error) {
         if ((error as any).name !== 'AbortError') {
           setAgents([]);
-          setLoading(false);
-          isFetchingMoreRef.current = false;
         }
       }
     }
 
-    loadAgentsPage();
+    loadAgents();
 
     return () => controller.abort();
-  }, [query, mode, currentPage, PAGE_SIZE, GRAPHQL_URI]);
+  }, [query, mode]);
 
   useEffect(() => {
     setCurrentPage(1);
-    setTotalAgents(0);
-  }, [query, mode]);
+  }, [deferredSearchInput, query, mode]);
 
   const onSubmitSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -690,36 +716,47 @@ export default function AgentSearchPage() {
       .map((x) => x.a);
   }, [filteredAgents]);
 
-  const hasMoreAgents = useMemo(() => {
-    if (!totalAgents) return false;
-    return (orderedAgents?.length || 0) < totalAgents;
-  }, [orderedAgents, totalAgents]);
+  const totalAgents = orderedAgents?.length ?? 0;
+  const totalPages =
+    orderedAgents === null ? 0 : Math.max(1, Math.ceil(totalAgents / PAGE_SIZE));
 
   useEffect(() => {
-    function handleScroll() {
-      if (loading || isFetchingMoreRef.current || !hasMoreAgents) return;
-      const nearBottom =
-        window.innerHeight + window.scrollY >= document.body.offsetHeight - 200;
-      if (nearBottom) {
-        isFetchingMoreRef.current = true;
-        setCurrentPage((p) => p + 1);
-      }
+    if (orderedAgents && currentPage > totalPages) {
+      setCurrentPage(totalPages);
     }
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [loading, hasMoreAgents]);
+  }, [orderedAgents, currentPage, totalPages]);
 
-  const displayCount = orderedAgents?.length ?? 0;
-  const rangeStart = displayCount === 0 ? 0 : 1;
-  const rangeEnd =
-    displayCount === 0
+  const paginatedAgents = useMemo(() => {
+    if (orderedAgents === null) return null;
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return orderedAgents.slice(start, start + PAGE_SIZE);
+  }, [orderedAgents, currentPage]);
+
+  const pageNumbers = useMemo(() => {
+    if (totalPages <= 1) return [];
+    const windowSize = Math.min(5, totalPages);
+    const half = Math.floor(windowSize / 2);
+    let start = currentPage - half;
+    start = Math.max(1, start);
+    start = Math.min(start, totalPages - windowSize + 1);
+
+    return Array.from({ length: windowSize }, (_, idx) => start + idx);
+  }, [currentPage, totalPages]);
+
+  const rangeStart =
+    orderedAgents === null || totalAgents === 0
       ? 0
-      : Math.min(totalAgents || displayCount, displayCount);
+      : (currentPage - 1) * PAGE_SIZE + 1;
+
+  const rangeEnd =
+    orderedAgents === null || totalAgents === 0
+      ? 0
+      : Math.min(totalAgents, currentPage * PAGE_SIZE);
 
   const countText =
     orderedAgents === null
       ? 'Loading agents...'
-      : `${displayCount} agents found (showing ${rangeStart}-${rangeEnd})`;
+      : `${totalAgents} agents found (showing ${rangeStart}-${rangeEnd})`;
 
   return (
     <div className="min-h-screen bg-white text-black">
@@ -762,11 +799,40 @@ export default function AgentSearchPage() {
         </div>
 
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <AgentsGrid agents={orderedAgents} />
+          <AgentsGrid agents={paginatedAgents} />
 
-          {loading && (
-            <div className="flex justify-center items-center mt-10 text-sm text-gray-500">
-              Loading more agents...
+          {orderedAgents && totalPages > 1 && (
+            <div className="flex flex-wrap justify-center items-center gap-3 mt-12">
+              <button
+                className="w-12 h-12 rounded-full bg-[#EADDD7] flex items-center justify-center hover:bg-[#DCCBC3] transition-colors text-gray-700 disabled:opacity-40"
+                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+
+              {pageNumbers.map((pageNumber) => (
+                <button
+                  key={pageNumber}
+                  className={`px-4 py-2 rounded-full border ${pageNumber === currentPage
+                    ? 'bg-black text-white border-black'
+                    : 'border-gray-300 text-gray-700 hover:border-black'
+                    }`}
+                  onClick={() => handlePageChange(pageNumber)}
+                >
+                  {pageNumber}
+                </button>
+              ))}
+
+              <button
+                className="w-12 h-12 rounded-full bg-[#EADDD7] flex items-center justify-center hover:bg-[#DCCBC3] transition-colors text-gray-700 disabled:opacity-40"
+                onClick={() =>
+                  handlePageChange(Math.min(totalPages, currentPage + 1))
+                }
+                disabled={currentPage === totalPages}
+              >
+                <ArrowRight className="w-5 h-5" />
+              </button>
             </div>
           )}
         </div>
@@ -774,4 +840,3 @@ export default function AgentSearchPage() {
     </div>
   );
 }
-

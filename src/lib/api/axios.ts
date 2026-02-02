@@ -3,6 +3,8 @@ import axios, {
   InternalAxiosRequestConfig,
   AxiosInstance,
 } from 'axios';
+import { getAuthToken, storeCookie, deleteStorageCookie, clearItem, getStoredCookie } from '@/lib/storage';
+import { AUTH_TOKEN, REFRESH_TOKEN } from '@/shared/constants/env';
 
 const baseURL =
   process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
@@ -25,7 +27,7 @@ const processQueue = (error: any, token: string | null = null) => {
 };
 
 API.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const token = localStorage.getItem('userAccessToken');
+  const token = getAuthToken() || localStorage.getItem('userAccessToken');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
@@ -44,8 +46,8 @@ const refreshTokenLogic = async (originalRequest: any) => {
   originalRequest._retry = true;
 
   try {
-    const refreshToken = localStorage.getItem('userRefreshToken');
-    const graphqlUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || 'http://localhost:4000/auth/graphql';
+    const refreshToken = getStoredCookie(REFRESH_TOKEN) || localStorage.getItem('userRefreshToken'); // Assuming refresh token stays in LS
+    const graphqlUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || 'http://localhost:4000/auth/graphql';
 
     const { data } = await axios.post(
       graphqlUrl,
@@ -73,9 +75,13 @@ const refreshTokenLogic = async (originalRequest: any) => {
 
     const { accessToken: newAccessToken, refreshToken: newRefreshToken } = data.data.refreshToken;
 
+    // Update both storage mechanisms
     localStorage.setItem('userAccessToken', newAccessToken);
+    storeCookie({ key: AUTH_TOKEN, value: newAccessToken });
+
     if (newRefreshToken) {
       localStorage.setItem('userRefreshToken', newRefreshToken);
+      storeCookie({ key: REFRESH_TOKEN, value: newRefreshToken });
     }
 
     API.defaults.headers.common['Authorization'] = 'Bearer ' + newAccessToken;
@@ -85,6 +91,17 @@ const refreshTokenLogic = async (originalRequest: any) => {
     return API(originalRequest);
   } catch (err) {
     processQueue(err, null);
+
+    // Cleanup on failure
+    deleteStorageCookie({ key: AUTH_TOKEN });
+    deleteStorageCookie({ key: REFRESH_TOKEN });
+    localStorage.removeItem('userAccessToken');
+    localStorage.removeItem('userRefreshToken');
+    localStorage.removeItem('userDetails');
+
+    // Redirect to login if needed (optional, or handle in UI)
+    // window.location.href = '/login'; 
+
     return Promise.reject(err);
   } finally {
     isRefreshing = false;
@@ -122,6 +139,12 @@ async function graphqlRequest<T = any>(
 ): Promise<T> {
   const response = await API.post('', body, { headers });
   if (response.data.errors) {
+    if (response.data.errors[0].message === 'Unauthorized') {
+      // This block might be unreachable if interceptor catches it first, 
+      // but good for safety if using this helper directly.
+      // However, the interceptor above handles the 200 OK with errors case.
+      throw new Error(response.data.errors[0].message);
+    }
     throw new Error(response.data.errors[0].message);
   }
   return response.data.data;

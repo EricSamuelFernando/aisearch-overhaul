@@ -234,15 +234,83 @@ export default function HeroLayout({
   agents = [],
 }: HeroLayoutProps) {
   const router = useRouter();
+  const GRAPHQL_URI =
+    process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
+    'http://localhost:4000/auth/graphql';
 
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMode, setSearchMode] = useState<SearchMode>('location');
   const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
+  const [nameAgents, setNameAgents] = useState<any[]>(agents);
+  const [locationAgents, setLocationAgents] = useState<any[]>(agents);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const query = deferredSearchQuery.toLowerCase().trim();
+
+  const immediateQuery = searchQuery.toLowerCase().trim();
+
+  const fetchExternalAgents = useCallback(
+    async ({
+      limit,
+      search,
+      signal,
+    }: {
+      limit: number;
+      search?: string;
+      signal: AbortSignal;
+    }) => {
+      const response = await fetch(GRAPHQL_URI, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apollo-require-preflight': 'true',
+        },
+        body: JSON.stringify({
+          query: `
+            query ExternalAgents($limit: Int, $offset: Int, $search: String) {
+              externalAgents(limit: $limit, offset: $offset, search: $search) {
+                data {
+                  id
+                  full_name
+                  email
+                  phone
+                  brokerage
+                  locationRaw
+                  profile_image_url
+                  avgRating
+                  avgRatingForCustomerDisplay
+                  homesSoldLastYear
+                }
+              }
+            }
+          `,
+          variables: {
+            limit,
+            offset: 0,
+            search,
+          },
+        }),
+        signal,
+      });
+
+      if (!response.ok) {
+        return [];
+      }
+
+      const json = await response.json();
+      const data = json?.data?.externalAgents?.data || [];
+      return data.map((agent: any) => ({
+        ...agent,
+        Name: agent.full_name || '',
+        agentEmail: agent.email || undefined,
+        Location: agent.locationRaw || undefined,
+        Brokerage: agent.brokerage || undefined,
+      }));
+    },
+    [GRAPHQL_URI]
+  );
 
   const goToSearchPage = () => {
     setIsSearchFocused(false);
@@ -298,22 +366,67 @@ export default function HeroLayout({
     const showAllWhenEmpty = !query;
     const suggestions = buildLocationSuggestions(
       deferredSearchQuery,
-      agents,
+      locationAgents,
       showAllWhenEmpty
     );
     setLocationSuggestions(suggestions);
-  }, [deferredSearchQuery, searchMode, agents, query]);
+  }, [deferredSearchQuery, searchMode, locationAgents, query]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadNameAgents() {
+      if (searchMode !== 'name') return;
+      try {
+        const data = await fetchExternalAgents({
+          limit: 100,
+          search: immediateQuery || undefined,
+          signal: controller.signal,
+        });
+        setNameAgents(data);
+      } catch (err: any) {
+        if (err?.name !== 'AbortError') {
+          console.error('Error loading agents:', err);
+        }
+      }
+    }
+
+    loadNameAgents();
+    return () => controller.abort();
+  }, [searchMode, immediateQuery, fetchExternalAgents]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadLocationAgents() {
+      if (searchMode !== 'location') return;
+      try {
+        const data = await fetchExternalAgents({
+          limit: 1000,
+          signal: controller.signal,
+        });
+        setLocationAgents(data);
+      } catch (err: any) {
+        if (err?.name !== 'AbortError') {
+          console.error('Error loading agents for location:', err);
+        }
+      }
+    }
+
+    loadLocationAgents();
+    return () => controller.abort();
+  }, [searchMode, fetchExternalAgents]);
 
   const filteredAgents = useMemo(() => {
     if (searchMode !== 'name') return [];
-    if (!query) return agents;
+    if (!query) return nameAgents;
 
-    return agents.filter((agent) => {
+    return nameAgents.filter((agent) => {
       const name = (agent.Name || '').toLowerCase();
       const email = (agent.agentEmail || '').toLowerCase();
       return name.includes(query) || email.includes(query);
     });
-  }, [agents, query, searchMode]);
+  }, [nameAgents, query, searchMode]);
 
   const highlightMatch = useCallback(
     (text: string) => {

@@ -446,13 +446,13 @@ export default function AccountPage() {
         Account
       </h1>
 
-      <Tabs defaultValue='favourites' className='space-y-10'>
+      <Tabs defaultValue='my-snapz' className='space-y-10'>
         <TabsList className='h-auto w-full justify-start rounded-none border-b bg-transparent p-0 font-medium'>
           <TabsTrigger
-            value='favourites'
+            value='my-snapz'
             className='rounded-none border-b-2 border-transparent px-4 py-2 font-medium data-[state=active]:border-black data-[state=active]:bg-transparent'
           >
-            Favourites
+            My Snapz
           </TabsTrigger>
           <TabsTrigger
             value='documents'
@@ -471,184 +471,67 @@ export default function AccountPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value='favourites' className='mt-6 w-full'>
+        <TabsContent value='my-snapz' className='mt-6 w-full'>
           <div className="flex justify-between items-center mb-6 bg-transparent">
-            {selectedSnap ? (
-              <>
-                <div className='flex flex-col'>
-                  <h3 className="text-lg font-bold">{selectedSnap?.name}</h3>
-                  <span className="text-md text-gray-500">{favourites?.length || "0"} Results Found</span>
-                  <br />
-                  <Button
-                    // variant="outline"
-                    size="sm"
-                    className="border-2 bg-transparent text-gray-600 hover:bg-gray-400 rounded-full px-4 h-8 text-xs font-medium flex items-center gap-2 w-fit"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setSelectedSnap(null)
-                    }}
-                  >
-                    <ArrowLeft className="h-3 w-3" />
-                    Back
-                  </Button>
-                </div>
-              </>
-            ) : <h3 className="text-lg font-bold">Snapz</h3>}
-            {/* <h3 className="text-lg font-bold">Snaps</h3> */}
-            {selectedSnap ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="h-8 w-8 p-0">
-                    <span className="sr-only">Open menu</span>
-                    <EllipsisIcon
-
-
-
-                      className="h-8 w-8" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setIsCollaborateModalOpen(true);
-                    }}
-                  >
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    <span>Invite to collaborate</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      router.push('/home'); // Or /buy/browse depending on detailed requirement, but user said "home"
-                    }}
-                  >
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    <span>Add to this Snapz</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      handleSendInvitation()
-                    }}
-                  >
-                    <Share2 className="mr-2 h-4 w-4" />
-                    <span>Share snapz link</span>
-                  </DropdownMenuItem>
-
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setIsModalOpen("rename")
-                    }}
-                  >
-                    <FileEdit className="mr-2 h-4 w-4" />
-                    <span>Rename snapz</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="text-red-600"
-                    onClick={() => {
-                      setIsDeleteModalOpen(true)
-                    }}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    <span>Delete snapz</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <div className="flex gap-2">
-                <Button
-                  className="bg-orange-500 hover:bg-orange-600 text-white"
-                  onClick={fetchPendingRequests}
-                >
-                  View Requests
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex border-none bg-transparent items-center gap-2"
-                  onClick={() => setIsCreateSnapModalOpen(true)}
-                >
-                  <span>Add New Snapz</span>
-                  <span>+</span>
-                </Button>
-              </div>
-            )}
-          </div>
-          {
-            selectedSnap ? (
-              <div className="flex gap-6 items-start h-[70vh]">
-                <ScrollArea className='flex-1 h-full overflow-y-auto pr-4'>
-                  <div className='grid grid-cols-2 xl:grid-cols-3 gap-6 p-2'>
-                    {[...favourites].reverse().map((property: any) => {
-                      const safeProperty = {
-                        id: property.id || Math.random().toString(),
-                        name: property.name || 'Property',
-                        image: property.image || '/assets/images/placeholder.svg',
-                        bedRooms: property.bedRooms || 0,
-                        bathRooms: property.bathRooms || 0,
-                        sqft: property.sqft || 0,
-                        ...property,
-                      };
-
-                      return <FavouritePropertyCards
-                        key={safeProperty.id}
-                        {...safeProperty}
-                        snapId={selectedSnap?.id}
-                        isWishlisted={true}
-                        onCommentAdded={() => setCommentRefreshTrigger(prev => prev + 1)}
-                      />;
-                    })}
-
-                  </div>
-                  <ScrollBar orientation='vertical' className='h-full' />
-                </ScrollArea>
-
-                {/* Recent Comments Sidebar */}
-                <div className="w-[320px] xl:w-[380px] flex-shrink-0">
-                  <RecentCommentsSidebar properties={favourites} refreshTrigger={commentRefreshTrigger} />
-                </div>
-              </div>
-            ) : <div className="border rounded-md p-6 border-none">
-              <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-                {
-                  snaps.length > 0 ? (
-                    snaps.map((snap: any, idx: number) => {
-                      return (
-                        <div key={idx} className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            {snap?.favourites?.length > 0 && snap?.favourites[0]?.image ? (
-                              <div className="w-12 h-12 rounded overflow-hidden">
-                                <img
-                                  src={snap?.favourites[0]?.image}
-                                  alt={snap.name || "Collection"}
-                                  className="w-full h-full object-cover"
-                                />                              </div>
-                            ) : (
-                              <div className="w-12 h-12 flex items-center justify-center rounded bg-indigo-500 text-white font-bold">
-                                {snap?.name ? snap?.name.charAt(0).toUpperCase() : "C"}
-                              </div>
-                            )}
-                            <span className="text-sm font-medium">{snap?.name || "Collection"}</span>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="rounded-full px-4 h-8 text-xs font-medium"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setSelectedSnap(snap)
-                            }}
-                          >
-                            View
-                          </Button>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <>
-                      No Snap Collections Found
-                    </>
-                  )
-                }
-              </div>
+            <h3 className="text-lg font-bold">Snapz</h3>
+            <div className="flex gap-2">
+              <Button
+                className="bg-orange-500 hover:bg-orange-600 text-white"
+                onClick={fetchPendingRequests}
+              >
+                View Requests
+              </Button>
+              <Button
+                variant="outline"
+                className="flex border-none bg-transparent items-center gap-2"
+                onClick={() => setIsCreateSnapModalOpen(true)}
+              >
+                <span>Add New Snapz</span>
+                <span>+</span>
+              </Button>
             </div>
-          }
+          </div>
+          <div className="border rounded-md p-6 border-none">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+              {
+                snaps.length > 0 ? (
+                  snaps.map((snap: any, idx: number) => {
+                    return (
+                      <div key={idx} className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {snap?.favourites?.length > 0 && snap?.favourites[0]?.image ? (
+                            <div className="w-12 h-12 rounded overflow-hidden">
+                              <img
+                                src={snap?.favourites[0]?.image}
+                                alt={snap.name || "Collection"}
+                                className="w-full h-full object-cover"
+                              />                              </div>
+                          ) : (
+                            <div className="w-12 h-12 flex items-center justify-center rounded bg-indigo-500 text-white font-bold">
+                              {snap?.name ? snap?.name.charAt(0).toUpperCase() : "C"}
+                            </div>
+                          )}
+                          <span className="text-sm font-medium">{snap?.name || "Collection"}</span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-full px-4 h-8 text-xs font-medium"
+                          onClick={() => router.push(`/account/collections/${snap.id}`)}
+                        >
+                          View
+                        </Button>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <>
+                    No Snap Collections Found
+                  </>
+                )
+              }
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value='documents'>

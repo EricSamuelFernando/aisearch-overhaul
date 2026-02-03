@@ -8,6 +8,59 @@ import { useForm } from 'react-hook-form';
 import { Loader2 } from 'lucide-react'; // Spinner icon
 import { useRouter } from 'next/navigation';
 
+const GRAPHQL_URI =
+  process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
+  'http://localhost:4000/auth/graphql';
+
+async function fetchAgents() {
+  const response = await fetch(GRAPHQL_URI, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apollo-require-preflight': 'true',
+    },
+    body: JSON.stringify({
+      query: `
+        query ExternalAgents($limit: Int, $offset: Int) {
+          externalAgents(limit: $limit, offset: $offset) {
+            data {
+              id
+              full_name
+              email
+              phone
+              brokerage
+              locationRaw
+              profile_image_url
+              avgRating
+              avgRatingForCustomerDisplay
+              homesSoldLastYear
+            }
+          }
+        }
+      `,
+      variables: {
+        limit: 100,
+        offset: 0,
+      },
+    }),
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const json = await response.json();
+  const data = json?.data?.externalAgents?.data || [];
+  return data.map((agent: any) => ({
+    ...agent,
+    Name: agent.full_name || '',
+    agentEmail: agent.email || undefined,
+    Location: agent.locationRaw || undefined,
+    Brokerage: agent.brokerage || undefined,
+  }));
+}
+
 const FindAgent = () => {
   const { register, watch } = useForm<{ search: string }>();
   const searchValue = watch('search');
@@ -19,13 +72,15 @@ const FindAgent = () => {
     try {
       setLoading(true);
       setResults([]);
-      const res = await fetch(`/api/agents?q=${encodeURIComponent(value)}`);
-      if (!res.ok) {
-        setLoading(false);
-        setResults([]);
-        return;
-      }
-      const data = await res.json();
+      // const res = await fetch(`/api/agents?q=${encodeURIComponent(value)}`);
+      // if (!res.ok) {
+      //   setLoading(false);
+      //   setResults([]);
+      //   return;
+      // }
+      // const data = await res.json();
+      const data = await fetchAgents()
+      console.log(data)
       setResults(Array.isArray(data) ? data.slice(0, 10) : []);
       setLoading(false);
     } catch (err) {
@@ -72,7 +127,7 @@ const FindAgent = () => {
           ) : results?.length > 0 ? (
             results.map((agent, idx) => (
               <div key={idx} className="border cursor-pointer rounded-md p-3 bg-white shadow-sm"
-                onClick={()=>{
+                onClick={() => {
                   router.push(`/agents/${agent?.id}`)
                 }}
               >

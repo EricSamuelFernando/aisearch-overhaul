@@ -430,9 +430,9 @@ function MakeOfferContent() {
 
 
   return (
-    <section className='relative  min-h-screen'>
-      <div className='my-8  grid gap-x-10 md:grid-cols-6'>
-        <div className='col-span-4'>
+    <section className='relative min-h-screen'>
+      <div className='my-8 grid grid-cols-1 gap-y-6 gap-x-6 lg:grid-cols-6 lg:gap-x-10'>
+        <div className='col-span-1 lg:col-span-4'>
           <div>
             {/* <h2 className='text-2xl font-bold'>
               Drafting Offer :{' '}
@@ -491,8 +491,8 @@ function MakeOfferContent() {
 
 
         </div>
-        <div className="col-span-2">
-          <div className=" top-[calc(100vh-100px)] right-12">
+        <div className='col-span-1 lg:col-span-2'>
+          <div className='lg:sticky lg:top-24 lg:right-12'>
             <OfferBuyerCard
               loading={offerPending || isUploading}
               handleSubmit={handleSubmit}
@@ -992,7 +992,7 @@ const OfferBuyerCard = ({
   };
 
   return (
-    <aside className='h-max w-[400px] rounded-3xl bg-[#F7F2EB] p-8'>
+    <aside className='h-max w-full md:w-[400px] rounded-3xl bg-[#F7F2EB] p-8'>
       <h3 className='font-bold'>Presented by</h3>
       <div className='item-start mt-8 flex gap-x-6'>
         <div className='flex h-[4.5rem] w-[4.5rem] uppercase font-bold items-center justify-center rounded-full bg-black text-2xl text-white'>

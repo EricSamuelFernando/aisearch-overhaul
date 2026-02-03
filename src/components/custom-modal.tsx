@@ -77,11 +77,19 @@ const CustomModal = forwardRef<HTMLDivElement, ModalProps>(
           isOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
           className,
         )}
-        onClick={fullScreen ? undefined : handleBackdropClick}
       >
+        {!fullScreen && (
+          <div
+            className={cn(
+              `modal-backdrop fixed inset-0 bg-black/40 backdrop-blur-sm cursor-pointer`,
+              backdropBlur,
+            )}
+            onClick={handleBackdropClick}
+          />
+        )}
         <div
           className={cn(
-            `modal-content z-50 m-4 w-full transform overflow-auto rounded-3xl bg-white p-8 shadow-lg transition-transform duration-300 md:min-w-[35rem]`,
+            `modal-content relative z-50 m-4 w-full transform overflow-auto rounded-3xl bg-white p-8 shadow-lg transition-transform duration-300 md:min-w-[35rem]`,
             isOpen ? 'scale-100' : 'scale-95',
             contentClassName,
             fullScreen ? 'h-full w-full rounded-none' : '',
@@ -89,14 +97,6 @@ const CustomModal = forwardRef<HTMLDivElement, ModalProps>(
         >
           {children}
         </div>
-        {!fullScreen && (
-          <div
-            className={cn(
-              `modal-backdrop  pointer-events-none fixed inset-0 bg-black/50 opacity-70`,
-              backdropBlur,
-            )}
-          />
-        )}
       </div>
     );
 

@@ -1082,6 +1082,22 @@ export default function Home() {
     return angle > 180 && angle < 360 ? 'rotate(358deg)' : 'rotate(0deg)';
   };
 
+  const cardImages = [
+    '/assets/images/home-landing8.png',
+    '/assets/images/home-landing7.png',
+    '/assets/images/home-landing6.png',
+    '/assets/images/home-landing5.png',
+    '/assets/images/home-landing4.png',
+    '/assets/images/home-landing3.png',
+    '/assets/images/home-landing2.png',
+    '/assets/images/home-landing1.png',
+    '/assets/images/home-landing6.png',
+    '/assets/images/home-landing5.png',
+    '/assets/images/home-landing4.png',
+    '/assets/images/home-landing3.png',
+    '/assets/images/home-landing2.png',
+    '/assets/images/home-landing1.png',
+  ];
 
   return (
     <>
@@ -1089,11 +1105,11 @@ export default function Home() {
 
       {/* ================= HERO SECTION ================= */}
       <section className="relative -mt-24 min-h-[80vh] overflow-hidden bg-[#170800] pt-28 text-white md:h-screen md:pt-24">
- <section className="flex h-full flex-col items-center justify-start px-4 pt-24 pb-16 text-center">
+        <section className="flex h-full flex-col items-center justify-start px-4 pt-24 pb-16 text-center">
 
           {/* ================= DESKTOP ARC ================= */}
           <div className="hidden md:flex w-full justify-center items-center overflow-visible">
-            <div className="absolute top-24 h-[850px] w-[1200px]">
+            <div className="absolute top-32 h-[850px] w-[1200px]">
               {/* Image 1 */}
               <div
                 className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
@@ -1218,7 +1234,8 @@ export default function Home() {
                   height={120}
                   unoptimized
                   className="rounded-3xl w-full h-full"
-                  style={{ objectFit: 'contain', transform: getImageRotation(180) }}
+                  // style={{ objectFit: 'contain', transform: getImageRotation(180) }}
+                  style={{ objectFit: 'contain', transform: 'rotate(531deg)' }}
                 />
               </div>
 
@@ -1250,7 +1267,9 @@ export default function Home() {
                   height={120}
                   unoptimized
                   className="rounded-3xl w-full h-full"
-                  style={{ objectFit: 'contain', transform: getImageRotation(231.43) }}
+                  style={{ objectFit: 'contain', transform: 'rotate(458deg)' }}
+
+                // style={{ objectFit: 'contain', transform: getImageRotation(231.43) }}
                 />
               </div>
 
@@ -1325,158 +1344,39 @@ export default function Home() {
           <div className="relative w-full md:hidden pointer-events-none">
             <div className="absolute left-1/2 top-20 h-[220px] w-full max-w-[460px]
                             -translate-x-1/2 overflow-visible">
-
-              {/* Mobile Image 1 */}
-              <div
-                className="absolute overflow-hidden rounded-2xl shadow-sm"
-                style={{
-                  left: '50%',
-                  top: '110px',
-                  width: '75px',
-                  height: '75px',
-                  transform: `
-                    translate(-50%, -50%)
-                    rotate(175deg)
-                    translateX(180px)
-                    rotate(-157deg)
-                  `,
-                }}
-              >
-                <Image
-                  src="/assets/images/home-landing8.png"
-                  alt="mobile-hero-1"
-                  width={75}
-                  height={75}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-
-              {/* Mobile Image 2 */}
-              <div
-                className="absolute overflow-hidden rounded-2xl shadow-sm"
-                style={{
-                  left: '50%',
-                  top: '110px',
-                  width: '75px',
-                  height: '75px',
-                  transform: `
-                    translate(-50%, -50%)
-                    rotate(211deg)
-                    translateX(180px)
-                    rotate(-266deg)
-                  `,
-                }}
-              >
-                <Image
-                  src="/assets/images/home-landing1.png"
-                  alt="mobile-hero-2"
-                  width={75}
-                  height={75}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-
-              {/* Mobile Image 3 */}
-              <div
-                className="absolute overflow-hidden rounded-2xl shadow-sm"
-                style={{
-                  left: '50%',
-                  top: '110px',
-                  width: '75px',
-                  height: '75px',
-                  transform: `
-                    translate(-50%, -50%)
-                    rotate(247deg)
-                    translateX(180px)
-                    rotate(-267deg)
-                  `,
-                }}
-              >
-                <Image
-                  src="/assets/images/home-landing6.png"
-                  alt="mobile-hero-3"
-                  width={75}
-                  height={75}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-
-              {/* Mobile Image 4 */}
-              <div
-                className="absolute overflow-hidden rounded-2xl shadow-sm"
-                style={{
-                  left: '50%',
-                  top: '110px',
-                  width: '75px',
-                  height: '75px',
-                  transform: `
-                    translate(-50%, -50%)
-                    rotate(285deg)
-                    translateX(180px)
-                    rotate(-267deg)
-                  `,
-                }}
-              >
-                <Image
-                  src="/assets/images/home-landing3.png"
-                  alt="mobile-hero-4"
-                  width={75}
-                  height={75}
-                  className="h-full w-full object-cover"
-                  style={{ objectFit: 'contain', transform: 'rotate(87deg)' }}
-                />
-              </div>
-
-              {/* Mobile Image 5 */}
-              <div
-                className="absolute overflow-hidden rounded-2xl shadow-sm"
-                style={{
-                  left: '50%',
-                  top: '110px',
-                  width: '75px',
-                  height: '75px',
-                  transform: `
-                    translate(-50%, -50%)
-                    rotate(324deg)
-                    translateX(180px)
-                    rotate(-269deg)
-                  `,
-                }}
-              >
-                <Image
-                  src="/assets/images/home-landing4.png"
-                  alt="mobile-hero-5"
-                  width={75}
-                  height={75}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-
-              {/* Mobile Image 6 */}
-              <div
-                className="absolute overflow-hidden rounded-2xl shadow-sm"
-                style={{
-                  left: '50%',
-                  top: '110px',
-                  width: '75px',
-                  height: '75px',
-                  transform: `
-                    translate(-50%, -50%)
-                    rotate(548deg)
-                    translateX(180px)
-                    rotate(-278deg)
-                  `,
-                }}
-              >
-                <Image
-                  src="/assets/images/home-landing3.png"
-                  alt="mobile-hero-6"
-                  width={75}
-                  height={75}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-
+              {[
+                { a: 175, r: 180, size: 75, idx: 0, rot: 18 },
+                { a: 211, r: 180, size: 75, idx: 1, rot: -55 },
+                { a: 247, r: 180, size: 75, idx: 2, rot: -20 },
+                { a: 285, r: 180, size: 75, idx: 3, rot: 18 },
+                { a: 324, r: 180, size: 75, idx: 4, rot: 55 },
+                { a: 363, r: 180, size: 75, idx: 5, rot: 85 },
+              ].map((p, i) => (
+                <div
+                  key={i}
+                  className="absolute overflow-hidden rounded-2xl shadow-sm"
+                  style={{
+                    left: '50%',
+                    top: '110px',
+                    width: `${p.size}px`,
+                    height: `${p.size}px`,
+                    transform: `
+                      translate(-50%, -50%)
+                      rotate(${p.a}deg)
+                      translateX(${p.r}px)
+                      rotate(${-p.a + p.rot}deg)
+                    `,
+                  }}
+                >
+                  <Image
+                    src={cardImages[p.idx]}
+                    alt={`mobile-hero-${i}`}
+                    width={p.size}
+                    height={p.size}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              ))}
             </div>
 
             {/* spacing so text never overlaps */}
@@ -1543,10 +1443,9 @@ export default function Home() {
       <FindPerfectMortgage />
       <HomeDisclosure />
       <BuyOrRent />
-      <OfferStrengthAnalyzer />
+      {/* <OfferStrengthAnalyzer /> */}
       <OurClients bgColor='#FFF6EC' />
     </>
   );
 }
-
 

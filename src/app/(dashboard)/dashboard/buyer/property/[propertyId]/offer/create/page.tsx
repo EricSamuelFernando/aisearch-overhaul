@@ -5,14 +5,16 @@ import { ClaimsFormProvider } from '@/providers/claim-context';
 
 function MakeOffer() {
   return (
-    <section className='px-16 py-8'>
+    <section className='px-4 sm:px-6 lg:px-16 py-8'>
       <ClaimsFormProvider>
         <UserBackButton />
         <MakeOfferContent />
-        <CreateUserOffers/>
+        <CreateUserOffers />
       </ClaimsFormProvider>
     </section>
   );
 }
 
 export default MakeOffer;
+
+

@@ -65,7 +65,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className="h-full overflow-auto"          // ← allow html to scroll
+      className="h-full overflow-auto"
       suppressHydrationWarning
     >
       <head>

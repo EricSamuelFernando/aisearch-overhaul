@@ -5,7 +5,15 @@ on:
     branches:
       - prod-deploy
 
-    paths-ignore: ["terraform/**", "README.md", '.github/workflows/prod-deploy-terraform.yaml']
+    paths-ignore:
+      - "terraform/**"
+      - "prod-deploy-terraform.yaml"
+      - "prod-deploy-frontned.yaml"
+      - "README.md"
+      - ".gitignore"
+      - ".env.development"
+      - ".env.production"
+      - "docker-compose.yml"
 
 env:
   AWS_REGION: us-west-1
@@ -15,6 +23,8 @@ env:
   NODE_VERSION: "22.x"
   S3_BUCKET: "snaphomz-frontend-prod-terraform"
   CLOUDFRONT_DISTRIBUTION_ID: "E27MB2F0VHAUFH"
+  ENVIRONMENT: production
+  PROVISIONED-CONCURRENT-EXECUTIONS: 1
 
 jobs:
   deploy-frontend-prod:
@@ -29,6 +39,16 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{env.NODE_VERSION}}
+
+      - name: Cache Yarn dependencies
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.yarn/cache
+            node_modules
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
 
       - name: Package Installtion
         run: |
@@ -73,6 +93,58 @@ jobs:
           --function-name ${{env.LAMBDA_FUNCTION_NAME}}  \
           --image-uri ${{env.ECR_REGISTRY}}/${{env.ECR_REPOSITORY}}:latest
           echo "Lambda image updated successfully"
+
+      - name: Wait for Lambda update to finish
+        run: |
+           aws lambda wait function-updated --function-name "${{ env.LAMBDA_FUNCTION_NAME }}"
+
+      - name: Publish new version for Lambda
+        run: |
+          LAMBDA_VERSION=$(aws lambda publish-version \
+            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+            --query 'Version' \
+            --output text)
+          echo "Lambda function published with version: $LAMBDA_VERSION"
+          echo "LAMBDA_VERSION=$LAMBDA_VERSION" >> $GITHUB_ENV  # Save the version to GITHUB_ENV
+
+      - name: Update Lambda Provisioned Concurrency and Alias with New Version
+        run: |
+          # Ensure that LAMBDA_VERSION is available
+          if [ -z "$LAMBDA_VERSION" ]; then
+            echo "Error: LAMBDA_VERSION is not set!"
+            exit 1
+          fi
+
+          # Check if the alias exists
+          ALIAS_EXISTS=$(aws lambda get-alias \
+            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+            --name ${{ env.ENVIRONMENT }} \
+            --query 'Name' --output text 2>/dev/null || echo "Alias not found")
+
+          # If the alias exists, update it, otherwise create the alias
+          if [[ "$ALIAS_EXISTS" == "${{ env.ENVIRONMENT }}" ]]; then
+            echo "Alias '${{ env.ENVIRONMENT }}' exists. Updating alias to point to version $LAMBDA_VERSION..."
+            aws lambda update-alias \
+              --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+              --name ${{ env.ENVIRONMENT }} \
+              --function-version $LAMBDA_VERSION
+            echo "Lambda alias '${{ env.ENVIRONMENT }}' updated to point to version: $LAMBDA_VERSION"
+          else
+            echo "Alias '${{ env.ENVIRONMENT }}' does not exist. Creating alias and pointing it to version $LAMBDA_VERSION..."
+            aws lambda create-alias \
+              --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+              --name ${{ env.ENVIRONMENT }} \
+              --function-version $LAMBDA_VERSION
+            echo "Lambda alias '${{ env.ENVIRONMENT }}' created and pointing to version: $LAMBDA_VERSION"
+
+            # Update or create provisioned concurrency for the alias
+            echo "Creating or updating provisioned concurrency for alias '${{ env.ENVIRONMENT }}' and version $LAMBDA_VERSION..."
+            aws lambda put-provisioned-concurrency-config \
+              --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+              --qualifier ${{ env.ENVIRONMENT }} \
+              --provisioned-concurrent-executions ${{ env.PROVISIONED-CONCURRENT-EXECUTIONS }}
+            echo "Provisioned concurrency created or updated for alias: ${{ env.ENVIRONMENT }}"
+          fi
 
       - name: Upload static file to s3
         run: |

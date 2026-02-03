@@ -248,6 +248,7 @@ export default function HeroLayout({
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const query = deferredSearchQuery.toLowerCase().trim();
+
   const immediateQuery = searchQuery.toLowerCase().trim();
 
   const fetchExternalAgents = useCallback(
@@ -510,8 +511,8 @@ export default function HeroLayout({
       </div>
 
       <div className={`text-black min-h-screen relative pt-28 -mt-28 overflow-visible ${className}`}>
-        <div className="relative min-h-[100vh] w-full overflow-visible">
-          <div className="absolute inset-0 z-0">
+        <div className="relative min-h-[100vh] sm:min-h-[100vh] md:min-h-[100vh] w-full overflow-visible pb-20 sm:pb-0">
+          <div className="absolute inset-0 z-0 min-h-full">
             <Image
               src="/assets/images/agents-hero.jpg"
               alt="Agents Hero"
@@ -519,16 +520,16 @@ export default function HeroLayout({
               className="object-cover"
               priority
             />
-            <div className="absolute inset-0 bg-black/40 z-10" />
           </div>
 
-          <div className="absolute inset-0 flex flex-col items-center px-4 sm:px-6 md:px-12 lg:px-20 z-20">
+          <div className="relative inset-0 flex flex-col items-center px-4 sm:px-6 md:px-12 lg:px-20 z-20 pb-8 sm:pb-12">
             <div className="pt-20 md:pt-24 lg:pt-32" />
 
-            <h1 className="text-center text-3xl sm:text-4xl lg:text-5xl font-semibold text-white drop-shadow-lg mb-10">
+            <h1 className="text-center text-3xl sm:text-4xl lg:text-5xl font-semibold text-black drop-shadow-lg mb-10">
               Discover Agent Possibilities
               <br />
-              With <span className="italic">Snaphomz</span>
+              <span className=''>With</span>
+              <span className="italic font-light">Snaphomz</span>
             </h1>
 
             <div className="w-full max-w-2xl relative" ref={searchContainerRef}>
@@ -705,4 +706,3 @@ export default function HeroLayout({
     </>
   );
 }
-

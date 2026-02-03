@@ -38,18 +38,21 @@ export default function BuyOrRent() {
     focus:outline-none sm:flex-1 sm:text-[20px]'
         />
 
-        <button
+        <a
+          href="https://rentvsbuy.snaphomz.com/"
+          target="_blank"
+          rel="noopener noreferrer"
           className='w-full whitespace-nowrap rounded-full bg-black px-5 py-2 
-      text-center text-sm text-white sm:w-auto'
+      text-center text-sm text-white sm:w-auto block'
         >
           Compare Prices
-        </button>
+        </a>
       </div>
 
       {/* Feature Grid */}
       <div className='grid w-full max-w-3xl grid-cols-1 gap-6 sm:grid-cols-2'>
         {/* Card 1 */}
-        <div className='flex items-start gap-4 rounded-xl bg-[#f1dfc8] p-6 shadow'>
+        <div className='flex items-center gap-4 rounded-xl bg-[#f1dfc8] p-6 shadow'>
           <div className='relative h-14 w-14'>
             <Image
               src='/assets/images/buy_or_rent_icons/icon1.svg'
@@ -64,10 +67,10 @@ export default function BuyOrRent() {
         </div>
 
         {/* Card 2 */}
-        <div className='flex items-start gap-4 rounded-xl bg-[#f1dfc8] p-6 shadow'>
+        <div className='flex items-center gap-4 rounded-xl bg-[#f1dfc8] p-6 shadow'>
           <div className='relative h-14 w-14'>
             <Image
-              src='/assets/images/buy_or_rent_icons/icon3.svg'
+              src='/assets/images/buy_or_rent_icons/icon2.svg'
               alt='growth icon'
               fill
               className='object-contain'
@@ -79,10 +82,10 @@ export default function BuyOrRent() {
         </div>
 
         {/* Card 3 */}
-        <div className='flex items-start gap-4 rounded-xl bg-[#f1dfc8] p-6 shadow'>
+        <div className='flex items-center gap-4 rounded-xl bg-[#f1dfc8] p-6 shadow'>
           <div className='relative h-14 w-14'>
             <Image
-              src='/assets/images/buy_or_rent_icons/icon2.svg'
+              src='/assets/images/buy_or_rent_icons/icon3.svg'
               alt='house icon'
               fill
               className='object-contain'
@@ -94,7 +97,7 @@ export default function BuyOrRent() {
         </div>
 
         {/* Card 4 */}
-        <div className='flex items-start gap-4 rounded-xl bg-[#f1dfc8] p-6 shadow'>
+        <div className='flex items-center gap-4 rounded-xl bg-[#f1dfc8] p-6 shadow'>
           <div className='relative h-14 w-14'>
             <Image
               src='/assets/images/buy_or_rent_icons/icon4.svg'

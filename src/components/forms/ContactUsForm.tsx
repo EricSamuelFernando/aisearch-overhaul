@@ -11,14 +11,17 @@ import usePlacesAutocomplete, {
     getGeocode,
     getLatLng,
 } from 'use-places-autocomplete';
-import { googleMapsApiKey } from '@/shared/constants/env';
+import { googleMapsApiKey, deploymentEnv } from '@/shared/constants/env';
 import { CustomDropdown } from '@/components/customs/menu';
+import axios from 'axios';
+// import { showToast } from '@/hooks/utils/toastHelper';
+import { toast } from 'sonner';
 
 // Schema Validation
 const contactFormSchema = z.object({
     firstName: z.string().min(1, 'First Name is required'),
     lastName: z.string().min(1, 'Last Name is required'),
-    email: z.string().email('Invalid email address'),
+    email: z.string().min(1, 'Email is required').email('Invalid email address'),
     phoneNumber: z.string().min(10, 'Phone number must be at least 10 digits'),
     location: z.string().min(1, 'Location is required'),
     reason: z.string().min(1, 'Reason for contact is required'),
@@ -51,14 +54,38 @@ export default function ContactUsForm() {
         },
     });
 
-    const [successMessage, setSuccessMessage] = useState('');
-
     const onSubmit = async (data: ContactFormData) => {
-        // Frontend only implementation
-        console.log('Contact Form Submitted:', data);
-        setSuccessMessage('Thank you! Your message has been sent to our support team.');
-        reset();
-        setTimeout(() => setSuccessMessage(''), 5000);
+        try {
+            const graphqlUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql";
+
+            const mutation = `
+                mutation CreateContactUs($input: CreateContactUsDto!) {
+                    createContactUs(createContactUsInput: $input) {
+                        message
+                    }
+                }
+            `;
+
+            const response = await axios.post(graphqlUrl, {
+                query: mutation,
+                variables: {
+                    input: data
+                }
+            });
+
+            if (response.data.errors) {
+                throw new Error(response.data.errors[0].message);
+            }
+
+            console.log('✅ Form submitted successfully, attempting to show toast...');
+            // Direct call to sonner to test
+            const toastId = toast.success('Thank you! Your message has been sent to our support team.');
+            console.log('🍞 Toast triggered with ID:', toastId);
+            reset();
+        } catch (error) {
+            console.error("Error submitting contact form", error);
+            toast.error('Something went wrong. Please try again.');
+        }
     };
 
     if (!isLoaded) return <div>Loading Maps...</div>;
@@ -66,12 +93,6 @@ export default function ContactUsForm() {
     return (
         <div className="rounded-xl border border-black/10 bg-white p-8 shadow-sm">
             <h3 className="text-2xl font-bold mb-6">Contact Us</h3>
-
-            {successMessage && (
-                <div className="mb-6 p-4 bg-green-50 text-green-700 rounded-md border border-green-200">
-                    {successMessage}
-                </div>
-            )}
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

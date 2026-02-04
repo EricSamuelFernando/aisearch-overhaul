@@ -9,6 +9,7 @@ export interface Comment {
     propertyId: string;
     text: string;
     userName: string;
+    accountType?: string; // 'buyer' or 'agent'
     createdAt: string;
     snapId?: string;
     propertyName?: string;
@@ -35,6 +36,7 @@ export const useComments = (propertyId: string, snapId?: string) => {
                         propertyId
                         text
                         userName
+                        accountType
                         snapId
                         propertyName
                         createdAt
@@ -71,10 +73,10 @@ export const useComments = (propertyId: string, snapId?: string) => {
         }
     };
 
-    const addComment = async (text: string, userName: string, propertyName?: string) => {
+    const addComment = async (text: string, userName: string, propertyName?: string, accountType?: string) => {
         if (!text.trim()) return;
 
-        console.log('[useComments] Adding comment via GraphQL:', { text, userName, propertyName, snapId, socketConnected: socket?.connected, socketId: socket?.id });
+        console.log('[useComments] Adding comment via GraphQL:', { text, userName, propertyName, accountType, snapId, socketConnected: socket?.connected, socketId: socket?.id });
 
         try {
             const token = getAuthToken() || (typeof window !== 'undefined' ? localStorage.getItem('__WEB_APP_Ocreal345####btny_ocreal') : null);
@@ -86,6 +88,7 @@ export const useComments = (propertyId: string, snapId?: string) => {
                         propertyId
                         text
                         userName
+                        accountType
                         snapId
                         propertyName
                         createdAt
@@ -103,6 +106,7 @@ export const useComments = (propertyId: string, snapId?: string) => {
                             snapId: snapId || null,
                             text,
                             userName,
+                            accountType: accountType || 'buyer', // Default to 'buyer' if not provided
                             propertyName: propertyName || null,
                         },
                     },
@@ -118,8 +122,16 @@ export const useComments = (propertyId: string, snapId?: string) => {
                 throw new Error(response.data.errors[0]?.message || 'Failed to create comment');
             }
 
-            // Optimistic update
-            setComments((prev) => [response.data.data.createComment, ...prev]);
+            // Optimistic update with duplicate prevention
+            const newComment = response.data.data.createComment;
+            setComments((prev) => {
+                // Prevent duplicates by checking ID
+                if (prev.some(c => c.id === newComment.id)) {
+                    console.log('[useComments] Comment already exists (from WebSocket), skipping optimistic update');
+                    return prev;
+                }
+                return [newComment, ...prev];
+            });
         } catch (err: any) {
             console.error('[useComments] Error adding comment via GraphQL:', err);
             setError(err?.response?.data?.errors?.[0]?.message || 'Failed to add comment');
@@ -130,43 +142,54 @@ export const useComments = (propertyId: string, snapId?: string) => {
         fetchComments();
 
         if (socket && propertyId) {
-            // Join the property room to receive updates
-            // Ideally we should also scope rooms by snapId, but for now propertyId room is fine 
-            // as long as the client filters incoming events or we change room name to `propertyId:snapId`
-            const joinRoom = () => {
-                console.log(`[useComments] Joining room: ${propertyId}`);
-                socket.emit('joinRoom', propertyId);
-            };
+            // Join room by snapId if available, otherwise by propertyId
+            const room = snapId || `property:${propertyId}`;
 
-            if (socket.connected) {
-                joinRoom();
-            } else {
-                console.log('[useComments] Socket not connected yet, waiting for connect event');
-            }
+            console.log(`[useComments] Joining room: ${room}`);
+            socket.emit('joinRoom', { roomId: room }); // Send as object
 
             // Listen for incoming comments
             const handleNewComment = (newComment: Comment & { snapId?: string }) => {
                 console.log('[useComments] Received new_comment event:', newComment);
-                if (newComment.propertyId === propertyId) {
-                    // Filter by snapId if we are in a specific snap context
-                    if (snapId && newComment.snapId && newComment.snapId !== snapId) {
-                        return; // Ignore comments from other snaps
-                    }
-                    setComments((prev) => [newComment, ...prev]);
+
+                // Filter by propertyId
+                if (newComment.propertyId !== propertyId) {
+                    console.log('[useComments] Ignoring comment for different property');
+                    return;
                 }
+
+                // If we're in a specific snap context, filter by snapId
+                if (snapId && newComment.snapId && newComment.snapId !== snapId) {
+                    console.log('[useComments] Ignoring comment from different snap');
+                    return;
+                }
+
+                // Add comment to state with duplicate prevention
+                setComments((prev) => {
+                    // Prevent duplicates by checking ID
+                    if (prev.some(c => c.id === newComment.id)) {
+                        console.log('[useComments] Duplicate comment, skipping');
+                        return prev;
+                    }
+                    console.log('[useComments] Adding new comment to state');
+                    return [newComment, ...prev];
+                });
             };
 
             const handleConnect = () => {
                 console.log('[useComments] Socket reconnected/connected. Re-joining room.');
-                joinRoom();
+                socket.emit('joinRoom', { roomId: room }); // Send as object
             };
 
             socket.on('new_comment', handleNewComment);
+            socket.on('recent_activity_update', handleNewComment); // Also listen to global updates
             socket.on('connect', handleConnect);
 
             return () => {
-                socket.emit('leaveRoom', propertyId);
+                console.log(`[useComments] Leaving room: ${room}`);
+                socket.emit('leaveRoom', { roomId: room }); // Send as object
                 socket.off('new_comment', handleNewComment);
+                socket.off('recent_activity_update', handleNewComment);
                 socket.off('connect', handleConnect);
             };
         }

@@ -15,6 +15,8 @@ export const authUser = async () => {
     }
 };
 
+
+
 /**
  * Fetch documents of a transaction
  * @param contextId - The context ID

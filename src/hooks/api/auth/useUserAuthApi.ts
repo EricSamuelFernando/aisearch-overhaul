@@ -479,6 +479,21 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     mutationKey: ['update-user-mutation'],
     mutationFn: async (input: any) => {
       const token = getAuthToken() || localStorage.getItem('userAccessToken') || '';
+      const fallbackEmail =
+        typeof window !== 'undefined'
+          ? localStorage.getItem('userEmail') ||
+            (() => {
+              try {
+                const stored = localStorage.getItem('userDetails');
+                return stored ? JSON.parse(stored)?.email : null;
+              } catch {
+                return null;
+              }
+            })()
+          : null;
+      const finalInput = !input?.email && fallbackEmail
+        ? { ...input, email: fallbackEmail }
+        : input;
       const response = await axios.post(GRAPHQL_URI, {
         query: `
           mutation UpdateUser($input: UpdateUserInput!) {
@@ -490,7 +505,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
             }
           }
         `,
-        variables: { input },
+        variables: { input: finalInput },
       }, {
         headers: {
           Authorization: `Bearer ${token}`,

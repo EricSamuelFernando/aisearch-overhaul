@@ -56,7 +56,7 @@ export default function SnapDetailsPage() {
     const [inviteUsers, setInviteUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const { getAllAgents } = useUserSnapAPIs();
-    const { createParticipents, deleteSnap, updateSnap, getAllSnaps, getAllSnapsProperties } = useUserSnapAPIs();
+    const { createParticipents, deleteSnap, updateSnap, getAllSnaps, getAllSnapsProperties, getSnapById } = useUserSnapAPIs();
 
     useEffect(() => {
         if (id && userData?.id) {
@@ -65,14 +65,49 @@ export default function SnapDetailsPage() {
         }
     }, [id, userData]);
 
+    // Handle shared snap case: if properties loaded but snap not found in own snaps
+    useEffect(() => {
+        if (!snap && favourites.length > 0 && id) {
+            console.log('[SnapDetails] Snap not found in own snaps, fetching by ID (shared snap)');
+            // Fetch snap details directly by ID
+            getSnapById.mutate(id, {
+                onSuccess: (snapData: any) => {
+                    if (snapData) {
+                        setSnap({
+                            id: snapData.id,
+                            name: snapData.name || 'Shared Snapz',
+                            image: favourites[0]?.image || undefined
+                        });
+                    }
+                },
+                onError: (err) => {
+                    console.error('[SnapDetails] Error fetching snap by ID:', err);
+                    // Fallback to generic name
+                    setSnap({
+                        id: id,
+                        name: 'Shared Snapz',
+                        image: favourites[0]?.image || undefined
+                    });
+                }
+            });
+        }
+    }, [favourites, snap, id]);
+
     const fetchSnapDetails = () => {
-        // Since we don't have getSnapById, we fetch all and find
+        // Try to fetch from user's own snaps first
         getAllSnaps.mutate(userData.id, {
             onSuccess: (snaps: any[]) => {
                 const found = snaps?.find((s: any) => s.id === id);
                 if (found) {
                     setSnap(found);
+                } else {
+                    // If not found in own snaps, it might be a shared snap
+                    // We'll fetch it by ID in the useEffect above
+                    console.log('[SnapDetails] Snap not found in own snaps, might be shared');
                 }
+            },
+            onError: () => {
+                console.log('[SnapDetails] Error fetching own snaps');
             }
         });
     };
@@ -90,14 +125,30 @@ export default function SnapDetailsPage() {
 
     // ... (Methods for handling invites, renaming, deleting - copied/adapted from account/page.tsx)
 
+    // Pagination for Invite Modal
+    const [invitePage, setInvitePage] = useState(1);
+    const [inviteTotalPages, setInviteTotalPages] = useState(1);
+    const INVITE_LIMIT = 10;
+
+    const fetchAgents = (page: number) => {
+        getAllAgents.mutate({ limit: INVITE_LIMIT, offset: (page - 1) * INVITE_LIMIT }, {
+            onSuccess: (res: any) => {
+                setInviteUsers(res?.users || []);
+                const total = res?.total || 0;
+                setInviteTotalPages(Math.ceil(total / INVITE_LIMIT));
+            }
+        });
+    };
+
     const handleSendInvitation = () => {
         setIsModalOpen("share");
-        // Logic to fetch users if needed, similar to account page
-        // For brevity, assuming user might simple fetch logical here or we implemented pagination same way
-        // But for now let's just implement basic fetch
-        getAllAgents.mutate({ limit: 10, offset: 0 }, {
-            onSuccess: (res) => setInviteUsers(res?.users || [])
-        });
+        setInvitePage(1);
+        fetchAgents(1);
+    };
+
+    const handlePageChange = (page: number) => {
+        setInvitePage(page);
+        fetchAgents(page);
     };
 
     const inviteCollaborator = (email: string, type: 'agent' | 'co-buyer') => {
@@ -141,6 +192,54 @@ export default function SnapDetailsPage() {
             }
         })
     }
+
+    const handleBatchInvite = async (users: any[]) => {
+        if (!users.length) return;
+
+        try {
+            const promises = users.map(user => {
+                // Logic: Use existing accountType (e.g. 'buyer', 'agent'). Default to 'agent' for External Agents.
+                // Normalize to lowercase to match backend values (e.g. 'BUYER' -> 'buyer')
+                const rawAccountType = user.accountType || 'agent';
+                const accountTypeToSend = rawAccountType.toLowerCase();
+
+                const data = {
+                    snapId: id,
+                    email: user.email,
+                    status: "pending",
+                    accountType: accountTypeToSend
+                };
+                return createParticipents.mutateAsync(data).then(res => {
+                    // Check backend success flag (it returns { success: "true"/"false", message: "..." })
+                    const isSuccess = res?.data?.createSnapsParticipant?.success === true || res?.data?.createSnapsParticipant?.success === "true";
+                    return { success: isSuccess, email: user.email, message: res?.data?.createSnapsParticipant?.message };
+                }).catch(err => {
+                    return { success: false, email: user.email, message: err.message };
+                });
+            });
+
+            const results = await Promise.all(promises);
+            const successful = results.filter(r => r.success);
+            const failed = results.filter(r => !r.success);
+
+            if (successful.length > 0) {
+                success({ message: `Successfully sent ${successful.length} invite(s)!` });
+            }
+
+            if (failed.length > 0) {
+                // Log failed ones and potentially show error
+                console.error("Failed invites:", failed);
+                error({ message: `Failed to send ${failed.length} invite(s). ${failed[0]?.message || ''}` });
+            }
+
+            if (successful.length > 0) {
+                setIsModalOpen("");
+            }
+        } catch (err: any) {
+            console.error(err);
+            error({ message: "An unexpected error occurred while sending invites." });
+        }
+    };
 
     if (!snap) return <div className="p-10">Loading Snap Details...</div>;
 
@@ -245,7 +344,10 @@ export default function SnapDetailsPage() {
                 isOpen={isModalOpen === "share"}
                 onClose={() => setIsModalOpen("")}
                 users={inviteUsers}
-                onSend={() => { }} // Needs implementation if needed or reuse existing
+                currentPage={invitePage}
+                totalPages={inviteTotalPages}
+                onPageChange={handlePageChange}
+                onSend={handleBatchInvite}
             />
         </main>
     );

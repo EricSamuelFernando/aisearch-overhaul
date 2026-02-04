@@ -13,6 +13,7 @@ import EmblaCarousel from '@/components/customs/carousel/embla-carousel';
 import { useRouter } from 'next/navigation';
 import { Bath, BedDouble, Ruler, Heart, MessageCircle } from 'lucide-react';
 import CommentsModal from '@/components/modals/comments-modal';
+import { parseAddressComponents, getStateFromZip } from '@/utils/addressParser';
 
 type PropertyCardsProps = IProperty & {
   isWishlisted?: boolean;
@@ -25,6 +26,10 @@ const FavouritePropertyCards = (props: any) => {
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   // Default to true since this is the favourites card, but respect prop if passed
   const isWishlisted = props.isWishlisted !== undefined ? props.isWishlisted : true;
+
+  // Get state from zip code since old favorites don't have city/state in database
+  const displayCity = props?.city; // Will be null for old favorites
+  const displayState = getStateFromZip(props?.zipCode);
 
   const slides = props?.listing?.media?.photosList?.slice(0, 4)?.map((image: any, idx: number) => {
     if (!image?.lowRes) return (
@@ -68,9 +73,9 @@ const FavouritePropertyCards = (props: any) => {
   return (
     <div
       onClick={handleClick}
-      className="flex w-full min-h-[520px] max-h-[520px] cursor-pointer flex-col overflow-hidden rounded-xl shadow-lg hover:shadow-xl bg-black border border-gray-800 hover:border-ocOrange group relative"
+      className="flex w-full min-h-[420px] max-h-[420px] cursor-pointer flex-col overflow-hidden rounded-xl shadow-lg hover:shadow-xl bg-black border border-gray-800 hover:border-ocOrange group relative"
     >
-      <div className="relative h-60 w-full overflow-hidden">
+      <div className="relative h-48 w-full overflow-hidden">
         {isWishlisted && (
           <div className="absolute top-3 right-3 z-20">
             <Heart className="w-6 h-6 text-[#FF8700] fill-[#FF8700]" />
@@ -133,11 +138,15 @@ const FavouritePropertyCards = (props: any) => {
           </div>
         )}
 
-        <p className="text-sm text-gray-300">{props?.name || 'Property Name'}</p>
+        {/* <p className="text-sm text-gray-300">{props?.name || 'Property Name'}</p> */}
 
         <div className="text-sm text-white leading-snug">
           <p className="font-medium">{props?.address || 'Address not available'}</p>
-          <p>{props?.address || ''}, {props?.zipCode || ''}</p>
+          <p>
+            {displayCity && `${displayCity}, `}
+            {displayState && `${displayState} `}
+            {props?.zipCode}
+          </p>
         </div>
 
         <div className="flex items-center justify-between pt-4 mt-4 border-t border-gray-700">

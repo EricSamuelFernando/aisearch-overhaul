@@ -78,9 +78,21 @@ const RecentCommentsSidebar = ({ properties = [], refreshTrigger = 0 }: { proper
         fetchRecentComments(); // Initial fetch
 
         if (socket) {
-            const handleNewActivity = (data: any) => {
-                console.log('New activity received via socket:', data);
-                fetchRecentComments();
+            const handleNewActivity = (comment: Comment) => {
+                console.log('[RecentComments] New activity received via socket:', comment);
+
+                // Add comment directly to state instead of refetching
+                setComments((prev) => {
+                    // Prevent duplicates
+                    if (prev.some(c => c.id === comment.id)) {
+                        console.log('[RecentComments] Duplicate comment, skipping');
+                        return prev;
+                    }
+
+                    // Add new comment and keep only latest 5
+                    console.log('[RecentComments] Adding new comment to recent activity');
+                    return [comment, ...prev].slice(0, 5);
+                });
             };
 
             socket.on('recent_activity_update', handleNewActivity);

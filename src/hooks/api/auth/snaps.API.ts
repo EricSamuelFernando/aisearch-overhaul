@@ -109,6 +109,7 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
                 id
                 name
                 address
+                city
                 zipCode
                 price
                 image
@@ -118,6 +119,7 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
                 listingId
                 listingId
                 propertyId
+                snapId
               }
             }
           `,
@@ -392,6 +394,32 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
     },
   });
 
+  const getSnapById = useMutation({
+    mutationKey: ["getSnapById"],
+    mutationFn: async (snapId: string) => {
+      try {
+        const data = await API.graphql({
+          query: `
+            query GetSnap($id: String!) {
+              snap(id: $id) {
+                id
+                name
+                link
+              }
+            }
+          `,
+          variables: {
+            id: snapId,
+          },
+        });
+        return data.snap;
+      } catch (error) {
+        console.error("Error fetching snap:", error);
+        throw error;
+      }
+    },
+  });
+
 
 
   return {
@@ -404,7 +432,8 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
     deleteSnap,
     updateSnap,
     sendPartnerInvitation,
-    toggleFavourite
+    toggleFavourite,
+    getSnapById
   };
 };
 

@@ -108,7 +108,7 @@
 //   const user = useSelector(userData);
 //   const { propertyId } = useParams<{ propertyId: string }>();
 
-
+ 
 //   const [employerFormData, setFormData] = useState<EmployerFormData>({
 //     employerName: '',
 //     employerPhone: '',
@@ -230,13 +230,13 @@
 //   useEffect(() => {
 //     console.log('ANSWERS' , answers)
 //     if (!answers || !answers.length) return;
-
+  
 //     console.log('ANSWERS' , answers)
 //     const updatedFormData = answers.reduce((acc: any, answer: any) => {
 //       const { stepId, questionId, response } = answer;
 //       console.log(answer)
 //       const resp = response?.answer ?? {};
-
+  
 //       // STEP 1: Property Info
 //       if (stepId === 1) {
 //         switch (questionId) {
@@ -263,7 +263,7 @@
 //             break;
 //         }
 //       }
-
+  
 //       // STEP 2: Employment Info
 //       if (stepId === 2) {
 //         switch (questionId) {
@@ -283,7 +283,7 @@
 //             break;
 //         }
 //       }
-
+  
 //       // STEP 3: Assets Info
 //       if (stepId === 3) {
 //         switch (questionId) {
@@ -294,7 +294,7 @@
 //             break;
 //         }
 //       }
-
+  
 //       // STEP 4: Credit Info
 //       if (stepId === 4) {
 //         switch (questionId) {
@@ -314,13 +314,13 @@
 //             break;
 //         }
 //       }
-
+  
 //       return acc;
 //     }, { ...preApprovalFormData });
-
+  
 //     setPreApprovalFormData(updatedFormData);
 //   }, [answers]);
-
+  
 //   console.log(employerFormData , personalFormData)
 
 //   const preApprovalSubSteps = [
@@ -376,7 +376,7 @@
 //       setPersonalFormData((data) => ({ ...data, [field]: null }));
 //     }
 //   };
-
+  
 //   const handleChangePersonalFormData = (field: keyof PersonalFormData ) => (e: ChangeEvent<HTMLInputElement>) => {
 //     setPersonalFormData((data) => ({ ...data, [field]: e.target.value }));
 //   };
@@ -420,7 +420,7 @@
 //     // Generate Excel with two sheets (Employer Information and Personal Information)
 //     const generateExcel = async() => {
 //       const wb = XLSX.utils.book_new();
-
+  
 //       // Employer Information Sheet
 //       const employerSheetData = [
 //         ['Field', 'Value'],
@@ -453,10 +453,10 @@
 //         ['Business License', employerFormData.businessLicense?.name || ''],
 //         ['CPA Letter', employerFormData.cpaLetter?.name || ''],
 //       ];
-
+  
 //       const employerSheet = XLSX.utils.aoa_to_sheet(employerSheetData);
 //       XLSX.utils.book_append_sheet(wb, employerSheet, 'Employer Information');
-
+  
 //       // Personal Information Sheet
 //       const personalSheetData = [
 //         ['Field', 'Value'],
@@ -478,10 +478,10 @@
 //         ['Bankruptcy Docs', personalFormData.bankruptcyDocs?.name || ''],
 //         ['Additional Income', personalFormData.additionalIncome?.name || ''],
 //       ];
-
+  
 //       const personalSheet = XLSX.utils.aoa_to_sheet(personalSheetData);
 //       XLSX.utils.book_append_sheet(wb, personalSheet, 'Personal Information');
-
+  
 //     // Write to Blob
 //     const excelArray = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
 
@@ -495,7 +495,7 @@
 //       XLSX.writeFile(wb, 'Loan_Application_Form.xlsx');
 
 
-
+      
 
 //     };
 
@@ -513,27 +513,27 @@
 //     //     return updated;
 //     //   });
 //     // };
-
+  
 //     const handlePreApprovalChange = (path: string) => (e: React.ChangeEvent<any>) => {
 //       const value = e.target.value;
-
+    
 //       setPreApprovalFormData((prev: any) => {
 //         const updated = { ...prev };
 //         const keys = path.split(".");
 //         let obj = updated;
-
+    
 //         for (let i = 0; i < keys.length - 1; i++) {
 //           obj[keys[i]] = { ...obj[keys[i]] };
 //           obj = obj[keys[i]];
 //         }
-
+    
 //         obj[keys[keys.length - 1]] = value;
 //         return updated;
 //       });
 //     };
 
-
-
+  
+    
 
 //     // router.push(`/dashboard/buyer/property/${id}/manage`)
 
@@ -551,7 +551,7 @@
 //             back
 //           </Button>
 
-
+     
 
 //         <div className='flex items-center  gap-4'>
 //           <Progress
@@ -576,7 +576,7 @@
 //       <p className='text-xl uppercase text-orange-600 font-bold border-b-4 border-orange-600 pb-2  w-fit mb-4' > Final Mortgage Approval</p>
 
 //       <div className="flex h-full">
-
+   
 
 //         <nav className="w-96">
 //           <ul className="flex flex-col space-y-3">
@@ -648,7 +648,7 @@
 //                 </button>
 //               )}
 //               <button className='px-10 py-2  border bg-black text-white border-black rounded-full text-black' 
-
+               
 //                 onClick={active === steps.length - 1 ?  generateExcel  :nextStep}
 //               >
 //                 {active === steps.length - 1 ? 'Submit' : 'Continue'}
@@ -666,7 +666,7 @@
 "use client"
 import { useState, ChangeEvent, useEffect } from 'react';
 import { Title, Progress, Button, Group, Text } from '@mantine/core';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx'; 
 import PreApprovalPersonalIdentification from './PreApprovalPersonalIdentification';
 import EmployerContactInformation from './EmployerContactInformation';
 import PostApprovalConditions from './PostApprovalConditions';
@@ -677,12 +677,12 @@ import { useRepoManagementApi } from '@/hooks/api/document/useRepoManagement';
 import { useSelector } from 'react-redux';
 import { userData } from '@/slices/auth/auth.slice';
 import { useParams, useRouter } from 'next/navigation';
-import { error, success } from '@/components/alert/notify';
+import { error ,success } from '@/components/alert/notify';
 import PreApprovalSteps from './PreApprovals';
 import { useGetAnswersByUser } from '@/hooks/api/auth/useConversationApi';
 
 const steps = [
-  'Pre Approval Informations',
+  'Pre Approval Informations' , 
   'Personal Identification Information',
   'Employer Contact Information',
   'Post-Approval Conditions',
@@ -768,12 +768,12 @@ export default function MultiStepForm() {
   const [active, setActive] = useState(0);
 
   const { uploadNewFile } = usePropertyServiceAPI()
-  const { createRepoWithUploadedFile } = useRepoManagementApi()
+  const { createRepoWithUploadedFile }= useRepoManagementApi()
   const router = useRouter()
   const user = useSelector(userData);
   const { propertyId } = useParams<{ propertyId: string }>();
 
-
+ 
   const [employerFormData, setFormData] = useState<EmployerFormData>({
     employerName: '',
     employerPhone: '',
@@ -826,7 +826,7 @@ export default function MultiStepForm() {
   });
 
 
-  const { data: answers, isPending: answersloading, refetch: answersRefetch } = useGetAnswersByUser(user.id, propertyId);
+  const { data:answers,  isPending:answersloading , refetch:answersRefetch } = useGetAnswersByUser (user.id, propertyId);
 
   const [preApprovalFormData, setPreApprovalFormData] = useState<any>({
     maximumValue: 0,
@@ -893,15 +893,15 @@ export default function MultiStepForm() {
   })
   console.log(answers)
   useEffect(() => {
-    console.log('ANSWERS', answers)
+    console.log('ANSWERS' , answers)
     if (!answers || !answers.length) return;
-
-    console.log('ANSWERS', answers)
+  
+    console.log('ANSWERS' , answers)
     const updatedFormData = answers.reduce((acc: any, answer: any) => {
       const { stepId, questionId, response } = answer;
       console.log(answer)
       const resp = response?.answer ?? {};
-
+  
       // STEP 1: Property Info
       if (stepId === 1) {
         switch (questionId) {
@@ -928,7 +928,7 @@ export default function MultiStepForm() {
             break;
         }
       }
-
+  
       // STEP 2: Employment Info
       if (stepId === 2) {
         switch (questionId) {
@@ -948,7 +948,7 @@ export default function MultiStepForm() {
             break;
         }
       }
-
+  
       // STEP 3: Assets Info
       if (stepId === 3) {
         switch (questionId) {
@@ -959,7 +959,7 @@ export default function MultiStepForm() {
             break;
         }
       }
-
+  
       // STEP 4: Credit Info
       if (stepId === 4) {
         switch (questionId) {
@@ -979,14 +979,14 @@ export default function MultiStepForm() {
             break;
         }
       }
-
+  
       return acc;
     }, { ...preApprovalFormData });
-
+  
     setPreApprovalFormData(updatedFormData);
   }, [answers]);
-
-  console.log(employerFormData, personalFormData)
+  
+  console.log(employerFormData , personalFormData)
 
   const preApprovalSubSteps = [
     'Property Information Information',
@@ -1041,112 +1041,112 @@ export default function MultiStepForm() {
       setPersonalFormData((data) => ({ ...data, [field]: null }));
     }
   };
-
-  const handleChangePersonalFormData = (field: keyof PersonalFormData) => (e: ChangeEvent<HTMLInputElement>) => {
+  
+  const handleChangePersonalFormData = (field: keyof PersonalFormData ) => (e: ChangeEvent<HTMLInputElement>) => {
     setPersonalFormData((data) => ({ ...data, [field]: e.target.value }));
   };
 
-  console.log(employerFormData, personalFormData)
+    console.log(employerFormData , personalFormData)
 
-  const handleFileUpload = async (file: File) => {
-    try {
-      const { key } = await uploadNewFile(file, user.id, propertyId);
-      const payload = {
-        uploadedFile: {
-          fileName: file?.name,
-          fileSize: file?.size,
-          fileUrl: key,
-          fileType: file?.type
-        },
-        createRepoManagementInput: {
-          name: 'proof-document',
-          url: '/proof-document',
-          propertyId: propertyId.toString(),
-          createdBy: user.id,
-          parentFolderName: 'proof-document',
-          isArchived: false
-        }
-      };
-      createRepoWithUploadedFile?.mutate(payload, {
-        onSuccess: (data) => {
-          console.log(data)
-        },
-        onError: (err) => {
-          error({ message: err?.message || 'Upload failed' });
-        },
-      });
-      router.push(`/dashboard/buyer/property/${propertyId}/manage`)
-    } catch (err: any) {
-      console.error("File upload failed:", err);
-      throw new Error('File upload failed');
-    }
-  };
+    const handleFileUpload = async (file: File) => {
+      try {
+        const { key } = await uploadNewFile(file, user.id, propertyId );
+        const payload = {
+          uploadedFile: {
+            fileName: file?.name,
+            fileSize: file?.size,
+            fileUrl: key,
+            fileType: file?.type
+          },
+          createRepoManagementInput: {
+            name: 'proof-document',
+            url: '/proof-document',
+            propertyId: propertyId.toString(),
+            createdBy: user.id,
+            parentFolderName: 'proof-document',
+            isArchived: false
+          }
+        };
+        createRepoWithUploadedFile?.mutate(payload, {
+          onSuccess: (data) => { 
+            console.log(data)
+          },
+          onError: (err) => {
+            error({ message: err?.message || 'Upload failed' });
+          },
+        });
+        router.push(`/dashboard/buyer/property/${propertyId}/manage`)
+      } catch (err: any) {
+        console.error("File upload failed:", err);
+        throw new Error('File upload failed');
+      }
+    };
 
-  // Generate Excel with two sheets (Employer Information and Personal Information)
-  const generateExcel = async () => {
-    const wb = XLSX.utils.book_new();
-
-    // Employer Information Sheet
-    const employerSheetData = [
-      ['Field', 'Value'],
-      ['Employer Name', employerFormData.employerName],
-      ['Employer Phone', employerFormData.employerPhone],
-      ['Employment Verification Letter', employerFormData.employmentVerificationLetter?.name || ''],
-      ['Pay Stubs', employerFormData.payStubs?.name || ''],
-      ['W-2 Forms', employerFormData.w2Forms?.name || ''],
-      ['Tax Returns', employerFormData.taxReturns?.name || ''],
-      ['Profit and Loss Statements', employerFormData.pAndLStatements?.name || ''],
-      ['Rental Income Documentation', employerFormData.rentalIncomeDocs?.name || ''],
-      ['Alimony/Child Support Proof', employerFormData.alimonyProof?.name || ''],
-      ['Bank Statements', employerFormData.bankStatements?.name || ''],
-      ['Investment Statements', employerFormData.investmentStatements?.name || ''],
-      ['Gift Letters', employerFormData.giftLetters?.name || ''],
-      ['Proof of Sale of Assets', employerFormData.proofSaleOfAssets?.name || ''],
-      ['Loan Statements', employerFormData.loanStatements?.name || ''],
-      ['Credit Card Statements', employerFormData.creditCardStatements?.name || ''],
-      ['Purchase Agreement', employerFormData.purchaseAgreement?.name || ''],
-      ['Homeowners Insurance Quote', employerFormData.homeownersInsuranceQuote?.name || ''],
-      ['Appraisal Report', employerFormData.appraisalReport?.name || ''],
-      ['Title Information', employerFormData.titleInformation?.name || ''],
-      ['HOA Information', employerFormData.hoaInformation?.name || ''],
-      ['Bankruptcy Docs', employerFormData.bankruptcyDocs?.name || ''],
-      ['Divorce Decree', employerFormData.divorceDecree?.name || ''],
-      ['Explanation Letters', employerFormData.explanationLetters?.name || ''],
-      ['Gift Fund Documentation', employerFormData.giftFundDocs?.name || ''],
-      ['Business Tax Returns', employerFormData.businessTaxReturns?.name || ''],
-      ['Year-to-Date P&L Statements', employerFormData.yearToDatePLStatements?.name || ''],
-      ['Business License', employerFormData.businessLicense?.name || ''],
-      ['CPA Letter', employerFormData.cpaLetter?.name || ''],
-    ];
-
-    const employerSheet = XLSX.utils.aoa_to_sheet(employerSheetData);
-    XLSX.utils.book_append_sheet(wb, employerSheet, 'Employer Information');
-
-    // Personal Information Sheet
-    const personalSheetData = [
-      ['Field', 'Value'],
-      ['ID Type', personalFormData.idType],
-      ['SSN', personalFormData.ssn],
-      ['Property Taxes', personalFormData.propertyTaxes],
-      ['Pay Stubs', personalFormData.payStubs?.name || ''],
-      ['W-2 Forms', personalFormData.w2Forms?.name || ''],
-      ['Tax Returns', personalFormData.taxReturns?.name || ''],
-      ['Profit and Loss Statements', personalFormData.pAndL?.name || ''],
-      ['Rental Income Documentation', personalFormData.rentalIncome?.name || ''],
-      ['Bank Statements', personalFormData.bankStatements?.name || ''],
-      ['Investment Statements', personalFormData.investmentStatements?.name || ''],
-      ['Gift Letter', personalFormData.giftLetter?.name || ''],
-      ['Loan Statements', personalFormData.loanStatements?.name || ''],
-      ['Credit Card Statements', personalFormData.creditCardStatements?.name || ''],
-      ['Purchase Agreement', personalFormData.purchaseAgreement?.name || ''],
-      ['Divorce Decree', personalFormData.divorceDecree?.name || ''],
-      ['Bankruptcy Docs', personalFormData.bankruptcyDocs?.name || ''],
-      ['Additional Income', personalFormData.additionalIncome?.name || ''],
-    ];
-
-    const personalSheet = XLSX.utils.aoa_to_sheet(personalSheetData);
-    XLSX.utils.book_append_sheet(wb, personalSheet, 'Personal Information');
-
+    // Generate Excel with two sheets (Employer Information and Personal Information)
+    const generateExcel = async() => {
+      const wb = XLSX.utils.book_new();
+  
+      // Employer Information Sheet
+      const employerSheetData = [
+        ['Field', 'Value'],
+        ['Employer Name', employerFormData.employerName],
+        ['Employer Phone', employerFormData.employerPhone],
+        ['Employment Verification Letter', employerFormData.employmentVerificationLetter?.name || ''],
+        ['Pay Stubs', employerFormData.payStubs?.name || ''],
+        ['W-2 Forms', employerFormData.w2Forms?.name || ''],
+        ['Tax Returns', employerFormData.taxReturns?.name || ''],
+        ['Profit and Loss Statements', employerFormData.pAndLStatements?.name || ''],
+        ['Rental Income Documentation', employerFormData.rentalIncomeDocs?.name || ''],
+        ['Alimony/Child Support Proof', employerFormData.alimonyProof?.name || ''],
+        ['Bank Statements', employerFormData.bankStatements?.name || ''],
+        ['Investment Statements', employerFormData.investmentStatements?.name || ''],
+        ['Gift Letters', employerFormData.giftLetters?.name || ''],
+        ['Proof of Sale of Assets', employerFormData.proofSaleOfAssets?.name || ''],
+        ['Loan Statements', employerFormData.loanStatements?.name || ''],
+        ['Credit Card Statements', employerFormData.creditCardStatements?.name || ''],
+        ['Purchase Agreement', employerFormData.purchaseAgreement?.name || ''],
+        ['Homeowners Insurance Quote', employerFormData.homeownersInsuranceQuote?.name || ''],
+        ['Appraisal Report', employerFormData.appraisalReport?.name || ''],
+        ['Title Information', employerFormData.titleInformation?.name || ''],
+        ['HOA Information', employerFormData.hoaInformation?.name || ''],
+        ['Bankruptcy Docs', employerFormData.bankruptcyDocs?.name || ''],
+        ['Divorce Decree', employerFormData.divorceDecree?.name || ''],
+        ['Explanation Letters', employerFormData.explanationLetters?.name || ''],
+        ['Gift Fund Documentation', employerFormData.giftFundDocs?.name || ''],
+        ['Business Tax Returns', employerFormData.businessTaxReturns?.name || ''],
+        ['Year-to-Date P&L Statements', employerFormData.yearToDatePLStatements?.name || ''],
+        ['Business License', employerFormData.businessLicense?.name || ''],
+        ['CPA Letter', employerFormData.cpaLetter?.name || ''],
+      ];
+  
+      const employerSheet = XLSX.utils.aoa_to_sheet(employerSheetData);
+      XLSX.utils.book_append_sheet(wb, employerSheet, 'Employer Information');
+  
+      // Personal Information Sheet
+      const personalSheetData = [
+        ['Field', 'Value'],
+        ['ID Type', personalFormData.idType],
+        ['SSN', personalFormData.ssn],
+        ['Property Taxes', personalFormData.propertyTaxes],
+        ['Pay Stubs', personalFormData.payStubs?.name || ''],
+        ['W-2 Forms', personalFormData.w2Forms?.name || ''],
+        ['Tax Returns', personalFormData.taxReturns?.name || ''],
+        ['Profit and Loss Statements', personalFormData.pAndL?.name || ''],
+        ['Rental Income Documentation', personalFormData.rentalIncome?.name || ''],
+        ['Bank Statements', personalFormData.bankStatements?.name || ''],
+        ['Investment Statements', personalFormData.investmentStatements?.name || ''],
+        ['Gift Letter', personalFormData.giftLetter?.name || ''],
+        ['Loan Statements', personalFormData.loanStatements?.name || ''],
+        ['Credit Card Statements', personalFormData.creditCardStatements?.name || ''],
+        ['Purchase Agreement', personalFormData.purchaseAgreement?.name || ''],
+        ['Divorce Decree', personalFormData.divorceDecree?.name || ''],
+        ['Bankruptcy Docs', personalFormData.bankruptcyDocs?.name || ''],
+        ['Additional Income', personalFormData.additionalIncome?.name || ''],
+      ];
+  
+      const personalSheet = XLSX.utils.aoa_to_sheet(personalSheetData);
+      XLSX.utils.book_append_sheet(wb, personalSheet, 'Personal Information');
+  
     // Write to Blob
     const excelArray = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
 
@@ -1156,81 +1156,80 @@ export default function MultiStepForm() {
     // Upload the Blob using the handleFileUpload function
     await handleFileUpload(new File([excelBlob], 'Loan_Application_Form.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
 
-    // Write and download the Excel file
-    XLSX.writeFile(wb, 'Loan_Application_Form.xlsx');
+      // Write and download the Excel file
+      XLSX.writeFile(wb, 'Loan_Application_Form.xlsx');
 
 
+      
+
+    };
 
 
-  };
+    // const handlePreApprovalChange = (path: string, value: any) => {
+    //   setPreApprovalFormData((prev:any) => {
+    //     const updated = { ...prev };
+    //     const keys = path.split(".");
+    //     let obj = updated;
+    //     for (let i = 0; i < keys.length - 1; i++) {
+    //       obj[keys[i]] = { ...obj[keys[i]] };
+    //       obj = obj[keys[i]];
+    //     }
+    //     obj[keys[keys.length - 1]] = value;
+    //     return updated;
+    //   });
+    // };
+  
+    const handlePreApprovalChange = (path: string) => (e: React.ChangeEvent<any>) => {
+      const value = e.target.value;
+    
+      setPreApprovalFormData((prev: any) => {
+        const updated = { ...prev };
+        const keys = path.split(".");
+        let obj = updated;
+    
+        for (let i = 0; i < keys.length - 1; i++) {
+          obj[keys[i]] = { ...obj[keys[i]] };
+          obj = obj[keys[i]];
+        }
+    
+        obj[keys[keys.length - 1]] = value;
+        return updated;
+      });
+    };
 
+  
+    
 
-  // const handlePreApprovalChange = (path: string, value: any) => {
-  //   setPreApprovalFormData((prev:any) => {
-  //     const updated = { ...prev };
-  //     const keys = path.split(".");
-  //     let obj = updated;
-  //     for (let i = 0; i < keys.length - 1; i++) {
-  //       obj[keys[i]] = { ...obj[keys[i]] };
-  //       obj = obj[keys[i]];
-  //     }
-  //     obj[keys[keys.length - 1]] = value;
-  //     return updated;
-  //   });
-  // };
-
-  const handlePreApprovalChange = (path: string) => (e: React.ChangeEvent<any>) => {
-    const value = e.target.value;
-
-    setPreApprovalFormData((prev: any) => {
-      const updated = { ...prev };
-      const keys = path.split(".");
-      let obj = updated;
-
-      for (let i = 0; i < keys.length - 1; i++) {
-        obj[keys[i]] = { ...obj[keys[i]] };
-        obj = obj[keys[i]];
-      }
-
-      obj[keys[keys.length - 1]] = value;
-      return updated;
-    });
-  };
-
-
-
-
-  // router.push(`/dashboard/buyer/property/${id}/manage`)
+    // router.push(`/dashboard/buyer/property/${id}/manage`)
 
 
 
   return (
     <div className='flex flex-col w-full h-full bg-white rounded-xl shadow-md min-h-screen py-5 px-4 sm:px-6 md:px-10'>
       <div className="flex flex-col md:flex-row items-start md:items-center mb-6 justify-between gap-3">
-        <Button
-          variant="outline"
-          className="border-black text-black text-md rounded-full px-2 sm:px-4"
-          onClick={() => router.push(`/dashboard/buyer/property/${propertyId}`)}
-        >
-          <MoveLeft strokeWidth={1.5} className='mr-2' />
-          back
-        </Button>
+         <Button
+            variant="outline"
+            className="border-black text-black text-md rounded-full px-2 sm:px-4"
+            onClick={()=> router.push(`/dashboard/buyer/property/${propertyId}`)}
+          >
+          <MoveLeft strokeWidth={1.5} className='mr-2'  />
+            back
+          </Button>
 
-        <div className='flex flex-col sm:flex-row items-center gap-2 sm:gap-4 w-full md:w-auto justify-between md:justify-end'>
-          <div className='flex items-center gap-2'>
-            <Progress
-              value={((active + 1) / steps.length) * 100}
-              size={6}
-              color="ocOrange"
-              w={96}
-              radius={0}
-            />
-            <span className='text-xs oapcity-50'>( {active + 1}/3 completed )</span>
-          </div>
+     
 
+        <div className='flex items-center  gap-4'>
+          <Progress
+            value={((active + 1) / steps.length) * 100}
+            size={6}
+            color="ocOrange"
+            w={96}
+            radius={0}
+          />
+          <span className='text-xs oapcity-50'>( {active + 1}/3 completed )</span>
           <Button
             variant="outline"
-            className="border-black text-black text-md rounded-full px-2 sm:px-4 w-full sm:w-auto"
+            className="border-black text-black text-md rounded-full px-4"
             onClick={() => alert('Save & continue later')}
           >
             Save & continue later
@@ -1241,15 +1240,19 @@ export default function MultiStepForm() {
       </div>
       <p className='text-xl uppercase text-orange-600 font-bold border-b-4 border-orange-600 pb-2  w-fit mb-4' > Final Mortgage Approval</p>
 
-      <div className="flex flex-col md:flex-row h-full">
+      <div className="flex h-full">
+   
 
-        <nav className="w-full md:w-96 mb-4 md:mb-0">
-          <ul className="flex flex-row md:flex-col space-x-4 md:space-x-0 md:space-y-3 overflow-x-auto">
+        <nav className="w-96">
+          <ul className="flex flex-col space-y-3">
             {steps.map((label, i) => (
               <li
                 key={label}
                 onClick={() => setActive(i)}
-                className={`cursor-pointer pl-3 md:pl-3 ${i === active ? 'font-semibold text-orange-600 border-b-4 md:border-b-0 md:border-l-4 md:border-orange-500' : 'text-gray-500 md:border-transparent'}`}
+                className={`cursor-pointer pl-3 border-l-4 ${i === active
+                    ? 'border-orange-500 font-semibold text-orange-600'
+                    : 'border-transparent text-gray-500'
+                  }`}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
@@ -1262,7 +1265,7 @@ export default function MultiStepForm() {
           </ul>
         </nav>
 
-        <section className="flex-1 justify-between h-full bg-transparent w-full p-4 md:p-8 pt-0">
+        <section className="flex-1 justify-between h-full  bg-transparent w-full p-8 pt-0">
           <div className="flex items-center justify-between">
             <Title order={3} className="mb-6">
               {steps[active]}
@@ -1270,13 +1273,13 @@ export default function MultiStepForm() {
           </div>
 
           {active === 0 && (
-            <PreApprovalSteps
-              formData={preApprovalFormData}
-              handleChange={handlePreApprovalChange}
-              handleFileChange={handleFileChange}
-              subSteps={preApprovalSubSteps}
-              setFormData={setFormData}
-            />
+             <PreApprovalSteps 
+             formData={preApprovalFormData}
+             handleChange={handlePreApprovalChange}
+             handleFileChange={handleFileChange}
+             subSteps={preApprovalSubSteps}
+             setFormData = {setFormData}
+             />
           )}
 
           {active === 1 && (
@@ -1303,14 +1306,14 @@ export default function MultiStepForm() {
 
             <Group>
               {active > 0 && (
-                <button className='px-3 sm:px-6 md:px-10 py-2 border text-black border-black rounded-full'
+                <button className='px-10 py-2  border  text-black border-black rounded-full text-black'
                   onClick={prevStep}
                 >
                   Back
                 </button>
               )}
-              <button className='px-3 sm:px-6 md:px-10 py-2 border bg-black text-white border-black rounded-full'
-                onClick={active === steps.length - 1 ? generateExcel : nextStep}
+              <button className='px-3 sm:px-6 md:px-10 py-2 border bg-black text-white border-black rounded-full' 
+                onClick={active === steps.length - 1 ?  generateExcel  :nextStep}
               >
                 {active === steps.length - 1 ? 'Submit' : 'Continue'}
               </button>

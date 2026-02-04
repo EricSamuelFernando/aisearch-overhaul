@@ -117,6 +117,8 @@ export function ProfileForm({ cb }: Props) {
     }
   };
 
+
+  
   return (
     <div className="mt-6 space-y-4">
       <h2 className="text-2xl font-bold">Profile Picture</h2>
@@ -274,6 +276,7 @@ export function EditEmailForm({ cb }: Props) {
 }
 
 export function EditPasswordForm({ cb }: Props) {
+  const { user } = useAuth();
   const { updateUserMutation } = useUserAuthApi();
   const [cognitoError, setCognitoError] = useState<string | null>(null);
   const [isCognitoUpdating, setIsCognitoUpdating] = useState(false);
@@ -331,10 +334,14 @@ export function EditPasswordForm({ cb }: Props) {
           }
         }
 
-        updateUserMutation.mutate({
+        const payload: Record<string, string> = {
           currentPassword: values.currentPassword,
           newPassword: values.newPassword,
-        });
+        };
+        if (user?.email) {
+          payload.email = user.email;
+        }
+        updateUserMutation.mutate(payload);
       })}
     >
       <h2 className='text-2xl font-bold'>Change Password</h2>

@@ -61,7 +61,7 @@ function BuyerPropertyListing() {
   const [searchValue, setSearchValue] = React.useState('');
   const [engagedProperties, setEngagedProperties] = React.useState<EngagedPropertyInterface[]>([]);
   const searchInputRef = React.useRef<HTMLInputElement | null>(null);  // Ref for the input field to preserve focus
-  
+
   const { user } = useAuth();
 
   const {
@@ -186,14 +186,14 @@ function BuyerPropertyListing() {
 
   console.log("Current properties being displayed:", currentProperties); // Log to verify correct properties
 
-  
+
   React.useEffect(() => {
     if (searchInputRef.current) {
       searchInputRef.current.focus();  // Ensure input is focused after the page loads or after search
     }
   }, [searchValue]);  // Keep input focused when searchValue changes
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.currentTarget.value;
     setSearchValue(value);
     fetchPlaceSuggestions(value, setSuggestions);  // Get suggestions while typing
@@ -213,15 +213,15 @@ function BuyerPropertyListing() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
   return (
-    <section className="w-full">
+    <section className="w-full px-4 sm:px-6 md:px-8">
       {loading ? (
         <BuyerPropertyListingSkeleton />
       ) : (
-        <section className='grid gap-x-8 lg:grid-cols-3'>
+        <section className='grid gap-4 sm:gap-6 md:gap-8 grid-cols-1 md:grid-cols-3'>
           {/* Main Content Area */}
-          <div className='col-span-1 lg:col-span-2'>
+          <div className='col-span-1 md:col-span-2'>
             {!propertyCount && total && total < 1 ? (
-              <div className='flex items-center justify-center lg:col-span-2'>
+              <div className='flex items-center justify-center col-span-1 md:col-span-2'>
                 {ButtonComponent}
               </div>
             ) : (
@@ -229,14 +229,14 @@ function BuyerPropertyListing() {
                 {true ? (
                   <>
                     {/* Search and Browse Section */}
-                    <div className="relative mb-8">
-                      <div className="flex items-center justify-start gap-x-10">
+                    <div className="relative mb-6 sm:mb-8">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-start gap-4 sm:gap-x-10">
                         <div className="flex w-full max-w-4xl items-center gap-x-4">
                           <CustomInput
-                          autoFocus
+                            autoFocus
                             value={searchValue}
-                            className="h-12 max-w-md rounded-lg border border-[#707070]"
-                            containerClass="mb-0"
+                            className="h-12 w-full sm:max-w-md rounded-lg border border-[#707070]"
+                            containerClass="mb-0 flex-1"
                             placeholder="Search property"
                             leftSection={<Icons.Search className="h-4 w-4" />}
                             leftSectionProps={{ className: 'pl-6' }}
@@ -244,7 +244,7 @@ function BuyerPropertyListing() {
                               const value = e.currentTarget.value;
                               setSearchValue(value);
                               fetchPlaceSuggestions(value, setSuggestions);
-                                  searchEnagagedProperties(value);  // Trigger search as soon as the user types
+                              searchEnagagedProperties(value);  // Trigger search as soon as the user types
                             }}
                           />
 
@@ -264,7 +264,7 @@ function BuyerPropertyListing() {
                       {suggestions.length > 0 && (
                         <div
                           ref={suggestionsRef}
-                          className="absolute z-10 mt-2 w-full max-w-md border border-gray-300 bg-white shadow-lg rounded-md max-h-60 overflow-y-auto text-left"
+                          className="absolute z-10 mt-2 w-full sm:max-w-md border border-gray-300 bg-white shadow-lg rounded-md max-h-60 overflow-y-auto text-left left-0"
                         >
                           {suggestions.map((city: string, index: number) => (
                             <div
@@ -286,12 +286,12 @@ function BuyerPropertyListing() {
                     {/* Properties Grid */}
                     {
                       loading ?
-                        <div className="col-span-2 grid place-content-center py-10">
+                        <div className="col-span-1 grid place-content-center py-10">
                           <div className="h-10 w-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                        </div> : <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 md:gap-6 lg:gap-8">
+                        </div> : <div className="grid gap-4 sm:gap-6 md:gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2">
                           {propertyCount ? (
                             currentProperties?.map((item) => (
-                              
+
                               <BuyerListingItem key={item.id}
                                 id={item.id}
                                 propertyId={item.propertyId}
@@ -305,7 +305,7 @@ function BuyerPropertyListing() {
                               />
                             ))
                           ) : (
-                            <div className='col-span-2 grid place-content-center'>
+                            <div className='col-span-1 sm:col-span-2 grid place-content-center'>
                               {ButtonComponent}
                             </div>
                           )}
@@ -313,7 +313,7 @@ function BuyerPropertyListing() {
 
                     {/* Pagination */}
                     {engagedProperties?.length > propertiesPerPage && (
-                      <div className='mt-8 flex justify-center'>
+                      <div className='mt-6 sm:mt-8 flex justify-center col-span-1 sm:col-span-2'>
                         <Pagination
                           value={page}
                           onChange={setPage}
@@ -328,7 +328,7 @@ function BuyerPropertyListing() {
                     )}
                   </>
                 ) : (
-                  <div className='mt-8 grid gap-6 md:grid-cols-2 md:gap-y-8'>
+                  <div className='mt-6 sm:mt-8 grid gap-6 grid-cols-1 sm:col-span-2'>
                     <div className='grid place-content-center md:col-span-2'>
                       {ButtonComponent}
                     </div>
@@ -338,18 +338,18 @@ function BuyerPropertyListing() {
             )}
 
             {/* Search Input at Bottom */}
-            <div className='mt-24'>
+            <div className='mt-12 sm:mt-16 md:mt-24'>
               <SearInput />
             </div>
           </div>
 
           {/* Sidebar - Tours, Notifications, and Agents */}
-          <section className="col-span-1 space-y-6">
-            <div className="bg-white rounded-lg overflow-hidden">
+          <section className="col-span-1 space-y-4 sm:space-y-6 min-w-0">
+            <div className="bg-white rounded-lg overflow-visible min-w-0">
               <ToursList properties={properties} />
             </div>
 
-            <div className="bg-white  overflow-hidden">
+            <div className="bg-white rounded-lg min-w-0">
               <NotificationList />
             </div>
 

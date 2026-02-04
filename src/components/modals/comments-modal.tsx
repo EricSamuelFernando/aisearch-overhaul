@@ -56,12 +56,13 @@ const CommentsModal: React.FC<CommentsModalProps> = ({ isOpen, onClose, property
         return `${currentUser.firstname} ${currentUser.lastname || ''}`.trim();
     };
     const userName = getUserName();
+    const accountType = currentUser?.accountType || 'buyer'; // Get accountType from user data
 
     const handleAddComment = async () => {
         if (!newCommentText.trim()) return;
         setIsSubmitting(true);
         try {
-            await addComment(newCommentText, userName, propertyName);
+            await addComment(newCommentText, userName, propertyName, accountType); // Pass accountType
             setNewCommentText('');
             if (onCommentAdded) onCommentAdded();
         } catch (error) {
@@ -106,7 +107,17 @@ const CommentsModal: React.FC<CommentsModalProps> = ({ isOpen, onClose, property
                         comments.map((comment) => (
                             <div key={comment.id} className="bg-gray-100 p-4 rounded-r-xl border-l-2 border-[#FF8700] shadow-sm mb-3">
                                 <div className="flex justify-between items-center mb-2">
-                                    <h4 className="font-bold text-sm text-gray-900">{comment.userName}</h4>
+                                    <div className="flex items-center gap-2">
+                                        <h4 className="font-bold text-sm text-gray-900">{comment.userName}</h4>
+                                        {comment.accountType && (
+                                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${comment.accountType.toLowerCase() === 'agent'
+                                                    ? 'bg-blue-100 text-blue-700'
+                                                    : 'bg-green-100 text-green-700'
+                                                }`}>
+                                                {comment.accountType.toLowerCase() === 'agent' ? 'Agent' : 'Buyer'}
+                                            </span>
+                                        )}
+                                    </div>
                                     <span className="text-xs text-gray-400">
                                         {format(new Date(comment.createdAt), 'MMM dd, yyyy')}
                                     </span>

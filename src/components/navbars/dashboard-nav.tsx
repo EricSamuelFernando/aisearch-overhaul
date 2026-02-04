@@ -49,7 +49,8 @@ const DashboardNav: React.FC<DashboardNavProps> = ({ navClass }) => {
       <div className="mx-auto flex w-full items-center justify-between px-4 sm:px-6 md:px-10 lg:px-[3.219rem] py-3">
         {/* Logo Section */}
         <div className="logo">
-          <Link href={user?.email ? "/dashboard" : "/home"}>
+          {/* <Link href={user?.email ? "/dashboard" : "/home"}> */}
+          <Link href="/home">
             <Image
               src="/assets/images/snaphomz-logo-black.png"
               alt="logo"

@@ -97,10 +97,10 @@
 //                 <span className='font-bold'>Manage</span>
 //               </span>
 //             </Link>
-
+           
 //           </Button> : null}
 
-
+        
 //           {status ? (
 //             <Button
 //               variant='ocreal'
@@ -164,7 +164,7 @@ type Props = {
   indicatorWidth?: number;
   isManage?: boolean;
   propertyId?: string;
-}; export const OverviewSkeleton = () => (
+};export const OverviewSkeleton = () => (
   <div className='flex animate-pulse items-center justify-between gap-x-4'>
     <div className='flex flex-auto items-center gap-x-4'>
       <div className='relative h-20 w-24 bg-gray-300' />
@@ -191,100 +191,85 @@ export function PropertyOverview({
   trackWidth = 5,
   indicatorWidth = 5,
   isManage = false,
-  propertyId,
+  propertyId 
 }: Props) {
   const { userPath } = useCurrentUser();
-  const [propertyData, setPropertyData] =
-    useState<EngagedPropertyInterface>();
-
+  const [propertyData, setPropertyData] = useState<EngagedPropertyInterface>();
   return (
-    <div
-      className={cn(
-        `
-        flex flex-col gap-4
-        sm:flex-row sm:items-center sm:justify-between
-        min-w-0
-        `,
-        className
-      )}
-    >
-      {/* LEFT CONTENT */}
-      <div className='flex min-w-0 flex-1 gap-3'>
-        {/* IMAGE */}
-        <div className='relative h-16 w-16 flex-shrink-0 sm:h-20 sm:w-20'>
+    <div className={cn('flex flex-col md:flex-row items-start md:items-center justify-between gap-4 md:gap-6', className)}>
+      <div className='flex flex-auto items-start md:items-center gap-3 md:gap-4 w-full'>
+        <div className='relative aspect-square w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 flex-shrink-0'>
           <Image
             loader={imageLoader}
             src={image ?? '/assets/images/placeholder.svg'}
             alt={`${streetName}-image`}
-            className='rounded-md object-cover'
+            className='h-full w-full rounded-md'
             fill
+            style={{
+              objectFit: 'cover',
+              objectPosition: 'center',
+            }}
           />
         </div>
+        <div className='flex-1 min-w-0'>
+          <div className='flex items-center gap-3 md:gap-4 w-full pr-3 md:pr-0'>
+            <div className='min-w-0 flex-1 flex-shrink'>
+              <p className='truncate text-xs sm:text-sm md:text-base font-bold'>{address}</p>
+              <p className='truncate text-xs sm:text-sm font-light text-gray-500'>
+                {streetName ? streetName : 'Street name not available'}
+              </p>
+            </div>
 
-        {/* TEXT + ACTION */}
-        <div className='flex min-w-0 flex-col gap-2'>
-          <div className='min-w-0'>
-            <p className='break-words text-sm font-bold sm:text-base'>
-              {address}
-            </p>
-            <p className='break-words text-xs font-light sm:text-sm'>
-              {streetName || 'Street name not available'}
-            </p>
+            <div className='flex-shrink-0 w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20'>
+              <CustomProgressBar
+                trackColor={trailColor}
+                indicatorColor={pathColor}
+                size={Math.max(60, size! * 0.7)}
+                progress={progress!}
+                trackWidth={trackWidth!}
+                indicatorWidth={indicatorWidth!}
+                spinnerMode={false}
+                label={
+                  <p className='flex h-full items-center justify-center text-center text-white'>
+                    <span
+                      className={cn('text-[10px] sm:text-xs md:text-sm font-semibold text-black leading-none', textColor)}
+                    >{`${progress}%`}</span>
+                  </p>
+                }
+              />
+            </div>
           </div>
 
-          {isManage && (
-            <Button
-              asChild
-              variant='outline'
-              className='w-fit bg-black px-3 py-1 text-xs sm:px-4 sm:py-2 sm:text-sm border border-ocOrange'
-              roundness='full'
-            >
-              <Link href={`${userPath}/property/${propertyId}/manage`}>
-                <span className='flex items-center gap-x-2'>
-                  <span className='flex h-4 w-4 items-center justify-center rounded-full bg-ocOrange text-xs text-black'>
-                    1
-                  </span>
-                  <span className='font-bold'>Manage</span>
-                </span>
-              </Link>
-            </Button>
-          )}
-
-          {status && (
-            <Button
-              variant='ocreal'
-              className='w-fit text-xs text-black'
-              roundness='full'
-            >
-              Now Showing
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* PROGRESS CIRCLE */}
-      <div className='flex justify-center sm:justify-end'>
-        <CustomProgressBar
-          trackColor={trailColor}
-          indicatorColor={pathColor}
-          size={64}        // smaller for <400px
-          progress={progress}
-          trackWidth={trackWidth}
-          indicatorWidth={indicatorWidth}
-          spinnerMode={false}
-          label={
-            <p className='flex h-full items-center justify-center text-center'>
-              <span
-                className={cn(
-                  'text-xs sm:text-sm text-black',
-                  textColor
-                )}
+          <div className='mt-2 flex items-center gap-2 flex-wrap'>
+            {isManage ? (
+              <Button
+                asChild
+                variant='outline'
+                className={cn('px-2 sm:px-4 pt-0.5 pb-1 sm:pt-1 sm:pb-1 text-xs sm:text-sm h-auto bg-black border border-ocOrange')}
+                roundness='full'
               >
-                {`${progress}%`}
-              </span>
-            </p>
-          }
-        />
+                <Link href={`${userPath}/property/${propertyId}/manage`}>
+                  <span className='flex flex-row-reverse md:flex-row items-center gap-1 sm:gap-2'>
+                    <span className='flex h-3 w-3 sm:h-4 sm:w-4 items-center justify-center rounded-full bg-ocOrange text-xs flex-shrink-0'>
+                      1
+                    </span>
+                    <span className='font-bold'>Manage</span>
+                  </span>
+                </Link>
+              </Button>
+            ) : null}
+
+            {status ? (
+              <Button
+                variant='ocreal'
+                className='text-xs h-auto pt-0.5 pb-1 px-2 sm:px-3 sm:pt-1 sm:pb-1 text-black'
+                roundness='full'
+              >
+                Now Showing
+              </Button>
+            ) : null}
+          </div>
+        </div>
       </div>
     </div>
   );

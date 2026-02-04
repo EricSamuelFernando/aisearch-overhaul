@@ -183,9 +183,9 @@ function AgentCard({ agent, property }: any) {
   const hasImage = agent?.imageUrl;
 
   return (
-    <div className='flex flex-1 cursor-pointer items-center justify-center gap-x-2'>
-      <div className='leading-1 flex flex-col gap-2 font-bold'>
-        <div className='flex gap-2 items-center'>
+    <div className='flex flex-1 cursor-pointer items-center justify-center gap-x-1 sm:gap-x-2'>
+      <div className='leading-1 flex flex-col gap-1 sm:gap-2 font-bold'>
+        <div className='flex gap-1 sm:gap-2 items-center'>
           {hasImage ? (
             <Image
               height={50}
@@ -193,11 +193,11 @@ function AgentCard({ agent, property }: any) {
               src={agent.imageUrl}
               objectFit='contain'
               alt='Agent'
-              className='rounded-full object-cover'
+              className='rounded-full object-cover w-[40px] h-[40px] sm:w-[45px] sm:h-[45px] md:w-[50px] md:h-[50px]'
             />
           ) : agent?.agent?.firstName && agent?.agent?.lastName ? (
             <>
-              <div className='flex h-[50px] w-[50px] items-center justify-center rounded-full bg-gray-400 text-white text-lg font-semibold'>
+              <div className='flex h-[40px] w-[40px] sm:h-[45px] sm:w-[45px] md:h-[50px] md:w-[50px] items-center justify-center rounded-full bg-gray-400 text-white text-sm sm:text-base md:text-lg font-semibold'>
                 {initials}
               </div>
             </>
@@ -206,22 +206,22 @@ function AgentCard({ agent, property }: any) {
           )}
           {agent?.agent?.firstName && agent?.agent?.lastName ? (
             <>
-              <p className='text-base'>{`${firstName} ${lastName}`}</p>
+              <p className='text-sm sm:text-base'>{`${firstName} ${lastName}`}</p>
             </>
           ) : (
-            <p>{externalAgent?.email || 'External Agent'}</p>
+            <p className='text-sm sm:text-base'>{externalAgent?.email || 'External Agent'}</p>
           )}
         </div>
         <div className='flex items-center justify-between'>
           {
             (agent?.is_accepted === "pending" || agent?.is_accepted === "PENDING") ?
-              <p className='text-md text-yellow-500'>Agent pending</p>
+              <p className='text-xs sm:text-sm md:text-md text-yellow-500'>Agent pending</p>
               : agent?.is_accepted === "rejected" ?
-                <p className='text-md text-red-500'>Agent rejected</p> :
-                <p className='text-sm text-ocOrange'>Agent accepted</p>
+                <p className='text-xs sm:text-sm md:text-md text-red-500'>Agent rejected</p> :
+                <p className='text-xs sm:text-sm text-ocOrange'>Agent accepted</p>
           }
           <button
-            className='font-bol ml-8 gap-2 flex items-center text-xs md:min-w-[70px] border p-2 rounded-full'
+            className='font-bol ml-4 sm:ml-6 md:ml-8 gap-1 sm:gap-2 flex items-center text-xs border p-1 sm:p-2 rounded-full'
             onClick={handleThreadGeneration}
           >
             {createUserAgentThreadMutation.isPending ? (
@@ -229,14 +229,14 @@ function AgentCard({ agent, property }: any) {
             ) : (
               <>
                 Chat
-                <MessageSquareShare size={14} />
+                <MessageSquareShare size={12} className='sm:w-[14px] sm:h-[14px]' />
               </>
             )}
           </button>
         </div>
         <Button
           variant='ocreal'
-          className={cn('px-4 md:min-w-[100px] bg-black border bg-ocOrange')}
+          className={cn('px-2 sm:px-4 w-full sm:w-auto bg-black border bg-ocOrange')}
           roundness='full'
         >
           <Link
@@ -245,7 +245,7 @@ function AgentCard({ agent, property }: any) {
               query: { listingId: property?.listingId, propertyId: property?.propertyId },
             }}
           >
-            <div className='flex w-full bg-ocOrange items-center gap-x-2'>
+            <div className='flex w-full bg-ocOrange items-center gap-x-1 sm:gap-x-2'>
               <span className='text-xs'>Visit Property</span>
             </div>
           </Link>

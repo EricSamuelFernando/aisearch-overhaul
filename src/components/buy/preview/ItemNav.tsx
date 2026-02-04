@@ -311,11 +311,9 @@ function ItemNav({ cardRef }: Props) {
             {/* Share */}
             <button
               onClick={handleShare}
-              className='flex items-center gap-2 text-black hover:text-black'
+              className='flex items-center gap-2 text-[#818181] hover:text-black'
             >
-             
               <Icons.Share className='h-4 w-4' />
-              
             </button>
 
             {/* Save */}
@@ -328,10 +326,9 @@ function ItemNav({ cardRef }: Props) {
                   router.push('/login');
                 }
               }}
-              className='flex items-center gap-2 text-black hover:text-black'
+              className='flex items-center gap-2 text-[#818181] hover:text-black'
             >
               <Heart className={cn('h-4 w-4', isFavored ? 'fill-orange-500 text-orange-500' : '')} />
-             
             </button>
           </div>
         </div>
@@ -357,10 +354,9 @@ function ItemNav({ cardRef }: Props) {
         <div className='hidden md:flex items-center gap-4 ml-2'>
           <button
             onClick={handleShare}
-            className='flex items-center gap-2 text-black hover:text-black'
+            className='flex items-center gap-2 text-[#818181] hover:text-black'
           >
             <Icons.Share className='h-4 w-4' />
-            <span>Share</span>
           </button>
 
           <button
@@ -372,10 +368,9 @@ function ItemNav({ cardRef }: Props) {
                 router.push('/login');
               }
             }}
-            className='flex items-center gap-2 text-black hover:text-black'
+            className='flex items-center gap-2 text-[#818181] hover:text-black'
           >
             <Heart className={cn('h-4 w-4', isFavored ? 'fill-orange-500 text-orange-500' : '')} />
-           <span>Save</span>
           </button>
         </div>
       </div>

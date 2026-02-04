@@ -19,11 +19,11 @@ const DocumentsUpload: React.FC<DocumentsProps> = ({
   documents,
 }) => {
   return (
-    <section className='flex h-4/5 w-full flex-col items-center justify-between gap-x-5 py-8'>
-      <div className='flex h-4/5 w-full'>
-        <div className='flex h-4/5 w-full flex-col'>
+    <section className='flex h-auto w-full flex-col items-center justify-between gap-x-5 py-4 sm:py-8'>
+      <div className='flex h-auto w-full'>
+        <div className='flex h-auto w-full flex-col'>
           <CustomFileInputBuyer handleFile={addFileToDocuments} />
-          <section className='mt-6 grid grid-cols-2 gap-7'>
+          <section className='mt-4 sm:mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-7'>
             {documents.map((doc, index) => (
               <CardItem
                 key={index}

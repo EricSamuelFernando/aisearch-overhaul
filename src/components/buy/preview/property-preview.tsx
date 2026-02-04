@@ -9,6 +9,7 @@ import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import Thumbnails from "yet-another-react-lightbox/plugins/thumbnails";
 import "yet-another-react-lightbox/plugins/thumbnails.css";
+import Footer from '@/components/footer/Footer';
 
 import CustomMap from '@/components/custom-map';
 import SkeletonLoader from '@/components/skeleton-loader';
@@ -766,7 +767,7 @@ const PropertyPreview: React.FC = () => {
   return (
     <div>
       <ItemNav cardRef={cardRef} />
-      <div className='mt-12 sm:mt-16 md:mt-24' />
+      <div className='mt-6 sm:mt-8 md:mt-12 lg:mt-14' />
 
       {/* Contact Agent Dialog */}
       <Dialog open={isContactAgentDialogOpen} onOpenChange={setIsContactAgentDialogOpen}>
@@ -893,19 +894,19 @@ const PropertyPreview: React.FC = () => {
         </DialogContent>
       </Dialog>
       {loading ? (
-        <div className='grid grid-flow-row place-items-center gap-3 sm:gap-4 md:gap-6 md:h-[28rem] md:grid-cols-12 md:gap-7 animate-pulse px-4 sm:px-6 md:px-0'>
-          <SkeletonLoader className='h-[200px] sm:h-[250px] md:h-[392px] w-full bg-gray-200 md:col-span-9 rounded-lg' />
-          <div className='h-[200px] sm:h-[250px] md:h-[392px] w-full md:col-span-3'>
+        <div className='grid grid-flow-row place-items-center gap-3 sm:gap-4 lg:gap-6 lg:h-[28rem] lg:grid-cols-12 lg:gap-7 animate-pulse px-2 sm:px-4 md:px-6 lg:px-0'>
+          <SkeletonLoader className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[392px] w-full bg-gray-200 lg:col-span-9 rounded-lg' />
+          <div className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[392px] w-full lg:col-span-3'>
             <PropCardLoader className='h-full w-full rounded-lg shadow-lg' />
           </div>
         </div>
       ) : transformData.display ? (
 
-        <div className='grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-12 md:gap-7 h-auto md:h-[28rem] transition-all duration-300 ease-in-out px-4 sm:px-6 md:px-0'>
+        <div className='grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-12 lg:gap-7 h-auto lg:h-[28rem] transition-all duration-300 ease-in-out px-2 sm:px-4 md:px-6 lg:px-0 max-w-7xl mx-auto'>
 
-          <div className='md:col-span-9 col-span-12 flex flex-col' ref={leftSection}>
+<div className="col-span-12 lg:col-span-9 flex flex-col" ref={leftSection}>
             <HeroCollege
-              className='h-[200px] sm:h-[250px] md:h-[28rem] w-full rounded-lg shadow-lg overflow-hidden'
+              className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[28rem] w-full rounded-lg shadow-lg overflow-hidden'
               imageURLs={
                 transformData.prop?.media?.photosList?.length ?
                   transformData.prop?.media?.photosList?.map((img: any) => img) || [] :
@@ -933,61 +934,61 @@ const PropertyPreview: React.FC = () => {
               preloadedData={propertyDatas} // Pass existing data to prevent re-fetch
             />
             {/* Top Section: Price/Address and Agent Card */}
-            <div className='mt-3 flex flex-col sm:flex-row w-full justify-between items-start sm:items-center gap-4 mb-4'>
+            <div className='mt-3 flex flex-col w-full justify-between items-start gap-4 mb-4'>
               {/* Left: Price and Address */}
-              <div className="space-y-1 w-full sm:w-auto flex-1">
+              <div className="space-y-1 w-full flex-1">
                 <div className='inline-flex items-baseline gap-1'>
-                  <span className='text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900'>$</span>
-                  <h2 className='text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 relative inline-block'>
+                  <span className='text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-gray-900'>$</span>
+                  <h2 className='text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-gray-900 relative inline-block'>
                     {transformData.prop?.listPrice ? transformData.prop.listPrice.toLocaleString('en-US') : '0'}
                     <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#60A5FA]"></span>
                   </h2>
                 </div>
-                <p className='truncate text-clip text-base text-gray-600 leading-6' style={{ fontFamily: "Satoshi" }}>
+                <p className='text-sm sm:text-base text-gray-600 leading-6 break-words' style={{ fontFamily: "Satoshi" }}>
                   {`${transformData.prop?.address?.unparsedAddress || propertyDatas?.property_detail?.data?.propertyInfo?.address?.address || "N/A"}, ${transformData.prop?.address?.city || propertyDatas?.property_detail?.data?.propertyInfo?.address?.city || "N/A"}, ${transformData.prop?.address?.stateOrProvince || propertyDatas?.property_detail?.data?.propertyInfo?.address?.stateOrProvince || "N/A"} ${transformData.prop?.address?.zipCode || propertyDatas?.property_detail?.data?.propertyInfo?.address?.zip || "N/A"}`}
                 </p>
               </div>
 
               {/* Right: Agent Card */}
-              <div className="w-full sm:w-auto sm:min-w-[280px]">
-                <div className="rounded-xl bg-[#F5E6D3] shadow-sm px-4 py-3 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden shrink-0">
+              <div className="w-full">
+                <div className="rounded-xl bg-[#F5E6D3] shadow-sm px-3 sm:px-4 py-3 flex items-center justify-between gap-2 sm:gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                    <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden shrink-0">
                       {transformData?.prop?.listingAgent?.photo && transformData?.prop?.listingAgent?.photo !== "" ? (
                         <Image
                           src={transformData.prop.listingAgent.photo}
                           alt={transformData?.prop?.listingAgent?.fullName || "Agent"}
                           width={48}
                           height={48}
-                          className="rounded-full object-cover"
+                          className="rounded-full object-cover w-full h-full"
                         />
                       ) : (
-                        <span className="text-base font-medium text-gray-600">
+                        <span className="text-sm sm:text-base font-medium text-gray-600">
                           {transformData?.prop?.listingAgent?.fullName?.charAt(0) || "A"}
                         </span>
                       )}
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-gray-900 truncate">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-sm font-bold text-gray-900 truncate">
                         {transformData?.prop?.listingAgent?.fullName || "Snaphomz Agent"}
                       </p>
                       <p className="text-xs text-gray-500">Listing Agent</p>
                     </div>
                   </div>
-                  <button className="shrink-0 ml-2">
-                    <Mail className="h-5 w-5 text-[#E8804C]" strokeWidth={1.5} />
+                  <button className="shrink-0">
+                    <Mail className="h-4 w-4 sm:h-5 sm:w-5 text-[#E8804C]" strokeWidth={1.5} />
                   </button>
                 </div>
               </div>
             </div>
 
             {/* Bottom Section: Estimated Payment and Start The Process Button */}
-            <div className='flex flex-col sm:flex-row w-full justify-between items-center gap-4 mb-4'>
+            <div className='flex flex-col w-full justify-between items-start gap-3 sm:gap-4 mb-4'>
               {/* Left: Estimated Payment Section */}
-              <div className="rounded-xl bg-[#FAE6DB] shadow-sm px-4 py-3 flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">Est. payment:</span>
-                  <span className="text-sm font-bold text-gray-900">
+              <div className="rounded-xl bg-[#FAE6DB] shadow-sm px-3 sm:px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full">
+                <div className="flex items-center gap-2 flex-1">
+                  <span className="text-xs sm:text-sm text-gray-600">Est. payment:</span>
+                  <span className="text-xs sm:text-sm font-bold text-gray-900">
                     ${(() => {
                       const price = transformData.prop?.listPrice || 0;
                       const monthlyPayment = Math.round(price * 0.0065); // Approximate calculation
@@ -995,24 +996,25 @@ const PropertyPreview: React.FC = () => {
                     })()}/mo
                   </span>
                 </div>
-                <div className="h-5 w-5 rounded-full bg-[#E8804C]-300 flex items-center justify-center shrink-0">
-                  <Info className="h-3 w-3 text-[#E8804C]-600" />
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-[#E8804C]-300 flex items-center justify-center shrink-0">
+                    <Info className="h-2 w-2 sm:h-3 sm:w-3 text-[#E8804C]-600" />
+                  </div>
+                  <button className="text-xs sm:text-sm text-[#E8804C] hover:underline whitespace-nowrap">
+                    Get pre-qualified
+                  </button>
                 </div>
-                <button className="text-sm text-[#E8804C] hover:underline whitespace-nowrap">
-                  Get pre-qualified
-                </button>
               </div>
 
-              {/* Right: Start The Process Button */}
               {/* Right: Buttons Section */}
-              <div className="flex flex-col gap-3 w-full sm:w-auto">
+              <div className="flex flex-col gap-2 sm:gap-3 w-full">
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="w-full sm:w-auto" style={{ width: "270px" }}>
+                      <div className="w-full">
                         <button
                           disabled
-                          className="w-full bg-gray-400 text-white px-8 py-3 rounded-full text-base font-normal cursor-not-allowed transition-colors whitespace-nowrap"
+                          className="w-full bg-gray-400 text-white px-4 sm:px-6 md:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-normal cursor-not-allowed transition-colors"
                         >
                           Start The Process
                         </button>
@@ -1025,8 +1027,7 @@ const PropertyPreview: React.FC = () => {
                 </TooltipProvider>
 
                 <button
-                  className="w-full sm:w-auto bg-black text-white px-8 py-3 rounded-full text-base font-normal hover:bg-gray-800 transition-colors whitespace-nowrap"
-                  style={{ width: "270px" }}
+                  className="w-full bg-black text-white px-4 sm:px-6 md:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-normal hover:bg-gray-800 transition-colors"
                   onClick={handleContactAgent}
                   disabled={propertyEngagementMutation.isPending}
                 >
@@ -1047,26 +1048,14 @@ const PropertyPreview: React.FC = () => {
 
 
             {/* Estimated Market Value (image_60fd3b.png) */}
-            <div className='flex flex-wrap items-center justify-between gap-2 sm:gap-3 py-2 sm:py-2'>
+            <div className='flex flex-wrap items-center justify-between gap-2 sm:gap-3 py-2 sm:py-3 px-2 sm:px-0'>
               <EstimatedMarketValue defaultEstimatedData={defaultEstimatedData} />
             </div>
           </div>
 
 
-          <div className="relative right-0  mr-0 md:mr-4 transition-all duration-300 ease-in-out w-[325px] md:w-auto">
-            {/* <ListingAgentCard
-              agentName={`${transformData?.prop?.listingAgent?.fullName || "Snaphomz Agent"}`}
-              email={transformData?.prop?.listingAgent?.email}
-              className="h-fit w-full md:w-[23rem] shadow-lg hover:shadow-xl transition-shadow duration-300"
-            />
-            <br />
-            <HeroHighlights
-              className="h-[210px] sm:h-[260px] md:h-[25.4rem] w-full md:w-[23rem] shadow-lg hover:shadow-xl transition-shadow duration-300"
-              id={id}
-              propertyId={propertyData?.id}
-              listingId={propertyData?.listingId}
-            /> */}
-            <div className="w-[380px] rounded-2xl bg-[#FCFCFB] shadow-sm border border-[#EDEDED] p-6">
+<div className="col-span-12 lg:col-span-3 mt-4 lg:mt-0">
+            <div className="w-full rounded-2xl bg-[#FCFCFB] shadow-sm border border-[#EDEDED] p-4 sm:p-5 md:p-6">
               {(() => {
                 // Calculate dynamic values
                 const beds = transformData.prop?.property?.bedroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bedroomsTotal || 0;
@@ -1083,28 +1072,28 @@ const PropertyPreview: React.FC = () => {
                 return (
                   <>
                     {/* Status Badge */}
-                    <div className="inline-flex items-center gap-2 bg-[#F7F7F7] px-3 py-1 rounded-xl text-[13px] font-medium mb-4">
-                      <span className="h-[8px] w-[8px] rounded-full bg-red-500"></span>
+                    <div className="inline-flex items-center gap-2 bg-[#F7F7F7] px-3 py-1 rounded-xl text-xs sm:text-[13px] font-medium mb-3 sm:mb-4">
+                      <span className="h-[6px] w-[6px] sm:h-[8px] sm:w-[8px] rounded-full bg-red-500"></span>
                       {status}
                     </div>
 
                     {/* Top stats */}
-                    <div className="flex items-end gap-8 mb-4">
+<div className="grid grid-cols-3 gap-3 sm:flex sm:items-end sm:gap-4 md:gap-6 lg:gap-8 mb-3 sm:mb-4">
                       <div>
-                        <p className="text-[34px] font-semibold leading-none">{beds}</p>
-                        <p className="text-[13px] text-gray-500 mt-1">beds</p>
+                        <p className="text-2xl sm:text-[28px] md:text-[30px] lg:text-[34px] font-semibold leading-none">{beds}</p>
+                        <p className="text-xs sm:text-[13px] text-gray-500 mt-1">beds</p>
                       </div>
 
                       <div>
-                        <p className="text-[34px] font-semibold leading-none">{baths}</p>
-                        <p className="text-[13px] text-gray-500 mt-1">baths</p>
+                        <p className="text-2xl sm:text-[28px] md:text-[30px] lg:text-[34px] font-semibold leading-none">{baths}</p>
+                        <p className="text-xs sm:text-[13px] text-gray-500 mt-1">baths</p>
                       </div>
 
                       <div>
-                        <p className="text-[34px] font-semibold leading-none tracking-tight">
+                        <p className="text-2xl sm:text-[28px] md:text-[30px] lg:text-[34px] font-semibold leading-none tracking-tight">
                           {sqft ? sqft.toLocaleString('en-US') : "0"}
                         </p>
-                        <p className="text-[13px] text-gray-500 mt-1">sqft</p>
+                        <p className="text-xs sm:text-[13px] text-gray-500 mt-1">sqft</p>
                       </div>
                     </div>
 
@@ -1115,19 +1104,19 @@ const PropertyPreview: React.FC = () => {
                       </p>
                     )}
 
-                    <div className="border-t border-gray-200 mb-4"></div>
+                    <div className="border-t border-gray-200 mb-3 sm:mb-4"></div>
 
                     {/* Middle grid info with SVG icons */}
-                    <div className="grid grid-cols-2 gap-y-4 text-[13px]">
+                    <div className="grid grid-cols-2 gap-y-3 sm:gap-y-4 text-xs sm:text-[13px]">
                       <div>
                         <Image
                           src="/assets/images/residental.png"
                           alt="Year Built"
                           width={18}
                           height={18}
-                          className="h-4 w-4 mb-1"
+                          className="h-3 w-3 sm:h-4 sm:w-4 mb-1"
                         />
-                        <p className="text-[15px] font-semibold">{yearBuilt}</p>
+                        <p className="text-sm sm:text-[15px] font-semibold">{yearBuilt}</p>
                         <p className="text-gray-500 mt-1">Year Built</p>
                       </div>
 
@@ -1137,9 +1126,9 @@ const PropertyPreview: React.FC = () => {
                           alt="Property Type"
                           width={18}
                           height={18}
-                          className="h-4 w-4 mb-1"
+                          className="h-3 w-3 sm:h-4 sm:w-4 mb-1"
                         />
-                        <p className="text-[15px] font-semibold">{propertyTypeShort}</p>
+                        <p className="text-sm sm:text-[15px] font-semibold">{propertyTypeShort}</p>
                         <p className="text-gray-500 mt-1">Family Residence</p>
                       </div>
 
@@ -1149,9 +1138,9 @@ const PropertyPreview: React.FC = () => {
                           alt="Sqft Area"
                           width={18}
                           height={18}
-                          className="h-4 w-4 mb-1"
+                          className="h-3 w-3 sm:h-4 sm:w-4 mb-1"
                         />
-                        <p className="text-[15px] font-semibold">
+                        <p className="text-sm sm:text-[15px] font-semibold">
                           {sqftArea ? sqftArea.toLocaleString('en-US') : "N/A"}
                         </p>
                         <p className="text-gray-500 mt-1">Sqft Area</p>
@@ -1167,11 +1156,11 @@ const PropertyPreview: React.FC = () => {
                     </div>
 
                     {/* Footer */}
-                    <div className="flex justify-between items-center mt-6">
+                    <div className="flex flex-col gap-3 mt-4 sm:mt-6">
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <button className="flex items-center gap-2 text-[14px] border px-4 py-2 rounded-full">
+                            <button className="flex items-center gap-2 text-xs sm:text-[14px] border px-3 sm:px-4 py-2 rounded-full w-full justify-center">
                               <span>📍</span>
                               Street view
                             </button>
@@ -1185,7 +1174,7 @@ const PropertyPreview: React.FC = () => {
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <button className="text-[14px] underline">
+                            <button className="text-xs sm:text-[14px] underline w-full text-center">
                               Schedule a tour
                             </button>
                           </TooltipTrigger>
@@ -1200,7 +1189,7 @@ const PropertyPreview: React.FC = () => {
               })()}
             </div>
 
-            <div className="w-[380px] rounded-2xl bg-white shadow-lg border border-[#EDEDED] p-6 mt-5 hidden md:block">
+            <div className="w-full rounded-2xl bg-white shadow-lg border border-[#EDEDED] p-4 sm:p-5 md:p-6 mt-4 sm:mt-5 hidden lg:block">
               {/* Header */}
               <div className="flex items-center gap-2 mb-2">
                 <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1261,21 +1250,21 @@ const PropertyPreview: React.FC = () => {
             </div>
           </div>
 
-          <div className="md:col-span-9 col-span-12  divide-y divide-gray-200 border-t border-gray-200 mt-6">
+          <div className="lg:col-span-9 col-span-12 divide-y divide-gray-200 border-t border-gray-200 mt-4 sm:mt-6">
             {/* Accordion List (Home Highlights, Schools, Offers, History, etc.) */}
             {sections.map((section) => (
               <div key={section.id} className="border-b border-gray-200">
                 <button
                   onClick={() => toggleSection(section.id)}
-                  className="w-full flex items-center justify-between py-4 text-left focus:outline-none transition-all"
+                  className="w-full flex items-center justify-between py-3 sm:py-4 text-left focus:outline-none transition-all"
                 >
-                  <span className="font-semibold text-[16px] text-gray-900">
+                  <span className="font-semibold text-sm sm:text-[16px] text-gray-900">
                     {section.title}
                   </span>
                   {openSection === section.id ? (
-                    <ChevronUp className="text-gray-600 transition-transform duration-200" />
+                    <ChevronUp className="text-gray-600 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5" />
                   ) : (
-                    <ChevronDown className="text-gray-600 transition-transform duration-200" />
+                    <ChevronDown className="text-gray-600 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5" />
                   )}
                 </button>
 
@@ -1284,43 +1273,49 @@ const PropertyPreview: React.FC = () => {
                   className={`overflow-hidden transition-all duration-300 ${openSection === section.id ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0"
                     }`}
                 >
-                  <div className="pb-4">{section.content}</div>
+                  <div className="pb-3 sm:pb-4">{section.content}</div>
                 </div>
               </div>
             ))}
 
             {/* Nearby Homes Section (Similar Homes) */}
-            <div className="pb-8 md:pb-12 mb-16 md:mb-20">
+            <div className="pb-6 sm:pb-8 md:pb-12 mb-12 sm:mb-16 md:mb-20">
               {/* <h2 className='text-xl font-bold mt-8 mb-4'>Similar homes</h2> */}
               {propertyDatas?.nearbyHomes && propertyDatas.nearbyHomes.length > 0 ? (
                 <NearbyHomesSection nearbyHomes={propertyDatas.nearbyHomes} />
               ) : (
-                <div className="flex items-center justify-center py-12 px-4">
-                  <p className="text-gray-500 text-base">Similar homes not available</p>
+                <div className="flex items-center justify-center py-8 sm:py-12 px-4">
+                  <p className="text-gray-500 text-sm sm:text-base">Similar homes not available</p>
                 </div>
               )}
             </div>
+
           </div>
+       
+   {/* <div className="col-span-12 relative left-1/2 -translate-x-1/2 w-screen max-w-[99.4vw] overflow-x-clip">
+            <Footer />
+          </div> */}
 
         </div>
+
 
       ) : (
         <div className='h-full w-full'>{notFound()}</div>
       )}
 
-      {/* Floating Ask AI Button - Mobile Only */}
-      <div className="fixed bottom-6 right-6 z-50 md:hidden">
+      {/* Floating Ask AI Button - Mobile and Tablet Only */}
+      <div className="fixed bottom-4 sm:bottom-6 right-4 sm:right-6 z-50 lg:hidden">
         <button
           onClick={() => setIsAskAIModalOpen(true)}
-          className="w-14 h-14 bg-black rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow duration-300"
+          className="w-12 h-12 sm:w-14 sm:h-14 bg-black rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow duration-300"
         >
           <svg
-            width="24"
-            height="24"
+            width="20"
+            height="20"
             viewBox="0 0 24 24"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
-            className="text-white"
+            className="text-white sm:w-6 sm:h-6"
           >
             <path
               d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H5C3.89 1 3 1.89 3 3V21C3 22.11 3.89 23 5 23H19C20.11 23 21 22.11 21 21V9M19 9H14V4H19V9Z"

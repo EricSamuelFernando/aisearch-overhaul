@@ -551,11 +551,11 @@ const TransactionAgreementPage: React.FC = () => {
   const isDisabled =
     isLoading || !selectedMeans || isRedirecting || visitedSteps.size < stepList.length;
 
-  React.useEffect(() => {
-    return () => {
-      dispatch(setEngagedProperty({}));
-    }
-  }, []);
+    React.useEffect(()=>{
+      return ()=>{
+        dispatch(setEngagedProperty({}));
+      }
+    },[]);
   return (
     <>
       <div className='my-8 flex h-full flex-col gap-6 px-4 sm:px-6'>
@@ -576,7 +576,7 @@ const TransactionAgreementPage: React.FC = () => {
                     return;
                   }
                   setCurrentStep(index)
-                  if (index === 1) {
+                  if (index === 1) {  
                     setIsOnboard(true);
                   }
                 }}
@@ -693,83 +693,83 @@ const TransactionAgreementPage: React.FC = () => {
           </div>
 
           <div className='md:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 sm:pt-8'>
-            <div className='flex flex-col justify-start gap-4'>
-              <p>
-                Step {currentStep + 1}/{stepList.length}
-              </p>
-              <h2 className='text-lg font-bold'>{stepList[currentStep].title}</h2>
+          <div className='flex flex-col justify-start gap-4'>
+            <p>
+              Step {currentStep + 1}/{stepList.length}
+            </p>
+            <h2 className='text-lg font-bold'>{stepList[currentStep].title}</h2>
 
-              <div className='flex flex-col gap-10'>
-                {stepList[currentStep].content.map((paragraph, index) => (
-                  <p key={index}>{paragraph}</p>
-                ))}
-              </div>
-
-              <div className='mt-8 flex gap-4'>
-                <Button
-                  onClick={handleBack}
-                  disabled={currentStep === 0}
-                  variant='outline'
-                >
-                  Back
-                </Button>
-                <Button
-                  onClick={handleNext}
-                  disabled={currentStep === stepList.length - 1 || (currentStep === 1 && !selectedMeans)}
-                >
-                  Next
-                </Button>
-              </div>
+            <div className='flex flex-col gap-10'>
+              {stepList[currentStep].content.map((paragraph, index) => (
+                <p key={index}>{paragraph}</p>
+              ))}
             </div>
-            {currentStep === 1 ? <div className='flex w-full sm:h-[400px] h-auto flex-col justify-start gap-6 rounded-2xl bg-white px-4 sm:px-14 py-6 sm:py-8'>
-              <h2 className='text-lg font-bold'>Choose your means</h2>
 
-              {!selectedMeans && (
-                <div className='flex items-center gap-2 rounded-md bg-yellow-50 border border-yellow-200 px-4 py-3'>
-                  <CircleAlert className='h-5 w-5 text-yellow-600' />
-                  <p className='text-sm text-yellow-800 font-medium'>
-                    Please select an option: Contact your Agent or Snaphomz Agents
-                  </p>
-                </div>
-              )}
-
-              <RadioGroup
-                value={selectedMeans}
-                onValueChange={setSelectedMeans}
-                className='flex flex-col gap-4 font-bold'
+            <div className='mt-8 flex gap-4'>
+              <Button
+                onClick={handleBack}
+                disabled={currentStep === 0}
+                variant='outline'
               >
-                {meansOptions.map((means) => (
-                  <div
-                    key={means.label}
-                    className='flex items-center justify-between border-b py-2'
-                  >
-                    <label
-                      htmlFor={means.label}
-                      className='text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70'
-                    >
-                      {means.label}
-                    </label>
-                    <RadioGroupItem
-                      disabled={!means.value}
-                      value={means.label}
-                      onClick={((e) => {
-                        handleAgreeAndProceed(means.meansType);
-                      })}
-                      id={means.label}
-                      className='h-5 w-5 rounded-full border-2 border-primary text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2'
-                    />
-                  </div>
-                ))}
-              </RadioGroup>
+                Back
+              </Button>
+              <Button
+                onClick={handleNext}
+                disabled={currentStep === stepList.length - 1 || (currentStep === 1 && !selectedMeans)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+          {currentStep === 1 ? <div className='flex w-full sm:h-[400px] h-auto flex-col justify-start gap-6 rounded-2xl bg-white px-4 sm:px-14 py-6 sm:py-8'>
+            <h2 className='text-lg font-bold'>Choose your means</h2>
 
-              <div>
-                <p className='text-sm'>
-                  By choosing this you are agreeing & conditions to payment terms
-                  for snaphomz.
+            {!selectedMeans && (
+              <div className='flex items-center gap-2 rounded-md bg-yellow-50 border border-yellow-200 px-4 py-3'>
+                <CircleAlert className='h-5 w-5 text-yellow-600' />
+                <p className='text-sm text-yellow-800 font-medium'>
+                  Please select an option: Contact your Agent or Snaphomz Agents
                 </p>
               </div>
-            </div> : null}
-          </div>
+            )}
+
+            <RadioGroup
+              value={selectedMeans}
+              onValueChange={setSelectedMeans}
+              className='flex flex-col gap-4 font-bold'
+            >
+              {meansOptions.map((means) => (
+                <div
+                  key={means.label}
+                  className='flex items-center justify-between border-b py-2'
+                >
+                  <label
+                    htmlFor={means.label}
+                    className='text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70'
+                  >
+                    {means.label}
+                  </label>
+                  <RadioGroupItem
+                    disabled={!means.value}
+                    value={means.label}
+                    onClick={((e) => {
+                      handleAgreeAndProceed(means.meansType);
+                    })}
+                    id={means.label}
+                    className='h-5 w-5 rounded-full border-2 border-primary text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2'
+                  />
+                </div>
+              ))}
+            </RadioGroup>
+
+            <div>
+              <p className='text-sm'>
+                By choosing this you are agreeing & conditions to payment terms
+                for snaphomz.
+              </p>
+            </div>
+          </div> : null}
+        </div>
         </div>
       </div>
 

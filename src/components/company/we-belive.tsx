@@ -52,42 +52,65 @@ const WeBelive = () => {
           </div>
         </div>
 
+
         {/* MEET THE TEAM */}
-        <div className="max-w-7xl mx-auto text-center mt-26"> {/* ⬅️ added top space */}
+        <div className="max-w-7xl mx-auto text-center mt-24">
           <h2 className="text-3xl font-bold mb-2">
             Meet The <span className="font-normal">Team</span>
           </h2>
+
           <p className="text-xs text-gray-600 mb-12">
             Dedicated to building real estate experience that works better for everyone
           </p>
 
-          <div className="flex flex-row flex-nowrap overflow-x-auto gap-4 sm:gap-6 md:gap-8 lg:gap-12 xl:gap-16 px-4 sm:px-6 lg:px-0 pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] justify-start">
+          <div className="flex flex-row flex-nowrap overflow-x-auto
+                gap-4 sm:gap-6 md:gap-8 lg:gap-12 xl:gap-16
+                px-4 sm:px-6 lg:px-0 pb-2
+                [&::-webkit-scrollbar]:hidden
+                [-ms-overflow-style:none]
+                [scrollbar-width:none]
+                justify-start lg:justify-center">
             {[
               '/assets/images/company-power1.png',
               '/assets/images/company-power2.png',
               '/assets/images/company-power3.png',
             ].map((img, idx) => (
               <div
-                key={idx}
-                className="relative flex-shrink-0 w-[280px] sm:w-[300px] md:w-[260px] lg:w-[300px] xl:w-[340px] h-[320px] sm:h-[350px] md:h-[280px] lg:h-[350px] xl:h-[400px] shadow-lg rounded-2xl overflow-hidden"
+                key={idx} // ✅ REQUIRED
+                className="relative flex-shrink-0
+                   w-[280px] sm:w-[300px] md:w-[260px] lg:w-[300px] xl:w-[340px]
+                   h-[320px] sm:h-[350px] md:h-[280px] lg:h-[350px] xl:h-[400px]
+                   rounded-[32px] overflow-hidden cursor-pointer"
               >
+                {/* Image */}
                 <img
                   src={img}
                   alt="Proper Name"
-                  className="absolute inset-0 w-full h-full object-cover rounded-2xl"
+                  className="absolute inset-0 w-full h-full object-cover"
                 />
 
-                {/* GRADIENT OVERLAY – perfectly clipped */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex items-end justify-center text-white p-4 text-center rounded-2xl">
+                {/* Soft bottom gradient overlay */}
+                <div
+                  className="absolute inset-0 flex items-end justify-center text-white text-center
+                     rounded-[32px]
+                     bg-gradient-to-t from-black/80 via-black/40 to-transparent
+                     p-6"
+                >
                   <div>
-                    <p className="font-bold text-sm sm:text-base">Proper Name</p>
-                    <p className="text-xs">Official Title</p>
+                    <p className="font-bold text-sm sm:text-base">
+                      Proper Name
+                    </p>
+                    <p className="text-xs opacity-90">
+                      Official Title
+                    </p>
                   </div>
                 </div>
               </div>
             ))}
           </div>
         </div>
+
+
       </section>
 
       {/* TALK TO AGENT */}

@@ -92,11 +92,16 @@
 import Heading from '@/components/heading';
 import SkeletonLoader from '@/components/skeleton-loader';
 import { useGetUserEngagementsAgents } from '@/hooks/api/agent/useAgentProperty';
+import { useHandleAgent } from '@/hooks/api/agent/useFetchAgent';
 import { sellerGetInitials } from '@/lib/helpers';
+// import { getInitials, sellerGetInitials } from '@/lib/helpers';
 import Image from 'next/image';
 import { useState } from 'react';
+import Link from 'next/link';
+
 
 function Agents() {
+  const { getUserAgentList } = useHandleAgent();
   const { data: agents, isLoading } = useGetUserEngagementsAgents();
   const [showAll, setShowAll] = useState(false);
 

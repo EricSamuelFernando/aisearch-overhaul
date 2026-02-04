@@ -2065,39 +2065,46 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
         </div>
       </section>
       {inviteOpen && (
-        <Modal closeModal={() => setInviteOpen(false)} isOpen={inviteOpen}>
-          <div className='mx-auto max-w-[90vw] rounded-lg bg-white p-3 sm:max-w-md sm:p-6'>
-            <h2 className='mb-2 text-center text-base font-bold sm:mb-4 sm:text-xl'>
+
+        <Modal closeModal={() => setInviteOpen(false)} isOpen={inviteOpen} useChildStyle>
+          <div className="w-full max-w-[92%] sm:max-w-md mx-auto rounded-xl bg-white p-4 sm:p-6">
+
+            <h2 className="mb-3 text-center text-base font-bold sm:text-xl">
               Invite an Agent
             </h2>
-            <p className='mb-2 text-center text-xs text-gray-600 sm:mb-4 sm:text-sm'>
-              Enter the agents email below to send an invitation.
+
+            <p className="mb-4 text-center text-sm text-gray-600">
+              Enter the agent’s email below to send an invitation.
             </p>
+
             <Input
-              type='email'
+              type="email"
               placeholder="Agent's email address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className='mb-3 w-full rounded-lg border p-2 text-xs sm:mb-4 sm:p-3 sm:text-sm'
+              className="mb-5 w-full rounded-lg border p-3 text-sm"
             />
-            <div className='mt-2 flex justify-between sm:mt-4'>
+
+            <div className="flex justify-between gap-3">
               <Button
-                variant='ghost'
+                variant="ghost"
                 onClick={() => setInviteOpen(false)}
-                className='rounded-lg px-2 py-1 text-xs sm:px-4 sm:py-2 sm:text-sm'
+                className="flex-1 py-2 text-sm"
               >
                 Cancel
               </Button>
+
               <Button
                 onClick={handleInvite}
                 disabled={!email}
-                className='rounded-lg bg-orange-600 px-2 py-1 text-xs text-white disabled:opacity-50 sm:px-4 sm:py-2 sm:text-sm'
+                className="flex-1 bg-orange-600 py-2 text-sm text-white disabled:opacity-50"
               >
                 Send Invite
               </Button>
             </div>
           </div>
         </Modal>
+
       )}
 
       {/* Media Preview Modal */}

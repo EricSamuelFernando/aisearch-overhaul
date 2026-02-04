@@ -167,7 +167,7 @@ export function SharedFolder({ folderName, folderUrl, shared , pId,handleEditDoc
   
 
   return (
-    <section className="p-1">
+    <section className="p-1 sm:p-2 lg:p-4 w-full">
       <div className="pt-2 flex flex-col justify-center items-center">
         <section className={`my-8 w-full   ${manageParam === 'documents' ? 'flex flex-wrap' : ' grid grid-cols-1'} gap-4`}>
           {isLoading ? (

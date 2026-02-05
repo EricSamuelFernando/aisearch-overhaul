@@ -1,0 +1,112 @@
+.snapz {
+  --snapz-color: #ff8700;
+  --snapz-size: 20px;
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--snapz-size);
+  height: var(--snapz-size);
+  color: currentColor;
+  transition: transform 0.2s ease;
+}
+
+.snapz[data-active='true'] {
+  color: var(--snapz-color);
+}
+
+.svgOutline,
+.svgFilled {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+
+.svgOutline {
+  fill: currentColor;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.svgFilled {
+  fill: var(--snapz-color);
+  opacity: 0;
+  transform: scale(0);
+  transition: opacity 0.2s ease;
+}
+
+.snapz[data-active='true'] .svgFilled {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.snapz[data-burst='true'] .svgFilled {
+  animation: snapz-filled 1.2s ease;
+}
+
+.svgCelebrate {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(var(--snapz-size) * 3.6);
+  height: calc(var(--snapz-size) * 3.6);
+  opacity: 0;
+  stroke: var(--snapz-color);
+  fill: var(--snapz-color);
+  stroke-width: 3px;
+  filter: drop-shadow(0 0 6px rgba(255, 135, 0, 0.5));
+  pointer-events: none;
+}
+
+.snapz[data-burst='true'] .svgCelebrate {
+  animation: snapz-celebrate 0.6s ease forwards;
+}
+
+@keyframes snapz-filled {
+  0% {
+    transform: scale(0);
+  }
+  30% {
+    transform: scale(1.2);
+  }
+  60% {
+    transform: scale(1);
+    filter: brightness(1.2);
+  }
+}
+
+@keyframes snapz-celebrate {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+  }
+  35% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2);
+    opacity: 0.15;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .snapz {
+    transition: none;
+  }
+
+  .snapz[data-burst='true'] .svgFilled,
+  .snapz[data-burst='true'] .svgCelebrate {
+    animation: none;
+  }
+
+  .snapz[data-burst='true'] .svgFilled {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .snapz[data-burst='true'] .svgCelebrate {
+    opacity: 1;
+  }
+}

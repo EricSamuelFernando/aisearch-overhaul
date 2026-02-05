@@ -214,61 +214,56 @@ export function CompleteOnboardingForm() {
               <div className="mt-3 space-y-1 text-sm">
                 <p className="text-gray-600">Password must contain:</p>
                 <div
-                  className={`flex items-center gap-2 ${
-                    passwordChecks.length
+                  className={`flex items-center gap-2 ${passwordChecks.length
                       ? 'text-green-700'
                       : passwordValue.length > 0
-                      ? 'text-red-500'
-                      : 'text-gray-500'
-                  }`}
+                        ? 'text-red-500'
+                        : 'text-gray-500'
+                    }`}
                 >
                   <span>{passwordChecks.length ? '✓' : '○'}</span>
                   <span>At least 8 characters</span>
                 </div>
                 <div
-                  className={`flex items-center gap-2 ${
-                    passwordChecks.upper
+                  className={`flex items-center gap-2 ${passwordChecks.upper
                       ? 'text-green-700'
                       : passwordValue.length > 0
-                      ? 'text-red-500'
-                      : 'text-gray-500'
-                  }`}
+                        ? 'text-red-500'
+                        : 'text-gray-500'
+                    }`}
                 >
                   <span>{passwordChecks.upper ? '✓' : '○'}</span>
                   <span>1 uppercase letter (A-Z)</span>
                 </div>
                 <div
-                  className={`flex items-center gap-2 ${
-                    passwordChecks.lower
+                  className={`flex items-center gap-2 ${passwordChecks.lower
                       ? 'text-green-700'
                       : passwordValue.length > 0
-                      ? 'text-red-500'
-                      : 'text-gray-500'
-                  }`}
+                        ? 'text-red-500'
+                        : 'text-gray-500'
+                    }`}
                 >
                   <span>{passwordChecks.lower ? '✓' : '○'}</span>
                   <span>1 lowercase letter (a-z)</span>
                 </div>
                 <div
-                  className={`flex items-center gap-2 ${
-                    passwordChecks.number
+                  className={`flex items-center gap-2 ${passwordChecks.number
                       ? 'text-green-700'
                       : passwordValue.length > 0
-                      ? 'text-red-500'
-                      : 'text-gray-500'
-                  }`}
+                        ? 'text-red-500'
+                        : 'text-gray-500'
+                    }`}
                 >
                   <span>{passwordChecks.number ? '✓' : '○'}</span>
                   <span>1 number (0-9)</span>
                 </div>
                 <div
-                  className={`flex items-center gap-2 ${
-                    passwordChecks.special
+                  className={`flex items-center gap-2 ${passwordChecks.special
                       ? 'text-green-700'
                       : passwordValue.length > 0
-                      ? 'text-red-500'
-                      : 'text-gray-500'
-                  }`}
+                        ? 'text-red-500'
+                        : 'text-gray-500'
+                    }`}
                 >
                   <span>{passwordChecks.special ? '✓' : '○'}</span>
                   <span>1 special character (e.g., !@#$)</span>

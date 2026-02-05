@@ -76,68 +76,46 @@ export const useComments = (propertyId: string, snapId?: string) => {
         }
     };
 
+    const user = useSelector(userData);
+    const userId = user?.id;
+
     const addComment = async (text: string, userName: string, propertyName?: string, accountType?: string) => {
         if (!text.trim()) return;
 
-        console.log('[useComments] Adding comment via GraphQL:', { text, userName, propertyName, accountType, snapId, socketConnected: socket?.connected, socketId: socket?.id });
+        console.log('[useComments] Adding comment via WebSocket:', { text, userName, propertyName, accountType, snapId, userId, socketConnected: socket?.connected });
 
-        try {
-            const token = getAuthToken() || (typeof window !== 'undefined' ? localStorage.getItem('__WEB_APP_Ocreal345####btny_ocreal') : null);
+        if (socket && socket.connected) {
+            try {
+                // Lambda-compatible payload
+                const payload = {
+                    propertyId,
+                    snapId: snapId || null,
+                    text,
+                    userId, // Critical for Lambda handler
+                    userName,
+                    accountType: accountType || 'buyer',
+                    propertyName: propertyName || null,
+                };
 
-            const mutation = `
-                mutation CreateComment($createCommentInput: CreateCommentDto!) {
-                    createComment(createCommentInput: $createCommentInput) {
-                        id
-                        propertyId
-                        text
-                        userName
-                        accountType
-                        snapId
-                        propertyName
-                        createdAt
-                    }
-                }
-            `;
+                socket.emit('addComment', payload);
 
-            const response = await API.post(
-                GRAPHQL_URI,
-                {
-                    query: mutation,
-                    variables: {
-                        createCommentInput: {
-                            propertyId,
-                            snapId: snapId || null,
-                            text,
-                            userName,
-                            accountType: accountType || 'buyer', // Default to 'buyer' if not provided
-                            propertyName: propertyName || null,
-                        },
-                    },
-                },
-                {
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                }
-            );
+                // Optimistic update
+                const newComment: Comment = {
+                    id: `temp-${Date.now()}`,
+                    ...payload,
+                    createdAt: new Date().toISOString(),
+                    userId: userId,
+                } as any;
 
-            if (response.data.errors) {
-                throw new Error(response.data.errors[0]?.message || 'Failed to create comment');
+                setComments((prev) => [newComment, ...prev]);
+
+            } catch (err) {
+                console.error('[useComments] Error adding comment via WebSocket:', err);
+                setError('Failed to send comment via WebSocket');
             }
-
-            // Optimistic update with duplicate prevention
-            const newComment = response.data.data.createComment;
-            setComments((prev) => {
-                // Prevent duplicates by checking ID
-                if (prev.some(c => c.id === newComment.id)) {
-                    console.log('[useComments] Comment already exists (from WebSocket), skipping optimistic update');
-                    return prev;
-                }
-                return [newComment, ...prev];
-            });
-        } catch (err: any) {
-            console.error('[useComments] Error adding comment via GraphQL:', err);
-            setError(err?.response?.data?.errors?.[0]?.message || 'Failed to add comment');
+        } else {
+            console.warn('[useComments] Socket not connected. Cannot send comment.');
+            setError('Real-time connection lost. Please verify your connection.');
         }
     };
 
@@ -157,24 +135,37 @@ export const useComments = (propertyId: string, snapId?: string) => {
 
                 // Filter by propertyId
                 if (newComment.propertyId !== propertyId) {
-                    console.log('[useComments] Ignoring comment for different property');
                     return;
                 }
 
                 // If we're in a specific snap context, filter by snapId
                 if (snapId && newComment.snapId && newComment.snapId !== snapId) {
-                    console.log('[useComments] Ignoring comment from different snap');
                     return;
                 }
 
-                // Add comment to state with duplicate prevention
                 setComments((prev) => {
-                    // Prevent duplicates by checking ID
+                    // 1. Check if we already have this EXACT comment ID (real duplicate from network)
                     if (prev.some(c => c.id === newComment.id)) {
-                        console.log('[useComments] Duplicate comment, skipping');
+                        console.log('[useComments] Duplicate comment ID, skipping:', newComment.id);
                         return prev;
                     }
-                    console.log('[useComments] Adding new comment to state');
+
+                    // 2. Check if we have a TEMP version of this comment (Optimistic UI)
+                    // We match by text + userId + roughly same time, OR if backend returned our tempId
+                    const existingTempIndex = prev.findIndex(c =>
+                        c.id.startsWith('temp-') &&
+                        c.text === newComment.text &&
+                        c.userId === newComment.userId
+                    );
+
+                    if (existingTempIndex !== -1) {
+                        console.log('[useComments] Replacing optimistic comment with real one');
+                        const newComments = [...prev];
+                        newComments[existingTempIndex] = newComment; // Replace temp with real
+                        return newComments;
+                    }
+
+                    console.log('[useComments] Adding new verified comment to state');
                     return [newComment, ...prev];
                 });
             };

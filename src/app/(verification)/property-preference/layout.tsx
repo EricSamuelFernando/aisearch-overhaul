@@ -31,7 +31,7 @@ const BuyerOnboardingLayout: React.FC<React.PropsWithChildren> = ({
         <Button
           roundness='full'
           variant='ghost'
-          className='px-8 py-2 text-ocOrange'
+          className='border border-black px-8 py-2 text-ocOrange transition-transform hover:bg-transparent hover:text-ocOrange active:scale-95 active:bg-black/5'
         >
           Skip
         </Button>

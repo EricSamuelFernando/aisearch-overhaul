@@ -904,7 +904,7 @@ const PropertyPreview: React.FC = () => {
 
         <div className='grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-12 lg:gap-7 h-auto lg:h-[28rem] transition-all duration-300 ease-in-out px-2 sm:px-4 md:px-6 lg:px-0 max-w-7xl mx-auto'>
 
-<div className="col-span-12 lg:col-span-9 flex flex-col" ref={leftSection}>
+          <div className="col-span-12 lg:col-span-9 flex flex-col" ref={leftSection}>
             <HeroCollege
               className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[28rem] w-full rounded-lg shadow-lg overflow-hidden'
               imageURLs={
@@ -1054,7 +1054,7 @@ const PropertyPreview: React.FC = () => {
           </div>
 
 
-<div className="col-span-12 lg:col-span-3 mt-4 lg:mt-0">
+          <div className="col-span-12 lg:col-span-3 mt-4 lg:mt-0">
             <div className="w-full rounded-2xl bg-[#FCFCFB] shadow-sm border border-[#EDEDED] p-4 sm:p-5 md:p-6">
               {(() => {
                 // Calculate dynamic values
@@ -1078,7 +1078,7 @@ const PropertyPreview: React.FC = () => {
                     </div>
 
                     {/* Top stats */}
-<div className="grid grid-cols-3 gap-3 sm:flex sm:items-end sm:gap-4 md:gap-6 lg:gap-8 mb-3 sm:mb-4">
+                    <div className="grid grid-cols-3 gap-3 sm:flex sm:items-end sm:gap-4 md:gap-6 lg:gap-8 mb-3 sm:mb-4">
                       <div>
                         <p className="text-2xl sm:text-[28px] md:text-[30px] lg:text-[34px] font-semibold leading-none">{beds}</p>
                         <p className="text-xs sm:text-[13px] text-gray-500 mt-1">beds</p>
@@ -1291,10 +1291,10 @@ const PropertyPreview: React.FC = () => {
             </div>
 
           </div>
-       
-   {/* <div className="col-span-12 relative left-1/2 -translate-x-1/2 w-screen max-w-[99.4vw] overflow-x-clip">
+
+          <div className="col-span-12 relative left-1/2 -translate-x-1/2 w-screen max-w-[99.4vw] overflow-x-clip">
             <Footer />
-          </div> */}
+          </div>
 
         </div>
 

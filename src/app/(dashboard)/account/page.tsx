@@ -524,55 +524,55 @@ export default function AccountPage() {
   }, [userData?.id, historyPage, historyPerPage]);
 
   return (
-    <main className='mx-auto flex min-h-[90vh] flex-col bg-[#F4F9F5] px-12 pb-10'>
-      <h1 className=' py-10 text-4xl font-bold leading-[3.88125rem] 2xl:text-[2.875rem]'>
+    <main className='mx-auto flex min-h-[90vh] w-full max-w-screen-2xl flex-col bg-[#F4F9F5] px-4 pb-8 sm:px-6 lg:px-12 lg:pb-10'>
+      <h1 className='py-6 text-3xl font-bold leading-tight sm:py-8 sm:text-4xl 2xl:text-[2.875rem]'>
         Account
       </h1>
 
-      <Tabs defaultValue='my-snapz' className='space-y-10'>
-        <TabsList className='h-auto w-full justify-start rounded-none border-b bg-transparent p-0 font-medium'>
-          <TabsTrigger
-            value='my-snapz'
-            className='rounded-none border-b-2 border-transparent px-4 py-2 font-medium data-[state=active]:border-black data-[state=active]:bg-transparent'
-          >
-            My Snapz
-          </TabsTrigger>
-          <TabsTrigger
-            value='documents'
-            className='rounded-none border-b-2 border-transparent px-4 py-2 font-medium data-[state=active]:border-black data-[state=active]:bg-transparent'
-          >
-            Documents
-          </TabsTrigger>
-          <TabsTrigger
-            value='linked-agents'
-            className='rounded-none border-b-2 border-transparent px-4 py-2 font-medium data-[state=active]:border-black data-[state=active]:bg-transparent'
-            onClick={() => {
-              handleFetchAgents()
-            }}
-          >
-            Linked Agents
-          </TabsTrigger>
-          <TabsTrigger
-            value='search-history'
-            className='rounded-none border-b-2 border-transparent px-4 py-2 font-medium data-[state=active]:border-black data-[state=active]:bg-transparent'
-          >
-            Search History
-          </TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue='my-snapz' className='space-y-6 sm:space-y-8'>
+        <ScrollArea className='w-full whitespace-nowrap'>
+          <TabsList className='h-auto w-max min-w-full justify-start rounded-none border-b bg-transparent p-0 font-medium'>
+            <TabsTrigger
+              value='my-snapz'
+              className='rounded-none border-b-2 border-transparent px-4 py-2 font-medium data-[state=active]:border-black data-[state=active]:bg-transparent'
+            >
+              My Snapz
+            </TabsTrigger>
+            <TabsTrigger
+              value='documents'
+              className='rounded-none border-b-2 border-transparent px-4 py-2 font-medium data-[state=active]:border-black data-[state=active]:bg-transparent'
+            >
+              Documents
+            </TabsTrigger>
+            <TabsTrigger
+              value='linked-agents'
+              className='rounded-none border-b-2 border-transparent px-4 py-2 font-medium data-[state=active]:border-black data-[state=active]:bg-transparent'
+              onClick={() => {
+                handleFetchAgents()
+              }}
+            >
+              Linked Agents
+            </TabsTrigger>
+            <TabsTrigger
+              value='search-history'
+              className='rounded-none border-b-2 border-transparent px-4 py-2 font-medium data-[state=active]:border-black data-[state=active]:bg-transparent'
+            >
+              Search History
+            </TabsTrigger>
+          </TabsList>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
 
         <TabsContent value='my-snapz' className='mt-6 w-full'>
-          <div className="flex justify-between items-center mb-6 bg-transparent">
+          <div className="mb-4 flex flex-col gap-3 bg-transparent sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="text-lg font-bold">Snapz</h3>
-            <div className="flex gap-2">
-              <Button
-                className="bg-orange-500 hover:bg-orange-600 text-white"
+            <div className="flex flex-wrap gap-2">
+              <Button className="h-9 bg-orange-500 px-3 text-sm text-white hover:bg-orange-600 sm:h-10 sm:px-4"
                 onClick={fetchPendingRequests}
               >
                 View Requests
               </Button>
-              <Button
-                variant="outline"
-                className="flex border-none bg-transparent items-center gap-2"
+              <Button variant="outline" className="flex h-9 items-center gap-2 border-none bg-transparent px-2 text-sm sm:h-10 sm:px-3"
                 onClick={() => setIsCreateSnapModalOpen(true)}
               >
                 <span>Add New Snapz</span>
@@ -580,13 +580,13 @@ export default function AccountPage() {
               </Button>
             </div>
           </div>
-          <div className="border rounded-md p-6 border-none">
-            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+          <div className="rounded-md border-none p-3 sm:p-4 md:p-6">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:gap-y-4 md:grid-cols-2">
               {
                 snaps.length > 0 ? (
                   snaps.map((snap: any, idx: number) => {
                     return (
-                      <div key={idx} className="flex items-center justify-between">
+                      <div key={idx} className="flex items-center justify-between gap-3 rounded-md border border-gray-100 bg-white/70 p-2 sm:border-0 sm:bg-transparent sm:p-0">
                         <div className="flex items-center gap-3">
                           {snap?.favourites?.length > 0 && snap?.favourites[0]?.image ? (
                             <div className="w-12 h-12 rounded overflow-hidden">
@@ -600,7 +600,7 @@ export default function AccountPage() {
                               {snap?.name ? snap?.name.charAt(0).toUpperCase() : "C"}
                             </div>
                           )}
-                          <span className="text-sm font-medium">{snap?.name || "Collection"}</span>
+                          <span className="max-w-[140px] truncate text-sm font-medium sm:max-w-[180px]">{snap?.name || "Collection"}</span>
                         </div>
                         <Button
                           variant="outline"
@@ -625,55 +625,55 @@ export default function AccountPage() {
 
         <TabsContent value='documents'>
           <div className='text-center text-gray-500'>
-            <div className='grid grid-cols-3 gap-5 py-10'>
-              {document &&
-                documents?.map((doc) => (
-                  <div
-                    className='relative flex w-fit items-center justify-between rounded-lg p-4 transition-all duration-500 ease-in-out'
-                    key={doc._id}
-                  >
-                    <section className='flex cursor-pointer flex-col gap-4 '>
-                      <div className='relative flex items-center justify-center rounded-md bg-white p-4'>
-                        <FileText className='h-20 w-20 text-black' />
+            <div className='grid grid-cols-1 gap-4 py-6 sm:grid-cols-2 sm:gap-5 sm:py-8 lg:grid-cols-3'>
+              {documents?.map((doc) => (
 
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant='ghost'
-                              className='absolute right-0 top-0 h-8 w-8 p-0'
-                            >
-                              <span className='sr-only'>Open menu</span>
-                              <MoreVertical className='h-4 w-4' />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align='end'>
-                            <DropdownMenuItem
-                              onClick={() => handleOpenPdfViewer(doc.url)}
-                            >
-                              <Eye className='mr-2 h-4 w-4' />
-                              <span>Open</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleDownload(doc._id, doc.url)}
-                            >
-                              <Download className='mr-2 h-4 w-4' />
-                              <span>Download</span>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+                <div
+                  className='relative flex w-fit items-center justify-between rounded-lg p-4 transition-all duration-500 ease-in-out'
+                  key={doc._id}
+                >
+                  <section className='flex cursor-pointer flex-col gap-4 '>
+                    <div className='relative flex items-center justify-center rounded-md bg-white p-4'>
+                      <FileText className='h-20 w-20 text-black' />
 
-                      <div className='flex flex-col justify-start space-y-2 text-start'>
-                        <h3 className='font-bold text-black'>
-                          {truncateName(doc.name, 20)}
-                        </h3>
-                        <p className='text-xs text-gray-500'>
-                          {formatSellerDate(new Date(doc.updatedAt))}
-                        </p>
-                      </div>
-                    </section>
-                  </div>
-                ))}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant='ghost'
+                            className='absolute right-0 top-0 h-8 w-8 p-0'
+                          >
+                            <span className='sr-only'>Open menu</span>
+                            <MoreVertical className='h-4 w-4' />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align='end'>
+                          <DropdownMenuItem
+                            onClick={() => handleOpenPdfViewer(doc.url)}
+                          >
+                            <Eye className='mr-2 h-4 w-4' />
+                            <span>Open</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleDownload(doc._id, doc.url)}
+                          >
+                            <Download className='mr-2 h-4 w-4' />
+                            <span>Download</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    <div className='flex flex-col justify-start space-y-2 text-start'>
+                      <h3 className='font-bold text-black'>
+                        {truncateName(doc.name, 20)}
+                      </h3>
+                      <p className='text-xs text-gray-500'>
+                        {formatSellerDate(new Date(doc.updatedAt))}
+                      </p>
+                    </div>
+                  </section>
+                </div>
+              ))}
 
               {pdfViewerUrl && (
                 <PDFViewerModal
@@ -689,14 +689,13 @@ export default function AccountPage() {
         <TabsContent value='linked-agents'>
           <div className="mb-6 w-full">
             <h3 className="font-bold text-lg mb-2">Contact Agent</h3>
-            <form className="flex gap-3" onSubmit={handleAgentSearch}>
+            <form className="flex flex-col gap-2 sm:flex-row sm:gap-3" onSubmit={handleAgentSearch}>
               <input
                 value={agentSearch}
                 onChange={(e) => setAgentSearch(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Enter email address"
-                className="p-2 border rounded-md"
-              />
+                className="w-full rounded-md border p-2 text-sm sm:max-w-[320px]" />
               <Button className="p-2" type="submit" disabled={loading}>
                 Contact Agent
               </Button>
@@ -734,14 +733,14 @@ export default function AccountPage() {
 
                 return (
                   <div key={idx} className="rounded-lg bg-white p-3">
-                    <div className="flex justify-start gap-3">
+                    <div className="flex items-start justify-start gap-3">
                       <ProfileCircle
                         placeholder={`${agentData.firstName[0]}/${agentData.lastName[0]}`}
                         className="h-20 w-20 text-lg"
                       />
                       <section className="flex flex-col justify-start gap-1 text-start">
                         <p className="font-bold">{`${agentData.firstName} ${agentData.lastName}`}</p>
-                        <p className="font-medium">{agentData.email}</p>
+                        <p className="break-all text-sm font-medium">{agentData.email}</p>
                       </section>
                     </div>
                     <Button disabled={agent?.is_accepted === "pending"} className="w-full">Send Message</Button>
@@ -816,7 +815,7 @@ export default function AccountPage() {
                 </div>
 
                 {historyTotalPages > 1 && (
-                  <div className='flex items-center justify-between pt-2'>
+                  <div className='flex flex-col items-start gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between'>
                     <button
                       className='rounded-full border border-black px-4 py-1 text-sm text-black disabled:opacity-50'
                       onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
@@ -886,7 +885,7 @@ export default function AccountPage() {
       {/* Requests Modal */}
       {isRequestsModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-[500px] rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="mx-3 w-full max-w-[500px] rounded-2xl bg-white p-4 shadow-2xl sm:mx-0 sm:p-6">
             <div className="space-y-4 min-h-[200px]">
               {pendingRequests.length === 0 ? (
                 <div className="flex justify-center items-center h-full">
@@ -894,7 +893,7 @@ export default function AccountPage() {
                 </div>
               ) : (
                 pendingRequests.map((req, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div key={idx} className="flex flex-col gap-3 rounded-lg bg-gray-50 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
                     <div className="flex items-center space-x-4">
                       {/* Avatar Logic */}
                       {req?.snap?.user?.image ? (
@@ -912,7 +911,7 @@ export default function AccountPage() {
                       </div>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 self-end sm:self-auto">
                       <Button
                         size="sm"
                         className="bg-black text-white hover:bg-gray-800 h-8 text-xs px-3"

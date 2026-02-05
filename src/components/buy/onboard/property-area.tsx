@@ -54,8 +54,8 @@ const PropertyArea: React.FC = () => {
   return (
     <div className='h-full w-full'>
       <Autocomplete onLoad={onLoad} onPlaceChanged={handlePlaceChanged}>
-        <div className='relative h-14'>
-          <div className='absolute left-2 top-[50%] h-max -translate-y-[50%] p-2'>
+        <div className='relative h-14 w-full'>
+          <div className='absolute left-2 top-1/2 h-max -translate-y-1/2 p-2'>
             <Search className='h-4 w-4' />
           </div>
           <Input
@@ -63,7 +63,7 @@ const PropertyArea: React.FC = () => {
             placeholder='Enter a city or zip code'
             value={placeResult}
             onChange={(e) => updatePlaceResult(e.target?.value)}
-            className='h-14 w-full rounded border border-gray-300 pl-10 pr-2 focus:border-0 focus:ring-0'
+            className='h-14 w-full rounded border border-gray-300 bg-background pl-10 pr-2 focus:outline-none focus:ring-0'
           />
         </div>
       </Autocomplete>

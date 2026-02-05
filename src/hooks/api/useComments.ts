@@ -2,6 +2,8 @@ import { useState, useEffect, useContext } from 'react';
 import API from '@/lib/api/axios';
 import { SocketContext } from '@/providers/socket.context';
 import { getAuthToken } from '@/lib/storage';
+import { useSelector } from 'react-redux';
+import { userData } from '@/slices/auth/auth.slice';
 
 // interface for Comment
 export interface Comment {
@@ -73,68 +75,46 @@ export const useComments = (propertyId: string, snapId?: string) => {
         }
     };
 
+    const user = useSelector(userData);
+    const userId = user?.id;
+
     const addComment = async (text: string, userName: string, propertyName?: string, accountType?: string) => {
         if (!text.trim()) return;
 
-        console.log('[useComments] Adding comment via GraphQL:', { text, userName, propertyName, accountType, snapId, socketConnected: socket?.connected, socketId: socket?.id });
+        console.log('[useComments] Adding comment via WebSocket:', { text, userName, propertyName, accountType, snapId, userId, socketConnected: socket?.connected });
 
-        try {
-            const token = getAuthToken() || (typeof window !== 'undefined' ? localStorage.getItem('__WEB_APP_Ocreal345####btny_ocreal') : null);
+        if (socket && socket.connected) {
+            try {
+                // Lambda-compatible payload
+                const payload = {
+                    propertyId,
+                    snapId: snapId || null,
+                    text,
+                    userId, // Critical for Lambda handler
+                    userName,
+                    accountType: accountType || 'buyer',
+                    propertyName: propertyName || null,
+                };
 
-            const mutation = `
-                mutation CreateComment($createCommentInput: CreateCommentDto!) {
-                    createComment(createCommentInput: $createCommentInput) {
-                        id
-                        propertyId
-                        text
-                        userName
-                        accountType
-                        snapId
-                        propertyName
-                        createdAt
-                    }
-                }
-            `;
+                socket.emit('addComment', payload);
 
-            const response = await API.post(
-                GRAPHQL_URI,
-                {
-                    query: mutation,
-                    variables: {
-                        createCommentInput: {
-                            propertyId,
-                            snapId: snapId || null,
-                            text,
-                            userName,
-                            accountType: accountType || 'buyer', // Default to 'buyer' if not provided
-                            propertyName: propertyName || null,
-                        },
-                    },
-                },
-                {
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                }
-            );
+                // Optimistic update
+                const newComment: Comment = {
+                    id: `temp-${Date.now()}`,
+                    ...payload,
+                    createdAt: new Date().toISOString(),
+                    userId: userId,
+                } as any;
 
-            if (response.data.errors) {
-                throw new Error(response.data.errors[0]?.message || 'Failed to create comment');
+                setComments((prev) => [newComment, ...prev]);
+
+            } catch (err) {
+                console.error('[useComments] Error adding comment via WebSocket:', err);
+                setError('Failed to send comment via WebSocket');
             }
-
-            // Optimistic update with duplicate prevention
-            const newComment = response.data.data.createComment;
-            setComments((prev) => {
-                // Prevent duplicates by checking ID
-                if (prev.some(c => c.id === newComment.id)) {
-                    console.log('[useComments] Comment already exists (from WebSocket), skipping optimistic update');
-                    return prev;
-                }
-                return [newComment, ...prev];
-            });
-        } catch (err: any) {
-            console.error('[useComments] Error adding comment via GraphQL:', err);
-            setError(err?.response?.data?.errors?.[0]?.message || 'Failed to add comment');
+        } else {
+            console.warn('[useComments] Socket not connected. Cannot send comment.');
+            setError('Real-time connection lost. Please verify your connection.');
         }
     };
 

@@ -40,6 +40,7 @@ export const useComments = (propertyId: string, snapId?: string) => {
                         text
                         userName
                         accountType
+                        accountType
                         snapId
                         propertyName
                         createdAt
@@ -173,16 +174,21 @@ export const useComments = (propertyId: string, snapId?: string) => {
             const handleConnect = () => {
                 console.log('[useComments] Socket reconnected/connected. Re-joining room.');
                 socket.emit('joinRoom', { roomId: room }); // Send as object
+                socket.emit('joinRoom', { roomId: room }); // Send as object
             };
 
             socket.on('new_comment', handleNewComment);
+            socket.on('recent_activity_update', handleNewComment); // Also listen to global updates
             socket.on('recent_activity_update', handleNewComment); // Also listen to global updates
             socket.on('connect', handleConnect);
 
             return () => {
                 console.log(`[useComments] Leaving room: ${room}`);
                 socket.emit('leaveRoom', { roomId: room }); // Send as object
+                console.log(`[useComments] Leaving room: ${room}`);
+                socket.emit('leaveRoom', { roomId: room }); // Send as object
                 socket.off('new_comment', handleNewComment);
+                socket.off('recent_activity_update', handleNewComment);
                 socket.off('recent_activity_update', handleNewComment);
                 socket.off('connect', handleConnect);
             };

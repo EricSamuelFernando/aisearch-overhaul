@@ -34,9 +34,9 @@ function Page() {
         </section>
       </main>
 
-      <footer className="w-full bg-black " style={{ marginTop: '70%' }}>
+      {/* <footer className="w-full bg-black " style={{ marginTop: '70%' }}>
         <Footer />
-      </footer>
+      </footer> */}
     </div>
   );
 }

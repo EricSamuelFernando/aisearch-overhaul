@@ -1,14 +1,40 @@
-import React, { InputHTMLAttributes } from 'react';
+import React, { InputHTMLAttributes, useEffect, useState } from 'react';
 
 export interface IPhoneNumberInputProps
   extends InputHTMLAttributes<HTMLInputElement> {}
 
+const formatPhoneNumber = (value: string) => {
+  const digits = value.replace(/\D/g, '').slice(0, 10);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6)
+    return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+};
+
 export const PhoneNumberInput = (props: IPhoneNumberInputProps) => {
+  const { onChange, value, ...rest } = props;
+  const rawValue = value === undefined || value === null ? '' : String(value);
+  const [displayValue, setDisplayValue] = useState(() =>
+    formatPhoneNumber(rawValue),
+  );
+
+  useEffect(() => {
+    setDisplayValue(formatPhoneNumber(rawValue));
+  }, [rawValue]);
+
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const rawDigits = event.currentTarget.value.replace(/\D/g, '').slice(0, 10);
+    setDisplayValue(formatPhoneNumber(rawDigits));
+    event.currentTarget.value = rawDigits;
+    event.target.value = rawDigits;
+    onChange?.(event);
+  };
+
   return (
     <div className='group flex w-full items-center'>
       <div
-        className='dark:focus:ring-grey-700 z-10 inline-flex h-12 flex-shrink-0  appearance-none items-center rounded-l-md border-y border-l border-r-0 border-solid
-        border-[#c4c4c4] bg-white px-3.5 py-2.5 text-center text-sm font-medium leading-tight text-gray-700 placeholder:text-sm placeholder:text-[#acacac] group-focus:border-black focus:outline-none dark:text-white'
+        className='dark:focus:ring-grey-700 z-10 inline-flex h-[72px] flex-shrink-0 appearance-none items-center rounded-l-md border-y border-l border-r-0 border-solid
+        border-[#c4c4c4] bg-white px-3.5 py-2 text-center text-sm font-medium leading-tight text-gray-700 placeholder:text-sm placeholder:text-[#acacac] group-focus:border-black focus:outline-none dark:text-white'
       >
         <svg
           fill='none'
@@ -97,13 +123,15 @@ export const PhoneNumberInput = (props: IPhoneNumberInputProps) => {
       <div className='relative w-full'>
         {/* TODO split numbers */}
         <input
-          {...props}
-          type='number'
+          {...rest}
+          type='tel'
           id='phone-input'
-          className='h-12 w-full appearance-none rounded-r-md border-y border-r border-solid border-[#c4c4c4] px-3.5 leading-tight text-gray-700 placeholder:text-sm placeholder:text-[#acacac] group-focus:border-black  focus:outline-none'
-          pattern='[0-9]{3}-[0-9]{3}-[0-9]{4} border-l-0 rounded-l-none'
-          placeholder='123-456-7890'
+          className='h-[72px] w-full appearance-none rounded-r-md border-y border-r border-solid border-[#c4c4c4] px-3.5 leading-tight text-gray-700 placeholder:text-sm placeholder:text-[#acacac] group-focus:border-black  focus:outline-none'
+          pattern='[0-9]{3}-[0-9]{3}-[0-9]{4}'
           required
+          inputMode='numeric'
+          value={displayValue}
+          onChange={handleChange}
         />
       </div>
     </div>

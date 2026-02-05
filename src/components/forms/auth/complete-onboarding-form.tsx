@@ -1,8 +1,8 @@
-'use client';
+﻿'use client';
 
 import { useForm } from '@mantine/form';
 import Link from 'next/link';
-import { Fragment, useMemo } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import {
   getCountryCode,
   getPhoneNumber,
@@ -19,6 +19,8 @@ import { useAtom } from 'jotai';
 
 export function CompleteOnboardingForm() {
   const account_type = getActiveUserRole();
+  const [showPasswordRules, setShowPasswordRules] = useState(false);
+  const nameAllowedPattern = /^[A-Za-z\s\-']*$/;
   const form = useForm({
     initialValues: {
       firstName: '',
@@ -33,8 +35,22 @@ export function CompleteOnboardingForm() {
     validateInputOnChange: true,
     validateInputOnBlur: true,
     validate: {
-      firstName: (value) => (value.length < 1 ? 'First Name is required' : null),
-      lastName: (value) => (value.length < 1 ? 'Last Name is required' : null),
+      firstName: (value) => {
+        const trimmed = value.trim();
+        if (trimmed.length < 1) return 'First Name is required';
+        if (!/^[A-Za-z\s\-']+$/.test(trimmed)) {
+          return 'Invalid name format. Only letters are allowed.';
+        }
+        return null;
+      },
+      lastName: (value) => {
+        const trimmed = value.trim();
+        if (trimmed.length < 1) return 'Last Name is required';
+        if (!/^[A-Za-z\s\-']+$/.test(trimmed)) {
+          return 'Invalid name format. Only letters are allowed.';
+        }
+        return null;
+      },
       licenseNumber: (value) =>
         account_type === 'agent' && value.length < 1 ? 'License Number is required' : null,
       region: (value) =>
@@ -53,9 +69,17 @@ export function CompleteOnboardingForm() {
     },
   });
 
-
   const { onBoardingMutation, loginMutation } = useUserAuthApi();
   const [agentEmail] = useAtom(agentEmailAtom);
+
+  const passwordValue = form.values.password || '';
+  const passwordChecks = {
+    length: passwordValue.length >= 8,
+    upper: /[A-Z]/.test(passwordValue),
+    lower: /[a-z]/.test(passwordValue),
+    number: /\d/.test(passwordValue),
+    special: /[@$!%*#?&]/.test(passwordValue),
+  };
 
   const onBoardingPayload: OnboardingPayload = useMemo(
     () => ({
@@ -95,22 +119,46 @@ export function CompleteOnboardingForm() {
   };
 
   return (
-    <section>
-      <h2 className="mb-4 py-4 text-center text-3xl font-bold">Complete Sign Up</h2>
+    <section className="w-full">
+      <h2 className="mb-4 text-left text-3xl font-bold md:h-[76px] md:w-[463px] md:leading-[76px]">
+        Complete Sign Up
+      </h2>
       <form
-        className="mx-auto flex flex-col items-center justify-center md:w-[580px]"
+        className="mx-auto flex flex-col items-center justify-center md:w-[699px]"
         onSubmit={form.onSubmit(handleSubmit)}
       >
-        <div className="grid w-full grid-flow-col grid-cols-1 gap-5 md:grid-cols-2">
+        <div className="grid w-full grid-flow-col grid-cols-1 gap-5 md:grid-cols-2 md:gap-x-[39px]">
           <CustomTextInput
             placeholder="First Name"
-            className="w-full"
+            className="w-full !h-[72px] text-[16px] leading-[32px] placeholder:text-[16px] placeholder:leading-[32px] md:w-[330px]"
+            error={!!form.errors.firstName}
+            errorMessage={form.errors.firstName}
             {...form.getInputProps('firstName')}
+            onChange={(event) => {
+              const nextValue = event.currentTarget.value;
+              if (nextValue === '' || nameAllowedPattern.test(nextValue)) {
+                form.setFieldValue('firstName', nextValue);
+                form.setFieldError('firstName', null);
+              } else {
+                form.setFieldError('firstName', 'Invalid name format. Only letters are allowed.');
+              }
+            }}
           />
           <CustomTextInput
             placeholder="Last Name"
-            className="w-full py-4"
+            className="w-full !h-[72px] text-[16px] leading-[32px] placeholder:text-[16px] placeholder:leading-[32px] md:w-[330px]"
+            error={!!form.errors.lastName}
+            errorMessage={form.errors.lastName}
             {...form.getInputProps('lastName')}
+            onChange={(event) => {
+              const nextValue = event.currentTarget.value;
+              if (nextValue === '' || nameAllowedPattern.test(nextValue)) {
+                form.setFieldValue('lastName', nextValue);
+                form.setFieldError('lastName', null);
+              } else {
+                form.setFieldError('lastName', 'Invalid name format. Only letters are allowed.');
+              }
+            }}
           />
         </div>
 
@@ -118,18 +166,18 @@ export function CompleteOnboardingForm() {
           <Fragment>
             <CustomTextInput
               placeholder="License Number"
-              className="w-full py-4"
+              className="w-full !h-11 md:w-[330px]"
               {...form.getInputProps('licenseNumber')}
             />
             <CustomTextInput
               placeholder="Region"
-              className="w-full py-4"
+              className="w-full !h-11 md:w-[330px]"
               {...form.getInputProps('region')}
             />
           </Fragment>
         )}
 
-        <div className="flex flex-col w-full">
+        <div className="flex w-full flex-col">
           <PhoneNumberInput
             className="md:col-span-2"
             {...form.getInputProps('phoneNumber')}
@@ -139,8 +187,17 @@ export function CompleteOnboardingForm() {
           )}
         </div>
 
-        <div className="my-3 grid w-full grid-flow-col grid-cols-1 gap-5 md:grid-cols-2">
-          <div className="flex flex-col">
+        <div
+          className="my-4 grid w-full grid-flow-col grid-cols-1 gap-5 md:grid-cols-2 md:gap-x-[39px]"
+          onFocusCapture={() => setShowPasswordRules(true)}
+          onBlurCapture={(event) => {
+            const nextTarget = event.relatedTarget as Node | null;
+            if (!nextTarget || !event.currentTarget.contains(nextTarget)) {
+              setShowPasswordRules(false);
+            }
+          }}
+        >
+          <div className="flex flex-col md:w-[330px]">
             <UserPasswordInput
               id="password"
               {...form.getInputProps('password')}
@@ -148,13 +205,74 @@ export function CompleteOnboardingForm() {
                 form.setFieldValue('password', event.currentTarget.value);
                 form.validateField('confirm_password');
               }}
+              onInput={(event) => {
+                form.setFieldValue('password', event.currentTarget.value);
+                form.validateField('confirm_password');
+              }}
             />
-            {form.errors.password && (
-              <div className="text-red-500 text-sm mt-1">{form.errors.password}</div>
+            {showPasswordRules && (
+              <div className="mt-3 space-y-1 text-sm">
+                <p className="text-gray-600">Password must contain:</p>
+                <div
+                  className={`flex items-center gap-2 ${passwordChecks.length
+                      ? 'text-green-700'
+                      : passwordValue.length > 0
+                        ? 'text-red-500'
+                        : 'text-gray-500'
+                    }`}
+                >
+                  <span>{passwordChecks.length ? '✓' : '○'}</span>
+                  <span>At least 8 characters</span>
+                </div>
+                <div
+                  className={`flex items-center gap-2 ${passwordChecks.upper
+                      ? 'text-green-700'
+                      : passwordValue.length > 0
+                        ? 'text-red-500'
+                        : 'text-gray-500'
+                    }`}
+                >
+                  <span>{passwordChecks.upper ? '✓' : '○'}</span>
+                  <span>1 uppercase letter (A-Z)</span>
+                </div>
+                <div
+                  className={`flex items-center gap-2 ${passwordChecks.lower
+                      ? 'text-green-700'
+                      : passwordValue.length > 0
+                        ? 'text-red-500'
+                        : 'text-gray-500'
+                    }`}
+                >
+                  <span>{passwordChecks.lower ? '✓' : '○'}</span>
+                  <span>1 lowercase letter (a-z)</span>
+                </div>
+                <div
+                  className={`flex items-center gap-2 ${passwordChecks.number
+                      ? 'text-green-700'
+                      : passwordValue.length > 0
+                        ? 'text-red-500'
+                        : 'text-gray-500'
+                    }`}
+                >
+                  <span>{passwordChecks.number ? '✓' : '○'}</span>
+                  <span>1 number (0-9)</span>
+                </div>
+                <div
+                  className={`flex items-center gap-2 ${passwordChecks.special
+                      ? 'text-green-700'
+                      : passwordValue.length > 0
+                        ? 'text-red-500'
+                        : 'text-gray-500'
+                    }`}
+                >
+                  <span>{passwordChecks.special ? '✓' : '○'}</span>
+                  <span>1 special character (e.g., !@#$)</span>
+                </div>
+              </div>
             )}
           </div>
 
-          <div className="flex flex-col">
+          <div className="flex flex-col md:w-[330px]">
             <UserPasswordInput
               placeholder="Confirm Password"
               id="confirm_password"

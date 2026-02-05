@@ -17,13 +17,14 @@ export const UserPasswordInput = ({ label, ...props }: Props) => {
           {...props}
           id={props?.id ? props.id : 'hs-toggle-password'}
           type={showPassword ? 'text' : 'password'}
-          className='focus-visible:ring-border-0 block w-full rounded-lg border border-solid border-gray-200 px-4 py-3 text-sm focus:border-grey-210 focus:ring-grey-210 disabled:pointer-events-none disabled:opacity-50 dark:border-grey-210 dark:bg-neutral-900 dark:text-neutral-400 dark:placeholder-neutral-500 dark:focus:ring-grey-210'
+          autoComplete={props.autoComplete ?? 'new-password'}
+          className='focus-visible:ring-border-0 block h-[72px] w-full rounded-lg border border-solid border-gray-200 px-4 py-2.5 text-[16px] leading-[32px] placeholder:text-[16px] placeholder:leading-[32px] focus:border-grey-210 focus:ring-grey-210 disabled:pointer-events-none disabled:opacity-50 dark:border-grey-210 dark:bg-neutral-900 dark:text-neutral-400 dark:placeholder-neutral-500 dark:focus:ring-grey-210'
           placeholder='Enter password'
         />
         <button
           onClick={() => setShowPassword((prev) => !prev)}
           type='button'
-          className='absolute end-0 top-0 rounded-e-md p-3.5'
+          className='absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full'
         >
           <svg
             className='size-3.5 flex-shrink-0 text-gray-400 dark:text-grey-210'

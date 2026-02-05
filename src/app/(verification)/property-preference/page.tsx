@@ -34,11 +34,13 @@ const BuyerOnboarding = () => {
   const Component = progressMapping[progress].component;
 
   return (
-    <div className='w-full space-y-12 place-self-center md:col-span-2 lg:w-3/4'>
+    <div className='w-full space-y-6 place-self-center md:col-span-2 lg:w-3/4'>
       <h1 className='w-full text-2xl font-medium md:w-4/6 md:text-4xl'>
         {progressMapping[progress].title}
       </h1>
-      <Component />
+      <div className='w-full md:w-4/6'>
+        <Component />
+      </div>
     </div>
   );
 };

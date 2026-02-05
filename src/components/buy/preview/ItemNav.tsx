@@ -196,7 +196,7 @@
 
 // export default ItemNav;
 import { cn } from '@/lib/utils';
-import { ChevronLeft, Heart } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { RefObject, useEffect, useRef, useState } from 'react';
@@ -205,6 +205,7 @@ import { useCollectionModal } from '@/providers/collection-modal-provider';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useSelector } from 'react-redux';
 import { useUserSnapAPIs } from '@/hooks/api/auth/snaps.API';
+import { SnapzHeartButton } from '@/components/ui/snapz-heart';
 
 type Props = {
   cardRef: RefObject<HTMLDivElement>;
@@ -317,7 +318,9 @@ function ItemNav({ cardRef }: Props) {
             </button>
 
             {/* Save */}
-            <button
+            <SnapzHeartButton
+              isActive={isFavored}
+              size={20}
               onClick={() => {
                 if (isLoggedIn) {
                   const propertyImage = propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.public?.imageUrl || propertyData?.image || '/assets/images/property-placeholder.jpg';
@@ -326,10 +329,8 @@ function ItemNav({ cardRef }: Props) {
                   router.push('/login');
                 }
               }}
-              className='flex items-center gap-2 text-[#818181] hover:text-black'
-            >
-              <Heart className={cn('h-4 w-4', isFavored ? 'fill-orange-500 text-orange-500' : '')} />
-            </button>
+              className='text-[#818181] hover:text-black'
+            />
           </div>
         </div>
 
@@ -359,7 +360,9 @@ function ItemNav({ cardRef }: Props) {
             <Icons.Share className='h-4 w-4' />
           </button>
 
-          <button
+          <SnapzHeartButton
+            isActive={isFavored}
+            size={20}
             onClick={() => {
               if (isLoggedIn) {
                 const propertyImage = propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.public?.imageUrl || propertyData?.image || '/assets/images/property-placeholder.jpg';
@@ -368,10 +371,8 @@ function ItemNav({ cardRef }: Props) {
                 router.push('/login');
               }
             }}
-            className='flex items-center gap-2 text-[#818181] hover:text-black'
-          >
-            <Heart className={cn('h-4 w-4', isFavored ? 'fill-orange-500 text-orange-500' : '')} />
-          </button>
+            className='text-[#818181] hover:text-black'
+          />
         </div>
       </div>
     </div>

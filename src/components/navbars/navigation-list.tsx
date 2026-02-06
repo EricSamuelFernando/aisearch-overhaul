@@ -33,9 +33,9 @@ export function NavigationList({ dark = false }: any) {
                   <Link href='/login' className='hover:text-primary hover:underline'>
                     Your Agent
                   </Link>
-                  <Link href='/login' className='hover:text-primary hover:underline'>
+                 {/* <Link href='/login' className='hover:text-primary hover:underline'>
                     Our Real Estate Agents
-                  </Link>
+                  </Link>*/}
                 </div>
               </div>
               <div className='flex flex-col space-y-4 pl-8'>
@@ -44,9 +44,9 @@ export function NavigationList({ dark = false }: any) {
                   <Link href='/home#how-it-works' className='hover:text-primary hover:underline'>
                     How it Works
                   </Link>
-                  <Link href='/home#strength-analyzer' className='hover:text-primary hover:underline'>
+                  {/*<Link href='/home#strength-analyzer' className='hover:text-primary hover:underline'>
                     Offer Strength Analyzer
-                  </Link>
+                  </Link>*/}
                   <Link href='/home#testimonials' className='hover:text-primary hover:underline'>
                     Testimonials
                   </Link>

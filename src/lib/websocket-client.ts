@@ -59,7 +59,7 @@ export class WebSocketClientImpl implements WebSocketClient {
   private messageQueue: MessagePacket[] = [];
   public id: string | null = null;
   public connected = false;
-  private isLambda: boolean = true; // Detect if using Lambda/API Gateway
+  private isLambda: boolean = true; // Detect if using Lambda/API Gateway (default false for local NestJS)
 
   constructor(url: string) {
     // Convert http:// to ws:// and https:// to wss://
@@ -100,9 +100,11 @@ export class WebSocketClientImpl implements WebSocketClient {
     //   }
     // }
 
-    this.url = process.env.NEXT_PUBLIC_AUTH_SERIVCE_SOCKET_URL || ""
+    this.url = "wss://demo-ws.snaphomz.com"
 
-    console.log('[WebSocket] Final URL:', this.url, 'isLambda:', this.isLambda);
+    console.log('[WebSocket] Base URL:', url, '→ WebSocket URL:', this.url);
+
+
 
     const token: string | null = getAuthToken() ?? null;
     this.token = token;
@@ -276,17 +278,19 @@ export class WebSocketClientImpl implements WebSocketClient {
     // Lambda/API Gateway expects: { action: string, data: any }
     // Local NestJS expects: { event: string, data: any }
     // IMPORTANT: If using AWS API Gateway WebSocket, ALWAYS use Lambda format
-    const packet = { action: event, data: data || {} }
+    const packet = this.isLambda
+      ? { action: event, data: data || {} }
+      : { event, data: data || {} };
 
     // Double-check action/event is not undefined
     if (this.isLambda && !packet.action) {
       console.error('[WebSocket] Packet action is undefined after creation:', { event, data, packet });
       return;
     }
-    // if (!this.isLambda && !packet.event) {
-    //   console.error('[WebSocket] Packet event is undefined after creation:', { event, data, packet });
-    //   return;
-    // }
+    if (!this.isLambda && !(packet as any).event) {
+      console.error('[WebSocket] Packet event is undefined after creation:', { event, data, packet });
+      return;
+    }
 
     console.log('[WebSocket] Emitting:', {
       event,
@@ -377,15 +381,17 @@ export class WebSocketClientImpl implements WebSocketClient {
       console.error('[WebSocket] joinRoom called with invalid roomId:', roomId);
       return;
     }
-    this.emit('joinRoom', { roomId });
+    console.log('[WebSocket] Joining room:', roomId);
+    this.emit('joinRoom', { roomId }); // Send as object with roomId property
   }
 
-  leaveRoom(roomId: string): void {
+  leaveRoom(roomId?: string): void {
     if (!roomId) {
-      console.error('[WebSocket] leaveRoom called with invalid roomId:', roomId);
+      console.log('[WebSocket] leaveRoom called without roomId, skipping');
       return;
     }
-    this.emit('leaveRoom', { roomId });
+    console.log('[WebSocket] Leaving room:', roomId);
+    this.emit('leaveRoom', { roomId }); // Send as object with roomId property
   }
 
   ping(): void {

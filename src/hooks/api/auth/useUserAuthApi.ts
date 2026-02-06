@@ -277,7 +277,11 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     mutationKey: ['onboarding-mutation'],
     mutationFn: async (data: OnboardingPayload) => {
       console.log(data)
-      const token = getAuthToken()
+      const token =
+        getAuthToken() ||
+        (typeof window !== 'undefined'
+          ? localStorage.getItem('userAccessToken')
+          : undefined);
       //console.log(Role)
       const response = await axios.post(
         GRAPHQL_URI,
@@ -300,7 +304,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
         {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
         }
       );

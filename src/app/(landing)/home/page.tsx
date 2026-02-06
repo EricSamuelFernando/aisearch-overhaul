@@ -1356,12 +1356,12 @@ export default function Home() {
             <div className="absolute left-1/2 top-20 h-[220px] w-full max-w-[460px]
                             -translate-x-1/2 overflow-visible">
               {[
-                { a: 175, r: 180, size: 75, idx: 0, rot: 18 },
-                { a: 211, r: 180, size: 75, idx: 1, rot: -55 },
-                { a: 247, r: 180, size: 75, idx: 2, rot: -20 },
-                { a: 285, r: 180, size: 75, idx: 3, rot: 18 },
-                { a: 324, r: 180, size: 75, idx: 4, rot: 55 },
-                { a: 363, r: 180, size: 75, idx: 5, rot: 85 },
+                { a: 175, r: 180, size: 95, idx: 0, rot: 18 },
+                { a: 211, r: 180, size: 95, idx: 1, rot: -55 },
+                { a: 247, r: 180, size: 95, idx: 2, rot: -20 },
+                { a: 285, r: 180, size: 95, idx: 3, rot: 18 },
+                { a: 324, r: 180, size: 95, idx: 4, rot: 55 },
+                { a: 363, r: 180, size: 95, idx: 5, rot: 85 },
               ].map((p, i) => (
                 <div
                   key={i}

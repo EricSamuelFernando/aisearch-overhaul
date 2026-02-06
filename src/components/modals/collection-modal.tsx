@@ -324,6 +324,7 @@ import { useUserSnapAPIs } from '@/hooks/api/auth/snaps.API';
 import { success, error } from '../alert/notify';
 import { useRouter } from 'next/navigation';
 import { reverse } from 'lodash';
+import { SnapzHeartButton } from '@/components/ui/snapz-heart';
 
 interface CollectionModalProps {
   isOpen: boolean;
@@ -589,7 +590,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
             <p className="text-gray-500 text-sm">Private</p>
           </div>
           <div className="ml-auto">
-            <Heart className={`h-6 w-6 ${snaps?.some(snap => isPropertyInFavourite(snap)) ? 'fill-red-500 text-red-500' : 'fill-orange-500 text-orange-500'}`} />
+            <Heart className={`h-6 w-6 ${snaps?.some(snap => isPropertyInFavourite(snap)) ? 'fill-orange-500 text-orange-500' : 'fill-orange-500 text-orange-500'}`} />
           </div>
         </div>
 
@@ -696,7 +697,16 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
                   {
 
                   }
-                  <Heart className={`h-4 w-4 ${isPropertyInFavourite(collection) ? 'fill-orange-500 text-red-500' : 'text-orange-500'}`} />
+                  <SnapzHeartButton
+                    isActive={isPropertyInFavourite(collection)}
+                    size={18}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      handleToggleFavourite(collection.id);
+                    }}
+                    className="text-orange-500"
+                  />
                 </div>
               );
             })}

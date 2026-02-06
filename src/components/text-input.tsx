@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { ReactNode } from 'react';
 
 export interface TextInputProp
   extends React.InputHTMLAttributes<HTMLInputElement> {
   error?: boolean;
-  errorMessage?: string;
+  errorMessage?: ReactNode
   label?: string;
 }
 

@@ -22,7 +22,6 @@ import { useMediaQuery } from '@mantine/hooks';
 
 import '@mantine/core/styles.css';
 import '@mantine/carousel/styles.css';
-import '@/app/globals.css';
 import Image from 'next/image';
 import guidline from '../../../public/assets/icons/Guided.svg';
 import reduced from '../../../public/assets/icons/Reduced.svg';
@@ -161,9 +160,8 @@ const WeMakeItEasy = () => {
   //     ? '40%'
   //     : '33.3333%';
 
-  const isSmallScreen = useMediaQuery('(max-width: 768px)', true, {
-    getInitialValueInEffect: false,
-  });
+  const isSmallScreen = useMediaQuery('(max-width: 768px)');
+
   const slideSize = isSmallScreen ? '90%' : '33.3333%';
 
 

@@ -3,7 +3,7 @@ import Link from "next/link";
 
 const ChooseYourMeans = () => {
   return (
-    <section className="bg-[#FFF6EC] pt-20 px-4 sm:px-8 lg:px-12 text-center">
+    <section className="bg-[#FFF6EC] pt-24 px-4 sm:px-8 lg:px-12 text-center">
       {/* Choose Your Means Section */}
       <div className="max-w-6xl mx-auto text-center">
         <h2 className=" satoshi text-3xl sm:text-4xl font-semibold ">
@@ -25,10 +25,10 @@ const ChooseYourMeans = () => {
 
         {/* Card Grid Layout */}
         <div
-          className="flex flex-nowrap gap-6 overflow-x-auto pb-4 bg-transparent scrollbar-hide snap-x snap-mandatory"
+          className="flex flex-nowrap gap-6 overflow-x-auto pb-4 bg-transparent scrollbar-hide snap-x snap-mandatory sm:flex-wrap sm:justify-center sm:overflow-visible sm:snap-none"
         >
           {/* Team member 1 */}
-          <div className="min-w-[260px] sm:min-w-0 rounded-2xl overflow-hidden relative cursor-pointer">
+          <div className="min-w-[260px] sm:min-w-0 rounded-2xl overflow-hidden relative cursor-pointer scale-[0.9] origin-top">
             <img
               src="/assets/images/landing-means.png"
               alt="Proper Name"
@@ -45,7 +45,7 @@ const ChooseYourMeans = () => {
 
 
           {/* Team member 2 */}
-          <div className="min-w-[260px] sm:min-w-0 rounded-2xl overflow-hidden relative cursor-pointer">
+          <div className="min-w-[260px] sm:min-w-0 rounded-2xl overflow-hidden relative cursor-pointer scale-[0.9] origin-top">
             <img
               src="/assets/images/landing-means1.png"
               alt="Proper Name"
@@ -61,6 +61,7 @@ const ChooseYourMeans = () => {
           </div>
 
           {/* Team member 3 */}
+          {/*
           <div className="min-w-[260px] sm:min-w-0 rounded-2xl overflow-hidden relative cursor-pointer">
             <img
               src="/assets/images/landing-means2.png"
@@ -75,6 +76,7 @@ const ChooseYourMeans = () => {
               </button>
             </div>
           </div>
+          */}
         </div>
       </div>
     </section>

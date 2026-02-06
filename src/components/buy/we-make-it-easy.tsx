@@ -172,7 +172,7 @@ const WeMakeItEasy = () => {
   );
 
   return (
-    <section className="bg-[#FFF6EC] pt-20 pb-20 px-4 sm:px-6 lg:px-24 overflow-x-hidden">
+    <section className="bg-[#FFF6EC] pt-26 pb-0 px-4 sm:px-6 lg:px-24 overflow-x-hidden">
       <div className=" mx-auto text-center">
         {/* Heading */}
         <h2 className=" satoshi text-3xl sm:text-4xl font-semibold ">

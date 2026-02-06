@@ -4,11 +4,11 @@ import Image from 'next/image';
 
 export default function GetReadyForCollege() {
   return (
-    <section className="w-full bg-[#FFF6EC] py-6 sm:py-8 lg:py-10">
+    <section className="w-full bg-[#FFF6EC] py-6 sm:py-8 lg:py-10 min-h-[560px]">
       <div className="grid grid-cols-1 lg:grid-cols-2 min-h-auto lg:min-h-[560px] gap-0">
 
         {/* LEFT CONTENT */}
-        <div className="flex flex-col justify-center border border-[#B3B1B0] px-4 sm:px-6 md:px-10 lg:px-16 py-6 sm:py-8 lg:py-10">
+        <div className="flex flex-col justify-center px-4 sm:px-6 md:px-10 lg:px-16 py-6 sm:py-8 lg:py-10">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#1F1F1F]">
             Get Ready For <span className="font-light">College</span>
           </h2>
@@ -20,15 +20,15 @@ export default function GetReadyForCollege() {
           </p>
 
           <div className="mt-6 sm:mt-8 space-y-3 sm:space-y-4 text-xs sm:text-sm md:text-base text-[#1F1F1F]">
-            <p className="underline cursor-pointer w-fit font-unbounded font-weight-600 font-semibold">
+            {/*<p className="underline cursor-pointer w-fit font-unbounded font-weight-600 font-semibold">
               Compare Colleges
-            </p>
+            </p>*/}
 
             <a
               href="https://snapgrad.snaphomz.com/"
               target="_blank"
               rel="noopener noreferrer"
-              className="underline cursor-pointer w-fit block font-unbounded font-semibold"
+              className="inline-flex w-fit items-center justify-center rounded-full bg-black px-6 py-2 text-sm font-semibold text-white transition hover:opacity-90"
             >
               Compare High Schools
             </a>

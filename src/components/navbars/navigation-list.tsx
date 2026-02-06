@@ -70,9 +70,9 @@ export function NavigationList({ dark = false }: any) {
                   <Link href='/login' className='hover:text-primary hover:underline'>
                     With an Agent
                   </Link>
-                  <Link href='/login' className='hover:text-primary hover:underline'>
+                 {/* <Link href='/login' className='hover:text-primary hover:underline'>
                     Our Real Estate Agents
-                  </Link>
+                  </Link>*/}
                 </div>
               </div>
               <div className='flex flex-col space-y-4 pl-8'>
@@ -81,9 +81,9 @@ export function NavigationList({ dark = false }: any) {
                   <Link href='/sell#how-it-works' className='hover:text-primary hover:underline'>
                     How it Works
                   </Link>
-                  <Link href='/sell#home-estimator' className='hover:text-primary hover:underline'>
+                 {/* <Link href='/sell#home-estimator' className='hover:text-primary hover:underline'>
                     Home Estimator
-                  </Link>
+                  </Link>*/}
                   <Link href='/sell#testimonials' className='hover:text-primary hover:underline'>
                     Testimonials
                   </Link>

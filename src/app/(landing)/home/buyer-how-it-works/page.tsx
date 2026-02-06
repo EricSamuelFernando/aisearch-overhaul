@@ -167,6 +167,7 @@ export default function HowItWorksPage() {
                 })}
               </ul>
               {/* Circle Indicator Row */}
+              {/*
               <div className="mt-12 flex justify-center md:justify-start space-x-2">
                 {steps.map((_, i) => (
                   <span
@@ -178,6 +179,7 @@ export default function HowItWorksPage() {
                   />
                 ))}
               </div>
+              */}
             </div>
 
             {/* Right side: Images */}

@@ -51,14 +51,14 @@ const chartData = [
 
 export default function FindPerfectMortgage() {
   return (
-    <section className="w-full bg-[#FFF6EC] py-20 px-4 sm:px-10 lg:px-20">
+    <section className="w-full h-full bg-[#FFF6EC] px-4 sm:px-10 lg:px-20 flex flex-col">
 
       {/* Heading */}
-      <div className="max-w-5xl mx-auto text-center mb-14">
+      <div className="max-w-5xl mx-auto text-center mb-2">
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-semibold text-[#2C1F18]">
           Find Your Perfect <span className="font-light">Mortgage</span>
         </h1>
-        <p className="mt-4 text-sm sm:text-base text-[#6E645A] max-w-2xl mx-auto">
+        <p className="mt-2 text-sm sm:text-base text-[#6E645A] max-w-2xl mx-auto">
           Whether you're a first-time buyer or experienced homeowner, we have
           mortgage solutions tailored to your specific needs.
         </p>
@@ -68,9 +68,9 @@ export default function FindPerfectMortgage() {
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-start gap-16">
 
         {/* LEFT CARD (CHART) */}
-        <div className="w-full lg:w-1/2 bg-[#F6E9D8] rounded-3xl p-8 sm:p-10">
+        <div className="w-full lg:w-1/2 bg-[#F6E9D8] rounded-3xl p-8 sm:p-10 scale-[0.7] origin-top mt-8">
 
-          <div className="mb-6 ml-0 sm:ml-[40px]">
+          <div className="mb-6">
             <h2 className="text-lg font-bold text-[#2C1F18] mb-1">
               Mortgage rates
             </h2>
@@ -82,14 +82,14 @@ export default function FindPerfectMortgage() {
           </div>
 
           {/* Chart */}
-          <div className="h-[200px] sm:h-[220px] mb-10">
+          <div className="h-[200px] sm:h-[220px] mb-10 max-w-md">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={chartData}
                 margin={{
                   top: 20,
                   right: 15,
-                  left: 40,
+                  left: 16,
                   bottom: 20
                 }}
               >
@@ -115,8 +115,8 @@ export default function FindPerfectMortgage() {
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(value) => `${value.toFixed(1)}%`}
-                  width={40}
-                  tickMargin={7}
+                  width={34}
+                  tickMargin={4}
                 />
 
                 <Line
@@ -146,7 +146,7 @@ export default function FindPerfectMortgage() {
 
         {/* RIGHT IMAGE */}
         <div className="w-full lg:w-1/2 flex justify-center">
-          <div className="relative w-[260px] sm:w-[320px] md:w-[380px] lg:w-[420px]">
+          <div className="relative w-[260px] sm:w-[320px] md:w-[380px] lg:w-[420px] scale-[0.7] origin-center -mt-14">
             <Image
               src="/assets/images/buyer-home_mortgage.png"
               alt="Mortgage illustration"

@@ -96,9 +96,9 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
                   <Link href='/agents' className='text-black hover:text-primary hover:underline'>
                     With an agents
                   </Link>
-                  <Link href={AGENT_APPLICATIONS || ""} className='text-black hover:text-primary hover:underline'>
+                  {/*<Link href={AGENT_APPLICATIONS || ""} className='text-black hover:text-primary hover:underline'>
                     Our Real Estate Agents
-                  </Link>
+                  </Link>*/}
                   <Link href='/home/seller-how-it-works' className='text-black hover:text-primary hover:underline'>
                     How it Works
                   </Link>
@@ -106,9 +106,9 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
               </div>
               <div className='flex flex-col space-y-4 pl-8'>
                 <div className='flex flex-col space-y-3'>
-                  <Link href='#home-estimator' className='text-black hover:text-primary hover:underline'>
+                {/*  <Link href='#home-estimator' className='text-black hover:text-primary hover:underline'>
                     Home Estimator
-                  </Link>
+                  </Link>*/}
                   <Link href="#testimonials" className='text-black hover:text-primary hover:underline'>
                     Testimonials
                   </Link>

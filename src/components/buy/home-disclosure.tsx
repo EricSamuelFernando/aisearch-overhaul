@@ -2,11 +2,11 @@ import Image from "next/image";
 
 export default function HomeDisclosure() {
   return (
-    <section className="w-full bg-[#170800] text-white
-  py-32 px-6 md:px-12 lg:px-24
+    <section className="w-full h-full bg-[#170800] text-white
+  px-6 md:px-12 lg:px-24
   flex flex-col md:flex-row
   justify-center
-  items-start
+  items-center
   gap-20">
 
       {/* Left Side */}

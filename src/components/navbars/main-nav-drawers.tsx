@@ -195,7 +195,7 @@ const SellDropdownMenu: React.FC<DropdownMenuProps> = ({
           <h4 className='text-md font-medium'>Sell A Home With</h4>
           <div className='flex flex-col space-y-5'>
             <Link href='/sell#agents'>With an Agent</Link>
-            <Link href='/sell#agents'>Our Real Estate Agents</Link>
+           {/* <Link href='/sell#agents'>Our Real Estate Agents</Link>*/}
             {/* <Link href='/sell#agents'>Do it Yourself</Link> */}
           </div>
         </div>
@@ -203,7 +203,7 @@ const SellDropdownMenu: React.FC<DropdownMenuProps> = ({
           <h4 className='text-md font-medium'>Resources</h4>
           <div className='flex flex-col space-y-5'>
             <Link href='/sell#how-it-works'>How it Works</Link>
-            <Link href='/sell#home-estimator'>Home Estimator</Link>
+           {/* <Link href='/sell#home-estimator'>Home Estimator</Link>*/}
             <Link href='/sell#testimonials'>Testimonials</Link>
           </div>
         </div>

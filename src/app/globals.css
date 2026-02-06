@@ -613,3 +613,42 @@ div.make-it-easy-component {
 .agents-navbar .agents-dropdown-content {
   background-color: #FAF9F5 !important;
 }
+
+.home-carousel .mantine-Carousel-controls {
+  pointer-events: none;
+}
+
+.home-carousel .mantine-Carousel-control {
+  pointer-events: auto;
+  opacity: 1;
+  transition: opacity 150ms ease;
+  background: #000000 !important;
+  border: 1px solid rgba(0, 0, 0, 0.7);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+  border-radius: 9999px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-carousel .mantine-Carousel-control svg {
+  color: #ffffff;
+}
+
+.home-carousel:hover .mantine-Carousel-control {
+  opacity: 1;
+}
+
+.sell-sections > * + * {
+  margin-top: 8rem;
+}
+
+.home-sections > * + * {
+  margin-top: 8rem;
+}
+
+.home-sections {
+  background-color: #FFF6EC;
+}

@@ -34,16 +34,16 @@ const HomeHighlights: React.FC<HomeHighlightsProps> = (props = defaultProps) => 
   const { highlights, description, stats, floorPlanSrc, threeDHomeSrc } = props;
 
   // The description is split into two paragraphs with a 'read more' break
-  const descParagraphs = description.split(". The open stairwell ascends to the spacious living room");
-  const firstParagraph = descParagraphs[0] + ".";
-  const secondParagraph = "The open stairwell ascends to the spacious living room" + descParagraphs.slice(1).join(". The open stairwell ascends to the spacious living room");
-  
+  // const descParagraphs = description.split(". The open stairwell ascends to the spacious living room");
+  // const firstParagraph = descParagraphs[0] + ".";
+  // const secondParagraph = "The open stairwell ascends to the spacious living room" + descParagraphs.slice(1).join(". The open stairwell ascends to the spacious living room");
+
   // NOTE: The image shows a 'read more' link truncating the second paragraph.
   // For the exact UI match, we will replicate the visible text and the red 'read more' link.
-  
+
   return (
     <div className="max-w-4xl py-10 px-4 sm:px-6 lg:px-8">
-      
+
       {/* --- Title --- */}
       <h2 className="text-2xl font-bold text-gray-900 mb-6">
         Home highlights
@@ -64,31 +64,33 @@ const HomeHighlights: React.FC<HomeHighlightsProps> = (props = defaultProps) => 
       {/* --- Description --- */}
       <div className="text-gray-700 leading-relaxed mb-6">
         <p className="mb-4">
-          {firstParagraph}
+          {description}
         </p>
-        <p>
-          {secondParagraph.substring(0, 350)}{/* Truncate the second paragraph for visual match */}
+
+        {/* <p>
+          {secondParagraph.substring(0, 350)}
           <span className="text-red-600 font-semibold cursor-pointer ml-1 hover:text-red-700" style={{fontFamily:"Satoshi"}}>
             ...read more
           </span>
-        </p>
+        </p> */}
+
       </div>
 
       {/* --- Stats --- */}
-      <div className="flex items-center  space-x-7 gap-6 mb-10 text-sm text-gray-700" style={{fontFamily:"Satoshi", fontSize:"18px"}}>
-        <p style={{fontFamily:"Satoshi"}}><span style={{fontWeight: '700', fontFamily:"Satoshi"}}>{stats.daysOnMarket}</span> on Snaphomz</p>
-        <p style={{fontFamily:"Satoshi"}}><span style={{fontWeight: '700', fontFamily:"Satoshi"}}>{stats.views}</span> views</p>
-        <p style={{fontFamily:"Satoshi"}}><span style={{fontWeight: '700', fontFamily:"Satoshi"}}>{stats.saves}</span> saves</p>
-        <p style={{fontFamily:"Satoshi"}}>Likely to sell faster than <span className="font-bold text-gray-900">{stats.sellLikelihood}</span> nearby</p>
+      <div className="flex items-center  space-x-7 gap-6 mb-10 text-sm text-gray-700" style={{ fontFamily: "Satoshi", fontSize: "18px" }}>
+        <p style={{ fontFamily: "Satoshi" }}><span style={{ fontWeight: '700', fontFamily: "Satoshi" }}>{stats.daysOnMarket}</span> days on Snaphomz</p>
+        <p style={{ fontFamily: "Satoshi" }}><span style={{ fontWeight: '700', fontFamily: "Satoshi" }}>{stats.views}</span> views</p>
+        <p style={{ fontFamily: "Satoshi" }}><span style={{ fontWeight: '700', fontFamily: "Satoshi" }}>{stats.saves}</span> saves</p>
+        <p style={{ fontFamily: "Satoshi" }}>Likely to sell faster than <span className="font-bold text-gray-900">{stats.sellLikelihood}</span> nearby</p>
       </div>
 
       {/* --- Floor Plan and 3D Home Images --- */}
-      <div className="flex flex-col sm:flex-row gap-6" style={{borderTop:"1px solid #DDDDDD", paddingTop: "50px"}}>
-        
+      <div className="flex flex-col sm:flex-row gap-6" style={{ borderTop: "1px solid #DDDDDD", paddingTop: "50px" }}>
+
         {/* Floor Plan Card */}
         <div className="flex-1 min-w-0">
           <div className="aspect-w-4 aspect-h-3">
-             <img src={floorPlanSrc} alt="Floor Plans" className="w-full h-full object-cover rounded-lg border border-gray-200" />
+            <img src={floorPlanSrc} alt="Floor Plans" className="w-full h-full object-cover rounded-lg border border-gray-200" />
           </div>
           <p className="mt-2 text-md font-semibold text-gray-900">Floor plans</p>
         </div>
@@ -97,7 +99,7 @@ const HomeHighlights: React.FC<HomeHighlightsProps> = (props = defaultProps) => 
         <div className="flex-1 min-w-0">
           <div className="aspect-w-4 aspect-h-3">
             {/* Replace with your Image component/tag */}
-             <img src={threeDHomeSrc} alt="3D Home Tour" className="w-full h-full object-cover rounded-lg border border-gray-200" />
+            <img src={threeDHomeSrc} alt="3D Home Tour" className="w-full h-full object-cover rounded-lg border border-gray-200" />
           </div>
           <p className="mt-2 text-md font-semibold text-gray-900">3D home</p>
         </div>

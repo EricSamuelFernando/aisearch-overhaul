@@ -22,7 +22,7 @@ import { useMediaQuery } from '@mantine/hooks';
 
 import '@mantine/core/styles.css';
 import '@mantine/carousel/styles.css';
-import './globals.css';
+import '@/app/globals.css';
 import Image from 'next/image';
 import guidline from '../../../public/assets/icons/Guided.svg';
 import reduced from '../../../public/assets/icons/Reduced.svg';

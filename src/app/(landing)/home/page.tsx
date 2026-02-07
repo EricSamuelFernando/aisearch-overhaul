@@ -1104,10 +1104,10 @@ export default function Home() {
       <MainNavPages />
 
       {/* ================= HERO SECTION ================= */}
-      <section className="relative -mt-24 min-h-[80vh] overflow-hidden bg-[#170800] pt-28 text-white md:h-screen md:pt-24">
-        <section className="flex h-full flex-col items-center justify-start px-4 pt-24 pb-16 text-center">
-
+      <section className="relative -mt-24 min-h-[80vh] bg-[#170800] pt-28 text-white md:h-screen md:pt-24">
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {/* ================= DESKTOP ARC ================= */}
+          
           <div className="hidden md:flex w-full justify-center items-center overflow-visible">
             <div className="absolute top-32 h-[850px] w-[1200px]">
               {/* Image 1 */}
@@ -1241,26 +1241,37 @@ export default function Home() {
 
               {/* Image 9 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
-                style={{ transform: `rotate(205.71deg) translateX(430px)` }}
+                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
+                style={{ transform: `rotate(205.71deg) translateX(430px)`,  }}
               >
                 <Image
                   src="/assets/images/home-landing2.png"
                   alt="home-landing-9"
-                  width={120}
-                  height={120}
+                  fill
+                  sizes="150px"
                   unoptimized
-                  className="rounded-3xl w-full h-full"
-                  style={{ objectFit: 'contain', transform: 'rotate(531deg)' }}
+                  className="object-cover"
+                  style={{ transform: 'rotate(531deg) scale(1.096)', transformOrigin: '50% 50%'  }}
                 />
               </div>
 
               {/* Image 10 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
+                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl relative"
                 style={{ transform: `rotate(231.43deg) translateX(430px)` }}
               >
-                <Image
+                
+                  <Image
+                    src="/assets/images/home-landing3.png"
+                    alt="home-landing-10"
+                    fill
+                    sizes="150px"
+                    unoptimized
+                    className="object-cover"
+                    style={{ transform: 'rotate(480deg) scale(1.25)', transformOrigin: '50% 50%'  }}
+                  />
+              
+               {/* <Image
                   src="/assets/images/home-landing3.png"
                   alt="home-landing-10"
                   width={120}
@@ -1268,78 +1279,78 @@ export default function Home() {
                   unoptimized
                   className="rounded-3xl w-full h-full"
                   style={{ objectFit: 'contain', transform: 'rotate(458deg)' }}
+                  
 
-                // style={{ objectFit: 'contain', transform: getImageRotation(231.43) }}
-                />
+        
+                />*/}
               </div>
 
               {/* Image 11 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
-                style={{ transform: `rotate(257.14deg) translateX(430px)` }}
+                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
+                style={{ transform: `rotate(257.14deg) translateX(430px)`}}
               >
                 <Image
                   src="/assets/images/home-landing4.png"
                   alt="home-landing-11"
-                  width={120}
-                  height={120}
+                  fill
+                  sizes="150px"
                   unoptimized
-                  className="rounded-3xl w-full h-full"
-                  style={{ objectFit: 'contain', transform: 'rotate(450deg)' }}
+                  className="object-cover"
+                  style={{ transform: 'rotate(465deg) scale(1.16)', transformOrigin: '50% 50%' }}
                 />
               </div>
 
               {/* Image 12 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
+                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
                 style={{ transform: `rotate(282.86deg) translateX(430px)` }}
               >
                 <Image
                   src="/assets/images/home-landing5.png"
                   alt="home-landing-12"
-                  width={120}
-                  height={120}
+                  fill
+                  sizes="150px"
                   unoptimized
-                  className="rounded-3xl w-full h-full"
-                  style={{ objectFit: 'contain', transform: 'rotate(450deg)' }}
+                  className="object-cover"
+                  style={{ transform: 'rotate(445deg) scale(1.055)', transformOrigin: '50% 50%' }}
                 />
               </div>
 
               {/* Image 13 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
+                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform transform overflow-hidden rounded-3xl"
                 style={{ transform: `rotate(308.57deg) translateX(430px)` }}
               >
                 <Image
                   src="/assets/images/home-landing6.png"
                   alt="home-landing-13"
-                  width={120}
-                  height={120}
+                  fill
+                  sizes="150px"
                   unoptimized
-                  className="rounded-3xl w-full h-full"
-                  style={{ objectFit: 'contain', transform: 'rotate(449deg)' }}
+                  className="object-cover"
+                  style={{ transform: 'rotate(414deg) scale(1.269)', transformOrigin: '50% 50%' }}
                 />
               </div>
 
               {/* Image 14 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
-                style={{ transform: `rotate(334.29deg) translateX(430px)` }}
+                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
+                style={{ transform: `rotate(334.29deg) translateX(430px)`}}
               >
                 <Image
                   src="/assets/images/home-landing7.png"
                   alt="home-landing-14"
-                  width={120}
-                  height={120}
+                  fill
+                  sizes="150px"
                   unoptimized
-                  className="rounded-3xl w-full h-full"
-                  style={{ objectFit: 'contain', transform: getImageRotation(334.29) }}
+                  className="object-cover"
+                  style={{ transform: 'rotate(390deg) scale(1.247)', transformOrigin: '50% 50%'}}
                 />
               </div>
 
             </div>
           </div>
-
           {/* ================= MOBILE ARC ================= */}
           <div className="relative w-full md:hidden pointer-events-none">
             <div className="absolute left-1/2 top-20 h-[220px] w-full max-w-[460px]
@@ -1379,9 +1390,11 @@ export default function Home() {
               ))}
             </div>
 
-            {/* spacing so text never overlaps */}
-            <div className="h-36" />
           </div>
+          </div>
+      
+
+        <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pt-24 pb-16 text-center">
 
           {/* ================= TEXT + SEARCH ================= */}
           <div className="relative z-30 flex max-w-[900px] flex-col items-center gap-8 mt-24 md:mt-32">
@@ -1401,7 +1414,7 @@ export default function Home() {
             <div className="relative w-full max-w-[600px] text-black">
               <HeroSearchForm searchType={searchMethod} />
 
-              <div className="mt-4 flex justify-center gap-4 text-sm text-white">
+            {/* <div className="mt-4 flex justify-center gap-4 text-sm text-white">
                 <Radio
                   value="nlp"
                   label="Search by Location"
@@ -1416,8 +1429,8 @@ export default function Home() {
                   checked={searchMethod === 'address'}
                   onChange={() => setSearchMethod('address')}
                 />
-              </div>
-            </div>
+              </div> */}
+            </div> 
 
             <div className="text-white text-[1rem]">
               <span className="font-medium">Conversational search </span>
@@ -1433,8 +1446,9 @@ export default function Home() {
             background:
               'linear-gradient(to bottom, rgba(25,7,0,0) 4.07%, #190700 55.92%)',
           }}
-        />
-      </section>
+          />
+        </section>
+
 
       {/* ================= OTHER SECTIONS ================= */}
       <ChooseYourMeans />

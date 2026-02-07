@@ -97,20 +97,46 @@ interface HomeHighlightsProps {
 
 // 2. Create the Data Object
 
+interface ProprtyData {
+  property: {
+    bathroomsHalf: number
+    bathroomsTotal: number
+    bedroomsTotal: number
+    hasBasement: boolean
+  }
+  homedetails: {
+    flooring: string
+    fireplaceYn: boolean
+  }
+  publicRemarks: string
+  tags: string[]
+  listingContractDate: string
+}
 
+function getDayCountFromUTC(dateStr: string) {
+  // "2026-01-29 00:00:00 UTC" -> valid ISO UTC
+  const iso = dateStr.replace(" UTC", "Z").replace(" ", "T");
+  const inputDate = new Date(iso);
+  const now = new Date();
+
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const diffMs = Number(now) - Number(inputDate); // positive = past, negative = future
+
+  return Math.floor(diffMs / msPerDay);
+}
 
 const PropertyPreview: React.FC = () => {
   const leftSection = React.useRef<HTMLDivElement>(null);
   const cardRef = React.useRef<HTMLDivElement>(null);
-  const [proprtyData, setPropertyData] = React.useState([]);
+  const [proprtyData, setPropertyData] = React.useState<ProprtyData | undefined>();
   const [propertyDatas, setpropertyDatas] = React.useState<any>(null);
   interface PropertyDetails {
     data: {
       schools: any[];
       propertyInfo?: any;
-
     };
   }
+
   const [open, setOpen] = React.useState<number | null>(null);
   const [propertyDetails, setPropertyDetails] = React.useState<PropertyDetails | null>(null);
   const property: any = useAppSelector((state: any) => state.property.property);
@@ -484,7 +510,7 @@ const PropertyPreview: React.FC = () => {
       "An enchanting tree-lined walkway leads to the front door. Enter to find a bright, open entryway. The light-filled primary suite awaits on this level of the home, complete with beautiful open beam ceilings, updated bath, walk-in closet/laundry and fireplace. " +
       "The open stairwell ascends to the spacious living room featuring gorgeous cathedral ceilings and tons of natural light. The formal dining room and updated kitchen open to a spacious wrap-around deck shaded by majestic oak trees, perfect for entertaining or dining al fresco. This level also features two additional bedrooms and a full bath...",
     stats: {
-      daysOnMarket: "3 days",
+      daysOnMarket: getDayCountFromUTC(proprtyData?.listingContractDate || Date.now().toString()).toString(),
       views: "721",
       saves: "18",
       sellLikelihood: "98%",
@@ -540,7 +566,7 @@ const PropertyPreview: React.FC = () => {
   const getPropertyDetails = async (id: string) => {
     try {
       setLoading(true);
-      setPropertyData([]);
+      setPropertyData(undefined);
       const payload = {
         listingId: +id || listingId,
         propertyId: parseInt(propertyData?.id) || parseInt(propertyId)
@@ -652,8 +678,8 @@ const PropertyPreview: React.FC = () => {
       title: "Home highlights",
       content: (
         <HomeHighlights
-          highlights={HomeHighlightsData.highlights}
-          description={HomeHighlightsData.description}
+          highlights={proprtyData?.tags.length ? proprtyData?.tags : HomeHighlightsData.highlights}
+          description={proprtyData?.publicRemarks || ""}
           stats={HomeHighlightsData.stats}
           floorPlanSrc={HomeHighlightsData.floorPlanSrc}
           threeDHomeSrc={HomeHighlightsData.threeDHomeSrc}
@@ -679,7 +705,12 @@ const PropertyPreview: React.FC = () => {
     {
       id: "offers",
       title: "What this place offers",
-      content: <InteriorOffersSection />,
+      content: <InteriorOffersSection BathRoomAndBedRoom={proprtyData?.property} features={{
+        flooring: proprtyData?.homedetails.flooring || "",
+        hasBasement: proprtyData?.property.hasBasement || false,
+        hasFireplace: proprtyData?.homedetails.fireplaceYn || false,
+
+      }} featureList={proprtyData?.tags.join(", ")} />,
     },
     {
       id: "interest",

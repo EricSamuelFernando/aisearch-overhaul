@@ -70,14 +70,28 @@ const FeatureList: React.FC<FeatureListProps> = ({ title, items }) => (
   </div>
 );
 
+interface InteriorOffersSectionProps {
+  BathRoomAndBedRoom?: {
+    bathroomsHalf: number
+    bathroomsTotal: number
+    bedroomsTotal: number
+  }
+
+  features?: {
+    flooring: string
+    hasBasement: boolean
+    hasFireplace: boolean
+  }
+  featureList?: string
+}
 
 // --- Main Component ---
-const InteriorOffersSection: React.FC = () => {
-  const { bedroomsAndBathrooms, primaryBedroom, appliances, features } = staticFeatures;
-  
+const InteriorOffersSection = ({ BathRoomAndBedRoom, features, featureList }: InteriorOffersSectionProps) => {
+  const { bedroomsAndBathrooms, primaryBedroom, appliances } = staticFeatures;
+
   return (
     <div className="max-w-4xl py-8">
-      
+
       {/* --- Header --- */}
       <h2 className="text-2xl font-bold text-gray-900 mb-6">
         What this place offers
@@ -90,34 +104,43 @@ const InteriorOffersSection: React.FC = () => {
 
       {/* --- Two-Column Content Grid --- */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12">
-        
+
         {/* === LEFT COLUMN === */}
         <div>
           {/* Bedrooms & bathrooms */}
-          <FeatureList 
-            title={bedroomsAndBathrooms.sectionTitle}
-            items={bedroomsAndBathrooms.items}
+          <FeatureList
+            title='Bedrooms & bathrooms'
+            items={[
+              `Bedrooms: ${BathRoomAndBedRoom?.bedroomsTotal || 0}`,
+              `Bathrooms: ${BathRoomAndBedRoom?.bathroomsTotal || 0}`,
+              `Full bathrooms: ${(BathRoomAndBedRoom?.bathroomsTotal || 0) - (BathRoomAndBedRoom?.bathroomsHalf || 0)}`,
+            ]}
           />
-          
+
           {/* Primary bedroom */}
-          <FeatureList 
+          <FeatureList
             title={primaryBedroom.sectionTitle}
             items={primaryBedroom.items}
           />
         </div>
-        
+
         {/* === RIGHT COLUMN === */}
         <div>
           {/* Appliances */}
-          <FeatureList 
+          <FeatureList
             title={appliances.sectionTitle}
             items={appliances.items}
           />
-          
+
           {/* Features */}
-          <FeatureList 
-            title={features.sectionTitle}
-            items={features.items}
+          <FeatureList
+            title="Features"
+            items={[
+              `${featureList ? featureList : "No Data"}`,
+              `Flooring: ${features?.flooring || ""}`,
+              `Has basement: ${features?.hasBasement ? "Yes" : "No"}`,
+              `Has fireplace: ${features?.hasFireplace ? "Yes" : "No"}`,
+            ]}
           />
         </div>
       </div>

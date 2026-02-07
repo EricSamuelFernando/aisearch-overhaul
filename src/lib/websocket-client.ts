@@ -59,46 +59,48 @@ export class WebSocketClientImpl implements WebSocketClient {
   private messageQueue: MessagePacket[] = [];
   public id: string | null = null;
   public connected = false;
-  private isLambda: boolean = false; // Detect if using Lambda/API Gateway (default false for local NestJS)
+  private isLambda: boolean = true; // Detect if using Lambda/API Gateway (default false for local NestJS)
 
   constructor(url: string) {
-    // Convert http:// to ws:// and https:// to wss://
-    // Detect if this is Lambda/API Gateway (contains execute-api.amazonaws.com or API Gateway patterns)
-    // API Gateway WebSocket URLs typically look like: wss://{api-id}.execute-api.{region}.amazonaws.com/{stage}
-    // Also check for common API Gateway patterns
-    const isApiGatewayPattern = url.includes('execute-api.amazonaws.com') ||
-      url.includes('execute-api.') ||
-      /execute-api\.[a-z0-9-]+\.amazonaws\.com/i.test(url);
+    // // Convert http:// to ws:// and https:// to wss://
+    // // Detect if this is Lambda/API Gateway (contains execute-api.amazonaws.com or API Gateway patterns)
+    // // API Gateway WebSocket URLs typically look like: wss://{api-id}.execute-api.{region}.amazonaws.com/{stage}
+    // // Also check for common API Gateway patterns
+    // const isApiGatewayPattern = url.includes('execute-api.amazonaws.com') ||
+    //   url.includes('execute-api.') ||
+    //   /execute-api\.[a-z0-9-]+\.amazonaws\.com/i.test(url);
 
-    // Force Lambda mode if URL contains execute-api (API Gateway WebSocket)
-    // OR if environment variable explicitly indicates API Gateway
-    this.isLambda = isApiGatewayPattern ||
-      process.env.NEXT_PUBLIC_USE_LAMBDA_WEBSOCKET === 'true' ||
-      url.includes('amazonaws.com');
+    // // Force Lambda mode if URL contains execute-api (API Gateway WebSocket)
+    // // OR if environment variable explicitly indicates API Gateway
+    // this.isLambda = isApiGatewayPattern ||
+    //   process.env.NEXT_PUBLIC_USE_LAMBDA_WEBSOCKET === 'true' ||
+    //   url.includes('amazonaws.com');
 
-    console.log('[WebSocket] URL detection:', {
-      originalUrl: url,
-      isLambda: this.isLambda,
-      containsExecuteApi: url.includes('execute-api'),
-      isApiGatewayPattern,
-      envFlag: process.env.NEXT_PUBLIC_USE_LAMBDA_WEBSOCKET
-    });
+    // console.log('[WebSocket] URL detection:', {
+    //   originalUrl: url,
+    //   isLambda: this.isLambda,
+    //   containsExecuteApi: url.includes('execute-api'),
+    //   isApiGatewayPattern,
+    //   envFlag: process.env.NEXT_PUBLIC_USE_LAMBDA_WEBSOCKET
+    // });
 
-    if (this.isLambda) {
-      // API Gateway WebSocket format: wss://{api-id}.execute-api.{region}.amazonaws.com/{stage}
-      // Convert http/https to ws/wss
-      // IMPORTANT: Keep the stage path (e.g., /ws, /prod, /dev) as it's part of the API Gateway route
-      // Example: https://ge7k22aqak.execute-api.us-west-1.amazonaws.com/ws
-      //          becomes: wss://ge7k22aqak.execute-api.us-west-1.amazonaws.com/ws
-      this.url = url.startsWith('ws') ? url : url.replace(/^http/, 'ws');
-      // Do NOT remove /ws or any stage path - it's required for API Gateway routing
-    } else {
-      // Local NestJS backend uses /ws path
-      this.url = url.replace(/^http/, 'ws');
-      if (!this.url.endsWith('/ws')) {
-        this.url = this.url + '/ws';
-      }
-    }
+    // if (this.isLambda) {
+    //   // API Gateway WebSocket format: wss://{api-id}.execute-api.{region}.amazonaws.com/{stage}
+    //   // Convert http/https to ws/wss
+    //   // IMPORTANT: Keep the stage path (e.g., /ws, /prod, /dev) as it's part of the API Gateway route
+    //   // Example: https://ge7k22aqak.execute-api.us-west-1.amazonaws.com/ws
+    //   //          becomes: wss://ge7k22aqak.execute-api.us-west-1.amazonaws.com/ws
+    //   this.url = url.startsWith('ws') ? url : url.replace(/^http/, 'ws');
+    //   // Do NOT remove /ws or any stage path - it's required for API Gateway routing
+    // } else {
+    //   // Local NestJS backend uses /ws path
+    //   this.url = url.replace(/^http/, 'ws');
+    //   if (!this.url.endsWith('/ws')) {
+    //     this.url = this.url + '/ws';
+    //   }
+    // }
+
+    this.url = "wss://demo-ws.snaphomz.com"
 
     console.log('[WebSocket] Base URL:', url, '→ WebSocket URL:', this.url);
 

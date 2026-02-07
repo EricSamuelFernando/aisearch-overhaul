@@ -402,43 +402,29 @@ import { PropertyTypeData } from '@/components/buy/onboard/property-type';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useGetPropertyPreference, useUpdatePropertyPreference } from '@/hooks/api/property/usePropertyApi';
-import { useAppDispatch, useAppSelector } from '@/lib/hook';
 import { cn } from '@/lib/utils';
-import { googleMapsApiKey } from '@/shared/constants/env';
 import { useAuth } from '@/shared/hooks/useAuth';
-import { buyerPropertyPreference } from '@/slices/onboarding/onboarding-selectors';
-import { Autocomplete, Libraries, useJsApiLoader } from '@react-google-maps/api';
+import { Autocomplete, Libraries } from '@react-google-maps/api';
 import { Search } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
 const libraries: Libraries = ['places'];
 
 function UserPropfilePreference() {
-    const dispatch = useAppDispatch();
-    const { propertyType } = useAppSelector(buyerPropertyPreference);
     const { user } = useAuth();
     const [isLoaded, setIsLoaded] = useState(true);
     const { updatePropertyPreference } = useUpdatePropertyPreference(user?.email);
-    const { getPropertyPreferenceFromAI } = useGetPropertyPreference(user?.email);
+    const { getPropertyPreferenceFromDB, getPropertyPreferenceFromAI } =
+      useGetPropertyPreference(user?.email);
 
-    // Refetch AI API preferences when component mounts to ensure fresh data
+    // Refetch both DB and AI API preferences when component mounts to ensure fresh data
     React.useEffect(() => {
-        if (user?.email && !getPropertyPreferenceFromAI.data) {
-            console.log('🔄 Refetching AI preferences on mount...');
-            getPropertyPreferenceFromAI.refetch();
+        if (user?.email) {
+            console.log('🔄 Refetching preferences on mount...');
+            getPropertyPreferenceFromDB.refetch?.();
+            getPropertyPreferenceFromAI.refetch?.();
         }
-    }, [user?.email]);
-    
-    // Also refetch when component first mounts
-    React.useEffect(() => {
-        const timer = setTimeout(() => {
-            if (user?.email) {
-                console.log('🔄 Refetching AI preferences after mount delay...');
-                getPropertyPreferenceFromAI.refetch();
-            }
-        }, 100);
-        return () => clearTimeout(timer);
-    }, []);
+    }, [user?.email, getPropertyPreferenceFromDB, getPropertyPreferenceFromAI]);
 
     // Initialize preferenceData from user.propertyPreference or fetched preference
     const [preferenceData, setPreferenceData] = useState({
@@ -452,58 +438,94 @@ function UserPropfilePreference() {
 
     const autoCompleteRef = React.useRef<google.maps.places.Autocomplete | null>(null);
 
-    // Update preferenceData ONLY from AI API
+    // Load preference data: Prefer DB if complete, otherwise use AI API
     useEffect(() => {
-        // Only use AI API data
-        if (getPropertyPreferenceFromAI.data && !getPropertyPreferenceFromAI.isLoading) {
-            const aiResponse:any = getPropertyPreferenceFromAI.data;
-            console.log('📊 Loading preferences from AI API:', aiResponse);
-            
-            // AI API response structure: { preference: { mls_type, property_sub_type, listing_price_max, city, state, ... } }
-            const aiPreference = aiResponse?.preference || aiResponse;
-            
-            // Property type logic:
-            // - Only for "Condo", use property_sub_type key and map to "Condomium"
-            // - For all other types, use mls_type key
+        // Wait for both queries to finish loading
+        if (getPropertyPreferenceFromDB.isLoading || getPropertyPreferenceFromAI.isLoading) {
+            console.log('⏳ Still loading preferences...');
+            return;
+        }
+
+        const dbPreference: any = getPropertyPreferenceFromDB.data;
+        const aiResponse: any = getPropertyPreferenceFromAI.data;
+
+        // Check if DB has complete data
+        const dbIsComplete = Boolean(
+            dbPreference &&
+            dbPreference.propertyType &&
+            dbPreference.preferredPropertyAddress &&
+            dbPreference.spendAmount?.max
+        );
+
+        // If DB has complete data, use it
+        if (dbIsComplete) {
+            console.log('✅ Using GraphQL DB data (complete):', dbPreference);
+            const propertyType = dbPreference.propertyType || '';
+            const priceMax = Number(dbPreference.spendAmount?.max) || 0;
+            const priceMin = Number(dbPreference.spendAmount?.min) || 0;
+            const areaPreference = dbPreference.preferredPropertyAddress || '';
+
+            const normalizedPropertyType =
+                propertyType === 'Single Family' ? 'Single Family Home' : propertyType;
+
+            setPreferenceData({
+                areaPreference,
+                propertyTypePreference: normalizedPropertyType,
+                propertyPricePreference: {
+                    max: priceMax,
+                    min: priceMin
+                },
+            });
+            return;
+        }
+
+        // If DB is incomplete/missing, try AI API
+        if (aiResponse?.preference) {
+            const aiPreference = aiResponse.preference;
+            console.log('📊 Using AI API data (DB incomplete/missing):', aiPreference);
+
+            // Property type logic
             let propertyType = '';
             if (aiPreference?.property_sub_type === 'Condo') {
-                // Only use property_sub_type for Condo, map to "Condomium" (matches PropertyTypeData value)
                 propertyType = 'Condomium';
             } else {
-                // For all other types, use mls_type
                 propertyType = aiPreference?.mls_type || aiPreference?.propertyType || '';
             }
-            
-            // Normalize propertyType: "Single Family" -> "Single Family Home"
             if (propertyType === 'Single Family') {
                 propertyType = 'Single Family Home';
             }
-            
-            // Map listing_price_max to spendAmount.max
+
             const priceMax = Number(aiPreference?.listing_price_max) || Number(aiPreference?.spendAmount?.max) || 0;
             const priceMin = Number(aiPreference?.listing_price_min) || Number(aiPreference?.spendAmount?.min) || 0;
-            
-            // Map city and state to preferredPropertyAddress
+
             let areaPreference = '';
             if (aiPreference?.city) {
                 areaPreference = `${aiPreference.city}${aiPreference.state ? `, ${aiPreference.state}` : ''}`;
             } else {
                 areaPreference = aiPreference?.preferredPropertyAddress || '';
             }
-            
-            const newPreferenceData = {
-                areaPreference: areaPreference,
-                propertyTypePreference: propertyType,
-                propertyPricePreference: {
-                    max: priceMax,
-                    min: priceMin
-                },
-            };
-            
-            console.log('✅ Setting preference data from AI API:', newPreferenceData);
-            setPreferenceData(newPreferenceData);
+
+            // Only set if we have meaningful data
+            if (propertyType && areaPreference && priceMax > 0) {
+                const newPreferenceData = {
+                    areaPreference: areaPreference,
+                    propertyTypePreference: propertyType,
+                    propertyPricePreference: {
+                        max: priceMax,
+                        min: priceMin
+                    },
+                };
+
+                console.log('✅ Setting preference data from AI API:', newPreferenceData);
+                setPreferenceData(newPreferenceData);
+            }
         }
-    }, [getPropertyPreferenceFromAI.data, getPropertyPreferenceFromAI.isLoading]);
+    }, [
+        getPropertyPreferenceFromDB.data,
+        getPropertyPreferenceFromDB.isLoading,
+        getPropertyPreferenceFromAI.data,
+        getPropertyPreferenceFromAI.isLoading,
+    ]);
 
     // Debug: Log current state
     React.useEffect(() => {
@@ -538,12 +560,17 @@ function UserPropfilePreference() {
         const priceMax = propertyPricePreference?.max || 0;
 
         // Save logic with proper mapping - saves to GraphQL DB and syncs with AI API
+        const isComplete = Boolean(
+            propertyTypePreference && areaPreference && priceMax,
+        );
+
         updatePropertyPreference.mutate({
             preferredPropertyAddress: areaPreference || '',
             city: areaPreference || '', // Also send as city for AI API
             propertyType: propertyTypePreference || '',
             priceMin: priceMin,
             priceMax: priceMax,
+            onboardingCompleted: isComplete,
                 }, {
             onSuccess: (data) => {
                 console.log('✅ Preferences updated successfully:', data);

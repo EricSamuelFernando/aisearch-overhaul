@@ -62,10 +62,10 @@ export class WebSocketClientImpl implements WebSocketClient {
   private isLambda: boolean = true; // Detect if using Lambda/API Gateway (default false for local NestJS)
 
   constructor(url: string) {
-    // Convert http:// to ws:// and https:// to wss://
-    // Detect if this is Lambda/API Gateway (contains execute-api.amazonaws.com or API Gateway patterns)
-    // API Gateway WebSocket URLs typically look like: wss://{api-id}.execute-api.{region}.amazonaws.com/{stage}
-    // Also check for common API Gateway patterns
+    // // Convert http:// to ws:// and https:// to wss://
+    // // Detect if this is Lambda/API Gateway (contains execute-api.amazonaws.com or API Gateway patterns)
+    // // API Gateway WebSocket URLs typically look like: wss://{api-id}.execute-api.{region}.amazonaws.com/{stage}
+    // // Also check for common API Gateway patterns
     // const isApiGatewayPattern = url.includes('execute-api.amazonaws.com') ||
     //   url.includes('execute-api.') ||
     //   /execute-api\.[a-z0-9-]+\.amazonaws\.com/i.test(url);

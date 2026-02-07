@@ -120,8 +120,8 @@ const FavouritePropertyCards = (props: any) => {
             {formatCurrency(props?.price || 0, 'USD')}
           </h3>
           {isWishlisted && (
-            <div onClick={handleCommentClick} className="cursor-pointer hover:scale-110 transition-transform">
-              <MessageCircle className="w-6 h-6 text-[#FF8700]" />
+            <div onClick={handleCommentClick} className="cursor-pointer hover:scale-110 transition-transform flex items-center justify-center w-8 h-8 bg-[#FF8700] rounded-full shadow-sm">
+              <MessageCircle className="w-5 h-5 text-white fill-white" />
             </div>
           )}
         </div>

@@ -1,8 +1,7 @@
 import { success, error } from '@/components/alert/notify';
-import { getAuthToken } from '@/lib/storage';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
+import API from '@/lib/api/axios';
 
 
 
@@ -11,19 +10,14 @@ import axios from 'axios';
 export const useRepoManagementApi = (handleCb?: () => void) => {
 
   const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || 'http://localhost:4000/graphql';
-  const getToken = () => getAuthToken() || (typeof window !== 'undefined' && localStorage.getItem('userAccessToken'));
 
 
-  const headers = {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${getToken()}`,
 
-  };
 
   const createRepoWithUploadedFile = useMutation({
     mutationKey: ['createRepoManagement'],
     mutationFn: async (payload: any) => {
-      const response = await axios.post(
+      const response = await API.post(
         GRAPHQL_URI,
         {
           query: `
@@ -38,8 +32,7 @@ mutation CreateRepo(
 }
           `,
           variables: payload,
-        },
-        { headers }
+        }
       );
 
       if (response.status !== 200 || response.data.errors) {
@@ -64,7 +57,7 @@ mutation CreateRepo(
     useQuery({
       queryKey: ['getRepoById', id],
       queryFn: async () => {
-        const response = await axios.post(
+        const response = await API.post(
           GRAPHQL_URI,
           {
             query: `
@@ -77,8 +70,7 @@ mutation CreateRepo(
               }
             `,
             variables: { id },
-          },
-          { headers }
+          }
         );
 
         if (response.status !== 200 || response.data.errors) {
@@ -93,7 +85,7 @@ mutation CreateRepo(
   const updateRepoMutation = useMutation({
     mutationKey: ['updateRepo'],
     mutationFn: async (updateRepoInput: any) => {
-      const response = await axios.post(
+      const response = await API.post(
         GRAPHQL_URI,
         {
           query: `
@@ -105,8 +97,7 @@ mutation CreateRepo(
             }
           `,
           variables: { updateRepoManagementInput: updateRepoInput },
-        },
-        { headers }
+        }
       );
 
       if (response.status !== 200 || response.data.errors) {
@@ -128,7 +119,7 @@ mutation CreateRepo(
   const deleteRepoMutation = useMutation({
     mutationKey: ['deleteRepo'],
     mutationFn: async (id: string) => {
-      const response = await axios.post(
+      const response = await API.post(
         GRAPHQL_URI,
         {
           query: `
@@ -140,8 +131,7 @@ mutation CreateRepo(
             }
           `,
           variables: { id },
-        },
-        { headers }
+        }
       );
 
       if (response.status !== 200 || response.data.errors) {
@@ -163,7 +153,7 @@ mutation CreateRepo(
   const assignUserAccessMutation = useMutation({
     mutationKey: ['assignUserAccess'],
     mutationFn: async (assignAccessInput: any) => {
-      const response = await axios.post(
+      const response = await API.post(
         GRAPHQL_URI,
         {
           query: `
@@ -172,8 +162,7 @@ mutation CreateRepo(
             }
           `,
           variables: { assignAccessInput },
-        },
-        { headers }
+        }
       );
 
       if (response.status !== 200 || response.data.errors) {
@@ -197,7 +186,7 @@ mutation CreateRepo(
       repoId: string;
       accessType: string;
     }) => {
-      const response = await axios.post(
+      const response = await API.post(
         GRAPHQL_URI,
         {
           query: `
@@ -206,8 +195,7 @@ mutation CreateRepo(
             }
           `,
           variables: grantAccessInput,
-        },
-        { headers } // Adjust headers if needed
+        }
       );
 
       if (response.status !== 200 || response.data.errors) {
@@ -229,7 +217,7 @@ mutation CreateRepo(
   const requestRepoAccess = useMutation({
     mutationKey: ['requestRepoAccess'],
     mutationFn: async (requestInput: any) => {
-      const response = await axios.post(
+      const response = await API.post(
         GRAPHQL_URI,
         {
           query: `
@@ -238,8 +226,7 @@ mutation CreateRepo(
             }
           `,
           variables: { requestInput },
-        },
-        { headers }
+        }
       );
 
       if (response.status !== 200 || response.data.errors) {
@@ -260,7 +247,7 @@ mutation CreateRepo(
   const updateAccessRequestStatus = useMutation({
     mutationKey: ['updateAccessRequestStatus'],
     mutationFn: async (input: any) => {
-      const response = await axios.post(
+      const response = await API.post(
         GRAPHQL_URI,
         {
           query: `
@@ -269,8 +256,7 @@ mutation CreateRepo(
             }
           `,
           variables: { input },
-        },
-        { headers }
+        }
       );
 
       if (response.status !== 200 || response.data.errors) {
@@ -291,7 +277,7 @@ mutation CreateRepo(
   const removeUploadedFile = useMutation({
     mutationKey: ['deleteUploadedFile'],
     mutationFn: async (fileId: string) => {
-      const response = await axios.post(
+      const response = await API.post(
         GRAPHQL_URI,
         {
           query: `
@@ -300,8 +286,7 @@ mutation CreateRepo(
             }
           `,
           variables: { fileId },
-        },
-        { headers }
+        }
       );
 
       if (response.status !== 200 || response.data.errors) {
@@ -322,13 +307,7 @@ mutation CreateRepo(
   const renameUploadedFile = useMutation({
     mutationKey: ['renameUploadedFile'],
     mutationFn: async (updateInput: { id: string; fileName?: string; fileType?: string; fileUrl?: string }) => {
-      const token = getAuthToken() || localStorage.getItem('userAccessToken');
-      const headers = {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      };
-
-      const response = await axios.post(
+      const response = await API.post(
         GRAPHQL_URI,
         {
           query: `
@@ -344,8 +323,7 @@ mutation CreateRepo(
           variables: {
             updateUploadedFileInput: updateInput,
           },
-        },
-        { headers }
+        }
       );
 
       if (response.status !== 200 || response.data.errors) {
@@ -387,43 +365,37 @@ export const useGetAllRepos = (propertyId?: string, folderName?: string, shared:
       //const getToken = () => getAuthToken() || (typeof window !== 'undefined' && localStorage.getItem('userAccessToken'));
 
 
-      const headers = {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${getAuthToken()}`,
-
-      };
       const [, propId, , sharedFlag] = queryKey;
 
-      const response = await axios.post(
+      const response = await API.post(
         GRAPHQL_URI,
         {
           query: `
-            query GetRepos($propertyId: String, $folderName: String, $shared: Boolean) {
-              repoById(propertyId: $propertyId, folderName: $folderName, shared: $shared) {
-                id
-                name
-                url
-                uploadedFiles {
-                  id
-                  fileName
-                  fileUrl
-                  uploadedAt
-                }
-                repoAccessUsers {
-                  id
-                  accessType
-                  userId
-                }
-              }
-            }
-          `,
+             query GetRepos($propertyId: String, $folderName: String, $shared: Boolean) {
+               repoById(propertyId: $propertyId, folderName: $folderName, shared: $shared) {
+                 id
+                 name
+                 url
+                 uploadedFiles {
+                   id
+                   fileName
+                   fileUrl
+                   uploadedAt
+                 }
+                 repoAccessUsers {
+                   id
+                   accessType
+                   userId
+                 }
+               }
+             }
+           `,
           variables: {
             propertyId: propId,
             folderName,
             shared: sharedFlag,
           },
-        },
-        { headers }
+        }
       );
 
       if (response.status !== 200 || response.data.errors) {
@@ -439,20 +411,14 @@ export const useCheckUserAccess = ({ repoId, requiredAccessType, enabled = true 
 
   const { user } = useAuth();
   const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || 'http://localhost:4000/graphql';
-  const getToken = () => getAuthToken() || (typeof window !== 'undefined' && localStorage.getItem('userAccessToken'));
 
 
-  const headers = {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${getToken()}`,
-
-  };
 
   const userId = user?.id
   return useQuery({
     queryKey: ['checkUserAccess', repoId, userId, requiredAccessType],
     queryFn: async () => {
-      const response = await axios.post(
+      const response = await API.post(
         GRAPHQL_URI,
         {
           query: `
@@ -461,9 +427,6 @@ export const useCheckUserAccess = ({ repoId, requiredAccessType, enabled = true 
               }
             `,
           variables: { repoId, userId, requiredAccessType },
-        },
-        {
-          headers
         }
       );
 
@@ -484,15 +447,9 @@ export const useGetAccessRequestsByUserId = (userId: string) =>
     queryKey: ['getAccessRequestsByUserId', userId],
     queryFn: async () => {
       const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || 'http://localhost:4000/graphql';
-      const getToken = () => getAuthToken() || (typeof window !== 'undefined' && localStorage.getItem('userAccessToken'));
 
 
-      const headers = {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${getToken()}`,
-
-      };
-      const response = await axios.post(
+      const response = await API.post(
         GRAPHQL_URI,
         {
           query: `
@@ -507,8 +464,7 @@ export const useGetAccessRequestsByUserId = (userId: string) =>
             }
           `,
           variables: { userId },
-        },
-        { headers }
+        }
       );
 
       if (response.status !== 200 || response.data.errors) {
@@ -528,23 +484,16 @@ export const useViewUploadedFileUrl = (fileName: string, enabled: boolean = true
     queryKey: ['viewUploadedFile', fileName],
     queryFn: async () => {
       const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || 'http://localhost:4000/graphql';
-      const getToken = () => getAuthToken() || (typeof window !== 'undefined' && localStorage.getItem('userAccessToken'));
 
 
-      const headers = {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${getToken()}`,
-
-      };
-      const response = await axios.post(
+      const response = await API.post(
         GRAPHQL_URI,
         {
           query: `query ViewUplaodedFile($fileName: String!) {
            viewUplaodedFile(fileName: $fileName)
            }`,
           variables: { fileName },
-        },
-        { headers }
+        }
       );
 
       if (response.status !== 200 || response.data.errors) {

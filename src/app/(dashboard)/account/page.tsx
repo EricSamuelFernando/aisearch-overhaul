@@ -6,11 +6,11 @@ import { formatSellerDate } from '@/lib/helpers';
 import PlaceholderImage from '@public/assets/images/placeholder.svg';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useGetUserDocument } from '@/hooks/api/user/useGetUserDocuments';
+import { useGetUserDocuments } from '@/hooks/api/user/useGetUserDocuments';
 import {
   truncateName,
-  useDocumentHandlers,
 } from '@/hooks/utils/useDocumentsHandlers';
+
 import PDFViewerModal from '@/components/dashboard/main/pdf-viewer';
 import {
   DropdownMenu,
@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Download, EllipsisVertical, Eye, FileText, MoreVertical, UserPlus, PlusCircle, Share2, Edit2, FileEdit, Trash2, ArrowLeft, Ellipsis, EllipsisIcon } from 'lucide-react';
+import { EllipsisVertical, Eye, FileText, MoreVertical, UserPlus, PlusCircle, Share2, Edit2, FileEdit, Trash2, ArrowLeft, Ellipsis, EllipsisIcon } from 'lucide-react';
 import { useGetUserInvitedAgents } from '@/hooks/api/user/useGetUserInvitedAgents';
 import ProfileCircle from '@/components/dashboard/user/profile-circle';
 import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
@@ -77,7 +77,7 @@ export default function AccountPage() {
   const [favourites, setFavourites] = useState([])
   const { getAllAgentsQuery, searchAgentMutation, sendInviteMutation } = useUserAuthApi();
   const { data: userDocuments, isPending: isDocumentsPending } =
-    useGetUserDocument();
+    useGetUserDocuments();
   const {
     createNewSnap,
     getAllSnaps,
@@ -95,7 +95,7 @@ export default function AccountPage() {
   const [isModalOpen, setIsModalOpen] = useState("");
   const [isCollaborateModalOpen, setIsCollaborateModalOpen] = useState(false);
   const { isPending: isInvitedAgentsPending } = useGetUserInvitedAgents();
-  const { handleDownload } = useDocumentHandlers(undefined);
+
   const documents = userDocuments?.result;
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
@@ -625,12 +625,12 @@ export default function AccountPage() {
 
         <TabsContent value='documents'>
           <div className='text-center text-gray-500'>
-            <div className='grid grid-cols-1 gap-4 py-6 sm:grid-cols-2 sm:gap-5 sm:py-8 lg:grid-cols-3'>
+            <div className='grid grid-cols-1 gap-4 py-6 sm:grid-cols-2 sm:gap-5 sm:py-8 lg:grid-cols-4'>
               {documents?.map((doc) => (
 
                 <div
                   className='relative flex w-fit items-center justify-between rounded-lg p-4 transition-all duration-500 ease-in-out'
-                  key={doc._id}
+                  key={doc.id}
                 >
                   <section className='flex cursor-pointer flex-col gap-4 '>
                     <div className='relative flex items-center justify-center rounded-md bg-white p-4'>
@@ -648,24 +648,19 @@ export default function AccountPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align='end'>
                           <DropdownMenuItem
-                            onClick={() => handleOpenPdfViewer(doc.url)}
+                            onClick={() => handleOpenPdfViewer(doc.fileUrl)}
                           >
                             <Eye className='mr-2 h-4 w-4' />
                             <span>Open</span>
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleDownload(doc._id, doc.url)}
-                          >
-                            <Download className='mr-2 h-4 w-4' />
-                            <span>Download</span>
-                          </DropdownMenuItem>
+
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
 
                     <div className='flex flex-col justify-start space-y-2 text-start'>
                       <h3 className='font-bold text-black'>
-                        {truncateName(doc.name, 20)}
+                        {truncateName(doc.fileName, 20)}
                       </h3>
                       <p className='text-xs text-gray-500'>
                         {formatSellerDate(new Date(doc.updatedAt))}

@@ -1156,9 +1156,9 @@ export default function Home() {
 
       {/* ================= HERO SECTION ================= */}
       <section className="relative -mt-24 min-h-[80vh] bg-[#170800] pt-28 text-white md:h-screen md:pt-24">
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {/* ================= DESKTOP ARC ================= */}
-          
+
           <div className="hidden md:flex w-full justify-center items-center overflow-visible">
             <div className="absolute top-32 h-[850px] w-[1200px]">
               {/* Image 1 */}
@@ -1293,7 +1293,7 @@ export default function Home() {
               {/* Image 9 */}
               <div
                 className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
-                style={{ transform: `rotate(205.71deg) translateX(430px)`,  }}
+                style={{ transform: `rotate(205.71deg) translateX(430px)`, }}
               >
                 <Image
                   src="/assets/images/home-landing2.png"
@@ -1302,7 +1302,7 @@ export default function Home() {
                   sizes="150px"
                   unoptimized
                   className="object-cover"
-                  style={{ transform: 'rotate(531deg) scale(1.096)', transformOrigin: '50% 50%'  }}
+                  style={{ transform: 'rotate(531deg) scale(1.096)', transformOrigin: '50% 50%' }}
                 />
               </div>
 
@@ -1311,18 +1311,18 @@ export default function Home() {
                 className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl relative"
                 style={{ transform: `rotate(231.43deg) translateX(430px)` }}
               >
-                
-                  <Image
-                    src="/assets/images/home-landing3.png"
-                    alt="home-landing-10"
-                    fill
-                    sizes="150px"
-                    unoptimized
-                    className="object-cover"
-                    style={{ transform: 'rotate(480deg) scale(1.25)', transformOrigin: '50% 50%'  }}
-                  />
-              
-               {/* <Image
+
+                <Image
+                  src="/assets/images/home-landing3.png"
+                  alt="home-landing-10"
+                  fill
+                  sizes="150px"
+                  unoptimized
+                  className="object-cover"
+                  style={{ transform: 'rotate(480deg) scale(1.25)', transformOrigin: '50% 50%' }}
+                />
+
+                {/* <Image
                   src="/assets/images/home-landing3.png"
                   alt="home-landing-10"
                   width={120}
@@ -1339,7 +1339,7 @@ export default function Home() {
               {/* Image 11 */}
               <div
                 className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
-                style={{ transform: `rotate(257.14deg) translateX(430px)`}}
+                style={{ transform: `rotate(257.14deg) translateX(430px)` }}
               >
                 <Image
                   src="/assets/images/home-landing4.png"
@@ -1387,7 +1387,7 @@ export default function Home() {
               {/* Image 14 */}
               <div
                 className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
-                style={{ transform: `rotate(334.29deg) translateX(430px)`}}
+                style={{ transform: `rotate(334.29deg) translateX(430px)` }}
               >
                 <Image
                   src="/assets/images/home-landing7.png"
@@ -1396,7 +1396,7 @@ export default function Home() {
                   sizes="150px"
                   unoptimized
                   className="object-cover"
-                  style={{ transform: 'rotate(390deg) scale(1.247)', transformOrigin: '50% 50%'}}
+                  style={{ transform: 'rotate(390deg) scale(1.247)', transformOrigin: '50% 50%' }}
                 />
               </div>
 
@@ -1442,13 +1442,13 @@ export default function Home() {
             </div>
 
           </div>
-          </div>
-      
+        </div>
+
 
         <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pt-24 pb-16 text-center">
 
           {/* ================= TEXT + SEARCH ================= */}
-          <div className="relative z-30 flex max-w-[900px] flex-col items-center gap-8 mt-24 md:mt-32">
+          <div className="relative z-30 flex max-w-[1250px] flex-col items-center gap-8 mt-24 md:mt-32">
 
             <h1 className="text-[2rem] font-medium leading-snug tracking-tight sm:text-[2.4rem] md:text-[3rem]">
               <span className="block">Buying a home</span>
@@ -1462,10 +1462,12 @@ export default function Home() {
               First end-to-end guided real estate platform
             </p>
 
-            <div className="relative w-full max-w-[600px] text-black">
-              <HeroSearchForm searchType={searchMethod} />
+            <div className="relative w-full flex justify-center text-black">
+              <div className="w-full max-w-[1000px]">
+                <HeroSearchForm searchType={searchMethod} />
+              </div>
 
-            {/* <div className="mt-4 flex justify-center gap-4 text-sm text-white">
+              {/* <div className="mt-4 flex justify-center gap-4 text-sm text-white">
                 <Radio
                   value="nlp"
                   label="Search by Location"
@@ -1481,7 +1483,7 @@ export default function Home() {
                   onChange={() => setSearchMethod('address')}
                 />
               </div> */}
-            </div> 
+            </div>
 
             <div className="text-white text-[1rem]">
               <span className="font-medium">Conversational search </span>
@@ -1497,8 +1499,8 @@ export default function Home() {
             background:
               'linear-gradient(to bottom, rgba(25,7,0,0) 4.07%, #190700 55.92%)',
           }}
-          />
-        </section>
+        />
+      </section>
 
 
       {/* ================= OTHER SECTIONS ================= */}

@@ -136,7 +136,7 @@ const AgentsGrid = memo(function AgentsGrid({
   highlightQuery,
 }: {
   agents: Agent[] | null;
-  highlightQuery: string;
+  highlightQuery?: string;
 }) {
   const isPresent = (v: any) =>
     v !== null &&
@@ -388,12 +388,17 @@ export default function AgentSearchPage() {
   useEffect(() => {
     const queryParam = searchParams.get('query') || '';
     const modeParam = (searchParams.get('mode') as SearchMode | null) ?? 'name';
+    const controller = new AbortController();
 
     setMode(modeParam);
     setSearchInput(modeParam === 'name' ? queryParam : '');
 
     (async () => {
-      const data: Agent[] = await fetchAgents();
+      const data: Agent[] = await fetchExternalAgents({
+        limit: PAGE_SIZE,
+        offset: 0,
+        signal: controller.signal,
+      });
 
       let final = data;
 

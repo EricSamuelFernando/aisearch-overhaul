@@ -368,6 +368,7 @@ export const useGetPropertyPreference = (email?: string) => {
   });
 
   return {
+    getPropertyPreferenceFromDB,
     getPropertyPreferenceFromAI
   };
 }
@@ -386,6 +387,7 @@ export const useUpdatePropertyPreference = (email?: string) => {
       priceMin?: number;
       priceMax?: number;
       city?: string;
+      onboardingCompleted?: boolean;
     }) => {
       if (!token) {
         throw new Error('No authentication token found');
@@ -393,7 +395,7 @@ export const useUpdatePropertyPreference = (email?: string) => {
 
       // Prepare GraphQL mutation data according to PropertyPreferenceInput schema
       const propertyData: any = {
-        onboardingCompleted: false,
+        onboardingCompleted: data.onboardingCompleted ?? false,
         preApprovalAffiliates: false,
       };
 

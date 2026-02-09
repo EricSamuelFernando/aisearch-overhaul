@@ -15,7 +15,7 @@ interface Comment {
     createdAt: string;
 }
 
-const RecentCommentsSidebar = ({ properties = [], refreshTrigger = 0 }: { properties?: any[], refreshTrigger?: number }) => {
+const RecentCommentsSidebar = ({ properties = [], refreshTrigger = 0, onNewComment }: { properties?: any[], refreshTrigger?: number, onNewComment?: () => void }) => {
     const [comments, setComments] = useState<Comment[]>([]);
     const [loading, setLoading] = useState(false);
     const [isAppModalOpen, setAppModalOpen] = useState(false);
@@ -80,6 +80,14 @@ const RecentCommentsSidebar = ({ properties = [], refreshTrigger = 0 }: { proper
         if (socket) {
             const handleNewActivity = (comment: Comment) => {
                 console.log('[RecentComments] New activity received via socket:', comment);
+
+                // Notify parent to refresh unread counts
+                if (typeof onNewComment === 'function') {
+                    console.log('[RecentComments] Triggering parent onNewComment refresh');
+                    onNewComment();
+                } else {
+                    console.warn('[RecentComments] onNewComment callback is missing');
+                }
 
                 // Add comment directly to state instead of refetching
                 setComments((prev) => {

@@ -371,8 +371,19 @@ import { PROPERTY_SEARCH_AI_URL } from '@/shared/constants/env';
 import { setPropertyQuery } from '@/slices/property/property-slice';
 import { Input } from '../ui/input';
 import { cn } from '@/lib/utils';
+import { useProperty } from '@/shared/hooks/useProperty';
 
 type Props = {};
+
+const StarIcon = () => (
+  <img
+    src="/assets/icons/stars.svg"
+    width={22}
+    height={22}
+    alt="search icon"
+    className="inline-block"
+  />
+);
 
 const breadcrumbList = [
   {
@@ -390,8 +401,14 @@ const breadcrumbList = [
 ];
 
 const BuyBreadCrumb = ({ }: Props) => {
+  const { currentView } = useProperty();
   return (
-    <div className='sticky z-10 w-full px-4 pb-4 pt-10 md:px-8'>
+    <div
+      className={cn(
+        'sticky z-10 w-full px-4 pb-4 pt-10 md:px-8',
+        currentView === 'grid' ? 'max-w-[1440px] mx-auto' : '',
+      )}
+    >
       <div className='flex items-center gap-x-2 font-medium'>
         {breadcrumbList.map((item, idx) => (
           <React.Fragment key={item.name}>
@@ -452,7 +469,7 @@ const useScrollPosition = () => {
   return { scrollPosition, scrollDirection, isScrolling };
 };
 
-const BuyCustomSearch = () => {
+const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
   const searchParams = useSearchParams();
   const searchTerm = searchParams.get('q');
   const router = useRouter();
@@ -462,6 +479,7 @@ const BuyCustomSearch = () => {
   const [isVisible, setIsVisible] = React.useState(true);
   const [filterData, setFilterData] = React.useState({});
   const [showInputBox, setShowInputBox] = React.useState(false);
+  const { currentView } = useProperty();
 
   const { user } = useAuth()
   const { email } = useRegister()
@@ -586,6 +604,10 @@ const BuyCustomSearch = () => {
   );
 
 
+  if (hideInMap && currentView === 'map') {
+    return null;
+  }
+
   return (
     <>
       <div style={{ position: 'fixed', bottom: '16px', right: '16px', zIndex: 50 }}>
@@ -688,44 +710,83 @@ const BuyCustomSearch = () => {
       )}
 
 
-      <div className="px-6 pt-16 pb-2 border-b border-gray-200">
-        <h2 className="text-xl font-semibold text-gray-800">Start a New Search</h2>
-        <p>Snaphomz Conversational Search is Powered By A Custom AI Model</p>
-      </div>
-
-      <form
-        id='buyer-search-hero-form'
-        className="flex flex-col space-y-4 border-t border-gray-100 bg-gray-50 px-6 py-6"
-        onSubmit={handleSubmit}
-        style={{ width: '50%' }}
-      >
-        <div className="flex h-12 w-full items-center rounded-lg bg-gray-100 pl-4 transition-colors duration-300 hover:bg-white focus-within:bg-white">
-          <SpeechInput
-            value={searchString}
-            setValue={setSearchString}
-            inputClassName='w-full rounded-none border-none outline-none hover:border-none hover:outline-none hover:ring-0 focus:border-none focus:outline-none focus:ring-0 bg-transparent group-hover:bg-white'
-            className='w-full'
-          />
+      <div id="buy-custom-search" className={cn(currentView === 'grid' ? 'max-w-[1440px] mx-auto w-full' : 'w-full')}>
+        <div
+          className={cn(
+            'px-6 pt-16 pb-2 border-b border-gray-200',
+            currentView === 'grid' ? 'text-center' : '',
+          )}
+        >
+          <h2 className="text-xl font-semibold text-gray-800">Start a New Search</h2>
+          <p>Snaphomz Conversational Search is Powered By A Custom AI Model</p>
         </div>
 
-        <Button
-          type='submit'
-          size='lg'
-          className='w-full md:w-auto rounded-lg bg-ocOrange font-bold hover:bg-ocOrange-dark text-center'
-        >
-          <div className='flex w-full items-center justify-between gap-2 text-center'>
-            {isSearching ? (
-              <div
-                className='text-surface inline-block h-5 w-5 animate-spin rounded-full border-2 border-solid border-current border-e-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite] dark:text-white'
-                role='status'
-              >
-                <span className='sr-only'>Loading...</span>
-              </div>
+        <form
+          id='buyer-search-hero-form'
+          className={cn(
+            'border-t border-gray-100 py-6',
+          currentView === 'map'
+            ? 'relative top-2 z-20 flex items-center gap-2 rounded-xl bg-white p-2 shadow-md mb-[2px] mr-auto ml-6'
+            : 'flex items-center gap-2 rounded-xl bg-white p-2 shadow-md mx-auto',
+        )}
+        onSubmit={handleSubmit}
+        style={{
+          width:
+            currentView === 'map'
+              ? 'calc(50% - 3rem)'
+              : 'calc(100% - 3rem)',
+        }}
+      >
+          <div
+            className={cn(
+              'flex h-12 w-full items-center transition-colors duration-300',
+              currentView === 'map' || currentView === 'grid'
+                ? 'min-w-0 flex-1 gap-2 bg-transparent h-12'
+                : 'rounded-lg bg-gray-100 pl-4 hover:bg-white focus-within:bg-white',
+            )}
+          >
+            {(currentView === 'map' || currentView === 'grid') && searchString === '' ? (
+              <StarIcon />
             ) : null}
-            <span>New search</span>
+            <SpeechInput
+              value={searchString}
+              setValue={setSearchString}
+              inputClassName={cn(
+                'w-full border-none outline-none hover:border-none hover:outline-none hover:ring-0 focus:border-none focus:outline-none focus:ring-0',
+                currentView === 'map' || currentView === 'grid'
+                  ? 'bg-transparent'
+                  : 'bg-transparent group-hover:bg-white',
+              )}
+              className={cn('w-full', currentView === 'map' ? 'min-w-0' : '')}
+            />
           </div>
-        </Button>
-      </form>
+
+          <Button
+            type='submit'
+            size='lg'
+            className={cn(
+              'font-bold text-center',
+              currentView === 'map'
+                ? 'shrink-0 rounded-xl bg-[#F07639] hover:bg-orange-700 px-4 h-10'
+                : currentView === 'grid'
+                  ? 'shrink-0 rounded-xl bg-[#F07639] hover:bg-orange-700 px-4 h-10'
+                  : 'w-full md:w-auto rounded-lg bg-ocOrange hover:bg-ocOrange-dark',
+            )}
+          >
+            <div className='flex w-full items-center justify-between gap-2 text-center'>
+              {isSearching ? (
+                <div
+                  className='text-surface inline-block h-5 w-5 animate-spin rounded-full border-2 border-solid border-current border-e-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite] dark:text-white'
+                  role='status'
+                >
+                  <span className='sr-only'>Loading...</span>
+                </div>
+              ) : null}
+              <span>{currentView === 'map' || currentView === 'grid' ? 'Enter' : 'New search'}</span>
+            </div>
+          </Button>
+        </form>
+      </div>
 
     </>
 

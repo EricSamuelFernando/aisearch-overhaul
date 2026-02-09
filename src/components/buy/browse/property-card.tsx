@@ -1,30 +1,23 @@
 'use client';
 
-import Link from 'next/link';
-import { useCallback, useState } from 'react';
-import { IProperty } from '@/interfaces/property.interface';
+import { useState } from 'react';
 import { formatCurrency } from '@/lib/utils';
 import { usePropertyActions } from '@/shared/hooks/useProperty';
 import NImage from 'next/image';
 import { imageLoader } from '@/utils/image-loader';
-import { Icons } from '@/components/icons';
-import { useAppSelector } from '@/lib/hook';
 import EmblaCarousel from '@/components/customs/carousel/embla-carousel';
 import { useRouter } from 'next/navigation';
 import { Bath, BedDouble, Ruler } from 'lucide-react';
 
-type PropertyCardsProps = IProperty;
-
 const PropertyCards = (props: any) => {
   const { saveCurrenctProperty } = usePropertyActions();
   const router = useRouter();
-  const { propertyQuery } = useAppSelector((state) => state.property);
   const [carouselEvent, setCarouselEvent] = useState(false);
 
-  const slides = props?.listing?.media?.photosList?.slice(0, 4)?.map((image: any, idx: number) => {
+  const slides = props?.listing?.media?.photosList?.slice(0, 6)?.map((image: any, idx: number) => {
     if (!image?.lowRes) return null;
     return (
-      <div key={idx} className="relative w-full h-full aspect-video">
+      <div key={idx} className="relative w-full h-full aspect-video min-h-[200px]">
         <NImage
           src={image.lowRes}
           alt="snaphomz-property-image"
@@ -36,7 +29,61 @@ const PropertyCards = (props: any) => {
     );
   });
 
-  const handleClick = (e: React.MouseEvent) => {
+  const hasCarousel = Array.isArray(props?.listing?.media?.photosList) && props.listing.media.photosList.length > 0;
+
+  const getStatusInfo = (listing: any) => {
+    const rawStatus =
+      listing?.standardStatus ??
+      listing?.StandardStatus ??
+      listing?.mlsStatus ??
+      listing?.MlsStatus ??
+      listing?.mostRecentStatus ??
+      listing?.currentStatus ??
+      listing?.status ??
+      '';
+
+    const status = typeof rawStatus === 'string' ? rawStatus.trim() : '';
+    const normalized = status.replace(/[_-]/g, ' ').toLowerCase();
+    const compact = normalized.replace(/\s+/g, '');
+
+    const openHouse =
+      listing?.openHouse ??
+      listing?.OpenHouse ??
+      listing?.openHouses ??
+      listing?.open_houses ??
+      null;
+
+    const hasOpenHouse =
+      (typeof openHouse === 'string' && openHouse.trim().length > 0) ||
+      (Array.isArray(openHouse) && openHouse.length > 0) ||
+      (!!openHouse && typeof openHouse === 'object');
+
+    if (normalized.includes('sold') || normalized.includes('closed')) {
+      return { label: 'Sold', className: 'bg-red-600 text-white' };
+    }
+    if (
+      normalized.includes('contingent') ||
+      normalized.includes('pending') ||
+      normalized.includes('under contract') ||
+      compact.includes('undercontract')
+    ) {
+      return { label: 'In Contingent', className: 'bg-amber-500 text-white' };
+    }
+    if (hasOpenHouse) {
+      return { label: 'Open for tour', className: 'bg-ocOrange text-white' };
+    }
+    if (normalized.includes('active')) {
+      return { label: 'Active', className: 'bg-[#78de2a] text-black' };
+    }
+    if (status) {
+      return { label: status, className: 'bg-gray-700 text-white' };
+    }
+    return null;
+  };
+
+  const statusInfo = getStatusInfo(props?.listing);
+
+  const handleClick = () => {
     if (!carouselEvent) {
       saveCurrenctProperty(props);
       router.push(`/buy/${props.listingId}/prop/preview`);
@@ -52,27 +99,22 @@ const PropertyCards = (props: any) => {
   return (
     <div
       onClick={handleClick}
-      className="flex w-full min-h-[520px] max-h-[520px] cursor-pointer flex-col overflow-hidden rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl bg-black border border-gray-800 hover:border-ocOrange hover:scale-[1.02] group"
+      className="relative w-full min-h-[380px] cursor-pointer overflow-hidden rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-[1.02] border border-gray-800 hover:border-ocOrange group"
     >
-      {/* Image / Carousel Section */}
-      <div className="relative h-60 w-full overflow-hidden">
-        {props?.listing?.media?.photosList?.length ? (
+      {/* Full Image Background */}
+      <div className="absolute inset-0 w-full h-full">
+        {hasCarousel && slides?.length ? (
           <div className="relative h-full">
             <EmblaCarousel
               slides={slides}
               options={{ loop: true }}
               onScrollButtonClick={handleCarouselButtonClick}
             />
-            <div className="absolute top-3 left-3 bg-ocOrange px-2 py-1 rounded-md shadow-sm">
-              <span className="text-white text-xs font-bold">
-                {props?.listing?.standardStatus || 'FOR SALE'}
-              </span>
-            </div>
           </div>
         ) : (
           <div className="relative h-full w-full">
             <NImage
-              className="h-full w-full object-cover object-center"
+              className="h-full w-full object-cover object-center rounded-2xl"
               fill
               loader={imageLoader}
               alt="snaphomz-property-image"
@@ -86,61 +128,67 @@ const PropertyCards = (props: any) => {
                 target.src = '/assets/images/placeholder.svg';
               }}
             />
-            <div className="absolute top-3 left-3 bg-ocOrange px-2 py-1 rounded-md">
-              <span className="text-white text-xs font-bold">{props?.listing?.standardStatus}</span>
-            </div>
           </div>
         )}
       </div>
 
-      {/* Content Section */}
-      <div className="flex flex-1 flex-col justify-between p-5 space-y-3 group-hover:bg-black transition-colors duration-300">
-        {/* Price */}
-        <div className="flex items-center justify-between">
-          <h3 className="text-2xl font-bold text-white group-hover:text-ocOrange transition-colors duration-300">
-            {formatCurrency(props?.listing?.listPriceLow || 0, 'USD')}
-          </h3>
+      {statusInfo ? (
+        <div
+          className={`absolute top-4 left-4 px-3 py-1 rounded-full text-sm font-semibold z-10 ${statusInfo.className}`}
+        >
+          {statusInfo.label}
         </div>
+      ) : null}
 
-        {/* Courtesy */}
-        <p className="text-sm text-gray-300">{props?.listing?.courtesyOf}</p>
+      {/* Bottom Overlay Content */}
+      <div className="absolute bottom-0 left-0 right-0 h-[210px] bg-black/90 p-4 rounded-b-2xl flex flex-col justify-between">
+        {/* Price */}
+        <h3 className="text-2xl font-bold text-white group-hover:text-ocOrange transition-colors duration-300 mb-0">
+          {formatCurrency(props?.listing?.listPriceLow || 0, 'USD').replace('$', '$ ')}
+        </h3>
 
         {/* Address */}
-        <div className="text-sm text-white leading-snug">
-          <p className="font-medium">{props?.listing?.address?.unparsedAddress}</p>
+        <div className="text-sm text-white mb-0.5 leading-tight">
           <p>
+            {props?.listing?.address?.unparsedAddress}
+            {props?.listing?.address?.unparsedAddress ? ', ' : ''}
             {props?.listing?.address?.city}, {props?.listing?.address?.stateOrProvince}{' '}
             {props?.listing?.address?.zipCode}
           </p>
         </div>
 
-        {/* Features */}
-        <div className="flex items-center justify-between pt-4 mt-4 border-t border-gray-700">
-          {[
-            {
-              icon: <BedDouble className="w-4 h-4 text-ocOrange" />,
-              value: props?.listing?.property?.bedroomsTotal || 0,
-              unit: 'Bed',
-            },
-            {
-              icon: <Bath className="w-4 h-4 text-ocOrange" />,
-              value: props?.listing?.property?.bathroomsTotal || 0,
-              unit: 'Bath',
-            },
-            {
-              icon: <Ruler className="w-4 h-4 text-ocOrange" />,
-              value: props?.listing?.property?.livingArea || 0,
-              unit: 'sqft',
-            },
-          ].map((item, index) => (
-            <div key={index} className="flex flex-col text-center w-1/3">
-              {item.icon}
-              <div className="flex items-center gap-1 mt-1 text-white text-base font-semibold">
-                <span>{item.value}</span>
-                <span className="text-xs text-gray-400">{item.unit}</span>
-              </div>
-            </div>
-          ))}
+        {/* Property Details - Horizontal Layout with Icons */}
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col items-center gap-2.5">
+            <BedDouble className="w-6 h-6 text-white/80" />
+            <span className="text-white text-lg font-semibold">
+              {props?.listing?.property?.bedroomsTotal || 0} Bed
+            </span>
+          </div>
+
+          <span className="text-white text-xs font-extrabold translate-y-3.5">&bull;</span>
+
+          <div className="flex flex-col items-center gap-2.5">
+            <Bath className="w-6 h-6 text-white/80" />
+            <span className="text-white text-lg font-semibold">
+              {props?.listing?.property?.bathroomsTotal || 0} Bath
+            </span>
+          </div>
+
+          <span className="text-white text-xs font-extrabold translate-y-3.5">&bull;</span>
+
+          <div className="flex flex-col items-center gap-2.5">
+            <NImage
+              src="/assets/images/area-white.svg"
+              alt="sqft"
+              width={24}
+              height={24}
+              className="h-6 w-6"
+            />
+            <span className="text-white text-lg font-semibold">
+              {props?.listing?.property?.livingArea || 0} sqft
+            </span>
+          </div>
         </div>
       </div>
     </div>

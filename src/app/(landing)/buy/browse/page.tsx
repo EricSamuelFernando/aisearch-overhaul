@@ -5,15 +5,17 @@ import {
   BuyCustomSearch,
 } from '@/components/buy/buy-custom-search';
 import { PropertyFilter } from '@/components/buy/property-filter';
+import Footer from '@/components/shared/footer';
 
 export default function BrowsePage() {
   return (
-    <section className='visible flex min-h-screen flex-col space-y-3 bg-primary-100 transition-all'>
+    <section className='visible flex min-h-screen flex-col space-y-3 bg-primary-100 transition-all pb-12'>
       <BuyBreadCrumb />
       <PropertyFilter />
       <PropertyBrowseView/>
       {/* <PropertyCardLists /> */}
-      <BuyCustomSearch />
+      <BuyCustomSearch hideInMap />
+      <Footer />
     </section>
   );
 }

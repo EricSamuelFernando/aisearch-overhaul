@@ -17,6 +17,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { useSearchParams } from 'next/navigation';
 import debounce from 'lodash.debounce';
 import { ViewSelection } from '../buy-dropdowns';
+import { BuyCustomSearch } from '../buy-custom-search';
 
 type Props = {};
 
@@ -35,6 +36,9 @@ function PropertyBrowseView({ }: Props) {
   const searchParams = useSearchParams();
   const query = searchParams.get('q');
   const [scrollOffset, setScrollOffset] = useState(0);
+  const [isMapPinned, setIsMapPinned] = useState(true);
+  const [mapAbsoluteTop, setMapAbsoluteTop] = useState(0);
+  const sectionRef = useRef<HTMLElement>(null);
 
   const coordinates = allProperties?.map((property: any) => ({
     id: property.id,
@@ -118,11 +122,51 @@ function PropertyBrowseView({ }: Props) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  useEffect(() => {
+    if (currentView !== 'map') return;
+
+    const updateMapPosition = () => {
+      if (!elementRef.current || !divRef.current || !sectionRef.current) return;
+
+      const topOffset = 64;
+      const mapHeight = elementRef.current.offsetHeight;
+      const footerEl = document.querySelector('footer');
+
+      const leftBottom = divRef.current.getBoundingClientRect().bottom + window.scrollY;
+      const sectionTop = sectionRef.current.getBoundingClientRect().top + window.scrollY;
+
+      // Stop right before footer to avoid overlap.
+      const footerTop = footerEl
+        ? footerEl.getBoundingClientRect().top + window.scrollY
+        : leftBottom;
+      const stopPoint = Math.min(footerTop, leftBottom);
+      const stopBuffer = 24;
+      const maxScrollY = stopPoint - mapHeight - topOffset - stopBuffer;
+
+      setIsMapPinned(window.scrollY < maxScrollY);
+      setMapAbsoluteTop(
+        Math.max(0, (stopPoint - sectionTop) - mapHeight - topOffset - stopBuffer),
+      );
+    };
+
+    updateMapPosition();
+    window.addEventListener('scroll', updateMapPosition, { passive: true });
+    window.addEventListener('resize', updateMapPosition);
+
+    return () => {
+      window.removeEventListener('scroll', updateMapPosition);
+      window.removeEventListener('resize', updateMapPosition);
+    };
+  }, [currentView]);
+
   return (
     <section
+      ref={sectionRef}
       className={cn(
-        'relative w-full mb-20 grid-cols-5 md:grid',
-        currentView === 'map' ? 'justify-between' : 'w-full gap-x-8',
+        'relative w-full mb-20 md:grid',
+        currentView === 'map'
+          ? 'grid-cols-2 gap-x-0'
+          : 'grid-cols-5 w-full gap-x-8 max-w-[1450px] mx-auto',
       )}
     >
       {/* Property Cards */}
@@ -135,32 +179,32 @@ function PropertyBrowseView({ }: Props) {
         className={cn(
           'px-4 md:px-8',
           currentView === 'map'
-            ? 'flex flex-col-reverse gap-y-4 md:col-span-3 md:px-[3.12rem]'
+            ? 'flex flex-col gap-y-4 md:col-span-1 md:px-[3.12rem]'
             : 'col-span-5',
         )}
       >
         <BuyPropertyCards selectedProperty={selectedProperty} />
+        {currentView === 'map' ? <BuyCustomSearch /> : null}
+      </div>
+
+      {currentView !== 'grid' ? (
         <div
           ref={elementRef}
-          // className={cn(
-          //   'transition-all duration-300 overflow-hidden',
-          //   currentView === 'grid' ? 'hidden' : 'fixed top-[120px] right-0 z-30 w-[100%] md:w-[45%] lg:w-[40%] h-[calc(100vh-120px)]'
-          // )}
+          style={!isMapPinned ? { top: mapAbsoluteTop } : undefined}
           className={cn(
             'transition-all duration-300',
-            // on "grid" hide completely
-            currentView === 'grid' ? 'hidden' :
-              // MOBILE: in-flow full-width, 60vh tall, scrollable
-              'relative w-full h-[60vh] overflow-auto' +
-              // MD+: fixed on the right, full-height minus header
-              ' md:fixed md:top-[50px] md:right-0 md:w-[45%] lg:md:w-[43%] md:h-[calc(100vh-55px)] md:overflow-hidden'
+            // MOBILE: in-flow full-width, 60vh tall, scrollable
+            'relative w-full h-[60vh] overflow-auto' +
+              // MD+: fixed at top, then released before footer
+              (isMapPinned
+                ? ' md:fixed md:top-[64px] md:right-0 md:w-[50%] lg:md:w-[50%] md:h-[calc(100vh-64px)] md:overflow-hidden'
+                : ' md:absolute md:right-0 md:w-[50%] lg:md:w-[50%] md:h-[calc(100vh-64px)] md:overflow-hidden')
           )}
         >
           <div className="absolute inset-0 rounded-l-lg overflow-hidden shadow-lg">
             {/* <div className='h-16'>
 
             </div> */}
-            <br />
             <CustomMap
               width={`${mapWidth}px`}
               coord={coordinates}
@@ -174,7 +218,7 @@ function PropertyBrowseView({ }: Props) {
             />
           </div>
         </div>
-      </div>
+      ) : null}
 
       {/* Fixed Map on Right */}
     </section>

@@ -6,7 +6,7 @@ import Link from 'next/link';
 function Footer() {
   return (
     <footer className="mt-auto w-full bg-[#170800]">
-      <section className="mx-auto w-full px-4 md:px-[3.219rem]">
+      <section className="mx-auto w-full px-4 md:px-12">
         {/* Top */}
         <div className="grid grid-cols-1 gap-10 py-10 text-white md:grid-cols-4 md:gap-6 md:py-14">
           {/* LEFT: Logo + tagline + social */}

@@ -809,10 +809,12 @@
 
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
+import { Paperclip, FileText, Image as ImageIcon, Search as SearchIcon } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import SpeechInput from '../speech-input';
 import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import axios from 'axios';
 import { usePropertyStore } from '@/store/use-property-store';
 import { useAppDispatch, useAppSelector } from '@/lib/hook';
@@ -836,6 +838,25 @@ const StarIcon = () => (
     className="inline-block ml-2 "
   />
 );
+
+type Suggestion = {
+  id: string;
+  text: string;
+};
+
+const buyerSuggestions: Suggestion[] = [
+  { id: '1', text: '3-bedroom homes near top-rated schools in Manhattan Beach' },
+  { id: '2', text: "I'm looking for 4-bedroom houses in Los Angeles, California with a pool" },
+  { id: '3', text: "Explain what an HOA is like I’m 5." },
+  { id: '4', text: 'Compare school ratings between Redondo and Torrance' },
+];
+
+const sellerSuggestions: Suggestion[] = [
+  { id: '1', text: "What’s my home worth in today’s market?" },
+  { id: '2', text: "How can I increase my home’s value before selling?" },
+  { id: '3', text: "What are the closing costs when selling a home?" },
+  { id: '4', text: "How long will it take to sell my home in my area?" },
+];
 
 export default function HeroTab() {
   const [activeTab, setActiveTab] = useState<string | null>('buy');
@@ -877,9 +898,11 @@ export default function HeroTab() {
 export const HeroSearchForm = ({
   placeholderText,
   searchType,
+  onSearchStateChange,
 }: {
   placeholderText?: string;
   searchType?: string;
+  onSearchStateChange?: (expanded: boolean) => void;
 }) => {
   const {
     allProperties,
@@ -897,6 +920,102 @@ export const HeroSearchForm = ({
   const { email } = useRegister()
   const dispatch = useAppDispatch()
 
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const homeAttachMenuRef = useRef<HTMLDivElement>(null);
+  const [typedPlaceholder, setTypedPlaceholder] = useState("");
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Typing Animation Effect
+  // Typing Animation Effect
+  useEffect(() => {
+    // Only run typing animation if NOT on seller page (or if we want it on buyer only)
+    // The user request "in this seller search bar keep this" likely refers to the screenshot design
+    // which has "Describe Your Dream Home"
+    // Let's assume we want typing for buyer home, and specific text for others.
+
+    const placeholders = [
+      "Show me homes in San Jose under $2M",
+      "Find a 3-bedroom condo in Miami",
+      "What is the crime rate in Chicago?",
+      "Homes with a pool in Austin"
+    ];
+    let index = 0;
+    let subIndex = 0;
+    let isDeleting = false;
+    let loopTimeout: NodeJS.Timeout;
+    const type = () => {
+      const currentText = placeholders[index];
+      if (isDeleting) {
+        setTypedPlaceholder(currentText.substring(0, subIndex));
+        subIndex--;
+      } else {
+        setTypedPlaceholder(currentText.substring(0, subIndex));
+        subIndex++;
+      }
+      let typeSpeed = isDeleting ? 30 : 80;
+      if (!isDeleting && subIndex === currentText.length + 1) {
+        typeSpeed = 2000; // Pause at end before deleting
+        isDeleting = true;
+      } else if (isDeleting && subIndex === 0) {
+        isDeleting = false;
+        index = (index + 1) % placeholders.length;
+        typeSpeed = 500; // Pause before typing next
+      }
+      loopTimeout = setTimeout(type, typeSpeed);
+    };
+
+    // Only start typing if placeholderText is NOT provided (i.e. on Home page where we want dynamic)
+    // On Sell page, we pass a specific placeholder.
+    if (!placeholderText) {
+      loopTimeout = setTimeout(type, 1000);
+    }
+
+    return () => clearTimeout(loopTimeout);
+  }, [placeholderText]);
+
+  // Handle Outside Clicks
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      // Attachment Menus
+      // Checks if the click target is inside the "Home" attachment menu
+      const clickedHome = homeAttachMenuRef.current && homeAttachMenuRef.current.contains(event.target as Node);
+
+      // If the menu is open AND the click was NOT inside either menu, close it.
+      if (showAttachMenu && !clickedHome) {
+        setShowAttachMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [showAttachMenu]);
+
+  const handleAttachmentClick = (type: 'image' | 'pdf') => {
+    setShowAttachMenu(false);
+    setTimeout(() => {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+        fileInputRef.current.accept = type === 'image' ? "image/*" : "application/pdf";
+        fileInputRef.current.click();
+      }
+    }, 0);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    console.log('File selected:', file.name, file.type);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''; // Reset input
+    }
+  };
+
 
 
   const { tempUserId, searchCount } = useAppSelector((state: RootState) => state.propertyPreference);
@@ -907,13 +1026,17 @@ export const HeroSearchForm = ({
     dispatch(initializeTempUserId());
   }, [dispatch]);
 
-  const handleNavigate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSearchSubmit = async (queryToSearch: string) => {
+    if (!queryToSearch.trim()) return;
+
+    setIsExpanded(true);
+    if (onSearchStateChange) onSearchStateChange(true);
+
     setIsSearching(true);
-    const query = searchTerm.trim();
+
     const requestBody: Record<string, any> = {
       user: userId,
-      query,
+      query: queryToSearch,
     };
 
     const sendSearchRequest = async (body: Record<string, any>) => {
@@ -939,8 +1062,8 @@ export const HeroSearchForm = ({
         setSearchedQuery(response.data?.result.records);
         addProperties(response.data?.result.records);
 
-        if (searchTerm) {
-          router.push(`/buy/browse?q=${searchTerm}`);
+        if (queryToSearch) {
+          router.push(`/buy/browse?q=${queryToSearch}`);
         }
 
       } catch (err: any) {
@@ -989,36 +1112,108 @@ export const HeroSearchForm = ({
     await sendSearchRequest(requestBody);
   };
 
+  const onFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleSearchSubmit(searchTerm);
+  };
+
+  const handleSuggestionClick = (text: string) => {
+    setSearchTerm(text);
+    handleSearchSubmit(text); // This function triggers the expansion
+    setIsInputFocused(false);
+  };
+
+  const pathname = usePathname();
+  const isSeller = searchType?.toLowerCase() === 'sell' || pathname?.includes('sell');
+  const currentSuggestions = isSeller ? sellerSuggestions : buyerSuggestions;
+
   return (
-    <div className="relative flex gap-2 w-full overflow-visible">
+    <motion.div
+      layout
+      initial={false}
+      animate={{
+        borderRadius: isExpanded ? 32 : 12,
+        padding: isExpanded ? 50 : 8,
+      }}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      className="bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full max-w-[1100px]"
+    >
       <form
-        onSubmit={handleNavigate}
-        className="
-          relative flex w-full items-center gap-2
-          rounded-xl bg-white p-2
-          overflow-visible
-        "
+        onSubmit={onFormSubmit}
+        className="relative flex w-full items-center gap-2"
       >
-        {/* Star + Input */}
-        <div className="relative flex min-w-0 flex-1 items-center gap-2 overflow-visible">
-          {searchTerm === '' && (
-            <StarIcon />
-          )}
+        <div className="flex w-full items-center gap-2 relative z-20">
+          {/* Star + Input */}
+          <div className="relative flex min-w-0 flex-1 items-center gap-2 overflow-visible">
+            {searchTerm === '' && (
+              <StarIcon />
+            )}
 
-          <SpeechInput
-            value={searchTerm}
-            setValue={setSearchTerm}
-            searchType={searchType}
-            placeholderText={placeholderText}
-            className="w-full min-w-0 overflow-visible"
-          />
-        </div>
+            <SpeechInput
+              value={searchTerm}
+              setValue={setSearchTerm}
+              searchType={searchType}
+              placeholderText={placeholderText || typedPlaceholder}
+              className="w-full min-w-0 overflow-visible"
+              onFocus={() => setIsInputFocused(true)}
+              onBlur={() => setTimeout(() => setIsInputFocused(false), 200)}
+            />
 
-        {/* Button */}
-        <Button
-          type="submit"
-          size="lg"
-          className="
+            {/* Hidden File Input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              style={{ display: 'none' }}
+              onChange={handleFileUpload}
+            />
+            <div className="relative" ref={homeAttachMenuRef}>
+              {/* Clip Icon Button */}
+              <div
+                className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
+                onClick={() => setShowAttachMenu(!showAttachMenu)}
+              >
+                <Paperclip className="w-7 h-7" />
+              </div>
+              {/* Dropdown Menu (Image / PDF) */}
+              <AnimatePresence>
+                {showAttachMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute bottom-full right-0 mb-2 w-32 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-20"
+                  >
+                    <div className="flex flex-col p-1.5 gap-1">
+                      <button
+                        onClick={() => handleAttachmentClick('image')}
+                        type="button"
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
+                      >
+                        <ImageIcon className="w-4 h-4 text-blue-500" />
+                        <span>Image</span>
+                      </button>
+                      <button
+                        onClick={() => handleAttachmentClick('pdf')}
+                        type="button"
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
+                      >
+                        <FileText className="w-4 h-4 text-red-500" />
+                        <span>PDF</span>
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+
+          {/* Button */}
+          <Button
+            type="submit"
+            size="lg"
+            className="
             shrink-0
             rounded-xl
             bg-[#F07639]
@@ -1027,20 +1222,53 @@ export const HeroSearchForm = ({
             px-4
             z-10
           "
-        >
-          <div className="flex items-center gap-2">
-            {isSearching && (
-              <div
-                className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-e-transparent"
-                role="status"
-              />
-            )}
-            <span className="whitespace-nowrap">
-              Begin Journey
-            </span>
-          </div>
-        </Button>
-      </form>
-    </div>
+          >
+            <div className="flex items-center gap-2">
+              {isSearching && (
+                <div
+                  className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-e-transparent"
+                  role="status"
+                />
+              )}
+              <span className="whitespace-nowrap">
+                Begin Journey
+              </span>
+            </div>
+          </Button>
+        </div>
+      </form >
+
+      {/* Integrated Suggestions Dropdown */}
+      <AnimatePresence>
+        {!searchTerm && isInputFocused && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="w-full border-t border-gray-100/50"
+          >
+            <div className="p-4 pt-4 text-left">
+              <p className="text-[10px] font-bold text-gray-400 mb-3 uppercase tracking-wider pl-2">
+                Try Asking
+              </p>
+              <div className="space-y-1">
+                {currentSuggestions.map((suggestion) => (
+                  <motion.div
+                    key={suggestion.id}
+                    onClick={() => handleSuggestionClick(suggestion.text)}
+                    // ... animation props if any
+                    className="flex items-center gap-3 p-3 bg-white hover:bg-orange-50/50 cursor-pointer border-t border-gray-100 first:border-t-0 transition-colors"
+                  >
+                    <SearchIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-600 text-sm leading-relaxed">{suggestion.text}</span>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 };

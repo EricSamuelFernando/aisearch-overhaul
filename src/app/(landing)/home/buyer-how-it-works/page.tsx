@@ -141,13 +141,15 @@ export default function HowItWorksPage() {
                 {steps.map((step, i) => {
                   const active = i === activeIndex;
                   return (
-                    <li key={i} className="relative">
+                    <li
+                      key={i}
+                      className="relative cursor-pointer"
+                      onClick={() => handleStepChange(i)}
+                    >
                       {/* Corrected Circle Indicator */}
                       <span
-                        onClick={() => handleStepChange(i)}
-                        className={`absolute -left-7 top-1 w-4 h-4 rounded-full cursor-pointer ${
-                          active ? 'bg-orange-500' : 'border-2 border-gray-300 bg-white'
-                        }`}
+                        className={`absolute -left-7 top-1 w-4 h-4 rounded-full ${active ? 'bg-orange-500' : 'border-2 border-gray-300 bg-white'
+                          }`}
                       />
                       {/* Step Description */}
                       <div

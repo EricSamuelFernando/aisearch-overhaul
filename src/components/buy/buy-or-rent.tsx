@@ -2,7 +2,7 @@ import Image from 'next/image';
 
 export default function BuyOrRent() {
   return (
-    <section className='flex w-full flex-col items-center gap-12 bg-[#FFF6EC] px-6 py-20 text-[#1b120d] md:px-12 lg:px-24'>
+    <section className='flex w-full h-full flex-col items-center justify-center gap-12 bg-[#FFF6EC] px-6 text-[#1b120d] md:px-12 lg:px-24'>
       {/* Heading */}
       <div className='max-w-2xl text-center'>
         <h1 className='text-3xl font-semibold leading-tight text-[#2C1F18] sm:text-4xl md:text-5xl'>

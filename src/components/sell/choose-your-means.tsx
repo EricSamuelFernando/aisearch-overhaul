@@ -73,7 +73,7 @@
 
 const ChooseYourMeans = () => {
   return (
-    <section className="bg-[#FAF0E6] pt-32 px-4 sm:px-16 mb-20 text-center">
+    <section className="bg-[#FFF6EC] pt-0 px-4 sm:px-16 mb-0 text-center">
       {/* Choose Your Means Section */}
       <div className="max-w-6xl mx-auto text-center">
         <h2 className="text-3xl sm:text-4xl font-bold mb-2">
@@ -86,14 +86,13 @@ const ChooseYourMeans = () => {
         {/* Card Layout */}
         <div
           className="
-            flex gap-6 overflow-x-auto pb-4
-            sm:grid sm:grid-cols-2 sm:gap-12
-            lg:grid-cols-3
-            scrollbar-hide
+            flex flex-nowrap gap-6 overflow-x-auto pb-4
+            scrollbar-hide snap-x snap-mandatory
+            sm:flex-wrap sm:justify-center sm:overflow-visible sm:snap-none
           "
         >
           {/* Card 1 */}
-          <div className="min-w-[260px] sm:min-w-0 rounded-2xl overflow-hidden relative cursor-pointer">
+          <div className="min-w-[220px] sm:min-w-0 rounded-2xl overflow-hidden relative cursor-pointer scale-[0.9] origin-top">
             <img
               src="/assets/images/sell-means.png"
               alt="Proper Name"
@@ -111,7 +110,7 @@ const ChooseYourMeans = () => {
           </div>
 
           {/* Card 2 */}
-          <div className="min-w-[260px] sm:min-w-0 rounded-2xl overflow-hidden relative cursor-pointer">
+          <div className="min-w-[220px] sm:min-w-0 rounded-2xl overflow-hidden relative cursor-pointer scale-[0.9] origin-top">
             <img
               src="/assets/images/sell-means1.png"
               alt="Proper Name"
@@ -129,6 +128,7 @@ const ChooseYourMeans = () => {
           </div>
 
           {/* Card 3 */}
+          {/*
           <div className="min-w-[260px] sm:min-w-0 rounded-2xl overflow-hidden relative cursor-pointer">
             <img
               src="/assets/images/sell-means2.png"
@@ -145,6 +145,7 @@ const ChooseYourMeans = () => {
               </button>
             </div>
           </div>
+          */}
         </div>
       </div>
     </section>

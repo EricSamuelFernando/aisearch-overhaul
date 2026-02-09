@@ -792,6 +792,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
+import { Carousel } from '@mantine/carousel';
+
 import MainTestimonial from '../../../components/main-testimonial';
 import { ChooseYourMeans } from '@/components/buy/choose-your-means';
 import { HeroSearchForm } from '@/components/main/hero-tab';
@@ -1060,6 +1062,10 @@ export default function Home() {
   const [searchMethod, setSearchMethod] = useState('');
   const dispatch = useAppDispatch();
   const { email } = useRegister();
+  const [carouselEmbla, setCarouselEmbla] = useState<any>(null);
+  const autoplayRef = useRef<NodeJS.Timeout | null>(null);
+  const resumeRef = useRef<NodeJS.Timeout | null>(null);
+  const AUTOPLAY_DELAY = 4000;
 
   const { tempUserId } = useAppSelector(
     (state: RootState) => state.propertyPreference
@@ -1076,6 +1082,51 @@ export default function Home() {
   useEffect(() => {
     dispatch(initializeTempUserId());
   }, [dispatch]);
+
+  useEffect(() => {
+    if (!carouselEmbla) return;
+
+    const startAutoplay = () => {
+      if (autoplayRef.current) clearInterval(autoplayRef.current);
+      autoplayRef.current = setInterval(() => {
+        carouselEmbla.scrollNext();
+      }, AUTOPLAY_DELAY);
+    };
+
+    const stopAutoplay = () => {
+      if (autoplayRef.current) {
+        clearInterval(autoplayRef.current);
+        autoplayRef.current = null;
+      }
+    };
+
+    const scheduleResume = () => {
+      if (resumeRef.current) clearTimeout(resumeRef.current);
+      resumeRef.current = setTimeout(() => {
+        startAutoplay();
+      }, AUTOPLAY_DELAY);
+    };
+
+    const handlePointerDown = () => {
+      stopAutoplay();
+      if (resumeRef.current) clearTimeout(resumeRef.current);
+    };
+
+    const handlePointerUp = () => {
+      scheduleResume();
+    };
+
+    startAutoplay();
+    carouselEmbla.on('pointerDown', handlePointerDown);
+    carouselEmbla.on('pointerUp', handlePointerUp);
+
+    return () => {
+      stopAutoplay();
+      if (resumeRef.current) clearTimeout(resumeRef.current);
+      carouselEmbla.off('pointerDown', handlePointerDown);
+      carouselEmbla.off('pointerUp', handlePointerUp);
+    };
+  }, [carouselEmbla]);
 
   // Individual image rotation function
   const getImageRotation = (angle: number) => {
@@ -1451,14 +1502,58 @@ export default function Home() {
 
 
       {/* ================= OTHER SECTIONS ================= */}
-      <ChooseYourMeans />
-      <WeMakeItEasy />
-      <GetReadyForCollege />
-      <FindPerfectMortgage />
-      <HomeDisclosure />
-      <BuyOrRent />
-      {/* <OfferStrengthAnalyzer /> */}
-      <OurClients bgColor='#FFF6EC' />
+      <div className="home-sections">
+        <ChooseYourMeans />
+        <WeMakeItEasy />
+        <section className="relative">
+          <Carousel
+            className="home-carousel"
+            slideSize="100%"
+            slideGap="0"
+            align="start"
+            withControls
+            withIndicators={false}
+            loop
+            getEmblaApi={setCarouselEmbla}
+            styles={{
+              root: { width: '100%' },
+              viewport: { overflow: 'hidden' },
+              controls: {
+                top: '50%',
+                transform: 'translateY(-50%)',
+                left: 0,
+                right: 0,
+                padding: '0 12px',
+              },
+              control: { border: 0, background: 'none', boxShadow: 'none' },
+            }}
+          >
+            <Carousel.Slide>
+              <div className="h-[560px] flex items-center">
+                <GetReadyForCollege />
+              </div>
+            </Carousel.Slide>
+            <Carousel.Slide>
+              <div className="h-[560px] flex items-start pt-0">
+                <FindPerfectMortgage />
+              </div>
+            </Carousel.Slide>
+            <Carousel.Slide>
+              <div className="h-[560px] flex items-center">
+                <HomeDisclosure />
+              </div>
+            </Carousel.Slide>
+            <Carousel.Slide>
+              <div className="h-[560px] flex items-center">
+                <BuyOrRent />
+              </div>
+            </Carousel.Slide>
+          </Carousel>
+        </section>
+
+        {/* <OfferStrengthAnalyzer /> */}
+        <OurClients bgColor='#FFF6EC' />
+      </div>
     </>
   );
 }

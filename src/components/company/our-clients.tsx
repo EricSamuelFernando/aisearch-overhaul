@@ -52,7 +52,7 @@ export default function OurClients({ bgColor = '#FAF0E6' }: { bgColor?: string }
     <section
       id="testimonials"
       style={{ backgroundColor: bgColor }}
-      className="pt-24 pb-10 px-4 sm:px-6 lg:px-12 overflow-x-hidden"
+      className="pt-17 pb-10 px-4 sm:px-6 lg:px-12 overflow-x-hidden"
     >
       <div className="max-w-6xl mx-auto text-start pb-6 sm:pb-12">
         <h2 className="satoshi text-3xl sm:text-4xl font-semibold text-left md:text-center">
@@ -100,7 +100,7 @@ export default function OurClients({ bgColor = '#FAF0E6' }: { bgColor?: string }
             {testimonials.map(({ name, title, text, img }, idx) => (
               <div
                 key={idx}
-                className="bg-[#EEDFC9] rounded-2xl p-16 flex flex-col justify-between "
+                className="bg-[#EEDFC9] rounded-2xl p-11 flex flex-col justify-between "
               >
                 <div className="text-left mb-6">
                   <h3 className="font-bold text-xl mb-1">{name}</h3>

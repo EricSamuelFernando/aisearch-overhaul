@@ -65,7 +65,7 @@ const AgentsPage = async () => {
   return (
     <main>
       <AgentsHero agents={agents} />
-      <FindAgent />
+     {/* <FindAgent />*/}
       {/* <FindPartner /> */}
       <AgentsWeMakeItEasy />
       <TimeWorth />

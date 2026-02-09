@@ -347,9 +347,9 @@ const WeMakeItEasy = () => {
                 bg="#F4E5D0"
                 style={{
                   borderRadius: '14px',
-                  padding: isSmallScreen ? '18px' : '60px', 
+                  padding: isSmallScreen ? '18px' : '60px',
                   height: '100%',
-                  maxWidth: isSmallScreen ? '320px' : '100%', 
+                  maxWidth: isSmallScreen ? '320px' : '100%',
                   margin: '0 auto',
                   display: 'flex',
                   flexDirection: 'column',

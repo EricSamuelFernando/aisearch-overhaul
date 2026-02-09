@@ -12,6 +12,7 @@ interface ProgressStepButtonsProps {
   continueButtonText?: string;
   disableNextButton?: boolean;
   loading?: boolean;
+  cancelLabel?: string;
 }
 
 const ProgressStepButtons: React.FC<
@@ -19,6 +20,7 @@ const ProgressStepButtons: React.FC<
 > = ({
   children,
   continueButtonText = 'Next',
+  cancelLabel = 'Cancel',
   handleBack,
   handleCancel,
   handleNextContinue,
@@ -40,7 +42,7 @@ const ProgressStepButtons: React.FC<
         variant='ghost'
         className='h-10 w-24 px-6 py-2.5 text-ocOrange'
       >
-        Cancel
+        {cancelLabel}
       </Button>
     </div>
     <div className='flex flex-nowrap items-center gap-3'>

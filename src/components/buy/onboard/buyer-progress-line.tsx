@@ -8,22 +8,14 @@ import {
   buyerPropertyPreference,
 } from '@/slices/onboarding/onboarding-selectors';
 import { BuyerOnboardingProgress } from '@/types/user.types';
-import {
-  resetOnboardingSlice,
-  updateBuyerOnboardingProgress,
-} from '@/slices/onboarding/onboarding-slice';
+import { updateBuyerOnboardingProgress } from '@/slices/onboarding/onboarding-slice';
 import { useRouter } from 'next/navigation';
-import {
-  useCompleteUserPreference,
-  useSavePropertyPreference,
-} from '@/hooks/api/property/usePropertyApi';
+import { useUpdatePropertyPreference } from '@/hooks/api/property/usePropertyApi';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { ProgressLine } from '@/components/progress-line';
 import { ProgressStepButtons } from '@/components/progress-step-buttons';
-import axios from 'axios';
 import { useRegister } from '@/hooks/api/auth/useRegister';
-import { maskEmail } from '@/lib/utils';
-import { PROPERTY_SEARCH_PREFERENCE_AI_URL } from '@/shared/constants/env';
+import { error } from '@/components/alert/notify';
 
 const steps = Object.values(BuyerOnboardingProgress).map((step) => step);
 
@@ -40,59 +32,73 @@ const BuyerProgressLine: React.FC = () => {
   return <ProgressLine percentage={progressPercentage} />;
 };
 
-const BuyerProgressButton: React.FC = () => {
+type BuyerProgressButtonProps = {
+  onComplete?: () => void;
+  onSkip?: () => void;
+  cancelLabel?: string;
+};
+
+const BuyerProgressButton: React.FC<BuyerProgressButtonProps> = ({
+  onComplete,
+  onSkip,
+  cancelLabel,
+}) => {
   const progress = useAppSelector(buyerOnboardProgress);
   const preferenceValues = useAppSelector(buyerPropertyPreference);
   const dispatch = useAppDispatch();
   const router = useRouter();
   const { isLoggedIn, user } = useAuth();
-  //const data = useRegister();
-
-  const { mutateAsync } = useSavePropertyPreference();
-
-  const { mutateAsync: completePreferenceMutation } = useCompleteUserPreference();
+  const data = useRegister();
+  const { updatePropertyPreference } = useUpdatePropertyPreference(
+    user?.email || data?.email,
+  );
+  const [saving, setSaving] = React.useState(false);
 
   const currentIndex = steps.indexOf(progress);
 
-  const data = useRegister();
- 
-  const PREFERENCE_BACKEND_URI = PROPERTY_SEARCH_PREFERENCE_AI_URL || "http://13.60.114.186:9000/api/search/preference"
+  const isPreferenceComplete = Boolean(
+    preferenceValues?.propertyType &&
+      preferenceValues?.preferredPropertyAddress &&
+      preferenceValues?.spendAmount?.max,
+  );
 
-  const storePreference = async () => {
-       try {
-         const response = await axios.post(PREFERENCE_BACKEND_URI,
-          {
-            user:data?.email || "12345",
-            preference:`Looking for a ${preferenceValues?.propertyType} in ${preferenceValues?.preferredPropertyAddress}. Budget is between ${preferenceValues?.spendAmount?.min} and ${preferenceValues?.spendAmount?.max} USD`
-          },{
-            headers:{
-              'Content-Type':'application/json'
-            }
-          }
-         ) 
-         console.log(response)
-       } catch (error:any ) {
-           console.log(error?.message)
-       }
-  }
+  const persistPreference = React.useCallback(async () => {
+    setSaving(true);
+    try {
+      await updatePropertyPreference.mutateAsync({
+        propertyType: preferenceValues?.propertyType || '',
+        preferredPropertyAddress: preferenceValues?.preferredPropertyAddress || '',
+        priceMin: preferenceValues?.spendAmount?.min ?? 0,
+        priceMax: preferenceValues?.spendAmount?.max ?? 0,
+        onboardingCompleted: isPreferenceComplete,
+      });
+    } catch (err) {
+      // Mutation already handles toast, keep a fallback
+      error({ message: 'Failed to save preference. Please try again.' });
+      throw err;
+    } finally {
+      setSaving(false);
+    }
+  }, [isPreferenceComplete, preferenceValues, updatePropertyPreference]);
 
-  const navigateTo = React.useCallback(async () => {
-    const link =
-      isLoggedIn || user?.account_type === 'buyer'
-        ? '/dashboard'
-        : '/complete-onboarding';
-    router.push(link);
-    // await completePreferenceMutation(preferenceValues);
-    //dispatch(resetOnboardingSlice());
-     await storePreference()
-  }, [
-    preferenceValues,
-    dispatch,
-    isLoggedIn,
-    user,
-    router,
-    completePreferenceMutation,
-  ]);
+  const navigateTo = React.useCallback(
+    async (skip?: boolean) => {
+      if (skip && onSkip) {
+        onSkip();
+        return;
+      }
+      if (!skip && onComplete) {
+        onComplete();
+        return;
+      }
+      const link =
+        isLoggedIn || user?.account_type === 'buyer'
+          ? '/dashboard'
+          : '/complete-onboarding';
+      router.push(link);
+    },
+    [isLoggedIn, onComplete, onSkip, router, user?.account_type],
+  );
 
   const handleNext = React.useCallback(
     async (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -102,12 +108,12 @@ const BuyerProgressButton: React.FC = () => {
         dispatch(
           updateBuyerOnboardingProgress({ progress: steps[currentIndex + 1] }),
         );
-        //await mutateAsync(preferenceValues);
       } else {
-        await navigateTo();
+        await persistPreference();
+        await navigateTo(false);
       }
     },
-    [currentIndex, dispatch, navigateTo, preferenceValues, mutateAsync],
+    [currentIndex, dispatch, navigateTo, persistPreference],
   );
 
   const handlePrevious = React.useCallback(
@@ -126,8 +132,10 @@ const BuyerProgressButton: React.FC = () => {
   return (
     <ProgressStepButtons
       handleBack={handlePrevious}
-      handleCancel={navigateTo}
+      handleCancel={() => navigateTo(true)}
       handleNextContinue={handleNext}
+      cancelLabel={cancelLabel}
+      loading={saving}
     />
   );
 };

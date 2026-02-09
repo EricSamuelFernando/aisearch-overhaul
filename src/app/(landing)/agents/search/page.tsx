@@ -18,6 +18,38 @@ import { isValid } from '@/lib/utils';
 
 type SearchMode = 'location' | 'name';
 
+function highlightPrefix(text: string, rawQuery: string): React.ReactNode {
+  const q = rawQuery.trim();
+  if (!q || !text) return text;
+
+  const lowerText = text.toLowerCase();
+  const lowerQ = q.toLowerCase();
+
+  // highlight only when it starts with query (prefix)
+  if (!lowerText.startsWith(lowerQ)) return text;
+
+  const prefix = text.slice(0, q.length);
+  const rest = text.slice(q.length);
+
+  return (
+    <>
+      <span className="text-orange-600">{prefix}</span>
+      {rest}
+    </>
+  );
+}
+
+function useDebounce<T>(value: T, delay = 350) {
+  const [debounced, setDebounced] = React.useState(value);
+
+  React.useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+
+  return debounced;
+}
+
 function formatNumber(value: number | null | undefined): string {
   if (value === null || value === undefined) return 'N/A';
   return value.toLocaleString('en-US');
@@ -101,8 +133,10 @@ function agentMatchesLocation(agent: Agent, rawQuery: string): boolean {
 
 const AgentsGrid = memo(function AgentsGrid({
   agents,
+  highlightQuery,
 }: {
   agents: Agent[] | null;
+  highlightQuery: string;
 }) {
   const isPresent = (v: any) =>
     v !== null &&
@@ -269,7 +303,7 @@ export default function AgentSearchPage() {
   const [mode, setMode] = useState<SearchMode>('name');
   const [agents, setAgents] = useState<Agent[] | null>(null);
   const [searchInput, setSearchInput] = useState('');
-  const deferredSearchInput = useDeferredValue(searchInput);
+  const deferredSearchInput = useDebounce(searchInput, 350);
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 9;
   const searchSectionRef = useRef<HTMLDivElement>(null);
@@ -278,7 +312,17 @@ export default function AgentSearchPage() {
     process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
     'http://localhost:4000/auth/graphql';
 
-  async function fetchAgents() {
+  const fetchExternalAgents = async ({
+    limit,
+    offset,
+    search,
+    signal,
+  }: {
+    limit: number;
+    offset: number;
+    search?: string;
+    signal: AbortSignal;
+  }): Promise<Agent[]> => {
     const response = await fetch(GRAPHQL_URI, {
       method: 'POST',
       headers: {
@@ -287,8 +331,8 @@ export default function AgentSearchPage() {
       },
       body: JSON.stringify({
         query: `
-        query ExternalAgents($limit: Int, $offset: Int) {
-          externalAgents(limit: $limit, offset: $offset) {
+        query ExternalAgents($limit: Int, $offset: Int, $search: String) {
+          externalAgents(limit: $limit, offset: $offset, search: $search) {
             data {
               id
               full_name
@@ -307,20 +351,17 @@ export default function AgentSearchPage() {
           }
         }
       `,
-        variables: {
-          limit: 1000,
-          offset: 0,
-        },
+        variables: { limit, offset, search },
       }),
+      signal,
       cache: 'no-store',
     });
 
-    if (!response.ok) {
-      return [];
-    }
+    if (!response.ok) return [];
 
     const json = await response.json();
     const data = json?.data?.externalAgents?.data || [];
+
     return data.map((agent: any) => ({
       ...agent,
       Name: agent.full_name || '',
@@ -328,7 +369,8 @@ export default function AgentSearchPage() {
       Location: agent.locationRaw || undefined,
       Brokerage: agent.brokerage || undefined,
     }));
-  }
+  };
+
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -347,7 +389,6 @@ export default function AgentSearchPage() {
     const queryParam = searchParams.get('query') || '';
     const modeParam = (searchParams.get('mode') as SearchMode | null) ?? 'name';
 
-    setQuery(queryParam);
     setMode(modeParam);
     setSearchInput(modeParam === 'name' ? queryParam : '');
 
@@ -366,50 +407,57 @@ export default function AgentSearchPage() {
     })();
   }, [searchParams]);
 
+
   useEffect(() => {
     const controller = new AbortController();
 
-    async function loadAgents() {
+    (async () => {
       setAgents(null);
 
       try {
-        const qs: string[] = [];
-        if (query) qs.push(`q=${encodeURIComponent(query)}`);
-        if (mode) qs.push(`mode=${mode}`);
+        if (mode === 'name') {
+          const typed = deferredSearchInput.trim();
 
-        // const url = `/api/agents${qs.length ? `?${qs.join('&')}` : ''}`;
+          const data = await fetchExternalAgents({
+            limit: 1000,
+            offset: 0,
+            search: typed ? typed : undefined,
+            signal: controller.signal,
+          });
 
-        // const res = await fetch(url, { signal: controller.signal });
-        // if (!res.ok) {
-        //   setAgents([]);
-        //   return;
-        // }
+          setAgents(data);
+        } else {
+          const typed = query.trim();
 
-        // const data: Agent[] = await res.json();
+          const data = await fetchExternalAgents({
+            limit: 1000,
+            offset: 0,
+            signal: controller.signal,
+          });
 
-        // const data: Agent[] = await fetchAgents()
-
-        // let final = data;
-        // if (mode === 'location' && query.trim()) {
-        //   final = data.filter((agent) => agentMatchesLocation(agent, query));
-        // }
-
-        // setAgents(final);
-      } catch (error) {
-        if ((error as any).name !== 'AbortError') {
-          setAgents([]);
+          const final = typed ? data.filter((a) => agentMatchesLocation(a, typed)) : data;
+          setAgents(final);
         }
+      } catch (err: any) {
+        if (err?.name !== 'AbortError') setAgents([]);
       }
-    }
-
-    loadAgents();
+    })();
 
     return () => controller.abort();
-  }, [query, mode]);
+  }, [mode, deferredSearchInput, query]); // only one fetch path
 
   useEffect(() => {
-    setCurrentPage(1);
-  }, [deferredSearchInput, query, mode]);
+    if (mode !== 'name') return;
+
+    const typed = searchInput.trim();
+
+    const t = setTimeout(() => {
+      router.replace(`/agents/search?query=${encodeURIComponent(typed)}&mode=name`);
+    }, 350); // 300–500ms feels good
+
+    return () => clearTimeout(t);
+  }, [mode, searchInput, router]);
+
 
   const onSubmitSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -419,6 +467,27 @@ export default function AgentSearchPage() {
     const next = `/agents/search?query=${encodeURIComponent(trimmed)}&mode=name`;
     router.push(next);
   };
+
+  function highlightPrefix(text: string, rawQuery: string) {
+    const q = rawQuery.trim();
+    if (!q || !text) return text;
+
+    const lowerText = text.toLowerCase();
+    const lowerQ = q.toLowerCase();
+
+    // We only highlight when the name starts with the search (your backend behavior)
+    if (!lowerText.startsWith(lowerQ)) return text;
+
+    const prefix = text.slice(0, q.length);
+    const rest = text.slice(q.length);
+
+    return (
+      <>
+        <span className="text-orange-600">{prefix}</span>
+        {rest}
+      </>
+    );
+  }
 
   const filteredAgents = useMemo(() => {
     if (agents === null) return null;

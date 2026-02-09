@@ -124,7 +124,8 @@ export const useComments = (propertyId: string, snapId?: string) => {
 
         if (socket && propertyId) {
             // Join room by snapId if available, otherwise by propertyId
-            const room = snapId || `property:${propertyId}`;
+            // Backend broadcasts to 'snap-${snapId}' or 'property-${propertyId}'
+            const room = snapId ? `snap-${snapId}` : `property-${propertyId}`;
 
             console.log(`[useComments] Joining room: ${room}`);
             socket.emit('joinRoom', { roomId: room }); // Send as object

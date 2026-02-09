@@ -313,6 +313,7 @@ export default function SnapDetailsPage() {
                                 snapId={id}
                                 isWishlisted={true}
                                 onCommentAdded={() => setCommentRefreshTrigger(prev => prev + 1)}
+                                onRead={fetchSnapProperties}
                             />;
                         })}
                     </div>
@@ -320,7 +321,11 @@ export default function SnapDetailsPage() {
                 </ScrollArea>
 
                 <div className="w-[320px] xl:w-[380px] flex-shrink-0">
-                    <RecentCommentsSidebar properties={favourites} refreshTrigger={commentRefreshTrigger} />
+                    <RecentCommentsSidebar
+                        properties={favourites}
+                        refreshTrigger={commentRefreshTrigger}
+                        onNewComment={fetchSnapProperties}
+                    />
                 </div>
             </div>
 

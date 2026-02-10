@@ -309,7 +309,9 @@ function MainLayout({ children }: Readonly<Props>) {
   // }, []);
 
   // Check if the pathname includes any routes where you want to hide the header and footer
-  const shouldHideHeaderFooter = ['sell', 'agents', 'company', 'home'].some(path => pathname.includes(path));
+  const shouldHideHeaderFooter = ['sell', 'agents', 'company', 'home'].some(
+    (path) => pathname.includes(path),
+  );
 
   return (
     <>

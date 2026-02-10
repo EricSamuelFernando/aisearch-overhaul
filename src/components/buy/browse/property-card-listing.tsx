@@ -64,7 +64,7 @@ const PropertyCardBrows: React.FC<PropertyCardProps> = ({ listing }) => {
       </div>
 
       {/*  Content Section */}
-      <div className="flex flex-1 flex-col justify-between p-5 space-y-3 bg-black">
+      <div className="flex flex-1 flex-col justify-between p-5 space-y-2 bg-black">
         <div className="flex items-center justify-between">
           <h3 className="text-3xl font-bold text-white">
             {formatCurrency(listing?.listPriceLow || 0, "USD")}
@@ -73,7 +73,7 @@ const PropertyCardBrows: React.FC<PropertyCardProps> = ({ listing }) => {
 
         <p className="text-sm text-gray-400">{listing?.courtesyOf}</p>
 
-        <div className="text-sm text-white leading-snug">
+        <div className="text-sm text-white leading-tight">
           <p className="font-medium">{listing?.address?.unparsedAddress}</p>
           <p>
             {listing?.address?.city}, {listing?.address?.stateOrProvince}{" "}
@@ -81,7 +81,7 @@ const PropertyCardBrows: React.FC<PropertyCardProps> = ({ listing }) => {
           </p>
         </div>
 
-        <div className="flex items-center justify-between pt-4 mt-4 border-t border-gray-700">
+        <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-700">
           {[
             {
               icon: <BedDouble className="w-4 h-4 text-ocOrange" />,

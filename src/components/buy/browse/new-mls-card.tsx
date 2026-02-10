@@ -36,14 +36,14 @@ const NewMLSPropertyCard = (props: Readonly<MlsPropertyListing>) => {
           }}
         />
       </div>
-      <div className='flex flex-1 flex-col bg-black px-5 pb-4 pt-2 text-white'>
-        <div className='pt-1'>
-          <div className='mb-4 flex items-center justify-between'>
+      <div className='flex flex-1 flex-col bg-black px-5 pb-2 pt-1 text-white'>
+        <div className='pt-0.5'>
+          <div className='mb-1.5 flex items-center justify-between'>
             <h3 className='truncate text-xl font-bold leading-8'>
               {formatCurrency(props.ListPrice || 0, 'USD')}
             </h3>
           </div>
-          <p className='mb-10 line-clamp-2 text-sm'>{props.UnparsedAddress}</p>
+          <p className='mb-2.5 line-clamp-2 text-sm'>{props.UnparsedAddress}</p>
         </div>
         <div className='flex flex-1 flex-col justify-end'>
           <div className='flex items-start justify-between'>
@@ -68,7 +68,7 @@ const NewMLSPropertyCard = (props: Readonly<MlsPropertyListing>) => {
                     : ''
                 }
               >
-                <div className='relative mb-2 h-6 w-6'>
+                <div className='relative mb-1 h-6 w-6'>
                   <Image
                     fill
                     alt={item.unit}

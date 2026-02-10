@@ -29,6 +29,8 @@ import { useAtom } from 'jotai';
 import { filterAtom } from '@/hooks/atoms';
 import { Listbox } from '@headlessui/react';
 import { RootState } from '@/lib/store';
+import { useProperty } from '@/shared/hooks/useProperty';
+import { cn } from '@/lib/utils';
 
 
 // Dummy property data for testing
@@ -97,6 +99,7 @@ const dummyProperties = [
 
 function PropertyFilter() {
   const { isLoggedIn } = useAuth();
+  const { currentView } = useProperty();
   const searchParams = useSearchParams();
   const router = useRouter();
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -305,7 +308,12 @@ function PropertyFilter() {
   };
 
   return (
-    <section className='w-full px-4 pb-4 md:px-8'>
+    <section
+      className={cn(
+        'w-full px-4 pb-4 md:px-8',
+        currentView === 'grid' ? 'max-w-[1440px] mx-auto' : '',
+      )}
+    >
       <AutoLoginrModal
         currentStage={0}
         isOpen={showModal}
@@ -325,10 +333,17 @@ function PropertyFilter() {
             selectedSubCategories={selectedSubCategories}
             subCategories={subCategories}
           />
-          <div className="flex items-start gap-4 whitespace-nowrap">
+          {currentView !== 'grid' ? (
+            <div className="flex items-start gap-4 whitespace-nowrap">
+              <ViewSelection />
+            </div>
+          ) : null}
+        </div>
+        {currentView === 'grid' ? (
+          <div className="flex items-start gap-4 whitespace-nowrap md:ml-auto">
             <ViewSelection />
           </div>
-        </div>
+        ) : null}
       </div>
       <p className="text-lg font-medium leading-9 text-grey-370">
         You have searched: {searchTerm}

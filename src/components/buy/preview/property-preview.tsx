@@ -1153,7 +1153,7 @@ const PropertyPreview: React.FC = () => {
 
                       <div>
                         <Image
-                          src="/assets/images/resd.png"
+                          src="/assets/images/residential-icon.svg"
                           alt="Property Type"
                           width={18}
                           height={18}
@@ -1165,7 +1165,7 @@ const PropertyPreview: React.FC = () => {
 
                       <div>
                         <Image
-                          src="/assets/images/area-black.svg"
+                          src="/assets/images/sqft-area-icon.svg"
                           alt="Sqft Area"
                           width={18}
                           height={18}

@@ -408,8 +408,6 @@ function Profile() {
     }
   };
 
-  console.log(user)
-
   const handleEdit = (field: Field) => {
     setField(field);
     open();

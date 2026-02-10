@@ -274,6 +274,12 @@ export default function AgentSearchPage() {
   const PAGE_SIZE = 9;
   const searchSectionRef = useRef<HTMLDivElement>(null);
 
+  // Filter states
+  const [selectedLocation, setSelectedLocation] = useState<string>('');
+  const [selectedRating, setSelectedRating] = useState<string>('');
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+  const [showRatingDropdown, setShowRatingDropdown] = useState(false);
+
   const GRAPHQL_URI =
     process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
     'http://localhost:4000/auth/graphql';
@@ -411,6 +417,22 @@ export default function AgentSearchPage() {
     setCurrentPage(1);
   }, [deferredSearchInput, query, mode]);
 
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.relative')) {
+        setShowLocationDropdown(false);
+        setShowRatingDropdown(false);
+      }
+    };
+
+    if (showLocationDropdown || showRatingDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showLocationDropdown, showRatingDropdown]);
+
   const onSubmitSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = searchInput.trim();
@@ -422,16 +444,55 @@ export default function AgentSearchPage() {
 
   const filteredAgents = useMemo(() => {
     if (agents === null) return null;
-    const q = deferredSearchInput.trim().toLowerCase();
-    if (!q) return agents;
 
-    return agents.filter((agent) => {
-      const anyAgent = agent as any;
-      const name = (anyAgent.full_name ?? anyAgent.Name ?? '').toLowerCase();
-      const email = (anyAgent.agentEmail ?? anyAgent.email ?? '').toLowerCase();
-      return name.includes(q) || email.includes(q);
-    });
-  }, [agents, deferredSearchInput]);
+    let result = agents;
+
+    // Apply search input filter
+    const q = deferredSearchInput.trim().toLowerCase();
+    if (q) {
+      result = result.filter((agent) => {
+        const anyAgent = agent as any;
+        const name = (anyAgent.full_name ?? anyAgent.Name ?? '').toLowerCase();
+        const email = (anyAgent.agentEmail ?? anyAgent.email ?? '').toLowerCase();
+        return name.includes(q) || email.includes(q);
+      });
+    }
+
+    // Apply location filter
+    if (selectedLocation) {
+      result = result.filter((agent) => agentMatchesLocation(agent, selectedLocation));
+    }
+
+    // Apply rating filter
+    if (selectedRating) {
+      result = result.filter((agent) => {
+        const anyAgent = agent as any;
+        const ratingRaw = anyAgent.rating ?? anyAgent.avgRating ?? anyAgent.avgRatingForCustomerDisplay;
+        const ratingNum = Number(ratingRaw);
+
+        if (!Number.isFinite(ratingNum) || ratingNum <= 0) return false;
+
+        switch (selectedRating) {
+          case '1-5':
+            return ratingNum >= 1 && ratingNum <= 5;
+          case '6':
+            return ratingNum >= 6 && ratingNum < 7;
+          case '7':
+            return ratingNum >= 7 && ratingNum < 8;
+          case '8':
+            return ratingNum >= 8 && ratingNum < 9;
+          case '9':
+            return ratingNum >= 9 && ratingNum < 10;
+          case '9+':
+            return ratingNum >= 9;
+          default:
+            return true;
+        }
+      });
+    }
+
+    return result;
+  }, [agents, deferredSearchInput, selectedLocation, selectedRating]);
 
   // Global ordering before pagination (so empty cards go to the end of all pages)
   const orderedAgents = useMemo(() => {
@@ -582,12 +643,108 @@ export default function AgentSearchPage() {
 
               {/* Filters Row */}
               <div className="flex flex-wrap gap-3 w-full md:w-auto">
-                {['Location', 'Property Type', 'Budget Range', 'Agent Rating'].map((label) => (
-                  <button key={label} className="bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-600 flex items-center justify-between gap-2 hover:border-gray-300 shadow-sm transition-all whitespace-nowrap">
-                    <span>{label}</span>
+                {/* Location Filter */}
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setShowLocationDropdown(!showLocationDropdown);
+                      setShowRatingDropdown(false);
+                    }}
+                    className="bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-600 flex items-center justify-between gap-2 hover:border-gray-300 shadow-sm transition-all whitespace-nowrap"
+                  >
+                    <span>{selectedLocation || 'Location'}</span>
                     <span className="text-gray-400 text-[10px]">▼</span>
                   </button>
-                ))}
+
+                  {showLocationDropdown && (
+                    <div className="absolute top-full mt-2 left-0 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[200px]">
+                      <div className="py-2">
+                        <button
+                          onClick={() => {
+                            setSelectedLocation('');
+                            setShowLocationDropdown(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                        >
+                          All Locations
+                        </button>
+                        {['San Francisco', 'Los Angeles', 'San Diego', 'San Jose', 'Austin', 'Houston'].map((loc) => (
+                          <button
+                            key={loc}
+                            onClick={() => {
+                              setSelectedLocation(loc);
+                              setShowLocationDropdown(false);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                          >
+                            {loc}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Property Type Filter (Disabled) */}
+                <button
+                  disabled
+                  className="bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-400 flex items-center justify-between gap-2 shadow-sm whitespace-nowrap opacity-50 cursor-not-allowed"
+                >
+                  <span>Property Type</span>
+                  <span className="text-gray-400 text-[10px]">▼</span>
+                </button>
+
+                {/* Budget Range Filter (Disabled) */}
+                <button
+                  disabled
+                  className="bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-400 flex items-center justify-between gap-2 shadow-sm whitespace-nowrap opacity-50 cursor-not-allowed"
+                >
+                  <span>Budget Range</span>
+                  <span className="text-gray-400 text-[10px]">▼</span>
+                </button>
+
+                {/* Agent Rating Filter */}
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setShowRatingDropdown(!showRatingDropdown);
+                      setShowLocationDropdown(false);
+                    }}
+                    className="bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-600 flex items-center justify-between gap-2 hover:border-gray-300 shadow-sm transition-all whitespace-nowrap"
+                  >
+                    <span>{selectedRating || 'Agent Rating'}</span>
+                    <span className="text-gray-400 text-[10px]">▼</span>
+                  </button>
+
+                  {showRatingDropdown && (
+                    <div className="absolute top-full mt-2 left-0 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[180px]">
+                      <div className="py-2">
+                        <button
+                          onClick={() => {
+                            setSelectedRating('');
+                            setShowRatingDropdown(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                        >
+                          All Ratings
+                        </button>
+                        {['1-5', '6', '7', '8', '9', '9+'].map((rating) => (
+                          <button
+                            key={rating}
+                            onClick={() => {
+                              setSelectedRating(rating);
+                              setShowRatingDropdown(false);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2"
+                          >
+                            <Star className="w-4 h-4 fill-orange-400 text-orange-400" />
+                            <span>{rating}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Search Button */}
@@ -598,6 +755,47 @@ export default function AgentSearchPage() {
                 Search agent
               </button>
             </div>
+
+            {/* Active Filters Display */}
+            {(selectedLocation || selectedRating) && (
+              <div className="flex flex-wrap items-center gap-2 mt-4">
+                <span className="text-sm text-gray-600 font-medium">Active Filters:</span>
+
+                {selectedLocation && (
+                  <div className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-sm flex items-center gap-2">
+                    <span>Location: {selectedLocation}</span>
+                    <button
+                      onClick={() => setSelectedLocation('')}
+                      className="hover:text-orange-900 font-bold"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+
+                {selectedRating && (
+                  <div className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-sm flex items-center gap-2">
+                    <span>Rating: {selectedRating}</span>
+                    <button
+                      onClick={() => setSelectedRating('')}
+                      className="hover:text-orange-900 font-bold"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => {
+                    setSelectedLocation('');
+                    setSelectedRating('');
+                  }}
+                  className="text-sm text-gray-500 hover:text-gray-700 underline"
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
 
             {/* All Agents Header */}
             <div className="mt-8">

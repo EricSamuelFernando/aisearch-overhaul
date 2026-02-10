@@ -104,7 +104,7 @@ const EmblaCarousel: React.FC<PropType> = (props) => {
       </div>
 
       {isHovering && (
-        <div className="absolute top-[40%] w-full">
+        <div className="absolute top-[24%] w-full">
           <div
             className="flex text-white justify-between"
             onMouseLeave={handleMouseLeave}
@@ -112,13 +112,13 @@ const EmblaCarousel: React.FC<PropType> = (props) => {
             <PrevButton
               onClick={handlePrevButtonClick}
               onMouseEnter={handlePrevMouseEnter}
-              className="cursor-pointer bg-[#00000090] pl-4 w-12 h-12 transition-opacity duration-300 opacity-80 hover:opacity-100"
+              className="cursor-pointer bg-[#00000090] pl-3.5 w-11 h-11 transition-opacity duration-300 opacity-80 hover:opacity-100"
               disabled={prevBtnDisabled}
             />
             <NextButton
               onClick={handleNextButtonClick}
               onMouseEnter={handleNextMouseEnter}
-              className="cursor-pointer bg-[#00000090] pl-4 w-12 h-12 transition-opacity duration-300 opacity-80 hover:opacity-100"
+              className="cursor-pointer bg-[#00000090] pl-3.5 w-11 h-11 transition-opacity duration-300 opacity-80 hover:opacity-100"
               disabled={nextBtnDisabled}
             />
           </div>

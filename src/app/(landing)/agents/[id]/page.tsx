@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Star, ArrowLeft, ArrowRight, Bed, Bath, Square, Building2, MapPin, DollarSign, Wallet, FileText, Trophy, ShoppingBag } from 'lucide-react';
 import MainNavPages from '@/components/navbars/main-nav-pages';
 import { Agent } from '@/types/agent.types';
@@ -25,6 +25,7 @@ type LoadStatus = 'loading' | 'loaded' | 'not-found';
 
 export default function AgentProfilePage() {
   const params = useParams();
+  const router = useRouter();
   const id =
     typeof params?.id === 'string'
       ? params.id
@@ -159,9 +160,12 @@ export default function AgentProfilePage() {
         <MainNavPages />
         <div className="pt-32 pb-20 max-w-[1280px] mx-auto px-12">
           <p>Agent not found.</p>
-          <Link href="/agents/search" className="text-blue-600 underline">
+          <button
+            onClick={() => router.back()}
+            className="text-blue-600 underline cursor-pointer hover:text-blue-800"
+          >
             Back to agent list
-          </Link>
+          </button>
         </div>
       </div>
     );
@@ -228,9 +232,12 @@ export default function AgentProfilePage() {
         {/* Breadcrumb Container with standard padding */}
         <div className="px-6 md:px-6">
           <div className="text-sm font-medium text-gray-500 mb-8 flex items-center gap-2">
-            <Link href="/agents/search" className="hover:text-black transition-colors">
+            <button
+              onClick={() => router.back()}
+              className="hover:text-black transition-colors cursor-pointer"
+            >
               Agent list
-            </Link>
+            </button>
             &gt;
             <span className="text-black font-bold">Agent Profile</span>
           </div>

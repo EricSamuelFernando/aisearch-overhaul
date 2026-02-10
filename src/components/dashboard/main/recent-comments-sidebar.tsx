@@ -128,7 +128,7 @@ const RecentCommentsSidebar = ({ properties = [], refreshTrigger = 0, onNewComme
             </div>
 
             <div className="space-y-4 max-h-[55vh] overflow-y-auto pr-1 custom-scrollbar">
-                {loading ? (
+                {loading && comments.length === 0 ? (
                     <div className="flex justify-center p-4">
                         <Loader2 className="w-5 h-5 animate-spin text-ocOrange" />
                     </div>

@@ -3617,7 +3617,7 @@ export default function ChatBoxComponent(props: any) {
   };
 
   return (
-   <div className="mt-24 max-w-full min-h-[calc(100vh-6rem)] flex flex-col">
+    <div className="mt-24 max-w-full min-h-[calc(100vh-6rem)] flex flex-col">
 
       {/* <header className="border-b px-2 sm:px-4 py-2 flex items-center justify-between  shadow-sm">
         <div className="flex bg-white shadow  pr-4 rounded-full items-center " onClick={() => router.push(`/dashboard/${currentUser === "seller" ? "" : "buyer"}`)}>
@@ -3643,7 +3643,7 @@ export default function ChatBoxComponent(props: any) {
         </Button>
       </header> */}
       <section>
-       <div className="flex-1 flex flex-col border-l md:flex-row bg-gray-100">
+        <div className="flex-1 flex flex-col border-l md:flex-row bg-gray-100">
           <div className={`w-full md:w-96 bg-white border-r ${showThreads ? "block" : "hidden md:block"} overflow-hidden`}>
             {/* Header */}
             <div className="p-4 border-b flex justify-between items-center">
@@ -3922,7 +3922,7 @@ export default function ChatBoxComponent(props: any) {
                         {/* Conversation Type Indicator Row */}
                         <div className="px-4 py-2.5  bg-gray-50 flex items-center gap-3 text-xs sm:text-sm">
                           <span className="font-semibold text-gray-700">Conversation:</span>
-                          
+
                           {/* Buyer Role */}
                           <div className="flex items-center gap-1.5">
                             <div className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0"></div>
@@ -4035,6 +4035,11 @@ export default function ChatBoxComponent(props: any) {
                                                           // Get the file URL - ensure it's not encrypted
                                                           let fileUrl = message.message || "";
 
+                                                          // Handle CL:: prefix (legacy encryption artifact)
+                                                          if (fileUrl.startsWith('CL::')) {
+                                                            fileUrl = fileUrl.substring(4);
+                                                          }
+
                                                           // If the URL looks encrypted (starts with common encryption patterns), try to decrypt
                                                           // But file URLs from S3 should not be encrypted, so only decrypt if it looks like encrypted text
                                                           if (fileUrl && !fileUrl.startsWith('http') && !fileUrl.startsWith('data:')) {
@@ -4048,6 +4053,23 @@ export default function ChatBoxComponent(props: any) {
                                                               console.log("[ChatBox] File URL might not be encrypted:", error);
                                                             }
                                                           }
+
+                                                          // Helper to extract filename
+                                                          const getFileNameFromUrl = (url: string) => {
+                                                            try {
+                                                              if (!url) return "File";
+                                                              const cleanUrl = url.split('?')[0]; // Remove query params
+                                                              const fileName = cleanUrl.split('/').pop() || "File";
+                                                              const decodedFileName = decodeURIComponent(fileName);
+
+                                                              // Regex to match UUID at the beginning of the filename (8-4-4-4-12 hex chars followed by a hyphen)
+                                                              const uuidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}-?/;
+                                                              return decodedFileName.replace(uuidPattern, "");
+                                                            } catch (e) {
+                                                              console.error("Error parsing filename:", e);
+                                                              return "File";
+                                                            }
+                                                          };
 
                                                           if (message.fileType && imageMimeType.includes(message.fileType)) {
                                                             return (
@@ -4092,8 +4114,9 @@ export default function ChatBoxComponent(props: any) {
                                                             return (
                                                               <div className="flex items-center gap-2 text-xs sm:text-sm">
                                                                 <FileText className="w-5 h-5 text-gray-600" />
-                                                                <span className="truncate max-w-[100px] sm:max-w-full">
-                                                                  {fileUrl ? fileUrl.slice(0, 20) : "File"}
+                                                                {/* Display Filename instead of truncated URL */}
+                                                                <span className="truncate max-w-[100px] sm:max-w-full" title={getFileNameFromUrl(fileUrl)}>
+                                                                  {getFileNameFromUrl(fileUrl)}
                                                                 </span>
                                                                 <a
                                                                   href={fileUrl}

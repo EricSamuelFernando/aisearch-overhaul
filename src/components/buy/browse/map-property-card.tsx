@@ -51,8 +51,21 @@ const MapPropertyCards = (props: any) => {
   return (
     <div
       onClick={handleClick}
-      className=" w-80 rounded-2xl overflow-hidden bg-black/70 backdrop-blur-lg border border-white/10 shadow-lg transition hover:scale-[1.015] hover:shadow-2xl cursor-pointer"
+      className="relative w-80 rounded-2xl overflow-hidden bg-black/70 backdrop-blur-lg border border-white/10 shadow-lg transition hover:scale-[1.015] hover:shadow-2xl cursor-pointer"
     >
+      {props.onClose ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            props.onClose();
+          }}
+          className="absolute top-2 right-2 z-10 h-7 w-7 rounded-full bg-black/60 text-white/90 flex items-center justify-center hover:bg-black/80"
+          aria-label="Close"
+        >
+          ×
+        </button>
+      ) : null}
       {/* Image */}
       <div className="relative h-48 w-full">
         <NImage
@@ -67,11 +80,8 @@ const MapPropertyCards = (props: any) => {
           }
         />
         <div className="absolute top-0 w-full flex justify-between items-start bg-gradient-to-b from-black/70 to-transparent px-4 py-2">
-          <span className="text-sm font-semibold text-white bg-ocOrange px-2 py-0.5 rounded-md shadow-sm">
-            {formatCurrency(props?.listing?.listPriceLow || 0, 'USD')}
-          </span>
-          <span className="text-xs font-medium text-black bg-white/80 px-2 py-0.5 rounded-md shadow">
-            {status} {daysOnMarket !== 'New' ? `· ${daysOnMarket} days` : ''}
+          <span className="text-sm font-medium text-black bg-[#78de2a] px-3 py-1 rounded-full">
+            {status}
           </span>
         </div>
       </div>

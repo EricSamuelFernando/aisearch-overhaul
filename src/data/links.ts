@@ -8,7 +8,7 @@ export const footerLinks: Record<string, IFooterItems> = {
     links: [
       {
         title: 'About us',
-        href: '/about',
+        href: '/company',
       },
       {
         title: 'Career',

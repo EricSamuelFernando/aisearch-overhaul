@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Remove Google Maps default InfoWindow chrome so only the card is visible */
+.gm-style .gm-style-iw-c {
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+.gm-style .gm-style-iw-d {
+  overflow: visible !important;
+}
+
+.gm-style .gm-ui-hover-effect {
+  display: none !important;
+}
+
+
 @import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap');
 

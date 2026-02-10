@@ -9,12 +9,16 @@ import Footer from '@/components/shared/footer';
 
 export default function BrowsePage() {
   return (
-    <section className='visible flex min-h-screen flex-col space-y-3 bg-primary-100 transition-all pb-12'>
+    <section className='visible flex min-h-screen flex-col space-y-3 bg-primary-100 transition-all pb-0'>
       <BuyBreadCrumb />
       <PropertyFilter />
       <PropertyBrowseView/>
       {/* <PropertyCardLists /> */}
+
       <BuyCustomSearch hideInMap />
+
+{/* MAP STOP SENTINEL */}
+<div id="map-stop-sentinel" className="h-px" />
       <Footer />
     </section>
   );

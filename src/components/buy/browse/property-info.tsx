@@ -27,7 +27,6 @@ function PropertyBrowseView({ }: Props) {
   const [divHeight, setDivHeight] = useState<number | null>(null);
   const { allProperties, addProperties, setSearchedQuery, clearProperties } = usePropertyStore();
   const [selectedProperty, setSelectedProperty] = useState<string>('');
-  const elementRef = useRef<HTMLDivElement>(null);
   const [mapWidth, setMapWidth] = useState<number>(0);
   const dispatch = useAppDispatch();
   const { user } = useAuth();
@@ -36,9 +35,9 @@ function PropertyBrowseView({ }: Props) {
   const searchParams = useSearchParams();
   const query = searchParams.get('q');
   const [scrollOffset, setScrollOffset] = useState(0);
+  const mapRef = useRef<HTMLDivElement>(null);
   const [isMapPinned, setIsMapPinned] = useState(true);
-  const [mapAbsoluteTop, setMapAbsoluteTop] = useState(0);
-  const sectionRef = useRef<HTMLElement>(null);
+  const searchBarRef = useRef<HTMLDivElement>(null);
 
   const coordinates = allProperties?.map((property: any) => ({
     id: property.id,
@@ -49,8 +48,8 @@ function PropertyBrowseView({ }: Props) {
 
   useEffect(() => {
     const updateWidth = () => {
-      if (elementRef.current) {
-        setMapWidth(elementRef.current.offsetWidth);
+      if (mapRef.current) {
+        setMapWidth(mapRef.current.offsetWidth);
       }
     };
 
@@ -123,45 +122,24 @@ function PropertyBrowseView({ }: Props) {
   }, []);
 
   useEffect(() => {
-    if (currentView !== 'map') return;
-
-    const updateMapPosition = () => {
-      if (!elementRef.current || !divRef.current || !sectionRef.current) return;
-
-      const topOffset = 64;
-      const mapHeight = elementRef.current.offsetHeight;
-      const footerEl = document.querySelector('footer');
-
-      const leftBottom = divRef.current.getBoundingClientRect().bottom + window.scrollY;
-      const sectionTop = sectionRef.current.getBoundingClientRect().top + window.scrollY;
-
-      // Stop right before footer to avoid overlap.
-      const footerTop = footerEl
-        ? footerEl.getBoundingClientRect().top + window.scrollY
-        : leftBottom;
-      const stopPoint = Math.min(footerTop, leftBottom);
-      const stopBuffer = 24;
-      const maxScrollY = stopPoint - mapHeight - topOffset - stopBuffer;
-
-      setIsMapPinned(window.scrollY < maxScrollY);
-      setMapAbsoluteTop(
-        Math.max(0, (stopPoint - sectionTop) - mapHeight - topOffset - stopBuffer),
-      );
+    const handlePinState = () => {
+      if (!searchBarRef.current) return;
+      const searchRect = searchBarRef.current.getBoundingClientRect();
+      // Keep map sticky until the search bar bottom reaches the viewport bottom.
+      setIsMapPinned(searchRect.bottom > window.innerHeight);
     };
 
-    updateMapPosition();
-    window.addEventListener('scroll', updateMapPosition, { passive: true });
-    window.addEventListener('resize', updateMapPosition);
-
+    handlePinState();
+    window.addEventListener('scroll', handlePinState, { passive: true });
+    window.addEventListener('resize', handlePinState);
     return () => {
-      window.removeEventListener('scroll', updateMapPosition);
-      window.removeEventListener('resize', updateMapPosition);
+      window.removeEventListener('scroll', handlePinState);
+      window.removeEventListener('resize', handlePinState);
     };
-  }, [currentView]);
+  }, []);
 
   return (
     <section
-      ref={sectionRef}
       className={cn(
         'relative w-full mb-20 md:grid',
         currentView === 'map'
@@ -184,41 +162,36 @@ function PropertyBrowseView({ }: Props) {
         )}
       >
         <BuyPropertyCards selectedProperty={selectedProperty} />
-        {currentView === 'map' ? <BuyCustomSearch /> : null}
+        {currentView === 'map' ? (
+          <div ref={searchBarRef}>
+            <BuyCustomSearch />
+          </div>
+        ) : null}
       </div>
 
       {currentView !== 'grid' ? (
         <div
-          ref={elementRef}
-          style={!isMapPinned ? { top: mapAbsoluteTop } : undefined}
+          ref={mapRef}
           className={cn(
-            'transition-all duration-300',
-            // MOBILE: in-flow full-width, 60vh tall, scrollable
-            'relative w-full h-[60vh] overflow-auto' +
-              // MD+: fixed at top, then released before footer
-              (isMapPinned
-                ? ' md:fixed md:top-[64px] md:right-0 md:w-[50%] lg:md:w-[50%] md:h-[calc(100vh-64px)] md:overflow-hidden'
-                : ' md:absolute md:right-0 md:w-[50%] lg:md:w-[50%] md:h-[calc(100vh-64px)] md:overflow-hidden')
+            'relative w-full',
+            isMapPinned ? 'md:sticky md:top-0' : 'md:relative',
+            'md:h-screen md:-mt-[280px]'
           )}
         >
-          <div className="absolute inset-0 rounded-l-lg overflow-hidden shadow-lg">
-            {/* <div className='h-16'>
-
-            </div> */}
-            <CustomMap
-              width={`${mapWidth}px`}
-              coord={coordinates}
-              zoom={13}
-              properties={allProperties}
-              height={`calc(100vh - 100px)`}
-              onMarkerClick={(id: string) => setSelectedProperty(id)}
-              onMapMove={(center, bounds) => {
-                sendSearchRequest({ latitude: center.lat, longitude: center.lng });
-              }}
-            />
-          </div>
+          <CustomMap
+            width={`${mapWidth}px`}
+            coord={coordinates}
+            zoom={13}
+            properties={allProperties}
+            height="100%"
+            onMarkerClick={(id: string) => setSelectedProperty(id)}
+            onMapMove={(center) => {
+              sendSearchRequest({ latitude: center.lat, longitude: center.lng });
+            }}
+          />
         </div>
       ) : null}
+
 
       {/* Fixed Map on Right */}
     </section>

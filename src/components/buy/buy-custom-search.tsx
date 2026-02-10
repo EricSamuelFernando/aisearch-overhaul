@@ -480,6 +480,8 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
   const [filterData, setFilterData] = React.useState({});
   const [showInputBox, setShowInputBox] = React.useState(false);
   const { currentView } = useProperty();
+  const popupRef = React.useRef<HTMLDivElement>(null);
+  const toggleButtonRef = React.useRef<HTMLButtonElement>(null);
 
   const { user } = useAuth()
   const { email } = useRegister()
@@ -549,6 +551,25 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
     }
   }, [scrollDirection, isScrolling]);
 
+  React.useEffect(() => {
+    if (!showInputBox) return;
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        popupRef.current &&
+        !popupRef.current.contains(target) &&
+        toggleButtonRef.current &&
+        !toggleButtonRef.current.contains(target)
+      ) {
+        setShowInputBox(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [showInputBox]);
+
   const sendSearchRequest = async () => {
     if (searchCount + 1 >= 6 && !user?.email) {
       error({
@@ -610,25 +631,35 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
 
   return (
     <>
-      <div style={{ position: 'fixed', bottom: '16px', right: '16px', zIndex: 50 }}>
+      <div
+        style={{
+          position: 'fixed',
+          left: '50%',
+          bottom: '24px',
+          transform: 'translateX(-50%)',
+          zIndex: 50,
+        }}
+      >
         <button
           onClick={() => setShowInputBox(o => !o)}
+          ref={toggleButtonRef}
           style={{
             height: '48px',
-            width: '48px',
+            padding: '0 18px',
             borderRadius: '9999px',
-            backgroundColor: '#ff6600', // Replace with your actual ocOrange hex
+            backgroundColor: '#ff6600',
             color: '#fff',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-            fontSize: '1.5rem',
+            boxShadow: '0 6px 14px rgba(0,0,0,0.18)',
+            fontSize: '0.95rem',
+            fontWeight: 600,
             lineHeight: '1',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            whiteSpace: 'nowrap',
           }}
-        // className="h-12 w-12 rounded-full bg-ocOrange text-white shadow-lg text-2xl leading-none"
         >
-          +
+          Continue Search
         </button>
       </div>
       <style jsx global>{`
@@ -660,52 +691,59 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
 
       {showInputBox && (
         <div
-          className="animate-advanced"
-
+          ref={popupRef}
           style={{
             position: 'fixed',
-            bottom: '80px',
-            right: '16px',
-            width: '90vw',
-            maxWidth: '28rem',
-            borderRadius: '0.75rem',
-            backgroundColor: '#fff',
-            boxShadow: '0 10px 15px rgba(0,0,0,0.1)',
+            bottom: '88px',
+            left: '50%',
+            transform: 'translateX(-50%)',
             zIndex: 40,
-            padding: '1.5rem',
           }}
         >
-          <form
-            id="buyer-search-hero-form"
-            className="flex flex-col space-y-4"
-            onSubmit={handleSubmit}
+          <div
+            className="animate-advanced"
+            style={{
+              width: '90vw',
+              maxWidth: '28rem',
+              borderRadius: '0.75rem',
+              backgroundColor: '#fff',
+              boxShadow: '0 10px 15px rgba(0,0,0,0.1)',
+              padding: '1.5rem',
+            }}
           >
-            <div className="flex h-12 w-full items-center rounded-lg bg-gray-100 pl-4 transition-colors duration-300 hover:bg-white focus-within:bg-white">
-              <SpeechInput
-                value={searchString}
-                setValue={setSearchString}
-                inputClassName="w-full bg-transparent border-none outline-none"
-                className="w-full"
-              />
-            </div>
-            <Button
-              type="submit"
-              size="lg"
-              className="w-full rounded-lg bg-ocOrange font-bold hover:bg-ocOrange-dark"
+            <form
+              id="buyer-search-hero-form"
+              className="flex w-full items-center gap-2 rounded-xl bg-white p-2 border border-gray-200"
+              onSubmit={handleSubmit}
             >
-              <div className="flex w-full items-center justify-center gap-2">
-                {isSearching && (
-                  <div
-                    className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-e-transparent"
-                    role="status"
-                  >
-                    <span className="sr-only">Loading...</span>
-                  </div>
-                )}
-                <span>New search</span>
+              <div className="relative flex min-w-0 flex-1 items-center gap-2">
+                {searchString === '' && <StarIcon />}
+                <SpeechInput
+                  value={searchString}
+                  setValue={setSearchString}
+                  inputClassName="w-full border-none outline-none bg-transparent"
+                  className="w-full min-w-0"
+                />
               </div>
-            </Button>
-          </form>
+              <Button
+                type="submit"
+                size="lg"
+                className="shrink-0 rounded-xl bg-[#F07639] font-bold hover:bg-orange-700 px-4"
+              >
+                <div className="flex items-center gap-2">
+                  {isSearching && (
+                    <div
+                      className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-e-transparent"
+                      role="status"
+                    >
+                      <span className="sr-only">Loading...</span>
+                    </div>
+                  )}
+                  <span className="whitespace-nowrap">New search</span>
+                </div>
+              </Button>
+            </form>
+          </div>
         </div>
       )}
 
@@ -713,7 +751,8 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
       <div id="buy-custom-search" className={cn(currentView === 'grid' ? 'max-w-[1440px] mx-auto w-full' : 'w-full')}>
         <div
           className={cn(
-            'px-6 pt-16 pb-2 border-b border-gray-200',
+            'pt-16 pb-2 border-b border-gray-200',
+            currentView === 'map' ? 'px-0' : 'px-6',
             currentView === 'grid' ? 'text-center' : '',
           )}
         >
@@ -726,14 +765,14 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
           className={cn(
             'border-t border-gray-100 py-6',
           currentView === 'map'
-            ? 'relative top-2 z-20 flex items-center gap-2 rounded-xl bg-white p-2 shadow-md mb-[2px] mr-auto ml-6'
+            ? 'relative top-2 z-20 flex items-center gap-2 rounded-xl bg-white p-2 shadow-md mb-[2px] mr-auto ml-0'
             : 'flex items-center gap-2 rounded-xl bg-white p-2 shadow-md mx-auto',
         )}
         onSubmit={handleSubmit}
         style={{
           width:
             currentView === 'map'
-              ? 'calc(50% - 3rem)'
+              ? '100%'
               : 'calc(100% - 3rem)',
         }}
       >

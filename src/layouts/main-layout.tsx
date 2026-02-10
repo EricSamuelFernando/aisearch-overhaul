@@ -93,18 +93,9 @@ function MainLayout({ children }: Readonly<Props>) {
   // }, []);
 
   // Check if the pathname includes any routes where you want to hide the header and footer
-  const shouldHideHeaderFooter = [
-    'sell',
-    'agents',
-    'company',
-    'home',
-    'privacy-policy',
-    'terms-and-conditions',
-    'cookie-policy',
-    'offer-terms',
-    'disclosure',
-    'do-not-sell-or-share',
-  ].some((path) => pathname.includes(path));
+  const shouldHideHeaderFooter = ['sell', 'agents', 'company', 'home'].some(
+    (path) => pathname.includes(path),
+  );
 
   return (
     <>
@@ -115,7 +106,7 @@ function MainLayout({ children }: Readonly<Props>) {
 
       {/* Conditionally render Footer based on the route */}
       {typeof pathname === 'string' &&
-      (['browse', 'preview'].some((path) => pathname.includes(path)) || shouldHideHeaderFooter) ? null : (
+      ['browse', 'preview'].some((path) => pathname.includes(path)) ? null : (
         <Footer />
       )}
     </>

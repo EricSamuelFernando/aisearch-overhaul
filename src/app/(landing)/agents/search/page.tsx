@@ -138,6 +138,7 @@ const AgentsGrid = memo(function AgentsGrid({
   agents: Agent[] | null;
   highlightQuery?: string;
 }) {
+  // Made highlightQuery optional giving typescript error
   const isPresent = (v: any) =>
     v !== null &&
     v !== undefined &&
@@ -385,6 +386,29 @@ export default function AgentSearchPage() {
     }
   };
 
+  // Orginal Code
+  // useEffect(() => {
+  //   const queryParam = searchParams.get('query') || '';
+  //   const modeParam = (searchParams.get('mode') as SearchMode | null) ?? 'name';
+
+  //   setMode(modeParam);
+  //   setSearchInput(modeParam === 'name' ? queryParam : '');
+
+  //   (async () => {
+  //     const data: Agent[] = await fetchAgents();
+
+  //     let final = data;
+
+  //     if (modeParam === 'location' && queryParam.trim()) {
+  //       final = data.filter((agent) =>
+  //         agentMatchesLocation(agent, queryParam)
+  //       );
+  //     }
+
+  //     setAgents(final);
+  //   })();
+  // }, [searchParams]);
+
   useEffect(() => {
     const queryParam = searchParams.get('query') || '';
     const modeParam = (searchParams.get('mode') as SearchMode | null) ?? 'name';
@@ -393,23 +417,38 @@ export default function AgentSearchPage() {
     setMode(modeParam);
     setSearchInput(modeParam === 'name' ? queryParam : '');
 
-    (async () => {
-      const data: Agent[] = await fetchExternalAgents({
-        limit: PAGE_SIZE,
-        offset: 0,
-        signal: controller.signal,
-      });
+    const fetchData = async () => {
+      try {
+        const data: Agent[] = await fetchExternalAgents({
+          limit: 1000,
+          offset: 0,
+          signal: controller.signal,  // Pass the signal to fetchExternalAgents
+          search: queryParam
+        });
 
-      let final = data;
+        let final = data;
 
-      if (modeParam === 'location' && queryParam.trim()) {
-        final = data.filter((agent) =>
-          agentMatchesLocation(agent, queryParam)
-        );
+        if (modeParam === 'location' && queryParam.trim()) {
+          final = data.filter((agent) =>
+            agentMatchesLocation(agent, queryParam)
+          );
+        }
+
+        setAgents(final);
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          console.error('Fetch error:', err);
+          setAgents([]);  // Optionally, handle the error state
+        }
       }
+    };
 
-      setAgents(final);
-    })();
+    fetchData();
+
+    // Cleanup function to abort the fetch when the effect is cleaned up
+    return () => {
+      controller.abort();
+    };
   }, [searchParams]);
 
 

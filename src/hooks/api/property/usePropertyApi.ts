@@ -478,7 +478,8 @@ export const useUpdatePropertyPreference = (email?: string) => {
     },
     onSuccess: async (data: any) => {
       console.log('Preference updated:', data);
-      success({ message: "Preference has been successfully updated" });
+      // NOTE: Toast is NOT shown here to prevent auto-sync from layouts triggering it on every page load.
+      // The calling component should show its own toast in the mutate onSuccess callback when user explicitly saves.
       // Invalidate queries to refetch
       queryClientHook.invalidateQueries({ queryKey: ['property-preference-db'] });
       queryClientHook.invalidateQueries({ queryKey: ['property-preference-ai'] });

@@ -71,6 +71,7 @@ import { SocketContext } from '@/providers/socket.context';
 import { success } from '@/components/alert/notify';
 import type { WebSocketClient } from '@/lib/websocket-client';
 import { AgentDirectoryWrapper } from './agent-directory-wrapper';
+import { useRecordPropertyView } from '@/hooks/api/auth/useViewHistory';
 const defaultEstimatedData: any = {
   houseValue: "$450,460",
   houseValueDescription: "Overall readiness assessment",
@@ -174,6 +175,8 @@ const PropertyPreview: React.FC = () => {
   const [isAskAIModalOpen, setIsAskAIModalOpen] = React.useState(false);
   const [askAIQuestion, setAskAIQuestion] = React.useState('');
   const { externalAgentIvitationMutation } = useUserAuthApi();
+  const { recordPropertyView } = useRecordPropertyView();
+  const hasRecordedViewRef = React.useRef(false);
 
   React.useEffect(() => {
     if (id) {
@@ -652,6 +655,41 @@ const PropertyPreview: React.FC = () => {
       getPropertyDetails(listingId)
     }
   }, [property]);
+
+  // Track property view for logged-in users
+  // Wait for propertyDatas (AI response) to be loaded so we have the real listingId
+  React.useEffect(() => {
+    if (hasRecordedViewRef.current) return;
+    if (!currentUser?.id) return;
+
+    // Get the actual listingId from the best available source
+    const resolvedListingId =
+      propertyDatas?.data?.listingId ||
+      propertyData?.listingId ||
+      property?.listingId ||
+      id;
+
+    // Must have a real listingId (not undefined/null/empty)
+    if (!resolvedListingId) return;
+
+    const listingIdStr = String(resolvedListingId);
+    if (!listingIdStr || listingIdStr === 'undefined' || listingIdStr === 'null') return;
+
+    hasRecordedViewRef.current = true;
+
+    const addr = propertyDatas?.data?.address || propertyData?.address || propertyData?.public?.address || {};
+
+    recordPropertyView.mutate({
+      listingId: listingIdStr,
+      propertyId: String(propertyDatas?.data?.id || propertyData?.id || id || ''),
+      propertyAddress: addr?.unparsedAddress || addr?.label || '',
+      city: addr?.city || '',
+      state: addr?.stateOrProvince || '',
+      price: String(propertyDatas?.data?.listPrice || propertyData?.listPrice || ''),
+      propertyType: propertyDatas?.data?.property?.propertyType || propertyData?.property?.propertyType || '',
+      propertyImage: propertyDatas?.data?.media?.primaryListingImageUrl || propertyData?.media?.primaryListingImageUrl || '',
+    });
+  }, [currentUser?.id, propertyDatas, propertyData, property, id]);
 
   const transformData = React.useMemo(() => {
     const prop: any = proprtyData

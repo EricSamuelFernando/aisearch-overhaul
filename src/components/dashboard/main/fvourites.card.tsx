@@ -127,8 +127,8 @@ const FavouritePropertyCards = (props: any) => {
         )}
       </div>
 
-      <div className="flex flex-1 flex-col justify-between p-5 space-y-3 group-hover:bg-black transition-colors duration-300">
-        <div className="flex items-center justify-between">
+      <div className="flex flex-1 flex-col justify-start p-4 gap-2 group-hover:bg-black transition-colors duration-300">
+        <div className="flex items-center justify-start">
           <h3 className="text-2xl font-bold text-white group-hover:text-ocOrange transition-colors duration-300">
             {formatCurrency(props?.price || 0, 'USD')}
           </h3>

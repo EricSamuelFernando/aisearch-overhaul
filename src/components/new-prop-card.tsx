@@ -178,9 +178,9 @@ function PropertyCard(props: Props) {
               </div>
             )}
           </div>
-          <div className='rounded-b-xl bg-black px-6 py-4 text-white'>
-            <div className='py-3'>
-              <div className='mb-4 flex items-center justify-between'>
+          <div className='rounded-b-xl bg-black px-6 py-3 text-white'>
+            <div className='py-2'>
+              <div className='mb-2 flex items-center justify-between'>
                 <p className='text-xl font-bold'>
                   {formatNumber(price?.amount || 0)}
                 </p>
@@ -190,13 +190,13 @@ function PropertyCard(props: Props) {
                   <span className='text-2xl text-[#FFE4A8]'>80%</span>
                 </p>
               </div>
-              <p className='mb-10 text-sm'>
+              <p className='mb-4 text-sm'>
                 {propertyAddressDetails?.formattedAddress}
               </p>
             </div>
             <div className='flex items-start justify-between'>
               <div className=''>
-                <div className='relative mb-2 h-6 w-6'>
+                <div className='relative mb-1 h-6 w-6'>
                   <Image
                     fill
                     alt='profile'
@@ -212,7 +212,7 @@ function PropertyCard(props: Props) {
                 </div>
               </div>
               <div className='flex flex-1 flex-col  items-center justify-center px-8'>
-                <div className='relative mb-2 h-6 w-6'>
+                <div className='relative mb-1 h-6 w-6'>
                   <Image
                     fill
                     alt='profile'
@@ -230,7 +230,7 @@ function PropertyCard(props: Props) {
                 </div>
               </div>
               <div className=''>
-                <div className='relative mb-2 h-6 w-6'>
+                <div className='relative mb-1 h-6 w-6'>
                   <Image
                     fill
                     alt='profile'

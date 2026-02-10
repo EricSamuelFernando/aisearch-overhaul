@@ -14,6 +14,7 @@ import { useRouter } from 'next/navigation';
 import { Bath, BedDouble, Ruler, Heart, MessageCircle } from 'lucide-react';
 import CommentsModal from '@/components/modals/comments-modal';
 import { parseAddressComponents, getStateFromZip } from '@/utils/addressParser';
+import { useUserSnapAPIs } from '@/hooks/api/auth/snaps.API';
 
 type PropertyCardsProps = IProperty & {
   isWishlisted?: boolean;
@@ -30,6 +31,8 @@ const FavouritePropertyCards = (props: any) => {
   // Get state from zip code since old favorites don't have city/state in database
   const displayCity = props?.city; // Will be null for old favorites
   const displayState = getStateFromZip(props?.zipCode);
+
+  const { markPropertyAsRead } = useUserSnapAPIs();
 
   const slides = props?.listing?.media?.photosList?.slice(0, 4)?.map((image: any, idx: number) => {
     if (!image?.lowRes) return (
@@ -68,6 +71,16 @@ const FavouritePropertyCards = (props: any) => {
   const handleCommentClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowCommentsModal(true);
+    if (props.unreadCommentCount > 0 && props.snapId && props.propertyId) {
+      markPropertyAsRead.mutate(
+        { snapId: props.snapId, propertyId: props.propertyId },
+        {
+          onSuccess: () => {
+            if (props.onRead) props.onRead();
+          }
+        }
+      );
+    }
   };
 
   return (
@@ -120,8 +133,11 @@ const FavouritePropertyCards = (props: any) => {
             {formatCurrency(props?.price || 0, 'USD')}
           </h3>
           {isWishlisted && (
-            <div onClick={handleCommentClick} className="cursor-pointer hover:scale-110 transition-transform">
-              <MessageCircle className="w-6 h-6 text-[#FF8700]" />
+            <div onClick={handleCommentClick} className="relative cursor-pointer hover:scale-110 transition-transform flex items-center justify-center w-8 h-8 bg-[#FF8700] rounded-full shadow-sm">
+              <MessageCircle className="w-5 h-5 text-white fill-white" />
+              <div className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-black">
+                {props.unreadCommentCount > 9 ? '9+' : (props.unreadCommentCount || 0)}
+              </div>
             </div>
           )}
         </div>

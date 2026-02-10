@@ -55,7 +55,7 @@ export const PropertyTypeData: PropertyTypeDataList = [
   },
   {
     id: 'property-type-data-002',
-    label: 'Condomium',
+    label: 'Condominium',
     value: 'Condomium',
   },
   {

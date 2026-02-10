@@ -42,16 +42,16 @@ export default function HowItWorksPage() {
               >
                 <div className="bg-white bg-opacity-75 p-3 rounded-full">
                   {/* <Play className="w-6 h-6 text-orange-500" /> */}
-                                      <iframe
-        width="100%"
-        height="100%"
-        className="absolute inset-0 w-full h-full object-cover rounded-lg"
-        src="https://www.youtube.com/embed/wxnCua71Bpc?si=F1eRw19_WSuh1Rn4"
-        title="YouTube video player"
-        frameBorder="0"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowFullScreen
-      ></iframe>
+                  <iframe
+                    width="100%"
+                    height="100%"
+                    className="absolute inset-0 w-full h-full object-cover rounded-lg"
+                    src="https://www.youtube.com/embed/wxnCua71Bpc?si=F1eRw19_WSuh1Rn4"
+                    title="YouTube video player"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  ></iframe>
                 </div>
               </button>
             </div>
@@ -125,13 +125,15 @@ export default function HowItWorksPage() {
                 {steps.map((step, i) => {
                   const active = i === activeIndex;
                   return (
-                  <li key={i} className="relative">
+                    <li
+                      key={i}
+                      className="relative cursor-pointer"
+                      onClick={() => handleStepChange(i)}
+                    >
                       {/* Corrected Circle Indicator */}
                       <span
-                        onClick={() => handleStepChange(i)}
-                        className={`absolute -left-7 top-1 w-4 h-4 rounded-full cursor-pointer ${
-                          active ? 'bg-orange-500' : 'border-2 border-gray-300 bg-white'
-                        }`}
+                        className={`absolute -left-7 top-1 w-4 h-4 rounded-full ${active ? 'bg-orange-500' : 'border-2 border-gray-300 bg-white'
+                          }`}
                       />
                       {/* Step Description */}
                       <div
@@ -152,13 +154,12 @@ export default function HowItWorksPage() {
               </ul>
               {/* Circle Indicator Row */}
               <div className="mt-12 flex justify-center md:justify-start space-x-2">
-               {steps.map((_, i) => (
+                {steps.map((_, i) => (
                   <span
                     key={i}
                     onClick={() => handleStepChange(i)}
-                    className={`block w-2 h-2 rounded-full cursor-pointer ${
-                      i === activeIndex ? 'bg-orange-500' : 'bg-gray-300'
-                    }`}
+                    className={`block w-2 h-2 rounded-full cursor-pointer ${i === activeIndex ? 'bg-orange-500' : 'bg-gray-300'
+                      }`}
                   />
                 ))}
               </div>

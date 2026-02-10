@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { Star, Phone, ArrowLeft, ArrowRight, Bed, Bath, Square } from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
+import { Star, ArrowLeft, ArrowRight, Bed, Bath, Square, Building2, MapPin, DollarSign, Wallet, FileText, Trophy, ShoppingBag } from 'lucide-react';
 import MainNavPages from '@/components/navbars/main-nav-pages';
 import { Agent } from '@/types/agent.types';
 
@@ -14,14 +14,6 @@ function formatNumber(value: number | null | undefined): string {
   return value.toLocaleString('en-US');
 }
 
-// Helper: Formats 500000 -> $500,000
-function formatCurrency(value: number | null | undefined): string {
-  if (value === null || value === undefined) return 'N/A';
-  return `$${value.toLocaleString('en-US', {
-    maximumFractionDigits: 0,
-  })}`;
-}
-
 // Formats 502552457 -> $502M
 function formatMillions(value: number | null | undefined): string {
   if (value === null || value === undefined) return 'N/A';
@@ -29,19 +21,11 @@ function formatMillions(value: number | null | undefined): string {
   return `$${Math.round(millions)}M`;
 }
 
-const SECTION_IDS = [
-  'agent-info',
-  'success-metrics',
-  'performance-metrics',
-  'featured-sales',
-  'active-listings',
-] as const;
-
-type SectionId = (typeof SECTION_IDS)[number];
 type LoadStatus = 'loading' | 'loaded' | 'not-found';
 
 export default function AgentProfilePage() {
   const params = useParams();
+  const router = useRouter();
   const id =
     typeof params?.id === 'string'
       ? params.id
@@ -51,7 +35,10 @@ export default function AgentProfilePage() {
 
   const [agent, setAgent] = useState<any | null>(null);
   const [status, setStatus] = useState<LoadStatus>('loading');
-  const [activeSection, setActiveSection] = useState<SectionId>('agent-info');
+
+  // Tabs State for Properties Section
+  const [propertyTab, setPropertyTab] = useState<'sold' | 'active'>('sold');
+
   const GRAPHQL_URI =
     process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
     'http://localhost:4000/auth/graphql';
@@ -156,65 +143,11 @@ export default function AgentProfilePage() {
     return () => controller.abort();
   }, [id]);
 
-  // Scroll spy using IntersectionObserver
-  useEffect(() => {
-    if (!agent || status !== 'loaded') return;
-
-    const observerOptions: IntersectionObserverInit = {
-      root: null,
-      rootMargin: '-40% 0px -40% 0px',
-      threshold: 0.1,
-    };
-
-    const callback: IntersectionObserverCallback = (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          const id = entry.target.id as SectionId;
-          if (SECTION_IDS.includes(id)) {
-            setActiveSection(id);
-          }
-        }
-      });
-    };
-
-    const observer = new IntersectionObserver(callback, observerOptions);
-
-    SECTION_IDS.forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) observer.observe(el);
-    });
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [agent, status]);
-
-  // Click navigation (smooth scroll to section)
-  const handleNavClick = (sectionId: SectionId) => {
-    setActiveSection(sectionId);
-
-    const element = document.getElementById(sectionId);
-    if (element) {
-      element.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
-    }
-  };
-
-  const getLinkClass = (sectionId: SectionId) => {
-    const isActive = activeSection === sectionId;
-    return `text-left pl-4 border-l-2 text-sm transition-colors duration-200 cursor-pointer w-full ${isActive
-      ? 'border-black font-bold text-black'
-      : 'border-transparent text-gray-600 hover:text-black'
-      }`;
-  };
-
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-white text-black">
+      <div className="min-h-screen bg-[#F9F3EB] text-black">
         <MainNavPages />
-        <div className="pt-28 pb-20 container mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="pt-32 pb-20 max-w-[1280px] mx-auto px-12">
           <p>Loading agent...</p>
         </div>
       </div>
@@ -223,13 +156,16 @@ export default function AgentProfilePage() {
 
   if (status === 'not-found' || !agent) {
     return (
-      <div className="min-h-screen bg-white text-black">
+      <div className="min-h-screen bg-[#F9F3EB] text-black">
         <MainNavPages />
-        <div className="pt-28 pb-20 container mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="pt-32 pb-20 max-w-[1280px] mx-auto px-12">
           <p>Agent not found.</p>
-          <Link href="/agents/search" className="text-blue-600 underline">
+          <button
+            onClick={() => router.back()}
+            className="text-blue-600 underline cursor-pointer hover:text-blue-800"
+          >
             Back to agent list
-          </Link>
+          </button>
         </div>
       </div>
     );
@@ -257,8 +193,6 @@ export default function AgentProfilePage() {
     (agent as any).highestSalePriceLastYear ??
     0;
 
-  const totalDeals = (agent as any).totalDeals ?? 0;
-
   const homesSoldLastYear =
     (agent as any).homesSoldLastYear ??
     (agent as any).total_deals_past_year ??
@@ -279,384 +213,344 @@ export default function AgentProfilePage() {
 
   const estimatedGci = (agent as any).estimated_gci ?? null;
 
-  const brokerageAndLocation = `${agent.brokerageName || (agent as any).Brokerage || 'Real Estate Agent'
-    } - ${agent.city ?? ''}${agent.city && agent.state ? ', ' : ''}${agent.state ?? ''}`;
-
   return (
-    <div className="min-h-screen bg-white text-black font-sans">
-      <MainNavPages />
+    <div className="min-h-screen bg-[#F9F3EB] text-black font-sans">
+      <style jsx global>{`
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+      `}</style>
+      <div className="fixed w-full z-50 top-0 left-0">
+        <MainNavPages />
+      </div>
 
-      <div className="pt-28 pb-20 container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
-        <div className="text-sm text-gray-500 mb-8 flex items-center gap-2">
-          <Link href="/agents/search" className="hover:text-black transition-colors">
-            Agent list
-          </Link>
-          &gt;
-          <span className="text-black font-medium">Agent Profile</span>
+      <div className="pt-32 pb-32 max-w-[1280px] mx-auto">
+        {/* Breadcrumb Container with standard padding */}
+        <div className="px-6 md:px-6">
+          <div className="text-sm font-medium text-gray-500 mb-8 flex items-center gap-2">
+            <button
+              onClick={() => router.back()}
+              className="hover:text-black transition-colors cursor-pointer"
+            >
+              Agent list
+            </button>
+            &gt;
+            <span className="text-black font-bold">Agent Profile</span>
+          </div>
+
+          {/* Page Title with standard padding */}
+          <h1 className="text-[48px] font-bold text-black mb-20">Agent Profile</h1>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <aside className="hidden lg:block lg:col-span-3">
-            <div className="sticky top-40 space-y-4">
-              <nav className="flex flex-col space-y-3">
-                <button
-                  type="button"
-                  onClick={() => handleNavClick('agent-info')}
-                  className={getLinkClass('agent-info')}
-                >
-                  Agent Info
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleNavClick('success-metrics')}
-                  className={getLinkClass('success-metrics')}
-                >
-                  Success Metrics
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleNavClick('performance-metrics')}
-                  className={getLinkClass('performance-metrics')}
-                >
-                  Performance Metrics
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleNavClick('featured-sales')}
-                  className={getLinkClass('featured-sales')}
-                >
-                  Sold Homes
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleNavClick('active-listings')}
-                  className={getLinkClass('active-listings')}
-                >
-                  Active/For Sale Homes
-                </button>
-              </nav>
+        <div className="space-y-20 px-6 md:px-6">
+
+          {/* ROW 1: Agent Information */}
+          <div className="flex flex-col lg:flex-row gap-8">
+            <div className="w-full lg:w-[200px] shrink-0">
+              <h3 className="text-[15px] font-bold text-black pt-2">Agent Information</h3>
             </div>
-          </aside>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-col md:flex-row gap-16 items-start">
 
-          <div className="lg:col-span-9 space-y-8">
-            <div className="bg-[#f7f2e9] rounded-[2rem] p-6 flex flex-col md:flex-row md:items-center md:justify-between shadow-sm">
-              <div className="flex items-center gap-4">
-                <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-white flex-shrink-0">
-                  <Image
-                    src={agent.profile_image_url || '/assets/images/agetn-hero-deop.jpg'}
-                    alt={agent.full_name}
-                    fill
-                    className="object-cover"
-                  />
+                {/* Image */}
+                <div className="w-[380px] h-[380px] relative shrink-0">
+                  <div className="relative w-full h-full rounded-[32px] overflow-hidden bg-gray-200">
+                    <Image
+                      src={agent.profile_image_url || '/assets/images/agent-hero-drop.jpg'}
+                      alt={agent.full_name}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 400px"
+                      quality={100}
+                      priority
+                      className="object-cover"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-xl font-bold text-black mb-1">{agent.full_name}</h2>
 
-                  {agent.licenseNumber && (
-                    <p className="text-xs text-gray-500">
-                      License {agent.licenseNumber}
-                    </p>
-                  )}
+                {/* Details */}
+                <div className="flex-1 w-full pt-4">
+                  <div className="mb-10">
+                    <h2 className="text-[32px] font-bold text-black mb-1">{agent.full_name}</h2>
+                    <p className="text-gray-500 text-lg">{(agent as any).jobTitle || 'Real Estate Agent'}</p>
+                  </div>
 
-                  <p className="flex items-center gap-2 text-sm text-gray-700 mt-1">
-                    <Star className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />
-                    <span className="font-semibold">
-                      {agent.rating ? agent.rating.toFixed(1) : 'N/A'}
-                    </span>
-                  </p>
+                  <div className="space-y-5 max-w-xl">
+                    <div className="flex justify-between items-center border-b border-gray-300 pb-3">
+                      <span className="font-medium text-black">Mobile</span>
+                      <span className="text-black">{agentPhone || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-gray-300 pb-3">
+                      <span className="font-medium text-black">Email</span>
+                      <span className="text-black truncate max-w-[200px]" title={agent.email}>
+                        {agent.email || 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-gray-300 pb-3">
+                      <span className="font-medium text-black">Ratings</span>
+                      <div className="flex items-center gap-1.5">
+                        <Star className="w-4 h-4 text-orange-400 fill-orange-400" />
+                        <span className="text-black font-bold">
+                          {(agent.rating || agent.avgRating) ? (agent.rating || agent.avgRating).toFixed(1) : 'N/A'}
+                        </span>
+                        <span className="text-gray-400">/50 reviews</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-[#E8E3DE] pb-3">
+                      <span className="font-medium text-black">Past Year Deals</span>
+                      <span className="text-black">{formatNumber(homesSoldLastYear)}</span>
+                    </div>
+                    <div className="flex justify-between items-center pb-3">
+                      <span className="font-medium text-black">Commission</span>
+                      <span className="text-black">{commissionRateDisplay}</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-
-              <div className="mt-4 md:mt-0 flex flex-col items-end gap-1">
-                {agentPhone && (
-                  <a
-                    href={`tel:${agentPhone}`}
-                    className="inline-flex items-center gap-2 bg-black text-white px-5 py-2 rounded-full text-sm font-medium hover:bg-gray-900 transition-colors -mr-2"
-                  >
-                    <Phone className="w-4 h-4" />
-                    {agentPhone}
-                  </a>
-                )}
-                <p className="text-gray-600 text-sm text-right mt-1">
-                  {brokerageAndLocation}
-                </p>
               </div>
             </div>
+          </div>
 
-            <section id="agent-info" className="scroll-mt-32">
-              <h3 className="text-lg font-bold text-black mb-4">Agent Info</h3>
-              <div className="bg-[#f7f2e9] rounded-[2rem] p-6 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
-                <div className="space-y-2">
-                  <p>
-                    <span className="text-gray-500">Name:</span>{' '}
-                    <span className="font-semibold text-black">{agent.full_name}</span>
-                  </p>
-                  <p>
-                    <span className="text-gray-500">Email:</span>{' '}
-                    <span className="font-semibold text-black">{agent.email}</span>
-                  </p>
-                  <p>
-                    <span className="text-gray-500">Phone:</span>{' '}
-                    <span className="font-semibold text-black">{agentPhone}</span>
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <p>
-                    <span className="text-gray-500">Location:</span>{' '}
-                    <span className="font-semibold text-black">
-                      {agent.city}, {agent.state}
-                    </span>
-                  </p>
-                  <p>
-                    <span className="text-gray-500">Brokerage:</span>{' '}
-                    <span className="font-semibold text-black">
-                      {agent.brokerageName || (agent as any).Brokerage}
-                    </span>
-                  </p>
-                  <p>
-                    <span className="text-gray-500">Service Regions:</span>{' '}
-                    <span className="font-semibold text-black">
-                      {agent.primary_service_regions}
-                    </span>
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            <section id="success-metrics" className="scroll-mt-32">
-              <h3 className="text-lg font-bold text-black mb-4">Success Metrics</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <MetricCard
-                  label="Total Sales (lifetime)"
-                  value={formatMillions(dealVolume as number)}
+          {/* ROW 2: Listings Summary */}
+          <div className="flex flex-col lg:flex-row gap-8">
+            <div className="w-full lg:w-[200px] shrink-0">
+              <h3 className="text-[15px] font-bold text-black pt-2">Agent Listings Summary</h3>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <SummaryCard
+                  icon={<Building2 className="w-6 h-6 text-gray-800" strokeWidth={1.5} />}
+                  label="Properties Sold"
+                  value={formatNumber(homesSoldLastYear)}
                 />
-                <MetricCard
-                  label="Sales (last 12 months)"
-                  value={formatMillions(salesVolumeLast12Months as number)}
-                />
-                <MetricCard
-                  label="Highest Sale"
-                  value={formatMillions(highestSaleValue as number)}
-                />
-                <MetricCard
+                <SummaryCard
+                  icon={<MapPin className="w-6 h-6 text-gray-800" strokeWidth={1.5} />}
                   label="Active Listings"
-                  value={formatNumber(agent.active_listings_count as number)}
+                  value={formatNumber(agent.active_listings_count)}
+                />
+                <SummaryCard
+                  icon={<DollarSign className="w-6 h-6 text-gray-800" strokeWidth={1.5} />}
+                  label="Estimated GCI Lifetime"
+                  value={formatMillions(estimatedGci)}
                 />
               </div>
-            </section>
+            </div>
+          </div>
 
-            <section id="performance-metrics" className="scroll-mt-32">
-              <h3 className="text-lg font-bold text-black mb-4">Performance Metrics</h3>
-              <div className="bg-[#f7f2e9] rounded-[2rem] p-8 shadow-sm text-sm">
-                <div className="mb-8 border-b border-gray-300/50 pb-8">
-                  <h4 className="font-bold text-lg mb-6">Career</h4>
-                  <div className="space-y-4">
-                    <RowItem
-                      label="Total Deals"
-                      value={formatNumber(totalDeals as number)}
-                    />
-                    <RowItem
-                      label="Total Sales (lifetime)"
-                      value={formatMillions(dealVolume as number)}
-                    />
-                    <RowItem
-                      label="Sales (last 12 months)"
-                      value={formatMillions(salesVolumeLast12Months as number)}
-                    />
-                    <RowItem
-                      label="Highest Sale"
-                      value={formatMillions(highestSaleValue as number)}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <h4 className="font-bold text-lg mb-6">Market Expertise</h4>
-                  <div className="space-y-4">
-                    <RowItem
-                      label="Properties Sold Last Year"
-                      value={formatNumber(homesSoldLastYear as number)}
-                    />
-                    <RowItem
-                      label="Active Listings (API)"
-                      value={formatNumber(agent.active_listings_count as number)}
-                    />
-                    <RowItem
-                      label="Commission Rate"
-                      value={commissionRateDisplay}
-                    />
-                    <RowItem
-                      label="Estimated GCI"
-                      value={formatMillions(estimatedGci as number)}
-                    />
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section id="featured-sales" className="scroll-mt-32">
-              <div className="flex justify-between items-end mb-4">
-                <h3 className="text-lg font-bold text-black">Sold Homes</h3>
-                <div className="flex gap-2">
-                  <NavButton icon={<ArrowLeft className="w-4 h-4" />} />
-                  <NavButton icon={<ArrowRight className="w-4 h-4" />} />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <PropertyCard
-                  status="Sold"
-                  statusColor="bg-orange-500"
-                  price="$ 250,000"
-                  address="6401 Mclntryre Grey, Kentucky"
-                  beds="3"
-                  baths="2"
-                  sqft="1.01"
+          {/* ROW 3: Performance Overview */}
+          <div className="flex flex-col lg:flex-row gap-8">
+            <div className="w-full lg:w-[200px] shrink-0">
+              <h3 className="text-[15px] font-bold text-black pt-2">Agent Sales Performance Overview</h3>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <PerformanceCard
+                  icon={<Wallet className="w-6 h-6 text-gray-800" strokeWidth={1.5} />}
+                  label="Total Sales"
+                  value={formatMillions(dealVolume)}
+                  badge="Lifetime"
                 />
-                <PropertyCard
-                  status="Sold"
-                  statusColor="bg-orange-500"
-                  price="$ 250,000"
-                  address="4123 West Avenue, Kentucky"
-                  beds="3"
-                  baths="2"
-                  sqft="1.01"
+                <PerformanceCard
+                  icon={<FileText className="w-6 h-6 text-gray-800" strokeWidth={1.5} />}
+                  label="Sales"
+                  value={formatMillions(salesVolumeLast12Months)}
+                  badge="Last 12 Months"
                 />
-                <PropertyCard
-                  status="Sold"
-                  statusColor="bg-orange-500"
-                  price="$ 250,000"
-                  address="8899 North St, Kentucky"
-                  beds="3"
-                  baths="2"
-                  sqft="1.01"
+                <PerformanceCard
+                  icon={<Trophy className="w-6 h-6 text-gray-800" strokeWidth={1.5} />}
+                  label="Highest Sales"
+                  value={formatMillions(highestSaleValue)}
+                  badge="Lifetime"
+                />
+                <PerformanceCard
+                  icon={<ShoppingBag className="w-6 h-6 text-gray-800" strokeWidth={1.5} />}
+                  label="Cheapest Sales"
+                  value="$N/A"
+                  badge="Lifetime"
                 />
               </div>
-            </section>
-
-            <section id="active-listings" className="scroll-mt-32">
-              <div className="flex justify-between items-end mb-4">
-                <h3 className="text-lg font-bold text-black">Active/For Sale Homes</h3>
-                <div className="flex gap-2">
-                  <NavButton icon={<ArrowLeft className="w-4 h-4" />} />
-                  <NavButton icon={<ArrowRight className="w-4 h-4" />} />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <PropertyCard
-                  status="For Sale"
-                  statusColor="bg-[#82C91E]"
-                  price="$ 250,000"
-                  address="6401 Mclntryre Grey, Kentucky"
-                  beds="3"
-                  baths="2"
-                  sqft="1.01"
-                />
-                <PropertyCard
-                  status="For Sale"
-                  statusColor="bg-[#82C91E]"
-                  price="$ 250,000"
-                  address="6401 Mclntryre Grey, Kentucky"
-                  beds="3"
-                  baths="2"
-                  sqft="1.01"
-                />
-                <PropertyCard
-                  status="For Sale"
-                  statusColor="bg-[#82C91E]"
-                  price="$ 250,000"
-                  address="6401 Mclntryre Grey, Kentucky"
-                  beds="3"
-                  baths="2"
-                  sqft="1.01"
-                />
-              </div>
-
-              <div className="mt-8 flex justify-center">
-                <Link href="/agents/search">
-                  <button className="border border-black rounded-full px-6 py-2 text-sm font-medium hover:bg-black hover:text-white transition-colors">
-                    Back to Agent List
-                  </button>
-                </Link>
-              </div>
-            </section>
+            </div>
           </div>
         </div>
+
+        {/* ROW 4: Properties Tabs & Carousel */}
+        <div className="mt-20">
+          {/* Tabs Container - Flush Left, Full Width */}
+          <div className="pt-10 border-t border-[#E8E3DE] px-6 md:px-6">
+            <div className="flex gap-8 mb-10 border-b border-gray-200 w-full relative">
+              <button
+                onClick={() => setPropertyTab('sold')}
+                className={`pb-4 text-[18px] font-semibold transition-colors relative ${propertyTab === 'sold' ? 'text-black' : 'text-gray-400 hover:text-gray-600'
+                  }`}
+              >
+                Sold Properties
+                {propertyTab === 'sold' && (
+                  <span className="absolute bottom-0 left-0 w-full h-[3px] bg-[#FF7A00] rounded-t-full" />
+                )}
+              </button>
+              <button
+                onClick={() => setPropertyTab('active')}
+                className={`pb-4 text-[18px] font-semibold transition-colors relative ${propertyTab === 'active' ? 'text-black' : 'text-gray-400 hover:text-gray-600'
+                  }`}
+              >
+                Active For Sale
+                {propertyTab === 'active' && (
+                  <span className="absolute bottom-0 left-0 w-full h-[3px] bg-[#82C91E] rounded-t-full" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* New Carousel Structure - Full Width, Standard Padding to align with Titles */}
+          <div className="relative w-full">
+            <div className="flex">
+              <div className="flex-1 min-w-0 overflow-hidden relative">
+                <div>
+                  {propertyTab === 'sold' ? (
+                    <PropertyCarousel
+                      items={[...Array(6)].map((_, i) => i)}
+                      badge="Sold"
+                      badgeColor="bg-[#FF7A00]"
+                    />
+                  ) : (
+                    <PropertyCarousel
+                      items={[...Array(4)].map((_, i) => i + 10)}
+                      badge="For Sale"
+                      badgeColor="bg-[#82C91E]"
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   );
 }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
+function SummaryCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="bg-[#f7f2e9] rounded-[2rem] p-6 flex flex-col justify-between h-40 shadow-sm">
-      <div className="flex gap-1 mb-2">
-        {[...Array(7)].map((_, i) => (
-          <div key={`orange-${i}`} className="w-1.5 h-4 bg-orange-500 rounded-sm" />
+    <div className="bg-[#EFE3D2] rounded-[24px] p-8 min-h-[180px] flex flex-col justify-between border border-transparent hover:border-gray-200 transition-colors">
+      <div>{icon}</div>
+      <div>
+        <p className="text-sm font-medium text-gray-500 mb-1">{label}</p>
+        <p className="text-[28px] font-bold text-black">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function PerformanceCard({ icon, label, value, badge }: { icon: React.ReactNode; label: string; value: string; badge: string }) {
+  return (
+    <div className="bg-[#EFE3D2] rounded-[24px] p-8 min-h-[180px] flex flex-col justify-between relative group border border-transparent hover:border-gray-200 transition-colors">
+      <div>{icon}</div>
+      <div>
+        <p className="text-sm font-medium text-gray-500 mb-1">{label}</p>
+        <p className="text-[28px] font-bold text-black">{value}</p>
+      </div>
+      <div className="absolute bottom-6 right-6">
+        <span className="bg-[#FFEAD5] text-[#FF7A00] text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wide">
+          {badge}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function PropertyCarousel({ items, badge, badgeColor }: { items: number[], badge: string, badgeColor: string }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollLeft = () => {
+    scrollRef.current?.scrollBy({ left: -344, behavior: 'smooth' });
+  };
+
+  const scrollRight = () => {
+    scrollRef.current?.scrollBy({ left: 344, behavior: 'smooth' });
+  };
+
+  return (
+    <div className="mt-8 relative w-full">
+      <div
+        ref={scrollRef}
+        className="flex gap-6 overflow-x-auto overflow-y-hidden scroll-smooth scrollbar-hide overscroll-x-contain pl-6 md:pl-6"
+        onWheel={(e) => {
+          const container = e.currentTarget;
+          const isScrollable = container.scrollWidth > container.clientWidth;
+
+          if (!isScrollable) return;
+
+          if (e.deltaY !== 0) {
+            e.preventDefault();
+            container.scrollLeft += e.deltaY;
+          }
+        }}
+      >
+        {items.map((idx) => (
+          <div key={idx} className="w-[320px] flex-shrink-0 first:ml-0">
+            <PropertyCard index={idx} status={badge} statusColor={badgeColor} />
+          </div>
         ))}
-        <div className="w-1.5 h-4 bg-gray-400 rounded-sm" />
       </div>
-      <div className="flex flex-col">
-        <p className="text-3xl font-bold text-black tracking-tight leading-none">
-          {value}
-        </p>
-        <p className="text-gray-500 text-sm font-medium mt-2">{label}</p>
+
+      {/* Scroll Buttons - Left Aligned to Content Area */}
+      <div className="flex gap-3 mt-6 justify-start pl-6 md:pl-6">
+        <button onClick={scrollLeft} className="w-12 h-12 rounded-full bg-[#F3EFEA] flex items-center justify-center hover:bg-gray-200 transition-colors">
+          <ArrowLeft className="w-5 h-5 text-black" />
+        </button>
+        <button onClick={scrollRight} className="w-12 h-12 rounded-full bg-[#F3EFEA] flex items-center justify-center hover:bg-gray-200 transition-colors">
+          <ArrowRight className="w-5 h-5 text-black" />
+        </button>
       </div>
     </div>
-  );
+  )
 }
 
-function RowItem({ label, value }: { label: string; value: string }) {
+function PropertyCard({ index, status, statusColor }: { index: number; status: string; statusColor: string }) {
   return (
-    <div className="flex justify-between items-center">
-      <span className="text-gray-500">{label}</span>
-      <span className="text-black font-bold">{value}</span>
-    </div>
-  );
-}
-
-function NavButton({ icon }: { icon: React.ReactNode }) {
-  return (
-    <button className="w-10 h-10 rounded-full bg-[#EADDD7] flex items-center justify-center hover:bg-[#DCCBC3] transition-colors text-black">
-      {icon}
-    </button>
-  );
-}
-
-function PropertyCard({
-  status,
-  statusColor,
-  price,
-  address,
-  beds,
-  baths,
-  sqft,
-}: any) {
-  return (
-    <div className="rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group cursor-pointer bg-white">
-      <div className="h-48 bg-gray-300 relative">
+    <div className="group cursor-pointer flex flex-col h-full w-[320px]">
+      {/* Image Container - Fixed Aspect Ratio and Height */}
+      <div className="relative rounded-t-[24px] overflow-hidden bg-gray-200 w-full h-[220px]">
         <Image
           src="/assets/images/agents-hero.jpg"
           alt="Property"
           fill
-          className="object-cover"
+          sizes="320px"
+          quality={100}
+          priority
+          className="object-cover group-hover:scale-105 transition-transform duration-500"
         />
-        <div
-          className={`absolute top-4 left-4 ${statusColor} text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider`}
-        >
+
+        {/* Badge */}
+        <span className={`absolute top-4 left-4 ${statusColor} text-white text-[10px] font-bold px-4 py-1.5 rounded-full z-10 uppercase tracking-wide`}>
           {status}
-        </div>
+        </span>
       </div>
-      <div className="bg-[#111111] p-5 text-white">
-        <h4 className="text-xl font-bold mb-1">{price}</h4>
-        <p className="text-gray-400 text-xs mb-4">{address}</p>
-        <div className="flex items-center gap-4 text-sm text-gray-300 border-t border-gray-800 pt-4">
+
+      {/* Content Container - Black Background with Consistent Height */}
+      <div className="bg-[#111111] rounded-b-[24px] p-6 text-white min-h-[160px] flex flex-col justify-between">
+        <div>
+          <h3 className="text-[28px] font-bold mb-2">$ 250,000</h3>
+          <p className="text-gray-400 text-sm mb-4 leading-relaxed line-clamp-2">
+            640 162th ky Gray, Kentucky(KY), 40734
+          </p>
+        </div>
+
+        <div className="flex items-center gap-5 text-xs font-semibold text-white mt-auto">
           <div className="flex items-center gap-2">
-            <Bed className="w-4 h-4" /> <span>{beds} Bed</span>
+            <Bed className="w-5 h-5 text-gray-400" strokeWidth={1.5} />
+            <span>3 Bed</span>
           </div>
           <div className="flex items-center gap-2">
-            <Bath className="w-4 h-4" /> <span>{baths} Bath</span>
+            <Bath className="w-5 h-5 text-gray-400" strokeWidth={1.5} />
+            <span>2 Bath</span>
           </div>
           <div className="flex items-center gap-2">
-            <Square className="w-4 h-4" /> <span>{sqft} sqft</span>
+            <Square className="w-5 h-5 text-gray-400" strokeWidth={1.5} />
+            <span>1.51 sft</span>
           </div>
         </div>
       </div>

@@ -368,6 +368,7 @@ export const useGetPropertyPreference = (email?: string) => {
   });
 
   return {
+    getPropertyPreferenceFromDB,
     getPropertyPreferenceFromAI
   };
 }
@@ -386,6 +387,7 @@ export const useUpdatePropertyPreference = (email?: string) => {
       priceMin?: number;
       priceMax?: number;
       city?: string;
+      onboardingCompleted?: boolean;
     }) => {
       if (!token) {
         throw new Error('No authentication token found');
@@ -393,7 +395,7 @@ export const useUpdatePropertyPreference = (email?: string) => {
 
       // Prepare GraphQL mutation data according to PropertyPreferenceInput schema
       const propertyData: any = {
-        onboardingCompleted: false,
+        onboardingCompleted: data.onboardingCompleted ?? false,
         preApprovalAffiliates: false,
       };
 
@@ -476,7 +478,8 @@ export const useUpdatePropertyPreference = (email?: string) => {
     },
     onSuccess: async (data: any) => {
       console.log('Preference updated:', data);
-      success({ message: "Preference has been successfully updated" });
+      // NOTE: Toast is NOT shown here to prevent auto-sync from layouts triggering it on every page load.
+      // The calling component should show its own toast in the mutate onSuccess callback when user explicitly saves.
       // Invalidate queries to refetch
       queryClientHook.invalidateQueries({ queryKey: ['property-preference-db'] });
       queryClientHook.invalidateQueries({ queryKey: ['property-preference-ai'] });

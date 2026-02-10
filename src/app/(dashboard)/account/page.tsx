@@ -6,11 +6,11 @@ import { formatSellerDate } from '@/lib/helpers';
 import PlaceholderImage from '@public/assets/images/placeholder.svg';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useGetUserDocument } from '@/hooks/api/user/useGetUserDocuments';
+import { useGetUserDocuments } from '@/hooks/api/user/useGetUserDocuments';
 import {
   truncateName,
-  useDocumentHandlers,
 } from '@/hooks/utils/useDocumentsHandlers';
+
 import PDFViewerModal from '@/components/dashboard/main/pdf-viewer';
 import {
   DropdownMenu,
@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Download, EllipsisVertical, Eye, FileText, MoreVertical, UserPlus, PlusCircle, Share2, Edit2, FileEdit, Trash2, ArrowLeft, Ellipsis, EllipsisIcon } from 'lucide-react';
+import { EllipsisVertical, Eye, FileText, MoreVertical, UserPlus, PlusCircle, Share2, Edit2, FileEdit, Trash2, ArrowLeft, Ellipsis, EllipsisIcon } from 'lucide-react';
 import { useGetUserInvitedAgents } from '@/hooks/api/user/useGetUserInvitedAgents';
 import ProfileCircle from '@/components/dashboard/user/profile-circle';
 import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
@@ -36,6 +36,7 @@ import FavouritePropertyCards from '@/components/dashboard/main/fvourites.card';
 import RecentCommentsSidebar from '@/components/dashboard/main/recent-comments-sidebar';
 import CreateSnapModal from '@/components/create-snap.modal';
 import { v4 as uuidv4 } from 'uuid';
+import { useGetViewHistory, type ViewHistoryItem } from '@/hooks/api/auth/useViewHistory';
 
 
 interface InvitationInterface {
@@ -77,7 +78,7 @@ export default function AccountPage() {
   const [favourites, setFavourites] = useState([])
   const { getAllAgentsQuery, searchAgentMutation, sendInviteMutation } = useUserAuthApi();
   const { data: userDocuments, isPending: isDocumentsPending } =
-    useGetUserDocument();
+    useGetUserDocuments();
   const {
     createNewSnap,
     getAllSnaps,
@@ -95,7 +96,7 @@ export default function AccountPage() {
   const [isModalOpen, setIsModalOpen] = useState("");
   const [isCollaborateModalOpen, setIsCollaborateModalOpen] = useState(false);
   const { isPending: isInvitedAgentsPending } = useGetUserInvitedAgents();
-  const { handleDownload } = useDocumentHandlers(undefined);
+
   const documents = userDocuments?.result;
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
@@ -115,6 +116,11 @@ export default function AccountPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const AI_BASE_URL = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI || '';
+
+  // View History State
+  const [viewHistoryPage, setViewHistoryPage] = useState(1);
+  const [viewHistoryPerPage] = useState(10);
+  const { getViewHistory } = useGetViewHistory(viewHistoryPage, viewHistoryPerPage);
 
   // Pagination State for Invitation Modal
   const [invitePage, setInvitePage] = useState(1);
@@ -559,6 +565,12 @@ export default function AccountPage() {
             >
               Search History
             </TabsTrigger>
+            <TabsTrigger
+              value='view-history'
+              className='rounded-none border-b-2 border-transparent px-4 py-2 font-medium data-[state=active]:border-black data-[state=active]:bg-transparent'
+            >
+              View History
+            </TabsTrigger>
           </TabsList>
           <ScrollBar orientation="horizontal" />
         </ScrollArea>
@@ -625,12 +637,12 @@ export default function AccountPage() {
 
         <TabsContent value='documents'>
           <div className='text-center text-gray-500'>
-            <div className='grid grid-cols-1 gap-4 py-6 sm:grid-cols-2 sm:gap-5 sm:py-8 lg:grid-cols-3'>
+            <div className='grid grid-cols-1 gap-4 py-6 sm:grid-cols-2 sm:gap-5 sm:py-8 lg:grid-cols-4'>
               {documents?.map((doc) => (
 
                 <div
                   className='relative flex w-fit items-center justify-between rounded-lg p-4 transition-all duration-500 ease-in-out'
-                  key={doc._id}
+                  key={doc.id}
                 >
                   <section className='flex cursor-pointer flex-col gap-4 '>
                     <div className='relative flex items-center justify-center rounded-md bg-white p-4'>
@@ -648,24 +660,19 @@ export default function AccountPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align='end'>
                           <DropdownMenuItem
-                            onClick={() => handleOpenPdfViewer(doc.url)}
+                            onClick={() => handleOpenPdfViewer(doc.fileUrl)}
                           >
                             <Eye className='mr-2 h-4 w-4' />
                             <span>Open</span>
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleDownload(doc._id, doc.url)}
-                          >
-                            <Download className='mr-2 h-4 w-4' />
-                            <span>Download</span>
-                          </DropdownMenuItem>
+
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
 
                     <div className='flex flex-col justify-start space-y-2 text-start'>
                       <h3 className='font-bold text-black'>
-                        {truncateName(doc.name, 20)}
+                        {truncateName(doc.fileName, 20)}
                       </h3>
                       <p className='text-xs text-gray-500'>
                         {formatSellerDate(new Date(doc.updatedAt))}
@@ -833,6 +840,117 @@ export default function AccountPage() {
                         setHistoryPage((p) => Math.min(historyTotalPages, p + 1))
                       }
                       disabled={historyPage >= historyTotalPages || historyMeta.hasNext === false}
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value='view-history'>
+          <div className='py-4'>
+            {getViewHistory.isLoading ? (
+              <p className='text-sm text-gray-500'>Loading view history...</p>
+            ) : getViewHistory.isError ? (
+              <p className='text-sm text-red-600'>Failed to load view history.</p>
+            ) : !getViewHistory.data?.items?.length ? (
+              <p className='text-sm text-gray-500'>No view history found. Browse properties to start tracking your views.</p>
+            ) : (
+              <div className='space-y-4'>
+                {/* Table Header */}
+                <div className='hidden md:grid grid-cols-12 gap-3 rounded-lg bg-gray-50 px-4 py-2 text-xs font-semibold uppercase text-gray-500'>
+                  <div className='col-span-1'>Image</div>
+                  <div className='col-span-3'>Address</div>
+                  <div className='col-span-2'>City</div>
+                  <div className='col-span-2'>Price</div>
+                  <div className='col-span-2'>Type</div>
+                  <div className='col-span-2'>Viewed At</div>
+                </div>
+
+                {/* Table Rows */}
+                <div className='grid grid-cols-1 gap-3'>
+                  {getViewHistory.data.items.map((item: ViewHistoryItem) => (
+                    <div
+                      key={item.id}
+                      className='cursor-pointer rounded-lg border border-gray-200 px-4 py-3 transition-colors hover:bg-gray-50'
+                      onClick={() => router.push(`/buy/${item.listingId}/prop/preview`)}
+                    >
+                      <div className='grid grid-cols-1 gap-2 md:grid-cols-12 md:gap-3 md:items-center'>
+                        {/* Property Image */}
+                        <div className='md:col-span-1'>
+                          {item.propertyImage ? (
+                            <img
+                              src={item.propertyImage}
+                              alt='Property'
+                              className='h-12 w-12 rounded-md object-cover'
+                            />
+                          ) : (
+                            <div className='flex h-12 w-12 items-center justify-center rounded-md bg-gray-200 text-xs text-gray-500'>
+                              N/A
+                            </div>
+                          )}
+                        </div>
+                        {/* Address */}
+                        <div className='md:col-span-3'>
+                          <p className='text-sm font-semibold text-black'>
+                            {item.propertyAddress || 'N/A'}
+                          </p>
+                          <p className='text-xs text-gray-500 md:hidden'>
+                            {[item.city, item.state].filter(Boolean).join(', ') || 'N/A'}
+                          </p>
+                        </div>
+                        {/* City/State */}
+                        <div className='hidden md:col-span-2 md:block'>
+                          <p className='text-sm text-gray-800'>
+                            {[item.city, item.state].filter(Boolean).join(', ') || 'N/A'}
+                          </p>
+                        </div>
+                        {/* Price */}
+                        <div className='md:col-span-2'>
+                          <p className='text-sm text-gray-800'>
+                            {item.price ? `$${Number(item.price).toLocaleString()}` : 'N/A'}
+                          </p>
+                        </div>
+                        {/* Type */}
+                        <div className='md:col-span-2'>
+                          <p className='text-sm text-gray-800'>{item.propertyType || 'N/A'}</p>
+                        </div>
+                        {/* Viewed At */}
+                        <div className='md:col-span-2'>
+                          <p className='text-sm text-gray-800'>
+                            {formatTimestamp(item.viewedAt)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Pagination */}
+                {(getViewHistory.data?.totalPages ?? 1) > 1 && (
+                  <div className='flex flex-col items-start gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between'>
+                    <button
+                      className='rounded-full border border-black px-4 py-1 text-sm text-black disabled:opacity-50'
+                      onClick={() => setViewHistoryPage((p) => Math.max(1, p - 1))}
+                      disabled={viewHistoryPage === 1}
+                    >
+                      Previous
+                    </button>
+                    <p className='text-sm text-gray-600'>
+                      Page {viewHistoryPage} of {getViewHistory.data?.totalPages ?? 1}
+                      {getViewHistory.data?.total ? ` • ${getViewHistory.data.total} total` : ''}
+                    </p>
+                    <button
+                      className='rounded-full border border-black px-4 py-1 text-sm text-black disabled:opacity-50'
+                      onClick={() =>
+                        setViewHistoryPage((p) =>
+                          Math.min(getViewHistory.data?.totalPages ?? 1, p + 1),
+                        )
+                      }
+                      disabled={viewHistoryPage >= (getViewHistory.data?.totalPages ?? 1)}
                     >
                       Next
                     </button>

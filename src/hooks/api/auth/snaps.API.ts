@@ -117,9 +117,9 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
                 bedRooms
                 bathRooms
                 listingId
-                listingId
                 propertyId
                 snapId
+                unreadCommentCount
               }
             }
           `,
@@ -148,6 +148,32 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
     },
   });
 
+  const markPropertyAsRead = useMutation({
+    mutationKey: ["markPropertyAsRead"],
+    mutationFn: async ({ snapId, propertyId }: { snapId: string; propertyId: string }) => {
+      try {
+        const data = await API.graphql({
+          query: `
+            mutation markPropertyAsRead($snapId: String!, $propertyId: String!) {
+              markPropertyAsRead(snapId: $snapId, propertyId: $propertyId)
+            }
+          `,
+          variables: {
+            snapId,
+            propertyId,
+          },
+        });
+        return data.markPropertyAsRead;
+      } catch (error) {
+        console.error("Error marking property as read:", error);
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      if (handleCb) handleCb();
+    }
+  });
+
   const createFavourite = useMutation({
     mutationKey: ["createFavourite"],
     mutationFn: async (createFavouritesInput: any) => {
@@ -172,6 +198,7 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
       }
     }
   });
+
 
   const createParticipents = useMutation({
     mutationKey: ["create_participents"],
@@ -433,7 +460,8 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
     updateSnap,
     sendPartnerInvitation,
     toggleFavourite,
-    getSnapById
+    getSnapById,
+    markPropertyAsRead
   };
 };
 

@@ -74,7 +74,10 @@ function useCognitoGoogleAuth(handleCb?: () => void) {
         localStorage.setItem('userAccessToken', access_token);
         localStorage.setItem('userDetails', JSON.stringify(user));
 
-        success({ message: 'Success! Welcome back via Google.' });
+        success({
+          message: 'Success! Welcome back via Google.',
+          subtitle: 'Welcome back to Snaphomz',
+        });
         resetAuthExpired();
         setAuthToken(access_token);
         login(user);

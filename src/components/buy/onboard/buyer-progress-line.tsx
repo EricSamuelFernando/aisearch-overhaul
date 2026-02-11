@@ -36,12 +36,16 @@ type BuyerProgressButtonProps = {
   onComplete?: () => void;
   onSkip?: () => void;
   cancelLabel?: string;
+  hideCancel?: boolean;
+  hideBackOnFirst?: boolean;
 };
 
 const BuyerProgressButton: React.FC<BuyerProgressButtonProps> = ({
   onComplete,
   onSkip,
   cancelLabel,
+  hideCancel = false,
+  hideBackOnFirst = false,
 }) => {
   const progress = useAppSelector(buyerOnboardProgress);
   const preferenceValues = useAppSelector(buyerPropertyPreference);
@@ -55,6 +59,7 @@ const BuyerProgressButton: React.FC<BuyerProgressButtonProps> = ({
   const [saving, setSaving] = React.useState(false);
 
   const currentIndex = steps.indexOf(progress);
+  const hideBack = hideBackOnFirst && currentIndex === 0;
 
   const isPreferenceComplete = Boolean(
     preferenceValues?.propertyType &&
@@ -136,6 +141,8 @@ const BuyerProgressButton: React.FC<BuyerProgressButtonProps> = ({
       handleNextContinue={handleNext}
       cancelLabel={cancelLabel}
       loading={saving}
+      hideCancel={hideCancel}
+      hideBack={hideBack}
     />
   );
 };

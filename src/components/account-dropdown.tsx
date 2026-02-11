@@ -52,8 +52,8 @@ function AccountDropdown({ username, avatar, firstName, lastName }: Props) {
           variant='ghost'
           className='font-500 w-full cursor-pointer  justify-start bg-transparent p-0  text-left text-sm font-normal'
           onClick={() => {
-            logout();
-            router.push('/home');
+            
+            handleLogout();
           }}
         >
           {menuItem.text}

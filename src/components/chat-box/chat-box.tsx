@@ -2357,6 +2357,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 import { format, formatDistanceToNow, isSameDay, subDays } from "date-fns"
 import { PROPERTY_DETAIL_SEARCH_AI_URL } from "@/shared/constants/env"
 import { SocketContext } from "@/providers/socket.context"
@@ -2471,6 +2477,16 @@ interface PropertyData {
   courtesyOf?: string
   publicRemarks?: string
 }
+interface InvitedUserListItem {
+  id: string
+  name: string
+  email: string
+  role: string
+  initials: string
+  status: "accepted" | "pending" | "expired" | "declined"
+}
+const INVITED_USERS_STORAGE_KEY = "chat_invited_users_by_thread_v1"
+const MAX_INVITES_PER_CHAT = 5
 
 export default function ChatBoxComponent(props: any) {
   const { threads, setIsRead, setSearch, loading, threadId, isRead } = props
@@ -2517,6 +2533,7 @@ export default function ChatBoxComponent(props: any) {
   const [threadParticipants, setThreadParticipant] = useState<any>([])
   const [selectedThreadDetail, setSelectedThreadDetail] = useState<any>("")
   const [expandedEntryKey, setExpandedEntryKey] = useState<string | null>(null)
+  const [persistedInvitesByThread, setPersistedInvitesByThread] = useState<Record<string, any[]>>({})
   const pathname = useSearchParams();
   const [messageThreads, setMessageThreads] = useAtom(messageThreadsAtom);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -2650,6 +2667,200 @@ export default function ChatBoxComponent(props: any) {
     return aggregatedThreads;
   }, [aggregatedThreads, showUnreadOnly]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    try {
+      const raw = localStorage.getItem(INVITED_USERS_STORAGE_KEY)
+      if (!raw) return
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === "object") {
+        setPersistedInvitesByThread(parsed)
+      }
+    } catch (err) {
+      console.error("[chat-box] Failed to load persisted invites:", err)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    try {
+      localStorage.setItem(INVITED_USERS_STORAGE_KEY, JSON.stringify(persistedInvitesByThread))
+    } catch (err) {
+      console.error("[chat-box] Failed to persist invites:", err)
+    }
+  }, [persistedInvitesByThread])
+
+  const invitedUsers = useMemo<InvitedUserListItem[]>(() => {
+    const inviteExpiryMs = 10 * 24 * 60 * 60 * 1000
+    const currentThreadId = String(selectedThreadDetail?.id || selectedThread || "")
+    const backendParticipants = Array.isArray(selectedThreadDetail?.participants)
+      ? selectedThreadDetail.participants
+      : []
+    const persistedParticipants = currentThreadId
+      ? (persistedInvitesByThread[currentThreadId] || [])
+      : []
+    const rawParticipants = [...backendParticipants, ...persistedParticipants]
+    const seenKeys = new Set<string>()
+    const normalizedUsers: InvitedUserListItem[] = []
+
+    const toInitials = (name?: string, email?: string) => {
+      if (name?.trim()) {
+        const words = name.trim().split(/\s+/).filter(Boolean)
+        const initials = words.slice(0, 2).map((word) => word[0]?.toUpperCase()).join("")
+        if (initials) return initials
+      }
+      if (email?.trim()) {
+        return email.trim().slice(0, 2).toUpperCase()
+      }
+      return "NA"
+    }
+    const getRoleLabel = (rawRole?: string) => {
+      const normalizedRole = String(rawRole || "").toLowerCase()
+      if (!normalizedRole) return "Role not set"
+      if (normalizedRole.includes("buyer_agent") || normalizedRole.includes("buyer agent")) return "Buyer Agent"
+      if (normalizedRole.includes("co_buyer") || normalizedRole.includes("co-buyer") || normalizedRole.includes("cobuyer")) return "Co-buyer"
+      if (normalizedRole.includes("family_friends") || normalizedRole.includes("family/friends") || normalizedRole.includes("family friends")) return "Family/Friends"
+      return rawRole
+    }
+
+    rawParticipants.forEach((participant: any, index: number) => {
+      const userDetails = participant?.user ?? participant ?? {}
+      const firstName = userDetails?.firstName || ""
+      const lastName = userDetails?.lastName || ""
+      const combinedName = `${firstName} ${lastName}`.trim()
+      const email = userDetails?.email || participant?.email || ""
+      const name = combinedName || email?.split("@")?.[0] || "Invited User"
+      const role = getRoleLabel(
+        participant?.inviteRole ||
+        participant?.role ||
+        participant?.agentType ||
+        participant?.accountType ||
+        participant?.user?.accountType,
+      )
+      const id = String(userDetails?.id || participant?.id || `${email}-${index}`)
+      const dedupeKey = email
+        ? `email-${String(email).toLowerCase()}`
+        : userDetails?.id || participant?.id
+          ? `id-${String(userDetails?.id || participant?.id).toLowerCase()}`
+          : `fallback-${index}`
+
+      if (seenKeys.has(dedupeKey)) {
+        return
+      }
+      seenKeys.add(dedupeKey)
+
+      const rawStatus = String(
+        participant?.approvalStatus ??
+        participant?.status ??
+        participant?.inviteStatus ??
+        participant?.invitationStatus ??
+        "",
+      ).toLowerCase()
+
+      let status: InvitedUserListItem["status"] = "pending"
+      const isDeclined =
+        Boolean(participant?.isDeclined) ||
+        rawStatus.includes("declin") ||
+        rawStatus.includes("reject")
+      const isAccepted =
+        participant?.is_accepted === true ||
+        participant?.isAccepted === true ||
+        rawStatus.includes("accept") ||
+        rawStatus.includes("approv") ||
+        rawStatus.includes("join")
+
+      if (isDeclined) {
+        status = "declined"
+      } else if (isAccepted) {
+        status = "accepted"
+      } else {
+        const inviteDateRaw =
+          participant?.createdAt ||
+          participant?.invitedAt ||
+          participant?.inviteSentAt ||
+          participant?.requestedAt ||
+          participant?.joinDate
+        const inviteDate = inviteDateRaw ? new Date(inviteDateRaw) : null
+        const isValidInviteDate = inviteDate instanceof Date && !Number.isNaN(inviteDate.getTime())
+        if (isValidInviteDate && Date.now() - inviteDate.getTime() > inviteExpiryMs) {
+          status = "expired"
+        }
+      }
+
+      normalizedUsers.push({
+        id,
+        name,
+        email,
+        role,
+        initials: toInitials(name, email),
+        status,
+      })
+    })
+
+    return normalizedUsers
+  }, [persistedInvitesByThread, selectedThread, selectedThreadDetail?.id, selectedThreadDetail?.participants]);
+
+  const invitedUserStyles: Record<InvitedUserListItem["status"], { name: string; email: string; badge: string; avatar: string; label: string }> = {
+    accepted: {
+      name: "text-gray-900",
+      email: "text-gray-500",
+      badge: "bg-gray-100 text-gray-700 border-gray-200",
+      avatar: "bg-white text-gray-700 border-gray-400",
+      label: "Accepted",
+    },
+    pending: {
+      name: "text-gray-900",
+      email: "text-gray-500",
+      badge: "bg-orange-50 text-orange-700 border-orange-200",
+      avatar: "bg-white text-orange-700 border-orange-300",
+      label: "Pending",
+    },
+    expired: {
+      name: "text-red-600",
+      email: "text-red-400",
+      badge: "bg-red-50 text-red-700 border-red-200",
+      avatar: "bg-white text-red-700 border-red-300",
+      label: "Expired",
+    },
+    declined: {
+      name: "text-gray-400",
+      email: "text-gray-400",
+      badge: "bg-gray-100 text-gray-400 border-gray-200",
+      avatar: "bg-white text-gray-400 border-gray-300",
+      label: "Declined",
+    },
+  }
+  const totalParticipantsCount = Array.isArray(threadParticipants) ? threadParticipants.length : 0
+  const isInviteLimitReached = totalParticipantsCount >= MAX_INVITES_PER_CHAT
+  const inviteLimitMessage = `No more than ${MAX_INVITES_PER_CHAT} participants can be in this chat.`
+  const blockedInviteEmails = useMemo(() => {
+    const collectedEmails = new Set<string>()
+    const pushEmail = (value?: string) => {
+      const normalized = String(value || "").trim().toLowerCase()
+      if (normalized) collectedEmails.add(normalized)
+    }
+
+    invitedUsers.forEach((invitedUser) => pushEmail(invitedUser.email))
+    if (Array.isArray(threadParticipants)) {
+      threadParticipants.forEach((participant: any) => pushEmail(participant?.email))
+    }
+    pushEmail(selectedThreadDetail?.user?.email)
+    pushEmail(selectedThreadDetail?.buyerAgent?.email)
+    pushEmail(selectedThreadDetail?.sellerAgent?.email)
+    pushEmail(userData?.email)
+    pushEmail(user?.email)
+
+    return Array.from(collectedEmails)
+  }, [
+    invitedUsers,
+    selectedThreadDetail?.buyerAgent?.email,
+    selectedThreadDetail?.sellerAgent?.email,
+    selectedThreadDetail?.user?.email,
+    threadParticipants,
+    user?.email,
+    userData?.email,
+  ])
+
   console.log(selectedThreadDetail);
   const imageMimeType = [
     "image/png",
@@ -2756,6 +2967,70 @@ export default function ChatBoxComponent(props: any) {
   const { getThreadById } = useAgentConversationApi()
   const { uploadNewFile } = usePropertyServiceAPI()
   const { createRepoWithUploadedFile } = useRepoManagementApi()
+
+  const handleInviteSuccess = useCallback((invitedEmail: string, selectedRole: "buyer_agent" | "co_buyer" | "family_friends") => {
+    const normalizedEmail = invitedEmail?.trim().toLowerCase()
+    if (!normalizedEmail) return
+    const activeThreadId = String(selectedThreadDetail?.id || selectedThread || "")
+    if (!activeThreadId) return
+
+    const inferredName = invitedEmail.split("@")[0] || "Invited"
+    const optimisticParticipant = {
+      id: `pending-${Date.now()}-${normalizedEmail}`,
+      approvalStatus: "pending",
+      inviteRole: selectedRole,
+      createdAt: new Date().toISOString(),
+      user: {
+        firstName: inferredName,
+        lastName: "",
+        email: invitedEmail,
+      },
+    }
+
+    setSelectedThreadDetail((prev: any) => {
+      if (!prev) return prev
+      const existingParticipants = Array.isArray(prev?.participants) ? prev.participants : []
+      const alreadyExists = existingParticipants.some(
+        (participant: any) =>
+          String(participant?.user?.email || participant?.email || "").toLowerCase() === normalizedEmail,
+      )
+      if (alreadyExists) return prev
+      return {
+        ...prev,
+        participants: [...existingParticipants, optimisticParticipant],
+      }
+    })
+
+    setThreadParticipant((prev: any) => {
+      const existingParticipants = Array.isArray(prev) ? prev : []
+      const alreadyExists = existingParticipants.some(
+        (participant: any) =>
+          String(participant?.email || "").toLowerCase() === normalizedEmail,
+      )
+      if (alreadyExists) return existingParticipants
+      return [
+        ...existingParticipants,
+        {
+          firstName: inferredName,
+          lastName: "",
+          email: invitedEmail,
+        },
+      ]
+    })
+
+    setPersistedInvitesByThread((prev) => {
+      const threadInvites = Array.isArray(prev[activeThreadId]) ? prev[activeThreadId] : []
+      const alreadyExists = threadInvites.some(
+        (participant: any) =>
+          String(participant?.user?.email || participant?.email || "").toLowerCase() === normalizedEmail,
+      )
+      if (alreadyExists) return prev
+      return {
+        ...prev,
+        [activeThreadId]: [...threadInvites, optimisticParticipant],
+      }
+    })
+  }, [selectedThread, selectedThreadDetail?.id])
 
   const getThreadDetails = async (id: string) => {
     getThreadById.mutateAsync(id ?? threadId, {
@@ -3806,7 +4081,7 @@ export default function ChatBoxComponent(props: any) {
       </header> */}
       <section>
         <div className="flex-1 flex flex-col border-l md:flex-row bg-gray-100">
-          <div className={`w-full md:w-96 bg-white border-r ${showThreads ? "block" : "hidden md:block"} overflow-hidden`}>
+          <div className={`w-full md:basis-[25%] md:max-w-[25%] md:min-w-[25%] bg-white border-r ${showThreads ? "block" : "hidden md:block"} overflow-hidden`}>
             {/* Header */}
             <div className="p-4 border-b flex justify-between items-center">
               <h2 className="font-semibold text-lg text-gray-800">Messages</h2>
@@ -4040,7 +4315,7 @@ export default function ChatBoxComponent(props: any) {
           </div>
 
 
-          <div className={`flex-1  flex flex-col bg-white ${showChat ? "block" : "hidden md:block"} max-h-full overflow-hidden`}>
+          <div className={`w-full ${isDetails ? "md:basis-[50%] md:max-w-[50%] md:min-w-[50%]" : "md:basis-[75%] md:max-w-[75%] md:min-w-[75%]"} flex flex-col bg-white ${showChat ? "block" : "hidden md:block"} max-h-full overflow-hidden`}>
             <header className="border-b bg-white px-4 py-2 flex items-center justify-between md:hidden">
               <div className="flex items-center gap-4">
                 <Button variant="ghost" size="icon" onClick={handleBackToThreads}>
@@ -4141,7 +4416,12 @@ export default function ChatBoxComponent(props: any) {
                                   </li>
                                   <li>
                                     <InviteUserModal
-                                      threadId={selectedThread}
+                                      threadId={selectedThreadDetail?.id || selectedThread}
+                                      onInviteSuccess={handleInviteSuccess}
+                                      disableInvite={isInviteLimitReached}
+                                      disableInviteMessage={inviteLimitMessage}
+                                      blockedEmails={blockedInviteEmails}
+                                      currentUserEmail={userData?.email || user?.email}
                                     />
                                   </li>
                                 </ul>
@@ -4599,7 +4879,7 @@ export default function ChatBoxComponent(props: any) {
 
           {/* Property Details Sidebar */}
           {isDetails && (
-            <div className={`w-full md:w-96 bg-gray-50 border-l ${showDetails ? "block" : "hidden md:block"}`}>
+           <div className={`w-full md:w-96 bg-gray-50 border-l ${showDetails ? "block" : "hidden md:block"} flex flex-col overflow-hidden `}>
               <div className="p-4 border-b flex justify-between items-center">
                 <h2 className="font-semibold">Property Details</h2>
                 <Button
@@ -4613,112 +4893,174 @@ export default function ChatBoxComponent(props: any) {
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              <ScrollArea className="h-[calc(82vh-10rem)]">
+              <ScrollArea className="mb-2 overflow-auto h-[calc(110vh-16rem)]">
                 <div className="p-4">
-                  {/* <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-                                        <Carousel images={propertyDetails?.property?.property?.imageURLs} />
-                                    </div> */}
-                  <div className="relative">
-                    <Image
-                      src={propertyData?.media?.photosList?.[0]?.lowRes || ""}
-                      alt={`Property Image `}
-                      width={400}
-                      height={100}
-                      className="rounded-lg objectcover"
-                      priority
-                      unoptimized
-                    />
-                  </div>
-                  <div className="mt-4">
-                    <div className="flex justify-between items-start">
-                      <div className="flex items-start gap-1">
-                        <LocationOnIcon className="text-primary" />
-                        <div>
-                          {/* <h3 className="font-semibold text-lg">{propertyDetails?.property?.address}</h3> */}
-                          <p className="text-sm text-muted-foreground">{propertyData?.courtesyOf}</p>
+                  <Accordion type="multiple" defaultValue={["property-details", "invited-users"]} className="w-full">
+                    <AccordionItem value="property-details" className="border rounded-xl bg-white px-3">
+                      <AccordionTrigger>Property Details</AccordionTrigger>
+                      <AccordionContent>
+                        <div className="pb-2">
+                          <div className="relative">
+                            <Image
+                              src={propertyData?.media?.photosList?.[0]?.lowRes || ""}
+                              alt={`Property Image `}
+                              width={400}
+                              height={100}
+                              className="rounded-lg objectcover"
+                              priority
+                              unoptimized
+                            />
+                          </div>
+                          <div className="mt-4">
+                            <div className="flex justify-between items-start">
+                              <div className="flex items-start gap-1">
+                                <LocationOnIcon className="text-primary" />
+                                <div>
+                                  <p className="text-sm text-muted-foreground">{propertyData?.courtesyOf}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Star className="h-4 w-4 fill-primary text-primary" />
+                                <span>4.6</span>
+                              </div>
+                            </div>
+
+                            <div className="flex justify-between items-center mt-4">
+                              <div className="flex gap-2">
+                                <div className="bg-gray-200 text-sm rounded-full px-3 py-1 flex items-center">
+                                  <BathtubIcon />
+                                  <span>{propertyData?.property?.bathroomsTotal} Bath</span>
+                                </div>
+                                <div className="bg-gray-200 text-sm rounded-full px-3 py-1 flex items-center">
+                                  <KingBedIcon />
+                                  <span>{propertyData?.property?.bedroomsTotal} Bed</span>
+                                </div>
+                              </div>
+                              <FavoriteBorder className="text-gray-500 hover:text-red-500 cursor-pointer" />
+                            </div>
+                          </div>
+                          <div className="mt-4">
+                            <h4 className="font-semibold text-lg">Overview</h4>
+                            <span>{propertyData?.publicRemarks}</span>
+
+                            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Property Overview</DialogTitle>
+                                  <DialogDescription>{propertyData?.property?.descriptions?.[0]?.value}</DialogDescription>
+                                </DialogHeader>
+                                <DialogClose asChild>
+                                  <Button className="bg-orange-500 hover:bg-orange-600">Close</Button>
+                                </DialogClose>
+                              </DialogContent>
+                            </Dialog>
+                          </div>
+
+                          <div className="mt-6">
+                            <h4 className="font-medium mb-2">Amenities</h4>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="flex items-center gap-2">
+                                <Wifi className="h-4 w-4" />
+                                <span className="text-sm">Wifi</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Kitchen className="h-4 w-4" />
+                                <span className="text-sm">Kitchen</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Maximize2 className="h-4 w-4" />
+                                <span className="text-sm">Workspace</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Car className="h-4 w-4" />
+                                <span className="text-sm">Free parking</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Wind className="h-4 w-4" />
+                                <span className="text-sm">Air conditioning</span>
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            className="shadow bg-orange-500 hover:bg-orange-600 w-full mt-6"
+                            onClick={() => {
+                              router.push(`/buy/${propertyData.property?.id}/prop/preview`)
+                            }}
+                          >
+                            View Property
+                          </Button>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 fill-primary text-primary" />
-                        <span>4.6</span>
-                      </div>
-                    </div>
+                      </AccordionContent>
+                    </AccordionItem>
 
-                    {/* Additional Info */}
-                    <div className="flex justify-between items-center mt-4">
-                      <div className="flex gap-2">
-                        {/* Bedroom Capsule */}
-                        <div className="bg-gray-200 text-sm rounded-full px-3 py-1 flex items-center">
-                          <BathtubIcon />
-                          <span>{propertyData?.property?.bathroomsTotal
-                          } Bath</span>
+                    <AccordionItem value="invited-users" className="border rounded-xl bg-white px-3 mt-4">
+                      <AccordionTrigger>
+                        <div className="flex items-center gap-2">
+                          <span>Invited Users</span>
+                          <span className="text-xs text-gray-500">({invitedUsers.length})</span>
                         </div>
-                        {/* Bathroom Capsule */}
-                        <div className="bg-gray-200 text-sm rounded-full px-3 py-1 flex items-center">
-                          <KingBedIcon />
-                          <span>{propertyData?.property?.bedroomsTotal} Bed</span>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="pb-2">
+                          <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                            {invitedUsers.length === 0 ? (
+                              <div className="px-4 py-6 text-center">
+                                <p className="text-sm font-medium text-gray-600">No invited users yet</p>
+                                <p className="text-xs text-gray-400 mt-1">Users invited to this chat will appear here.</p>
+                              </div>
+                            ) : (
+                              <div className="divide-y divide-gray-100">
+                                {invitedUsers.map((invitedUser) => {
+                                  const styles = invitedUserStyles[invitedUser.status]
+                                  const isExistingInviteDisabled = isInviteLimitReached
+                                  return (
+                                    <div
+                                      key={invitedUser.id}
+                                      className={`flex items-center justify-between gap-3 px-3 py-3 transition-colors ${isExistingInviteDisabled ? "opacity-60 bg-gray-50 cursor-not-allowed" : "hover:bg-gray-50"}`}
+                                    >
+                                      <div className="flex items-center gap-3 min-w-0">
+                                        <div className={`w-11 h-11 rounded-full border-2 flex items-center justify-center text-sm font-semibold shrink-0 ${styles.avatar}`}>
+                                          {invitedUser.initials}
+                                        </div>
+                                        <div className="min-w-0">
+                                          <p className={`text-sm font-semibold truncate ${styles.name}`}>
+                                            {invitedUser.name}
+                                          </p>
+                                          <p className={`text-xs truncate ${styles.email}`}>
+                                            {invitedUser.email || "Email not available"}
+                                          </p>
+                                          <p className="text-[11px] text-gray-500 truncate">
+                                            {invitedUser.role}
+                                          </p>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${styles.badge}`}>
+                                          {isExistingInviteDisabled ? "Disabled" : styles.label}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
+
+                          <p className="text-[11px] text-gray-500 mt-2">
+                            Invites expire after 10 days if not accepted.
+                          </p>
+                          {isInviteLimitReached && (
+                            <p className="text-xs text-red-600 mt-1">
+                              {inviteLimitMessage}
+                            </p>
+                          )}
                         </div>
-                      </div>
-                      {/* Heart Icon */}
-                      <FavoriteBorder className="text-gray-500 hover:text-red-500 cursor-pointer" />
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <h4 className="font-semibold text-lg">Overview</h4>
-                    <span>
-
-                      {propertyData?.publicRemarks}
-                    </span>
-
-                    {/* Modal for full description */}
-                    <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Property Overview</DialogTitle>
-                          <DialogDescription>{propertyData?.property?.descriptions?.[0]?.value}</DialogDescription>
-                        </DialogHeader>
-                        <DialogClose asChild>
-                          <Button className="bg-orange-500 hover:bg-orange-600">Close</Button>
-                        </DialogClose>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-
-                  <div className="mt-6">
-                    <h4 className="font-medium mb-2">Amenities</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="flex items-center gap-2">
-                        <Wifi className="h-4 w-4" />
-                        <span className="text-sm">Wifi</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Kitchen className="h-4 w-4" />
-                        <span className="text-sm">Kitchen</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Maximize2 className="h-4 w-4" />
-                        <span className="text-sm">Workspace</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Car className="h-4 w-4" />
-                        <span className="text-sm">Free parking</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Wind className="h-4 w-4" />
-                        <span className="text-sm">Air conditioning</span>
-                      </div>
-                    </div>
-                  </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
                 </div>
               </ScrollArea>
-              <Button
-                className="ms-2 me-5 shadow bg-orange-500 hover:bg-orange-600 w-full mt-6"
-                onClick={() => {
-                  router.push(`/buy/${propertyData.property?.id}/prop/preview`)
-                }}
-              >
-                View details
-              </Button>
             </div>
           )}
         </div>

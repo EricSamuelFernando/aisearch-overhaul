@@ -34,6 +34,7 @@ import {
   VerifyEmail,
 } from '@/intferfaces/form';
 import { handleAsync } from '@/lib/api/handleApiResponse';
+import { resetAuthExpired } from '@/lib/api/axios';
 import client from '@/lib/client';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useAuthModalActions } from '@/shared/hooks/useAuthModal';
@@ -153,6 +154,8 @@ export const useUserAuthApi = (handleCb?: () => void) => {
         manageConversationUnread(messageUnreadCount)
       }
       success({ message: "You have logged in successfully" });
+      // Reset the auth expired flag so API calls work again after re-login
+      resetAuthExpired();
       setAuthToken(access_token);
       login(user);
       setAuthToken(access_token);
@@ -339,6 +342,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       if (data.status === 200) {
         const { user, token } = data?.data?.data;
         success({ message: data?.data?.message });
+        resetAuthExpired();
         setAuthToken(token);
         login(user);
         storeCookie({ key: AUTH_TOKEN, value: token });
@@ -621,6 +625,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
         console.log('Login Success:', data?.data);
 
         success({ message: data?.data?.message });
+        resetAuthExpired();
         setAuthToken(token);
         login(user);
         storeCookie({ key: AUTH_TOKEN, value: token });
@@ -1489,6 +1494,8 @@ export const useTokenLoginMutation = (handleCb?: () => void) => {
       }
 
       success({ message: 'You have logged in successfully' });
+      // Reset the auth expired flag so API calls work again after re-login
+      resetAuthExpired();
       setAuthToken(data.access_token);
       login(user);
       storeCookie({ key: AUTH_TOKEN, value: data.access_token });

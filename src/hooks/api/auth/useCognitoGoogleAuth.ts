@@ -2,6 +2,7 @@ import { error, success } from '@/components/alert/notify';
 import { storeCookie } from '@/lib/storage';
 import { AUTH_TOKEN, USER_ROLE } from '@/shared/constants/env';
 import { useAuthActions } from '@/shared/hooks/useAuth';
+import { resetAuthExpired } from '@/lib/api/axios';
 import { setAuthToken } from '@/slices/auth/register.slices';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
@@ -74,6 +75,7 @@ function useCognitoGoogleAuth(handleCb?: () => void) {
         localStorage.setItem('userDetails', JSON.stringify(user));
 
         success({ message: 'Success! Welcome back via Google.' });
+        resetAuthExpired();
         setAuthToken(access_token);
         login(user);
         storeCookie({ key: AUTH_TOKEN, value: access_token });

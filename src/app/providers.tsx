@@ -21,6 +21,7 @@ import './embla.css';
 import './globals.css';
 import { WindowSizeProvider } from '@/providers/window-size-provider';
 import SocketProvider from '@/providers/socket.context';
+import AuthSessionSync from '@/providers/auth-session-sync';
 import '@/utils/testCognitoConfig'; // Makes testCognitoConfig available in browser console
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -49,6 +50,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           <AppQueryProviders>
             <ModalProvider initialModals={initialModals}>
               <Modals />
+              <AuthSessionSync />
               <SocketProvider>
                 <CollectionModalProvider>
                   {children}

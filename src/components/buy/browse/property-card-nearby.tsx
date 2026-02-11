@@ -8,9 +8,17 @@ import EmblaCarousel from "@/components/customs/carousel/embla-carousel";
 
 interface PropertyCardProps {
   listing: any;
+  isSelected?: boolean;
+  compareDisabled?: boolean;
+  onToggleCompare?: () => void;
 }
 
-const PropertyCardHomes: React.FC<any> = ({ listing }) => {
+const PropertyCardHomes: React.FC<PropertyCardProps> = ({
+  listing,
+  isSelected,
+  compareDisabled,
+  onToggleCompare,
+}) => {
   const router = useRouter();
   const [carouselEvent, setCarouselEvent] = useState(false);
 
@@ -29,6 +37,11 @@ const PropertyCardHomes: React.FC<any> = ({ listing }) => {
     setCarouselEvent(true);
     setTimeout(() => setCarouselEvent(false), 300);
   };
+
+  const showCompare = typeof onToggleCompare === "function";
+  const isSold =
+    listing?.listing?.standardStatus === 'Sold' ||
+    listing?.listing?.standardStatus === 'Closed';
 
   return (
     <div
@@ -59,9 +72,29 @@ const PropertyCardHomes: React.FC<any> = ({ listing }) => {
         </div>
       ) : null}
 
+      {showCompare && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleCompare?.();
+          }}
+          disabled={compareDisabled && !isSelected}
+          className={`absolute top-4 right-4 z-20 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+            isSelected
+              ? 'bg-white text-gray-900'
+              : compareDisabled
+                ? 'bg-white/60 text-gray-400 cursor-not-allowed'
+                : 'bg-white text-gray-900 hover:bg-gray-100'
+          }`}
+        >
+          {isSelected ? 'Selected' : 'Compare'}
+        </button>
+      )}
+
       {/* Sold Badge */}
-      {(listing?.listing?.standardStatus === 'Sold' || listing?.listing?.standardStatus === 'Closed') && (
-        <div className="absolute top-4 right-4 bg-red-600 text-white px-3 py-1 rounded-lg text-sm font-medium z-10">
+      {isSold && (
+        <div className={`absolute ${showCompare ? 'top-14' : 'top-4'} right-4 bg-red-600 text-white px-3 py-1 rounded-lg text-sm font-medium z-10`}>
           Sold
         </div>
       )}

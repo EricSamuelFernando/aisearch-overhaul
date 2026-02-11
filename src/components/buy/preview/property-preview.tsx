@@ -175,6 +175,11 @@ const PropertyPreview: React.FC = () => {
   const [askAIQuestion, setAskAIQuestion] = React.useState('');
   const { externalAgentIvitationMutation } = useUserAuthApi();
 
+  // Neo4j schools API integration
+  const [nearbySchools, setNearbySchools] = React.useState<any[]>([]);
+  const [schoolsLoading, setSchoolsLoading] = React.useState(false);
+  const [schoolsError, setSchoolsError] = React.useState<string | null>(null);
+
   React.useEffect(() => {
     if (id) {
       getEngagedPropertyByPropertyId.mutate(id)
@@ -583,6 +588,19 @@ const PropertyPreview: React.FC = () => {
       const data = await response.json();
       setpropertyDatas(data)
       console.log("AI backend response data ", data)
+      console.log("🗺️ Coordinate check:", {
+        'data.data.latitude': data?.data?.latitude,
+        'data.data.longitude': data?.data?.longitude,
+        'data.data.Latitude': data?.data?.Latitude,
+        'data.data.Longitude': data?.data?.Longitude,
+        'data.data.property.latitude': data?.data?.property?.latitude,
+        'data.data.property.longitude': data?.data?.property?.longitude,
+        'data.data.location.latitude': data?.data?.location?.latitude,
+        'data.data.location.longitude': data?.data?.location?.longitude,
+        'data.latitude': data?.latitude,
+        'data.longitude': data?.longitude,
+        'data.property_detail': data?.property_detail
+      });
       localStorage.setItem('stateOrProvince', data.data.address.stateOrProvince || '')
       localStorage.setItem('listingId', String(data.data.listingId))
       localStorage.setItem('propertyType', data.data.property.propertyType || '')
@@ -653,6 +671,90 @@ const PropertyPreview: React.FC = () => {
     }
   }, [property]);
 
+  // Fetch nearby schools from Neo4j API when property coordinates are available
+  React.useEffect(() => {
+    const fetchNearbySchools = async () => {
+      // Check multiple possible locations for coordinates
+      let lat = null;
+      let lon = null;
+
+      // Try different possible coordinate locations in the data structure
+      if (propertyDatas?.data) {
+        // Option 1: Direct latitude/longitude fields (PRIORITY - works for most properties)
+        lat = (propertyDatas.data as any).latitude || (propertyDatas.data as any).Latitude;
+        lon = (propertyDatas.data as any).longitude || (propertyDatas.data as any).Longitude;
+
+        // Option 2: Inside property object (fallback for some properties)
+        if (!lat || !lon) {
+          lat = (propertyDatas.data as any).property?.latitude || (propertyDatas.data as any).property?.Latitude;
+          lon = (propertyDatas.data as any).property?.longitude || (propertyDatas.data as any).property?.Longitude;
+        }
+      }
+
+      // Option 3: Check proprtyData (transformed data)
+      if (!lat || !lon) {
+        lat = (proprtyData as any)?.latitude || (proprtyData as any)?.Latitude;
+        lon = (proprtyData as any)?.longitude || (proprtyData as any)?.Longitude;
+      }
+
+      // Option 4: Check proprtyData.property
+      if (!lat || !lon) {
+        lat = (proprtyData as any)?.property?.latitude || (proprtyData as any)?.property?.Latitude;
+        lon = (proprtyData as any)?.property?.longitude || (proprtyData as any)?.property?.Longitude;
+      }
+
+      console.log('🏫 Schools API Debug:', {
+        hasPropertyDatas: !!propertyDatas,
+        lat,
+        lon,
+        propertyDatasKeys: propertyDatas?.data ? Object.keys(propertyDatas.data) : [],
+        propertyKeys: propertyDatas?.data?.property ? Object.keys(propertyDatas.data.property) : []
+      });
+
+      if (!lat || !lon) {
+        console.log('❌ No coordinates available for schools API');
+        return;
+      }
+
+      console.log(`🔍 Fetching schools from: http://localhost:4000/schools/nearby?lat=${lat}&lon=${lon}`);
+      setSchoolsLoading(true);
+      setSchoolsError(null);
+
+      try {
+        const response = await fetch(
+          `http://localhost:4000/schools/nearby?lat=${lat}&lon=${lon}`
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch schools: ${response.statusText}`);
+        }
+
+        const schools = await response.json();
+        console.log('✅ Schools API response:', schools);
+
+        // Transform Neo4j response to match the expected format
+        const transformedSchools = schools.map((school: any) => ({
+          rating: school.rating && school.rating > 0 ? `${school.rating} / 10` : 'N/A',
+          name: school.name,
+          type: 'Public - Serves this home', // Default type
+          grades: 'K to 12', // Default grades
+          distance: `${school.distanceMiles.toFixed(1)} mi`
+        }));
+
+        console.log('📚 Transformed schools:', transformedSchools);
+        setNearbySchools(transformedSchools);
+      } catch (err) {
+        console.error('❌ Error fetching nearby schools:', err);
+        setSchoolsError(err instanceof Error ? err.message : 'Failed to load schools');
+      } finally {
+        setSchoolsLoading(false);
+      }
+    };
+
+    fetchNearbySchools();
+  }, [propertyDatas, proprtyData]);
+
+
   const transformData = React.useMemo(() => {
     const prop: any = proprtyData
     return {
@@ -689,13 +791,22 @@ const PropertyPreview: React.FC = () => {
     {
       id: "schools",
       title: "Schools Nearby",
-      content: (
-        <SchoolsNearAddress
-          address={schoolPropsData.address}
-          district={schoolPropsData.district}
-          schools={schoolPropsData.schools}
-        />
-      ),
+      content: (() => {
+        const schoolsToDisplay = schoolsLoading ? schoolPropsData.schools : (nearbySchools.length > 0 ? nearbySchools : schoolPropsData.schools);
+        console.log('🎓 Schools being displayed:', {
+          schoolsLoading,
+          nearbySchoolsCount: nearbySchools.length,
+          nearbySchools,
+          schoolsToDisplay
+        });
+        return (
+          <SchoolsNearAddress
+            address={(proprtyData as any)?.address?.unparsedAddress || schoolPropsData.address}
+            district={schoolPropsData.district}
+            schools={schoolsToDisplay}
+          />
+        );
+      })(),
     },
     {
       id: "college",

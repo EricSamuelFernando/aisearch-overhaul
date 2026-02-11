@@ -71,6 +71,7 @@ import { SocketContext } from '@/providers/socket.context';
 import { success } from '@/components/alert/notify';
 import type { WebSocketClient } from '@/lib/websocket-client';
 import { AgentDirectoryWrapper } from './agent-directory-wrapper';
+import { useRecordPropertyView } from '@/hooks/api/auth/useViewHistory';
 const defaultEstimatedData: any = {
   houseValue: "$450,460",
   houseValueDescription: "Overall readiness assessment",
@@ -174,6 +175,8 @@ const PropertyPreview: React.FC = () => {
   const [isAskAIModalOpen, setIsAskAIModalOpen] = React.useState(false);
   const [askAIQuestion, setAskAIQuestion] = React.useState('');
   const { externalAgentIvitationMutation } = useUserAuthApi();
+  const { recordPropertyView } = useRecordPropertyView();
+  const hasRecordedViewRef = React.useRef(false);
 
   // Neo4j schools API integration
   const [nearbySchools, setNearbySchools] = React.useState<any[]>([]);

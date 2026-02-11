@@ -17,6 +17,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { useSearchParams } from 'next/navigation';
 import debounce from 'lodash.debounce';
 import { ViewSelection } from '../buy-dropdowns';
+import { BuyCustomSearch } from '../buy-custom-search';
 
 type Props = {};
 
@@ -26,7 +27,6 @@ function PropertyBrowseView({ }: Props) {
   const [divHeight, setDivHeight] = useState<number | null>(null);
   const { allProperties, addProperties, setSearchedQuery, clearProperties } = usePropertyStore();
   const [selectedProperty, setSelectedProperty] = useState<string>('');
-  const elementRef = useRef<HTMLDivElement>(null);
   const [mapWidth, setMapWidth] = useState<number>(0);
   const dispatch = useAppDispatch();
   const { user } = useAuth();
@@ -35,6 +35,9 @@ function PropertyBrowseView({ }: Props) {
   const searchParams = useSearchParams();
   const query = searchParams.get('q');
   const [scrollOffset, setScrollOffset] = useState(0);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const [isMapPinned, setIsMapPinned] = useState(true);
+  const searchBarRef = useRef<HTMLDivElement>(null);
 
   const coordinates = allProperties?.map((property: any) => ({
     id: property.id,
@@ -45,8 +48,8 @@ function PropertyBrowseView({ }: Props) {
 
   useEffect(() => {
     const updateWidth = () => {
-      if (elementRef.current) {
-        setMapWidth(elementRef.current.offsetWidth);
+      if (mapRef.current) {
+        setMapWidth(mapRef.current.offsetWidth);
       }
     };
 
@@ -118,11 +121,30 @@ function PropertyBrowseView({ }: Props) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  useEffect(() => {
+    const handlePinState = () => {
+      if (!searchBarRef.current) return;
+      const searchRect = searchBarRef.current.getBoundingClientRect();
+      // Keep map sticky until the search bar bottom reaches the viewport bottom.
+      setIsMapPinned(searchRect.bottom > window.innerHeight);
+    };
+
+    handlePinState();
+    window.addEventListener('scroll', handlePinState, { passive: true });
+    window.addEventListener('resize', handlePinState);
+    return () => {
+      window.removeEventListener('scroll', handlePinState);
+      window.removeEventListener('resize', handlePinState);
+    };
+  }, []);
+
   return (
     <section
       className={cn(
-        'relative w-full mb-20 grid-cols-5 md:grid',
-        currentView === 'map' ? 'justify-between' : 'w-full gap-x-8',
+        'relative w-full mb-20 md:grid',
+        currentView === 'map'
+          ? 'grid-cols-2 gap-x-0'
+          : 'grid-cols-5 w-full gap-x-8 max-w-[1450px] mx-auto',
       )}
     >
       {/* Property Cards */}
@@ -135,46 +157,41 @@ function PropertyBrowseView({ }: Props) {
         className={cn(
           'px-4 md:px-8',
           currentView === 'map'
-            ? 'flex flex-col-reverse gap-y-4 md:col-span-3 md:px-[3.12rem]'
+            ? 'flex flex-col gap-y-4 md:col-span-1 md:px-[3.12rem]'
             : 'col-span-5',
         )}
       >
         <BuyPropertyCards selectedProperty={selectedProperty} />
+        {currentView === 'map' ? (
+          <div ref={searchBarRef}>
+            <BuyCustomSearch />
+          </div>
+        ) : null}
+      </div>
+
+      {currentView !== 'grid' ? (
         <div
-          ref={elementRef}
-          // className={cn(
-          //   'transition-all duration-300 overflow-hidden',
-          //   currentView === 'grid' ? 'hidden' : 'fixed top-[120px] right-0 z-30 w-[100%] md:w-[45%] lg:w-[40%] h-[calc(100vh-120px)]'
-          // )}
+          ref={mapRef}
           className={cn(
-            'transition-all duration-300',
-            // on "grid" hide completely
-            currentView === 'grid' ? 'hidden' :
-              // MOBILE: in-flow full-width, 60vh tall, scrollable
-              'relative w-full h-[60vh] overflow-auto' +
-              // MD+: fixed on the right, full-height minus header
-              ' md:fixed md:top-[50px] md:right-0 md:w-[45%] lg:md:w-[43%] md:h-[calc(100vh-55px)] md:overflow-hidden'
+            'relative w-full',
+            isMapPinned ? 'md:sticky md:top-0' : 'md:relative',
+            'md:h-screen md:-mt-[280px]'
           )}
         >
-          <div className="absolute inset-0 rounded-l-lg overflow-hidden shadow-lg">
-            {/* <div className='h-16'>
-
-            </div> */}
-            <br />
-            <CustomMap
-              width={`${mapWidth}px`}
-              coord={coordinates}
-              zoom={13}
-              properties={allProperties}
-              height={`calc(100vh - 100px)`}
-              onMarkerClick={(id: string) => setSelectedProperty(id)}
-              onMapMove={(center, bounds) => {
-                sendSearchRequest({ latitude: center.lat, longitude: center.lng });
-              }}
-            />
-          </div>
+          <CustomMap
+            width={`${mapWidth}px`}
+            coord={coordinates}
+            zoom={13}
+            properties={allProperties}
+            height="100%"
+            onMarkerClick={(id: string) => setSelectedProperty(id)}
+            onMapMove={(center) => {
+              sendSearchRequest({ latitude: center.lat, longitude: center.lng });
+            }}
+          />
         </div>
-      </div>
+      ) : null}
+
 
       {/* Fixed Map on Right */}
     </section>

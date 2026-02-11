@@ -63,14 +63,7 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
   //   { name: 'Newest', value: 'newest' }
   // ];
 
-  const propertyTypes = [
-    { name: 'Select Type', value: '' },
-    { name: 'Residential', value: 'Residential' },
-    { name: 'Commercial', value: 'Commercial' },
-  ];
-
   const [selectedSort, setSelectedSort] = useState(sortOptions[0]);
-  const [selectedPropertyType, setSelectedPropertyType] = useState(propertyTypes[0]);
 
   const searchQuery = searchParams.get("q") || ""
   const searchFilters = useSelector((state: RootState) => state.property.filters);
@@ -83,7 +76,6 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
     sqTfMax: searchParams.get('sqTfMax') || '',
     propertyType: searchParams.get('propertyType') || '',
     listing_property_type: selectedSort.value,
-    public_land_use: selectedPropertyType.value
   });
 
   const {
@@ -218,7 +210,6 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
       sqTfMax: '',
       propertyType: '',
       listing_property_type: '',
-      public_land_use: ''
     });
   };
   console.log("filters", filters);
@@ -387,36 +378,6 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
                   </div>
                 </Listbox>
 
-                {/* Dropdown 2: Property Type */}
-                <Listbox value={selectedPropertyType} onChange={setSelectedPropertyType}>
-                  <div className="relative w-full">
-                    <Listbox.Button className="relative w-full cursor-pointer rounded-xl rounded-xl bg-slate-100  py-4 pl-4 pr-10   text-left text-sm font-medium text-gray-700 shadow-sm hover:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-300">
-                      {searchFilters?.subType || selectedPropertyType.name}
-                      <span className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                        <ChevronDown className="h-4 w-4 text-ocOrange" />
-                      </span>
-                    </Listbox.Button>
-                    <Listbox.Options className="absolute mt-1 w-full rounded-xl bg-white shadow-lg z-10 ring-1 ring-black ring-opacity-5 focus:outline-none">
-                      {propertyTypes.map((option) => (
-                        <Listbox.Option
-                          key={option.value}
-                          className={({ active }) =>
-                            `cursor-pointer select-none px-4 py-2 text-sm ${active ? 'bg-orange-100 text-orange-700' : 'text-gray-900'
-                            }`
-                          }
-                          value={option}
-                        >
-                          {({ selected }) => (
-                            <span className="flex items-center justify-between">
-                              {option.name}
-                              {selected && <Check className="w-4 h-4 text-orange-600" />}
-                            </span>
-                          )}
-                        </Listbox.Option>
-                      ))}
-                    </Listbox.Options>
-                  </div>
-                </Listbox>
               </div>
               <article className='flex flex-1 items-center justify-end gap-x-6 pt-10'>
                 <button onClick={handleReset}>Cancel</button>

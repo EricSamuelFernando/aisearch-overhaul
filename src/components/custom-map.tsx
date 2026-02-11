@@ -54,12 +54,13 @@ const CustomMap: React.FC<Props> = ({
   const [mapInstance, setMap] = useState<google.maps.Map | null>(null);
   const [selectedMarker, setSelectedMarker] = useState<any>(null);
 
-  const containerStyle = {
+    const containerStyle = {
     height: height || '100%',
     width: '100%',
     minHeight: '350px',
-    minWidth: '500px',
+    // removed minWidth to avoid forcing horizontal overflow / layout jumps
   };
+
 
   const markers = useMemo(() => {
     const raw = properties.length > 0
@@ -88,17 +89,18 @@ const CustomMap: React.FC<Props> = ({
     );
   }, [properties, coord]);
 
-  const createCustomMarker = (price?: string) => {
+  const createCustomMarker = (price?: string, isSelected?: boolean) => {
     const formattedPrice = formatCurrency(parseFloat(price || '0'));
+    const markerFill = isSelected ? '#F07639' : '#2C2C2E';
     // const formattedPrice = "₹8.5L";
 
     const svg = `
 <svg width="160" height="70" viewBox="0 0 160 70" xmlns="http://www.w3.org/2000/svg">
-  <rect x="20" y="0" width="120" height="50" rx="12" ry="12" fill="#2C2C2E"/>
+  <rect x="20" y="0" width="120" height="50" rx="12" ry="12" fill="${markerFill}"/>
   <text x="80" y="30" fill="#FFFFFF" font-size="20" font-family="sans-serif" font-weight="600" text-anchor="middle" alignment-baseline="middle">
     ${formattedPrice}
   </text>
-  <polygon points="80,50 72,64 88,64" fill="#2C2C2E"/>
+  <polygon points="80,50 72,64 88,64" fill="${markerFill}"/>
 </svg>
 `;
     const svgUrl = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
@@ -178,7 +180,7 @@ const CustomMap: React.FC<Props> = ({
         <Marker
           key={marker.id}
           position={{ lat: marker.lat, lng: marker.lng }}
-          icon={createCustomMarker(marker.price)}
+          icon={createCustomMarker(marker.price, marker.id === selectedMarker?.id)}
           onClick={() => {
             setSelectedMarker(marker);
             centerOnMarker({ lat: marker.lat, lng: marker.lng });
@@ -198,10 +200,13 @@ const CustomMap: React.FC<Props> = ({
           }}
         >
           <div
-            className='infowindow-content w-full max-w-[320px] overflow-hidden bg-black/80 rounded-xl'
+            className='infowindow-content map-info-window w-full max-w-[320px] overflow-hidden bg-black/80 rounded-xl'
           >
             {selectedMarker.originalData?.listing ? (
-              <MapPropertyCards {...selectedMarker.originalData} />
+              <MapPropertyCards
+                {...selectedMarker.originalData}
+                onClose={() => setSelectedMarker(null)}
+              />
             ) : (
               <div className="p-4 text-sm text-gray-600">No property details</div>
             )}

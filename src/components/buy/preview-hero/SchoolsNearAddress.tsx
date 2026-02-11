@@ -48,16 +48,26 @@ interface SchoolDistrictProps {
   schools: SchoolData[];
 }
 
-const SchoolsNearAddress: React.FC<SchoolDistrictProps> = ({ 
+const SchoolsNearAddress: React.FC<SchoolDistrictProps> = ({
   address = '1912 Madison Avenue', // Default values for screenshot replication
   district = 'Texas City Independent School District',
-  schools = schoolsData 
+  schools = schoolsData
 }) => {
-  // In a real application, you might use 'useState' to manage 'showMore' state.
-  
+  // State to manage how many schools to display
+  const [visibleCount, setVisibleCount] = React.useState(5);
+
+  // Calculate how many schools to show
+  const schoolsToShow = schools.slice(0, visibleCount);
+  const hasMore = visibleCount < schools.length;
+
+  // Handler for "Show more" button
+  const handleShowMore = () => {
+    setVisibleCount(prev => Math.min(prev + 5, schools.length));
+  };
+
   return (
     <div className="w-full py-8">
-      
+
       {/* --- Header Section --- */}
       <h2 className="text-2xl font-bold text-gray-900 mb-1">
         Schools near {address}
@@ -68,23 +78,20 @@ const SchoolsNearAddress: React.FC<SchoolDistrictProps> = ({
 
       {/* --- Schools Table --- */}
       <div className="border-t border-b border-gray-200">
-        
+
         <div className="grid grid-cols-5 text-sm font-semibold text-gray-700 bg-gray-50 py-3 px-4">
-          <div className="col-span-1">Ratings</div>
           <div className="col-span-1">School</div>
           <div className="col-span-1">Type</div>
           <div className="col-span-1">Grades</div>
           <div className="col-span-1">Distance</div>
+          <div className="col-span-1">Ratings</div>
         </div>
 
-        {schools.map((school, index) => (
-          <div 
-            key={index} 
+        {schoolsToShow.map((school, index) => (
+          <div
+            key={index}
             className="grid grid-cols-5 items-center text-sm py-3 px-4 border-t border-gray-100 first:border-t-0"
           >
-            <div className="col-span-1 text-gray-700">
-              {school.rating}
-            </div>
             <div className="col-span-1 text-orange-600 hover:text-orange-700 cursor-pointer">
               {school.name}
             </div>
@@ -97,14 +104,22 @@ const SchoolsNearAddress: React.FC<SchoolDistrictProps> = ({
             <div className="col-span-1 text-gray-700">
               {school.distance}
             </div>
+            <div className="col-span-1 text-gray-700">
+              {school.rating}
+            </div>
           </div>
         ))}
       </div>
 
-      <button className="flex items-center mt-4 text-orange-600 font-medium hover:text-orange-700">
-        <ChevronDownIcon className="w-5 h-5 mr-1" aria-hidden="true" />
-        Show more
-      </button>
+      {hasMore && (
+        <button
+          onClick={handleShowMore}
+          className="flex items-center mt-4 text-orange-600 font-medium hover:text-orange-700"
+        >
+          <ChevronDownIcon className="w-5 h-5 mr-1" aria-hidden="true" />
+          Show more ({schools.length - visibleCount} more schools)
+        </button>
+      )}
 
     </div>
   );

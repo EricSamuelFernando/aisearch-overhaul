@@ -160,6 +160,8 @@ export const useUserAuthApi = (handleCb?: () => void) => {
           ? 'Welcome to Snaphomz'
           : 'Welcome back to Snaphomz',
       });
+      // Reset the auth expired flag so API calls work again after re-login
+      resetAuthExpired();
       setAuthToken(access_token);
       login(user);
       setAuthToken(access_token);
@@ -522,14 +524,14 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       const fallbackEmail =
         typeof window !== 'undefined'
           ? localStorage.getItem('userEmail') ||
-            (() => {
-              try {
-                const stored = localStorage.getItem('userDetails');
-                return stored ? JSON.parse(stored)?.email : null;
-              } catch {
-                return null;
-              }
-            })()
+          (() => {
+            try {
+              const stored = localStorage.getItem('userDetails');
+              return stored ? JSON.parse(stored)?.email : null;
+            } catch {
+              return null;
+            }
+          })()
           : null;
       const finalInput = !input?.email && fallbackEmail
         ? { ...input, email: fallbackEmail }
@@ -1524,6 +1526,8 @@ export const useTokenLoginMutation = (handleCb?: () => void) => {
         message: 'You have logged in successfully',
         subtitle: 'Welcome back to Snaphomz',
       });
+      // Reset the auth expired flag so API calls work again after re-login
+      resetAuthExpired();
       setAuthToken(data.access_token);
       login(user);
       storeCookie({ key: AUTH_TOKEN, value: data.access_token });

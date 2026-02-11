@@ -791,9 +791,9 @@ const PropertyPreview: React.FC = () => {
   const taxAmountValue = Number(taxAmountCandidate);
   const taxPercentValue =
     Number.isFinite(listPriceValue) &&
-    listPriceValue > 0 &&
-    Number.isFinite(taxAmountValue) &&
-    taxAmountValue > 0
+      listPriceValue > 0 &&
+      Number.isFinite(taxAmountValue) &&
+      taxAmountValue > 0
       ? (taxAmountValue / listPriceValue) * 100
       : undefined;
   const currentListingId =

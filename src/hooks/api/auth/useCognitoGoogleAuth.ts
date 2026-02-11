@@ -78,6 +78,7 @@ function useCognitoGoogleAuth(handleCb?: () => void) {
           message: 'Success! Welcome back via Google.',
           subtitle: 'Welcome back to Snaphomz',
         });
+        resetAuthExpired();
         setAuthToken(access_token);
         login(user);
         storeCookie({ key: AUTH_TOKEN, value: access_token });

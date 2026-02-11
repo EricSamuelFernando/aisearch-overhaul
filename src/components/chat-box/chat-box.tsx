@@ -2304,6 +2304,7 @@
 "use client"
 
 import Image from "next/image"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
@@ -2360,7 +2361,6 @@ import { format, formatDistanceToNow, isSameDay, subDays } from "date-fns"
 import { PROPERTY_DETAIL_SEARCH_AI_URL } from "@/shared/constants/env"
 import { SocketContext } from "@/providers/socket.context"
 import { useAgentConversationApi } from "@/hooks/api/auth/useConversationApi"
-import { FaHome, FaMapMarkerAlt } from "react-icons/fa"
 import { decryptMessage, encryptMessage, generateColorFromName } from "@/utils/math-utilities"
 import { useMessagesApi } from "@/hooks/api/useFetchMessages"
 import { useUserAgentMessageApi } from "@/hooks/api/auth/useMessageApi"
@@ -2448,6 +2448,14 @@ interface Thread {
   threadId?: string | null
   isActive?: boolean
 }
+interface AgentPropertySummary {
+  propertyId: string
+  propertyName?: string
+  propertyAddress?: string
+  threadId?: string
+  listingId?: string
+  participants?: any[]
+}
 interface PropertyData {
   media?: {
     primaryListingImageUrl?: string
@@ -2508,6 +2516,7 @@ export default function ChatBoxComponent(props: any) {
   const [selectedThread, setSelectedThread] = useState<any>("")
   const [threadParticipants, setThreadParticipant] = useState<any>([])
   const [selectedThreadDetail, setSelectedThreadDetail] = useState<any>("")
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
   const pathname = useSearchParams();
   const [messageThreads, setMessageThreads] = useAtom(messageThreadsAtom);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -2524,6 +2533,57 @@ export default function ChatBoxComponent(props: any) {
       (thread: Thread) => (thread?.unreadCount ?? 0) > 0,
     );
   }, [threads, showUnreadOnly]);
+
+  const { propertyCountsByAgentId, agentPropertiesMap } = useMemo(() => {
+    const counts = new Map<string, number>();
+    const propertiesMap = new Map<string, AgentPropertySummary[]>();
+
+    if (!Array.isArray(threads)) {
+      return { propertyCountsByAgentId: counts, agentPropertiesMap: propertiesMap };
+    }
+
+    threads.forEach((thread: Thread) => {
+      const agentCandidate =
+        thread?.buyerAgent ??
+        thread?.sellerAgent ??
+        thread?.participants
+          ?.map((participant: any) => participant?.user)
+          .find(
+            (participant: any) =>
+              participant?.id && participant.id !== userData?.id,
+          );
+
+      const agentId = agentCandidate?.id;
+      const propertyIdentifier =
+        (thread?.propertyId && thread.propertyId.toString()) ||
+        (thread?.listingId && thread.listingId.toString()) ||
+        thread?.id;
+
+      if (!agentId || !propertyIdentifier) {
+        return;
+      }
+
+      if (!propertiesMap.has(agentId)) {
+        propertiesMap.set(agentId, []);
+      }
+
+      const propertyList = propertiesMap.get(agentId)!;
+      if (!propertyList.some((property) => property.propertyId === propertyIdentifier)) {
+        propertyList.push({
+          propertyId: propertyIdentifier,
+          propertyName: thread?.propertyName,
+          propertyAddress: thread?.propertyAddress,
+          threadId: thread?.id,
+          listingId: thread?.listingId,
+          participants: thread?.participants,
+        });
+      }
+
+      counts.set(agentId, propertyList.length);
+    });
+
+    return { propertyCountsByAgentId: counts, agentPropertiesMap: propertiesMap };
+  }, [threads, userData?.id]);
 
   console.log(selectedThreadDetail);
   const imageMimeType = [
@@ -2695,6 +2755,14 @@ export default function ChatBoxComponent(props: any) {
     setShowThreads(false)
     setShowChat(true)
     setThreadParticipant(participants)
+    const resolvedAgentId =
+      thread?.buyerAgent?.id ||
+      thread?.sellerAgent?.id ||
+      participants.find(
+        (participant: any) => participant?.id && participant.id !== userData?.id,
+      )?.id ||
+      null
+    setSelectedAgentId(resolvedAgentId)
     setSelectedThreadDetail(thread)
     localStorage.setItem('threadId', thread?.id || '');
 
@@ -2764,6 +2832,22 @@ export default function ChatBoxComponent(props: any) {
     console.log('[chat-box] Thread selection complete. showChat:', true, 'selectedThread:', thread?.id, 'selectedThreadDetail:', thread?.id);
   }
 
+  const selectThreadById = (targetThreadId?: string) => {
+    if (!targetThreadId || !Array.isArray(threads)) return
+
+    const targetThread = threads.find((thread: Thread) => thread.id === targetThreadId)
+    if (!targetThread) return
+
+    const participants = [
+      ...(targetThread?.buyerAgent ? [targetThread.buyerAgent] : []),
+      ...(targetThread?.sellerAgent ? [targetThread.sellerAgent] : []),
+      ...(targetThread?.user ? [targetThread.user] : []),
+      ...(Array.isArray(targetThread?.participants) ? targetThread.participants.map((p: any) => p.user) : []),
+    ]
+
+    handleThreadSelection(targetThread, participants)
+  }
+
   const handleEmojiClick = (emoji: any) => {
     setMessage((prev) => prev + emoji.emoji);
   };
@@ -2778,6 +2862,7 @@ export default function ChatBoxComponent(props: any) {
     setShowChat(false)
     setSelectedChannel(null)
     setSelectedThread('')
+    setSelectedAgentId(null)
   }
 
   useEffect(() => {
@@ -3728,76 +3813,143 @@ export default function ChatBoxComponent(props: any) {
                     const initials = getInitials(
                       `${thread?.buyerAgent?.firstName || ''} ${thread?.user?.firstName || thread?.sellerAgent?.firstName || ''}`
                     );
+                    const agentId =
+                      thread?.buyerAgent?.id ||
+                      thread?.sellerAgent?.id ||
+                      thread?.participants
+                        ?.map((participant: any) => participant?.user)
+                        .find(
+                          (participant: any) =>
+                            participant?.id && participant.id !== userData?.id,
+                        )?.id ||
+                      null;
+                    const engagedPropertiesCount = agentId
+                      ? propertyCountsByAgentId.get(agentId) ??
+                        (thread?.propertyId ? 1 : 0)
+                      : thread?.propertyId
+                        ? 1
+                        : 0;
+                    const engagedProperties = agentId
+                      ? agentPropertiesMap.get(agentId) ?? []
+                      : [];
+                    const isCurrentAgentCard = Boolean(
+                      agentId && agentId === selectedAgentId,
+                    );
+                    const isActiveThread = selectedThreadDetail?.id === thread?.id;
+                    const threadCardClasses = `relative flex flex-col w-full mt-3 gap-3 rounded-2xl border p-5 transition-colors shadow-sm cursor-pointer ${
+                      isActiveThread ? 'bg-[#FFF7EF] border-[#F6D4B3]' : 'bg-white border-[#F1ECE6]'
+                    }`;
+                    const timestampColor = isActiveThread ? 'text-[#C4A189]' : 'text-gray-400';
+                    const engagedLabelColor = isActiveThread ? 'text-[#B5571E]' : 'text-gray-500';
 
                     return (
                       <div
                         key={thread.id}
-                        className={`relative flex w-full  border border-bottom mt-3 items-start gap-3 p-4 rounded-md ${selectedThreadDetail?.id === thread?.id ? 'bg-[#1B1B1B] text-white' : "bg-orange"} hover:shadow-xl  hover:bg-black hover:text-white cursor-pointer transition-colors`}
+                        className={threadCardClasses}
                         onClick={() => handleThreadSelection(thread, participants)}
                       >
-                        {/* Timestamp */}
-                        {lastMessage?.createdAt ? <span className="absolute top-2 right-3 text-[10px] sm:text-xs text-gray-400">
-                          {formatDistanceToNow(new Date(lastMessage?.createdAt), { addSuffix: true })}
-                        </span> : null}
+                        {lastMessage?.createdAt ? (
+                          <span className={`absolute top-4 right-5 text-[11px] sm:text-xs ${timestampColor}`}>
+                            {formatDistanceToNow(new Date(lastMessage?.createdAt), { addSuffix: true })}
+                          </span>
+                        ) : null}
 
-                        {/* Avatar */}
-                        {thread?.image ? (
-                          <Image
-                            src={thread.image}
-                            alt="User Avatar"
-                            width={50}
-                            height={50}
-                            className="rounded-full object-cover w-[40px] h-[40px] sm:w-[50px] sm:h-[50px]"
-                            priority
-                            unoptimized
-                          />
-                        ) : (
-                          <div
-                            className={`rounded-full flex items-center justify-center font-semibold w-[40px] h-[40px] sm:w-[50px] sm:h-[50px]  bg-gray-800 text-white `}
-                          >
-                            {initials}
+                        <div className="flex items-start gap-4 w-full">
+                          {thread?.image ? (
+                            <Image
+                              src={thread.image}
+                              alt="User Avatar"
+                              width={50}
+                              height={50}
+                              className="rounded-full object-cover w-[40px] h-[40px] sm:w-[50px] sm:h-[50px]"
+                              priority
+                              unoptimized
+                            />
+                          ) : (
+                            <div className="rounded-full flex items-center justify-center font-semibold w-[40px] h-[40px] sm:w-[50px] sm:h-[50px] bg-gray-800 text-white">
+                              {initials}
+                            </div>
+                          )}
+
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm sm:text-base text-gray-900 truncate">
+                              {thread.buyerAgent?.firstName} & {thread?.user?.firstName || thread.sellerAgent?.firstName}
+                            </p>
+                            <p className={`text-xs font-medium ${engagedLabelColor}`}>
+                              Engaged in - {engagedPropertiesCount}{' '}
+                              {engagedPropertiesCount === 1 ? 'property' : 'properties'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {isCurrentAgentCard && engagedProperties.length > 0 && (
+                          <div className="mt-4 space-y-3 w-full">
+                            {engagedProperties.map((property: AgentPropertySummary) => {
+                              const isActiveProperty = selectedThreadDetail?.id === property.threadId;
+                              const displayTitle =
+                                property.propertyAddress || property.propertyName || 'Property';
+                              const participantUsers = (property.participants ?? [])
+                                .map((participant: any) => participant?.user)
+                                .filter(
+                                  (participant: any) =>
+                                    participant?.id && participant.id !== userData?.id,
+                                )
+                                .slice(0, 3);
+
+                              return (
+                                <div
+                                  key={property.propertyId}
+                                  className={`w-full min-h-[86px] rounded-3xl border px-6 py-4 text-sm transition-all duration-200 cursor-pointer flex flex-col justify-between ${
+                                    isActiveProperty
+                                      ? 'bg-[#1B1B1B] text-white border-[#1B1B1B]'
+                                      : 'bg-[#FFF4EC] text-[#352416] border-[#F5D4B7]'
+                                  }`}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    selectThreadById(property.threadId);
+                                  }}
+                                >
+                                  <div>
+                                    <p className="font-semibold text-sm sm:text-base truncate">
+                                      {displayTitle}
+                                    </p>
+                                  </div>
+                                  <div className="mt-2 flex items-center justify-between">
+                                    <Link
+                                      href={`/dashboard/buyer/property/${property.propertyId}`}
+                                      onClick={(event) => event.stopPropagation()}
+                                      className={`text-sm font-semibold ${
+                                        isActiveProperty ? 'text-[#FDD9BD]' : 'text-[#E47A36]'
+                                      }`}
+                                    >
+                                      View Property
+                                    </Link>
+                                    {participantUsers.length > 0 && (
+                                      <div className="flex -space-x-2">
+                                        {participantUsers.map((participant: any) => (
+                                          <div
+                                            key={participant?.id}
+                                            className={`h-7 w-7 rounded-full border flex items-center justify-center text-[10px] font-semibold ${
+                                              isActiveProperty
+                                                ? 'border-white bg-[#FBB785] text-white'
+                                                : 'border-[#FFE8D3] bg-white text-gray-800'
+                                            }`}
+                                          >
+                                            {getInitials(
+                                              `${participant?.firstName || ''} ${
+                                                participant?.lastName || ''
+                                              }`,
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
-
-                        {/* Thread Content */}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm sm:text-base truncate">
-                            {thread.buyerAgent?.firstName} & {thread?.user?.firstName || thread.sellerAgent?.firstName}
-                          </p>
-
-                          {/* <p className="text-xs sm:text-sm text-gray-500 truncate w-full">
-                            {true ? thread.message : "typing..."}
-                          </p> */}
-                          {/* <p className="text-xs sm:text-sm text-gray-500 truncate w-full">
-                            {lastMessage?.message || "No messages yet"}
-                          </p> */}
-
-                          {/* Participants */}
-                          <div className="flex flex-wrap gap-1 text-[10px] text-gray-500 truncate w-full">
-                            {participants.map((p: any, i: number) => (
-                              <span key={i} className="truncate">{p?.firstName}{i < participants.length - 1 && ','}</span>
-                            ))}
-                          </div>
-
-                          {/* Tags */}
-                          <div className="text-xs flex flex-wrap items-center gap-2 mt-2">
-                            <span className="flex items-center gap-1 border border-orange-500 bg-white text-orange-700 px-3 py-1 rounded-full text-[10px] sm:text-xs h-6">
-                              <FaHome className="text-orange-600 text-xs" />
-                              <span className="truncate max-w-[100px]">{thread.propertyName}</span>
-                            </span>
-                            <span className="flex items-center gap-1 bg-orange-100 overflow-hidden w-24  text-orange-700 px-3 py-1 rounded-full text-[10px] sm:text-xs h-6">
-                              <FaMapMarkerAlt className="text-orange-600 text-xs" />
-                              <span className="truncate max-w-[100px]">{thread.propertyAddress}</span>
-                            </span>
-                          </div>
-                          {/* {(thread.messages?.length || 0) > 0 && (
-                                                    <div className="absolute top-2 right-5 translate-x-1/2 -translate-y-1/2">
-                                                        <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-semibold leading-none text-white bg-orange-600 rounded-full shadow">
-                                                            {thread.messages?.length}
-                                                        </span>
-                                                    </div>
-                                                )} */}
-                        </div>
                       </div>
                     );
                   })

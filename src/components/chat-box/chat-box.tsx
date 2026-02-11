@@ -3883,21 +3883,17 @@ export default function ChatBoxComponent(props: any) {
                             </div>
                           </div>
 
-                          {/* Right Section: Public Chat Toggle */}
+                          {/* Public Chat Toggle intentionally hidden for now.
                           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                            {/* Lock Icon */}
                             <svg className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
                             </svg>
-
-                            {/* Public Chat Label */}
                             <span className="text-xs sm:text-sm font-medium text-gray-700 hidden sm:inline">Public Chat</span>
-
-                            {/* Toggle Switch */}
                             <div className="w-11 h-6 bg-gray-300 rounded-full relative cursor-pointer hover:bg-gray-400 transition-colors flex items-center px-1">
                               <div className="w-5 h-5 bg-white rounded-full shadow-md transition-transform"></div>
                             </div>
                           </div>
+                          */}
 
                           <div className="relative">
                             <button className="p-2 rounded-full hover:bg-gray-100" onClick={toggleDropdown}>
@@ -3906,7 +3902,6 @@ export default function ChatBoxComponent(props: any) {
                             {isDropdownOpen && (
                               <div
                                 className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border"
-                                onMouseLeave={closeDropdown}
                                 style={{ zIndex: 100 }}
                               >
                                 <ul className="py-1">
@@ -3946,10 +3941,10 @@ export default function ChatBoxComponent(props: any) {
                           </div>
 
                           {/* Seller Role */}
-                          <div className="flex items-center gap-1.5">
+                          {/* <div className="flex items-center gap-1.5">
                             <div className="w-2 h-2 rounded-full bg-yellow-500 flex-shrink-0"></div>
                             <span className="text-gray-600">Seller</span>
-                          </div>
+                          </div> */}
 
                           {/* Agent Role */}
                           <div className="flex items-center gap-1.5">
@@ -4275,19 +4270,18 @@ export default function ChatBoxComponent(props: any) {
                             {showUploadMenu && (
                               <div
                                 ref={uploadMenuRef}
-                                className="absolute bottom-full left-0 mb-2 bg-white  rounded-lg z-10 w-48"
+                                className="absolute bottom-full left-0 mb-2 bg-white rounded-xl shadow-md z-10 w-44 overflow-hidden"
                               >
-                                <div className="p-2 shadow text-xs sm:text-sm">
-                                  <p className="font-medium mb-1">Upload file</p>
+                                <div className="p-2 text-xs sm:text-sm flex flex-col items-center">
                                   <Image
                                     src="/assets/images/v2/pangea_logo1.jpg"
                                     alt="Powered by Pangea"
                                     width={100}
                                     height={100}
-                                    className="absolute top-2 right-2 object-contain"
+                                    className="object-contain mx-auto mb-2"
                                   />
-                                  <div className="space-y-2">
-                                    <label className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md cursor-pointer">
+                                  <div className="space-y-1 w-full">
+                                    <label className="flex items-center gap-2 p-1.5 hover:bg-gray-100 rounded-md cursor-pointer">
                                       <Paperclip className="h-4 w-4 text-blue-500" />
                                       <span>Image</span>
                                       <input
@@ -4297,7 +4291,7 @@ export default function ChatBoxComponent(props: any) {
                                         accept="image/jpeg,image/png,image/jpg"
                                       />
                                     </label>
-                                    <label className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md cursor-pointer">
+                                    <label className="flex items-center gap-2 p-1.5 hover:bg-gray-100 rounded-md cursor-pointer">
                                       <Play className="h-4 w-4 text-red-500" />
                                       <span>Video</span>
                                       <input
@@ -4307,7 +4301,7 @@ export default function ChatBoxComponent(props: any) {
                                         accept="video/mp4,video/webm,video/ogg"
                                       />
                                     </label>
-                                    <label className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md cursor-pointer">
+                                    <label className="flex items-center gap-2 p-1.5 hover:bg-gray-100 rounded-md cursor-pointer">
                                       <FileText className="h-4 w-4 text-gray-500" />
                                       <span>Document</span>
                                       <input

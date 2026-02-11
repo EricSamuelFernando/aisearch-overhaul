@@ -131,7 +131,10 @@ export default function RegisterModal({
           // Check if it's a user already exists error
           if (errorMessage.toLowerCase().includes('already exists') ||
             errorMessage.toLowerCase().includes('user with email')) {
-            error({ message: 'User already exists. Please login instead.' });
+            error({
+              message: "Oops, looks like you're already with us!",
+              subtitle: 'No worries! Just login to continue where you left off.',
+            });
           } else {
             error({ message: errorMessage });
           }
@@ -141,7 +144,10 @@ export default function RegisterModal({
         // Check for successful response
         if (res?.data?.data?.sendVerification === 'Email sent successfully') {
           setAgentEmail(values.email);
-          success({ message: res?.data?.data?.sendVerification });
+          success({
+            message: 'Otp sent succesfully',
+            subtitle: 'Few More Steps TO Secure Your Home',
+          });
           router.push('/verify-email');
         } else {
           error({ message: 'An unexpected error occurred. Please try again.' });
@@ -158,7 +164,10 @@ export default function RegisterModal({
         // Check if it's a user already exists error
         if (errorMessage.toLowerCase().includes('already exists') ||
           errorMessage.toLowerCase().includes('user with email')) {
-          error({ message: 'User already exists. Please login instead.' });
+          error({
+            message: "Oops, looks like you're already with us!",
+            subtitle: 'No worries! Just login to continue where you left off.',
+          });
         } else {
           error({ message: errorMessage });
         }

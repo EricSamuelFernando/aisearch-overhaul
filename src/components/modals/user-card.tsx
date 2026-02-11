@@ -19,14 +19,14 @@ export const UserCard: React.FC<UserCardProps> = ({
   return (
     <div
       className={cn(
-        'mb-4 flex h-12 w-full cursor-pointer items-center justify-center  gap-x-2 rounded-md border-[1px] px-4 py-3 text-center',
+        'mb-4 inline-flex h-12 w-full cursor-pointer items-center justify-center gap-x-2 whitespace-nowrap rounded-md border px-4 py-6 text-center text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-30',
         isActive
-          ? 'bg-grey-200 hover:bg-grey-200/70'
-          : 'border border-black bg-white',
+          ? 'border-black bg-black text-white hover:bg-black hover:text-white'
+          : 'border-black bg-white text-black hover:bg-gray-200 hover:text-black',
       )}
       onClick={onClick}
     >
-      <p className='text-center text-lg font-bold'>
+      <p className='text-center text-base font-semibold'>
         I am {userType === 'agent' ? 'an' : 'a'} {userType}
       </p>
     </div>

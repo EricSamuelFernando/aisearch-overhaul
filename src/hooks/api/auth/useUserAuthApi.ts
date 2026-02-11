@@ -47,7 +47,7 @@ import {
 import { AxiosResponse } from '@/types/axios.types';
 import { useAppDispatch, useAppSelector } from '@/lib/hook';
 import { savedSearchQuery, savedUserType } from '@/slices/onboarding/onboarding-selectors';
-import { updateSavedSearchQuery } from '@/slices/onboarding/onboarding-slice';
+import { resetOnboardingSlice, updateSavedSearchQuery } from '@/slices/onboarding/onboarding-slice';
 import axios from 'axios';
 import { update } from 'lodash';
 import { useCallback, useState } from 'react';
@@ -107,7 +107,8 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       return {
         ...response.data,
         isBack: loginData.isBack,
-        isHome: loginData.isHome
+        isHome: loginData.isHome,
+        isFirstLogin: loginData.isFirstLogin,
       };
     },
 
@@ -153,9 +154,12 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       if (messageUnreadCount) {
         manageConversationUnread(messageUnreadCount)
       }
-      success({ message: "You have logged in successfully" });
-      // Reset the auth expired flag so API calls work again after re-login
-      resetAuthExpired();
+      success({
+        message: 'You have logged in successfully',
+        subtitle: data?.isFirstLogin
+          ? 'Welcome to Snaphomz'
+          : 'Welcome back to Snaphomz',
+      });
       setAuthToken(access_token);
       login(user);
       setAuthToken(access_token);
@@ -318,7 +322,10 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     },
     onSuccess: (data) => {
       if ((data as any)?.data?.data?.completeSignUp?.id) {
-        success({ message: 'Registration completed successfully' });
+        success({
+          message: 'Registration completed successfully',
+          subtitle: 'You’re all set! Let’s get started',
+        });
       }
     },
     onError: (err: any) => {
@@ -390,10 +397,22 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     },
     onSuccess: (data: any) => {
       if (data?.data?.errors?.length) {
-        error({ message: data?.data?.errors?.[0]?.message })
+        const apiMessage = data?.data?.errors?.[0]?.message || '';
+        const normalized = apiMessage.toLowerCase();
+        if (normalized.includes('otp') || normalized.includes('verification code') || normalized.includes('invalid')) {
+          error({
+            message: 'Invalid OTP',
+            subtitle: 'Double-check the OTP and try again.',
+          });
+        } else {
+          error({ message: apiMessage });
+        }
       }
       if (data?.data?.data?.verifyOtp?.access_token) {
-        success({ message: 'Verification completed successfully' });
+        success({
+          message: 'Verification completed successfully',
+          subtitle: 'Getting started with your journey',
+        });
         localStorage.setItem('userAccessToken', data?.data?.data?.verifyOtp?.access_token);
         setAuthToken((data as any)?.data?.data?.verifyOtp?.access_token);
         storeCookie({
@@ -401,6 +420,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
           value: (data as any)?.data?.data?.verifyOtp?.access_token,
         });
         if (data?.data?.data?.verifyOtp?.accountType === "buyer") {
+          dispatch(resetOnboardingSlice());
           router.push("/property-preference");
         } else {
           router.push("/complete-onboarding");
@@ -408,7 +428,16 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       }
     },
     onError: (err: any) => {
-      error({ message: err?.response?.data?.message });
+      const apiMessage = err?.response?.data?.message || '';
+      const normalized = apiMessage.toLowerCase();
+      if (normalized.includes('otp') || normalized.includes('verification code') || normalized.includes('invalid')) {
+        error({
+          message: 'Invalid OTP',
+          subtitle: 'Double-check the OTP and try again.',
+        });
+        return;
+      }
+      error({ message: apiMessage });
     },
   });
 
@@ -421,7 +450,10 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     },
     onSuccess: (data) => {
       if ((data as any).status === 200) {
-        success({ message: 'OTP has been successfully sent' });
+        success({
+          message: 'Otp sent succesfully',
+          subtitle: 'Few More Steps TO Secure Your Home',
+        });
       }
     },
     onError: (err: any) => {
@@ -1339,18 +1371,13 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       if (handleCb) handleCb();
       console.log("DAta : ", data);
       if (data?.id) {
+        success({
+          message: 'Logged out successfully',
+          subtitle: "Don't be a stranger",
+        });
         // Logout from local state first
         logout();
-
-        // Then logout from Cognito (for OAuth users)
-        // This will redirect to Cognito logout endpoint if user logged in via Google
-        try {
-          cognitoLogout();
-        } catch (error) {
-          console.error('Error during Cognito logout:', error);
-          // If Cognito logout fails, just redirect to home
-          router.push('/home');
-        }
+        router.push('/home');
       }
 
     },
@@ -1493,9 +1520,10 @@ export const useTokenLoginMutation = (handleCb?: () => void) => {
         manageConversationUnread(messageUnreadCount);
       }
 
-      success({ message: 'You have logged in successfully' });
-      // Reset the auth expired flag so API calls work again after re-login
-      resetAuthExpired();
+      success({
+        message: 'You have logged in successfully',
+        subtitle: 'Welcome back to Snaphomz',
+      });
       setAuthToken(data.access_token);
       login(user);
       storeCookie({ key: AUTH_TOKEN, value: data.access_token });

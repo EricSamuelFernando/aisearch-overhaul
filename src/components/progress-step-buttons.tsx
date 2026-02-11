@@ -13,6 +13,8 @@ interface ProgressStepButtonsProps {
   disableNextButton?: boolean;
   loading?: boolean;
   cancelLabel?: string;
+  hideBack?: boolean;
+  hideCancel?: boolean;
 }
 
 const ProgressStepButtons: React.FC<
@@ -26,24 +28,30 @@ const ProgressStepButtons: React.FC<
   handleNextContinue,
   disableNextButton,
   loading = false,
+  hideBack = false,
+  hideCancel = false,
 }) => (
   <div className='flex w-full flex-nowrap items-center justify-between px-0 md:px-5'>
     <div className='flex flex-row flex-nowrap items-center gap-3 md:ml-3'>
-      <Button
-        onClick={handleBack}
-        roundness='full'
-        className='h-12 w-40 border-2 border-black bg-transparent px-10 py-3 text-black hover:border-none hover:bg-grey-830'
-      >
-        Back
-      </Button>
-      <Button
-        onClick={handleCancel}
-        roundness='full'
-        variant='ghost'
-        className='h-10 w-24 px-6 py-2.5 text-ocOrange'
-      >
-        {cancelLabel}
-      </Button>
+      {!hideBack ? (
+        <Button
+          onClick={handleBack}
+          roundness='full'
+          className='h-12 w-40 border-2 border-black bg-transparent px-10 py-3 text-black hover:border-none hover:bg-grey-830'
+        >
+          Back
+        </Button>
+      ) : null}
+      {!hideCancel ? (
+        <Button
+          onClick={handleCancel}
+          roundness='full'
+          variant='ghost'
+          className='h-10 w-24 px-6 py-2.5 text-ocOrange'
+        >
+          {cancelLabel}
+        </Button>
+      ) : null}
     </div>
     <div className='flex flex-nowrap items-center gap-3'>
       {children}

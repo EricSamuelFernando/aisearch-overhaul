@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { formatCurrency } from '@/lib/utils';
 import { usePropertyActions } from '@/shared/hooks/useProperty';
 import NImage from 'next/image';
@@ -8,11 +8,35 @@ import { imageLoader } from '@/utils/image-loader';
 import EmblaCarousel from '@/components/customs/carousel/embla-carousel';
 import { useRouter } from 'next/navigation';
 import { Bath, BedDouble, Ruler } from 'lucide-react';
+import { useCollectionModal } from '@/providers/collection-modal-provider';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { useUserSnapAPIs } from '@/hooks/api/auth/snaps.API';
+import { SnapzHeartButton } from '@/components/ui/snapz-heart';
+import { useSelector } from 'react-redux';
 
 const PropertyCards = (props: any) => {
   const { saveCurrenctProperty } = usePropertyActions();
   const router = useRouter();
   const [carouselEvent, setCarouselEvent] = useState(false);
+  const { openCollectionModal } = useCollectionModal();
+  const { isLoggedIn } = useAuth();
+  const userData = useSelector((state: any) => state.auth.user);
+  const { getAllSnaps } = useUserSnapAPIs();
+  const [snaps, setSnaps] = useState<any[]>([]);
+
+  const fetchSnaps = () => {
+    if (userData?.id) {
+      getAllSnaps.mutate(userData.id, {
+        onSuccess: (data) => {
+          setSnaps(data);
+        },
+      });
+    }
+  };
+
+  useEffect(() => {
+    fetchSnaps();
+  }, [userData?.id]);
 
   const slides = props?.listing?.media?.photosList?.slice(0, 6)?.map((image: any, idx: number) => {
     if (!image?.lowRes) return null;
@@ -82,6 +106,23 @@ const PropertyCards = (props: any) => {
   };
 
   const statusInfo = getStatusInfo(props?.listing);
+  const propertyId = props?.id ?? props?.propertyId ?? props?.listingId;
+
+  const isPropertyInFavourite = (snapsList: any[]) => {
+    if (!Array.isArray(snapsList)) {
+      return false;
+    }
+    const isAvailable = snapsList.some((snap: any) =>
+      snap?.favourites?.some((favourite: any) => {
+        const propertyIdMatch = favourite?.propertyId == propertyId;
+        const listingIdMatch = favourite?.listingId == props?.listingId;
+        return propertyIdMatch || listingIdMatch;
+      })
+    );
+    return isAvailable;
+  };
+
+  const isFavored = isPropertyInFavourite(snaps);
 
   const handleClick = () => {
     if (!carouselEvent) {
@@ -139,6 +180,28 @@ const PropertyCards = (props: any) => {
           {statusInfo.label}
         </div>
       ) : null}
+
+      <div className="absolute top-4 right-4 z-10">
+        <SnapzHeartButton
+          isActive={isFavored}
+          size={20}
+          onClick={(event) => {
+            event.stopPropagation();
+            if (isLoggedIn) {
+              saveCurrenctProperty(props);
+              const propertyImage =
+                props?.listing?.media?.primaryListingImageUrl ||
+                props?.public?.imageUrl ||
+                props?.image ||
+                '/assets/images/property-placeholder.jpg';
+              openCollectionModal(propertyId?.toString(), propertyImage, fetchSnaps);
+            } else {
+              router.push('/login');
+            }
+          }}
+          className="text-white"
+        />
+      </div>
 
       {/* Bottom Overlay Content */}
       <div className="absolute bottom-0 left-0 right-0 h-[210px] bg-black/90 p-4 rounded-b-2xl flex flex-col justify-between">

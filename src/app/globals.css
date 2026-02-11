@@ -294,6 +294,16 @@ div.make-it-easy-component {
   display: none;
 }
 
+/* Keep bottom-right Google Maps controls closer to zoom buttons */
+.snaphomz-map .gm-bundled-control.gm-bundled-control-on-bottom {
+  bottom: 250px !important;
+}
+
+/* Place zoom controls just below the camera controls (rotate/tilt) */
+.snaphomz-map .gm-style .gmnoprint.gm-bundled-control + .gm-bundled-control {
+  margin-top: 12px !important;
+}
+
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;

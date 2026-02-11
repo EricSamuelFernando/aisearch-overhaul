@@ -40,8 +40,8 @@ import SchoolsNearAddress from '../preview-hero/SchoolsNearAddress';
 import TopCollegesSection from '../preview-hero/PropertySummaryBar';
 import InteriorOffersSection from '../preview-hero/InteriorOffersSection';
 import PropertyHistorySection from '../preview-hero/PropertyHistorySection';
-import InterestRatePredictor from '../preview-hero/InterestRatePredictor';
-import PaymentCalculator from '../preview-hero/PaymentCalculator';
+import InterestRateForecast from '../preview-hero/InterestRateForecast';
+import MonthlyMortgageCalculator from '../preview-hero/MonthlyMortgageCalculator';
 import NearbyHomesSection from '../preview-hero/NearbyHomesSection';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -703,6 +703,43 @@ const PropertyPreview: React.FC = () => {
   const [showAllSchools, setShowAllSchools] = React.useState(false);
   const [sortedSchools, setSortedSchools] = React.useState<any[]>([]);
 
+  const listPriceCandidate =
+    transformData.prop?.listPrice ??
+    propertyDatas?.data?.listPrice ??
+    propertyData?.listing?.listPriceLow ??
+    propertyData?.listPrice;
+  const listPriceValue = Number(listPriceCandidate);
+  const homePriceValue = Number.isFinite(listPriceValue) ? listPriceValue : undefined;
+
+  const hoaCandidate =
+    propertyDatas?.data?.property?.associationFee ??
+    propertyData?.property?.associationFee;
+  const hoaMonthlyValue = Number(hoaCandidate);
+  const hoaMonthly =
+    Number.isFinite(hoaMonthlyValue) && hoaMonthlyValue > 0 ? hoaMonthlyValue : undefined;
+
+  const taxAmountCandidate =
+    propertyDatas?.data?.homedetails?.taxAmount ??
+    propertyData?.homedetails?.taxAmount;
+  const taxAmountValue = Number(taxAmountCandidate);
+  const taxPercentValue =
+    Number.isFinite(listPriceValue) &&
+    listPriceValue > 0 &&
+    Number.isFinite(taxAmountValue) &&
+    taxAmountValue > 0
+      ? (taxAmountValue / listPriceValue) * 100
+      : undefined;
+  const currentListingId =
+    propertyDatas?.data?.listingId ||
+    propertyData?.listingId ||
+    property?.listingId ||
+    id;
+  const currentCompareProperty =
+    propertyDatas?.data ||
+    propertyData?.listing ||
+    propertyData ||
+    transformData.prop;
+
 
   const [openSection, setOpenSection] = React.useState<string | null>(null);
 
@@ -752,23 +789,49 @@ const PropertyPreview: React.FC = () => {
     },
     {
       id: "interest",
-      title: "Interest rate predictor",
-      content: <InterestRatePredictor />,
+      title: "Interest Rate Forecast",
+      content: (
+        <div className="space-y-3">
+          <p className="text-xs text-gray-500">
+            For more in-depth calculations please visit{' '}
+            <a
+              href="https://snapinterest.snaphomz.com"
+              target="_blank"
+              rel="noreferrer"
+              className="text-orange-600 hover:underline"
+            >
+              SnapInterest
+            </a>
+            .
+          </p>
+          <InterestRateForecast />
+        </div>
+      ),
     },
     {
       id: "payment",
-      title: "Payment calculator",
-      content: <PaymentCalculator />,
-    },
-    {
-      id: "history",
-      title: "Price history",
-      content: <PropertyHistorySection />,
-    },
-    {
-      id: "tax",
-      title: "Tax history",
-      content: <div>Tax history content here</div>,
+      title: "Monthly mortgage",
+      content: (
+        <div className="space-y-3">
+          <p className="text-xs text-gray-500">
+            For more in-depth calculations please visit{' '}
+            <a
+              href="https://snapinterest.snaphomz.com"
+              target="_blank"
+              rel="noreferrer"
+              className="text-orange-600 hover:underline"
+            >
+              SnapInterest
+            </a>
+            .
+          </p>
+          <MonthlyMortgageCalculator
+            homePrice={homePriceValue}
+            hoaMonthly={hoaMonthly}
+            taxPercent={taxPercentValue}
+          />
+        </div>
+      ),
     },
   ];
 
@@ -1076,11 +1139,27 @@ const PropertyPreview: React.FC = () => {
               </div>
 
               {/* Right: Start The Process Button */}
-              <div className="w-full">
+              <div className="w-full flex flex-col gap-2">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        className="w-full bg-black text-white px-4 sm:px-6 md:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-normal hover:bg-gray-800 transition-colors"
+                      >
+                        Start The Process
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Coming Soon</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 <button
-                  className="w-full bg-black text-white px-4 sm:px-6 md:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-normal hover:bg-gray-800 transition-colors"
+                  className="w-full bg-gray-100 text-black px-4 sm:px-6 md:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-normal border border-gray-200 hover:bg-gray-200 transition-colors"
+                  onClick={handleContactAgent}
+                  disabled={propertyEngagementMutation.isPending}
                 >
-                  Start The Process
+                  {propertyEngagementMutation.isPending ? "Creating..." : "Contact Agent"}
                 </button>
               </div>
             </div>
@@ -1323,7 +1402,23 @@ const PropertyPreview: React.FC = () => {
                   className="w-full flex items-center justify-between py-3 sm:py-4 text-left focus:outline-none transition-all"
                 >
                   <span className="font-semibold text-sm sm:text-[16px] text-gray-900">
-                    {section.title}
+                    {section.id === 'payment' ? (
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span>{section.title}</span>
+                        <span className="text-[11px] font-normal text-gray-500">
+                          Powered by SnapInterest
+                        </span>
+                      </span>
+                    ) : section.id === 'interest' ? (
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span>{section.title}</span>
+                        <span className="text-[11px] font-normal text-gray-500">
+                          Powered by SnapInterest
+                        </span>
+                      </span>
+                    ) : (
+                      section.title
+                    )}
                   </span>
                   {openSection === section.id ? (
                     <ChevronUp className="text-gray-600 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5" />
@@ -1346,7 +1441,11 @@ const PropertyPreview: React.FC = () => {
             <div className="pb-6 sm:pb-8 md:pb-12 mb-12 sm:mb-16 md:mb-20">
               {/* <h2 className='text-xl font-bold mt-8 mb-4'>Similar homes</h2> */}
               {propertyDatas?.nearbyHomes && propertyDatas.nearbyHomes.length > 0 ? (
-                <NearbyHomesSection nearbyHomes={propertyDatas.nearbyHomes} />
+                <NearbyHomesSection
+                  nearbyHomes={propertyDatas.nearbyHomes}
+                  currentProperty={currentCompareProperty}
+                  currentListingId={currentListingId}
+                />
               ) : (
                 <div className="flex items-center justify-center py-8 sm:py-12 px-4">
                   <p className="text-gray-500 text-sm sm:text-base">Similar homes not available</p>

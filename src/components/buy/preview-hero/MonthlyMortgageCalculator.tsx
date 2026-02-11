@@ -1,0 +1,482 @@
+'use client';
+
+import React from 'react';
+
+type ToggleOption = 'percent' | 'amount';
+type TaxMode = 'percent' | 'annual';
+type PmiMode = 'percent' | 'monthly';
+
+type MonthlyMortgageCalculatorProps = {
+  homePrice?: number;
+  hoaMonthly?: number;
+  insuranceMonthly?: number;
+  taxPercent?: number;
+};
+
+const DEFAULTS = {
+  price: '450000',
+  downPayment: '20',
+  downType: 'percent' as ToggleOption,
+  term: 30,
+  rate: '6.5',
+  tax: '1.1',
+  taxMode: 'percent' as TaxMode,
+  insurance: '120',
+  hoa: '0',
+  pmiEnabled: false,
+  pmi: '0.6',
+  pmiMode: 'percent' as PmiMode,
+};
+
+const RATE_SERIES_FOR_TERM = (term: number) => (term === 15 ? 15 : 30);
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(value);
+
+const formatCurrencyPrecise = (value: number) =>
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 2,
+  }).format(value);
+
+const toNumber = (value: string) => {
+  if (!value) return 0;
+  const cleaned = value.replace(/[^0-9.]/g, '');
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const useDebouncedValue = <T,>(value: T, delay = 200) => {
+  const [debounced, setDebounced] = React.useState(value);
+
+  React.useEffect(() => {
+    const handle = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(handle);
+  }, [value, delay]);
+
+  return debounced;
+};
+
+const MonthlyMortgageCalculator: React.FC<MonthlyMortgageCalculatorProps> = ({
+  homePrice,
+  hoaMonthly,
+  insuranceMonthly,
+  taxPercent,
+}) => {
+  const inputClass =
+    'mt-1 h-10 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 leading-5 focus:outline-none focus:ring-2 focus:ring-orange-400';
+  const inlineInputClass =
+    'h-10 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 leading-5 focus:outline-none focus:ring-2 focus:ring-orange-400';
+  const toggleGroupClass =
+    'flex h-10 items-center rounded-lg border border-gray-200 bg-white text-xs';
+  const [price, setPrice] = React.useState(DEFAULTS.price);
+  const [downPayment, setDownPayment] = React.useState(DEFAULTS.downPayment);
+  const [downType, setDownType] = React.useState<ToggleOption>(DEFAULTS.downType);
+  const [term, setTerm] = React.useState<number>(DEFAULTS.term);
+  const [rate, setRate] = React.useState(DEFAULTS.rate);
+  const [rateTouched, setRateTouched] = React.useState(false);
+  const [rateMeta, setRateMeta] = React.useState<{ date?: string; source?: string } | null>(null);
+  const [rateLoading, setRateLoading] = React.useState(false);
+
+  const [tax, setTax] = React.useState(DEFAULTS.tax);
+  const [taxMode, setTaxMode] = React.useState<TaxMode>(DEFAULTS.taxMode);
+  const [insurance, setInsurance] = React.useState(DEFAULTS.insurance);
+  const [hoa, setHoa] = React.useState(DEFAULTS.hoa);
+  const [pmiEnabled, setPmiEnabled] = React.useState(DEFAULTS.pmiEnabled);
+  const [pmi, setPmi] = React.useState(DEFAULTS.pmi);
+  const [pmiMode, setPmiMode] = React.useState<PmiMode>(DEFAULTS.pmiMode);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    const fetchRate = async () => {
+      setRateLoading(true);
+      try {
+        const seriesTerm = RATE_SERIES_FOR_TERM(term);
+        const response = await fetch(`/api/mortgage-rate?term=${seriesTerm}`);
+        if (!response.ok) throw new Error('Failed to fetch rate');
+        const json = await response.json();
+        if (!isMounted) return;
+        setRateMeta({ date: json.date, source: json.source });
+        if (!rateTouched && typeof json.ratePct === 'number') {
+          setRate(json.ratePct.toFixed(3).replace(/\.?0+$/, ''));
+        }
+      } catch (err) {
+        if (!isMounted) return;
+        setRateMeta({ date: undefined, source: 'unavailable' });
+      } finally {
+        if (isMounted) setRateLoading(false);
+      }
+    };
+    fetchRate();
+    return () => {
+      isMounted = false;
+    };
+  }, [term, rateTouched]);
+
+  const [priceTouched, setPriceTouched] = React.useState(false);
+  const [taxTouched, setTaxTouched] = React.useState(false);
+  const [insuranceTouched, setInsuranceTouched] = React.useState(false);
+  const [hoaTouched, setHoaTouched] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!priceTouched && homePrice && Number.isFinite(homePrice)) {
+      setPrice(String(Math.round(homePrice)));
+    }
+  }, [homePrice, priceTouched]);
+
+  React.useEffect(() => {
+    if (!hoaTouched && hoaMonthly && Number.isFinite(hoaMonthly)) {
+      setHoa(String(Math.round(hoaMonthly)));
+    }
+  }, [hoaMonthly, hoaTouched]);
+
+  React.useEffect(() => {
+    if (!insuranceTouched && insuranceMonthly && Number.isFinite(insuranceMonthly)) {
+      setInsurance(String(Math.round(insuranceMonthly)));
+    }
+  }, [insuranceMonthly, insuranceTouched]);
+
+  React.useEffect(() => {
+    if (!taxTouched && taxPercent && Number.isFinite(taxPercent)) {
+      setTax(String(taxPercent));
+      setTaxMode('percent');
+    }
+  }, [taxPercent, taxTouched]);
+
+  const liveInputs = {
+    price,
+    downPayment,
+    downType,
+    term,
+    rate,
+    tax,
+    taxMode,
+    insurance,
+    hoa,
+    pmiEnabled,
+    pmi,
+    pmiMode,
+  };
+
+  const debouncedInputs = useDebouncedValue(liveInputs, 200);
+  const [calcInputs, setCalcInputs] = React.useState(liveInputs);
+
+  React.useEffect(() => {
+    setCalcInputs(debouncedInputs);
+  }, [debouncedInputs]);
+
+  const result = React.useMemo(() => {
+    const priceValue = toNumber(calcInputs.price);
+    const downValue = toNumber(calcInputs.downPayment);
+    const downAmount =
+      calcInputs.downType === 'percent'
+        ? (priceValue * downValue) / 100
+        : downValue;
+    const loanAmount = Math.max(0, priceValue - downAmount);
+
+    const ratePct = toNumber(calcInputs.rate);
+    const r = ratePct / 100 / 12;
+    const n = calcInputs.term * 12;
+    let pi = 0;
+    if (n > 0) {
+      if (r === 0) {
+        pi = loanAmount / n;
+      } else {
+        const factor = Math.pow(1 + r, n);
+        pi = loanAmount * (r * factor) / (factor - 1);
+      }
+    }
+
+    const taxMonthly =
+      calcInputs.taxMode === 'percent'
+        ? (priceValue * (toNumber(calcInputs.tax) / 100)) / 12
+        : toNumber(calcInputs.tax) / 12;
+
+    const insuranceMonthly = toNumber(calcInputs.insurance);
+    const hoaMonthly = toNumber(calcInputs.hoa);
+
+    let pmiMonthly = 0;
+    if (calcInputs.pmiEnabled) {
+      pmiMonthly =
+        calcInputs.pmiMode === 'percent'
+          ? (toNumber(calcInputs.pmi) / 100) * loanAmount / 12
+          : toNumber(calcInputs.pmi);
+    }
+
+    const total = pi + taxMonthly + insuranceMonthly + hoaMonthly + pmiMonthly;
+
+    return {
+      loanAmount,
+      pi,
+      taxMonthly,
+      insuranceMonthly,
+      hoaMonthly,
+      pmiMonthly,
+      total,
+    };
+  }, [calcInputs]);
+
+  const showUseLiveRate = rateTouched && rateMeta?.date && rateMeta?.source !== 'unavailable';
+  const liveRateStatus =
+    rateMeta?.date && rateMeta?.source !== 'unavailable'
+      ? `Live rate • as of ${rateMeta.date}`
+      : 'Live rate unavailable';
+
+  return (
+    <div className="w-full rounded-2xl bg-[#F4F4F4] border border-gray-200 p-4 sm:p-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+            Payment Calculator
+          </h3>
+          <p className="text-xs sm:text-sm text-gray-500">PITI + HOA (est.)</p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs sm:text-sm text-gray-500">Estimated Monthly Payment</p>
+          <p className="text-2xl sm:text-3xl font-bold text-gray-900">
+            {formatCurrencyPrecise(result.total)}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <label className="flex flex-col text-xs text-gray-600">
+          Home price ($)
+          <input
+            type="text"
+            inputMode="decimal"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            onBlur={() => setPriceTouched(true)}
+            className={inputClass}
+          />
+        </label>
+
+        <div className="flex flex-col text-xs text-gray-600">
+          Down payment
+          <div className="mt-1 flex gap-2">
+            <input
+              type="text"
+              inputMode="decimal"
+              value={downPayment}
+              onChange={(e) => setDownPayment(e.target.value)}
+              className={`flex-1 ${inlineInputClass}`}
+            />
+            <div className={toggleGroupClass}>
+              <button
+                type="button"
+                onClick={() => setDownType('percent')}
+                className={`px-3 h-10 rounded-l-lg ${downType === 'percent' ? 'bg-orange-100 text-orange-700' : 'text-gray-500'}`}
+              >
+                %
+              </button>
+              <button
+                type="button"
+                onClick={() => setDownType('amount')}
+                className={`px-3 h-10 rounded-r-lg ${downType === 'amount' ? 'bg-orange-100 text-orange-700' : 'text-gray-500'}`}
+              >
+                $
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <label className="flex flex-col text-xs text-gray-600">
+          Loan term
+          <select
+            value={term}
+            onChange={(e) => setTerm(Number(e.target.value))}
+            className={inputClass}
+          >
+            <option value={30}>30 years</option>
+            <option value={20}>20 years</option>
+            <option value={15}>15 years</option>
+          </select>
+        </label>
+
+        <div className="flex flex-col text-xs text-gray-600">
+          Interest rate (%)
+          <input
+            type="text"
+            inputMode="decimal"
+            value={rate}
+            onChange={(e) => {
+              setRate(e.target.value);
+              setRateTouched(true);
+            }}
+            className={inputClass}
+          />
+          <div className="mt-1 flex items-center justify-between text-[11px] text-gray-500">
+            <span>{rateLoading ? 'Loading live rate…' : liveRateStatus}</span>
+            {showUseLiveRate && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (rateMeta?.source !== 'unavailable') {
+                    setRateTouched(false);
+                  }
+                }}
+                className="text-orange-600 hover:underline"
+              >
+                Use live rate
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col text-xs text-gray-600">
+          Property tax
+          <div className="mt-1 flex items-center gap-2">
+            <input
+              type="text"
+              inputMode="decimal"
+            value={tax}
+            onChange={(e) => {
+              setTax(e.target.value);
+              setTaxTouched(true);
+            }}
+            className={`flex-1 ${inlineInputClass}`}
+          />
+            <div className={toggleGroupClass}>
+              <button
+                type="button"
+                onClick={() => setTaxMode('percent')}
+                className={`px-3 h-10 rounded-l-lg ${taxMode === 'percent' ? 'bg-orange-100 text-orange-700' : 'text-gray-500'}`}
+              >
+                %/yr
+              </button>
+              <button
+                type="button"
+                onClick={() => setTaxMode('annual')}
+                className={`px-3 h-10 rounded-r-lg ${taxMode === 'annual' ? 'bg-orange-100 text-orange-700' : 'text-gray-500'}`}
+              >
+                $/yr
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <label className="flex flex-col text-xs text-gray-600">
+          Home insurance ($/mo)
+          <input
+            type="text"
+            inputMode="decimal"
+            value={insurance}
+            onChange={(e) => {
+              setInsurance(e.target.value);
+              setInsuranceTouched(true);
+            }}
+            className={inputClass}
+          />
+        </label>
+
+        <label className="flex flex-col text-xs text-gray-600">
+          HOA ($/mo)
+          <input
+            type="text"
+            inputMode="decimal"
+            value={hoa}
+            onChange={(e) => {
+              setHoa(e.target.value);
+              setHoaTouched(true);
+            }}
+            className={inputClass}
+          />
+        </label>
+
+        <div className="flex flex-col text-xs text-gray-600">
+          PMI
+          <div className="mt-1 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setPmiEnabled((prev) => !prev)}
+              className={`h-10 px-3 rounded-lg border text-xs ${
+                pmiEnabled
+                  ? 'border-orange-300 bg-orange-50 text-orange-700'
+                  : 'border-gray-200 bg-white text-gray-500'
+              }`}
+            >
+              {pmiEnabled ? 'Enabled' : 'Off'}
+            </button>
+            {pmiEnabled && (
+              <div className="flex flex-1 items-center gap-2">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={pmi}
+                  onChange={(e) => setPmi(e.target.value)}
+                  className={`flex-1 ${inlineInputClass}`}
+                />
+                <div className={toggleGroupClass}>
+                  <button
+                    type="button"
+                    onClick={() => setPmiMode('percent')}
+                    className={`px-3 h-10 rounded-l-lg ${pmiMode === 'percent' ? 'bg-orange-100 text-orange-700' : 'text-gray-500'}`}
+                  >
+                    %/yr
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPmiMode('monthly')}
+                    className={`px-3 h-10 rounded-r-lg ${pmiMode === 'monthly' ? 'bg-orange-100 text-orange-700' : 'text-gray-500'}`}
+                  >
+                    $/mo
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-y-1 text-xs text-gray-600">
+        <span>P&I</span>
+        <span className="text-right text-gray-900">{formatCurrencyPrecise(result.pi)}</span>
+        {result.taxMonthly > 0 && (
+          <>
+            <span>Tax</span>
+            <span className="text-right text-gray-900">{formatCurrencyPrecise(result.taxMonthly)}</span>
+          </>
+        )}
+        {result.insuranceMonthly > 0 && (
+          <>
+            <span>Insurance</span>
+            <span className="text-right text-gray-900">{formatCurrencyPrecise(result.insuranceMonthly)}</span>
+          </>
+        )}
+        {result.hoaMonthly > 0 && (
+          <>
+            <span>HOA</span>
+            <span className="text-right text-gray-900">{formatCurrencyPrecise(result.hoaMonthly)}</span>
+          </>
+        )}
+        {result.pmiMonthly > 0 && (
+          <>
+            <span>PMI</span>
+            <span className="text-right text-gray-900">{formatCurrencyPrecise(result.pmiMonthly)}</span>
+          </>
+        )}
+      </div>
+
+      <div className="mt-4 flex items-center justify-between">
+        <p className="text-xs text-gray-500">
+          Loan amount: {formatCurrency(result.loanAmount)}
+        </p>
+        <button
+          type="button"
+          onClick={() => setCalcInputs(liveInputs)}
+          className="rounded-full bg-black px-4 py-2 text-xs sm:text-sm text-white hover:bg-gray-900 transition-colors"
+        >
+          Calculate
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default MonthlyMortgageCalculator;

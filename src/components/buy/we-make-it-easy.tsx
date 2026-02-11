@@ -172,7 +172,7 @@ const WeMakeItEasy = () => {
   );
 
   return (
-    <section className="bg-[#FFF6EC] pt-26 pb-0 px-4 sm:px-6 lg:px-24 overflow-x-hidden">
+    <section className="bg-[#FFF6EC] pt-20 px-4 sm:px-6 lg:px-24 overflow-x-hidden">
       <div className=" mx-auto text-center">
         {/* Heading */}
         <h2 className=" satoshi text-3xl sm:text-4xl font-semibold ">
@@ -188,7 +188,6 @@ const WeMakeItEasy = () => {
             value={activeCategory}
             onChange={setActiveCategory}
             color='#323131'
-            className='flex w-full md:inline md:w-fit'
 
             data={[
               { label: 'Transaction', value: 'Transaction' },
@@ -196,77 +195,125 @@ const WeMakeItEasy = () => {
               { label: 'Transparency', value: 'Transparency' },
             ]}
             radius="12px"
-            // size="md"
+            size="md"
             styles={{
 
-              // root: {
-              //   backgroundColor: '#170800',   // dark container background
-              //   borderRadius: '12px',          // rounded corners
-              //   overflow: 'hidden',
-              //   overflowX: 'auto',             // enable horizontal scrolling
-              //   display: 'flex',
-              //   width: '100%',                 // full width
-              //   margin: '0 auto',
-              //   padding: '4px',
-              //   gap: '4px',
-              //   scrollbarWidth: 'none',        // hide scrollbar for Firefox
-              //   '&::-webkit-scrollbar': {
-              //     display: 'none',             // hide scrollbar for Chrome/Safari
-              //   },
-              //   '@media (min-width: 640px)': {
-              //     maxWidth: '380px',           // constrain width on larger screens
-              //   },
-              // },
-
               root: {
-                backgroundColor: '#170800',
-                borderRadius: '12px',
-                overflowX: 'auto',
-                overflowY: 'hidden',
-                whiteSpace: 'nowrap',
+                backgroundColor: '#170800',   // dark container background
+                borderRadius: '12px',          // rounded corners
+                overflow: 'hidden',
+                overflowX: 'auto',             // enable horizontal scrolling
+                display: 'flex',
+                width: '100%',                 // full width
                 margin: '0 auto',
                 padding: '4px',
                 gap: '4px',
-                scrollbarWidth: 'none',
-
+                scrollbarWidth: 'none',        // hide scrollbar for Firefox
                 '&::-webkit-scrollbar': {
-                  display: 'none',
+                  display: 'none',             // hide scrollbar for Chrome/Safari
                 },
-
-                // Existing behavior for larger screens
                 '@media (min-width: 640px)': {
-                  width: 'auto',
-                  maxWidth: 'fit-content',
+                  maxWidth: '380px',           // constrain width on larger screens
                 },
               },
 
 
-
               control: ({ checked }: { checked: boolean }) => ({
-                flex: '0 0 auto',
-                minWidth: '92px',
-                padding: '4px 8px',
+                flex: '0 0 auto',              // don't shrink, allow scroll
+                minWidth: '110px',             // minimum width for readability
+                padding: '10px 16px',
+                border: 'none !important',
+                borderLeft: 'none !important',
+                borderRight: 'none !important',
+                borderTop: 'none !important',
+                borderBottom: 'none !important',
+                outline: 'none',
+                cursor: 'pointer',
                 fontSize: '0.75rem',
+                fontWeight: 500,
+                transition: 'all 0.2s ease',
+                minHeight: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: 'none',
                 whiteSpace: 'nowrap',
 
-                // 🔥 FIX for ultra-small devices (Transparency cut-off)
-                '@media (max-width: 400px)': {
-                  minWidth: '82px',        // smaller pills
-                  padding: '3px 6px',      // minimal padding
-                },
-
                 '@media (min-width: 640px)': {
-                  flex: 1,
+                  flex: 1,                     // allow equal flex on larger screens
                   minWidth: 'auto',
-                  padding: '4px 10px',
+                  padding: '10px 24px',
                   fontSize: '0.9rem',
                 },
 
-                backgroundColor: checked ? '#323131' : 'transparent',
-                color: checked ? '#ffffff' : '#F0F0F0',
-                borderRadius: '8px',
-              }),
+                // Active button (checked): Dark gray background with white text
+                backgroundColor: checked ? '#323131' : 'transparent', // Transparent for inactive
+                color: checked ? '#ffffff' : '#F0F0F0',           // White text for active, very light gray for inactive tabs (Technology & Transparency)
 
+                borderRadius: '8px',  // Rounded corners
+                position: 'relative',
+
+                // Remove any borders or dividers
+                '&::before': {
+                  display: 'none !important',
+                  content: 'none',
+                },
+                '&::after': {
+                  display: 'none !important',
+                  content: 'none',
+                },
+
+                // Remove any adjacent borders that create divider lines
+                '& + &': {
+                  borderLeft: 'none !important',
+                  marginLeft: 0,
+                },
+
+                // Ensure proper spacing with gap
+                margin: 0,
+
+                // Hover effect - clear visibility for inactive tabs
+                '&:hover': {
+                  backgroundColor: checked
+                    ? '#323131'
+                    : '#323131',  // Dark gray background on hover for inactive tabs
+                  color: '#ffffff !important', // Always white text on hover for better visibility
+                  border: 'none !important',
+                  fontWeight: 600, // Slightly bolder on hover for better visibility
+                },
+
+                // Target label text on hover
+                '&:hover label': {
+                  color: '#ffffff !important',
+                  fontWeight: 600,
+                },
+
+                '&:hover .mantine-SegmentedControl-label': {
+                  color: '#ffffff !important',
+                  fontWeight: 600,
+                },
+
+                // Active focus state for accessibility
+                '&:focus': {
+                  backgroundColor: '#323131',
+                  color: '#ffffff !important',
+                  outline: 'none',
+                  border: 'none !important',
+                },
+
+                // Rounded corners for the first and last buttons
+                '&:first-of-type': {
+                  borderTopLeftRadius: '8px',
+                  borderBottomLeftRadius: '8px',
+                  borderLeft: 'none !important',
+                },
+
+                '&:last-of-type': {
+                  borderTopRightRadius: '8px',
+                  borderBottomRightRadius: '8px',
+                  borderRight: 'none !important',
+                },
+              }),
 
               // Remove any indicator or divider elements
               indicator: {
@@ -278,16 +325,6 @@ const WeMakeItEasy = () => {
                 border: 'none !important',
                 color: 'inherit !important', // Inherit from control: white for active, #D9CFC2 for inactive (matching second image)
                 transition: 'color 0.2s ease',
-
-                '@media (max-width: 400px)': {
-                  fontSize: '0.65rem',
-                  lineHeight: 1.2,
-                  letterSpacing: '0.01em',
-                },
-
-                '@media (min-width: 640px)': {
-                  fontSize: '0.9rem',
-                },
                 '&::before': {
                   display: 'none !important',
                   content: 'none',
@@ -311,9 +348,10 @@ const WeMakeItEasy = () => {
           height={isSmallScreen ? 'auto' : 400}
 
           // withControls={!isSmallScreen}   // 👈 KEY LINE
-          withControls={false}   // 👈 Disabled controls
           // nextControlIcon={<IconArrowNarrowRight size={36} stroke={1} />}
           // previousControlIcon={<IconArrowNarrowLeft size={36} stroke={1} />}
+
+          withControls={false}
 
           styles={{
             root: {
@@ -347,9 +385,9 @@ const WeMakeItEasy = () => {
                 bg="#F4E5D0"
                 style={{
                   borderRadius: '14px',
-                  padding: isSmallScreen ? '18px' : '60px',
+                  padding: isSmallScreen ? '18px' : '60px', // 👈 slightly tighter
                   height: '100%',
-                  maxWidth: isSmallScreen ? '320px' : '100%',
+                  maxWidth: isSmallScreen ? '320px' : '100%', // 👈 KEY LINE
                   margin: '0 auto',
                   display: 'flex',
                   flexDirection: 'column',

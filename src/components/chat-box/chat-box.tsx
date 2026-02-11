@@ -2522,68 +2522,129 @@ export default function ChatBoxComponent(props: any) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showUploadMenu, setShowUploadMenu] = useState(false);
 
-  const displayedThreads = useMemo<Thread[]>(() => {
+  interface AggregatedAgentThread {
+    agentId?: string;
+    baseThread: Thread;
+    properties: AgentPropertySummary[];
+    latestUpdatedAt: number;
+    totalUnread: number;
+  }
+
+  const aggregatedThreads = useMemo<AggregatedAgentThread[]>(() => {
     if (!Array.isArray(threads)) {
       return [];
     }
-    if (!showUnreadOnly) {
-      return threads;
-    }
-    return threads.filter(
-      (thread: Thread) => (thread?.unreadCount ?? 0) > 0,
-    );
-  }, [threads, showUnreadOnly]);
 
-  const { propertyCountsByAgentId, agentPropertiesMap } = useMemo(() => {
-    const counts = new Map<string, number>();
-    const propertiesMap = new Map<string, AgentPropertySummary[]>();
+    const groupMap = new Map<string, AggregatedAgentThread>();
+    const standaloneEntries: AggregatedAgentThread[] = [];
 
-    if (!Array.isArray(threads)) {
-      return { propertyCountsByAgentId: counts, agentPropertiesMap: propertiesMap };
-    }
+    const resolveAgentCandidate = (thread: Thread) =>
+      thread?.buyerAgent ||
+      thread?.sellerAgent ||
+      thread?.participants
+        ?.map((participant: any) => participant?.user)
+        .find(
+          (participant: any) =>
+            participant?.id && participant.id !== userData?.id,
+        );
+
+    const resolvePropertyIdentifier = (thread: Thread) =>
+      (thread?.propertyId && thread.propertyId.toString()) ||
+      (thread?.listingId && thread.listingId.toString()) ||
+      thread?.id;
+
+    const resolveLastUpdated = (thread: Thread) => {
+      const lastMessage =
+        Array.isArray(thread?.messages) && thread.messages.length
+          ? thread.messages[thread.messages.length - 1]
+          : null;
+      return new Date(
+        thread?.updatedAt ||
+          thread?.lastMessageAt ||
+          lastMessage?.createdAt ||
+          0,
+      ).getTime();
+    };
 
     threads.forEach((thread: Thread) => {
-      const agentCandidate =
-        thread?.buyerAgent ??
-        thread?.sellerAgent ??
-        thread?.participants
-          ?.map((participant: any) => participant?.user)
-          .find(
-            (participant: any) =>
-              participant?.id && participant.id !== userData?.id,
-          );
-
+      const agentCandidate = resolveAgentCandidate(thread);
       const agentId = agentCandidate?.id;
-      const propertyIdentifier =
-        (thread?.propertyId && thread.propertyId.toString()) ||
-        (thread?.listingId && thread.listingId.toString()) ||
-        thread?.id;
+      const propertyIdentifier = resolvePropertyIdentifier(thread);
+      const propertySummary: AgentPropertySummary | undefined = propertyIdentifier
+        ? {
+            propertyId: propertyIdentifier,
+            propertyName: thread?.propertyName,
+            propertyAddress: thread?.propertyAddress,
+            threadId: thread?.id,
+            listingId: thread?.listingId,
+            participants: thread?.participants,
+          }
+        : undefined;
 
-      if (!agentId || !propertyIdentifier) {
-        return;
-      }
+      const updatedAt = resolveLastUpdated(thread);
+      const unreadCount = thread?.unreadCount ?? 0;
 
-      if (!propertiesMap.has(agentId)) {
-        propertiesMap.set(agentId, []);
-      }
-
-      const propertyList = propertiesMap.get(agentId)!;
-      if (!propertyList.some((property) => property.propertyId === propertyIdentifier)) {
-        propertyList.push({
-          propertyId: propertyIdentifier,
-          propertyName: thread?.propertyName,
-          propertyAddress: thread?.propertyAddress,
-          threadId: thread?.id,
-          listingId: thread?.listingId,
-          participants: thread?.participants,
+      if (agentId) {
+        let entry = groupMap.get(agentId);
+        if (!entry) {
+          entry = {
+            agentId,
+            baseThread: thread,
+            properties:
+              propertySummary && propertySummary.propertyId
+                ? [propertySummary]
+                : [],
+            latestUpdatedAt: updatedAt,
+            totalUnread: unreadCount,
+          };
+          groupMap.set(agentId, entry);
+        } else {
+          if (updatedAt > entry.latestUpdatedAt) {
+            entry.baseThread = thread;
+            entry.latestUpdatedAt = updatedAt;
+          }
+          entry.totalUnread += unreadCount;
+          if (
+            propertySummary &&
+            propertySummary.propertyId &&
+            !entry.properties.some(
+              (property) => property.propertyId === propertySummary.propertyId,
+            )
+          ) {
+            entry.properties.push(propertySummary);
+          }
+        }
+      } else {
+        standaloneEntries.push({
+          baseThread: thread,
+          properties:
+            propertySummary && propertySummary.propertyId
+              ? [propertySummary]
+              : [],
+          latestUpdatedAt: updatedAt,
+          totalUnread: unreadCount,
         });
       }
-
-      counts.set(agentId, propertyList.length);
     });
 
-    return { propertyCountsByAgentId: counts, agentPropertiesMap: propertiesMap };
+    const aggregated = [
+      ...Array.from(groupMap.values()),
+      ...standaloneEntries,
+    ];
+
+    aggregated.sort(
+      (a, b) => (b.latestUpdatedAt || 0) - (a.latestUpdatedAt || 0),
+    );
+
+    return aggregated;
   }, [threads, userData?.id]);
+
+  const displayedThreads = useMemo<AggregatedAgentThread[]>(() => {
+    if (showUnreadOnly) {
+      return aggregatedThreads.filter((entry) => entry.totalUnread > 0);
+    }
+    return aggregatedThreads;
+  }, [aggregatedThreads, showUnreadOnly]);
 
   console.log(selectedThreadDetail);
   const imageMimeType = [
@@ -3802,7 +3863,8 @@ export default function ChatBoxComponent(props: any) {
               </div> :
               <ScrollArea className="px-4 py-2 overflow-auto h-[calc(96vh-16rem)]">
                 {displayedThreads.length ? (
-                  displayedThreads.map((thread: Thread) => {
+                  displayedThreads.map((entry) => {
+                    const thread = entry.baseThread;
                     const participants = [
                       ...(thread?.buyerAgent ? [thread.buyerAgent] : []),
                       ...(thread?.sellerAgent ? [thread.sellerAgent] : []),
@@ -3814,6 +3876,7 @@ export default function ChatBoxComponent(props: any) {
                       `${thread?.buyerAgent?.firstName || ''} ${thread?.user?.firstName || thread?.sellerAgent?.firstName || ''}`
                     );
                     const agentId =
+                      entry.agentId ||
                       thread?.buyerAgent?.id ||
                       thread?.sellerAgent?.id ||
                       thread?.participants
@@ -3823,18 +3886,13 @@ export default function ChatBoxComponent(props: any) {
                             participant?.id && participant.id !== userData?.id,
                         )?.id ||
                       null;
-                    const engagedPropertiesCount = agentId
-                      ? propertyCountsByAgentId.get(agentId) ??
-                        (thread?.propertyId ? 1 : 0)
-                      : thread?.propertyId
-                        ? 1
-                        : 0;
-                    const engagedProperties = agentId
-                      ? agentPropertiesMap.get(agentId) ?? []
-                      : [];
-                    const isCurrentAgentCard = Boolean(
-                      agentId && agentId === selectedAgentId,
-                    );
+                    const engagedProperties = entry.properties;
+                    const engagedPropertiesCount =
+                      engagedProperties.length ||
+                      (thread?.propertyId ? 1 : 0);
+                    const isCurrentAgentCard = agentId
+                      ? agentId === selectedAgentId
+                      : selectedThreadDetail?.id === thread?.id;
                     const isActiveThread = selectedThreadDetail?.id === thread?.id;
                     const threadCardClasses = `relative flex flex-col w-full mt-3 gap-3 rounded-2xl border p-5 transition-colors shadow-sm cursor-pointer ${
                       isActiveThread ? 'bg-[#FFF7EF] border-[#F6D4B3]' : 'bg-white border-[#F1ECE6]'

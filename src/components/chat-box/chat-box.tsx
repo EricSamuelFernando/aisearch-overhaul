@@ -2516,13 +2516,14 @@ export default function ChatBoxComponent(props: any) {
   const [selectedThread, setSelectedThread] = useState<any>("")
   const [threadParticipants, setThreadParticipant] = useState<any>([])
   const [selectedThreadDetail, setSelectedThreadDetail] = useState<any>("")
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
+  const [expandedEntryKey, setExpandedEntryKey] = useState<string | null>(null)
   const pathname = useSearchParams();
   const [messageThreads, setMessageThreads] = useAtom(messageThreadsAtom);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showUploadMenu, setShowUploadMenu] = useState(false);
 
   interface AggregatedAgentThread {
+    entryKey: string;
     agentId?: string;
     baseThread: Thread;
     properties: AgentPropertySummary[];
@@ -2588,6 +2589,7 @@ export default function ChatBoxComponent(props: any) {
         let entry = groupMap.get(agentId);
         if (!entry) {
           entry = {
+            entryKey: agentId,
             agentId,
             baseThread: thread,
             properties:
@@ -2616,6 +2618,8 @@ export default function ChatBoxComponent(props: any) {
         }
       } else {
         standaloneEntries.push({
+          entryKey:
+            thread?.id || crypto.randomUUID?.() || Math.random().toString(36),
           baseThread: thread,
           properties:
             propertySummary && propertySummary.propertyId
@@ -2823,7 +2827,7 @@ export default function ChatBoxComponent(props: any) {
         (participant: any) => participant?.id && participant.id !== userData?.id,
       )?.id ||
       null
-    setSelectedAgentId(resolvedAgentId)
+    setExpandedEntryKey(resolvedAgentId || thread?.id || null)
     setSelectedThreadDetail(thread)
     localStorage.setItem('threadId', thread?.id || '');
 
@@ -2923,7 +2927,7 @@ export default function ChatBoxComponent(props: any) {
     setShowChat(false)
     setSelectedChannel(null)
     setSelectedThread('')
-    setSelectedAgentId(null)
+    setExpandedEntryKey(null)
   }
 
   useEffect(() => {
@@ -3890,9 +3894,8 @@ export default function ChatBoxComponent(props: any) {
                     const engagedPropertiesCount =
                       engagedProperties.length ||
                       (thread?.propertyId ? 1 : 0);
-                    const isCurrentAgentCard = agentId
-                      ? agentId === selectedAgentId
-                      : selectedThreadDetail?.id === thread?.id;
+                    const entryKey = entry.entryKey;
+                    const isExpanded = expandedEntryKey === entryKey;
                     const isActiveThread = selectedThreadDetail?.id === thread?.id;
                     const threadCardClasses = `relative flex flex-col w-full mt-3 gap-3 rounded-2xl border p-5 transition-colors shadow-sm cursor-pointer ${
                       isActiveThread ? 'bg-[#FFF7EF] border-[#F6D4B3]' : 'bg-white border-[#F1ECE6]'
@@ -3912,7 +3915,15 @@ export default function ChatBoxComponent(props: any) {
                           </span>
                         ) : null}
 
-                        <div className="flex items-start gap-4 w-full">
+                        <div
+                          className="flex items-start gap-4 w-full"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setExpandedEntryKey((prev) =>
+                              prev === entryKey ? null : entryKey,
+                            );
+                          }}
+                        >
                           {thread?.image ? (
                             <Image
                               src={thread.image}
@@ -3940,7 +3951,7 @@ export default function ChatBoxComponent(props: any) {
                           </div>
                         </div>
 
-                        {isCurrentAgentCard && engagedProperties.length > 0 && (
+                        {isExpanded && engagedProperties.length > 0 && (
                           <div className="mt-4 space-y-3 w-full">
                             {engagedProperties.map((property: AgentPropertySummary) => {
                               const isActiveProperty = selectedThreadDetail?.id === property.threadId;
@@ -3965,6 +3976,7 @@ export default function ChatBoxComponent(props: any) {
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     selectThreadById(property.threadId);
+                                    setExpandedEntryKey(entryKey);
                                   }}
                                 >
                                   <div>

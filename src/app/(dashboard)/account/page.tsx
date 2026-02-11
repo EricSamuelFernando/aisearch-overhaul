@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { EllipsisVertical, Eye, FileText, MoreVertical, UserPlus, PlusCircle, Share2, Edit2, FileEdit, Trash2, ArrowLeft, Ellipsis, EllipsisIcon } from 'lucide-react';
+import { EllipsisVertical, Eye, FileText, MoreVertical, UserPlus, PlusCircle, Share2, Edit2, FileEdit, Trash2, ArrowLeft, Ellipsis, EllipsisIcon, Plus } from 'lucide-react';
 import { useGetUserInvitedAgents } from '@/hooks/api/user/useGetUserInvitedAgents';
 import ProfileCircle from '@/components/dashboard/user/profile-circle';
 import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
@@ -50,6 +50,7 @@ interface SnapCollection {
   id: string;
   name: string;
   image?: string;
+  favourites?: any[];
 }
 interface Agent {
   id: string;
@@ -363,7 +364,7 @@ export default function AccountPage() {
       snapId: selectedSnap?.id,
       email: email,
       status: "pending",
-      accountType: type === 'agent' ? 'agent' : 'buyer'
+      accountType: type === 'agent' ? 'agent' : type
     }
     createParticipents.mutateAsync(data, {
       onSuccess: (response: any) => {
@@ -576,61 +577,67 @@ export default function AccountPage() {
         </ScrollArea>
 
         <TabsContent value='my-snapz' className='mt-6 w-full'>
-          <div className="mb-4 flex flex-col gap-3 bg-transparent sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-lg font-bold">Snapz</h3>
-            <div className="flex flex-wrap gap-2">
-              <Button className="h-9 bg-orange-500 px-3 text-sm text-white hover:bg-orange-600 sm:h-10 sm:px-4"
-                onClick={fetchPendingRequests}
-              >
-                View Requests
-              </Button>
-              <Button variant="outline" className="flex h-9 items-center gap-2 border-none bg-transparent px-2 text-sm sm:h-10 sm:px-3"
-                onClick={() => setIsCreateSnapModalOpen(true)}
-              >
-                <span>Add New Snapz</span>
-                <span>+</span>
-              </Button>
+          <div className="w-full">
+            <div className="mb-6 flex flex-col gap-4 bg-transparent sm:flex-row sm:items-center sm:justify-end">
+              <div className="flex flex-wrap gap-3">
+                <Button className="h-10 bg-orange-500 px-4 text-sm text-white hover:bg-orange-600 rounded-full"
+                  onClick={fetchPendingRequests}
+                >
+                  View Requests
+                </Button>
+                <div 
+                  className="flex cursor-pointer items-center gap-2 text-sm font-medium hover:text-gray-700"
+                  onClick={() => setIsCreateSnapModalOpen(true)}
+                >
+                  <span>Add collection</span>
+                  <Plus className="h-5 w-5" />
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="rounded-md border-none p-3 sm:p-4 md:p-6">
-            <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:gap-y-4 md:grid-cols-2">
-              {
-                snaps.length > 0 ? (
-                  snaps.map((snap: any, idx: number) => {
-                    return (
-                      <div key={idx} className="flex items-center justify-between gap-3 rounded-md border border-gray-100 bg-white/70 p-2 sm:border-0 sm:bg-transparent sm:p-0">
-                        <div className="flex items-center gap-3">
-                          {snap?.favourites?.length > 0 && snap?.favourites[0]?.image ? (
-                            <div className="w-12 h-12 rounded overflow-hidden">
-                              <img
-                                src={snap?.favourites[0]?.image}
-                                alt={snap.name || "Collection"}
-                                className="w-full h-full object-cover"
-                              />                              </div>
-                          ) : (
-                            <div className="w-12 h-12 flex items-center justify-center rounded bg-indigo-500 text-white font-bold">
-                              {snap?.name ? snap?.name.charAt(0).toUpperCase() : "C"}
+            
+            <div className="rounded-md border-none sm:p-0">
+              <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
+                {
+                  snaps.length > 0 ? (
+                    snaps.map((snap: any, idx: number) => {
+                      return (
+                        <div key={idx} className="flex items-center justify-between gap-3 rounded-2xl bg-white p-3 shadow-sm transition-all hover:shadow-md">
+                          <div className="flex items-center gap-3">
+                            {/* Larger Image Card */}
+                            <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl bg-gray-100">
+                              {snap?.favourites?.length > 0 && snap?.favourites[0]?.image ? (
+                                <img
+                                  src={snap?.favourites[0]?.image}
+                                  alt={snap.name || "Collection"}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center bg-indigo-500 text-lg font-bold text-white">
+                                  {snap?.name ? snap?.name.charAt(0).toUpperCase() : "C"}
+                                </div>
+                              )}
                             </div>
-                          )}
-                          <span className="max-w-[140px] truncate text-sm font-medium sm:max-w-[180px]">{snap?.name || "Collection"}</span>
+                            <span className="truncate text-base font-medium text-gray-900">{snap?.name || "Collection"}</span>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <Button
+                              className="h-8 rounded-full bg-black px-5 text-xs font-medium text-white hover:bg-gray-800"
+                              onClick={() => router.push(`/account/collections/${snap.id}`)}
+                            >
+                              View
+                            </Button>
+                          </div>
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="rounded-full px-4 h-8 text-xs font-medium"
-                          onClick={() => router.push(`/account/collections/${snap.id}`)}
-                        >
-                          View
-                        </Button>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <>
-                    No Snap Collections Found
-                  </>
-                )
-              }
+                      );
+                    })
+                  ) : (
+                    <div className="col-span-full py-10 text-center text-gray-500">
+                      No Snap Collections Found. Create one to get started!
+                    </div>
+                  )
+                }
+              </div>
             </div>
           </div>
         </TabsContent>

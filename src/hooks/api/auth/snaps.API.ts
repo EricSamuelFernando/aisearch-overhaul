@@ -432,6 +432,12 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
                 id
                 name
                 link
+                userId
+                participants {
+                  userId
+                  email
+                  accountType
+                }
               }
             }
           `,

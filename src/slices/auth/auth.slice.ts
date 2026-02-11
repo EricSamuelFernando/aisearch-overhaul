@@ -1,7 +1,7 @@
 import { User, UserType, PropertyPreference } from '@/types/user.types';
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 import { clearItem, deleteStorageCookie, storeCookie } from '@/lib/storage';
-import { AUTH_TOKEN, USER_ROLE } from '@/shared/constants/env';
+import { AUTH_TOKEN, REFRESH_TOKEN, USER_ROLE } from '@/shared/constants/env';
 import { createPersistStorage } from '@/lib/store';
 import { generateTempUserId } from '@/utils/math-utilities';
 import CognitoAuth from '@/lib/cognito';
@@ -54,11 +54,13 @@ const authSlice = createSlice({
       clearItem();
       deleteStorageCookie({ key: AUTH_TOKEN });
       deleteStorageCookie({ key: USER_ROLE });
+      deleteStorageCookie({ key: REFRESH_TOKEN });
       
       // Clear Cognito-related localStorage items
       if (typeof window !== 'undefined') {
         localStorage.removeItem('userEmail');
         localStorage.removeItem('userAccessToken');
+        localStorage.removeItem('userRefreshToken');
         localStorage.removeItem('userDetails');
       }
       

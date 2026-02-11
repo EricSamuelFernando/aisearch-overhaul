@@ -2342,7 +2342,7 @@ import FavoriteBorder from "@mui/icons-material/FavoriteBorder"
 import LocationOnIcon from "@mui/icons-material/LocationOn"
 import { Badge } from "@/components/ui/badge"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useCallback, useContext, useEffect, useRef, useState } from "react"
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import useDebounce from "@/hooks/utils/debounce"
 import { useSelector } from "react-redux"
 import KingBedIcon from "@mui/icons-material/KingBed"
@@ -2465,7 +2465,7 @@ interface PropertyData {
 }
 
 export default function ChatBoxComponent(props: any) {
-  const { threads, setIsRead, setSearch, loading, threadId } = props
+  const { threads, setIsRead, setSearch, loading, threadId, isRead } = props
   const router = useRouter()
   const params = useSearchParams();
   const type = params?.get('type')
@@ -2473,7 +2473,7 @@ export default function ChatBoxComponent(props: any) {
   const [isDetails, setIsDetails] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const [activeButton, setActiveButton] = useState("all")
+  const showUnreadOnly = Boolean(isRead)
   const toggleDropdown = () => setIsDropdownOpen((prev) => !prev)
   const closeDropdown = () => setIsDropdownOpen(false)
   const [message, setMessage] = useState("")
@@ -2512,6 +2512,18 @@ export default function ChatBoxComponent(props: any) {
   const [messageThreads, setMessageThreads] = useAtom(messageThreadsAtom);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showUploadMenu, setShowUploadMenu] = useState(false);
+
+  const displayedThreads = useMemo<Thread[]>(() => {
+    if (!Array.isArray(threads)) {
+      return [];
+    }
+    if (!showUnreadOnly) {
+      return threads;
+    }
+    return threads.filter(
+      (thread: Thread) => (thread?.unreadCount ?? 0) > 0,
+    );
+  }, [threads, showUnreadOnly]);
 
   console.log(selectedThreadDetail);
   const imageMimeType = [
@@ -3661,9 +3673,8 @@ export default function ChatBoxComponent(props: any) {
                   variant="ghost"
                   onClick={() => {
                     setIsRead(false)
-                    setActiveButton("all")
                   }}
-                  className={`h-10 w-full text-gray-600 rounded-full px-4 py-2 ${activeButton === "all" ? "bg-white shadow text-gray-800" : ""}`}
+                  className={`h-10 w-full text-gray-600 rounded-full px-4 py-2 ${!showUnreadOnly ? "bg-white shadow text-gray-800" : ""}`}
                 >
                   All
                 </Button>
@@ -3672,9 +3683,8 @@ export default function ChatBoxComponent(props: any) {
                   variant="ghost"
                   onClick={() => {
                     setIsRead(true)
-                    setActiveButton("unread")
                   }}
-                  className={`h-10 w-full text-gray-600 rounded-full px-4 py-2 ${activeButton === "unread" ? "bg-white shadow text-gray-800" : ""}`}
+                  className={`h-10 w-full text-gray-600 rounded-full px-4 py-2 ${showUnreadOnly ? "bg-white shadow text-gray-800" : ""}`}
                 >
                   Unread
                 </Button>
@@ -3706,8 +3716,8 @@ export default function ChatBoxComponent(props: any) {
                 </svg>
               </div> :
               <ScrollArea className="px-4 py-2 overflow-auto h-[calc(96vh-16rem)]">
-                {threads?.length ? (
-                  threads.map((thread: Thread) => {
+                {displayedThreads.length ? (
+                  displayedThreads.map((thread: Thread) => {
                     const participants = [
                       ...(thread?.buyerAgent ? [thread.buyerAgent] : []),
                       ...(thread?.sellerAgent ? [thread.sellerAgent] : []),
@@ -3793,8 +3803,14 @@ export default function ChatBoxComponent(props: any) {
                   })
                 ) : (
                   <div className="text-center mt-6 text-gray-400">
-                    <p className="text-lg font-semibold">No threads available</p>
-                    <p className="text-sm">It seems like you have not started any conversations yet.</p>
+                    <p className="text-lg font-semibold">
+                      {showUnreadOnly ? "No unread conversations" : "No threads available"}
+                    </p>
+                    <p className="text-sm">
+                      {showUnreadOnly
+                        ? "You're all caught up for now."
+                        : "It seems like you have not started any conversations yet."}
+                    </p>
                   </div>
                 )}
               </ScrollArea>

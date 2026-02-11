@@ -119,7 +119,8 @@ const success = ({ message, subtitle, ...options }: NotifProps & ToastOptions) =
         subtitle,
         icon: <SuccessIcon />,
       }),
-    { type: 'success', ...options }
+    // { type: 'success', ...options }
+    options
   );
 
 // Success without icon (custom JSX)
@@ -151,7 +152,8 @@ const error = ({ message, subtitle, ...options }: NotifProps & ToastOptions) =>
         subtitle,
         icon: <ErrorIcon />,
       }),
-    { type: 'error', ...options }
+    // { type: 'error', ...options }
+    options
   );
 
 const warning = ({
@@ -166,7 +168,8 @@ const warning = ({
         subtitle,
         icon: <WarningIcon />,
       }),
-    { type: 'warning', ...options }
+    // { type: 'warning', ...options }
+    options
   );
 
 // Dismiss all notifications

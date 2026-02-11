@@ -46,6 +46,7 @@ export default function SnapDetailsPage() {
     const [snap, setSnap] = useState<SnapCollection | null>(null);
     const [favourites, setFavourites] = useState<any[]>([]);
     const [commentRefreshTrigger, setCommentRefreshTrigger] = useState(0);
+    const [userSnapRole, setUserSnapRole] = useState<string>('buyer');
 
     // Modals state
     const [isCollaborateModalOpen, setIsCollaborateModalOpen] = useState(false);
@@ -78,6 +79,11 @@ export default function SnapDetailsPage() {
                             name: snapData.name || 'Shared Snapz',
                             image: favourites[0]?.image || undefined
                         });
+                        // Determine user's role in this snap from participants
+                        const participant = snapData.participants?.find((p: any) => p.userId === userData?.id || p.email === userData?.email);
+                        if (participant?.accountType) {
+                            setUserSnapRole(participant.accountType);
+                        }
                     }
                 },
                 onError: (err) => {
@@ -156,7 +162,7 @@ export default function SnapDetailsPage() {
             snapId: id,
             email: email,
             status: "pending",
-            accountType: type === 'agent' ? 'agent' : 'buyer'
+            accountType: type === 'agent' ? 'agent' : type
         }
         createParticipents.mutateAsync(data, {
             onSuccess: (response: any) => {
@@ -312,6 +318,7 @@ export default function SnapDetailsPage() {
                                 {...safeProperty}
                                 snapId={id}
                                 isWishlisted={true}
+                                userSnapRole={userSnapRole}
                                 onCommentAdded={() => setCommentRefreshTrigger(prev => prev + 1)}
                                 onRead={fetchSnapProperties}
                             />;

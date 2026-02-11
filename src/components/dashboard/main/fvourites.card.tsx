@@ -128,16 +128,18 @@ const FavouritePropertyCards = (props: any) => {
       </div>
 
       <div className="flex flex-1 flex-col justify-start p-4 gap-2 group-hover:bg-black transition-colors duration-300">
-        <div className="flex items-center justify-start">
+        <div className="flex items-center justify-between">
           <h3 className="text-2xl font-bold text-white group-hover:text-ocOrange transition-colors duration-300">
             {formatCurrency(props?.price || 0, 'USD')}
           </h3>
           {isWishlisted && (
             <div onClick={handleCommentClick} className="relative cursor-pointer hover:scale-110 transition-transform flex items-center justify-center w-8 h-8 bg-[#FF8700] rounded-full shadow-sm">
               <MessageCircle className="w-5 h-5 text-white fill-white" />
-              <div className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-black">
-                {props.unreadCommentCount > 9 ? '9+' : (props.unreadCommentCount || 0)}
-              </div>
+              {props.unreadCommentCount > 0 && (
+                <div className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-black">
+                  {props.unreadCommentCount > 9 ? '9+' : props.unreadCommentCount}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -150,6 +152,7 @@ const FavouritePropertyCards = (props: any) => {
               property={props}
               snapId={props.snapId} // Pass snapId prop
               onCommentAdded={props.onCommentAdded}
+              userSnapRole={props.userSnapRole}
             />
           </div>
         )}

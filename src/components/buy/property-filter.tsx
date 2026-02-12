@@ -764,36 +764,26 @@ function PropertyFilter() {
     {
       title: 'Pool',
       value: 'has_pool',
-      propertyKey: 'hasPool',
-      keywords: ['pool'],
       icon: <Waves />
     },
     {
       title: 'Park View',
       value: 'is_park_view',
-      propertyKey: 'isParkView',
-      keywords: ['park view', 'park views', 'overlooking park'],
       icon: <TreePine />
     },
     {
       title: 'Water View',
       value: 'is_water_view',
-      propertyKey: 'isWaterView',
-      keywords: ['water view', 'water views', 'ocean view', 'bay view', 'lake view', 'river view'],
       icon: <Droplets />
     },
     {
       title: 'City View',
       value: 'is_city_view',
-      propertyKey: 'isCityView',
-      keywords: ['city view', 'city views', 'skyline view', 'downtown view'],
       icon: <Building2 />
     },
     {
       title: 'Waterfront',
       value: 'is_water_front',
-      propertyKey: 'isWaterFront',
-      keywords: ['waterfront', 'water front', 'oceanfront', 'beachfront'],
       icon: <ShipWheel />
     }
   ];
@@ -802,42 +792,12 @@ function PropertyFilter() {
   const lastAvailableSubCategories = useRef(subCategories);
 
   const availableSubCategories = useMemo(() => {
-    // If loading, return the LAST known stable list instead of resetting to ALL (prevents UI flash)
-    if (isLoading) return lastAvailableSubCategories.current;
-
-    // If no properties and not loading (initial or empty), show all or strictly none?
-    // User logic: "if feature is not available ... filter will disappear"
-    // But if we have 0 results, maybe we should show all to let user switch?
-    // Let's stick to showing all if completely empty (start) or fallback.
-    if (!allProperties || allProperties.length === 0) {
-      lastAvailableSubCategories.current = subCategories;
-      return subCategories;
-    }
-
-    const filtered = subCategories.filter(sub => {
-      // Always show if it's currently selected (so user can unselect it)
-      if (selectedSubCategories.includes(sub.title)) return true;
-
-      // Check if any property has this feature (flag OR keyword in remarks)
-      return allProperties.some((p: any) => {
-        const props = p?.listing?.property;
-        const remarks = p?.listing?.publicRemarks;
-
-        if (props && props[sub.propertyKey] === true) return true;
-
-        if (remarks && sub.keywords && sub.keywords.length > 0) {
-          const lowerRemarks = remarks.toLowerCase();
-          return sub.keywords.some(k => lowerRemarks.includes(k));
-        }
-
-        return false;
-      });
-    });
-
-    // Update the ref with the new stable list
-    lastAvailableSubCategories.current = filtered;
-    return filtered;
-  }, [allProperties, isLoading, selectedSubCategories]);
+    // Since we are now using strict API filtering (value-only), we can't easily pre-filter 
+    // the available options based on loaded results without potentially hiding valid options 
+    // that just aren't in the current page of results. 
+    // Safe default: Show all options.
+    return subCategories;
+  }, [subCategories]);
 
 
   useEffect(() => {
@@ -890,53 +850,23 @@ function PropertyFilter() {
         public_land_use: selectedPropertyType.value
       };
 
+      // If we have selected filters, add them to the request body
       if (selectedSubCategories.length > 0) {
         selectedSubCategories.forEach(subCat => {
           const subcategory = subCategories.find(sub => sub.title === subCat);
           if (subcategory && subcategory.value) {
-            // Only send to API if NO keywords are defined (strict API filter only)
-            // If keywords exist, we filter client-side to allow fallback matches
-            if (!subcategory.keywords || subcategory.keywords.length === 0) {
-              requestBody.additional_criteria[subcategory.value] = true;
-            }
+            requestBody.additional_criteria[subcategory.value] = true;
           }
         });
       }
 
+      // Single Strict Request (User requested "only use value")
       const response = await axios.post(
         PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search',
         requestBody
       );
 
-      let properties = response.data.records || response?.data?.result?.records || [];
-
-      // Client-side filtering for keyword-based categories
-      if (selectedSubCategories.length > 0) {
-        properties = properties.filter((p: any) => {
-          return selectedSubCategories.every(subCat => {
-            const sub = subCategories.find(s => s.title === subCat);
-            if (!sub) return true;
-
-            // If we sent it to API (no keywords), assume it's already filtered
-            if (!sub.keywords || sub.keywords.length === 0) return true;
-
-            // Otherwise check flag OR keywords
-            const props = p?.listing?.property;
-            const remarks = p?.listing?.publicRemarks;
-
-            // Check strict flag
-            if (props && props[sub.propertyKey] === true) return true;
-
-            // Check keywords
-            if (remarks && sub.keywords && sub.keywords.length > 0) {
-              const lowerRemarks = remarks.toLowerCase();
-              return sub.keywords.some(k => lowerRemarks.includes(k));
-            }
-
-            return false;
-          });
-        });
-      }
+      const properties = response.data.records || response?.data?.result?.records || [];
 
       clearProperties();
       dispatch(setSearchFilters({
@@ -945,8 +875,10 @@ function PropertyFilter() {
         subType: selectedSort?.value || ''
       }))
       dispatch(incrementSearchCount());
+
       dispatch(setPropertyQuery(response.data.search_query));
-      setSearchedQuery(properties);
+
+      setSearchedQuery(searchTerm || "");
       addProperties(properties);
 
     } catch (err: any) {

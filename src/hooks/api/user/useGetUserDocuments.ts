@@ -47,9 +47,22 @@ const getUserDocuments = async (): Promise<UserDocumentResponse> => {
     throw new Error(response.data?.errors?.[0]?.message || 'Failed to fetch user documents');
   }
 
+  const documents = response.data.data.getUserDocuments ?? [];
+  console.log('[useGetUserDocuments] fetched documents:', documents.map((doc: UserDocument) => ({
+    id: doc.id,
+    fileName: doc.fileName,
+    fileType: doc.fileType,
+    fileSize: doc.fileSize,
+    fileUrl: doc.fileUrl,
+    uploadedBy: doc.uploadedBy,
+    uploadedAt: doc.uploadedAt,
+    updatedAt: doc.updatedAt,
+    repoId: doc.repoId,
+  })));
+
   return {
     message: 'Documents fetched successfully',
-    result: response.data.data.getUserDocuments
+    result: documents
   };
 };
 

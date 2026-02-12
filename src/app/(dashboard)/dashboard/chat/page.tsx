@@ -26,7 +26,7 @@ const ChatBox = () => {
     const { socket, state, setState } = useContext(SocketContext)
     const [loading, setLoading] = useState(false);
     const [threads, setThreads] = useState<ThreadInterface[] | []>([]);
-    const [isRead, setIsRead] = useState(true);
+    const [isRead, setIsRead] = useState(false);
     const [search, setSearch] = useState("");
     const [messageThreads, setMessageThreads] = useAtom(messageThreadsAtom)
     const [threadParticipants, setThreadParticipant] = useState<any>([])

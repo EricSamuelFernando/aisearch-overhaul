@@ -17,7 +17,6 @@ import { useDispatch } from 'react-redux';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import DeletePropertyModal from '@/components/modals/deletePropertyModal';
 import PageLoader from '@/components/PageLoader';
-import { toast } from 'sonner';
 import { EmptyListing } from './empty-listing';
 import Link from 'next/link';
 import { PropertySnippet } from './property-snippet';
@@ -56,7 +55,7 @@ export const SellerListings = (props: any) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['fetch-seller-properties'] });
       setIsLoading(false);
-      toast.success('We’ve taken care of that property.');
+      success({ message: 'We’ve taken care of that property.' });
     },
     onError: (error) => {
       console.error('Failed to delete the property.', error);

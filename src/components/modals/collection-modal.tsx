@@ -427,9 +427,16 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
       {
         onSuccess: (wasAdded) => {
           if (wasAdded) {
-            success({ message: "All set! It’s now in your favorites" });
+            success({
+              message: 'All Set! It’s Now In Your Favorites',
+              subtitle: 'One tap to save. One place to collaborate.',
+            });
           } else {
-            success({ message: "Removed from favorites" });
+            success({
+              message: 'Removed From Favorites',
+              subtitle:
+                'Removed from favorites. No worries, it is one tap to save again.',
+            });
           }
           getAllSnapsByUserId();
           if (onSuccess) onSuccess();

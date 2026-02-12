@@ -1,6 +1,6 @@
 'use client';
 
-import { error, success } from '@/components/alert/notify';
+import { error, info, success } from '@/components/alert/notify';
 import { getActiveUserRole, getAuthToken, storeCookie } from '@/lib/storage';
 
 import { AUTH_TOKEN, REFRESH_TOKEN, USER_ROLE } from '@/shared/constants/env';
@@ -114,7 +114,24 @@ export const useUserAuthApi = (handleCb?: () => void) => {
 
     onSuccess: (data) => {
       if (!data?.data) {
-        error({ message: data?.errors?.[0]?.message });
+        const apiMessage = data?.errors?.[0]?.message || '';
+        const normalized = apiMessage.toLowerCase();
+        if (normalized.includes('too many') || normalized.includes('rate limit') || normalized.includes('rate-limit') || normalized.includes('try again later') || normalized.includes('attempt')) {
+          error({
+            message: 'Too Many Attempts',
+            subtitle: 'Your keystrokes are faster than our limit. Try again in a bit.',
+          });
+          return;
+        }
+        if (normalized.includes('password')) {
+          error({
+            message: 'Wrong Password',
+            subtitle:
+              'That password does not match this account. Try again or reset your password.',
+          });
+          return;
+        }
+        error({ message: apiMessage });
         return;
       }
       const {
@@ -198,7 +215,24 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     },
     onError: (err: any) => {
       console.log(err, 'line');
-      error({ message: err?.response?.data?.message });
+      const apiMessage = err?.response?.data?.message || err?.message || '';
+      const normalized = apiMessage.toLowerCase();
+      if (normalized.includes('too many') || normalized.includes('rate limit') || normalized.includes('rate-limit') || normalized.includes('try again later') || normalized.includes('attempt')) {
+        error({
+          message: 'Too Many Attempts',
+          subtitle: 'Your keystrokes are faster than our limit. Try again in a bit.',
+        });
+        return;
+      }
+      if (normalized.includes('password')) {
+        error({
+          message: 'Wrong Password',
+          subtitle:
+            'That password does not match this account. Try again or reset your password.',
+        });
+        return;
+      }
+      error({ message: apiMessage });
     },
   });
 
@@ -221,7 +255,10 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       return { message: response.data?.data?.forgotPassword, email };
     },
     onSuccess: (data) => {
-      success({ message: data?.message || 'Password reset code sent to your email.' });
+      success({
+        message: 'Reset password email sent',
+        subtitle: 'Reset email sent. Go catch it before it buries itself.',
+      });
       // Store email in localStorage for the next step
       if (data?.email) {
         localStorage.setItem('forgotPasswordEmail', data.email);
@@ -278,7 +315,22 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       router.push('/home');
     },
     onError: (err: any) => {
-      error({ message: err?.response?.data?.errors?.[0]?.message || err?.message || 'Failed to reset password' });
+      const apiMessage = err?.response?.data?.errors?.[0]?.message || err?.message || '';
+      const normalized = apiMessage.toLowerCase();
+      if (
+        normalized.includes('code') &&
+        (normalized.includes('invalid') ||
+          normalized.includes('mismatch') ||
+          normalized.includes('verification') ||
+          normalized.includes('otp'))
+      ) {
+        error({
+          message: 'Invalid code',
+          subtitle: 'Enter the latest code and try again.',
+        });
+        return;
+      }
+      error({ message: apiMessage || 'Failed to reset password' });
     },
   });
 
@@ -362,7 +414,22 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       }
     },
     onError: (err: any) => {
-      error({ message: err?.response?.data?.message });
+      const apiMessage = err?.response?.data?.message || err?.message || '';
+      const normalized = apiMessage.toLowerCase();
+      if (
+        normalized.includes('code') &&
+        (normalized.includes('invalid') ||
+          normalized.includes('mismatch') ||
+          normalized.includes('verification') ||
+          normalized.includes('otp'))
+      ) {
+        error({
+          message: 'Invalid code',
+          subtitle: 'Enter the latest code and try again.',
+        });
+        return;
+      }
+      error({ message: apiMessage });
     },
   });
 
@@ -401,14 +468,30 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       if (data?.data?.errors?.length) {
         const apiMessage = data?.data?.errors?.[0]?.message || '';
         const normalized = apiMessage.toLowerCase();
+        if (normalized.includes('too many') || normalized.includes('rate limit') || normalized.includes('rate-limit') || normalized.includes('try again later') || normalized.includes('attempt')) {
+          error({
+            message: 'Too Many Attempts',
+            subtitle: 'Your keystrokes are faster than our limit. Try again in a bit.',
+          });
+          return;
+        }
+        if (normalized.includes('expired')) {
+          info({
+            message: 'Otp Expired',
+            subtitle: 'This OTP has expired. Tap Resend to get a new one.',
+          });
+          return;
+        }
         if (normalized.includes('otp') || normalized.includes('verification code') || normalized.includes('invalid')) {
           error({
             message: 'Invalid OTP',
-            subtitle: 'Double-check the OTP and try again.',
+            subtitle:
+              'The code you entered is not correct. Try again or request a new code.',
           });
-        } else {
-          error({ message: apiMessage });
+          return;
         }
+        error({ message: apiMessage });
+        return;
       }
       if (data?.data?.data?.verifyOtp?.access_token) {
         success({
@@ -432,10 +515,25 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     onError: (err: any) => {
       const apiMessage = err?.response?.data?.message || '';
       const normalized = apiMessage.toLowerCase();
+      if (normalized.includes('too many') || normalized.includes('rate limit') || normalized.includes('rate-limit') || normalized.includes('try again later') || normalized.includes('attempt')) {
+        error({
+          message: 'Too Many Attempts',
+          subtitle: 'Your keystrokes are faster than our limit. Try again in a bit.',
+        });
+        return;
+      }
+      if (normalized.includes('expired')) {
+        info({
+          message: 'Otp Expired',
+          subtitle: 'This OTP has expired. Tap Resend to get a new one.',
+        });
+        return;
+      }
       if (normalized.includes('otp') || normalized.includes('verification code') || normalized.includes('invalid')) {
         error({
           message: 'Invalid OTP',
-          subtitle: 'Double-check the OTP and try again.',
+          subtitle:
+            'The code you entered is not correct. Try again or request a new code.',
         });
         return;
       }

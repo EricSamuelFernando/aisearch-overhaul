@@ -15,7 +15,7 @@ import { googleMapsApiKey, deploymentEnv } from '@/shared/constants/env';
 import { CustomDropdown } from '@/components/customs/menu';
 import axios from 'axios';
 // import { showToast } from '@/hooks/utils/toastHelper';
-import { toast } from 'sonner';
+import { error, success } from '@/components/alert/notify';
 
 // Schema Validation
 const contactFormSchema = z.object({
@@ -79,12 +79,14 @@ export default function ContactUsForm() {
 
             console.log('✅ Form submitted successfully, attempting to show toast...');
             // Direct call to sonner to test
-            const toastId = toast.success('Thank you! Your message has been sent to our support team.');
-            console.log('🍞 Toast triggered with ID:', toastId);
+            success({
+                message:
+                    'Thank you! Your message has been sent to our support team.',
+            });
             reset();
-        } catch (error) {
-            console.error("Error submitting contact form", error);
-            toast.error('Something went wrong. Please try again.');
+        } catch (err) {
+            console.error("Error submitting contact form", err);
+            error({ message: 'Something went wrong. Please try again.' });
         }
     };
 

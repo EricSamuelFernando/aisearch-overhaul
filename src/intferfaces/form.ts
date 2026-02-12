@@ -3,6 +3,7 @@ export interface SignInFormValues {
   password: string;
   isBack?: boolean;
   isHome?: boolean;
+  isFirstLogin?: boolean;
 }
 
 export interface SignUpFormValues {

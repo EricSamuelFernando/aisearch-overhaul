@@ -3,10 +3,12 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 
 import AccountDropdown from '@/components/account-dropdown';
 import { info } from '@/components/alert/notify';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth, useAuthActions } from '@/shared/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import SnapHomz from '@public/assets/images/snaphomz-logo.svg';
@@ -85,16 +87,25 @@ export const UserSwitchTab = () => {
   const { user } = useAuth();
   const currentUser = user?.account_type;
   const router = useRouter();
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+  const tooltipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (tooltipTimeoutRef.current) {
+        clearTimeout(tooltipTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleSwitch = () => {
     const userType = currentUser?.toLowerCase();
     if (userType === 'buyer') {
-      console.log('BUYER')
+      console.log('BUYER');
       switchUser('seller');
       storeCookie({ key: USER_ROLE, value: 'seller' });
-    }
-    else if (userType === 'seller') {
-      console.log('SELLER')
+    } else if (userType === 'seller') {
+      console.log('SELLER');
       switchUser('buyer');
       storeCookie({ key: USER_ROLE, value: 'buyer' });
     } else {
@@ -105,24 +116,64 @@ export const UserSwitchTab = () => {
     info({ message: 'Switching User' });
   };
 
-  return (
-    <>
-      {currentUser ? (
-        <Button
-          roundness='full'
-          variant='outline'
-          className='border-[1px] border-black px-6 py-1 font-bold text-black'
-          onClick={handleSwitch}
-        >
-          {currentUser?.toLowerCase() === 'buyer' ? (
-            <span className='cursor-pointer'>I want to sell</span>
-          ) : null}
+  const handleComingSoon = () => {
+    if (tooltipTimeoutRef.current) {
+      clearTimeout(tooltipTimeoutRef.current);
+    }
+    setTooltipOpen(true);
+    tooltipTimeoutRef.current = setTimeout(() => setTooltipOpen(false), 2000);
+  };
 
-          {currentUser?.toLowerCase() === 'seller' ? (
-            <span className='cursor-pointer'>I want to Buy</span>
-          ) : null}
-        </Button>
-      ) : null}
-    </>
+  const handleButtonClick = () => {
+    if (currentUser?.toLowerCase() === 'buyer') {
+      handleComingSoon();
+      return;
+    }
+    handleSwitch();
+  };
+
+  if (!currentUser) return null;
+
+  const isBuyerView = currentUser.toLowerCase() === 'buyer';
+  const button = (
+    <Button
+      type="button"
+      roundness='full'
+      variant='outline'
+      aria-disabled={isBuyerView}
+      className={cn(
+        'border-[1px] border-black px-6 py-1 font-bold text-black transition-opacity',
+        isBuyerView && 'cursor-not-allowed opacity-60'
+      )}
+      onClick={handleButtonClick}
+    >
+      {isBuyerView ? (
+        <span>I want to sell</span>
+      ) : (
+        <span>I want to Buy</span>
+      )}
+    </Button>
+  );
+
+  if (!isBuyerView) {
+    return button;
+  }
+
+  return (
+    <TooltipProvider delayDuration={0}>
+      <Tooltip
+        open={tooltipOpen}
+        onOpenChange={(open) => {
+          if (!open) setTooltipOpen(false);
+        }}
+      >
+        <TooltipTrigger asChild>
+          {button}
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          Coming soon
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 };

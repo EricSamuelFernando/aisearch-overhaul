@@ -65,7 +65,7 @@ const EstimatedRent = () => {
 
             {/* MLS Search Input */}
             <div className='w-full mt-6 lg:mt-24'>
-              <MLSSearch placeholderText='Enter your address or MLS#' />
+              <MLSSearch placeholderText='Enter your MLS#' />
             </div>
           </div>
         </div>

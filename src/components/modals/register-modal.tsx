@@ -36,13 +36,19 @@ const schema = z.object({
 
 export default function RegisterModal({
   handleStage,
+  presetUserType,
+  startAt,
 }: {
   handleStage: () => void;
+  presetUserType?: UserType;
+  startAt?: 'account-selection' | 'send-code';
 }) {
   const [view, setView] = useState<'account-selection' | 'send-code'>(
-    'account-selection',
+    startAt ?? 'account-selection',
   );
-  const [activeUserType, setActiveUserType] = useState<UserType | null>(null);
+  const [activeUserType, setActiveUserType] = useState<UserType | null>(
+    presetUserType ?? null,
+  );
   const { selectAccountType } = useRegisterActions();
   const [isLoading, setLoading] = useState(false)
   const dispatch = useAppDispatch();
@@ -61,6 +67,17 @@ export default function RegisterModal({
       sendCodeMutation.reset();
     }
   }, [view, sendCodeMutation]);
+
+  useEffect(() => {
+    if (!presetUserType) return;
+    storeCookie({ key: USER_ROLE, value: presetUserType });
+    setActiveUserType(presetUserType);
+    dispatch(updateUserType({ userType: presetUserType }));
+    selectAccountType(presetUserType);
+    if (startAt) {
+      setView(startAt);
+    }
+  }, [presetUserType, startAt, dispatch, selectAccountType]);
 
   const handleCardClick = useCallback(
     (userType: UserType) => {
@@ -131,7 +148,10 @@ export default function RegisterModal({
           // Check if it's a user already exists error
           if (errorMessage.toLowerCase().includes('already exists') ||
             errorMessage.toLowerCase().includes('user with email')) {
-            error({ message: 'User already exists. Please login instead.' });
+            error({
+              message: "Oops, looks like you're already with us!",
+              subtitle: 'No worries! Just login to continue where you left off.',
+            });
           } else {
             error({ message: errorMessage });
           }
@@ -141,7 +161,10 @@ export default function RegisterModal({
         // Check for successful response
         if (res?.data?.data?.sendVerification === 'Email sent successfully') {
           setAgentEmail(values.email);
-          success({ message: res?.data?.data?.sendVerification });
+          success({
+            message: 'Otp sent succesfully',
+            subtitle: 'Few More Steps TO Secure Your Home',
+          });
           router.push('/verify-email');
         } else {
           error({ message: 'An unexpected error occurred. Please try again.' });
@@ -158,7 +181,10 @@ export default function RegisterModal({
         // Check if it's a user already exists error
         if (errorMessage.toLowerCase().includes('already exists') ||
           errorMessage.toLowerCase().includes('user with email')) {
-          error({ message: 'User already exists. Please login instead.' });
+          error({
+            message: "Oops, looks like you're already with us!",
+            subtitle: 'No worries! Just login to continue where you left off.',
+          });
         } else {
           error({ message: errorMessage });
         }

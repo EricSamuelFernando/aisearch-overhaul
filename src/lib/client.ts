@@ -1,12 +1,11 @@
 import $http from 'axios';
 
-import { AUTH_TOKEN, deploymentEnv } from '@/shared/constants/env';
+import { deploymentEnv } from '@/shared/constants/env';
 import {
-  clearItem,
-  deleteStorageCookie,
   getActiveUserRole,
   getAuthToken,
 } from './storage';
+import { getIsAuthExpired, markAuthExpired } from './api/axios';
 
 const client = $http.create({
   timeout: 60000,
@@ -19,39 +18,37 @@ const client = $http.create({
 // Set up response interceptor
 client.interceptors.response.use(
   async (response) => await Promise.resolve(response),
-  async (error) => {
-    if (error.response) {
-      const status = error.response.status;
+  async (err) => {
+    if (err.response) {
+      const status = err.response.status;
 
       if ([500, 501, 503].includes(status)) {
-        error({
-          message: 'Something went wrong processing your request!!!',
-        });
         return await Promise.reject({
           status,
-          error_message:
+          message:
             'Something went wrong processing your request, Refresh your window and try again!!!',
         });
       }
       if ([401, 307, 403].includes(status)) {
-        // Clear the expired token and reject the promise
-        deleteStorageCookie({ key: AUTH_TOKEN });
-        clearItem();
-        error({ message: '🔐 Hmm, that email or password doesn\'t look right. Double-check and try again!' });
-        // void Router.replace('/login');
+        // Mark auth as expired globally so all other API calls stop immediately
+        markAuthExpired();
         return await Promise.reject({
           status,
-          message: 'Login session expired, please login again',
+          message: 'Session expired. Please login again.',
         });
       }
     }
 
-    return await Promise.reject(error);
+    return await Promise.reject(err);
   },
 );
 
 // Set up request interceptor
 client.interceptors.request.use((config) => {
+  // If auth has expired, reject immediately to avoid unnecessary network calls
+  if (getIsAuthExpired()) {
+    return Promise.reject(new $http.Cancel('Session expired. Please login again.')) as any;
+  }
   const token = getAuthToken();
   const active_user_role = getActiveUserRole();
   const regex = /^\/(login)?$/;

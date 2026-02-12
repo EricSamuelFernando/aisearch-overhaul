@@ -28,7 +28,9 @@ const PropertyType: React.FC = () => {
           onClick={() => handleClick(value)}
           className={cn(
             `w-full rounded-md px-4 py-6 text-black transition-all hover:bg-gray-200`,
-            propertyType === value && ['bg-black text-white'],
+            propertyType === value && [
+              'bg-black text-white hover:bg-black hover:text-white',
+            ],
           )}
         >
           {label}

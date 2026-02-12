@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import SnaphomzLogo from '@public/assets/images/snaphomz-logo.svg';
 
 export const metadata: Metadata = {
   title: 'Onboarding Email Verification | Snaphomz',
@@ -16,7 +15,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {/* Header */}
         <header className="flex w-full items-center">
           <Link href="/">
-            <Image src={SnaphomzLogo} alt="logo" className="h-[3.75rem] w-44" />
+            <Image
+              src="/assets/Logos/Snaphomz-Logo-Black (4).png"
+              alt="logo"
+              className="h-[87px] w-[257px]"
+              width={257}
+              height={87}
+            />
           </Link>
         </header>
 

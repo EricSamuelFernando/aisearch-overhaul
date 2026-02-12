@@ -2,20 +2,59 @@
 
 import React, { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { getIsAuthExpired, markAuthExpired } from '@/lib/api/axios';
 
 interface AppQueryClientProps {
   children: ReactNode;
 }
 
+/**
+ * Helper: returns true when an error looks like an authentication / session error.
+ * Works for both the custom API instance AND raw-axios GraphQL calls.
+ */
+const isAuthError = (error: any): boolean => {
+  const message: string = error?.message || '';
+  return (
+    message === 'Unauthorized' ||
+    message.includes('Session expired') ||
+    message.includes('Unauthorized') ||
+    error?.response?.status === 401
+  );
+};
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 3,
+      retry: (failureCount, error: any) => {
+        // Don't retry on auth errors - the session sync handler will take care of logout
+        const message = error?.message || '';
+        if (
+          message === 'Unauthorized' ||
+          message.includes('Session expired') ||
+          error?.response?.status === 401
+        ) {
+          return false;
+        }
+        return failureCount < 3;
+      },
       staleTime: 1 * 60 * 60 * 1000,
-      refetchInterval: 1800000,
+      // Removed refetchInterval – it was causing ALL queries to refire every 30 min,
+      // triggering infinite "Unauthorized" toasts once the token expired.
+      // Individual hooks can still set their own refetchInterval where needed.
     },
+    mutations: {
+      retry: false,
+      onError: (error: any) => {
+        // For mutations that use raw axios and bypass the API interceptor,
+        // detect auth errors here and trigger the global session-expired flow.
+        if (isAuthError(error)) {
+          markAuthExpired();
+        }
+      },
+    }
   },
 });
+
 const AppQueryProviders: React.FC<AppQueryClientProps> = ({ children }) => {
   return (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>

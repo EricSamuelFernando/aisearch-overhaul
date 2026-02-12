@@ -33,7 +33,9 @@ const PropertyRange: React.FC = () => {
           }}
           className={cn(
             `w-full rounded-md px-4 py-6 text-black transition-all hover:bg-gray-200`,
-            selected === label && ['bg-black text-white'],
+            selected === label && [
+              'bg-black text-white hover:bg-black hover:text-white',
+            ],
           )}
         >
           {label}

@@ -13,9 +13,10 @@ interface CommentsModalProps {
     property: any;
     snapId?: string; // Add snapId prop
     onCommentAdded?: () => void;
+    userSnapRole?: string;
 }
 
-const CommentsModal: React.FC<CommentsModalProps> = ({ isOpen, onClose, property, snapId, onCommentAdded }) => {
+const CommentsModal: React.FC<CommentsModalProps> = ({ isOpen, onClose, property, snapId, onCommentAdded, userSnapRole }) => {
     const listingId = property?.listingId || property?.property?.listingId || property?.listingid;
     const getDisplayAddress = () => {
         const details = property?.propertyAddressDetails;
@@ -56,7 +57,7 @@ const CommentsModal: React.FC<CommentsModalProps> = ({ isOpen, onClose, property
         return `${currentUser.firstname} ${currentUser.lastname || ''}`.trim();
     };
     const userName = getUserName();
-    const accountType = currentUser?.accountType || 'buyer'; // Get accountType from user data
+    const accountType = userSnapRole || currentUser?.account_type || 'buyer'; // Use snap role if available, fallback to user account type
 
     const handleAddComment = async () => {
         if (!newCommentText.trim()) return;
@@ -112,9 +113,11 @@ const CommentsModal: React.FC<CommentsModalProps> = ({ isOpen, onClose, property
                                         {comment.accountType && (
                                             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${comment.accountType.toLowerCase() === 'agent'
                                                     ? 'bg-blue-100 text-blue-700'
-                                                    : 'bg-green-100 text-green-700'
+                                                    : comment.accountType.toLowerCase() === 'co-buyer'
+                                                        ? 'bg-purple-100 text-purple-700'
+                                                        : 'bg-green-100 text-green-700'
                                                 }`}>
-                                                {comment.accountType.toLowerCase() === 'agent' ? 'Agent' : 'Buyer'}
+                                                {comment.accountType.toLowerCase() === 'agent' ? 'Agent' : comment.accountType.toLowerCase() === 'co-buyer' ? 'Co-Buyer' : 'Buyer'}
                                             </span>
                                         )}
                                     </div>

@@ -1,25 +1,46 @@
 import { TabLinks } from '@/interfaces/tab-link.interface';
 
+export const BUYER_DASHBOARD_SECTION_VISIBILITY: Record<string, boolean> = {
+  dashboard: false,
+  messages: true,
+  conversation: false,
+  'my-snapz': true,
+  'search-history': true,
+};
+
+const isBuyerSectionVisible = (section: string) =>
+  BUYER_DASHBOARD_SECTION_VISIBILITY[section] !== false;
+
 export const buyerDashboardRoutes: TabLinks = [
+  {
+    title: 'Messages',
+    query: 'messages',
+    url: '/dashboard/chat?tab=messages',
+    hidden: !isBuyerSectionVisible('messages'),
+  },
+  {
+    title: 'My Snapz',
+    query: 'my-snapz',
+    url: '/dashboard/buyer?tab=my-snapz',
+    hidden: !isBuyerSectionVisible('my-snapz'),
+  },
+  {
+    title: 'Search History',
+    query: 'search-history',
+    url: '/dashboard/buyer?tab=search-history',
+    hidden: !isBuyerSectionVisible('search-history'),
+  },
   {
     title: 'Dashboard',
     query: 'dashboard',
     url: '/dashboard/buyer',
-  },
-  // {
-  //   title: 'Feed',
-  //   query: 'feeds',
-  //   url: '/dashboard/buyer',
-  // },
-  {
-    title: 'Messages',
-    query: 'messages',
-    url: '/dashboard/chat',
+    hidden: !isBuyerSectionVisible('dashboard'),
   },
   {
     title: 'Conversations',
     query: 'conversation',
     url: '/dashboard/conversation',
+    hidden: !isBuyerSectionVisible('conversation'),
   },
   // {
   //   title: 'Tasks',

@@ -47,7 +47,7 @@ export function createPersistStorage(): WebStorage {
     };
   }
 
-  return createWebStorage('session');
+  return createWebStorage('local');
 }
 
 const encryptStore = encryptTransform({

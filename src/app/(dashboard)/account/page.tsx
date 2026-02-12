@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { FormEvent, KeyboardEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatSellerDate } from '@/lib/helpers';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -42,6 +42,11 @@ interface Agent {
   };
 }
 
+interface SearchedAgent {
+  id: string;
+  email: string;
+}
+
 export default function AccountPage() {
   const router = useRouter();
   const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
@@ -49,7 +54,7 @@ export default function AccountPage() {
   const [agentSearch, setAgentSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
-  const [searchedAgents, setSearchedAgents] = useState<any[]>([]);
+  const [searchedAgents, setSearchedAgents] = useState<SearchedAgent[]>([]);
   const { getAllAgentsQuery, searchAgentMutation, sendInviteMutation } = useUserAuthApi();
   const { data: userDocuments, isPending: isDocumentsPending } =
     useGetUserDocuments();
@@ -73,6 +78,92 @@ export default function AccountPage() {
         setLoading(false);
       },
     });
+  };
+
+  const handleAgentSearch = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const query = agentSearch.trim();
+
+    if (!query) {
+      error({ message: 'Please enter an email before searching.' });
+      return;
+    }
+
+    setLoading(true);
+    setSelectedIndex(-1);
+
+    try {
+      const response = await searchAgentMutation.mutateAsync(query);
+      const results = response?.data?.get_agents ?? [];
+      setSearchedAgents(results);
+
+      if (!results.length) {
+        error({ message: 'No agents found for that email.' });
+      }
+    } catch (err) {
+      console.error('Error searching agents', err);
+      error({ message: 'Unable to search agents right now. Please try again.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (!searchedAgents.length) {
+      return;
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setSelectedIndex((prevIndex) => {
+        const nextIndex = prevIndex + 1;
+        return nextIndex >= searchedAgents.length ? 0 : nextIndex;
+      });
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setSelectedIndex((prevIndex) => {
+        const nextIndex = prevIndex - 1;
+        return nextIndex < 0 ? searchedAgents.length - 1 : nextIndex;
+      });
+      return;
+    }
+
+    if (event.key === 'Enter' && selectedIndex >= 0) {
+      event.preventDefault();
+      const selectedAgent = searchedAgents[selectedIndex];
+      sendAgentInvitation(selectedAgent?.id);
+    }
+  };
+
+  const sendAgentInvitation = async (agentId?: string) => {
+    if (!agentId) {
+      error({ message: 'Please select an agent to invite.' });
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await sendInviteMutation.mutateAsync(agentId);
+      const invitationStatus = response?.data?.inivte_agents;
+
+      if (invitationStatus?.success) {
+        success({ message: invitationStatus?.message || 'Invitation sent successfully.' });
+        setAgentSearch('');
+        setSearchedAgents([]);
+        setSelectedIndex(-1);
+      } else {
+        error({ message: invitationStatus?.message || 'Failed to send invitation.' });
+      }
+    } catch (err) {
+      console.error('Error sending agent invitation', err);
+      error({ message: 'Unable to send invitation right now.' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

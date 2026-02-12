@@ -748,6 +748,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
       )}
 
 
+      <div id="map-unpin-sentinel" className="h-px" />
       <div id="buy-custom-search" className={cn(currentView === 'grid' ? 'max-w-[1440px] mx-auto w-full' : 'w-full')}>
         <div
           className={cn(

@@ -1,53 +1,121 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { Play, ChevronRight } from 'lucide-react'
 import MainNavPages from '@/components/navbars/main-nav-pages'
+import LoginRegisterModal from '@/components/modals/login-register-modal'
 
-const steps = [
-  {
-    title: "Let’s get acquainted",
-    desc: `Create your profile on Snaphomz, set preferences –  
+const tabContent = {
+  buy: {
+    heading: 'Buying your dream home',
+    subheading: 'Choose one of three possible ways',
+    subheading2: 'to introduce lorem to your home',
+    image: '/assets/images/home/01.png',
+    steps: [
+      {
+        title: "Let's get acquainted",
+        desc: `Create your profile on Snaphomz, set preferences "  
 budget, location and must haves. Also use our AI search  
 to boost your chances of finding the perfect match.`,
-  },
-  {
-    title: "Let’s get financially ready",
-    desc: `Upload or process pre-approval documents right here.  
+      },
+      {
+        title: "Let's get financially ready",
+        desc: `Upload or process pre-approval documents right here.  
 Connect securely with Plaid and explore mortgages.  
 Get quick insights with AI summaries on SnapHomz.`,
-  },
-  {
-    title: "Let’s bring your agent onboard",
-    desc: `Collaborate with an agent, manage agreements, and  
+      },
+      {
+        title: "Let's bring your agent onboard",
+        desc: `Collaborate with an agent, manage agreements, and  
 track interactions on SnapHomz. In-built messaging and  
 AI-powered summaries for clear decisions.`,
-  },
-  {
-    title: "Let’s seal the deal",
-    desc: `Draft and review offers with clarity and monitor title  
+      },
+      {
+        title: "Let's seal the deal",
+        desc: `Draft and review offers with clarity and monitor title  
 and escrow digitally on SnapHomz, with AI summaries  
 keeping you informed throughout.`,
+      },
+    ],
   },
-]
+  sell: {
+    heading: 'Sell your home',
+    subheading: 'Choose one of three possible ways',
+    subheading2: 'to introduce lorem to your home',
+    image: '/assets/images/home/sell-02.png',
+    steps: [
+      {
+        title: 'Claim your property',
+        desc: `Set up dashboard by claiming properties you own. Manage details, store documents securely and get AI insights to stay informed on market timing and rates.`,
+      },
+      {
+        title: 'Get your listing ready',
+        desc: `List your property on SnapHomz or publish it to MLS.
+Maximize your sale price, with our AI-generated descriptions, disclosures, and market insights.`,
+      },
+      {
+        title: "Let's bring your agent onboard",
+        desc: `Collaborate with an agent, share documents, track communication, and use AI summaries for clear property insights on SnapHomz.`,
+      },
+      {
+        title: 'Review offers and close the deal',
+        desc: `Compare offers with ease using SnapHomz's list or grid view and AI offer strength meter. Send counteroffers, track contingencies, and monitor the closing process. `,
+      },
+    ],
+  },
+  agent: {
+    heading: 'Become a Snaphomz agent',
+    subheading: 'Choose one of three possible ways',
+    subheading2: 'to introduce lorem to your home',
+    image: '/assets/images/home/agents-01.png',
+    steps: [
+      {
+        title: 'Private agents',
+        desc: `Smart Match Quiz: Take our quick preference quiz
+Your Wish List: Tell us your must-haves and nice-to-haves
+Budget Blueprint: Set your comfortable price range`,
+      },
+      {
+        title: 'Partner agents',
+        desc: `Smart Suggestions: Browse personalized home listings
+Virtual Tours: Explore homes from your couch
+Quick Filters: Save time with intelligent search features`,
+      },
+    ],
+  },
+} as const
 
 export default function HowItWorksPage() {
+  const [activeTab, setActiveTab] = useState<keyof typeof tabContent>('buy')
   const [activeIndex, setActiveIndex] = useState(0)
 
   const handleStepChange = (index: number) => {
     setActiveIndex(index)
   }
 
+  useEffect(() => {
+    const hash = window.location.hash.replace('#', '')
+    if (hash === 'buy' || hash === 'sell' || hash === 'agent') {
+      setActiveTab(hash)
+    }
+  }, [])
+
+  useEffect(() => {
+    setActiveIndex(0)
+  }, [activeTab])
+
+  const content = tabContent[activeTab]
+
   return (
     <>
-      {/* ───── Video Hero ───── */}
+      {/* "€"€"€"€"€ Video Hero "€"€"€"€"€ */}
 
       {/* Fixed Navbar */}
       <div className="fixed w-full z-50 top-0 left-0 bg-black">
         <MainNavPages />
       </div>
-      {/* ───── Sub-Nav + Headline ───── */}
+      {/* "€"€"€"€"€ Sub-Nav + Headline "€"€"€"€"€ */}
       <div className='pt-16'>
         <div className="relative bg-gradient-to-r from-white to-orange-200 py-16 px-4">
           <div className="max-w-4xl mx-auto text-center">
@@ -72,10 +140,10 @@ export default function HowItWorksPage() {
               </button>
             </div>
             <h2 className="mt-8 text-5xl font-bold text-black">
-              Here’s How it Works
+              Here's How it Works
             </h2>
             <p className="mt-4 text-lg text-gray-600 leading-relaxed">
-              Your home’s about to skip a width. Whether it’s finding or farewell,
+              Your home's about to skip a width. Whether it's finding or farewell,
               Snaphomz turns the complex into compelling, because home sweet home
               should actually be sweet.
             </p>
@@ -85,48 +153,60 @@ export default function HowItWorksPage() {
         <div className="bg-gradient-to-r from-[#231E1E] via-[#a5a5a4] to-[#231E1E] py-10">
           <ul className="max-w-6xl mx-auto flex justify-between space-x-8 px-4">
             <li>
-              <a
-                href="#buy"
-                className="text-orange-500 font-medium hover:text-orange-400"
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('buy')
+                  window.history.replaceState(null, '', '#buy')
+                }}
+                className={`${activeTab === 'buy' ? 'text-orange-500' : 'text-white'} font-medium hover:text-orange-400`}
               >
                 Buy your dream home
-              </a>
+              </button>
             </li>
             <li>
-              <a
-                href="#sell"
-                className="text-white font-medium hover:text-gray-300"
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('sell')
+                  window.history.replaceState(null, '', '#sell')
+                }}
+                className={`${activeTab === 'sell' ? 'text-orange-500' : 'text-white'} font-medium hover:text-orange-400`}
               >
                 Sell your home
-              </a>
+              </button>
             </li>
             <li>
-              <a
-                href="#agent"
-                className="text-white font-medium hover:text-gray-300"
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('agent')
+                  window.history.replaceState(null, '', '#agent')
+                }}
+                className={`${activeTab === 'agent' ? 'text-orange-500' : 'text-white'} font-medium hover:text-orange-400`}
               >
                 Become a Snaphomz agent
-              </a>
+              </button>
             </li>
           </ul>
         </div>
-        <div className="max-w-6xl mx-auto flex flex-col-reverse md:flex-row items-center gap-8 px-4">
+        <div className="max-w-6xl mx-auto flex h-[320px] flex-col-reverse items-center gap-8 px-4 md:flex-row">
           <div className="w-full md:w-1/2 text-center md:text-left">
             <h1 className="text-4xl font-bold text-black">
-              Buying your dream home
+              {content.heading}
             </h1>
             <p className="mt-2 text-lg text-gray-500">
-              Choose one of three possible ways
+              {content.subheading}
               <br />
-              to introduce lorem to your home
+              {content.subheading2}
             </p>
           </div>
-          <div className="w-full md:w-1/2 flex justify-center md:justify-end">
+          <div className="w-full md:w-1/2 flex justify-center md:justify-end self-end">
             <Image
-              src="/assets/images/home/01.png"
+              src={content.image}
               alt="Hands holding keys and house"
-              width={240}
-              height={160}
+              width={280}
+              height={190}
               priority
             />
           </div>
@@ -138,7 +218,7 @@ export default function HowItWorksPage() {
               {/* Vertical Line */}
               <div className="absolute top-0 bottom-0 left-3 w-[2px] bg-gray-200" />
               <ul className="space-y-12">
-                {steps.map((step, i) => {
+                {content.steps.map((step, i) => {
                   const active = i === activeIndex;
                   return (
                     <li
@@ -157,17 +237,24 @@ export default function HowItWorksPage() {
                       >
                         <h3 className="text-lg font-semibold text-gray-900">{step.title}</h3>
                         <p className="mt-2 text-gray-600 whitespace-pre-line">{step.desc}</p>
-                        {active && (
-                          <div className="mt-4 flex justify-end items-center w-full">
-                            {/* "Learn more" text aligned to the right */}
-                            <span className="text-orange-500 font-medium mr-2">Learn more</span>
-                          </div>
-                        )}
+
                       </div>
                     </li>
                   );
                 })}
               </ul>
+              {activeTab === 'buy' ? (
+                <p className="mt-8 text-gray-700">
+                  Ready to Get Started?{' '}
+                  <LoginRegisterModal
+                    label="Sign up free today"
+                    initialStage={1}
+                    variant="link"
+                    className="p-0 text-orange-500 underline underline-offset-4 hover:text-orange-400"
+                    registerDefaults={{ userType: 'buyer', startAt: 'send-code' }}
+                  />
+                </p>
+              ) : null}
               {/* Circle Indicator Row */}
               {/*
               <div className="mt-12 flex justify-center md:justify-start space-x-2">

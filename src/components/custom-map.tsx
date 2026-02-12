@@ -146,6 +146,7 @@ const CustomMap: React.FC<Props> = ({
   return isLoaded ? (
     <GoogleMap
       mapContainerStyle={containerStyle}
+      mapContainerClassName="snaphomz-map"
       onLoad={onLoad}
       zoom={zoom}
       onUnmount={onUnmount}
@@ -154,6 +155,11 @@ const CustomMap: React.FC<Props> = ({
         streetViewControl: false,
         mapTypeControl: false,
         zoomControl: true,
+        scrollwheel: true,
+        gestureHandling: 'cooperative',
+        zoomControlOptions: {
+          position: google.maps.ControlPosition.RIGHT_BOTTOM,
+        },
         styles: [
           {
             featureType: 'administrative',

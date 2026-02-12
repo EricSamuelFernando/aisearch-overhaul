@@ -719,13 +719,13 @@ const PropertyPreview: React.FC = () => {
         return;
       }
 
-      console.log(`🔍 Fetching schools from: http://localhost:4000/schools/nearby?lat=${lat}&lon=${lon}`);
+      console.log(`🔍 Fetching schools from: ${process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL}/schools/nearby?lat=${lat}&lon=${lon}`);
       setSchoolsLoading(true);
       setSchoolsError(null);
 
       try {
         const response = await fetch(
-          `http://localhost:4000/schools/nearby?lat=${lat}&lon=${lon}`
+          `${process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL}/schools/nearby?lat=${lat}&lon=${lon}`
         );
 
         if (!response.ok) {

@@ -798,17 +798,23 @@ function PropertyFilter() {
     }
   ];
 
+  // Ref to store the last stable unique categories to prevent flickering during loading
+  const lastAvailableSubCategories = useRef(subCategories);
+
   const availableSubCategories = useMemo(() => {
-    // If loading or no properties, show all valid filters (betterUX than flickering)
-    // Or if requirement is strict, return [] when empty. 
-    // User asked "if feature is not available ... filter will disappear"
-    // So if allProperties is empty, maybe we should show nothing? 
-    // Usually standard is to show all if no search results yet, but if results exist, show relevant.
+    // If loading, return the LAST known stable list instead of resetting to ALL (prevents UI flash)
+    if (isLoading) return lastAvailableSubCategories.current;
 
-    if (isLoading) return subCategories;
-    if (!allProperties || allProperties.length === 0) return subCategories;
+    // If no properties and not loading (initial or empty), show all or strictly none?
+    // User logic: "if feature is not available ... filter will disappear"
+    // But if we have 0 results, maybe we should show all to let user switch?
+    // Let's stick to showing all if completely empty (start) or fallback.
+    if (!allProperties || allProperties.length === 0) {
+      lastAvailableSubCategories.current = subCategories;
+      return subCategories;
+    }
 
-    return subCategories.filter(sub => {
+    const filtered = subCategories.filter(sub => {
       // Always show if it's currently selected (so user can unselect it)
       if (selectedSubCategories.includes(sub.title)) return true;
 
@@ -827,6 +833,10 @@ function PropertyFilter() {
         return false;
       });
     });
+
+    // Update the ref with the new stable list
+    lastAvailableSubCategories.current = filtered;
+    return filtered;
   }, [allProperties, isLoading, selectedSubCategories]);
 
 

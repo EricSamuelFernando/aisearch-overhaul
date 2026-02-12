@@ -2432,6 +2432,8 @@ interface Thread {
   propertyId?: string
   listingId?: string
   participants?: any
+  // Modified here by Abhradip Paul updatedAt was not defined
+  updatedAt: string
   user?: {
     id?: string
     firstName?: string
@@ -2578,9 +2580,9 @@ export default function ChatBoxComponent(props: any) {
           : null;
       return new Date(
         thread?.updatedAt ||
-          thread?.lastMessageAt ||
-          lastMessage?.createdAt ||
-          0,
+        thread?.lastMessageAt ||
+        lastMessage?.createdAt ||
+        0,
       ).getTime();
     };
 
@@ -2590,13 +2592,13 @@ export default function ChatBoxComponent(props: any) {
       const propertyIdentifier = resolvePropertyIdentifier(thread);
       const propertySummary: AgentPropertySummary | undefined = propertyIdentifier
         ? {
-            propertyId: propertyIdentifier,
-            propertyName: thread?.propertyName,
-            propertyAddress: thread?.propertyAddress,
-            threadId: thread?.id,
-            listingId: thread?.listingId,
-            participants: thread?.participants,
-          }
+          propertyId: propertyIdentifier,
+          propertyName: thread?.propertyName,
+          propertyAddress: thread?.propertyAddress,
+          threadId: thread?.id,
+          listingId: thread?.listingId,
+          participants: thread?.participants,
+        }
         : undefined;
 
       const updatedAt = resolveLastUpdated(thread);
@@ -2787,11 +2789,12 @@ export default function ChatBoxComponent(props: any) {
         }
       }
 
+      {/* Modified here by Abhradip Paul role typescript error*/ }
       normalizedUsers.push({
         id,
         name,
         email,
-        role,
+        role: role || "",
         initials: toInitials(name, email),
         status,
       })
@@ -4172,9 +4175,8 @@ export default function ChatBoxComponent(props: any) {
                     const entryKey = entry.entryKey;
                     const isExpanded = expandedEntryKey === entryKey;
                     const isActiveThread = selectedThreadDetail?.id === thread?.id;
-                    const threadCardClasses = `relative flex flex-col w-full mt-3 gap-3 rounded-2xl border p-5 transition-colors shadow-sm cursor-pointer ${
-                      isActiveThread ? 'bg-[#FFF7EF] border-[#F6D4B3]' : 'bg-white border-[#F1ECE6]'
-                    }`;
+                    const threadCardClasses = `relative flex flex-col w-full mt-3 gap-3 rounded-2xl border p-5 transition-colors shadow-sm cursor-pointer ${isActiveThread ? 'bg-[#FFF7EF] border-[#F6D4B3]' : 'bg-white border-[#F1ECE6]'
+                      }`;
                     const timestampColor = isActiveThread ? 'text-[#C4A189]' : 'text-gray-400';
                     const engagedLabelColor = isActiveThread ? 'text-[#B5571E]' : 'text-gray-500';
 
@@ -4243,11 +4245,10 @@ export default function ChatBoxComponent(props: any) {
                               return (
                                 <div
                                   key={property.propertyId}
-                                  className={`w-full min-h-[86px] rounded-3xl border px-6 py-4 text-sm transition-all duration-200 cursor-pointer flex flex-col justify-between ${
-                                    isActiveProperty
+                                  className={`w-full min-h-[86px] rounded-3xl border px-6 py-4 text-sm transition-all duration-200 cursor-pointer flex flex-col justify-between ${isActiveProperty
                                       ? 'bg-[#1B1B1B] text-white border-[#1B1B1B]'
                                       : 'bg-[#FFF4EC] text-[#352416] border-[#F5D4B7]'
-                                  }`}
+                                    }`}
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     selectThreadById(property.threadId);
@@ -4263,9 +4264,8 @@ export default function ChatBoxComponent(props: any) {
                                     <Link
                                       href={`/dashboard/buyer/property/${property.propertyId}`}
                                       onClick={(event) => event.stopPropagation()}
-                                      className={`text-sm font-semibold ${
-                                        isActiveProperty ? 'text-[#FDD9BD]' : 'text-[#E47A36]'
-                                      }`}
+                                      className={`text-sm font-semibold ${isActiveProperty ? 'text-[#FDD9BD]' : 'text-[#E47A36]'
+                                        }`}
                                     >
                                       View Property
                                     </Link>
@@ -4274,15 +4274,13 @@ export default function ChatBoxComponent(props: any) {
                                         {participantUsers.map((participant: any) => (
                                           <div
                                             key={participant?.id}
-                                            className={`h-7 w-7 rounded-full border flex items-center justify-center text-[10px] font-semibold ${
-                                              isActiveProperty
+                                            className={`h-7 w-7 rounded-full border flex items-center justify-center text-[10px] font-semibold ${isActiveProperty
                                                 ? 'border-white bg-[#FBB785] text-white'
                                                 : 'border-[#FFE8D3] bg-white text-gray-800'
-                                            }`}
+                                              }`}
                                           >
                                             {getInitials(
-                                              `${participant?.firstName || ''} ${
-                                                participant?.lastName || ''
+                                              `${participant?.firstName || ''} ${participant?.lastName || ''
                                               }`,
                                             )}
                                           </div>
@@ -4879,7 +4877,7 @@ export default function ChatBoxComponent(props: any) {
 
           {/* Property Details Sidebar */}
           {isDetails && (
-           <div className={`w-full md:w-96 bg-gray-50 border-l ${showDetails ? "block" : "hidden md:block"} flex flex-col overflow-hidden `}>
+            <div className={`w-full md:w-96 bg-gray-50 border-l ${showDetails ? "block" : "hidden md:block"} flex flex-col overflow-hidden `}>
               <div className="p-4 border-b flex justify-between items-center">
                 <h2 className="font-semibold">Property Details</h2>
                 <Button

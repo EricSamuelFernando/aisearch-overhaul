@@ -222,10 +222,10 @@ const AgentsGrid = memo(function AgentsGrid({
             key={cardId}
             className="block group"
           >
-            <div className="rounded-2xl p-8 flex flex-col sm:flex-row gap-8 items-start h-full">
+            <div className="rounded-2xl p-5 flex flex-col sm:flex-row gap-5 items-start h-full">
               {/* Left: Image (Square rounded) */}
               <div className="shrink-0">
-                <div className="w-48 h-48 relative rounded-2xl overflow-hidden bg-gray-100">
+                <div className="w-36 h-36 relative rounded-2xl overflow-hidden bg-gray-100">
                   <Image
                     src={
                       anyAgent.profile_image_url ||
@@ -239,43 +239,43 @@ const AgentsGrid = memo(function AgentsGrid({
               </div>
 
               {/* Right: Content */}
-              <div className="flex-grow w-full flex flex-col">
+              <div className="flex-grow flex flex-col min-w-0">
                 {/* Header: Name + Title */}
-                <div className="mb-4">
-                  <h3 className="text-lg font-semibold text-black group-hover:text-orange-600 transition-colors">
+                <div className="mb-3">
+                  <h3 className="text-base font-semibold text-black group-hover:text-orange-600 transition-colors leading-tight">
                     {agentName}
                   </h3>
-                  <p className="text-sm text-gray-400">
+                  <p className="text-xs text-gray-400 mt-0.5">
                     {agentBrokerage}
                   </p>
                 </div>
 
                 {/* Metrics Stack */}
-                <div className="flex flex-col gap-3 mt-6 mb-6 w-full">
+                <div className="flex flex-col gap-2.5 mt-3 mb-3 w-full">
                   {/* Mobile */}
-                  <div className="flex justify-between items-center text-sm border-b border-gray-300 pb-3">
-                    <span className="text-gray-500 font-medium">Mobile</span>
-                    <span className="font-semibold text-black">{agentPhone || 'N/A'}</span>
+                  <div className="flex justify-between items-center text-xs border-b border-gray-300 pb-2.5 gap-3">
+                    <span className="text-gray-500 font-medium shrink-0">Mobile</span>
+                    <span className="font-semibold text-black whitespace-nowrap text-right text-xs">{agentPhone || 'N/A'}</span>
                   </div>
 
 
 
                   {/* Ratings */}
-                  <div className="flex justify-between items-center text-sm border-b border-gray-300 pb-3">
-                    <span className="text-gray-500 font-medium">Ratings</span>
-                    <div className="flex items-center gap-1 font-semibold text-black">
-                      <Star className="w-4 h-4 fill-orange-400 text-orange-400" />
-                      <span>{hasRating ? ratingNum.toFixed(1) : 'N/A'}</span>
-                      <span className="text-gray-400 font-normal ml-1">
+                  <div className="flex justify-between items-center text-xs border-b border-gray-300 pb-2.5 gap-3">
+                    <span className="text-gray-500 font-medium shrink-0">Ratings</span>
+                    <div className="flex items-center gap-1 font-semibold text-black shrink-0">
+                      <Star className="w-3.5 h-3.5 fill-orange-400 text-orange-400" />
+                      <span className="text-xs">{hasRating ? ratingNum.toFixed(1) : 'N/A'}</span>
+                      <span className="text-gray-400 font-normal ml-1 text-[10px]">
                         {reviewCount > 0 ? `${reviewCount} reviews` : ''}
                       </span>
                     </div>
                   </div>
 
                   {/* Recently Sold */}
-                  <div className="flex justify-between items-center text-sm border-b border-gray-300 pb-3">
-                    <span className="text-gray-500 font-medium">Recently Sold</span>
-                    <span className="font-semibold text-black">
+                  <div className="flex justify-between items-center text-xs border-b border-gray-300 pb-2.5 gap-3">
+                    <span className="text-gray-500 font-medium shrink-0">Recently Sold</span>
+                    <span className="font-semibold text-black shrink-0 text-xs">
                       {recentlySoldRaw}
                     </span>
                   </div>

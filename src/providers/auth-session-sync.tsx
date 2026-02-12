@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
+import { dismissAll, error } from '@/components/alert/notify';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthActions } from '@/shared/hooks/useAuth';
 
@@ -45,11 +45,13 @@ export default function AuthSessionSync() {
 
       // 3. Dismiss all existing toasts (kills any queued "Unauthorized" toasts)
       //    then show one single clear message
-      toast.dismiss();
+      dismissAll();
       setTimeout(() => {
-        toast.error('Your session has expired. Please login again.', {
+        error({
+          message: 'Your session has expired.',
+          subtitle: 'Please login again to continue.',
           id: 'session-expired',
-          duration: 5000,
+          duration: 6000,
         });
       }, 100);
 

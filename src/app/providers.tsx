@@ -56,6 +56,22 @@ const ToastErrorIcon = () => (
   </svg>
 );
 
+const ToastInfoIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    height="20"
+    width="20"
+  >
+    <path
+      fillRule="evenodd"
+      d="M10 18a8 8 0 100-16 8 8 0 000 16zm0-10a1 1 0 100-2 1 1 0 000 2zm1 6a1 1 0 10-2 0V9a1 1 0 102 0v5z"
+      clipRule="evenodd"
+    />
+  </svg>
+);
+
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <StoreProvider>
@@ -92,19 +108,22 @@ export function Providers({ children }: { children: React.ReactNode }) {
             </ModalProvider>
             <Toaster
               position="top-right"
-              duration={2500}
+              duration={3500}
               closeButton={false}
               richColors={false}
               icons={{
                 success: <ToastSuccessIcon />,
                 error: <ToastErrorIcon />,
+                info: <ToastInfoIcon />,
               }}
               toastOptions={{
+                unstyled: true,
                 classNames: {
                   toast: 'snaphomz-toast',
                   success: 'snaphomz-toast--success custom-toast-success',
                   error: 'snaphomz-toast--error custom-toast-error',
                   warning: 'snaphomz-toast--warning custom-toast-warning',
+                  info: 'snaphomz-toast--info custom-toast-info',
                   title: 'snaphomz-toast__title',
                   description: 'snaphomz-toast__desc',
                   actionButton: 'snaphomz-toast__action',

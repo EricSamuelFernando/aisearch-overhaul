@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
+import { error, success } from '@/components/alert/notify';
 import SharePropertyMenu from '../dashboard/main/share-property-menu';
 
 import { getAuthToken } from '@/lib/storage';
@@ -40,7 +40,7 @@ const SharePropertyModal: React.FC<SharePropertyModalProps> = ({
 
   const handleSubmit = () => {
     if (!role || !name || !email) {
-      toast.error('Please complete all required fields.');
+      error({ message: 'Please complete all required fields.' });
       return;
     }
     const data = {
@@ -79,11 +79,11 @@ const SharePropertyModal: React.FC<SharePropertyModalProps> = ({
      data,
       {
         onSuccess: () => {
-          toast.success('Success! The property is now shared.');
+          success({ message: 'Success! The property is now shared.' });
           onClose();
         },
         onError: () => {
-          toast.error('Unable to share the property.');
+          error({ message: 'Unable to share the property.' });
         },
       }
     );
@@ -93,8 +93,8 @@ const SharePropertyModal: React.FC<SharePropertyModalProps> = ({
     const url = `${process.env.NEXT_PUBLIC_DOMAIN}/property/${propertyId}`;
     navigator.clipboard
       .writeText(url)
-      .then(() => toast.success('Link copied to your clipboard.'))
-      .catch(() => toast.error('Unable to copy the link.'));
+      .then(() => success({ message: 'Link copied to your clipboard.' }))
+      .catch(() => error({ message: 'Unable to copy the link.' }));
   };
 
   return (

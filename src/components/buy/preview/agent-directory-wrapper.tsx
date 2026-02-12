@@ -545,7 +545,11 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
               }));
             }
 
-            success({ message: message || 'Invitation sent!' });
+            success({
+              message: 'Agent Invite Sent Successfully',
+              subtitle:
+                'Keep browsing. We will notify you when they accept or decline.',
+            });
             setSelectedAgent(null);
             setIsSearchFocused(false);
             // Close modal and navigate to dashboard
@@ -605,7 +609,11 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
               participants: participent
             }));
           }
-          success({ message: 'Invitation sent!' });
+          success({
+            message: 'Agent Invite Sent Successfully',
+            subtitle:
+              'Keep browsing. We will notify you when they accept or decline.',
+          });
           setSelectedAgent(null);
           setIsSearchFocused(false);
           if (onClose) {

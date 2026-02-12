@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { toast } from 'sonner';
+import { error, info, success } from '@/components/alert/notify';
 import { useRouter } from 'next/navigation';
 import { useMutation } from '@tanstack/react-query';
 
@@ -19,16 +19,17 @@ const useStartProcessSubmission = () => {
     resetState();
     setAgentIsInvited(false);
     router.push('/dashboard/buyer');
-    toast.info(
-      'You have already taken action on this property. Redirecting to the dashboard.',
-    );
+    info({
+      message:
+        'You have already taken action on this property. Redirecting to the dashboard.',
+    });
   }, [resetState, setAgentIsInvited, router]);
 
   const propertyPreferenceMutation = useMutation({
     mutationKey: ['propertyPreference-buyer-process-final'],
     mutationFn: savePropertyPreference,
     onSuccess: (data) => {
-      toast.success(data.data.message);
+      success({ message: data.data.message });
       queryClient.invalidateQueries({
         queryKey: ['fetch-buyer-engaged-properties'],
       });
@@ -42,7 +43,7 @@ const useStartProcessSubmission = () => {
     mutationKey: ['userDocuments-buyer-process-final'],
     mutationFn: saveUserDocuments,
     onSuccess: (data) => {
-      toast.success(data.data.message);
+      success({ message: data.data.message });
     },
     onError: (error: unknown) => {
       handleMutationError(error, handleAlreadyActedError);
@@ -62,10 +63,12 @@ const useStartProcessSubmission = () => {
       if (errorMessage === 'You have already acted on this') {
         alreadyActedHandler();
       } else {
-        toast.error(errorMessage);
+        error({ message: errorMessage });
       }
     } else {
-      toast.error('Oops! Something went wrong unexpectedly. Please try again.');
+      error({
+        message: 'Oops! Something went wrong unexpectedly. Please try again.',
+      });
     }
   };
 
@@ -126,10 +129,12 @@ const useStartProcessSubmission = () => {
         if (errorMessage === 'You have already acted on this') {
           handleAlreadyActedError();
         } else {
-          toast.error(errorMessage);
+          error({ message: errorMessage });
         }
       } else {
-        toast.error('Oops! Something went wrong unexpectedly. Please try again.');
+        error({
+          message: 'Oops! Something went wrong unexpectedly. Please try again.',
+        });
       }
     }
   }, [

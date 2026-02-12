@@ -8,6 +8,7 @@ interface NotifProps {
 
 type ToastOptions = {
   style?: CSSProperties;
+  className?: string;
 } & Record<string, unknown>;
 
 const TITLE_STYLE: CSSProperties = {
@@ -72,6 +73,32 @@ const WarningIcon = () => (
   </svg>
 );
 
+const InfoIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    height="20"
+    width="20"
+  >
+    <path
+      fillRule="evenodd"
+      d="M10 18a8 8 0 100-16 8 8 0 000 16zm0-10a1 1 0 100-2 1 1 0 000 2zm1 6a1 1 0 10-2 0V9a1 1 0 102 0v5z"
+      clipRule="evenodd"
+    />
+  </svg>
+);
+
+const formatToastTitle = (value?: string) => {
+  if (!value) return value;
+  return value.replace(/\S+/g, (word) => {
+    if (word.length > 1 && word.toUpperCase() === word) {
+      return word;
+    }
+    return word.charAt(0).toUpperCase() + word.slice(1);
+  });
+};
+
 const renderToastContent = ({
   message,
   subtitle,
@@ -91,11 +118,16 @@ const renderToastContent = ({
       className="snaphomz-toast__content"
       style={{ gridColumn: showIcon ? '2' : '1' }}
     >
-      {message ? <div style={TITLE_STYLE}>{message}</div> : null}
+      {message ? (
+        <div style={TITLE_STYLE}>{formatToastTitle(message)}</div>
+      ) : null}
       {subtitle ? <div style={DESC_STYLE}>{subtitle}</div> : null}
     </div>
   </>
 );
+
+const mergeClassName = (base?: string, extra?: string) =>
+  [base, extra].filter(Boolean).join(' ');
 
 const mergeOptions = (
   base: ToastOptions,
@@ -106,6 +138,7 @@ const mergeOptions = (
   return {
     ...base,
     ...extra,
+    className: mergeClassName(base.className, extra.className),
     style: { ...baseStyle, ...extraStyle },
   };
 };
@@ -119,8 +152,10 @@ const success = ({ message, subtitle, ...options }: NotifProps & ToastOptions) =
         subtitle,
         icon: <SuccessIcon />,
       }),
-    // { type: 'success', ...options }
-    options
+    mergeOptions(
+      { type: 'success', ...options },
+      { className: 'snaphomz-toast--success custom-toast-success' }
+    )
   );
 
 // Success without icon (custom JSX)
@@ -137,11 +172,28 @@ const successNoIcon = ({
         icon: <SuccessIcon />,
         showIcon: false,
       }),
-    mergeOptions({ type: 'success', ...options }, { style: { gridTemplateColumns: '1fr' } })
+    mergeOptions(
+      { type: 'success', ...options },
+      {
+        className: 'snaphomz-toast--success custom-toast-success',
+        style: { gridTemplateColumns: '1fr' },
+      }
+    )
   );
 
 const info = ({ message, subtitle, ...options }: NotifProps & ToastOptions) =>
-  toast.info(message, { description: subtitle, ...options });
+  toast.custom(
+    () =>
+      renderToastContent({
+        message,
+        subtitle,
+        icon: <InfoIcon />,
+      }),
+    mergeOptions(
+      { type: 'info', ...options },
+      { className: 'snaphomz-toast--info custom-toast-info' }
+    )
+  );
 
 // Error notifications trigger (custom JSX)
 const error = ({ message, subtitle, ...options }: NotifProps & ToastOptions) =>
@@ -152,8 +204,10 @@ const error = ({ message, subtitle, ...options }: NotifProps & ToastOptions) =>
         subtitle,
         icon: <ErrorIcon />,
       }),
-    // { type: 'error', ...options }
-    options
+    mergeOptions(
+      { type: 'error', ...options },
+      { className: 'snaphomz-toast--error custom-toast-error' }
+    )
   );
 
 const warning = ({
@@ -168,8 +222,10 @@ const warning = ({
         subtitle,
         icon: <WarningIcon />,
       }),
-    // { type: 'warning', ...options }
-    options
+    mergeOptions(
+      { type: 'warning', ...options },
+      { className: 'snaphomz-toast--warning custom-toast-warning' }
+    )
   );
 
 // Dismiss all notifications

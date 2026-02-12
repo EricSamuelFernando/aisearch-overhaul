@@ -33,7 +33,7 @@ import { PROPERTY_DETAIL_SEARCH_AI_URL } from "@/shared/constants/env"
 import { useSelector } from 'react-redux';
 import CategorizedPhotosModal from '../CategorizedPhotosModal'; // Import the new modal
 import PropertyDetailsCard from '../propertyDetailsCard';
-import { BookmarkCheck, ChevronDown, ChevronUp, Info, Mail, Search, Loader2, X, Star, ArrowRight } from 'lucide-react';
+import { BookmarkCheck, ChevronDown, ChevronUp, Info, Search, Loader2, X, Star, ArrowRight } from 'lucide-react';
 import { EstimatedMarketValue } from '../preview-hero/EstimatedMarketValue';
 import HomeHighlights from '../preview-hero/HomeHighlights';
 import SchoolsNearAddress from '../preview-hero/SchoolsNearAddress';
@@ -174,6 +174,9 @@ const PropertyPreview: React.FC = () => {
   const [inviteEmailError, setInviteEmailError] = React.useState('');
   const [isAskAIModalOpen, setIsAskAIModalOpen] = React.useState(false);
   const [askAIQuestion, setAskAIQuestion] = React.useState('');
+  const [isStreetViewOpen, setIsStreetViewOpen] = React.useState(false);
+  const [streetViewError, setStreetViewError] = React.useState<string | null>(null);
+  const streetViewRef = React.useRef<HTMLDivElement>(null);
   const { externalAgentIvitationMutation } = useUserAuthApi();
   const { recordPropertyView } = useRecordPropertyView();
   const hasRecordedViewRef = React.useRef(false);
@@ -484,7 +487,11 @@ const PropertyPreview: React.FC = () => {
             }));
           }
 
-          success({ message: message || 'Invitation sent successfully!' });
+          success({
+            message: 'Agent Invite Sent Successfully',
+            subtitle:
+              'Keep browsing. We will notify you when they accept or decline.',
+          });
           setInviteAgentEmail('');
           setInviteEmailError('');
           setIsInviteAgentModalOpen(false);
@@ -674,6 +681,37 @@ const PropertyPreview: React.FC = () => {
     }
   }, [property]);
 
+  const getPropertyLatLng = React.useCallback(() => {
+    let lat = null;
+    let lon = null;
+
+    if (propertyDatas?.data) {
+      lat = (propertyDatas.data as any).latitude || (propertyDatas.data as any).Latitude;
+      lon = (propertyDatas.data as any).longitude || (propertyDatas.data as any).Longitude;
+
+      if (!lat || !lon) {
+        lat = (propertyDatas.data as any).property?.latitude || (propertyDatas.data as any).property?.Latitude;
+        lon = (propertyDatas.data as any).property?.longitude || (propertyDatas.data as any).property?.Longitude;
+      }
+    }
+
+    if (!lat || !lon) {
+      lat = (proprtyData as any)?.latitude || (proprtyData as any)?.Latitude;
+      lon = (proprtyData as any)?.longitude || (proprtyData as any)?.Longitude;
+    }
+
+    if (!lat || !lon) {
+      lat = (proprtyData as any)?.property?.latitude || (proprtyData as any)?.property?.Latitude;
+      lon = (proprtyData as any)?.property?.longitude || (proprtyData as any)?.property?.Longitude;
+    }
+
+    if (!lat || !lon || isNaN(lat) || isNaN(lon)) {
+      return null;
+    }
+
+    return { lat: Number(lat), lng: Number(lon) };
+  }, [propertyDatas, proprtyData]);
+
   // Fetch nearby schools from Neo4j API when property coordinates are available
   React.useEffect(() => {
     const fetchNearbySchools = async () => {
@@ -757,6 +795,56 @@ const PropertyPreview: React.FC = () => {
     fetchNearbySchools();
   }, [propertyDatas, proprtyData]);
 
+  React.useEffect(() => {
+    if (!isStreetViewOpen) return;
+
+    const coords = getPropertyLatLng();
+    if (!coords) {
+      setStreetViewError('Street View imagery is not available for this property.');
+      return;
+    }
+
+    const tryInit = () => {
+      const container = streetViewRef.current;
+      if (!container) return;
+
+      const hasGoogle = typeof window !== 'undefined' && !!window.google?.maps;
+      if (!hasGoogle) {
+        setStreetViewError('Failed to load Google Maps.');
+        return;
+      }
+
+      if (container.clientHeight === 0 || container.clientWidth === 0) {
+        // Dialog layout can settle after open; retry once.
+        setTimeout(tryInit, 50);
+        return;
+      }
+
+      container.innerHTML = '';
+      setStreetViewError(null);
+
+      const panorama = new google.maps.StreetViewPanorama(container, {
+        position: coords,
+        pov: { heading: 0, pitch: 0 },
+        zoom: 1,
+        fullscreenControl: false,
+      });
+
+      const sv = new google.maps.StreetViewService();
+      sv.getPanorama({ location: coords, radius: 50 }, (data, status) => {
+        if (status === google.maps.StreetViewStatus.OK && data?.location?.pano) {
+          panorama.setPano(data.location.pano);
+          panorama.setVisible(true);
+        } else {
+          setStreetViewError('Street View imagery is not available for this location.');
+        }
+      });
+    };
+
+    // Allow the dialog to mount before initializing the panorama.
+    requestAnimationFrame(tryInit);
+  }, [getPropertyLatLng, isStreetViewOpen]);
+
 
   const transformData = React.useMemo(() => {
     const prop: any = proprtyData
@@ -813,6 +901,30 @@ const PropertyPreview: React.FC = () => {
   const toggleSection = (section: string) => {
     setOpenSection(openSection === section ? null : section);
   };
+
+  const openSectionForHash = React.useCallback((hash: string) => {
+    const target =
+      hash === '#property'
+        ? { section: 'offers', scrollId: 'property' }
+        : hash === '#schools'
+          ? { section: 'schools', scrollId: 'schools' }
+          : hash === '#forecast'
+            ? { section: 'interest', scrollId: 'forecast' }
+            : null;
+
+    if (!target) return;
+
+    setOpenSection(target.section);
+
+    // After the accordion opens, scroll to the content area for that section.
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        const el = document.getElementById(target.scrollId);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 150);
+    });
+  }, []);
 
   const sections = [
     {
@@ -962,6 +1074,26 @@ const PropertyPreview: React.FC = () => {
     "Can I raise a family here?"
   ];
 
+  React.useEffect(() => {
+    const handleHashChange = () => {
+      openSectionForHash(window.location.hash);
+    };
+
+    handleHashChange();
+    window.addEventListener('hashchange', handleHashChange);
+    const handlePreviewNav = (event: Event) => {
+      const customEvent = event as CustomEvent<string>;
+      if (typeof customEvent.detail === 'string') {
+        openSectionForHash(customEvent.detail);
+      }
+    };
+    window.addEventListener('preview-nav', handlePreviewNav);
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('preview-nav', handlePreviewNav);
+    };
+  }, [openSectionForHash]);
+
   // Generate unique IDs for SVG gradients and masks
   const svgId = React.useId();
   const gradientId = `paint0_linear_${svgId.replace(/:/g, '_')}`;
@@ -976,6 +1108,7 @@ const PropertyPreview: React.FC = () => {
     <div>
       <ItemNav cardRef={cardRef} />
       <div className='mt-6 sm:mt-8 md:mt-12 lg:mt-14' />
+      <div id="overview" className="scroll-mt-28" />
 
       {/* Contact Agent Dialog */}
       <Dialog open={isContactAgentDialogOpen} onOpenChange={setIsContactAgentDialogOpen}>
@@ -1183,14 +1316,12 @@ const PropertyPreview: React.FC = () => {
                       <p className="text-xs text-gray-500">Listing Agent</p>
                     </div>
                   </div>
-                  <button className="shrink-0">
-                    <Mail className="h-4 w-4 sm:h-5 sm:w-5 text-[#E8804C]" strokeWidth={1.5} />
-                  </button>
+                  {/* Email button hidden per updated design */}
                 </div>
               </div>
             </div>
 
-            {/* Bottom Section: Estimated Payment and Start The Process Button */}
+            {/* Bottom Section: Estimated Payment and Schedule A Tour Button */}
             <div className="flex flex-col w-full gap-3 sm:gap-4 mb-4 md:grid md:grid-cols-[minmax(0,1fr)_360px] md:items-center md:gap-6">
               {/* Left: Estimated Payment Section */}
               <div className="rounded-xl bg-[#FAE6DB] shadow-sm px-3 sm:px-4 py-2 sm:py-2.5 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-2.5 w-full md:max-w-[460px]">
@@ -1214,28 +1345,14 @@ const PropertyPreview: React.FC = () => {
                 </div>
               </div>
 
-              {/* Right: Start The Process Button */}
+              {/* Right: Schedule A Tour Button */}
               <div className="w-full flex flex-col gap-2">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        className="w-full bg-black text-white px-4 sm:px-6 md:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-normal hover:bg-gray-800 transition-colors"
-                      >
-                        Start The Process
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Coming Soon</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
                 <button
-                  className="w-full bg-gray-100 text-black px-4 sm:px-6 md:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-normal border border-gray-200 hover:bg-gray-200 transition-colors"
+                  className="w-full bg-black text-white px-4 sm:px-6 md:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-normal border border-black hover:bg-gray-900 transition-colors"
                   onClick={handleContactAgent}
                   disabled={propertyEngagementMutation.isPending}
                 >
-                  {propertyEngagementMutation.isPending ? "Creating..." : "Contact Agent"}
+                  {propertyEngagementMutation.isPending ? "Creating..." : "Schedule a Tour"}
                 </button>
               </div>
             </div>
@@ -1372,7 +1489,10 @@ const PropertyPreview: React.FC = () => {
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <button className="flex items-center gap-3 text-sm sm:text-[15px] font-semibold text-gray-900 bg-[#F2F2F2] px-5 py-3 rounded-full">
+                            <button
+                              className="flex items-center gap-3 text-sm sm:text-[15px] font-semibold text-gray-900 bg-[#F2F2F2] px-5 py-3 rounded-full border border-gray-300"
+                              onClick={() => setIsStreetViewOpen(true)}
+                            >
                               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-gray-900">
                                 <path
                                   d="M12 22s7-5.686 7-12A7 7 0 1 0 5 10c0 6.314 7 12 7 12Z"
@@ -1385,23 +1505,12 @@ const PropertyPreview: React.FC = () => {
                             </button>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>Coming soon</p>
+                            <p>Open Street View</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
 
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button className="text-xs sm:text-[14px] underline">
-                              Schedule a tour
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Coming soon</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      {/* Schedule a tour link hidden per updated design */}
                     </div>
                   </>
                 );
@@ -1471,50 +1580,78 @@ const PropertyPreview: React.FC = () => {
 
           <div className="lg:col-span-8 col-span-12 divide-y divide-gray-200 border-t border-gray-200 mt-4 sm:mt-6">
             {/* Accordion List (Home Highlights, Schools, Offers, History, etc.) */}
-            {sections.map((section) => (
-              <div key={section.id} className="border-b border-gray-200">
-                <button
-                  onClick={() => toggleSection(section.id)}
-                  className="w-full flex items-center justify-between py-3 sm:py-4 text-left focus:outline-none transition-all"
-                >
-                  <span className="font-semibold text-sm sm:text-[16px] text-gray-900">
-                    {section.id === 'payment' ? (
-                      <span className="flex flex-wrap items-center gap-2">
-                        <span>{section.title}</span>
-                        <span className="text-[11px] font-normal text-gray-500">
-                          Powered by SnapInterest
-                        </span>
-                      </span>
-                    ) : section.id === 'interest' ? (
-                      <span className="flex flex-wrap items-center gap-2">
-                        <span>{section.title}</span>
-                        <span className="text-[11px] font-normal text-gray-500">
-                          Powered by SnapInterest
-                        </span>
-                      </span>
-                    ) : (
-                      section.title
-                    )}
-                  </span>
-                  {openSection === section.id ? (
-                    <ChevronUp className="text-gray-600 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5" />
-                  ) : (
-                    <ChevronDown className="text-gray-600 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5" />
-                  )}
-                </button>
+            {sections.map((section) => {
+              const anchorId =
+                section.id === 'offers'
+                  ? 'property'
+                  : section.id === 'schools'
+                    ? 'schools'
+                    : section.id === 'interest'
+                      ? 'forecast'
+                      : undefined;
 
-                {/* Accordion Content */}
+              return (
                 <div
-                  className={`overflow-hidden transition-all duration-300 ${openSection === section.id ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0"
-                    }`}
+                  key={section.id}
+                  id={anchorId}
+                  className="border-b border-gray-200 scroll-mt-28"
                 >
-                  <div className="pb-3 sm:pb-4">{section.content}</div>
+                  <button
+                    onClick={() => toggleSection(section.id)}
+                    className="w-full flex items-center justify-between py-3 sm:py-4 text-left focus:outline-none transition-all"
+                  >
+                    <span className="font-semibold text-sm sm:text-[16px] text-gray-900">
+                      {section.id === 'payment' ? (
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span>{section.title}</span>
+                          <span className="text-[11px] font-normal text-gray-500">
+                            Powered by SnapInterest
+                          </span>
+                        </span>
+                      ) : section.id === 'interest' ? (
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span>{section.title}</span>
+                          <span className="text-[11px] font-normal text-gray-500">
+                            Powered by SnapInterest
+                          </span>
+                        </span>
+                      ) : (
+                        section.title
+                      )}
+                    </span>
+                    {openSection === section.id ? (
+                      <ChevronUp className="text-gray-600 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5" />
+                    ) : (
+                      <ChevronDown className="text-gray-600 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5" />
+                    )}
+                  </button>
+
+                  {/* Accordion Content */}
+                  <div
+                    className={`overflow-hidden transition-all duration-300 ${openSection === section.id ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0"
+                      }`}
+                  >
+                    <div
+                      id={
+                        section.id === 'offers'
+                          ? 'property-content'
+                          : section.id === 'schools'
+                            ? 'schools-content'
+                            : section.id === 'interest'
+                              ? 'forecast-content'
+                              : undefined
+                      }
+                      className="pb-3 sm:pb-4"
+                    >
+                      {section.content}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {/* Nearby Homes Section (Similar Homes) */}
-            <div className="pb-6 sm:pb-8 md:pb-12 mb-12 sm:mb-16 md:mb-20">
+            <div id="comparables" className="pb-6 sm:pb-8 md:pb-12 mb-12 sm:mb-16 md:mb-20 scroll-mt-28">
               {/* <h2 className='text-xl font-bold mt-8 mb-4'>Similar homes</h2> */}
               {propertyDatas?.nearbyHomes && propertyDatas.nearbyHomes.length > 0 ? (
                 <NearbyHomesSection
@@ -1624,6 +1761,23 @@ const PropertyPreview: React.FC = () => {
             >
               Send
             </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isStreetViewOpen} onOpenChange={setIsStreetViewOpen}>
+        <DialogContent className="max-w-5xl w-[95vw] h-[80vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
+            <DialogTitle className="text-xl font-semibold">Street View</DialogTitle>
+            <DialogDescription className="text-sm text-gray-600">
+              Preview the area around this property.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 p-4">
+            {streetViewError && (
+              <div className="text-sm text-gray-600 mb-2">{streetViewError}</div>
+            )}
+            <div ref={streetViewRef} className="w-full h-full rounded-lg overflow-hidden" />
           </div>
         </DialogContent>
       </Dialog>

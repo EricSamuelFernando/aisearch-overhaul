@@ -213,11 +213,9 @@ type Props = {
 
 const navItems = [
   { hash: '#overview', title: 'Overview' },
-  { hash: '#location', title: 'Location' },
   { hash: '#property', title: 'Property' },
-  { hash: '#history', title: 'History' },
-  { hash: '#analysis', title: 'Analysis' },
   { hash: '#schools', title: 'Schools' },
+  { hash: '#forecast', title: 'Forecast' },
   { hash: '#comparables', title: 'Comparables' },
 ];
 
@@ -340,6 +338,12 @@ function ItemNav({ cardRef }: Props) {
             <Link
               key={item.hash}
               href={item.hash}
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  window.location.hash = item.hash;
+                  window.dispatchEvent(new CustomEvent('preview-nav', { detail: item.hash }));
+                }
+              }}
               className={cn(
                 'snap-start whitespace-nowrap px-4 py-2 text-sm font-medium text-[#818181] hover:border-b-[2px] hover:border-black hover:text-black',
                 hash === item.hash &&

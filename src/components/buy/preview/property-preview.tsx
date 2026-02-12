@@ -43,6 +43,7 @@ import PropertyHistorySection from '../preview-hero/PropertyHistorySection';
 import InterestRateForecast from '../preview-hero/InterestRateForecast';
 import MonthlyMortgageCalculator from '../preview-hero/MonthlyMortgageCalculator';
 import NearbyHomesSection from '../preview-hero/NearbyHomesSection';
+import PropertyTakeawaysAI from '../preview-hero/PropertyTakeawaysAI';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAgentConversationApi } from '@/hooks/api/auth/useConversationApi';
@@ -1470,6 +1471,19 @@ const PropertyPreview: React.FC = () => {
           </div>
 
           <div className="lg:col-span-8 col-span-12 divide-y divide-gray-200 border-t border-gray-200 mt-4 sm:mt-6">
+            <div className="py-4 sm:py-6">
+              <PropertyTakeawaysAI
+                property={
+                  propertyDatas?.data ||
+                  propertyData?.listing ||
+                  propertyData?.public ||
+                  propertyData ||
+                  transformData.prop
+                }
+                nearbySchools={nearbySchools}
+              />
+            </div>
+
             {/* Accordion List (Home Highlights, Schools, Offers, History, etc.) */}
             {sections.map((section) => (
               <div key={section.id} className="border-b border-gray-200">

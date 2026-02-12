@@ -12,7 +12,7 @@ const CompanysPage = () => {
       <AgentsHero />
       <WhoWeCompany />
       <WeBelive />
-      <OurClients />
+      <OurClients bgColor="#FFF6EC" />
       {/* <AgentsWeMakeItEasy /> */}
       {/* <TimeWorth /> */}
       {/* <MainTestimonial /> */}

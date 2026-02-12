@@ -40,8 +40,8 @@ import SchoolsNearAddress from '../preview-hero/SchoolsNearAddress';
 import TopCollegesSection from '../preview-hero/PropertySummaryBar';
 import InteriorOffersSection from '../preview-hero/InteriorOffersSection';
 import PropertyHistorySection from '../preview-hero/PropertyHistorySection';
-import InterestRatePredictor from '../preview-hero/InterestRatePredictor';
-import PaymentCalculator from '../preview-hero/PaymentCalculator';
+import InterestRateForecast from '../preview-hero/InterestRateForecast';
+import MonthlyMortgageCalculator from '../preview-hero/MonthlyMortgageCalculator';
 import NearbyHomesSection from '../preview-hero/NearbyHomesSection';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -71,6 +71,7 @@ import { SocketContext } from '@/providers/socket.context';
 import { success } from '@/components/alert/notify';
 import type { WebSocketClient } from '@/lib/websocket-client';
 import { AgentDirectoryWrapper } from './agent-directory-wrapper';
+import { useRecordPropertyView } from '@/hooks/api/auth/useViewHistory';
 const defaultEstimatedData: any = {
   houseValue: "$450,460",
   houseValueDescription: "Overall readiness assessment",
@@ -174,6 +175,13 @@ const PropertyPreview: React.FC = () => {
   const [isAskAIModalOpen, setIsAskAIModalOpen] = React.useState(false);
   const [askAIQuestion, setAskAIQuestion] = React.useState('');
   const { externalAgentIvitationMutation } = useUserAuthApi();
+  const { recordPropertyView } = useRecordPropertyView();
+  const hasRecordedViewRef = React.useRef(false);
+
+  // Neo4j schools API integration
+  const [nearbySchools, setNearbySchools] = React.useState<any[]>([]);
+  const [schoolsLoading, setSchoolsLoading] = React.useState(false);
+  const [schoolsError, setSchoolsError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (id) {
@@ -583,6 +591,19 @@ const PropertyPreview: React.FC = () => {
       const data = await response.json();
       setpropertyDatas(data)
       console.log("AI backend response data ", data)
+      console.log("🗺️ Coordinate check:", {
+        'data.data.latitude': data?.data?.latitude,
+        'data.data.longitude': data?.data?.longitude,
+        'data.data.Latitude': data?.data?.Latitude,
+        'data.data.Longitude': data?.data?.Longitude,
+        'data.data.property.latitude': data?.data?.property?.latitude,
+        'data.data.property.longitude': data?.data?.property?.longitude,
+        'data.data.location.latitude': data?.data?.location?.latitude,
+        'data.data.location.longitude': data?.data?.location?.longitude,
+        'data.latitude': data?.latitude,
+        'data.longitude': data?.longitude,
+        'data.property_detail': data?.property_detail
+      });
       localStorage.setItem('stateOrProvince', data.data.address.stateOrProvince || '')
       localStorage.setItem('listingId', String(data.data.listingId))
       localStorage.setItem('propertyType', data.data.property.propertyType || '')
@@ -653,6 +674,90 @@ const PropertyPreview: React.FC = () => {
     }
   }, [property]);
 
+  // Fetch nearby schools from Neo4j API when property coordinates are available
+  React.useEffect(() => {
+    const fetchNearbySchools = async () => {
+      // Check multiple possible locations for coordinates
+      let lat = null;
+      let lon = null;
+
+      // Try different possible coordinate locations in the data structure
+      if (propertyDatas?.data) {
+        // Option 1: Direct latitude/longitude fields (PRIORITY - works for most properties)
+        lat = (propertyDatas.data as any).latitude || (propertyDatas.data as any).Latitude;
+        lon = (propertyDatas.data as any).longitude || (propertyDatas.data as any).Longitude;
+
+        // Option 2: Inside property object (fallback for some properties)
+        if (!lat || !lon) {
+          lat = (propertyDatas.data as any).property?.latitude || (propertyDatas.data as any).property?.Latitude;
+          lon = (propertyDatas.data as any).property?.longitude || (propertyDatas.data as any).property?.Longitude;
+        }
+      }
+
+      // Option 3: Check proprtyData (transformed data)
+      if (!lat || !lon) {
+        lat = (proprtyData as any)?.latitude || (proprtyData as any)?.Latitude;
+        lon = (proprtyData as any)?.longitude || (proprtyData as any)?.Longitude;
+      }
+
+      // Option 4: Check proprtyData.property
+      if (!lat || !lon) {
+        lat = (proprtyData as any)?.property?.latitude || (proprtyData as any)?.property?.Latitude;
+        lon = (proprtyData as any)?.property?.longitude || (proprtyData as any)?.property?.Longitude;
+      }
+
+      console.log('🏫 Schools API Debug:', {
+        hasPropertyDatas: !!propertyDatas,
+        lat,
+        lon,
+        propertyDatasKeys: propertyDatas?.data ? Object.keys(propertyDatas.data) : [],
+        propertyKeys: propertyDatas?.data?.property ? Object.keys(propertyDatas.data.property) : []
+      });
+
+      if (!lat || !lon) {
+        console.log('❌ No coordinates available for schools API');
+        return;
+      }
+
+      console.log(`🔍 Fetching schools from: ${process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL}/schools/nearby?lat=${lat}&lon=${lon}`);
+      setSchoolsLoading(true);
+      setSchoolsError(null);
+
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL}/schools/nearby?lat=${lat}&lon=${lon}`
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch schools: ${response.statusText}`);
+        }
+
+        const schools = await response.json();
+        console.log('✅ Schools API response:', schools);
+
+        // Transform Neo4j response to match the expected format
+        const transformedSchools = schools.map((school: any) => ({
+          rating: school.rating && school.rating > 0 ? `${school.rating} / 10` : 'N/A',
+          name: school.name,
+          type: 'Public - Serves this home', // Default type
+          grades: 'K to 12', // Default grades
+          distance: `${school.distanceMiles.toFixed(1)} mi`
+        }));
+
+        console.log('📚 Transformed schools:', transformedSchools);
+        setNearbySchools(transformedSchools);
+      } catch (err) {
+        console.error('❌ Error fetching nearby schools:', err);
+        setSchoolsError(err instanceof Error ? err.message : 'Failed to load schools');
+      } finally {
+        setSchoolsLoading(false);
+      }
+    };
+
+    fetchNearbySchools();
+  }, [propertyDatas, proprtyData]);
+
+
   const transformData = React.useMemo(() => {
     const prop: any = proprtyData
     return {
@@ -664,6 +769,43 @@ const PropertyPreview: React.FC = () => {
   console.log(transformData, "propertyDatas")
   const [showAllSchools, setShowAllSchools] = React.useState(false);
   const [sortedSchools, setSortedSchools] = React.useState<any[]>([]);
+
+  const listPriceCandidate =
+    transformData.prop?.listPrice ??
+    propertyDatas?.data?.listPrice ??
+    propertyData?.listing?.listPriceLow ??
+    propertyData?.listPrice;
+  const listPriceValue = Number(listPriceCandidate);
+  const homePriceValue = Number.isFinite(listPriceValue) ? listPriceValue : undefined;
+
+  const hoaCandidate =
+    propertyDatas?.data?.property?.associationFee ??
+    propertyData?.property?.associationFee;
+  const hoaMonthlyValue = Number(hoaCandidate);
+  const hoaMonthly =
+    Number.isFinite(hoaMonthlyValue) && hoaMonthlyValue > 0 ? hoaMonthlyValue : undefined;
+
+  const taxAmountCandidate =
+    propertyDatas?.data?.homedetails?.taxAmount ??
+    propertyData?.homedetails?.taxAmount;
+  const taxAmountValue = Number(taxAmountCandidate);
+  const taxPercentValue =
+    Number.isFinite(listPriceValue) &&
+      listPriceValue > 0 &&
+      Number.isFinite(taxAmountValue) &&
+      taxAmountValue > 0
+      ? (taxAmountValue / listPriceValue) * 100
+      : undefined;
+  const currentListingId =
+    propertyDatas?.data?.listingId ||
+    propertyData?.listingId ||
+    property?.listingId ||
+    id;
+  const currentCompareProperty =
+    propertyDatas?.data ||
+    propertyData?.listing ||
+    propertyData ||
+    transformData.prop;
 
 
   const [openSection, setOpenSection] = React.useState<string | null>(null);
@@ -689,13 +831,22 @@ const PropertyPreview: React.FC = () => {
     {
       id: "schools",
       title: "Schools Nearby",
-      content: (
-        <SchoolsNearAddress
-          address={schoolPropsData.address}
-          district={schoolPropsData.district}
-          schools={schoolPropsData.schools}
-        />
-      ),
+      content: (() => {
+        const schoolsToDisplay = schoolsLoading ? schoolPropsData.schools : (nearbySchools.length > 0 ? nearbySchools : schoolPropsData.schools);
+        console.log('🎓 Schools being displayed:', {
+          schoolsLoading,
+          nearbySchoolsCount: nearbySchools.length,
+          nearbySchools,
+          schoolsToDisplay
+        });
+        return (
+          <SchoolsNearAddress
+            address={(proprtyData as any)?.address?.unparsedAddress || schoolPropsData.address}
+            district={schoolPropsData.district}
+            schools={schoolsToDisplay}
+          />
+        );
+      })(),
     },
     {
       id: "college",
@@ -714,23 +865,49 @@ const PropertyPreview: React.FC = () => {
     },
     {
       id: "interest",
-      title: "Interest rate predictor",
-      content: <InterestRatePredictor />,
+      title: "Interest Rate Forecast",
+      content: (
+        <div className="space-y-3">
+          <p className="text-xs text-gray-500">
+            For more in-depth calculations please visit{' '}
+            <a
+              href="https://snapinterest.snaphomz.com"
+              target="_blank"
+              rel="noreferrer"
+              className="text-orange-600 hover:underline"
+            >
+              SnapInterest
+            </a>
+            .
+          </p>
+          <InterestRateForecast />
+        </div>
+      ),
     },
     {
       id: "payment",
-      title: "Payment calculator",
-      content: <PaymentCalculator />,
-    },
-    {
-      id: "history",
-      title: "Price history",
-      content: <PropertyHistorySection />,
-    },
-    {
-      id: "tax",
-      title: "Tax history",
-      content: <div>Tax history content here</div>,
+      title: "Monthly mortgage",
+      content: (
+        <div className="space-y-3">
+          <p className="text-xs text-gray-500">
+            For more in-depth calculations please visit{' '}
+            <a
+              href="https://snapinterest.snaphomz.com"
+              target="_blank"
+              rel="noreferrer"
+              className="text-orange-600 hover:underline"
+            >
+              SnapInterest
+            </a>
+            .
+          </p>
+          <MonthlyMortgageCalculator
+            homePrice={homePriceValue}
+            hoaMonthly={hoaMonthly}
+            taxPercent={taxPercentValue}
+          />
+        </div>
+      ),
     },
   ];
 
@@ -926,8 +1103,8 @@ const PropertyPreview: React.FC = () => {
       </Dialog>
       {loading ? (
         <div className='grid grid-flow-row place-items-center gap-3 sm:gap-4 lg:gap-6 lg:h-[28rem] lg:grid-cols-12 lg:gap-7 animate-pulse px-2 sm:px-4 md:px-6 lg:px-0'>
-          <SkeletonLoader className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[392px] w-full bg-gray-200 lg:col-span-9 rounded-lg' />
-          <div className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[392px] w-full lg:col-span-3'>
+          <SkeletonLoader className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[392px] w-full bg-gray-200 lg:col-span-8 rounded-lg' />
+          <div className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[392px] w-full lg:col-span-4'>
             <PropCardLoader className='h-full w-full rounded-lg shadow-lg' />
           </div>
         </div>
@@ -935,7 +1112,7 @@ const PropertyPreview: React.FC = () => {
 
         <div className='grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-12 lg:gap-7 h-auto lg:h-[28rem] transition-all duration-300 ease-in-out px-2 sm:px-4 md:px-6 lg:px-0 max-w-7xl mx-auto'>
 
-          <div className="col-span-12 lg:col-span-9 flex flex-col" ref={leftSection}>
+          <div className="col-span-12 lg:col-span-8 flex flex-col" ref={leftSection}>
             <HeroCollege
               className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[28rem] w-full rounded-lg shadow-lg overflow-hidden'
               imageURLs={
@@ -965,9 +1142,9 @@ const PropertyPreview: React.FC = () => {
               preloadedData={propertyDatas} // Pass existing data to prevent re-fetch
             />
             {/* Top Section: Price/Address and Agent Card */}
-            <div className='mt-3 flex flex-col w-full justify-between items-start gap-4 mb-4'>
+            <div className="mt-3 w-full flex flex-col gap-4 md:grid md:grid-cols-[minmax(0,1fr)_360px] md:items-start md:gap-6 mb-4">
               {/* Left: Price and Address */}
-              <div className="space-y-1 w-full flex-1">
+              <div className="space-y-1 w-full md:flex-1">
                 <div className='inline-flex items-baseline gap-1'>
                   <span className='text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-gray-900'>$</span>
                   <h2 className='text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-gray-900 relative inline-block'>
@@ -1014,9 +1191,9 @@ const PropertyPreview: React.FC = () => {
             </div>
 
             {/* Bottom Section: Estimated Payment and Start The Process Button */}
-            <div className='flex flex-col w-full justify-between items-start gap-3 sm:gap-4 mb-4'>
+            <div className="flex flex-col w-full gap-3 sm:gap-4 mb-4 md:grid md:grid-cols-[minmax(0,1fr)_360px] md:items-center md:gap-6">
               {/* Left: Estimated Payment Section */}
-              <div className="rounded-xl bg-[#FAE6DB] shadow-sm px-3 sm:px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full">
+              <div className="rounded-xl bg-[#FAE6DB] shadow-sm px-3 sm:px-4 py-2 sm:py-2.5 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-2.5 w-full md:max-w-[460px]">
                 <div className="flex items-center gap-2 flex-1">
                   <span className="text-xs sm:text-sm text-gray-600">Est. payment:</span>
                   <span className="text-xs sm:text-sm font-bold text-gray-900">
@@ -1037,28 +1214,24 @@ const PropertyPreview: React.FC = () => {
                 </div>
               </div>
 
-              {/* Right: Buttons Section */}
-              <div className="flex flex-col gap-2 sm:gap-3 w-full">
+              {/* Right: Start The Process Button */}
+              <div className="w-full flex flex-col gap-2">
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="w-full">
-                        <button
-                          disabled
-                          className="w-full bg-gray-400 text-white px-4 sm:px-6 md:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-normal cursor-not-allowed transition-colors"
-                        >
-                          Start The Process
-                        </button>
-                      </div>
+                      <button
+                        className="w-full bg-black text-white px-4 sm:px-6 md:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-normal hover:bg-gray-800 transition-colors"
+                      >
+                        Start The Process
+                      </button>
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>Coming Soon</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-
                 <button
-                  className="w-full bg-black text-white px-4 sm:px-6 md:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-normal hover:bg-gray-800 transition-colors"
+                  className="w-full bg-gray-100 text-black px-4 sm:px-6 md:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-normal border border-gray-200 hover:bg-gray-200 transition-colors"
                   onClick={handleContactAgent}
                   disabled={propertyEngagementMutation.isPending}
                 >
@@ -1085,8 +1258,8 @@ const PropertyPreview: React.FC = () => {
           </div>
 
 
-          <div className="col-span-12 lg:col-span-3 mt-4 lg:mt-0">
-            <div className="w-full rounded-2xl bg-[#FCFCFB] shadow-sm border border-[#EDEDED] p-4 sm:p-5 md:p-6">
+          <div className="col-span-12 lg:col-span-4 mt-4 lg:mt-0">
+            <div className="w-full rounded-2xl bg-[#F9F6EF] shadow-sm border border-[#EFE7DC] p-4 sm:p-5 md:p-6">
               {(() => {
                 // Calculate dynamic values
                 const beds = transformData.prop?.property?.bedroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bedroomsTotal || 0;
@@ -1103,96 +1276,111 @@ const PropertyPreview: React.FC = () => {
                 return (
                   <>
                     {/* Status Badge */}
-                    <div className="inline-flex items-center gap-2 bg-[#F7F7F7] px-3 py-1 rounded-xl text-xs sm:text-[13px] font-medium mb-3 sm:mb-4">
-                      <span className="h-[6px] w-[6px] sm:h-[8px] sm:w-[8px] rounded-full bg-red-500"></span>
+                    <div className="inline-flex items-center gap-2 bg-white/70 px-3 py-1 rounded-full text-xs sm:text-[13px] font-medium text-gray-800">
+                      <span className="h-[6px] w-[6px] rounded-full bg-red-500"></span>
                       {status}
                     </div>
 
                     {/* Top stats */}
-                    <div className="grid grid-cols-3 gap-3 sm:flex sm:items-end sm:gap-4 md:gap-6 lg:gap-8 mb-3 sm:mb-4">
+                    <div className="mt-4 grid grid-cols-3 gap-5">
                       <div>
-                        <p className="text-2xl sm:text-[28px] md:text-[30px] lg:text-[34px] font-semibold leading-none">{beds}</p>
-                        <p className="text-xs sm:text-[13px] text-gray-500 mt-1">beds</p>
+                        <p className="text-2xl sm:text-[30px] font-semibold leading-none">{beds}</p>
+                        <p className="text-xs sm:text-[13px] text-gray-600 mt-1">beds</p>
                       </div>
 
                       <div>
-                        <p className="text-2xl sm:text-[28px] md:text-[30px] lg:text-[34px] font-semibold leading-none">{baths}</p>
-                        <p className="text-xs sm:text-[13px] text-gray-500 mt-1">baths</p>
+                        <p className="text-2xl sm:text-[30px] font-semibold leading-none">{baths}</p>
+                        <p className="text-xs sm:text-[13px] text-gray-600 mt-1">baths</p>
                       </div>
 
                       <div>
-                        <p className="text-2xl sm:text-[28px] md:text-[30px] lg:text-[34px] font-semibold leading-none tracking-tight">
+                        <p className="text-2xl sm:text-[30px] font-semibold leading-none tracking-tight">
                           {sqft ? sqft.toLocaleString('en-US') : "0"}
                         </p>
-                        <p className="text-xs sm:text-[13px] text-gray-500 mt-1">sqft</p>
+                        <p className="text-xs sm:text-[13px] text-gray-600 mt-1">sqft</p>
                       </div>
                     </div>
 
                     {/* Open house - optional, can be made dynamic if data is available */}
                     {transformData.prop?.openHouse && (
-                      <p className="text-[13px] text-gray-600 mb-4">
+                      <p className="text-[13px] text-gray-700 mt-4">
                         Open : {transformData.prop.openHouse}
                       </p>
                     )}
 
-                    <div className="border-t border-gray-200 mb-3 sm:mb-4"></div>
+                    <div className="h-px bg-[#E3DCD2] my-4"></div>
 
                     {/* Middle grid info with SVG icons */}
-                    <div className="grid grid-cols-2 gap-y-3 sm:gap-y-4 text-xs sm:text-[13px]">
-                      <div>
+                    <div className="grid grid-cols-2 gap-y-4 text-xs sm:text-[13px]">
+                      <div className="flex items-start gap-3">
                         <Image
                           src="/assets/images/residental.png"
                           alt="Year Built"
                           width={18}
                           height={18}
-                          className="h-3 w-3 sm:h-4 sm:w-4 mb-1"
+                          className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4"
                         />
-                        <p className="text-sm sm:text-[15px] font-semibold">{yearBuilt}</p>
-                        <p className="text-gray-500 mt-1">Year Built</p>
+                        <div>
+                          <p className="text-sm sm:text-[15px] font-semibold">{yearBuilt}</p>
+                          <p className="text-gray-600 mt-1">Year Built</p>
+                        </div>
                       </div>
 
-                      <div>
+                      <div className="border-l border-[#E3DCD2] pl-4 flex items-start gap-3">
                         <Image
-                          src="/assets/images/resd.png"
+                          src="/assets/images/residential-icon.svg"
                           alt="Property Type"
                           width={18}
                           height={18}
-                          className="h-3 w-3 sm:h-4 sm:w-4 mb-1"
+                          className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4"
                         />
-                        <p className="text-sm sm:text-[15px] font-semibold">{propertyTypeShort}</p>
-                        <p className="text-gray-500 mt-1">Family Residence</p>
+                        <div>
+                          <p className="text-sm sm:text-[15px] font-semibold">{propertyTypeShort}</p>
+                          <p className="text-gray-600 mt-1">Family Residence</p>
+                        </div>
                       </div>
 
-                      <div>
+                      <div className="flex items-start gap-3">
                         <Image
-                          src="/assets/images/area-black.svg"
+                          src="/assets/images/sqft-area-icon.svg"
                           alt="Sqft Area"
                           width={18}
                           height={18}
-                          className="h-3 w-3 sm:h-4 sm:w-4 mb-1"
+                          className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4"
                         />
-                        <p className="text-sm sm:text-[15px] font-semibold">
-                          {sqftArea ? sqftArea.toLocaleString('en-US') : "N/A"}
-                        </p>
-                        <p className="text-gray-500 mt-1">Sqft Area</p>
+                        <div>
+                          <p className="text-sm sm:text-[15px] font-semibold">
+                            {sqftArea ? sqftArea.toLocaleString('en-US') : "N/A"}
+                          </p>
+                          <p className="text-gray-600 mt-1">Sqft Area</p>
+                        </div>
                       </div>
 
-                      <div>
-                        <div className="text-[15px] font-bold text-gray-800 leading-none mb-1">$</div>
-                        <p className="text-[15px] font-semibold">
-                          {pricePerSqft ? `$${pricePerSqft}` : "N/A"}
-                        </p>
-                        <p className="text-gray-500 mt-1">Price/sqft</p>
+                      <div className="border-l border-[#E3DCD2] pl-4 flex items-start gap-3">
+                        <div className="mt-0.5 text-[15px] font-bold text-gray-800 leading-none">$</div>
+                        <div>
+                          <p className="text-[15px] font-semibold">
+                            {pricePerSqft ? `$${pricePerSqft}` : "N/A"}
+                          </p>
+                          <p className="text-gray-600 mt-1">Price/sqft</p>
+                        </div>
                       </div>
                     </div>
 
                     {/* Footer */}
-                    <div className="flex flex-col gap-3 mt-4 sm:mt-6">
+                    <div className="flex items-center justify-between gap-3 mt-5">
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <button className="flex items-center gap-2 text-xs sm:text-[14px] border px-3 sm:px-4 py-2 rounded-full w-full justify-center">
-                              <span>📍</span>
+                            <button className="flex items-center gap-3 text-sm sm:text-[15px] font-semibold text-gray-900 bg-[#F2F2F2] px-5 py-3 rounded-full">
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-gray-900">
+                                <path
+                                  d="M12 22s7-5.686 7-12A7 7 0 1 0 5 10c0 6.314 7 12 7 12Z"
+                                  stroke="currentColor"
+                                  strokeWidth="1.8"
+                                />
+                                <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.8" />
+                              </svg>
                               Street view
                             </button>
                           </TooltipTrigger>
@@ -1205,7 +1393,7 @@ const PropertyPreview: React.FC = () => {
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <button className="text-xs sm:text-[14px] underline w-full text-center">
+                            <button className="text-xs sm:text-[14px] underline">
                               Schedule a tour
                             </button>
                           </TooltipTrigger>
@@ -1281,7 +1469,7 @@ const PropertyPreview: React.FC = () => {
             </div>
           </div>
 
-          <div className="lg:col-span-9 col-span-12 divide-y divide-gray-200 border-t border-gray-200 mt-4 sm:mt-6">
+          <div className="lg:col-span-8 col-span-12 divide-y divide-gray-200 border-t border-gray-200 mt-4 sm:mt-6">
             {/* Accordion List (Home Highlights, Schools, Offers, History, etc.) */}
             {sections.map((section) => (
               <div key={section.id} className="border-b border-gray-200">
@@ -1290,7 +1478,23 @@ const PropertyPreview: React.FC = () => {
                   className="w-full flex items-center justify-between py-3 sm:py-4 text-left focus:outline-none transition-all"
                 >
                   <span className="font-semibold text-sm sm:text-[16px] text-gray-900">
-                    {section.title}
+                    {section.id === 'payment' ? (
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span>{section.title}</span>
+                        <span className="text-[11px] font-normal text-gray-500">
+                          Powered by SnapInterest
+                        </span>
+                      </span>
+                    ) : section.id === 'interest' ? (
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span>{section.title}</span>
+                        <span className="text-[11px] font-normal text-gray-500">
+                          Powered by SnapInterest
+                        </span>
+                      </span>
+                    ) : (
+                      section.title
+                    )}
                   </span>
                   {openSection === section.id ? (
                     <ChevronUp className="text-gray-600 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5" />
@@ -1313,7 +1517,11 @@ const PropertyPreview: React.FC = () => {
             <div className="pb-6 sm:pb-8 md:pb-12 mb-12 sm:mb-16 md:mb-20">
               {/* <h2 className='text-xl font-bold mt-8 mb-4'>Similar homes</h2> */}
               {propertyDatas?.nearbyHomes && propertyDatas.nearbyHomes.length > 0 ? (
-                <NearbyHomesSection nearbyHomes={propertyDatas.nearbyHomes} />
+                <NearbyHomesSection
+                  nearbyHomes={propertyDatas.nearbyHomes}
+                  currentProperty={currentCompareProperty}
+                  currentListingId={currentListingId}
+                />
               ) : (
                 <div className="flex items-center justify-center py-8 sm:py-12 px-4">
                   <p className="text-gray-500 text-sm sm:text-base">Similar homes not available</p>
@@ -1425,3 +1633,5 @@ const PropertyPreview: React.FC = () => {
 };
 
 export { PropertyPreview };
+
+

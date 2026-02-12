@@ -5,6 +5,7 @@ import { Loader2, MessageCircle, RefreshCw } from 'lucide-react';
 import RecentCommentsModal from '@/components/modals/recent-comments-modal';
 import { SocketContext } from '@/providers/socket.context';
 import { getAuthToken } from '@/lib/storage';
+import { getStateFromZip } from '@/utils/addressParser';
 
 interface Comment {
     id: string;
@@ -65,13 +66,21 @@ const RecentCommentsSidebar = ({ properties = [], refreshTrigger = 0, onNewComme
         }
     };
 
-    const getPropertyName = (comment: Comment) => {
-        if (comment.propertyName) return comment.propertyName;
+    const getPropertyAddress = (comment: Comment) => {
         const found = properties.find((p: any) =>
             (p.listingId && p.listingId === comment.propertyId) ||
             (p.id && p.id === comment.propertyId)
         );
-        return found ? found.name : 'Property view';
+        if (found?.address) {
+            const parts = [found.address];
+            const city = found.city;
+            const state = getStateFromZip(found.zipCode);
+            const cityState = [city, state].filter(Boolean).join(', ');
+            if (cityState) parts.push(cityState);
+            if (found.zipCode) parts.push(found.zipCode);
+            return parts.join(', ');
+        }
+        return comment.propertyName || 'Property view';
     };
 
     useEffect(() => {
@@ -128,7 +137,7 @@ const RecentCommentsSidebar = ({ properties = [], refreshTrigger = 0, onNewComme
             </div>
 
             <div className="space-y-4 max-h-[55vh] overflow-y-auto pr-1 custom-scrollbar">
-                {loading ? (
+                {loading && comments.length === 0 ? (
                     <div className="flex justify-center p-4">
                         <Loader2 className="w-5 h-5 animate-spin text-ocOrange" />
                     </div>
@@ -136,7 +145,7 @@ const RecentCommentsSidebar = ({ properties = [], refreshTrigger = 0, onNewComme
                     <p className="text-sm text-gray-400 text-center py-4">No recent comments.</p>
                 ) : (
                     comments.map((comment) => {
-                        const name = getPropertyName(comment);
+                        const name = getPropertyAddress(comment);
                         const showName = name && name !== 'Property view';
                         return (
                             <div key={comment.id} className="border-b border-gray-100 pb-3 last:border-0 last:pb-0">

@@ -109,6 +109,7 @@ export function CompleteOnboardingForm() {
               email: response?.data?.data?.completeSignUp?.email,
               password: values.password,
               isHome: true,
+              isFirstLogin: true,
             });
           }
         },

@@ -4,6 +4,7 @@ import axios from 'axios';
 import { format } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 import { getAuthToken } from '@/lib/storage';
+import { getStateFromZip } from '@/utils/addressParser';
 
 interface Comment {
     id: string;
@@ -70,13 +71,21 @@ const RecentCommentsModal: React.FC<RecentCommentsModalProps> = ({ isOpen, onClo
         }
     };
 
-    const getPropertyName = (comment: Comment) => {
-        if (comment.propertyName) return comment.propertyName;
+    const getPropertyAddress = (comment: Comment) => {
         const found = properties.find((p: any) =>
             (p.listingId && p.listingId === comment.propertyId) ||
             (p.id && p.id === comment.propertyId)
         );
-        return found ? found.name : 'Property view';
+        if (found?.address) {
+            const parts = [found.address];
+            const city = found.city;
+            const state = getStateFromZip(found.zipCode);
+            const cityState = [city, state].filter(Boolean).join(', ');
+            if (cityState) parts.push(cityState);
+            if (found.zipCode) parts.push(found.zipCode);
+            return parts.join(', ');
+        }
+        return comment.propertyName || 'Property view';
     };
 
     useEffect(() => {
@@ -109,7 +118,7 @@ const RecentCommentsModal: React.FC<RecentCommentsModalProps> = ({ isOpen, onClo
                         <p className="text-center text-gray-500 mt-10">No activity yet.</p>
                     ) : (
                         comments.map((comment) => {
-                            const name = getPropertyName(comment);
+                            const name = getPropertyAddress(comment);
                             const showName = name && name !== 'Property view';
 
                             return (

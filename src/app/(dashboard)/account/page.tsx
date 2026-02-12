@@ -202,6 +202,12 @@ export default function AccountPage() {
             >
               Search History
             </TabsTrigger>
+            <TabsTrigger
+              value='view-history'
+              className='rounded-none border-b-2 border-transparent px-4 py-2 font-medium data-[state=active]:border-black data-[state=active]:bg-transparent'
+            >
+              View History
+            </TabsTrigger>
           </TabsList>
           <ScrollBar orientation="horizontal" />
         </ScrollArea>

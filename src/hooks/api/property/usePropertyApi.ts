@@ -37,6 +37,7 @@ import { useEditPropertyFormContext } from '@/providers/edit-property-context';
 import axios from 'axios';
 import { GET_PROPERTY_SEARCH_PREFERENCE_AI_URL, PROPERTY_DETAIL_SEARCH_AI_URL } from '@/shared/constants/env';
 import { getAuthToken } from '@/lib/storage';
+import { getIsAuthExpired } from '@/lib/api/axios';
 
 interface SharePropertyRequestBody {
   role: string;
@@ -305,6 +306,10 @@ export const useGetPropertyPreference = (email?: string) => {
   const getPropertyPreferenceFromDB = useQuery({
     queryKey: ['property-preference-db'],
     queryFn: async () => {
+      // Bail out immediately if auth is expired to prevent Unauthorized errors
+      if (getIsAuthExpired()) {
+        throw new Error('Session expired. Please login again.');
+      }
       if (!token) {
         throw new Error('No authentication token found');
       }
@@ -389,6 +394,10 @@ export const useUpdatePropertyPreference = (email?: string) => {
       city?: string;
       onboardingCompleted?: boolean;
     }) => {
+      // Bail out immediately if auth is expired
+      if (getIsAuthExpired()) {
+        throw new Error('Session expired. Please login again.');
+      }
       if (!token) {
         throw new Error('No authentication token found');
       }
@@ -478,13 +487,18 @@ export const useUpdatePropertyPreference = (email?: string) => {
     },
     onSuccess: async (data: any) => {
       console.log('Preference updated:', data);
-      success({ message: "Preference has been successfully updated" });
+      // NOTE: Toast is NOT shown here to prevent auto-sync from layouts triggering it on every page load.
+      // The calling component should show its own toast in the mutate onSuccess callback when user explicitly saves.
       // Invalidate queries to refetch
       queryClientHook.invalidateQueries({ queryKey: ['property-preference-db'] });
       queryClientHook.invalidateQueries({ queryKey: ['property-preference-ai'] });
     },
     onError: (err: any) => {
-      error({ message: err?.response?.data?.errors?.[0]?.message || err?.message || 'Failed to update preference' });
+      // Don't show toast for auth/session errors – the global AuthSessionSync handler
+      // will show a single "session expired" toast and redirect to login.
+      const msg = err?.message || '';
+      if (msg.includes('Unauthorized') || msg.includes('Session expired')) return;
+      error({ message: err?.response?.data?.errors?.[0]?.message || msg || 'Failed to update preference' });
     },
   });
 

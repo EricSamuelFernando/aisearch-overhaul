@@ -7,6 +7,7 @@ import client from '@/lib/client';
 import { storeCookie } from '@/lib/storage';
 import { AUTH_TOKEN, USER_ROLE } from '@/shared/constants/env';
 import { login } from '@/slices/auth/auth.slice';
+import { resetAuthExpired } from '@/lib/api/axios';
 import { setAuthToken } from '@/slices/auth/register.slices';
 import { IAuthUser } from '@/types/user.types';
 import { GOOGLE_LOGIN_ENDPOINT } from '@/utils/apis';
@@ -52,6 +53,7 @@ const useGoogleAuthMutation = () => {
         console.log('Login Success:', data?.data); // Log success response
 
         success({ message: data?.data?.message });
+        resetAuthExpired();
         setAuthToken(token);
         login(user);
         storeCookie({ key: AUTH_TOKEN, value: token });

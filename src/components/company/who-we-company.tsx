@@ -18,24 +18,24 @@ const WhoWeCompany = () => {
 
         {/* Content */}
         <div className="relative max-w-4xl text-center text-[#1B1B1B]">
-          <h2 className="text-3xl font-bold mb-6">
+          <h2 className="text-4xl font-bold mb-6">
             Who We <span className="font-normal">Are</span>
           </h2>
 
-          <p className="mb-6 text-base text-[#595858] max-w-[80%] mx-auto">
+          <p className="mb-6 text-lg text-[#595858] max-w-[80%] mx-auto">
             We're not just another real estate company — we're a movement. At
             Snaphomz, we're a united community who combine deep market knowledge
             with technological innovation to transform the way you find and
             secure your dream home.
           </p>
 
-          <p className="mb-6 text-base text-[#595858] max-w-[80%] mx-auto">
+          <p className="mb-6 text-lg text-[#595858] max-w-[80%] mx-auto">
             Setting foundation first, we build lasting relationships on trust
             and expertise, with transparency in every transaction through
             simplified technology.
           </p>
 
-          <p className="text-base text-[#595858] max-w-[80%] mx-auto">
+          <p className="text-lg text-[#595858] max-w-[80%] mx-auto">
             Community growth starts with individual success
           </p>
         </div>
@@ -46,9 +46,10 @@ const WhoWeCompany = () => {
         className="relative w-full pt-20 pb-56 px-6 flex justify-center"
         style={{
           backgroundImage: `url('/assets/images/company-whowe.jpg')`,
-          backgroundSize: 'cover',
+          backgroundSize: '100% auto',
+          backgroundRepeat: 'no-repeat',
           backgroundPosition: 'center',
-          minHeight: '700px',
+          minHeight: '960px',
         }}
       >
         {/* Light overlay */}
@@ -57,7 +58,7 @@ const WhoWeCompany = () => {
         <div className="relative max-w-6xl w-full">
 
           {/* ========== MOBILE SLIDER (NO SCROLLBAR) ========== */}
-          <div className="lg:hidden absolute top-[115%] left-1/2 -translate-x-1/2 w-full">
+          <div className="lg:hidden absolute top-[calc(115%+60px)] left-1/2 -translate-x-1/2 w-full">
             <div className="flex gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-hide scroll-smooth px-4">
 
               <div className="snap-center min-w-[300px] bg-[#F7E9D7] rounded-2xl px-6 py-8 text-center shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
@@ -90,7 +91,7 @@ const WhoWeCompany = () => {
           </div>
 
           {/* ========== DESKTOP GRID ========== */}
-          <div className="hidden lg:grid grid-cols-3 gap-8 absolute top-[92%] left-1/2 -translate-x-1/2 w-full px-4">
+          <div className="hidden lg:grid grid-cols-3 gap-8 absolute top-[calc(92%+60px)] left-1/2 -translate-x-1/2 w-full px-4">
 
             <div className="bg-[#F7E9D7] rounded-2xl px-8 py-10 text-center shadow-[0_25px_70px_rgba(0,0,0,0.3)]">
               <h3 className="font-semibold text-xl mb-3">People Driven</h3>

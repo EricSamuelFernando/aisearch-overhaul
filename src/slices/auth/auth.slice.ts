@@ -1,7 +1,7 @@
 import { User, UserType, PropertyPreference } from '@/types/user.types';
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
-import { clearItem, deleteStorageCookie, storeCookie } from '@/lib/storage';
-import { AUTH_TOKEN, USER_ROLE } from '@/shared/constants/env';
+import { clearAllAuthStorage, storeCookie } from '@/lib/storage';
+import { USER_ROLE } from '@/shared/constants/env';
 import { createPersistStorage } from '@/lib/store';
 import { generateTempUserId } from '@/utils/math-utilities';
 import CognitoAuth from '@/lib/cognito';
@@ -49,19 +49,11 @@ const authSlice = createSlice({
         console.error('Error signing out from Cognito:', error);
         // Continue with logout even if Cognito logout fails
       }
-      
-      // Clear local storage and cookies
-      clearItem();
-      deleteStorageCookie({ key: AUTH_TOKEN });
-      deleteStorageCookie({ key: USER_ROLE });
-      
-      // Clear Cognito-related localStorage items
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('userEmail');
-        localStorage.removeItem('userAccessToken');
-        localStorage.removeItem('userDetails');
-      }
-      
+
+      // Nuclear cleanup: wipe ALL auth data from cookies, localStorage,
+      // sessionStorage, Redux Persist, and Cognito SDK storage.
+      clearAllAuthStorage();
+
       return initialState;
     },
   },

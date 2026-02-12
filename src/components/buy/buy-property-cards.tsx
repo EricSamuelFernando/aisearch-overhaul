@@ -42,14 +42,19 @@ function BuyPropertyCards({ forwardedRef, selectedProperty }: Props) {
   return (
     <div ref={forwardedRef} className="flex h-full flex-col">
       <div className="flex-auto">
-       <div
+        <div
           className={cn(
-            'w-full grid grid-cols-1 gap-y-4 gap-x-8',
-            currentView === 'map'
-              ? 'md:grid-cols-2 md:gap-x-6 md:gap-y-6 lg:grid-cols-2'
-              : 'md:grid-cols-2 md:gap-x-4 lg:grid-cols-4',
+            currentView === 'grid' ? 'max-w-[1450px] mx-auto w-full' : 'w-full',
           )}
         >
+          <div
+            className={cn(
+              'w-full',
+              currentView === 'map'
+                ? 'grid grid-cols-1 gap-y-4 gap-x-8 md:grid-cols-2 md:gap-x-6 md:gap-y-6 lg:grid-cols-2'
+                : 'grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4 lg:grid-cols-[repeat(4,320px)] lg:justify-between',
+            )}
+          >
           {/* Show loader while fetching properties */}
           {isLoading ? (
             <>
@@ -72,6 +77,7 @@ function BuyPropertyCards({ forwardedRef, selectedProperty }: Props) {
                           ? 'bg-white p-1 bg-orange-500 rounded-2xl shadow-xl'
                           : '',
                         'transition duration-300 ease-in-out',
+                        currentView === 'grid' ? 'w-[320px]' : '',
                       )}
                     >
                       <PropertyCards {...prop} />
@@ -87,6 +93,7 @@ function BuyPropertyCards({ forwardedRef, selectedProperty }: Props) {
               )}
             </>
           )}
+          </div>
         </div>
       </div>
     </div>

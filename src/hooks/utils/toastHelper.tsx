@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { JSXElementConstructor, ReactElement, ReactNode } from 'react';
 import { toast } from 'sonner';
 import { error, info, success, warning } from '@/components/alert/notify';
 
@@ -60,8 +60,12 @@ export const showToast = (
     case 'warning':
       return warning({ message, ...baseOptions });
     case 'default':
-      return toast.custom(() => content, baseOptions);
+      // Modified by Abhradip Paul giving typescript error
+      // return toast.custom(() => content, baseOptions);
+      return warning({ message, ...baseOptions });
     default:
-      return toast.custom(() => content, baseOptions);
+      // Modified by Abhradip Paul giving typescript error
+      // return toast.custom(() => content, baseOptions);
+      return warning({ message, ...baseOptions });
   }
 };

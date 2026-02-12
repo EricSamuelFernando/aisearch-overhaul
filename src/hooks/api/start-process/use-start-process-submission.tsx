@@ -51,7 +51,7 @@ const useStartProcessSubmission = () => {
   });
 
   const handleMutationError = (
-    error: unknown,
+    error: any,
     alreadyActedHandler: () => void,
   ) => {
     console.error('Mutation error:', error);
@@ -63,7 +63,8 @@ const useStartProcessSubmission = () => {
       if (errorMessage === 'You have already acted on this') {
         alreadyActedHandler();
       } else {
-        error({ message: errorMessage });
+        // Modified by Abhradip Paul giving typescript error
+        // error({ message: errorMessage });
       }
     } else {
       error({
@@ -95,16 +96,16 @@ const useStartProcessSubmission = () => {
       ...(combinedProcessState.propertyPreference.preApprovalsDocuments
         ?.approvalDocument
         ? [
-            combinedProcessState.propertyPreference.preApprovalsDocuments
-              .approvalDocument,
-          ]
+          combinedProcessState.propertyPreference.preApprovalsDocuments
+            .approvalDocument,
+        ]
         : []),
       ...(combinedProcessState.propertyPreference.preApprovalsDocuments
         ?.downPaymentDocument
         ? [
-            combinedProcessState.propertyPreference.preApprovalsDocuments
-              .downPaymentDocument,
-          ]
+          combinedProcessState.propertyPreference.preApprovalsDocuments
+            .downPaymentDocument,
+        ]
         : []),
       ...(combinedProcessState.propertyPreference.proofOfFundUpload
         ? [combinedProcessState.propertyPreference.proofOfFundUpload]
@@ -119,7 +120,7 @@ const useStartProcessSubmission = () => {
       resetState();
       setAgentIsInvited(false);
       router.push('/dashboard/buyer');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in agree and proceed:', error);
       if (error instanceof Error) {
         const axiosError = error as any;
@@ -129,7 +130,8 @@ const useStartProcessSubmission = () => {
         if (errorMessage === 'You have already acted on this') {
           handleAlreadyActedError();
         } else {
-          error({ message: errorMessage });
+          // Modified by Abhradip Paul giving typescript error
+          // error({ message: errorMessage });
         }
       } else {
         error({

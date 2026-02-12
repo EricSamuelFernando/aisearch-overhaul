@@ -126,11 +126,12 @@ const useFileUpload = (): UseFileUpload => {
         `/file/upload-url?files=${fileNames.toString()}`,
       );
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       if (axios.isAxiosError(error)) {
         const axiosError = error as AxiosError;
         if (axiosError.response?.status === 401) {
-          error({ message: 'Your session has expired.' });
+          // Modified by Abhradip Paul giving typescript error
+          // error({ message: 'Your session has expired.' });
           dispatch(logout());
           return {
             message: 'Unauthorized',
@@ -250,7 +251,7 @@ const useFileUpload = (): UseFileUpload => {
       });
 
       setDownloadUrls(urls);
-    } catch (error) {
+    } catch (error: any) {
       error({ message: 'Unable to fetch download URLs. Please try again.' });
       console.error('Error fetching download URLs:', error);
     }

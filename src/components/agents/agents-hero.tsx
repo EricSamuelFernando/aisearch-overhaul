@@ -517,7 +517,7 @@ export default function HeroLayout({
               src="/assets/images/agents-hero.jpg"
               alt="Agents Hero"
               fill
-              className="object-cover"
+              className="object-cover object-[50%_95%]"
               priority
             />
           </div>
@@ -663,42 +663,7 @@ export default function HeroLayout({
               )}
             </div>
 
-            <div className="mt-12 w-full max-w-3xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 z-10">
-              <div className="relative rounded-2xl overflow-hidden bg-white/40 backdrop-blur-md p-6 flex items-center space-x-4 shadow-lg">
-                <div className="w-12 h-12 rounded-full overflow-hidden border border-gray-300 relative">
-                  <Image
-                    src="/assets/images/agetn-hero-deop.jpg"
-                    alt="Racheal"
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                <div>
-                  <p className="font-semibold text-black">Racheal Wyatt</p>
-                  <p className="text-sm text-orange-900 font-medium">Buyer</p>
-                </div>
-              </div>
-
-              <div className="relative rounded-2xl overflow-hidden bg-white/40 backdrop-blur-md p-6 flex items-center space-x-4 shadow-lg">
-                <div className="w-12 h-12 rounded-full bg-blue-200 flex items-center justify-center">
-                  <span className="font-semibold text-blue-800">JS</span>
-                </div>
-                <div>
-                  <p className="font-semibold text-black">John Smith</p>
-                  <p className="text-sm text-orange-900 font-medium">Agent</p>
-                </div>
-              </div>
-
-              <div className="relative rounded-2xl overflow-hidden bg-white/40 backdrop-blur-md p-6 flex items-center space-x-4 shadow-lg">
-                <div className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center">
-                  <span className="font-semibold text-gray-800">KW</span>
-                </div>
-                <div>
-                  <p className="font-semibold text-black">Kevin Winston</p>
-                  <p className="text-sm text-orange-900 font-medium">Broker</p>
-                </div>
-              </div>
-            </div>
+            {/* Removed the three hero cards below the search bar per request */}
 
           </div>
         </div>

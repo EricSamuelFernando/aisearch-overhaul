@@ -71,7 +71,7 @@ function SellHero() {
             </h1>
 
             <div className="w-full max-w-2xl md:mt-8 [&>div]:w-full [&>div>form]:!flex [&>div>form]:items-center [&>div>form]:gap-2 [&>div>form]:w-full [&_button]:!w-auto [&_button]:flex-shrink-0 [&_button]:md:!w-auto [&_input]:flex-1">
-              <HeroSearchForm placeholderText="Describe Your Dream Home" searchType="sell" />
+              <HeroSearchForm placeholderText="Enter your MLS#" searchType="sell" />
             </div>
           </div>
 

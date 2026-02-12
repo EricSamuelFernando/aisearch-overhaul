@@ -1,5 +1,5 @@
 'use client';
-import { AUTH_TOKEN, USER_ROLE, isProd } from '@/shared/constants/env';
+import { AUTH_TOKEN, REFRESH_TOKEN, USER_ROLE, isProd } from '@/shared/constants/env';
 import { deleteCookie, getCookie, setCookie } from 'cookies-next';
 import DOMPurify from 'dompurify';
 
@@ -99,4 +99,54 @@ export const removeLocalItem = ({ key }: StorageProps): void => {
 };
 export const clearItem = (): void => {
   sessionStorage.clear();
+};
+
+/**
+ * Nuclear cleanup: remove EVERY piece of auth-related data from
+ * cookies, localStorage, and sessionStorage.
+ *
+ * Call this on logout and on session-expired to guarantee
+ * the browser has zero leftover auth state.
+ */
+export const clearAllAuthStorage = (): void => {
+  if (typeof window === 'undefined') return;
+
+  // ── 1. Cookies ────────────────────────────────────────────────────
+  deleteStorageCookie({ key: AUTH_TOKEN });
+  deleteStorageCookie({ key: USER_ROLE });
+  deleteStorageCookie({ key: REFRESH_TOKEN });
+
+  // ── 2. SessionStorage ─────────────────────────────────────────────
+  try { sessionStorage.clear(); } catch (_) { /* SSR guard */ }
+
+  // ── 3. Known auth-related localStorage keys ───────────────────────
+  const keysToRemove = [
+    'userEmail',
+    'userAccessToken',
+    'userRefreshToken',
+    'userDetails',
+    'forgotPasswordEmail',
+    'token',
+    'role',
+  ];
+  keysToRemove.forEach((k) => {
+    try { localStorage.removeItem(k); } catch (_) { /* ignore */ }
+  });
+
+  // ── 4. Redux-Persist stored state ─────────────────────────────────
+  // persist key is 'root' → stored as 'persist:root' in localStorage
+  try { localStorage.removeItem('persist:root'); } catch (_) { /* ignore */ }
+
+  // ── 5. Cognito SDK localStorage items ─────────────────────────────
+  // The Cognito JS SDK stores tokens under keys that start with
+  // "CognitoIdentityServiceProvider." – remove them all.
+  try {
+    const cognitoKeys = Object.keys(localStorage).filter(
+      (k) =>
+        k.startsWith('CognitoIdentityServiceProvider') ||
+        k.startsWith('aws.cognito') ||
+        k.startsWith('amplify-'),
+    );
+    cognitoKeys.forEach((k) => localStorage.removeItem(k));
+  } catch (_) { /* ignore */ }
 };

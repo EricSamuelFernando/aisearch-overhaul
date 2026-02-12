@@ -3,7 +3,7 @@ import axios, {
   InternalAxiosRequestConfig,
   AxiosInstance,
 } from 'axios';
-import { getAuthToken, storeCookie, deleteStorageCookie, clearItem, getStoredCookie } from '@/lib/storage';
+import { getAuthToken, storeCookie, getStoredCookie, clearAllAuthStorage } from '@/lib/storage';
 import { AUTH_TOKEN, REFRESH_TOKEN } from '@/shared/constants/env';
 
 const baseURL =
@@ -26,6 +26,39 @@ let isAuthExpired = false;
  */
 export const resetAuthExpired = () => {
   isAuthExpired = false;
+  // Notify AuthSessionSync that the user logged in again,
+  // so it can reset its hasHandled flag for future session expirations.
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('auth-session-reset'));
+  }
+};
+
+/**
+ * Check whether auth has been marked as expired.
+ * Useful for code that uses raw `axios` instead of the custom API instance,
+ * so it can bail out early and avoid showing redundant error toasts.
+ */
+export const getIsAuthExpired = () => isAuthExpired;
+
+/**
+ * Mark auth as expired and dispatch the session-expired event.
+ * Call this from global error handlers (e.g. React Query onError) when
+ * an "Unauthorized" error is detected on calls that bypass this interceptor.
+ */
+export const markAuthExpired = () => {
+  if (isAuthExpired) return; // already handled
+  isAuthExpired = true;
+
+  // Nuclear cleanup: wipe ALL auth data (cookies, localStorage, sessionStorage,
+  // Redux Persist, and Cognito SDK storage) immediately so no stale token
+  // can be picked up by any subsequent code path.
+  clearAllAuthStorage();
+
+  // Dispatch custom event so the React app can handle forced logout
+  // (AuthSessionSync will dispatch Redux logout, show a single toast, redirect)
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('auth-session-expired'));
+  }
 };
 
 const processQueue = (error: any, token: string | null = null) => {
@@ -105,20 +138,9 @@ const refreshTokenLogic = async (originalRequest: any) => {
   } catch (err) {
     processQueue(err, null);
 
-    // Mark auth as expired to prevent further API calls from triggering more refresh attempts
-    isAuthExpired = true;
-
-    // Cleanup on failure
-    deleteStorageCookie({ key: AUTH_TOKEN });
-    deleteStorageCookie({ key: REFRESH_TOKEN });
-    localStorage.removeItem('userAccessToken');
-    localStorage.removeItem('userRefreshToken');
-    localStorage.removeItem('userDetails');
-
-    // Dispatch custom event so the React app can handle forced logout (show one toast + redirect)
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('auth-session-expired'));
-    }
+    // Mark auth as expired and do full cleanup
+    // markAuthExpired() handles: set flag, clear ALL storage, dispatch event
+    markAuthExpired();
 
     return Promise.reject(err);
   } finally {

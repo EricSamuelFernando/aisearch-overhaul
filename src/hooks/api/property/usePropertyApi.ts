@@ -3,8 +3,6 @@
 import React, { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
-
 import { success, error } from '@/components/alert/notify';
 import {
   IPropertiesResponse,
@@ -169,9 +167,17 @@ export const usePublishMutation = (publishStatus: string) => {
       queryClient.invalidateQueries({ queryKey: ['property', id] });
 
       if (data.message) {
-        toast.success(data.message || 'Success! The property is now published."');
+        success({
+          message:
+            data.message ||
+            'Success! The property is now published."',
+        });
       } else {
-        toast.error(data.message || 'The property could not be published. Please try again.');
+        error({
+          message:
+            data.message ||
+            'The property could not be published. Please try again.',
+        });
       }
     },
 
@@ -180,7 +186,7 @@ export const usePublishMutation = (publishStatus: string) => {
         error.response?.data?.message ||
         'An error occurred while publishing the property.';
       console.error('Failed to update property status', error);
-      toast.error(errorMessage);
+      error({ message: errorMessage });
     },
   });
 

@@ -31,7 +31,10 @@ export const ForgotPasswordModalForm = ({ onEmailSubmit, onBack }: ForgotPasswor
       return { message: 'Password reset code sent to your email.', email };
     },
     onSuccess: (data) => {
-      success({ message: data?.message || 'Password reset code sent to your email.' });
+      success({
+        message: 'Reset password email sent',
+        subtitle: 'Reset email sent. Go catch it before it buries itself.',
+      });
       // Store email in localStorage for the next step
       if (data?.email) {
         localStorage.setItem('forgotPasswordEmail', data.email);

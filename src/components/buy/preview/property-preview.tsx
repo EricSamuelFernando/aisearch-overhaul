@@ -484,7 +484,11 @@ const PropertyPreview: React.FC = () => {
             }));
           }
 
-          success({ message: message || 'Invitation sent successfully!' });
+          success({
+            message: 'Agent Invite Sent Successfully',
+            subtitle:
+              'Keep browsing. We will notify you when they accept or decline.',
+          });
           setInviteAgentEmail('');
           setInviteEmailError('');
           setIsInviteAgentModalOpen(false);

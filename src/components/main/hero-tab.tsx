@@ -828,6 +828,7 @@ import { toast } from 'react-toastify';
 import { message } from '@public/assets/icons';
 import { PROPERTY_SEARCH_AI_URL, PROPERTY_SEARCH_DATA_LIMIT_AI_URL } from '@/shared/constants/env';
 import { setPropertyQuery } from '@/slices/property/property-slice';
+import { cn } from '@/lib/utils';
 
 const StarIcon = () => (
   <img
@@ -844,6 +845,14 @@ type Suggestion = {
   text: string;
 };
 
+type HeroSearchFormProps = {
+  placeholderText?: string;
+  searchType?: string;
+  onSearchStateChange?: (expanded: boolean) => void;
+  showOutline?: boolean;
+  disableAutoExpand?: boolean;
+};
+
 const buyerSuggestions: Suggestion[] = [
   { id: '1', text: '3-bedroom homes near top-rated schools in Manhattan Beach' },
   { id: '2', text: "I'm looking for 4-bedroom houses in Los Angeles, California with a pool" },
@@ -858,7 +867,7 @@ const sellerSuggestions: Suggestion[] = [
   { id: '4', text: "How long will it take to sell my home in my area?" },
 ];
 
-export default function HeroTab() {
+export default function HeroTab(props: HeroSearchFormProps) {
   const [activeTab, setActiveTab] = useState<string | null>('buy');
   const router = useRouter();
 
@@ -890,7 +899,7 @@ export default function HeroTab() {
         </div>
       )}
 
-      <HeroSearchForm />
+      <HeroSearchForm {...props} />
     </div>
   );
 }
@@ -899,11 +908,9 @@ export const HeroSearchForm = ({
   placeholderText,
   searchType,
   onSearchStateChange,
-}: {
-  placeholderText?: string;
-  searchType?: string;
-  onSearchStateChange?: (expanded: boolean) => void;
-}) => {
+  showOutline = false,
+  disableAutoExpand = false,
+}: HeroSearchFormProps) => {
   const {
     allProperties,
     addProperties,
@@ -1031,7 +1038,9 @@ export const HeroSearchForm = ({
   const handleSearchSubmit = async (queryToSearch: string) => {
     if (!queryToSearch.trim()) return;
 
-    setIsExpanded(true);
+    if (!disableAutoExpand) {
+      setIsExpanded(true);
+    }
     if (onSearchStateChange) onSearchStateChange(true);
 
     setIsSearching(true);
@@ -1128,18 +1137,23 @@ export const HeroSearchForm = ({
   const pathname = usePathname();
   const isSeller = searchType?.toLowerCase() === 'sell' || pathname?.includes('sell');
   const currentSuggestions = isSeller ? sellerSuggestions : buyerSuggestions;
-  const shouldLockLayout = pathname === '/' || pathname?.includes('/home');
-
-  useLayoutEffect(() => {
-    if (!shouldLockLayout || lockedHeight !== null || !cardRef.current) return;
-    const rect = cardRef.current.getBoundingClientRect();
-    if (rect.height) setLockedHeight(rect.height);
-  }, [shouldLockLayout, lockedHeight]);
+  const containerClasses = cn(
+    "bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full max-w-[1100px]",
+    showOutline &&
+      "border border-[#E2E4EA] focus-within:border-[#F07639] focus-within:shadow-[0_20px_55px_rgba(240,118,57,0.15)] transition-[border,box-shadow] duration-200"
+  );
+  const isCardExpanded = !disableAutoExpand && isExpanded;
 
   return (
-    <div
-      className="relative w-full"
-      style={shouldLockLayout && lockedHeight ? { height: lockedHeight } : undefined}
+    <motion.div
+      layout
+      initial={false}
+      animate={{
+        borderRadius: isCardExpanded ? 32 : 12,
+        padding: isCardExpanded ? 50 : 8,
+      }}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      className={containerClasses}
     >
       <motion.div
         ref={cardRef}

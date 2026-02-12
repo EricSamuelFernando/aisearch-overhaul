@@ -4,7 +4,7 @@ import { TabLinks } from '@/interfaces/tab-link.interface';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { useQueryState } from 'nuqs';
-import { Fragment, ReactNode } from 'react';
+import { Fragment, ReactNode, useCallback, useEffect, useMemo } from 'react';
 
 type Props = {
   basePath?: string;
@@ -28,11 +28,19 @@ function TabSwitch({
   defaultKey = 'dashboard',
   onChangeTab,
 }: Props) {
+  const visibleTabs = useMemo(() => tabs.filter((tab) => !tab.hidden), [tabs]);
+  const safeDefaultKey = useMemo(() => {
+    if (visibleTabs.find((tab) => tab.query === defaultKey)) {
+      return defaultKey;
+    }
+    return visibleTabs[0]?.query ?? defaultKey;
+  }, [defaultKey, visibleTabs]);
+
   const [view, setView] = useQueryState(queryKey, {
-    defaultValue: defaultKey,
+    defaultValue: safeDefaultKey,
   });
   const router = useRouter();
-  const handleChangeTab = (val: string) => {
+  const handleChangeTab = useCallback((val: string) => {
     console.log("seller : ",val,onChangeTab);
     setView(val);
     if(val === 'conversation') {
@@ -41,13 +49,24 @@ function TabSwitch({
     if (onChangeTab) {
       onChangeTab(val);
     }
-  };
+  }, [onChangeTab, router, setView]);
+
+  useEffect(() => {
+    const currentTabIsVisible = visibleTabs.some((tab) => tab.query === view);
+    if (!currentTabIsVisible && visibleTabs[0]?.query) {
+      handleChangeTab(visibleTabs[0].query);
+    }
+  }, [handleChangeTab, view, visibleTabs]);
+
+  if (!visibleTabs.length) {
+    return null;
+  }
 
   return (
     <div className={cn('flex h-24 w-full items-center gap-x-2', className)}>
       {backButton ? <Fragment>{backButton}</Fragment> : null}
       <div className='flex h-full items-center justify-center gap-x-6 px-[3.219rem]'>
-        {tabs.map((item) => {
+        {visibleTabs.map((item) => {
           return (
             <div
               className={cn(

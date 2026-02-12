@@ -4,7 +4,8 @@ import ConversationPageForBuyerAgentChat from '@/components/chat-box/conversatio
 import { useGetUserEngagementsAgents } from '@/hooks/api/agent/useAgentProperty';
 import { useAgentConversationApi } from '@/hooks/api/auth/useConversationApi';
 import { useUserAgentMessageApi } from '@/hooks/api/auth/useMessageApi';
-import { useSearchParams } from 'next/navigation';
+import { BUYER_DASHBOARD_SECTION_VISIBILITY } from '@/utils/data';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 
@@ -24,6 +25,9 @@ const ChatBox = () => {
   const [search, setSearch] = useState('');
   const [threadParticipants, setThreadParticipant] = useState<any>([]);
   const params = useSearchParams();
+  const router = useRouter();
+  const isConversationVisible =
+    BUYER_DASHBOARD_SECTION_VISIBILITY.conversation !== false;
   const engagedProperty = useSelector(
     (state: { property: { engagedProperty: any } }) =>
       state.property.engagedProperty,
@@ -80,11 +84,21 @@ const ChatBox = () => {
   };
 
   useEffect(() => {
+    if (!isConversationVisible) {
+      router.replace('/dashboard/chat');
+    }
+  }, [isConversationVisible, router]);
+
+  useEffect(() => {
     if (engagedProperty && agents) {
       // Get threads by Buyer Agents only if engagedProperty and agents are available
       getAllConversationThreadsByBuyerAgents();
     }
   }, [engagedProperty, agents, isRead, search]);
+
+  if (!isConversationVisible) {
+    return null;
+  }
 
   return (
     <>

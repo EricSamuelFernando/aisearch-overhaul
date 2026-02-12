@@ -138,9 +138,6 @@ const refreshTokenLogic = async (originalRequest: any) => {
   } catch (err) {
     processQueue(err, null);
 
-    // Mark auth as expired to prevent further API calls from triggering more refresh attempts
-    isAuthExpired = true;
-
     // Mark auth as expired and do full cleanup
     // markAuthExpired() handles: set flag, clear ALL storage, dispatch event
     markAuthExpired();

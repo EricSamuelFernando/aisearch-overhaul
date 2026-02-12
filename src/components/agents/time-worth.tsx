@@ -5,6 +5,16 @@ import { Slider } from '../ui/slider';
 
 const TimeWorth = () => {
   const [hours, setHours] = useState(5);
+  const [hourlyRateInput, setHourlyRateInput] = useState('');
+
+  const hourlyRate = Number(hourlyRateInput || 0);
+  const hoursPerMonth = hours * 4;
+  const valueOfTime = hoursPerMonth * hourlyRate;
+  const subscriptionCost = 19;
+  const totalRoi = valueOfTime - subscriptionCost;
+
+  const formatCurrency = (value: number) =>
+    `$${Math.max(0, Math.round(value)).toLocaleString()}`;
 
   return (
     <section className="bg-[#FFF6EC] pt-8 pb-6 sm:pt-16 sm:pb-12 lg:pt-20 lg:pb-16 px-4 sm:px-6 lg:px-0">
@@ -27,11 +37,11 @@ const TimeWorth = () => {
               </p>
 
               <h3 className="text-4xl sm:text-5xl font-semibold text-[#F07639] leading-none">
-                $981
+                {formatCurrency(totalRoi)}
               </h3>
 
               <p className="text-sm text-[#D4C8BD]">
-                Or 20 hours of your life
+                Or {hoursPerMonth} hours of your life
               </p>
 
               {/* CTA */}
@@ -55,15 +65,15 @@ const TimeWorth = () => {
               <div className="space-y-3 text-[#CCCCCC]">
                 <div className="flex justify-between">
                   <span>Hours lost per month</span>
-                  <span className="text-white font-medium">20 hours</span>
+                  <span className="text-white font-medium">{hoursPerMonth} hours</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Value of saving 20 hours of your time</span>
-                  <span className="text-white font-medium">$1000</span>
+                  <span>Value of saving {hoursPerMonth} hours of your time</span>
+                  <span className="text-white font-medium">{formatCurrency(valueOfTime)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Cost of Pro subscription per month</span>
-                  <span className="text-white font-medium">$19</span>
+                  <span className="text-white font-medium">{formatCurrency(subscriptionCost)}</span>
                 </div>
               </div>
 
@@ -71,7 +81,7 @@ const TimeWorth = () => {
 
               <div className="flex justify-between font-semibold">
                 <span>Total ROI per month</span>
-                <span>$981</span>
+                <span>{formatCurrency(totalRoi)}</span>
               </div>
             </div>
           </div>
@@ -113,9 +123,14 @@ const TimeWorth = () => {
               </p>
 
               <div className="flex items-center border border-[#909090] rounded-lg px-4 py-2">
+                <span className="text-base text-black mr-2">$</span>
                 <input
                   className="w-full bg-transparent outline-none text-base placeholder:text-black"
-                  placeholder="$50"
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={hourlyRateInput}
+                  onChange={(e) => setHourlyRateInput(e.target.value)}
                 />
                 <span className="text-sm text-[#9E9E9E] ml-2">/hr</span>
               </div>

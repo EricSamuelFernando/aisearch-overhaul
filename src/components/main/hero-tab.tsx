@@ -809,7 +809,7 @@
 
 'use client';
 
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState, useRef } from 'react';
 import { Paperclip, FileText, Image as ImageIcon, Search as SearchIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SpeechInput from '../speech-input';
@@ -828,6 +828,7 @@ import { toast } from 'react-toastify';
 import { message } from '@public/assets/icons';
 import { PROPERTY_SEARCH_AI_URL, PROPERTY_SEARCH_DATA_LIMIT_AI_URL } from '@/shared/constants/env';
 import { setPropertyQuery } from '@/slices/property/property-slice';
+import { cn } from '@/lib/utils';
 
 const StarIcon = () => (
   <img
@@ -844,6 +845,14 @@ type Suggestion = {
   text: string;
 };
 
+type HeroSearchFormProps = {
+  placeholderText?: string;
+  searchType?: string;
+  onSearchStateChange?: (expanded: boolean) => void;
+  showOutline?: boolean;
+  disableAutoExpand?: boolean;
+};
+
 const buyerSuggestions: Suggestion[] = [
   { id: '1', text: '3-bedroom homes near top-rated schools in Manhattan Beach' },
   { id: '2', text: "I'm looking for 4-bedroom houses in Los Angeles, California with a pool" },
@@ -858,7 +867,7 @@ const sellerSuggestions: Suggestion[] = [
   { id: '4', text: "How long will it take to sell my home in my area?" },
 ];
 
-export default function HeroTab() {
+export default function HeroTab(props: HeroSearchFormProps) {
   const [activeTab, setActiveTab] = useState<string | null>('buy');
   const router = useRouter();
 
@@ -890,7 +899,7 @@ export default function HeroTab() {
         </div>
       )}
 
-      <HeroSearchForm />
+      <HeroSearchForm {...props} />
     </div>
   );
 }
@@ -899,11 +908,9 @@ export const HeroSearchForm = ({
   placeholderText,
   searchType,
   onSearchStateChange,
-}: {
-  placeholderText?: string;
-  searchType?: string;
-  onSearchStateChange?: (expanded: boolean) => void;
-}) => {
+  showOutline = false,
+  disableAutoExpand = false,
+}: HeroSearchFormProps) => {
   const {
     allProperties,
     addProperties,
@@ -926,6 +933,8 @@ export const HeroSearchForm = ({
   const [typedPlaceholder, setTypedPlaceholder] = useState("");
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [lockedHeight, setLockedHeight] = useState<number | null>(null);
 
   // Typing Animation Effect
   // Typing Animation Effect
@@ -1029,7 +1038,9 @@ export const HeroSearchForm = ({
   const handleSearchSubmit = async (queryToSearch: string) => {
     if (!queryToSearch.trim()) return;
 
-    setIsExpanded(true);
+    if (!disableAutoExpand) {
+      setIsExpanded(true);
+    }
     if (onSearchStateChange) onSearchStateChange(true);
 
     setIsSearching(true);
@@ -1126,94 +1137,113 @@ export const HeroSearchForm = ({
   const pathname = usePathname();
   const isSeller = searchType?.toLowerCase() === 'sell' || pathname?.includes('sell');
   const currentSuggestions = isSeller ? sellerSuggestions : buyerSuggestions;
+  const containerClasses = cn(
+    "bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full max-w-[1100px]",
+    showOutline &&
+    "border border-[#E2E4EA] focus-within:border-[#F07639] focus-within:shadow-[0_20px_55px_rgba(240,118,57,0.15)] transition-[border,box-shadow] duration-200"
+  );
+  const isCardExpanded = !disableAutoExpand && isExpanded;
 
   return (
     <motion.div
       layout
       initial={false}
       animate={{
-        borderRadius: isExpanded ? 32 : 12,
-        padding: isExpanded ? 50 : 8,
+        borderRadius: isCardExpanded ? 32 : 12,
+        padding: isCardExpanded ? 50 : 8,
       }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full max-w-[1100px]"
+      className={containerClasses}
     >
-      <form
-        onSubmit={onFormSubmit}
-        className="relative flex w-full items-center gap-2"
+      <motion.div
+        ref={cardRef}
+        layout
+        initial={false}
+        animate={{
+          borderRadius: isExpanded ? 32 : 12,
+          padding: isExpanded ? 50 : 8,
+        }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        // Modified here By Abhradip Paul -> shouldLockLayout showing not exists
+        // className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full max-w-[1100px]${shouldLockLayout ? ' absolute left-0 right-0 top-0' : ''}`}
+        className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full max-w-[1100px]${false ? ' absolute left-0 right-0 top-0' : ''}`}
       >
-        <div className="flex w-full items-center gap-2 relative z-20">
-          {/* Star + Input */}
-          <div className="relative flex min-w-0 flex-1 items-center gap-2 overflow-visible">
-            {searchTerm === '' && (
-              <StarIcon />
-            )}
+        <form
+          onSubmit={onFormSubmit}
+          className="relative flex w-full items-center gap-2"
+        >
+          <div className="flex w-full items-center gap-2 relative z-20">
+            {/* Star + Input */}
+            <div className="relative flex min-w-0 flex-1 items-center gap-2 overflow-visible">
+              {searchTerm === '' && (
+                <StarIcon />
+              )}
 
-            <SpeechInput
-              value={searchTerm}
-              setValue={setSearchTerm}
-              searchType={searchType}
-              placeholderText={placeholderText || typedPlaceholder}
-              className="w-full min-w-0 overflow-visible"
-              onFocus={() => setIsInputFocused(true)}
-              onBlur={() => setTimeout(() => setIsInputFocused(false), 200)}
-            />
+              <SpeechInput
+                value={searchTerm}
+                setValue={setSearchTerm}
+                searchType={searchType}
+                placeholderText={placeholderText || typedPlaceholder}
+                className="w-full min-w-0 overflow-visible"
+                onFocus={() => setIsInputFocused(true)}
+                onBlur={() => setTimeout(() => setIsInputFocused(false), 200)}
+              />
 
-            {/* Hidden File Input */}
-            <input
-              type="file"
-              ref={fileInputRef}
-              className="hidden"
-              style={{ display: 'none' }}
-              onChange={handleFileUpload}
-            />
-            <div className="relative" ref={homeAttachMenuRef}>
-              {/* Clip Icon Button */}
-              <div
-                className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
-                onClick={() => setShowAttachMenu(!showAttachMenu)}
-              >
-                <Paperclip className="w-7 h-7" />
+              {/* Hidden File Input */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                style={{ display: 'none' }}
+                onChange={handleFileUpload}
+              />
+              <div className="relative" ref={homeAttachMenuRef}>
+                {/* Clip Icon Button */}
+                <div
+                  className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
+                  onClick={() => setShowAttachMenu(!showAttachMenu)}
+                >
+                  <Paperclip className="w-7 h-7" />
+                </div>
+                {/* Dropdown Menu (Image / PDF) */}
+                <AnimatePresence>
+                  {showAttachMenu && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute bottom-full right-0 mb-2 w-32 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-20"
+                    >
+                      <div className="flex flex-col p-1.5 gap-1">
+                        <button
+                          onClick={() => handleAttachmentClick('image')}
+                          type="button"
+                          className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
+                        >
+                          <ImageIcon className="w-4 h-4 text-blue-500" />
+                          <span>Image</span>
+                        </button>
+                        <button
+                          onClick={() => handleAttachmentClick('pdf')}
+                          type="button"
+                          className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
+                        >
+                          <FileText className="w-4 h-4 text-red-500" />
+                          <span>PDF</span>
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-              {/* Dropdown Menu (Image / PDF) */}
-              <AnimatePresence>
-                {showAttachMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute bottom-full right-0 mb-2 w-32 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-20"
-                  >
-                    <div className="flex flex-col p-1.5 gap-1">
-                      <button
-                        onClick={() => handleAttachmentClick('image')}
-                        type="button"
-                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
-                      >
-                        <ImageIcon className="w-4 h-4 text-blue-500" />
-                        <span>Image</span>
-                      </button>
-                      <button
-                        onClick={() => handleAttachmentClick('pdf')}
-                        type="button"
-                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
-                      >
-                        <FileText className="w-4 h-4 text-red-500" />
-                        <span>PDF</span>
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </div>
-          </div>
 
-          {/* Button */}
-          <Button
-            type="submit"
-            size="lg"
-            className="
+            {/* Button */}
+            <Button
+              type="submit"
+              size="lg"
+              className="
             shrink-0
             rounded-xl
             bg-[#F07639]
@@ -1222,53 +1252,56 @@ export const HeroSearchForm = ({
             px-4
             z-10
           "
-          >
-            <div className="flex items-center gap-2">
-              {isSearching && (
-                <div
-                  className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-e-transparent"
-                  role="status"
-                />
-              )}
-              <span className="whitespace-nowrap">
-                Begin Journey
-              </span>
-            </div>
-          </Button>
-        </div>
-      </form >
-
-      {/* Integrated Suggestions Dropdown */}
-      <AnimatePresence>
-        {!searchTerm && isInputFocused && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-            className="w-full border-t border-gray-100/50"
-          >
-            <div className="p-4 pt-4 text-left">
-              <p className="text-[10px] font-bold text-gray-400 mb-3 uppercase tracking-wider pl-2">
-                Try Asking
-              </p>
-              <div className="space-y-1">
-                {currentSuggestions.map((suggestion) => (
-                  <motion.div
-                    key={suggestion.id}
-                    onClick={() => handleSuggestionClick(suggestion.text)}
-                    // ... animation props if any
-                    className="flex items-center gap-3 p-3 bg-white hover:bg-orange-50/50 cursor-pointer border-t border-gray-100 first:border-t-0 transition-colors"
-                  >
-                    <SearchIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-600 text-sm leading-relaxed">{suggestion.text}</span>
-                  </motion.div>
-                ))}
+            >
+              <div className="flex items-center gap-2">
+                {isSearching && (
+                  <div
+                    className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-e-transparent"
+                    role="status"
+                  />
+                )}
+                <span className="whitespace-nowrap">
+                  Begin Journey
+                </span>
               </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </Button>
+          </div>
+        </form >
+
+        {/* Integrated Suggestions Dropdown */}
+        <AnimatePresence>
+          {!searchTerm && isInputFocused && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="w-full border-t border-gray-100/50"
+            >
+              <div className="p-4 pt-4 text-left">
+                <p className="text-[10px] font-bold text-gray-400 mb-3 uppercase tracking-wider pl-2">
+                  Try Asking
+                </p>
+                <div className="space-y-1">
+                  {currentSuggestions.map((suggestion) => (
+                    <motion.div
+                      key={suggestion.id}
+                      onClick={() => handleSuggestionClick(suggestion.text)}
+                      // ... animation props if any
+                      className="flex items-center gap-3 p-3 bg-white hover:bg-orange-50/50 cursor-pointer border-t border-gray-100 first:border-t-0 transition-colors"
+                    >
+                      <SearchIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <span className="text-gray-600 text-sm leading-relaxed">{suggestion.text}</span>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+      {/* Modified here by Abhradip Paul </motion.div> closing tag was missing*/}
+      {/* </div> */}
     </motion.div>
   );
 };

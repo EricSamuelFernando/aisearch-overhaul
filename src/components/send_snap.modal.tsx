@@ -22,7 +22,10 @@ interface SendSnapLinkModalProps {
   totalPages?: number;
   onPageChange?: (page: number) => void;
   total?: number;
+  loading?: boolean
 }
+
+{/* Modified here by Abhradip Paul loading is not defined in the props*/ }
 
 const SendSnapLinkModal: React.FC<SendSnapLinkModalProps> = ({
   isOpen,
@@ -33,6 +36,7 @@ const SendSnapLinkModal: React.FC<SendSnapLinkModalProps> = ({
   totalPages = 1,
   onPageChange,
   total,
+  loading
 }) => {
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
 
@@ -154,8 +158,8 @@ const SendSnapLinkModal: React.FC<SendSnapLinkModalProps> = ({
                   onClick={() => typeof p === 'number' ? onPageChange(p) : null}
                   disabled={p === '...'}
                   className={`px-3 py-1 rounded-md ${p === currentPage
-                      ? 'bg-orange-500 text-white font-medium'
-                      : 'text-gray-600 hover:bg-gray-100'
+                    ? 'bg-orange-500 text-white font-medium'
+                    : 'text-gray-600 hover:bg-gray-100'
                     } ${p === '...' ? 'cursor-default hover:bg-transparent' : ''}`}
                 >
                   {p}

@@ -23,7 +23,6 @@ import { useAgentConversationApi } from '@/hooks/api/auth/useConversationApi';
 import useDebounce from "@/hooks/utils/debounce";
 import { error } from '@/components/alert/notify';
 import { HeroSearchForm } from '@/components/main/hero-tab';
-import SearInput from "@/components/main/hero-tab";
 import { fetchPlaceSuggestions } from '@/hooks/utils/googlePlacesFunction';
 
 import { Pagination } from '@mantine/core';
@@ -339,7 +338,7 @@ function BuyerPropertyListing() {
 
             {/* Search Input at Bottom */}
             <div className='mt-12 sm:mt-16 md:mt-24'>
-              <SearInput />
+              <HeroSearchForm showOutline searchType="buy" disableAutoExpand />
             </div>
           </div>
 

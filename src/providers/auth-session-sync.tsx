@@ -3,22 +3,29 @@
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthActions } from '@/shared/hooks/useAuth';
 
 /**
  * AuthSessionSync
  * 
- * Listens for the 'auth-session-expired' custom event dispatched by the axios interceptor
- * when the refresh token fails. On event:
- *   1. Dispatches Redux logout (clears state, cookies, localStorage)
- *   2. Shows a single "session expired" toast
- *   3. Redirects to /login
- * 
- * This prevents the infinite "Unauthorized" toaster loop by handling forced logout
- * in one centralized place instead of letting each API call show its own toast.
+ * Listens for the 'auth-session-expired' custom event dispatched by the axios
+ * interceptor / query-provider / client interceptor when an Unauthorized error
+ * is detected and the refresh token has failed (or doesn't exist).
+ *
+ * On event this component:
+ *   1. Dispatches Redux logout (clears state + calls clearAllAuthStorage which
+ *      wipes cookies, localStorage, sessionStorage, Redux Persist, Cognito SDK)
+ *   2. Clears the React Query cache so no stale queries re-fire
+ *   3. Dismisses all existing toasts, then shows a single "session expired" toast
+ *   4. Redirects to /login
+ *
+ * This prevents the infinite "Unauthorized" toaster loop by handling forced
+ * logout in one centralized place.
  */
 export default function AuthSessionSync() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { logout } = useAuthActions();
   const hasHandledRef = useRef(false);
 
@@ -28,16 +35,25 @@ export default function AuthSessionSync() {
       if (hasHandledRef.current) return;
       hasHandledRef.current = true;
 
-      // Dispatch Redux logout to clear all auth state
+      // 1. Dispatch Redux logout → clearAllAuthStorage()
+      //    Wipes cookies, localStorage, sessionStorage, persist:root, Cognito keys
       logout();
 
-      // Show a single, clear toast message
-      toast.error('Your session has expired. Please login again.', {
-        id: 'session-expired', // Use a fixed ID to prevent duplicates
-        duration: 5000,
-      });
+      // 2. Clear React Query cache so no stale/failed queries keep re-firing
+      queryClient.cancelQueries();
+      queryClient.clear();
 
-      // Redirect to login
+      // 3. Dismiss all existing toasts (kills any queued "Unauthorized" toasts)
+      //    then show one single clear message
+      toast.dismiss();
+      setTimeout(() => {
+        toast.error('Your session has expired. Please login again.', {
+          id: 'session-expired',
+          duration: 5000,
+        });
+      }, 100);
+
+      // 4. Redirect to login
       router.push('/login');
     };
 
@@ -46,11 +62,19 @@ export default function AuthSessionSync() {
     return () => {
       window.removeEventListener('auth-session-expired', handleSessionExpired);
     };
-  }, [logout, router]);
+  }, [logout, router, queryClient]);
 
-  // Reset the handled flag when user navigates (in case they log in again and session expires again later)
+  // Reset the handled flag when user logs in again
+  // (resetAuthExpired() dispatches 'auth-session-reset')
   useEffect(() => {
-    hasHandledRef.current = false;
+    const handleReset = () => {
+      hasHandledRef.current = false;
+    };
+
+    window.addEventListener('auth-session-reset', handleReset);
+    return () => {
+      window.removeEventListener('auth-session-reset', handleReset);
+    };
   }, []);
 
   return null;

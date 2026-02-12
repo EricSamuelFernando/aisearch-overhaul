@@ -7,6 +7,7 @@ import Footer from '@/components/shared/footer';
 import PropertyPreferenceModal from '@/components/modals/property-preference-modal';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useGetPropertyPreference, useUpdatePropertyPreference } from '@/hooks/api/property/usePropertyApi';
+import { getIsAuthExpired } from '@/lib/api/axios';
 
 type Props = {
   children: React.ReactNode;
@@ -30,8 +31,8 @@ function DashboardLayout({ children }: Readonly<Props>) {
       syncedAIRef.current = false;
       lastUserIdRef.current = user?.id;
       
-      // Refetch preferences when user logs in
-      if (isLoggedIn && user?.account_type?.toLowerCase() === 'buyer' && user?.email) {
+      // Refetch preferences when user logs in (only if auth is still valid)
+      if (isLoggedIn && !getIsAuthExpired() && user?.account_type?.toLowerCase() === 'buyer' && user?.email) {
         console.log('[PropertyPreferenceModal] Refetching preferences for new user');
         getPropertyPreferenceFromDB.refetch?.();
         getPropertyPreferenceFromAI.refetch?.();
@@ -51,6 +52,8 @@ function DashboardLayout({ children }: Readonly<Props>) {
   useEffect(() => {
     if (syncedAIRef.current) return;
     if (!isLoggedIn || user?.account_type?.toLowerCase() !== 'buyer') return;
+    // If auth is expired, don't attempt any API calls
+    if (getIsAuthExpired()) return;
     if (getPropertyPreferenceFromDB.isLoading || getPropertyPreferenceFromAI.isLoading) return;
     // Don't block sync on DB error - if AI has data, we should sync it
     if (getPropertyPreferenceFromAI.isError) return;
@@ -120,11 +123,18 @@ function DashboardLayout({ children }: Readonly<Props>) {
           onSuccess: () => {
             console.log('[PropertyPreferenceModal] Successfully synced AI data to GraphQL DB');
             // Refetch DB to get updated data
-            getPropertyPreferenceFromDB.refetch?.();
+            if (!getIsAuthExpired()) {
+              getPropertyPreferenceFromDB.refetch?.();
+            }
           },
-          onError: (error) => {
-            console.error('[PropertyPreferenceModal] Failed to sync AI data:', error);
-            syncedAIRef.current = false; // Reset so it can retry
+          onError: (err: any) => {
+            console.error('[PropertyPreferenceModal] Failed to sync AI data:', err);
+            // Only allow retry for non-auth errors.
+            // Auth errors must NOT reset the flag to prevent infinite loop.
+            const msg = err?.message || '';
+            if (!msg.includes('Unauthorized') && !msg.includes('Session expired')) {
+              syncedAIRef.current = false; // Reset so it can retry on next render
+            }
           },
         });
       }
@@ -143,6 +153,9 @@ function DashboardLayout({ children }: Readonly<Props>) {
   ]);
 
   useEffect(() => {
+    // If auth is expired, skip all preference checks to avoid triggering more errors
+    if (getIsAuthExpired()) return;
+
     // Debug logging
     console.log('[PropertyPreferenceModal] Checking conditions:', {
       hasPrompted: hasPromptedRef.current,

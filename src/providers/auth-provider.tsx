@@ -6,6 +6,7 @@ import { protectedRoutes, publicRoutes } from '@/lib/routes';
 import { useSelector } from 'react-redux';
 import { userData } from '@/slices/auth/auth.slice';
 import { APP_PUBLIC_ROUTE } from '@/shared/constants/env';
+import { clearAllAuthStorage } from '@/lib/storage';
 
 interface AuthContextType {
     isAuthenticated: boolean;
@@ -64,8 +65,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     const logout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('role');
+        clearAllAuthStorage();
         setIsAuthenticated(false);
         setUserRole(null);
         router.push('/login');

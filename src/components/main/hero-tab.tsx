@@ -809,7 +809,7 @@
 
 'use client';
 
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState, useRef } from 'react';
 import { Paperclip, FileText, Image as ImageIcon, Search as SearchIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SpeechInput from '../speech-input';
@@ -926,6 +926,8 @@ export const HeroSearchForm = ({
   const [typedPlaceholder, setTypedPlaceholder] = useState("");
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [lockedHeight, setLockedHeight] = useState<number | null>(null);
 
   // Typing Animation Effect
   // Typing Animation Effect
@@ -1126,18 +1128,30 @@ export const HeroSearchForm = ({
   const pathname = usePathname();
   const isSeller = searchType?.toLowerCase() === 'sell' || pathname?.includes('sell');
   const currentSuggestions = isSeller ? sellerSuggestions : buyerSuggestions;
+  const shouldLockLayout = pathname === '/' || pathname?.includes('/home');
+
+  useLayoutEffect(() => {
+    if (!shouldLockLayout || lockedHeight !== null || !cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    if (rect.height) setLockedHeight(rect.height);
+  }, [shouldLockLayout, lockedHeight]);
 
   return (
-    <motion.div
-      layout
-      initial={false}
-      animate={{
-        borderRadius: isExpanded ? 32 : 12,
-        padding: isExpanded ? 50 : 8,
-      }}
-      transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full max-w-[1100px]"
+    <div
+      className="relative w-full"
+      style={shouldLockLayout && lockedHeight ? { height: lockedHeight } : undefined}
     >
+      <motion.div
+        ref={cardRef}
+        layout
+        initial={false}
+        animate={{
+          borderRadius: isExpanded ? 32 : 12,
+          padding: isExpanded ? 50 : 8,
+        }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full max-w-[1100px]${shouldLockLayout ? ' absolute left-0 right-0 top-0' : ''}`}
+      >
       <form
         onSubmit={onFormSubmit}
         className="relative flex w-full items-center gap-2"
@@ -1269,6 +1283,7 @@ export const HeroSearchForm = ({
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+      </motion.div>
+    </div>
   );
 };

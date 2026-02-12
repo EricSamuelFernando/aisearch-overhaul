@@ -13,6 +13,7 @@ const LoginRegisterModal = ({
   label,
   className,
   variant,
+  registerDefaults,
 }: {
   initialStage: number;
   label: string;
@@ -27,6 +28,10 @@ const LoginRegisterModal = ({
     | 'ocreal'
     | null
     | undefined;
+  registerDefaults?: {
+    userType?: import('@/types/user.types').UserType;
+    startAt?: 'account-selection' | 'send-code';
+  };
 }) => {
   const [currentForm, setCurrentForm] = useState<number>(initialStage | 0);
   const [isOpen, setIsOpen] = useState(false);
@@ -67,7 +72,13 @@ const LoginRegisterModal = ({
               }}
             />
           )}
-          {currentForm === 1 && <RegisterModal handleStage={handlePrevForm} />}
+          {currentForm === 1 && (
+            <RegisterModal
+              handleStage={handlePrevForm}
+              presetUserType={registerDefaults?.userType}
+              startAt={registerDefaults?.startAt}
+            />
+          )}
         </DialogContent>
       </Dialog>
       

@@ -748,6 +748,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
       )}
 
 
+      <div id="map-unpin-sentinel" className="h-px" />
       <div id="buy-custom-search" className={cn(currentView === 'grid' ? 'max-w-[1440px] mx-auto w-full' : 'w-full')}>
         <div
           className={cn(
@@ -764,18 +765,18 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
           id='buyer-search-hero-form'
           className={cn(
             'border-t border-gray-100 py-6',
-          currentView === 'map'
-            ? 'relative top-2 z-20 flex items-center gap-2 rounded-xl bg-white p-2 shadow-md mb-[2px] mr-auto ml-0'
-            : 'flex items-center gap-2 rounded-xl bg-white p-2 shadow-md mx-auto',
-        )}
-        onSubmit={handleSubmit}
-        style={{
-          width:
             currentView === 'map'
-              ? '100%'
-              : 'calc(100% - 3rem)',
-        }}
-      >
+              ? 'relative top-2 z-20 flex items-center gap-2 rounded-xl bg-white p-2 shadow-md mb-[2px] mr-auto ml-0'
+              : 'flex items-center gap-2 rounded-xl bg-white p-2 shadow-md mx-auto',
+          )}
+          onSubmit={handleSubmit}
+          style={{
+            width:
+              currentView === 'map'
+                ? '100%'
+                : 'calc(100% - 3rem)',
+          }}
+        >
           <div
             className={cn(
               'flex h-12 w-full items-center transition-colors duration-300',

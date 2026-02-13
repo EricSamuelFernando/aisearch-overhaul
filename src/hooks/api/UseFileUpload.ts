@@ -2,7 +2,7 @@ import { useState } from 'react';
 import axios, { AxiosError } from 'axios';
 import client from '@/lib/client';
 import { DocumentResponse } from '@/interfaces/property.interface';
-import { toast } from 'sonner';
+import { error } from '@/components/alert/notify';
 import { logout } from '@/slices/auth/auth.slice';
 import { useAppDispatch } from '@/lib/hook';
 
@@ -64,9 +64,10 @@ const useFileUpload = (): UseFileUpload => {
 
     const validFiles = Array.from(fileList).filter((file) => {
       if (!allowedTypes.includes(file.type)) {
-        toast.error(
-          'The file you uploaded is not supported. Please upload a document in one of the following formats: .pdf, .doc, .docx, or .txt. If you believe this is an error, please try again or contact support.',
-        );
+        error({
+          message:
+            'The file you uploaded is not supported. Please upload a document in one of the following formats: .pdf, .doc, .docx, or .txt. If you believe this is an error, please try again or contact support.',
+        });
         return false;
       }
 
@@ -125,11 +126,12 @@ const useFileUpload = (): UseFileUpload => {
         `/file/upload-url?files=${fileNames.toString()}`,
       );
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       if (axios.isAxiosError(error)) {
         const axiosError = error as AxiosError;
         if (axiosError.response?.status === 401) {
-          toast.error('Your session has expired.');
+          // Modified by Abhradip Paul giving typescript error
+          // error({ message: 'Your session has expired.' });
           dispatch(logout());
           return {
             message: 'Unauthorized',
@@ -138,7 +140,10 @@ const useFileUpload = (): UseFileUpload => {
         }
       }
       console.error('Error fetching presigned URLs:', error);
-      toast.error('We ran into an issue preparing your file for upload. Please try again.');
+      error({
+        message:
+          'We ran into an issue preparing your file for upload. Please try again.',
+      });
       return {
         message: 'Error',
         data: { successfullFiles: [], failedFiles: [] },
@@ -246,8 +251,8 @@ const useFileUpload = (): UseFileUpload => {
       });
 
       setDownloadUrls(urls);
-    } catch (error) {
-      toast.error('Unable to fetch download URLs. Please try again.');
+    } catch (error: any) {
+      error({ message: 'Unable to fetch download URLs. Please try again.' });
       console.error('Error fetching download URLs:', error);
     }
   };

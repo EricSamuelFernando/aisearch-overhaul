@@ -16,7 +16,7 @@ import { useHandleAgent } from '@/hooks/api/agent/useFetchAgent';
 import useTimer from './timer';
 import { Button } from './ui/button';
 import SellerAddAgent from './sell/seller-add-agent';
-import { toast } from 'sonner';
+import { error } from '@/components/alert/notify';
 import { useSellerPropertiesContext } from '@/providers/seller-property-context';
 import { useAgentList } from '@/shared/hooks/useAgentList';
 import { useAtom } from 'jotai';
@@ -95,9 +95,10 @@ const AuthSection: React.FC = () => {
           return fileArray
             .filter((file) => {
               if (!allowedTypes.includes(file.type)) {
-                toast.error(
+                error({
+                  message:
                   'The file you uploaded is not supported. Please upload a document in one of the following formats: .pdf, .doc, .docx, or .txt. If you believe this is an error, please try again or contact support.',
-                );
+                });
                 return false;
               }
               return true;

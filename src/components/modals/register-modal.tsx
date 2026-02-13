@@ -149,8 +149,8 @@ export default function RegisterModal({
           if (errorMessage.toLowerCase().includes('already exists') ||
             errorMessage.toLowerCase().includes('user with email')) {
             error({
-              message: "Oops, looks like you're already with us!",
-              subtitle: 'No worries! Just login to continue where you left off.',
+              message: 'Email Already Exists',
+              subtitle: 'Log in instead or use a different email.',
             });
           } else {
             error({ message: errorMessage });
@@ -182,8 +182,8 @@ export default function RegisterModal({
         if (errorMessage.toLowerCase().includes('already exists') ||
           errorMessage.toLowerCase().includes('user with email')) {
           error({
-            message: "Oops, looks like you're already with us!",
-            subtitle: 'No worries! Just login to continue where you left off.',
+            message: 'Email Already Exists',
+            subtitle: 'Log in instead or use a different email.',
           });
         } else {
           error({ message: errorMessage });

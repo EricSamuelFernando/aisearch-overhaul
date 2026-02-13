@@ -84,7 +84,7 @@ jobs:
             --provenance=false \
             --sbom=false \
             -t "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest" \
-            -f apps/auth/Dockerfile \
+            -f Dockerfile \
             --push \
             .
 

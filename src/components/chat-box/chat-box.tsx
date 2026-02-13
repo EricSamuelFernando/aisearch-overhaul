@@ -2340,7 +2340,6 @@ import {
 import "swiper/css"
 import "swiper/css/navigation"
 import "swiper/css/pagination"
-import FavoriteBorder from "@mui/icons-material/FavoriteBorder"
 import LocationOnIcon from "@mui/icons-material/LocationOn"
 import { Badge } from "@/components/ui/badge"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
@@ -2381,6 +2380,10 @@ import { useRepoManagementApi } from "@/hooks/api/document/useRepoManagement"
 import { error } from "../alert/notify"
 import { useAuth } from "@/shared/hooks/useAuth"
 import { MdNotificationAdd } from "react-icons/md"
+import { useCollectionModal } from "@/providers/collection-modal-provider"
+import { useUserSnapAPIs } from "@/hooks/api/auth/snaps.API"
+import { SnapzHeartButton } from "@/components/ui/snapz-heart"
+import { usePropertyActions } from "@/shared/hooks/useProperty"
 
 interface User {
   id: string
@@ -2520,8 +2523,13 @@ export default function ChatBoxComponent(props: any) {
   const [selectedChannel, setSelectedChannel] = useState<Thread | null>(null)
   const propertyDetails = useSelector((state: { property: any }) => state.property)
   const userData = useSelector((state: RootState) => state.auth.user)
-  const { user } = useAuth();
+  const { user, isLoggedIn } = useAuth();
+  const { openCollectionModal } = useCollectionModal()
+  const { getAllSnaps } = useUserSnapAPIs()
+  const mutateGetAllSnaps = getAllSnaps.mutate
+  const { saveCurrenctProperty } = usePropertyActions()
   const currentUser = user?.account_type;
+  const [snaps, setSnaps] = useState<any[]>([])
   const [receiverId, setRecieverId] = useState<string>("")
   const [messageLoading, setMessageLoading] = useState(false)
   const [showThreads, setShowThreads] = useState(true)
@@ -2556,6 +2564,87 @@ export default function ChatBoxComponent(props: any) {
   const [showUploadMenu, setShowUploadMenu] = useState(false);
   const [pendingNewMessageCount, setPendingNewMessageCount] = useState(0);
   const [isAtLatestMessage, setIsAtLatestMessage] = useState(true);
+
+  const fetchSnaps = () => {
+    const currentUserId = userData?.id
+    if (!currentUserId) {
+      setSnaps([])
+      return
+    }
+
+    mutateGetAllSnaps(currentUserId, {
+      onSuccess: (data: any) => {
+        setSnaps(Array.isArray(data) ? data : [])
+      },
+      onError: () => {
+        setSnaps([])
+      },
+    })
+  }
+
+  useEffect(() => {
+    if (!userData?.id) {
+      setSnaps([])
+      return
+    }
+    mutateGetAllSnaps(userData.id, {
+      onSuccess: (data: any) => {
+        setSnaps(Array.isArray(data) ? data : [])
+      },
+      onError: () => {
+        setSnaps([])
+      },
+    })
+  }, [mutateGetAllSnaps, userData?.id])
+
+  const snapzPropertyId = useMemo(
+    () =>
+      selectedThreadDetail?.propertyId ||
+      propertyData?.propertyId ||
+      propertyData?.id ||
+      "",
+    [propertyData?.id, propertyData?.propertyId, selectedThreadDetail?.propertyId],
+  )
+
+  const snapzListingId = useMemo(
+    () =>
+      selectedThreadDetail?.listingId ||
+      propertyData?.listingId ||
+      "",
+    [propertyData?.listingId, selectedThreadDetail?.listingId],
+  )
+
+  const snapzPropertyImage = useMemo(
+    () =>
+      propertyData?.listing?.media?.primaryListingImageUrl ||
+      propertyData?.media?.primaryListingImageUrl ||
+      propertyData?.media?.photosList?.[0]?.lowRes ||
+      propertyData?.public?.imageUrl ||
+      "/assets/images/property-placeholder.jpg",
+    [propertyData],
+  )
+
+  const isPropertyInFavourite = useCallback(
+    (snapsList: any[]) => {
+      if (!Array.isArray(snapsList)) {
+        return false
+      }
+
+      return snapsList.some((snap: any) =>
+        snap?.favourites?.some((favourite: any) => {
+          if (!favourite) return false
+          const propertyIdMatch =
+            !!snapzPropertyId && favourite?.propertyId == snapzPropertyId
+          const listingIdMatch =
+            !!snapzListingId && favourite?.listingId == snapzListingId
+          return propertyIdMatch || listingIdMatch
+        }),
+      )
+    },
+    [snapzListingId, snapzPropertyId],
+  )
+
+  const isFavored = isPropertyInFavourite(snaps)
 
   interface AggregatedAgentThread {
     entryKey: string;
@@ -4608,7 +4697,7 @@ export default function ChatBoxComponent(props: any) {
           </div>
 
 
-          <div className={`w-full ${isDetails ? "md:basis-[50%] md:max-w-[50%] md:min-w-[50%]" : "md:basis-[75%] md:max-w-[75%] md:min-w-[75%]"} flex flex-col bg-white ${showChat ? "block" : "hidden md:block"} max-h-full overflow-hidden`}>
+          <div className={`w-full ${isDetails && showDetails ? "md:basis-[50%] md:max-w-[50%] md:min-w-[50%]" : "md:basis-[75%] md:max-w-[75%] md:min-w-[75%]"} flex flex-col bg-white ${showChat ? "block" : "hidden md:block"} max-h-full overflow-hidden`}>
             <header className="border-b bg-white px-4 py-2 flex items-center justify-between md:hidden">
               <div className="flex items-center gap-4">
                 <Button variant="ghost" size="icon" onClick={handleBackToThreads}>
@@ -4700,8 +4789,9 @@ export default function ChatBoxComponent(props: any) {
                                       className="w-full text-left px-4 py-2 hover:bg-gray-100"
                                       onClick={() => {
                                         closeDropdown()
-                                        setIsDetails(!isDetails)
-                                        setShowDetails(!showDetails)
+                                        const shouldOpenDetails = !(isDetails && showDetails)
+                                        setIsDetails(shouldOpenDetails)
+                                        setShowDetails(shouldOpenDetails)
                                       }}
                                     >
                                       Property Details
@@ -4711,10 +4801,28 @@ export default function ChatBoxComponent(props: any) {
                                     <InviteUserModal
                                       threadId={selectedThreadDetail?.id || selectedThread}
                                       onInviteSuccess={handleInviteSuccess}
+                                      onParticipantsRefresh={() => {
+                                        const activeThreadId = selectedThreadDetail?.id || selectedThread
+                                        if (activeThreadId) {
+                                          getThreadDetails(activeThreadId)
+                                        }
+                                      }}
                                       disableInvite={isInviteLimitReached}
                                       disableInviteMessage={inviteLimitMessage}
                                       blockedEmails={blockedInviteEmails}
                                       currentUserEmail={userData?.email || user?.email}
+                                      currentUserData={userData}
+                                      propertyId={selectedThreadDetail?.propertyId || snapzPropertyId}
+                                      listingId={selectedThreadDetail?.listingId || snapzListingId}
+                                      propertyName={
+                                        selectedThreadDetail?.propertyName ||
+                                        propertyData?.listing?.courtesyOf
+                                      }
+                                      propertyAddress={
+                                        selectedThreadDetail?.propertyAddress ||
+                                        propertyData?.listing?.address?.unparsedAddress
+                                      }
+                                      propertyImage={snapzPropertyImage}
                                     />
                                   </li>
                                 </ul>
@@ -5188,7 +5296,7 @@ export default function ChatBoxComponent(props: any) {
 
           {/* Property Details Sidebar */}
           {isDetails && (
-            <div className={`w-full md:w-96 bg-gray-50 border-l ${showDetails ? "block" : "hidden md:block"} flex flex-col overflow-hidden `}>
+            <div className={`w-full md:basis-[25%] md:max-w-[25%] md:min-w-[25%] bg-gray-50 border-l ${showDetails ? "block" : "hidden"} flex flex-col overflow-hidden `}>
               <div className="p-4 border-b flex justify-between items-center">
                 <h2 className="font-semibold">Property Details</h2>
                 <Button
@@ -5221,14 +5329,13 @@ export default function ChatBoxComponent(props: any) {
                             />
                           </div>
                           <div className="mt-4">
-                            <p className="text-sm font-semibold text-gray-900">
-                              {selectedThreadDetail?.propertyAddress || selectedThreadDetail?.propertyName || "Property"}
-                            </p>
                             <div className="flex justify-between items-start">
                               <div className="flex items-start gap-1">
                                 <LocationOnIcon className="text-primary" />
                                 <div>
-                                  <p className="text-sm text-muted-foreground">{propertyData?.courtesyOf}</p>
+                                 <p className="text-sm font-semibold text-gray-900">
+                              {selectedThreadDetail?.propertyAddress || selectedThreadDetail?.propertyName || "Property"}
+                            </p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-1">
@@ -5248,7 +5355,81 @@ export default function ChatBoxComponent(props: any) {
                                   <span>{propertyData?.property?.bedroomsTotal} Bed</span>
                                 </div>
                               </div>
-                              <FavoriteBorder className="text-gray-500 hover:text-red-500 cursor-pointer" />
+                              <SnapzHeartButton
+                                isActive={isFavored}
+                                size={20}
+                                className="text-gray-500 hover:text-red-500"
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  if (!isLoggedIn) {
+                                    router.push("/login")
+                                    return
+                                  }
+
+                                  if (!snapzPropertyId || !snapzListingId) {
+                                    error({ message: "Property details are still loading. Please try again." })
+                                    return
+                                  }
+
+                                  // Modal reads data from Redux property slice; keep it populated from chat context.
+                                  saveCurrenctProperty({
+                                    ...propertyData,
+                                    id: snapzPropertyId,
+                                    propertyId: snapzPropertyId,
+                                    listingId: snapzListingId,
+                                    image: snapzPropertyImage,
+                                    listing: {
+                                      ...(propertyData?.listing || {}),
+                                      courtesyOf:
+                                        propertyData?.listing?.courtesyOf ||
+                                        propertyData?.courtesyOf ||
+                                        selectedThreadDetail?.propertyName,
+                                      listPriceLow:
+                                        propertyData?.listing?.listPriceLow ||
+                                        propertyData?.listPrice ||
+                                        0,
+                                      address: {
+                                        ...(propertyData?.listing?.address || {}),
+                                        unparsedAddress:
+                                          propertyData?.listing?.address?.unparsedAddress ||
+                                          selectedThreadDetail?.propertyAddress,
+                                        city:
+                                          propertyData?.listing?.address?.city ||
+                                          propertyData?.address?.city,
+                                        zipCode:
+                                          propertyData?.listing?.address?.zipCode ||
+                                          propertyData?.address?.zipCode,
+                                      },
+                                      media: {
+                                        ...(propertyData?.listing?.media || {}),
+                                        primaryListingImageUrl: snapzPropertyImage,
+                                      },
+                                      property: {
+                                        ...(propertyData?.listing?.property || {}),
+                                        bedroomsTotal:
+                                          propertyData?.listing?.property?.bedroomsTotal ||
+                                          propertyData?.property?.bedroomsTotal,
+                                        bathroomsTotal:
+                                          propertyData?.listing?.property?.bathroomsTotal ||
+                                          propertyData?.property?.bathroomsTotal,
+                                        livingArea:
+                                          propertyData?.listing?.property?.livingArea ||
+                                          propertyData?.property?.livingArea,
+                                      },
+                                    },
+                                    public: {
+                                      ...(propertyData?.public || {}),
+                                      imageUrl: snapzPropertyImage,
+                                    },
+                                  } as any)
+
+                                  openCollectionModal(
+                                    String(snapzPropertyId),
+                                    snapzPropertyImage,
+                                    fetchSnaps,
+                                  )
+                                }}
+                              />
                             </div>
                           </div>
                           <div className="mt-4">

@@ -250,12 +250,12 @@ export default function SnapDetailsPage() {
     if (!snap) return <div className="p-10">Loading Snap Details...</div>;
 
     return (
-        <main className='mx-auto flex min-h-[90vh] flex-col bg-[#F4F9F5] px-12 pb-10'>
-            <div className="flex justify-between items-center py-4 bg-transparent">
-                <div className='flex flex-col items-start gap-4'>
+        <main className='mx-auto flex min-h-[90vh] flex-col bg-[#F4F9F5] px-2 sm:px-6 md:px-8 lg:px-12 pb-10'>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-4 bg-transparent gap-4">
+                <div className='flex flex-col items-start gap-3 sm:gap-4 w-full sm:w-auto'>
                     <div className='flex flex-col gap-1'>
-                        <h1 className="text-3xl font-bold">{snap.name}</h1>
-                        <span className="text-md text-gray-500">{favourites?.length || "0"} Results Found</span>
+                        <h1 className="text-2xl sm:text-3xl font-bold break-words">{snap.name}</h1>
+                        <span className="text-sm sm:text-md text-gray-500">{favourites?.length || "0"} Results Found</span>
                     </div>
                     <Button
                         size="sm"
@@ -269,7 +269,7 @@ export default function SnapDetailsPage() {
 
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-10 w-10 p-0">
+                        <Button variant="ghost" className="h-10 w-10 p-0 self-end sm:self-auto">
                             <span className="sr-only">Open menu</span>
                             <EllipsisIcon className="h-8 w-8" />
                         </Button>
@@ -299,9 +299,9 @@ export default function SnapDetailsPage() {
                 </DropdownMenu>
             </div>
 
-            <div className="flex gap-6 items-start h-[70vh]">
-                <ScrollArea className='flex-1 h-full overflow-y-auto pr-4'>
-                    <div className='grid grid-cols-2 xl:grid-cols-3 gap-6 p-2'>
+            <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 items-start min-h-[60vh] lg:h-[70vh] w-full">
+                <ScrollArea className='flex-1 w-full h-[50vh] lg:h-full overflow-y-auto'>
+                    <div className='grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 w-full'>
                         {[...favourites].reverse().map((property: any) => {
                             const safeProperty = {
                                 id: property.id || Math.random().toString(),
@@ -327,7 +327,7 @@ export default function SnapDetailsPage() {
                     <ScrollBar orientation='vertical' className='h-full' />
                 </ScrollArea>
 
-                <div className="w-[320px] xl:w-[380px] flex-shrink-0">
+                <div className="w-full lg:w-[320px] xl:w-[380px] flex-shrink-0">
                     <RecentCommentsSidebar
                         properties={favourites}
                         refreshTrigger={commentRefreshTrigger}

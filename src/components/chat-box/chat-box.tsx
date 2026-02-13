@@ -2363,6 +2363,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { format, formatDistanceToNow, isSameDay, subDays } from "date-fns"
 import { PROPERTY_DETAIL_SEARCH_AI_URL } from "@/shared/constants/env"
 import { SocketContext } from "@/providers/socket.context"
@@ -2370,6 +2371,8 @@ import { useAgentConversationApi } from "@/hooks/api/auth/useConversationApi"
 import { decryptMessage, encryptMessage, generateColorFromName } from "@/utils/math-utilities"
 import { useMessagesApi } from "@/hooks/api/useFetchMessages"
 import { useUserAgentMessageApi } from "@/hooks/api/auth/useMessageApi"
+import { useUserAuthApi } from "@/hooks/api/auth/useUserAuthApi"
+import { AgentDirectoryWrapper } from "@/components/buy/preview/agent-directory-wrapper"
 import InviteUserModal from "./Invite-user-modal"
 import { threadId } from "worker_threads"
 import { useAtom } from "jotai"
@@ -2377,13 +2380,16 @@ import { messageThreadsAtom } from "@/hooks/atoms"
 import { Loader } from "@mantine/core"
 import { usePropertyServiceAPI } from "@/hooks/api/agent/useAgentProperty"
 import { useRepoManagementApi } from "@/hooks/api/document/useRepoManagement"
-import { error } from "../alert/notify"
+import { error, success } from "../alert/notify"
 import { useAuth } from "@/shared/hooks/useAuth"
 import { MdNotificationAdd } from "react-icons/md"
+
 import { useCollectionModal } from "@/providers/collection-modal-provider"
 import { useUserSnapAPIs } from "@/hooks/api/auth/snaps.API"
 import { SnapzHeartButton } from "@/components/ui/snapz-heart"
 import { usePropertyActions } from "@/shared/hooks/useProperty"
+import { v4 as uuidv4 } from "uuid"
+
 
 interface User {
   id: string
@@ -2503,7 +2509,7 @@ const INVITED_USERS_STORAGE_KEY = "chat_invited_users_by_thread_v1"
 const MAX_INVITES_PER_CHAT = 5
 
 export default function ChatBoxComponent(props: any) {
-  const { threads, setIsRead, setSearch, loading, threadId, isRead } = props
+  const { threads, setIsRead, setSearch, loading, threadId, isRead, embedded } = props
   const router = useRouter()
   const params = useSearchParams();
   const type = params?.get('type')
@@ -2562,6 +2568,12 @@ export default function ChatBoxComponent(props: any) {
   const shouldAutoScrollOnIncomingRef = useRef(false);
   const hasHandledNotificationFocusRef = useRef(false);
   const [showUploadMenu, setShowUploadMenu] = useState(false);
+  const [isContactAgentDialogOpen, setIsContactAgentDialogOpen] = useState(false);
+  const [isSearchAgentModalOpen, setIsSearchAgentModalOpen] = useState(false);
+  const [isInviteAgentModalOpen, setIsInviteAgentModalOpen] = useState(false);
+  const [inviteAgentEmail, setInviteAgentEmail] = useState('');
+  const [inviteAgentError, setInviteAgentError] = useState('');
+  const [isCreatingThread, setIsCreatingThread] = useState(false);
   const [pendingNewMessageCount, setPendingNewMessageCount] = useState(0);
   const [isAtLatestMessage, setIsAtLatestMessage] = useState(true);
 
@@ -2707,7 +2719,13 @@ export default function ChatBoxComponent(props: any) {
         : undefined;
 
       const updatedAt = resolveLastUpdated(thread);
-      const unreadCount = thread?.unreadCount ?? 0;
+      const unreadCountFromMessages = Array.isArray(thread?.messages)
+        ? thread.messages.filter(
+          (message: Message) =>
+            !message?.isRead && message?.senderId !== userData?.id,
+        ).length
+        : 0;
+      const unreadCount = thread?.unreadCount ?? unreadCountFromMessages;
 
       if (agentId) {
         let entry = groupMap.get(agentId);
@@ -2769,10 +2787,12 @@ export default function ChatBoxComponent(props: any) {
 
   const displayedThreads = useMemo<AggregatedAgentThread[]>(() => {
     if (showUnreadOnly) {
-      return [];
+      return aggregatedThreads.filter(
+        (entry) => (entry.totalUnread || 0) > 0 || isRead,
+      );
     }
     return aggregatedThreads;
-  }, [aggregatedThreads, showUnreadOnly]);
+  }, [aggregatedThreads, showUnreadOnly, isRead]);
 
   const getMessageViewportElement = useCallback(() => {
     return messageScrollAreaRef.current?.querySelector(
@@ -3268,7 +3288,8 @@ export default function ChatBoxComponent(props: any) {
   ])
 
   const { getAllConversationMessagesMutation } = useAgentConversationApi()
-  const { getAllUserAgentMessagesMutation } = useUserAgentMessageApi()
+  const { getAllUserAgentMessagesMutation, createUserAgentThreadMutation } = useUserAgentMessageApi()
+  const { externalAgentIvitationMutation } = useUserAuthApi()
   const { getThreadById } = useAgentConversationApi()
   const { uploadNewFile } = usePropertyServiceAPI()
   const { createRepoWithUploadedFile } = useRepoManagementApi()
@@ -3435,6 +3456,9 @@ export default function ChatBoxComponent(props: any) {
 
     setSelectedThread(thread?.id)
     setIsRead(false)
+    if (showUnreadOnly) {
+      setShowUnreadOnly(false)
+    }
     setPendingNewMessageCount(0)
     setIsAtLatestMessage(true)
     isAtLatestMessageRef.current = true
@@ -3470,6 +3494,8 @@ export default function ChatBoxComponent(props: any) {
         propertyName: thread.propertyName,
         propertyAddress: thread.propertyAddress,
       });
+
+      socket.emit('mark_as_read', { threadId: thread.id });
 
       // Also join the room directly
       if (socket.joinRoom) {
@@ -4439,8 +4465,201 @@ export default function ChatBoxComponent(props: any) {
     return /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(url);
   };
 
+  const resolveAgentIdField = () => {
+    const normalizedType = (currentUser || '').toString().toLowerCase();
+    return normalizedType === 'seller' ? 'sellerAgentId' : 'buyerAgentId';
+  };
+
+  const resolveProfileImage = (person: any) =>
+    person?.profile || person?.avatar || person?.image || '';
+
+  const handleCreateThreadWithAgent = async (agent: any) => {
+    const agentId = agent?.id || agent?._id;
+    if (!agentId) {
+      error({ message: 'Agent selection is missing an id.' });
+      return;
+    }
+    const activeUserId = userData?.id || user?.id;
+    if (!activeUserId) {
+      error({ message: 'Please login to start a chat.' });
+      return;
+    }
+    if (isCreatingThread) return;
+
+    setIsCreatingThread(true);
+    const agentIdField = resolveAgentIdField();
+    const payload: Record<string, any> = {
+      propertyId: '',
+      threadName: 'New Chat',
+      propertyName: 'New Chat',
+      propertyImage: '',
+      listingId: '',
+      propertyAddress: '',
+      propertyOwnerId: '',
+      userType: (currentUser || 'Buyer').toString(),
+      userId: activeUserId,
+      roomId: uuidv4(),
+      parentMessage: "Let's connect and talk",
+      [agentIdField]: agentId,
+    };
+
+    createUserAgentThreadMutation.mutate(payload, {
+      onSuccess: (data: any) => {
+        const createdThreadId = data?.id;
+        if (createdThreadId) {
+          getThreadDetails(createdThreadId);
+        }
+        setIsContactAgentDialogOpen(false);
+        setIsSearchAgentModalOpen(false);
+        setIsInviteAgentModalOpen(false);
+        setInviteAgentEmail('');
+        setInviteAgentError('');
+        setIsCreatingThread(false);
+      },
+      onError: (err: any) => {
+        console.error('[chat-box] Failed to create thread:', err);
+        error({ message: err?.message || 'Unable to create chat. Please try again.' });
+        setIsCreatingThread(false);
+      },
+    });
+  };
+
+  const handleInviteAgentSubmit = async () => {
+    const email = inviteAgentEmail.trim();
+    if (!email) {
+      setInviteAgentError('Please enter an email.');
+      return;
+    }
+    setInviteAgentError('');
+    const activeUserId = userData?.id || user?.id;
+    if (!activeUserId) {
+      setInviteAgentError('Please login to invite an agent.');
+      return;
+    }
+    if (isCreatingThread) return;
+
+    setIsCreatingThread(true);
+    try {
+      const payload = {
+        agentType: currentUser,
+        userId: activeUserId,
+        email,
+        is_accepted: 'pending',
+      };
+      await externalAgentIvitationMutation.mutateAsync(payload);
+      success({ message: 'Agent invitation sent successfully.' });
+      setIsInviteAgentModalOpen(false);
+      setInviteAgentEmail('');
+      setInviteAgentError('');
+    } catch (err: any) {
+      console.error('[chat-box] Invite agent failed:', err);
+      setInviteAgentError(err?.message || 'Unable to send invite right now.');
+    } finally {
+      setIsCreatingThread(false);
+    }
+  };
+
+  const agentForHeader = (() => {
+    const candidates = [selectedThreadDetail?.buyerAgent, selectedThreadDetail?.sellerAgent].filter(Boolean) as any[];
+    if (userData?.id) {
+      const other = candidates.find((agent) => agent?.id && agent.id !== userData.id);
+      if (other) return other;
+    }
+    return candidates[0] || null;
+  })();
+  const agentNameForHeader =
+    [agentForHeader?.firstName, agentForHeader?.lastName].filter(Boolean).join(' ') || '';
+  const agentImageForHeader =
+    agentForHeader?.profile || agentForHeader?.image || agentForHeader?.avatar || '';
+
+  const wrapperClassName = embedded
+    ? "max-w-full min-h-[calc(100vh-6rem)] flex flex-col"
+    : "mt-24 max-w-full min-h-[calc(100vh-6rem)] flex flex-col";
+
   return (
-    <div className="mt-24 max-w-full min-h-[calc(100vh-6rem)] flex flex-col">
+    <div className={wrapperClassName}>
+      <Dialog open={isContactAgentDialogOpen} onOpenChange={setIsContactAgentDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Contact Agent</DialogTitle>
+            <DialogDescription>
+              Choose how you would like to contact an agent for this chat.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 mt-4">
+            <button
+              type="button"
+              onClick={() => {
+                setIsContactAgentDialogOpen(false);
+                setIsSearchAgentModalOpen(true);
+              }}
+              className="w-full bg-black text-white px-6 py-3 rounded-full text-base font-normal hover:bg-gray-800 transition-colors"
+            >
+              Search Agent
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsContactAgentDialogOpen(false);
+                setIsInviteAgentModalOpen(true);
+              }}
+              className="w-full bg-white text-black border-2 border-black px-6 py-3 rounded-full text-base font-normal hover:bg-gray-50 transition-colors"
+            >
+              Invite Agent
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isSearchAgentModalOpen} onOpenChange={setIsSearchAgentModalOpen}>
+        <DialogContent className="max-w-6xl w-[95vw] h-[90vh] max-h-[90vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-semibold">Search Agents</DialogTitle>
+            <DialogDescription>
+              Browse and search for agents to start a new chat.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+            <div className="flex-1 overflow-y-auto px-6 pb-6 min-h-0">
+              <AgentDirectoryWrapper
+                engagementId=""
+                propertyId=""
+                mode="chat"
+                onAgentSelected={(agent) => handleCreateThreadWithAgent(agent)}
+                onClose={() => setIsSearchAgentModalOpen(false)}
+              />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isInviteAgentModalOpen} onOpenChange={setIsInviteAgentModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Invite Agent</DialogTitle>
+            <DialogDescription>
+              Enter an agent email to start a new chat.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 space-y-3">
+            <input
+              value={inviteAgentEmail}
+              onChange={(e) => setInviteAgentEmail(e.target.value)}
+              placeholder="Agent email"
+              className="w-full rounded-md border px-3 py-2 text-sm"
+            />
+            {inviteAgentError && (
+              <p className="text-xs text-red-600">{inviteAgentError}</p>
+            )}
+            <Button
+              type="button"
+              onClick={handleInviteAgentSubmit}
+              disabled={isCreatingThread}
+              className="w-full"
+            >
+              {isCreatingThread ? 'Creating...' : 'Invite & Start Chat'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* <header className="border-b px-2 sm:px-4 py-2 flex items-center justify-between  shadow-sm">
         <div className="flex bg-white shadow  pr-4 rounded-full items-center " onClick={() => router.push(`/dashboard/${currentUser === "seller" ? "" : "buyer"}`)}>
@@ -4471,9 +4690,25 @@ export default function ChatBoxComponent(props: any) {
             {/* Header */}
             <div className="p-4 border-b flex justify-between items-center">
               <h2 className="font-semibold text-lg text-gray-800">Messages</h2>
-              <Button variant="ghost" size="icon">
-                <MessageCircle className="h-6 w-6 text-gray-600" />
-              </Button>
+              <TooltipProvider delayDuration={120}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label="New chat"
+                      className="gap-2"
+                      onClick={() => setIsContactAgentDialogOpen(true)}
+                    >
+                      <span className="text-sm font-medium text-gray-700">New chat</span>
+                      <MessageCircle className="h-6 w-6 text-gray-600" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" align="end">
+                    start a new chat and invite your agent
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
 
             {/* Toggle Buttons */}
@@ -4495,6 +4730,7 @@ export default function ChatBoxComponent(props: any) {
                   variant="ghost"
                   onClick={() => {
                     setShowUnreadOnly(true)
+                    setIsRead(true)
                   }}
                   className={`h-10 w-full text-gray-600 rounded-full px-4 py-2 ${showUnreadOnly ? "bg-white shadow text-gray-800" : ""}`}
                 >
@@ -4563,6 +4799,17 @@ export default function ChatBoxComponent(props: any) {
                       }`;
                     const timestampColor = isActiveThread ? 'text-[#C4A189]' : 'text-gray-400';
                     const engagedLabelColor = isActiveThread ? 'text-[#B5571E]' : 'text-gray-500';
+                    const agentForThread = (() => {
+                      const candidates = [thread?.buyerAgent, thread?.sellerAgent].filter(Boolean) as any[];
+                      if (userData?.id) {
+                        const other = candidates.find((agent) => agent?.id && agent.id !== userData.id);
+                        if (other) return other;
+                      }
+                      return candidates[0] || null;
+                    })();
+                    const agentName =
+                      [agentForThread?.firstName, agentForThread?.lastName].filter(Boolean).join(' ') || 'Agent';
+                    const agentImage = agentForThread?.profile || agentForThread?.image || agentForThread?.avatar || '';
 
                     return (
                       <div
@@ -4585,10 +4832,10 @@ export default function ChatBoxComponent(props: any) {
                             );
                           }}
                         >
-                          {thread?.image ? (
+                          {agentImage || thread?.image ? (
                             <Image
-                              src={thread.image}
-                              alt="User Avatar"
+                              src={agentImage || thread.image}
+                              alt="Agent Avatar"
                               width={50}
                               height={50}
                               className="rounded-full object-cover w-[40px] h-[40px] sm:w-[50px] sm:h-[50px]"
@@ -4597,13 +4844,13 @@ export default function ChatBoxComponent(props: any) {
                             />
                           ) : (
                             <div className="rounded-full flex items-center justify-center font-semibold w-[40px] h-[40px] sm:w-[50px] sm:h-[50px] bg-gray-800 text-white">
-                              {initials}
+                              {getInitials(agentName)}
                             </div>
                           )}
 
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-sm sm:text-base text-gray-900 truncate">
-                              {thread.buyerAgent?.firstName} & {thread?.user?.firstName || thread.sellerAgent?.firstName}
+                              {agentName}
                             </p>
                             <p className={`text-xs font-medium ${engagedLabelColor}`}>
                               Engaged in - {engagedPropertiesCount}{' '}
@@ -4646,7 +4893,7 @@ export default function ChatBoxComponent(props: any) {
                                   </div>
                                   <div className="mt-2 flex items-center justify-between">
                                     <Link
-                                      href={`/dashboard/buyer/property/${property.propertyId}`}
+                                      href={`/buy/${property.listingId || property.propertyId}/prop/preview`}
                                       onClick={(event) => event.stopPropagation()}
                                       className={`text-sm font-semibold ${isActiveProperty ? 'text-[#FDD9BD]' : 'text-[#E47A36]'
                                         }`}
@@ -4655,20 +4902,45 @@ export default function ChatBoxComponent(props: any) {
                                     </Link>
                                     {participantUsers.length > 0 && (
                                       <div className="flex -space-x-2">
-                                        {participantUsers.map((participant: any) => (
-                                          <div
-                                            key={participant?.id}
-                                            className={`h-7 w-7 rounded-full border flex items-center justify-center text-[10px] font-semibold ${isActiveProperty
-                                              ? 'border-white bg-[#FBB785] text-white'
-                                              : 'border-[#FFE8D3] bg-white text-gray-800'
-                                              }`}
-                                          >
-                                            {getInitials(
-                                              `${participant?.firstName || ''} ${participant?.lastName || ''
-                                              }`,
-                                            )}
-                                          </div>
-                                        ))}
+                                        {participantUsers.map((participant: any) => {
+                                          const participantImage =
+                                            participant?.profile ||
+                                            participant?.avatar ||
+                                            participant?.image ||
+                                            '';
+                                          const rawName =
+                                            `${participant?.firstName || ''} ${participant?.lastName || ''}`.trim();
+                                          const fallbackName =
+                                            rawName ||
+                                            participant?.email ||
+                                            participant?.user?.email ||
+                                            participant?.id ||
+                                            'NA';
+                                          const initials = getInitials(fallbackName);
+
+                                          return (
+                                            <div
+                                              key={participant?.id}
+                                              className={`h-7 w-7 rounded-full border overflow-hidden flex items-center justify-center text-[10px] font-semibold ${isActiveProperty
+                                                ? 'border-white bg-[#FBB785] text-white'
+                                                : 'border-[#FFE8D3] bg-[#FBB785] text-white'
+                                                }`}
+                                            >
+                                              {participantImage ? (
+                                                <Image
+                                                  src={participantImage}
+                                                  alt="Participant"
+                                                  width={28}
+                                                  height={28}
+                                                  className="h-7 w-7 object-cover"
+                                                  unoptimized
+                                                />
+                                              ) : (
+                                                initials || 'NA'
+                                              )}
+                                            </div>
+                                          );
+                                        })}
                                       </div>
                                     )}
                                   </div>
@@ -4697,8 +4969,10 @@ export default function ChatBoxComponent(props: any) {
           </div>
 
 
-          <div className={`w-full ${isDetails && showDetails ? "md:basis-[50%] md:max-w-[50%] md:min-w-[50%]" : "md:basis-[75%] md:max-w-[75%] md:min-w-[75%]"} flex flex-col bg-white ${showChat ? "block" : "hidden md:block"} max-h-full overflow-hidden`}>
-            <header className="border-b bg-white px-4 py-2 flex items-center justify-between md:hidden">
+
+          <div className={`w-full ${isDetails ? "md:basis-[50%] md:max-w-[50%] md:min-w-[50%]" : "md:basis-[75%] md:max-w-[75%] md:min-w-[75%]"} flex flex-col bg-[#F7F2EB] ${showChat ? "block" : "hidden md:block"} max-h-full overflow-hidden`}>
+            <header className="border-b bg-[#F7F2EB] px-4 py-2 flex items-center justify-between md:hidden">
+
               <div className="flex items-center gap-4">
                 <Button variant="ghost" size="icon" onClick={handleBackToThreads}>
                   <ChevronLeft className="h-5 w-5" />
@@ -4707,7 +4981,7 @@ export default function ChatBoxComponent(props: any) {
                 <span className="font-semibold">{state?.selectedChannel?.propertyName || ""}</span>
               </div>
             </header>
-            <div className="flex-1 flex bg-gray-50">
+            <div className="flex-1 flex bg-[#F7F2EB]">
               {(state.selectedChannel.id || selectedThreadDetail?.id || selectedThread) ? (
                 <div className="flex-1 flex flex-col">
                   {messageLoading ? (
@@ -4724,10 +4998,10 @@ export default function ChatBoxComponent(props: any) {
                           <div className="flex items-start gap-3 flex-1">
                             {/* Avatar Container */}
                             <div className="relative flex-shrink-0">
-                              {selectedThread?.image ? (
+                              {agentImageForHeader || selectedThread?.image ? (
                                 <Image
-                                  src={selectedThread?.image}
-                                  alt="User Avatar"
+                                  src={agentImageForHeader || selectedThread?.image}
+                                  alt="Agent Avatar"
                                   width={50}
                                   height={50}
                                   className="rounded-full object-cover w-10 h-10 sm:w-12 sm:h-12"
@@ -4737,6 +5011,7 @@ export default function ChatBoxComponent(props: any) {
                               ) : (
                                 <div className="rounded-full flex items-center justify-center bg-black text-white font-semibold w-10 h-10 sm:w-12 sm:h-12 text-xs sm:text-sm">
                                   {getInitials(
+                                    agentNameForHeader ||
                                     `${selectedThread?.buyerAgent?.firstName?.[0] || ""} ${selectedThread?.user?.firstName?.[0] || selectedThread?.sellerAgent?.firstName?.[0] || ""}`
                                   )}
                                 </div>
@@ -4749,7 +5024,8 @@ export default function ChatBoxComponent(props: any) {
                             <div className="flex-1 min-w-0">
                               {/* User Name */}
                               <p className="font-bold text-sm sm:text-base text-gray-900 truncate">
-                                {selectedThreadDetail.buyerAgent?.firstName} & {selectedThreadDetail?.user?.firstName || selectedThreadDetail?.sellerAgent?.firstName}
+                                {agentNameForHeader ||
+                                  `${selectedThreadDetail.buyerAgent?.firstName || ""} & ${selectedThreadDetail?.user?.firstName || selectedThreadDetail?.sellerAgent?.firstName || ""}`}
                               </p>
 
                               {/* Participant Count */}
@@ -4834,7 +5110,7 @@ export default function ChatBoxComponent(props: any) {
                         </div>
 
                         {/* Conversation Type Indicator Row */}
-                        <div className="px-4 py-2.5  bg-gray-50 flex items-center gap-3 text-xs sm:text-sm">
+                        <div className="px-4 py-2.5 bg-white flex items-center gap-3 text-xs sm:text-sm">
                           <span className="font-semibold text-gray-700">Conversation:</span>
 
                           {/* Buyer Role */}
@@ -4893,6 +5169,20 @@ export default function ChatBoxComponent(props: any) {
                                           const receiver = threadParticipants.find(
                                             (p: any) => p.id === message.senderId && p.id !== userData?.id
                                           );
+                                          const receiverImage = resolveProfileImage(receiver);
+                                          const senderImage = resolveProfileImage(userData) || resolveProfileImage(user);
+                                          const receiverFallbackName =
+                                            `${receiver?.firstName || ''} ${receiver?.lastName || ''}`.trim() ||
+                                            receiver?.email ||
+                                            receiver?.id ||
+                                            'NA';
+                                          const senderFallbackName =
+                                            `${userData?.firstname || ''} ${userData?.lastname || ''}`.trim() ||
+                                            userData?.email ||
+                                            userData?.id ||
+                                            user?.email ||
+                                            user?.id ||
+                                            'NA';
 
                                           const notificationMessage = message?.messageType === "notification";
 
@@ -4918,11 +5208,19 @@ export default function ChatBoxComponent(props: any) {
                                                 </div>
                                               }
                                               {!isSender && receiver && !notificationMessage && (
-                                                <div
-                                                  className="w-7 h-7 sm:w-10 bg-black mt-4 text-white sm:h-10 flex items-center justify-center bg-gray-300 text-white text-xs sm:text-sm font-semibold rounded-full bg-gray-800 text-white shrink-0"
-
-                                                >
-                                                  {getInitials(`${receiver?.firstName} ${receiver?.lastName}` || '')}
+                                                <div className="w-7 h-7 sm:w-10 sm:h-10 mt-4 rounded-full border border-white/70 bg-[#FBB785] overflow-hidden flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0 text-white">
+                                                  {receiverImage ? (
+                                                    <Image
+                                                      src={receiverImage}
+                                                      alt="Participant"
+                                                      width={40}
+                                                      height={40}
+                                                      className="h-full w-full object-cover"
+                                                      unoptimized
+                                                    />
+                                                  ) : (
+                                                    getInitials(receiverFallbackName) || 'NA'
+                                                  )}
                                                 </div>
                                               )}
 
@@ -4938,8 +5236,7 @@ export default function ChatBoxComponent(props: any) {
                                                   {/* Message container taking full width */}
                                                   <div className={`w-full flex ${isSender ? "justify-end" : "justify-start"}`}>
                                                     <div
-                                                      className={`p-3 sm:p-4 bg-black text-white  font-medium rounded-2xl shadow-md text-xs sm:text-sm max-w-full sm:max-w-[90%] 
-      `}
+                                                      className={`p-3 sm:p-4 bg-white text-black font-medium rounded-2xl shadow-md text-xs sm:text-sm max-w-full sm:max-w-[90%]`}
                                                     >
                                                       {/* Text message */}
                                                       {message?.messageType !== "file" && message.message && (
@@ -5069,8 +5366,19 @@ export default function ChatBoxComponent(props: any) {
 
 
                                               {isSender && !notificationMessage && (
-                                                <div className="w-7 h-7 mt-4 sm:w-10 sm:h-10 flex items-center justify-center bg-gray-300  bg-gray-800 text-white text-xs sm:text-sm font-semibold rounded-full shrink-0">
-                                                  {getInitials(`${userData?.firstname} ${userData?.lastname}` || '')}
+                                                <div className="w-7 h-7 mt-4 sm:w-10 sm:h-10 rounded-full border border-white/70 bg-[#FBB785] overflow-hidden flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0 text-white">
+                                                  {senderImage ? (
+                                                    <Image
+                                                      src={senderImage}
+                                                      alt="You"
+                                                      width={40}
+                                                      height={40}
+                                                      className="h-full w-full object-cover"
+                                                      unoptimized
+                                                    />
+                                                  ) : (
+                                                    getInitials(senderFallbackName) || 'NA'
+                                                  )}
                                                 </div>
                                               )}
                                             </div>
@@ -5171,7 +5479,7 @@ export default function ChatBoxComponent(props: any) {
                         </div>
                       </div> */}
 
-                      <div className="p-2 sm:p-4 border-t relative">
+                      <div className="p-2 sm:p-4 border-t relative bg-white">
                         {fileErrorMsg && (
                           <div className="absolute -top-10 left-0 right-0 bg-red-100 text-red-600 p-2 text-xs sm:text-sm text-center">
                             {fileErrorMsg}
@@ -5247,7 +5555,14 @@ export default function ChatBoxComponent(props: any) {
                             {showEmojiPicker && (
                               <div
                                 ref={emojiPickerRef}
-                                className="absolute bottom-12 left-0 z-10 scale-75 sm:scale-100 origin-bottom-left">
+                                className="absolute bottom-12 left-0 z-10 scale-75 sm:scale-100 origin-bottom-left"
+                                onKeyDownCapture={(event) => {
+                                  if (event.key === "Enter") {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                  }
+                                }}
+                              >
                                 <EmojiPicker onEmojiClick={handleEmojiClick} />
                               </div>
                             )}

@@ -407,6 +407,18 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
   const handleToggleFavourite = (snapId: string) => {
     if (!snapId || toggleFavourite.isPending) return;
 
+    const resolvedPropertyId = String(
+      propertyData?.propertyId || propertyData?.id || ''
+    );
+    const resolvedListingId = String(
+      propertyData?.listingId || propertyData?.id || propertyData?.propertyId || ''
+    );
+
+    if (!resolvedPropertyId || !resolvedListingId) {
+      error({ message: "Unable to save this property. Missing property details." });
+      return;
+    }
+
     const input = {
       snapId,
       name: propertyData?.listing?.courtesyOf || propertyData?.name || propertyData?.courtesyOf || "Property Name",
@@ -418,8 +430,8 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
       bedRooms: +propertyData?.listing?.property?.bedroomsTotal || +propertyData?.property?.bedroomsTotal || +propertyData?.bedrooms || 0,
       bathRooms: "" + (propertyData?.listing?.property?.bathroomsTotal || propertyData?.property?.bathroomsTotal || propertyData?.bathrooms || 0),
       sqft: "" + (propertyData?.listing?.property?.livingArea || propertyData?.property?.livingArea || propertyData?.sqft || 0),
-      listingId: propertyData?.listingId,
-      propertyId: propertyData?.propertyId || propertyData?.id || "",
+      listingId: resolvedListingId,
+      propertyId: resolvedPropertyId,
     };
 
     toggleFavourite.mutate(
@@ -497,10 +509,22 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
   // };
 
   const createSnap = () => {
+    const resolvedUserId = userData?.id;
+    const trimmedName = newCollectionName.trim();
+
+    if (!trimmedName) {
+      return;
+    }
+
+    if (!resolvedUserId) {
+      error({ message: "Your session is unavailable. Please refresh and try again." });
+      return;
+    }
+
     createNewSnap.mutate({
-      name: newCollectionName,
+      name: trimmedName,
       link: randomLink,
-      userId: userData?.id
+      userId: resolvedUserId
     }, {
       onSuccess: (data) => {
         setSnaps((prev) => [...prev, data?.data?.createSnap]);
@@ -508,7 +532,11 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
         setStep(2);
       },
       onError: (err: any) => {
-        error({ message: err.message || "Failed to create snap" });
+        const message =
+          err?.response?.data?.errors?.[0]?.message ||
+          err?.message ||
+          "Failed to create snap";
+        error({ message });
       }
     });
   };

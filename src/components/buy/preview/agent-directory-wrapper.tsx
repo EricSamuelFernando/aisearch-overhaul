@@ -181,9 +181,17 @@ interface AgentDirectoryWrapperProps {
   engagementId: string;
   propertyId: string;
   onClose: () => void;
+  mode?: 'invite' | 'chat';
+  onAgentSelected?: (agent: any) => void;
 }
 
-export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ engagementId, propertyId, onClose }) => {
+export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
+  engagementId,
+  propertyId,
+  onClose,
+  mode = 'invite',
+  onAgentSelected,
+}) => {
   const router = useRouter();
   const dispatch = useDispatch();
   const { agentIvitationMutation, externalAgentIvitationMutation } = useUserAuthApi();
@@ -673,21 +681,31 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
             <button
               onClick={(e) => {
                 e.stopPropagation();
+                if (mode === 'chat') {
+                  if (onAgentSelected) {
+                    onAgentSelected(agent);
+                  }
+                  return;
+                }
                 setSelectedAgent(agent);
                 if (agentId) {
                   sendAgentInvitation(agentId);
                 }
               }}
-              disabled={loadingAgentId === agentId || !agentId}
+              disabled={!agentId || (mode !== 'chat' && loadingAgentId === agentId)}
               className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-full text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {loadingAgentId === agentId ? 'Inviting...' : 'Invite'}
+              {mode === 'chat'
+                ? 'Start Chat'
+                : loadingAgentId === agentId
+                  ? 'Inviting...'
+                  : 'Invite'}
             </button>
           </div>
         </div>
       );
     });
-  }, [filteredAgents, highlightMatch, loadingAgentId, sendAgentInvitation, router]);
+  }, [filteredAgents, highlightMatch, loadingAgentId, sendAgentInvitation, router, mode, onAgentSelected]);
 
   const placeholderText =
     searchMode === 'location'

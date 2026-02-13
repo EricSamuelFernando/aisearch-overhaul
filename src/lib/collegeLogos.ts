@@ -108,7 +108,8 @@ export const resolveCollegeLogo = (
         "university_of_california_berkeley_ucb_berkeley_california_usa_berkeley_california_usa_berkeley": "university_of_california_berkeley",
         "university_of_california_berkeley_ucb_berkeley_california_usa_berkeley_california_usa_berkeley_california": "university_of_california_berkeley",
         "university_of_california_berkeley_ucb_berkeley_california_usa_berkeley_california_usa_berkeley_california_usa": "university_of_california_berkeley",
-        "university_of_california_berkeley_uc_berkeley_ucb_berkeley_california_usa_berkeley": "university_of_california_berkeley",
+        // Modified by Abhradip Paul Duplicate field here
+        // "university_of_california_berkeley_uc_berkeley_ucb_berkeley_california_usa_berkeley": "university_of_california_berkeley",
         "university_of_california_berkeley_uc_berkeley_ucb_berkeley_california_usa_berkeley_california_usa_berkeley_california": "university_of_california_berkeley",
         "university_of_california_berkeley_uc_berkeley_ucb_berkeley_california_usa_berkeley_california_usa_berkeley_california_usa": "university_of_california_berkeley",
         "university_of_california_berkeley_ucb_berkeley_california_usa_berkeley_california_usa_berkeley_california_usa_berkeley": "university_of_california_berkeley",
@@ -136,8 +137,9 @@ export const resolveCollegeLogo = (
         "uc_berkeley_ca_california": "university_of_california_berkeley",
         "uc_berkeley_california_ca": "university_of_california_berkeley",
         "uc_berkeley_uc": "university_of_california_berkeley",
-        "uc_berkeley_university_of_california": "university_of_california_berkeley",
-        "uc_berkeley_university_of_california_berkeley": "university_of_california_berkeley",
+        // Modified by Abhradip Paul Duplicate field here
+        // "uc_berkeley_university_of_california": "university_of_california_berkeley",
+        // "uc_berkeley_university_of_california_berkeley": "university_of_california_berkeley",
         "uc_berkeley_university_of_california_ca": "university_of_california_berkeley",
         "uc_berkeley_university_of_california_berkeley_ca": "university_of_california_berkeley",
         "uc_berkeley_university_of_california_berkeley_ca_usa": "university_of_california_berkeley",

@@ -86,7 +86,7 @@ const FavouritePropertyCards = (props: any) => {
   return (
     <div
       onClick={handleClick}
-      className="flex w-full min-h-[420px] max-h-[420px] cursor-pointer flex-col overflow-hidden rounded-xl shadow-lg hover:shadow-xl bg-black border border-gray-800 hover:border-ocOrange group relative"
+      className="flex w-full min-h-[380px] sm:min-h-[420px] max-h-[420px] cursor-pointer flex-col overflow-hidden rounded-xl shadow-lg hover:shadow-xl bg-black border border-gray-800 hover:border-ocOrange group relative"
     >
       <div className="relative h-48 w-full overflow-hidden">
         {isWishlisted && (

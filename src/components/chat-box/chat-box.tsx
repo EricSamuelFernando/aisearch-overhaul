@@ -2506,7 +2506,8 @@ export default function ChatBoxComponent(props: any) {
   const type = params?.get('type')
   const focusLatestFromNotification = params?.get('focusLatest') === '1'
   const { socket, state, setState } = useContext(SocketContext)
-  const [isDetails, setIsDetails] = useState(false)
+  // const [isDetails, setIsDetails] = useState(false)
+
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [showUnreadOnly, setShowUnreadOnly] = useState(false)
@@ -3329,7 +3330,13 @@ export default function ChatBoxComponent(props: any) {
 
     console.log('[chat-box] Thread selected:', thread?.id, thread);
 
-    setIsDetails(false)
+    // Leave previous room if exists
+    if (selectedThread && socket && socket.leaveRoom) {
+      console.log('[chat-box] Leaving previous room:', selectedThread);
+      socket.leaveRoom(selectedThread);
+    }
+
+    // setIsDetails(false)
     setShowThreads(false)
     setShowChat(true)
     setThreadParticipant(participants)
@@ -4608,15 +4615,29 @@ export default function ChatBoxComponent(props: any) {
           </div>
 
 
-          <div className={`w-full ${isDetails ? "md:basis-[50%] md:max-w-[50%] md:min-w-[50%]" : "md:basis-[75%] md:max-w-[75%] md:min-w-[75%]"} flex flex-col bg-white ${showChat ? "block" : "hidden md:block"} max-h-full overflow-hidden`}>
+          <div
+            className={`w-full ${showDetails
+              ? "md:basis-[50%] md:max-w-[50%] md:min-w-[50%]"
+              : "md:basis-[75%] md:max-w-[75%] md:min-w-[75%]"
+              } flex flex-col bg-white ${showChat ? "block" : "hidden md:block"} max-h-full overflow-hidden`}
+          >
             <header className="border-b bg-white px-4 py-2 flex items-center justify-between md:hidden">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 min-w-0">
                 <Button variant="ghost" size="icon" onClick={handleBackToThreads}>
                   <ChevronLeft className="h-5 w-5" />
                 </Button>
-                Back
-                <span className="font-semibold">{state?.selectedChannel?.propertyName || ""}</span>
+                <span className="text-sm">Back</span>
+                <span className="font-semibold truncate">{state?.selectedChannel?.propertyName || ""}</span>
               </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full"
+                onClick={() => setShowDetails(true)}
+              >
+                Details
+              </Button>
             </header>
             <div className="flex-1 flex bg-gray-50">
               {(state.selectedChannel.id || selectedThreadDetail?.id || selectedThread) ? (
@@ -4700,7 +4721,7 @@ export default function ChatBoxComponent(props: any) {
                                       className="w-full text-left px-4 py-2 hover:bg-gray-100"
                                       onClick={() => {
                                         closeDropdown()
-                                        setIsDetails(!isDetails)
+                                        // setIsDetails(!isDetails)
                                         setShowDetails(!showDetails)
                                       }}
                                     >
@@ -5187,7 +5208,7 @@ export default function ChatBoxComponent(props: any) {
           </div>
 
           {/* Property Details Sidebar */}
-          {isDetails && (
+          {showDetails && (
             <div className={`w-full md:w-96 bg-gray-50 border-l ${showDetails ? "block" : "hidden md:block"} flex flex-col overflow-hidden `}>
               <div className="p-4 border-b flex justify-between items-center">
                 <h2 className="font-semibold">Property Details</h2>
@@ -5195,7 +5216,7 @@ export default function ChatBoxComponent(props: any) {
                   variant="ghost"
                   size="icon"
                   onClick={() => {
-                    setIsDetails(false)
+                    // setIsDetails(false)
                     setShowDetails(false)
                   }}
                 >

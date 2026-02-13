@@ -22,11 +22,15 @@ const BuyerTabSwitch: React.FC<BuyerTabSwitchProps> = ({
   tabs,
 }) => {
   const router = useRouter();
+  const visibleTabs = React.useMemo(
+    () => tabs.filter((tab) => !tab.hidden),
+    [tabs],
+  );
   return (
     <div className={cn('flex h-16 sm:h-20 md:h-24 w-full items-center gap-x-1 sm:gap-x-2 bg-white border-b border-gray-100', className)}>
       <div className="flex h-full items-center px-2 sm:px-4 md:px-6 lg:px-[3.219rem] overflow-x-auto scrollbar-hide">
         <div className="flex h-full items-center gap-x-2 sm:gap-x-4 md:gap-x-6 whitespace-nowrap min-w-max">
-          {tabs.map((item) => {
+          {visibleTabs.map((item) => {
         return (
           <Link
             href={item.url || ''}

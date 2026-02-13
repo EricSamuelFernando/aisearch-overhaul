@@ -9,7 +9,7 @@ const WeBelive = () => {
 
         {/* WHAT WE BELIEVE */}
         <div className="max-w-6xl mx-auto mb-32"> {/* ⬅️ increased bottom space */}
-          <h2 className="text-3xl font-bold mb-2">
+          <h2 className="text-4xl font-bold mb-2">
             What We <span className="font-normal">Believe</span>
           </h2>
 
@@ -55,11 +55,11 @@ const WeBelive = () => {
 
         {/* MEET THE TEAM */}
         <div className="max-w-7xl mx-auto text-center mt-24">
-          <h2 className="text-3xl font-bold mb-2">
+          <h2 className="text-4xl font-bold mb-2">
             Meet The <span className="font-normal">Team</span>
           </h2>
 
-          <p className="text-xs text-gray-600 mb-12">
+          <p className="text-sm text-gray-600 mb-12">
             Dedicated to building real estate experience that works better for everyone
           </p>
 
@@ -114,7 +114,7 @@ const WeBelive = () => {
       </section>
 
       {/* TALK TO AGENT */}
-      <section className="bg-[#170800] text-white py-20 px-8 md:px-20 flex items-center justify-center md:justify-between flex-col md:flex-row w-full mx-auto">
+     {/* <section className="bg-[#170800] text-white py-20 px-8 md:px-20 flex items-center justify-center md:justify-between flex-col md:flex-row w-full mx-auto">
         <div className="max-w-lg text-center md:text-left mb-8 md:mb-0">
           <h2 className="text-4xl font-semibold mb-4">
             Talk to a Snaphomz <span className="font-light">Agent</span>
@@ -139,7 +139,7 @@ const WeBelive = () => {
             </a>
           </div>
         </div>
-      </section>
+      </section>*/}
     </>
   );
 };

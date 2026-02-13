@@ -2,15 +2,9 @@
 'use client';
 
 import { ReactNode, useEffect, useState } from 'react';
-import dynamic from 'next/dynamic';
 import NextTopLoader from 'nextjs-toploader';
+import CookieConsent from 'react-cookie-consent';
 import { Providers } from '../app/providers';
-
-// dynamically import so it only runs in the browser
-const CookieConsent = dynamic(
-  () => import('react-cookie-consent'),
-  { ssr: false }
-);
 
 export function ClientRoot({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);

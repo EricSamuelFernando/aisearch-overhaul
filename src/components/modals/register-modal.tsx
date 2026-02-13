@@ -36,13 +36,19 @@ const schema = z.object({
 
 export default function RegisterModal({
   handleStage,
+  presetUserType,
+  startAt,
 }: {
   handleStage: () => void;
+  presetUserType?: UserType;
+  startAt?: 'account-selection' | 'send-code';
 }) {
   const [view, setView] = useState<'account-selection' | 'send-code'>(
-    'account-selection',
+    startAt ?? 'account-selection',
   );
-  const [activeUserType, setActiveUserType] = useState<UserType | null>(null);
+  const [activeUserType, setActiveUserType] = useState<UserType | null>(
+    presetUserType ?? null,
+  );
   const { selectAccountType } = useRegisterActions();
   const [isLoading, setLoading] = useState(false)
   const dispatch = useAppDispatch();
@@ -61,6 +67,17 @@ export default function RegisterModal({
       sendCodeMutation.reset();
     }
   }, [view, sendCodeMutation]);
+
+  useEffect(() => {
+    if (!presetUserType) return;
+    storeCookie({ key: USER_ROLE, value: presetUserType });
+    setActiveUserType(presetUserType);
+    dispatch(updateUserType({ userType: presetUserType }));
+    selectAccountType(presetUserType);
+    if (startAt) {
+      setView(startAt);
+    }
+  }, [presetUserType, startAt, dispatch, selectAccountType]);
 
   const handleCardClick = useCallback(
     (userType: UserType) => {
@@ -132,8 +149,8 @@ export default function RegisterModal({
           if (errorMessage.toLowerCase().includes('already exists') ||
             errorMessage.toLowerCase().includes('user with email')) {
             error({
-              message: "Oops, looks like you're already with us!",
-              subtitle: 'No worries! Just login to continue where you left off.',
+              message: 'Email Already Exists',
+              subtitle: 'Log in instead or use a different email.',
             });
           } else {
             error({ message: errorMessage });
@@ -165,8 +182,8 @@ export default function RegisterModal({
         if (errorMessage.toLowerCase().includes('already exists') ||
           errorMessage.toLowerCase().includes('user with email')) {
           error({
-            message: "Oops, looks like you're already with us!",
-            subtitle: 'No worries! Just login to continue where you left off.',
+            message: 'Email Already Exists',
+            subtitle: 'Log in instead or use a different email.',
           });
         } else {
           error({ message: errorMessage });

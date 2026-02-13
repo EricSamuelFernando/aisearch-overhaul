@@ -1155,7 +1155,7 @@ export default function Home() {
       <MainNavPages />
 
       {/* ================= HERO SECTION ================= */}
-      <section className="relative -mt-24 min-h-[80vh] bg-[#170800] pt-28 text-white md:h-screen md:pt-24">
+      <section className="relative -mt-24 min-h-[80vh] bg-[#170800] pt-28 text-white md:h-[695px] md:min-h-[695px] md:max-h-[695px] md:pt-24">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {/* ================= DESKTOP ARC ================= */}
 

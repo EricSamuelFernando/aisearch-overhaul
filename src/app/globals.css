@@ -273,35 +273,41 @@ body {
   color: #ef4444;
 }
 
-/* Animation sequence (2.5s total):
-   0–12%  : Icon drops from top
-   12–30% : Card SLIDES OUT left→right (from icon position outward)
-   28–38% : Title & subtitle fade in as card finishes opening
-   38–72% : Hold — everything fully visible
-   70–80% : Title & subtitle fade out
-   74–88% : Card SLIDES IN right→left (retracts back toward icon)
-   88–100%: Icon makes single clean move back up
+/* Success toast animation (3.5s total):
+   0–11%    (0–0.4s)   : Icon with round bg drops from top
+   11–23%   (0.4–0.8s) : Card SLIDES OUT left→right
+   20–26%   (0.7–0.9s) : Content fades in
+   23–51%   (0.8–1.8s) : HOLD — card visible ~1 second
+   49–54%   (1.7–1.9s) : Content fades out
+   51–63%   (1.8–2.2s) : Card SLIDES IN right→left
+   63–91%   (2.2–3.2s) : Icon stays alone ~1 second
+   91–100%  (3.2–3.5s) : Icon leaves back up
 */
 
 @keyframes toast-success-icon-flow {
   0% {
     opacity: 0;
-    transform: translateY(-44px) scale(0.9);
+    transform: translateY(-18px) scale(0.92);
   }
   12% {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
-  88% {
+  /* icon stays while card opens and holds */
+  54% {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+  /* fade out as the card slides in (closes) */
+  66% {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.94);
+  }
   100% {
     opacity: 0;
-    transform: translateY(-44px) scale(0.9);
+    transform: translateY(-12px) scale(0.94);
   }
 }
-
 
 
 
@@ -310,17 +316,30 @@ body {
 
 
 @keyframes toast-success-card-flow {
-  /* closed: clipped from the right ? nothing visible */
-  0%   { clip-path: inset(0 100% 0 0 round 999px); }
-  12%  { clip-path: inset(0 100% 0 0 round 999px); }
-  /* slides OUT: right clip shrinks ? card reveals left to right */
-  30%  { clip-path: inset(0 0%   0 0 round 999px); }
-  /* hold open ~1s */
-  63%  { clip-path: inset(0 0%   0 0 round 999px); }
-  /* slides IN: right clip grows ? card retracts right to left */
-  80%  { clip-path: inset(0 100% 0 0 round 999px); }
-  100% { clip-path: inset(0 100% 0 0 round 999px); }
+  0% {
+    clip-path: inset(0 100% 0 0 round 999px);
+  }
+  12% {
+    clip-path: inset(0 100% 0 0 round 999px);
+  }
+  /* slide out (open) */
+  24% {
+    clip-path: inset(0 0% 0 0 round 999px);
+  }
+  /* hold open */
+  54% {
+    clip-path: inset(0 0% 0 0 round 999px);
+  }
+  /* slide in (close) */
+  66% {
+    clip-path: inset(0 100% 0 0 round 999px);
+  }
+  100% {
+    clip-path: inset(0 100% 0 0 round 999px);
+  }
 }
+
+
 
 
 
@@ -329,27 +348,27 @@ body {
 @keyframes toast-success-content-flow {
   0% {
     opacity: 0;
-    transform: translateX(-12px);
+    transform: translateX(-10px);
   }
-  28% {
+  24% {
     opacity: 0;
-    transform: translateX(-12px);
+    transform: translateX(-10px);
   }
-  40% {
+  30% {
     opacity: 1;
     transform: translateX(0);
   }
-  63% {
+  54% {
     opacity: 1;
     transform: translateX(0);
   }
-  70% {
+  66% {
     opacity: 0;
-    transform: translateX(-12px);
+    transform: translateX(-10px);
   }
   100% {
     opacity: 0;
-    transform: translateX(-12px);
+    transform: translateX(-10px);
   }
 }
 
@@ -358,36 +377,45 @@ body {
 
 
 
-.custom-toast-success {
+
+
+/* unstyled: true is set on <Toaster> so no Sonner defaults exist to fight.
+   These classes are the sole source of styling for success toasts. */
+.custom-toast-success,
+.snaphomz-toast--success {
   position: relative;
-  background-color: transparent;
+  background: transparent;
   border: none;
   border-radius: 999px;
   padding: 12px 20px;
   margin: 0.75rem;
   box-shadow: none;
+  /* visible so the icon can animate above the card boundary */
   overflow: visible;
+  display: grid;
   grid-template-columns: 36px 1fr;
   column-gap: 16px;
   align-items: center;
   min-height: 56px;
-  /* Disable Sonner's built-in slide-in/out so our custom animations own the lifecycle */
-  animation: none !important;
+  min-width: 340px;
+  color: #f3fff8;
 }
 
-.custom-toast-success::before {
+.custom-toast-success::before,
+.snaphomz-toast--success::before {
   content: '';
   position: absolute;
   inset: 0;
   background-color: #0b5d3b;
   border: 1px solid #0a5234;
   border-radius: 999px;
-  transform-origin: left center;
-  animation: toast-success-card-flow 3s ease-in-out forwards;
+  clip-path: inset(0 100% 0 0 round 999px);
+  animation: toast-success-card-flow 3.5s ease-in-out forwards;
   z-index: 0;
 }
 
-.custom-toast-success > * {
+.custom-toast-success > *,
+.snaphomz-toast--success > * {
   position: relative;
   z-index: 1;
 }
@@ -398,15 +426,16 @@ body {
   width: 28px;
   height: 28px;
   color: #eafff2;
-  background: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: radial-gradient(circle at 35% 30%, #2ba36f 0%, #0b5d3b 65%);
+  border: 1px solid #0a5234;
+  box-shadow: 0 6px 14px rgba(11, 93, 59, 0.25);
   border-radius: 999px;
-  animation: toast-success-icon-flow 3s ease-in-out forwards;
+  animation: toast-success-icon-flow 3.5s ease-in-out forwards;
 }
 
 .snaphomz-toast--success .snaphomz-toast__content {
   overflow: hidden;
-  animation: toast-success-content-flow 3s ease-in-out forwards;
+  animation: toast-success-content-flow 3.5s ease-in-out forwards;
   will-change: transform, opacity;
   padding-left: 2px;
   align-self: center;
@@ -427,11 +456,27 @@ body {
   margin-top: 2px;
 }
 
-.snaphomz-toast--success .snaphomz-toast__close {
-  display: none;
+/* Hide the X close button on success toasts — every possible Sonner selector */
+.snaphomz-toast--success .snaphomz-toast__close,
+.snaphomz-toast--success [data-close-button],
+.snaphomz-toast--success button[aria-label],
+.snaphomz-toast--success .sonner-close-button,
+.custom-toast-success .snaphomz-toast__close,
+.custom-toast-success [data-close-button],
+.custom-toast-success button[aria-label],
+.custom-toast-success .sonner-close-button {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  opacity: 0 !important;
 }
 
-.custom-toast-warning {
+.custom-toast-warning,
+.snaphomz-toast--warning {
   position: relative;
   background-color: transparent;
   border: none;
@@ -447,7 +492,8 @@ body {
   animation: none !important;
 }
 
-.custom-toast-warning::before {
+.custom-toast-warning::before,
+.snaphomz-toast--warning::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -455,11 +501,12 @@ body {
   border: 1px solid #7a4600;
   border-radius: 999px;
   transform-origin: left center;
-  animation: toast-success-card-flow 3s ease-in-out forwards;
+  animation: toast-success-card-flow 3.5s ease-in-out forwards;
   z-index: 0;
 }
 
-.custom-toast-warning > * {
+.custom-toast-warning > *,
+.snaphomz-toast--warning > * {
   position: relative;
   z-index: 1;
 }
@@ -473,12 +520,12 @@ body {
   background: rgba(255, 255, 255, 0.16);
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 999px;
-  animation: toast-success-icon-flow 3s ease-in-out forwards;
+  animation: toast-success-icon-flow 3.5s ease-in-out forwards;
 }
 
 .snaphomz-toast--warning .snaphomz-toast__content {
   overflow: hidden;
-  animation: toast-success-content-flow 3s ease-in-out forwards;
+  animation: toast-success-content-flow 3.5s ease-in-out forwards;
   will-change: transform, opacity;
   padding-left: 2px;
   align-self: center;
@@ -503,7 +550,85 @@ body {
   display: none;
 }
 
-.custom-toast-error {
+.custom-toast-info,
+.snaphomz-toast--info {
+  position: relative;
+  background-color: transparent;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 14px;
+  margin: 0.75rem;
+  box-shadow: none;
+  overflow: visible;
+  grid-template-columns: 28px 1fr;
+  column-gap: 10px;
+  align-items: center;
+  min-height: 44px;
+  min-width: 260px;
+  animation: none !important;
+}
+
+.custom-toast-info::before,
+.snaphomz-toast--info::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: #0b3d91;
+  border: 1px solid #08357d;
+  border-radius: 999px;
+  transform-origin: left center;
+  animation: toast-success-card-flow 3.5s ease-in-out forwards;
+  z-index: 0;
+}
+
+.custom-toast-info > *,
+.snaphomz-toast--info > * {
+  position: relative;
+  z-index: 1;
+}
+
+.snaphomz-toast--info .snaphomz-toast__icon {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  color: #e9f2ff;
+  background: radial-gradient(circle at 35% 30%, #2a7bd6 0%, #0b3d91 65%);
+  border: 1px solid #08357d;
+  box-shadow: 0 6px 14px rgba(11, 61, 145, 0.25);
+  border-radius: 999px;
+  animation: toast-success-icon-flow 3.5s ease-in-out forwards;
+}
+
+.snaphomz-toast--info .snaphomz-toast__content {
+  overflow: hidden;
+  animation: toast-success-content-flow 3.5s ease-in-out forwards;
+  will-change: transform, opacity;
+  padding-left: 2px;
+  align-self: center;
+}
+
+.snaphomz-toast--info .snaphomz-toast__title {
+  color: #e9f2ff;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.snaphomz-toast--info .snaphomz-toast__desc {
+  color: #cfe0ff;
+  font-size: 11px;
+  line-height: 1.25;
+  opacity: 0.9;
+  margin-top: 2px;
+}
+
+.snaphomz-toast--info .snaphomz-toast__close {
+  display: none;
+}
+
+.custom-toast-error,
+.snaphomz-toast--error {
   position: relative;
   background-color: transparent;
   border: none;
@@ -519,7 +644,8 @@ body {
   animation: none !important;
 }
 
-.custom-toast-error::before {
+.custom-toast-error::before,
+.snaphomz-toast--error::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -527,11 +653,12 @@ body {
   border: 1px solid #661010;
   border-radius: 999px;
   transform-origin: left center;
-  animation: toast-success-card-flow 3s ease-in-out forwards;
+  animation: toast-success-card-flow 3.5s ease-in-out forwards;
   z-index: 0;
 }
 
-.custom-toast-error > * {
+.custom-toast-error > *,
+.snaphomz-toast--error > * {
   position: relative;
   z-index: 1;
 }
@@ -542,15 +669,16 @@ body {
   width: 28px;
   height: 28px;
   color: #ffecec;
-  background: rgba(255, 255, 255, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: radial-gradient(circle at 35% 30%, #c83a2a 0%, #7a1111 65%);
+  border: 1px solid #661010;
+  box-shadow: 0 6px 14px rgba(122, 17, 17, 0.25);
   border-radius: 999px;
-  animation: toast-success-icon-flow 3s ease-in-out forwards;
+  animation: toast-success-icon-flow 3.5s ease-in-out forwards;
 }
 
 .snaphomz-toast--error .snaphomz-toast__content {
   overflow: hidden;
-  animation: toast-success-content-flow 3s ease-in-out forwards;
+  animation: toast-success-content-flow 3.5s ease-in-out forwards;
   will-change: transform, opacity;
   padding-left: 2px;
   align-self: center;
@@ -573,6 +701,185 @@ body {
 
 .snaphomz-toast--error .snaphomz-toast__close {
   display: none;
+}
+
+/* Force Sonner default markup to use the same pill design + animation */
+[data-sonner-toast][data-type='success'],
+[data-sonner-toast][data-type='warning'],
+[data-sonner-toast][data-type='info'],
+[data-sonner-toast][data-type='error'] {
+  position: relative;
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  column-gap: 16px;
+  align-items: center;
+  min-height: 56px;
+  padding: 12px 20px;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 999px !important;
+  overflow: visible;
+}
+
+[data-sonner-toast][data-type='info'] {
+  grid-template-columns: 28px 1fr;
+  column-gap: 10px;
+  min-height: 44px;
+  padding: 8px 14px;
+  min-width: 260px;
+}
+
+.snaphomz-toast--success,
+.snaphomz-toast--warning,
+.snaphomz-toast--info,
+.snaphomz-toast--error {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+[data-sonner-toast][data-type='success']::before,
+[data-sonner-toast][data-type='warning']::before,
+[data-sonner-toast][data-type='info']::before,
+[data-sonner-toast][data-type='error']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  transform-origin: left center;
+  animation: toast-success-card-flow 3.5s ease-in-out forwards;
+  z-index: 0;
+}
+
+[data-sonner-toast][data-type='success']::before {
+  background-color: #0b5d3b;
+  border: 1px solid #0a5234;
+}
+
+[data-sonner-toast][data-type='info']::before {
+  background-color: #0b3d91;
+  border: 1px solid #08357d;
+}
+
+[data-sonner-toast][data-type='warning']::before {
+  background-color: #8a5200;
+  border: 1px solid #7a4600;
+}
+
+[data-sonner-toast][data-type='error']::before {
+  background-color: #7a1111;
+  border: 1px solid #661010;
+}
+
+[data-sonner-toast][data-type='success'] > *,
+[data-sonner-toast][data-type='warning'] > *,
+[data-sonner-toast][data-type='info'] > *,
+[data-sonner-toast][data-type='error'] > * {
+  position: relative;
+  z-index: 1;
+}
+
+[data-sonner-toast][data-type='success'] [data-icon],
+[data-sonner-toast][data-type='warning'] [data-icon],
+[data-sonner-toast][data-type='info'] [data-icon],
+[data-sonner-toast][data-type='error'] [data-icon] {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  animation: toast-success-icon-flow 3.5s ease-in-out forwards;
+}
+
+[data-sonner-toast][data-type='success'] [data-icon] {
+  color: #eafff2;
+  background: radial-gradient(circle at 35% 30%, #2ba36f 0%, #0b5d3b 65%);
+  border: 1px solid #0a5234;
+  box-shadow: 0 6px 14px rgba(11, 93, 59, 0.25);
+}
+
+[data-sonner-toast][data-type='info'] [data-icon] {
+  color: #e9f2ff;
+  background: radial-gradient(circle at 35% 30%, #2a7bd6 0%, #0b3d91 65%);
+  border: 1px solid #08357d;
+  box-shadow: 0 6px 14px rgba(11, 61, 145, 0.25);
+  width: 22px;
+  height: 22px;
+}
+
+[data-sonner-toast][data-type='warning'] [data-icon] {
+  color: #fff3e6;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+[data-sonner-toast][data-type='error'] [data-icon] {
+  color: #ffecec;
+  background: radial-gradient(circle at 35% 30%, #c83a2a 0%, #7a1111 65%);
+  border: 1px solid #661010;
+  box-shadow: 0 6px 14px rgba(122, 17, 17, 0.25);
+}
+
+[data-sonner-toast][data-type='success'] [data-content],
+[data-sonner-toast][data-type='warning'] [data-content],
+[data-sonner-toast][data-type='info'] [data-content],
+[data-sonner-toast][data-type='error'] [data-content] {
+  overflow: hidden;
+  animation: toast-success-content-flow 3.5s ease-in-out forwards;
+  will-change: transform, opacity;
+  padding-left: 2px;
+  align-self: center;
+}
+
+[data-sonner-toast][data-type='success'] [data-title],
+[data-sonner-toast][data-type='warning'] [data-title],
+[data-sonner-toast][data-type='info'] [data-title],
+[data-sonner-toast][data-type='error'] [data-title] {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #f3fff8;
+}
+
+[data-sonner-toast][data-type='warning'] [data-title] {
+  color: #fff7ef;
+}
+
+[data-sonner-toast][data-type='info'] [data-title] {
+  color: #e9f2ff;
+  font-size: 13px;
+}
+
+[data-sonner-toast][data-type='error'] [data-title] {
+  color: #fff5f5;
+}
+
+[data-sonner-toast][data-type='success'] [data-description],
+[data-sonner-toast][data-type='warning'] [data-description],
+[data-sonner-toast][data-type='info'] [data-description],
+[data-sonner-toast][data-type='error'] [data-description] {
+  font-size: 12px;
+  line-height: 1.25;
+  margin-top: 2px;
+  opacity: 0.85;
+}
+
+[data-sonner-toast][data-type='warning'] [data-description] {
+  color: #f3ddc5;
+}
+
+[data-sonner-toast][data-type='info'] [data-description] {
+  color: #cfe0ff;
+  font-size: 11px;
+}
+
+[data-sonner-toast][data-type='error'] [data-description] {
+  color: #f8d6d6;
+}
+
+[data-sonner-toast] [data-close-button] {
+  display: none !important;
 }
 
 .snaphomz-toast__close {
@@ -685,6 +992,16 @@ div.make-it-easy-component {
 /* Hide scrollbar */
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* Keep bottom-right Google Maps controls closer to zoom buttons */
+.snaphomz-map .gm-bundled-control.gm-bundled-control-on-bottom {
+  bottom: 250px !important;
+}
+
+/* Place zoom controls just below the camera controls (rotate/tilt) */
+.snaphomz-map .gm-style .gmnoprint.gm-bundled-control + .gm-bundled-control {
+  margin-top: 12px !important;
 }
 
 .scrollbar-hide {
@@ -1061,4 +1378,9 @@ div.make-it-easy-component {
 
 .home-sections {
   background-color: #FFF6EC;
+}
+
+
+[data-sonner-toast] [data-close-button] {
+  display: none !important;
 }

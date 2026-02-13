@@ -2304,6 +2304,7 @@
 "use client"
 
 import Image from "next/image"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
@@ -2334,6 +2335,7 @@ import {
   ZoomOut,
   Eye,
   Maximize,
+  ArrowDown,
 } from "lucide-react"
 import "swiper/css"
 import "swiper/css/navigation"
@@ -2342,7 +2344,7 @@ import FavoriteBorder from "@mui/icons-material/FavoriteBorder"
 import LocationOnIcon from "@mui/icons-material/LocationOn"
 import { Badge } from "@/components/ui/badge"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useCallback, useContext, useEffect, useRef, useState } from "react"
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import useDebounce from "@/hooks/utils/debounce"
 import { useSelector } from "react-redux"
 import KingBedIcon from "@mui/icons-material/KingBed"
@@ -2356,11 +2358,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 import { format, formatDistanceToNow, isSameDay, subDays } from "date-fns"
 import { PROPERTY_DETAIL_SEARCH_AI_URL } from "@/shared/constants/env"
 import { SocketContext } from "@/providers/socket.context"
 import { useAgentConversationApi } from "@/hooks/api/auth/useConversationApi"
-import { FaHome, FaMapMarkerAlt } from "react-icons/fa"
 import { decryptMessage, encryptMessage, generateColorFromName } from "@/utils/math-utilities"
 import { useMessagesApi } from "@/hooks/api/useFetchMessages"
 import { useUserAgentMessageApi } from "@/hooks/api/auth/useMessageApi"
@@ -2417,6 +2424,7 @@ interface Thread {
   messages?: any
   id: string
   threadName?: string
+  updatedAt?: string | null
   image?: string;
   propertyName?: string;
   message?: string
@@ -2448,6 +2456,14 @@ interface Thread {
   threadId?: string | null
   isActive?: boolean
 }
+interface AgentPropertySummary {
+  propertyId: string
+  propertyName?: string
+  propertyAddress?: string
+  threadId?: string
+  listingId?: string
+  participants?: any[]
+}
 interface PropertyData {
   media?: {
     primaryListingImageUrl?: string
@@ -2463,17 +2479,37 @@ interface PropertyData {
   courtesyOf?: string
   publicRemarks?: string
 }
+interface InvitedUserListItem {
+  id: string
+  name: string
+  email: string
+  role: string
+  initials: string
+  status: "accepted" | "pending" | "expired" | "declined"
+}
+interface MediaDocumentListItem {
+  id: string
+  url: string
+  fileType: string
+  fileName: string
+  kind: "image" | "video" | "document"
+  senderName: string
+  createdAt?: string
+}
+const INVITED_USERS_STORAGE_KEY = "chat_invited_users_by_thread_v1"
+const MAX_INVITES_PER_CHAT = 5
 
 export default function ChatBoxComponent(props: any) {
-  const { threads, setIsRead, setSearch, loading, threadId } = props
+  const { threads, setIsRead, setSearch, loading, threadId, isRead } = props
   const router = useRouter()
   const params = useSearchParams();
   const type = params?.get('type')
+  const focusLatestFromNotification = params?.get('focusLatest') === '1'
   const { socket, state, setState } = useContext(SocketContext)
   const [isDetails, setIsDetails] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const [activeButton, setActiveButton] = useState("all")
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false)
   const toggleDropdown = () => setIsDropdownOpen((prev) => !prev)
   const closeDropdown = () => setIsDropdownOpen(false)
   const [message, setMessage] = useState("")
@@ -2508,10 +2544,406 @@ export default function ChatBoxComponent(props: any) {
   const [selectedThread, setSelectedThread] = useState<any>("")
   const [threadParticipants, setThreadParticipant] = useState<any>([])
   const [selectedThreadDetail, setSelectedThreadDetail] = useState<any>("")
+  const [expandedEntryKey, setExpandedEntryKey] = useState<string | null>(null)
+  const [persistedInvitesByThread, setPersistedInvitesByThread] = useState<Record<string, any[]>>({})
   const pathname = useSearchParams();
   const [messageThreads, setMessageThreads] = useAtom(messageThreadsAtom);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageScrollAreaRef = useRef<HTMLDivElement>(null);
+  const isAtLatestMessageRef = useRef(true);
+  const shouldAutoScrollOnIncomingRef = useRef(false);
+  const hasHandledNotificationFocusRef = useRef(false);
   const [showUploadMenu, setShowUploadMenu] = useState(false);
+  const [pendingNewMessageCount, setPendingNewMessageCount] = useState(0);
+  const [isAtLatestMessage, setIsAtLatestMessage] = useState(true);
+
+  interface AggregatedAgentThread {
+    entryKey: string;
+    agentId?: string;
+    baseThread: Thread;
+    properties: AgentPropertySummary[];
+    latestUpdatedAt: number;
+    totalUnread: number;
+  }
+
+  const aggregatedThreads = useMemo<AggregatedAgentThread[]>(() => {
+    if (!Array.isArray(threads)) {
+      return [];
+    }
+
+    const groupMap = new Map<string, AggregatedAgentThread>();
+    const standaloneEntries: AggregatedAgentThread[] = [];
+
+    const resolveAgentCandidate = (thread: Thread) =>
+      thread?.buyerAgent ||
+      thread?.sellerAgent ||
+      thread?.participants
+        ?.map((participant: any) => participant?.user)
+        .find(
+          (participant: any) =>
+            participant?.id && participant.id !== userData?.id,
+        );
+
+    const resolvePropertyIdentifier = (thread: Thread) =>
+      (thread?.propertyId && thread.propertyId.toString()) ||
+      (thread?.listingId && thread.listingId.toString()) ||
+      thread?.id;
+
+    const resolveLastUpdated = (thread: Thread) => {
+      const lastMessage =
+        Array.isArray(thread?.messages) && thread.messages.length
+          ? thread.messages[thread.messages.length - 1]
+          : null;
+      return new Date(
+        thread?.updatedAt ||
+        thread?.lastMessageAt ||
+        lastMessage?.createdAt ||
+        0,
+      ).getTime();
+    };
+
+    threads.forEach((thread: Thread) => {
+      const agentCandidate = resolveAgentCandidate(thread);
+      const agentId = agentCandidate?.id;
+      const propertyIdentifier = resolvePropertyIdentifier(thread);
+      const propertySummary: AgentPropertySummary | undefined = propertyIdentifier
+        ? {
+          propertyId: propertyIdentifier,
+          propertyName: thread?.propertyName,
+          propertyAddress: thread?.propertyAddress,
+          threadId: thread?.id,
+          listingId: thread?.listingId,
+          participants: thread?.participants,
+        }
+        : undefined;
+
+      const updatedAt = resolveLastUpdated(thread);
+      const unreadCount = thread?.unreadCount ?? 0;
+
+      if (agentId) {
+        let entry = groupMap.get(agentId);
+        if (!entry) {
+          entry = {
+            entryKey: agentId,
+            agentId,
+            baseThread: thread,
+            properties:
+              propertySummary && propertySummary.propertyId
+                ? [propertySummary]
+                : [],
+            latestUpdatedAt: updatedAt,
+            totalUnread: unreadCount,
+          };
+          groupMap.set(agentId, entry);
+        } else {
+          if (updatedAt > entry.latestUpdatedAt) {
+            entry.baseThread = thread;
+            entry.latestUpdatedAt = updatedAt;
+          }
+          entry.totalUnread += unreadCount;
+          if (
+            propertySummary &&
+            propertySummary.propertyId &&
+            !entry.properties.some(
+              (property) => property.propertyId === propertySummary.propertyId,
+            )
+          ) {
+            entry.properties.push(propertySummary);
+          }
+        }
+      } else {
+        standaloneEntries.push({
+          entryKey:
+            thread?.id || crypto.randomUUID?.() || Math.random().toString(36),
+          baseThread: thread,
+          properties:
+            propertySummary && propertySummary.propertyId
+              ? [propertySummary]
+              : [],
+          latestUpdatedAt: updatedAt,
+          totalUnread: unreadCount,
+        });
+      }
+    });
+
+    const aggregated = [
+      ...Array.from(groupMap.values()),
+      ...standaloneEntries,
+    ];
+
+    aggregated.sort(
+      (a, b) => (b.latestUpdatedAt || 0) - (a.latestUpdatedAt || 0),
+    );
+
+    return aggregated;
+  }, [threads, userData?.id]);
+
+  const displayedThreads = useMemo<AggregatedAgentThread[]>(() => {
+    if (showUnreadOnly) {
+      return [];
+    }
+    return aggregatedThreads;
+  }, [aggregatedThreads, showUnreadOnly]);
+
+  const getMessageViewportElement = useCallback(() => {
+    return messageScrollAreaRef.current?.querySelector(
+      "[data-radix-scroll-area-viewport]",
+    ) as HTMLDivElement | null;
+  }, []);
+
+  const updateLatestMessageState = useCallback(() => {
+    const viewport = getMessageViewportElement();
+    if (!viewport) return;
+
+    const distanceFromBottom =
+      viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+    const atLatest = distanceFromBottom <= 80;
+
+    isAtLatestMessageRef.current = atLatest;
+    setIsAtLatestMessage(atLatest);
+
+    if (atLatest) {
+      setPendingNewMessageCount(0);
+    }
+    setState((prev: any) =>
+      prev.isCurrentChatAtBottom === atLatest
+        ? prev
+        : {
+          ...prev,
+          isCurrentChatAtBottom: atLatest,
+        },
+    );
+  }, [getMessageViewportElement]);
+
+  const scrollToLatestMessages = useCallback(() => {
+    setPendingNewMessageCount(0);
+    setIsAtLatestMessage(true);
+    isAtLatestMessageRef.current = true;
+    const viewport = getMessageViewportElement();
+    if (viewport) {
+      viewport.scrollTop = viewport.scrollHeight;
+    }
+    messagesEndRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
+  }, [getMessageViewportElement]);
+
+  const scrollToLatestMessagesWithRetry = useCallback((attempts = 8) => {
+    let remainingAttempts = attempts;
+    const tryScroll = () => {
+      scrollToLatestMessages();
+      const viewport = getMessageViewportElement();
+      const distanceFromBottom = viewport
+        ? viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight
+        : Number.MAX_SAFE_INTEGER;
+
+      if (distanceFromBottom <= 4) {
+        updateLatestMessageState();
+        return;
+      }
+
+      remainingAttempts -= 1;
+      if (remainingAttempts <= 0) {
+        updateLatestMessageState();
+        return;
+      }
+      setTimeout(tryScroll, 120);
+    };
+    tryScroll();
+  }, [getMessageViewportElement, scrollToLatestMessages, updateLatestMessageState]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    try {
+      const raw = localStorage.getItem(INVITED_USERS_STORAGE_KEY)
+      if (!raw) return
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === "object") {
+        setPersistedInvitesByThread(parsed)
+      }
+    } catch (err) {
+      console.error("[chat-box] Failed to load persisted invites:", err)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    try {
+      localStorage.setItem(INVITED_USERS_STORAGE_KEY, JSON.stringify(persistedInvitesByThread))
+    } catch (err) {
+      console.error("[chat-box] Failed to persist invites:", err)
+    }
+  }, [persistedInvitesByThread])
+
+  const invitedUsers = useMemo<InvitedUserListItem[]>(() => {
+    const inviteExpiryMs = 10 * 24 * 60 * 60 * 1000
+    const currentThreadId = String(selectedThreadDetail?.id || selectedThread || "")
+    const backendParticipants = Array.isArray(selectedThreadDetail?.participants)
+      ? selectedThreadDetail.participants
+      : []
+    const persistedParticipants = currentThreadId
+      ? (persistedInvitesByThread[currentThreadId] || [])
+      : []
+    const rawParticipants = [...backendParticipants, ...persistedParticipants]
+    const seenKeys = new Set<string>()
+    const normalizedUsers: InvitedUserListItem[] = []
+
+    const toInitials = (name?: string, email?: string) => {
+      if (name?.trim()) {
+        const words = name.trim().split(/\s+/).filter(Boolean)
+        const initials = words.slice(0, 2).map((word) => word[0]?.toUpperCase()).join("")
+        if (initials) return initials
+      }
+      if (email?.trim()) {
+        return email.trim().slice(0, 2).toUpperCase()
+      }
+      return "NA"
+    }
+    const getRoleLabel = (rawRole?: string) => {
+      const normalizedRole = String(rawRole || "").toLowerCase()
+      if (!normalizedRole) return "Role not set"
+      if (normalizedRole.includes("buyer_agent") || normalizedRole.includes("buyer agent")) return "Buyer Agent"
+      if (normalizedRole.includes("co_buyer") || normalizedRole.includes("co-buyer") || normalizedRole.includes("cobuyer")) return "Co-buyer"
+      if (normalizedRole.includes("family_friends") || normalizedRole.includes("family/friends") || normalizedRole.includes("family friends")) return "Family/Friends"
+      return rawRole || "Role not set"
+    }
+
+    rawParticipants.forEach((participant: any, index: number) => {
+      const userDetails = participant?.user ?? participant ?? {}
+      const firstName = userDetails?.firstName || ""
+      const lastName = userDetails?.lastName || ""
+      const combinedName = `${firstName} ${lastName}`.trim()
+      const email = userDetails?.email || participant?.email || ""
+      const name = combinedName || email?.split("@")?.[0] || "Invited User"
+      const role = getRoleLabel(
+        participant?.inviteRole ||
+        participant?.role ||
+        participant?.agentType ||
+        participant?.accountType ||
+        participant?.user?.accountType,
+      )
+      const id = String(userDetails?.id || participant?.id || `${email}-${index}`)
+      const dedupeKey = email
+        ? `email-${String(email).toLowerCase()}`
+        : userDetails?.id || participant?.id
+          ? `id-${String(userDetails?.id || participant?.id).toLowerCase()}`
+          : `fallback-${index}`
+
+      if (seenKeys.has(dedupeKey)) {
+        return
+      }
+      seenKeys.add(dedupeKey)
+
+      const rawStatus = String(
+        participant?.approvalStatus ??
+        participant?.status ??
+        participant?.inviteStatus ??
+        participant?.invitationStatus ??
+        "",
+      ).toLowerCase()
+
+      let status: InvitedUserListItem["status"] = "pending"
+      const isDeclined =
+        Boolean(participant?.isDeclined) ||
+        rawStatus.includes("declin") ||
+        rawStatus.includes("reject")
+      const isAccepted =
+        participant?.is_accepted === true ||
+        participant?.isAccepted === true ||
+        rawStatus.includes("accept") ||
+        rawStatus.includes("approv") ||
+        rawStatus.includes("join")
+
+      if (isDeclined) {
+        status = "declined"
+      } else if (isAccepted) {
+        status = "accepted"
+      } else {
+        const inviteDateRaw =
+          participant?.createdAt ||
+          participant?.invitedAt ||
+          participant?.inviteSentAt ||
+          participant?.requestedAt ||
+          participant?.joinDate
+        const inviteDate = inviteDateRaw ? new Date(inviteDateRaw) : null
+        const isValidInviteDate = inviteDate instanceof Date && !Number.isNaN(inviteDate.getTime())
+        if (isValidInviteDate && Date.now() - inviteDate.getTime() > inviteExpiryMs) {
+          status = "expired"
+        }
+      }
+
+      {/* Modified here by Abhradip Paul role typescript error*/ }
+      normalizedUsers.push({
+        id,
+        name,
+        email,
+        role: role || "",
+        initials: toInitials(name, email),
+        status,
+      })
+    })
+
+    return normalizedUsers
+  }, [persistedInvitesByThread, selectedThread, selectedThreadDetail?.id, selectedThreadDetail?.participants]);
+
+  const invitedUserStyles: Record<InvitedUserListItem["status"], { name: string; email: string; badge: string; avatar: string; label: string }> = {
+    accepted: {
+      name: "text-gray-900",
+      email: "text-gray-500",
+      badge: "bg-gray-100 text-gray-700 border-gray-200",
+      avatar: "bg-white text-gray-700 border-gray-400",
+      label: "Accepted",
+    },
+    pending: {
+      name: "text-gray-900",
+      email: "text-gray-500",
+      badge: "bg-orange-50 text-orange-700 border-orange-200",
+      avatar: "bg-white text-orange-700 border-orange-300",
+      label: "Pending",
+    },
+    expired: {
+      name: "text-red-600",
+      email: "text-red-400",
+      badge: "bg-red-50 text-red-700 border-red-200",
+      avatar: "bg-white text-red-700 border-red-300",
+      label: "Expired",
+    },
+    declined: {
+      name: "text-gray-400",
+      email: "text-gray-400",
+      badge: "bg-gray-100 text-gray-400 border-gray-200",
+      avatar: "bg-white text-gray-400 border-gray-300",
+      label: "Declined",
+    },
+  }
+  const totalParticipantsCount = Array.isArray(threadParticipants) ? threadParticipants.length : 0
+  const isInviteLimitReached = totalParticipantsCount >= MAX_INVITES_PER_CHAT
+  const inviteLimitMessage = `No more than ${MAX_INVITES_PER_CHAT} participants can be in this chat.`
+  const blockedInviteEmails = useMemo(() => {
+    const collectedEmails = new Set<string>()
+    const pushEmail = (value?: string) => {
+      const normalized = String(value || "").trim().toLowerCase()
+      if (normalized) collectedEmails.add(normalized)
+    }
+
+    invitedUsers.forEach((invitedUser) => pushEmail(invitedUser.email))
+    if (Array.isArray(threadParticipants)) {
+      threadParticipants.forEach((participant: any) => pushEmail(participant?.email))
+    }
+    pushEmail(selectedThreadDetail?.user?.email)
+    pushEmail(selectedThreadDetail?.buyerAgent?.email)
+    pushEmail(selectedThreadDetail?.sellerAgent?.email)
+    pushEmail(userData?.email)
+    pushEmail(user?.email)
+
+    return Array.from(collectedEmails)
+  }, [
+    invitedUsers,
+    selectedThreadDetail?.buyerAgent?.email,
+    selectedThreadDetail?.sellerAgent?.email,
+    selectedThreadDetail?.user?.email,
+    threadParticipants,
+    user?.email,
+    userData?.email,
+  ])
 
   console.log(selectedThreadDetail);
   const imageMimeType = [
@@ -2614,25 +3046,249 @@ export default function ChatBoxComponent(props: any) {
       fileUrl: fileUrlCandidate || message.fileUrl
     }
   }
+  const getFileNameFromUrl = useCallback((url: string) => {
+    try {
+      if (!url) return "File"
+      const cleanUrl = url.split("?")[0]
+      const fileName = cleanUrl.split("/").pop() || "File"
+      const decodedFileName = decodeURIComponent(fileName)
+      const uuidPattern =
+        /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}-?/
+      return decodedFileName.replace(uuidPattern, "")
+    } catch (error) {
+      console.error("[ChatBox] Failed to parse file name:", error)
+      return "File"
+    }
+  }, [])
+  const resolveAttachmentUrlFromMessage = useCallback((message: Message): string => {
+    const candidateValues = [
+      message?.file?.url,
+      message?.fileUrl,
+      ...(Array.isArray(message?.documents) ? message.documents : []),
+      message?.messageType === "file" || message?.message_type === "file"
+        ? message?.message
+        : undefined,
+    ]
+
+    for (const rawCandidate of candidateValues) {
+      if (typeof rawCandidate !== "string") continue
+      let candidate = rawCandidate.trim()
+      if (!candidate) continue
+
+      if (candidate.startsWith("CL::")) {
+        candidate = candidate.substring(4)
+      }
+
+      if (
+        candidate.startsWith("http://") ||
+        candidate.startsWith("https://") ||
+        candidate.startsWith("data:") ||
+        candidate.startsWith("/")
+      ) {
+        return candidate
+      }
+
+      try {
+        const decrypted = decryptMessage(candidate)
+        if (
+          decrypted &&
+          (decrypted.startsWith("http://") ||
+            decrypted.startsWith("https://") ||
+            decrypted.startsWith("data:") ||
+            decrypted.startsWith("/"))
+        ) {
+          return decrypted
+        }
+      } catch (error) {
+        // Ignore decrypt errors for non-encrypted values.
+      }
+    }
+
+    return ""
+  }, [])
+  const getAttachmentKind = useCallback((fileType: string, fileUrl: string): "image" | "video" | "document" => {
+    const normalizedType = String(fileType || "").toLowerCase()
+    const normalizedUrl = String(fileUrl || "").toLowerCase()
+    if (
+      normalizedType.startsWith("image/") ||
+      /\.(png|jpe?g|gif|webp|bmp|svg|heic|heif)(\?|$)/i.test(normalizedUrl)
+    ) {
+      return "image"
+    }
+    if (
+      normalizedType.startsWith("video/") ||
+      /\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv|3gp|m4v|ts)(\?|$)/i.test(normalizedUrl)
+    ) {
+      return "video"
+    }
+    return "document"
+  }, [])
+
+  const mediaDocuments = useMemo<MediaDocumentListItem[]>(() => {
+    const participantNameById = new Map<string, string>()
+      ; (threadParticipants || []).forEach((participant: any) => {
+        const id = String(participant?.id || participant?.user?.id || "").trim()
+        if (!id) return
+        const firstName = participant?.firstName || participant?.user?.firstName || ""
+        const lastName = participant?.lastName || participant?.user?.lastName || ""
+        const fullName = `${firstName} ${lastName}`.trim()
+        participantNameById.set(id, fullName || participant?.email || "Unknown user")
+      })
+
+    const items: MediaDocumentListItem[] = []
+      ; (messages || []).forEach((message, index) => {
+        const attachmentUrl = resolveAttachmentUrlFromMessage(message)
+        if (!attachmentUrl) return
+
+        const fileType =
+          message?.fileType ||
+          message?.file_type ||
+          message?.file?.type ||
+          getMimeTypeFromUrl(attachmentUrl) ||
+          ""
+        const kind = getAttachmentKind(fileType, attachmentUrl)
+        const senderId = String(message?.senderId || "").trim()
+        const senderName = senderId && senderId === userData?.id
+          ? "You"
+          : participantNameById.get(senderId) || "Unknown user"
+        const createdAt = message?.createdAt || message?.timestamp
+
+        items.push({
+          id: String(message?.id || `${attachmentUrl}-${createdAt || index}`),
+          url: attachmentUrl,
+          fileType,
+          fileName: getFileNameFromUrl(attachmentUrl),
+          kind,
+          senderName,
+          createdAt,
+        })
+      })
+
+    return items.sort((a, b) => {
+      const aTime = new Date(a.createdAt || 0).getTime()
+      const bTime = new Date(b.createdAt || 0).getTime()
+      return bTime - aTime
+    })
+  }, [
+    getAttachmentKind,
+    getFileNameFromUrl,
+    messages,
+    resolveAttachmentUrlFromMessage,
+    threadParticipants,
+    userData?.id,
+  ])
+
   const { getAllConversationMessagesMutation } = useAgentConversationApi()
   const { getAllUserAgentMessagesMutation } = useUserAgentMessageApi()
   const { getThreadById } = useAgentConversationApi()
   const { uploadNewFile } = usePropertyServiceAPI()
   const { createRepoWithUploadedFile } = useRepoManagementApi()
 
-  const getThreadDetails = async (id: string) => {
-    getThreadById.mutateAsync(id ?? threadId, {
-      onSuccess: async (data: any) => {
-        const participants = await [
-          ...(data?.buyerAgent ? [data.buyerAgent] : []),
-          ...(data?.sellerAgent ? [data.sellerAgent] : []),
-          ...(data?.user ? [data.user] : []),
-          ...(Array.isArray(data?.participants) ? data.participants.map((p: any) => p.user) : []),
-        ];
-        handleThreadSelection(data, participants)
+  const handleInviteSuccess = useCallback((invitedEmail: string, selectedRole: "buyer_agent" | "co_buyer" | "family_friends") => {
+    const normalizedEmail = invitedEmail?.trim().toLowerCase()
+    if (!normalizedEmail) return
+    const activeThreadId = String(selectedThreadDetail?.id || selectedThread || "")
+    if (!activeThreadId) return
+
+    const inferredName = invitedEmail.split("@")[0] || "Invited"
+    const optimisticParticipant = {
+      id: `pending-${Date.now()}-${normalizedEmail}`,
+      approvalStatus: "pending",
+      inviteRole: selectedRole,
+      createdAt: new Date().toISOString(),
+      user: {
+        firstName: inferredName,
+        lastName: "",
+        email: invitedEmail,
+      },
+    }
+
+    setSelectedThreadDetail((prev: any) => {
+      if (!prev) return prev
+      const existingParticipants = Array.isArray(prev?.participants) ? prev.participants : []
+      const alreadyExists = existingParticipants.some(
+        (participant: any) =>
+          String(participant?.user?.email || participant?.email || "").toLowerCase() === normalizedEmail,
+      )
+      if (alreadyExists) return prev
+      return {
+        ...prev,
+        participants: [...existingParticipants, optimisticParticipant],
       }
     })
+
+    setThreadParticipant((prev: any) => {
+      const existingParticipants = Array.isArray(prev) ? prev : []
+      const alreadyExists = existingParticipants.some(
+        (participant: any) =>
+          String(participant?.email || "").toLowerCase() === normalizedEmail,
+      )
+      if (alreadyExists) return existingParticipants
+      return [
+        ...existingParticipants,
+        {
+          firstName: inferredName,
+          lastName: "",
+          email: invitedEmail,
+        },
+      ]
+    })
+
+    setPersistedInvitesByThread((prev) => {
+      const threadInvites = Array.isArray(prev[activeThreadId]) ? prev[activeThreadId] : []
+      const alreadyExists = threadInvites.some(
+        (participant: any) =>
+          String(participant?.user?.email || participant?.email || "").toLowerCase() === normalizedEmail,
+      )
+      if (alreadyExists) return prev
+      return {
+        ...prev,
+        [activeThreadId]: [...threadInvites, optimisticParticipant],
+      }
+    })
+  }, [selectedThread, selectedThreadDetail?.id])
+
+  const getThreadDetails = async (id: string) => {
+    try {
+      await getThreadById.mutateAsync(id ?? threadId, {
+        onSuccess: async (data: any) => {
+          const participants = await [
+            ...(data?.buyerAgent ? [data.buyerAgent] : []),
+            ...(data?.sellerAgent ? [data.sellerAgent] : []),
+            ...(data?.user ? [data.user] : []),
+            ...(Array.isArray(data?.participants) ? data.participants.map((p: any) => p.user) : []),
+          ];
+          handleThreadSelection(data, participants)
+        },
+      });
+    } catch (err) {
+      console.error("[chat-box] Failed to fetch thread details for id:", id, err);
+      selectThreadById(id);
+    }
   }
+  const normalizeThreadKey = (value?: string | null) =>
+    String(value ?? "").trim().toLowerCase();
+
+  const threadMatchesRouteId = (thread: Thread, targetId?: string) => {
+    const normalizedTarget = normalizeThreadKey(targetId);
+    if (!normalizedTarget) return false;
+
+    const candidates = [
+      thread?.id,
+      (thread as any)?.threadId,
+      (thread as any)?.thread_id,
+      (thread as any)?.roomId,
+      (thread as any)?.room_id,
+      (thread as any)?.conversationId,
+      (thread as any)?.conversation_id,
+      (thread as any)?.channelId,
+      (thread as any)?.channel_id,
+    ];
+
+    return candidates.some(
+      (candidate) => normalizeThreadKey(candidate as string | null | undefined) === normalizedTarget,
+    );
+  };
   const handleFileUpload = async (file: File) => {
     try {
       const { key, url } = await uploadNewFile(file, userData?.id || "", selectedThreadDetail?.propertyId);
@@ -2673,20 +3329,26 @@ export default function ChatBoxComponent(props: any) {
 
     console.log('[chat-box] Thread selected:', thread?.id, thread);
 
-    // Leave previous room if exists
-    if (selectedThread && socket && socket.leaveRoom) {
-      console.log('[chat-box] Leaving previous room:', selectedThread);
-      socket.leaveRoom(selectedThread);
-    }
-
     setIsDetails(false)
     setShowThreads(false)
     setShowChat(true)
     setThreadParticipant(participants)
+    const resolvedAgentId =
+      thread?.buyerAgent?.id ||
+      thread?.sellerAgent?.id ||
+      participants.find(
+        (participant: any) => participant?.id && participant.id !== userData?.id,
+      )?.id ||
+      null
+    setExpandedEntryKey(resolvedAgentId || thread?.id || null)
     setSelectedThreadDetail(thread)
     localStorage.setItem('threadId', thread?.id || '');
 
     setSelectedThread(thread?.id)
+    setIsRead(false)
+    setPendingNewMessageCount(0)
+    setIsAtLatestMessage(true)
+    isAtLatestMessageRef.current = true
 
     // Update state immediately to ensure chat box shows
     setState((prev: any) => ({
@@ -2694,7 +3356,12 @@ export default function ChatBoxComponent(props: any) {
       selectedChannel: {
         id: thread?.id,
         propertyName: thread.propertyName,
-      }
+      },
+      conversationUnreadCount: Array.isArray(prev.conversationUnreadCount)
+        ? prev.conversationUnreadCount.filter(
+          (entry: { threadId?: string | null }) => entry?.threadId !== thread?.id,
+        )
+        : prev.conversationUnreadCount,
     }))
 
     // Join the room using websocket methods
@@ -2752,20 +3419,31 @@ export default function ChatBoxComponent(props: any) {
     console.log('[chat-box] Thread selection complete. showChat:', true, 'selectedThread:', thread?.id, 'selectedThreadDetail:', thread?.id);
   }
 
+  const selectThreadById = (targetThreadId?: string) => {
+    if (!targetThreadId || !Array.isArray(threads)) return
+
+    const targetThread = threads.find((thread: Thread) => threadMatchesRouteId(thread, targetThreadId))
+    if (!targetThread) return
+
+    const participants = [
+      ...(targetThread?.buyerAgent ? [targetThread.buyerAgent] : []),
+      ...(targetThread?.sellerAgent ? [targetThread.sellerAgent] : []),
+      ...(targetThread?.user ? [targetThread.user] : []),
+      ...(Array.isArray(targetThread?.participants) ? targetThread.participants.map((p: any) => p.user) : []),
+    ]
+
+    handleThreadSelection(targetThread, participants)
+  }
+
   const handleEmojiClick = (emoji: any) => {
     setMessage((prev) => prev + emoji.emoji);
   };
   const handleBackToThreads = () => {
-    // Leave the room when going back to threads
-    if (selectedThread && socket && socket.leaveRoom) {
-      console.log('[chat-box] Leaving room for thread:', selectedThread);
-      socket.leaveRoom(selectedThread);
-    }
-
     setShowThreads(true)
     setShowChat(false)
     setSelectedChannel(null)
     setSelectedThread('')
+    setExpandedEntryKey(null)
   }
 
   useEffect(() => {
@@ -2807,10 +3485,11 @@ export default function ChatBoxComponent(props: any) {
           const decryptedMessages = data?.data?.messagesByThread?.map((message: Message) =>
             normalizeMessage(message)
           );
-          setTimeout(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-          }, 2000)
+          setPendingNewMessageCount(0);
           setMessages(decryptedMessages || []);
+          if (focusLatestFromNotification) {
+            scrollToLatestMessagesWithRetry();
+          }
         },
         onError: (error) => {
           console.log("Error in mutation: ", error);
@@ -2997,30 +3676,36 @@ export default function ChatBoxComponent(props: any) {
   };
 
   useEffect(() => {
-    // Use fallback pattern to get thread ID
-    const roomId = state?.selectedChannel?.id || selectedThreadDetail?.id || selectedThread || threadId;
-    if (!roomId || !socket) return;
+    if (!socket || !Array.isArray(threads) || threads.length === 0) return;
 
-    console.log('[chat-box] useEffect: Joining room:', roomId);
+    const threadIds = Array.from(
+      new Set(
+        threads
+          .map((thread: Thread) => thread?.id)
+          .filter((id): id is string => typeof id === "string" && id.length > 0),
+      ),
+    );
 
-    // Use proper websocket joinRoom method
-    if (socket.joinRoom) {
-      socket.joinRoom(roomId);
-    } else {
-      // Fallback to emit for backward compatibility
-      socket.emit("joinRoom", { roomId });
-    }
+    if (threadIds.length === 0) return;
+
+    threadIds.forEach((roomId) => {
+      if (socket.joinRoom) {
+        socket.joinRoom(roomId);
+      } else {
+        socket.emit("joinRoom", { roomId });
+      }
+    });
 
     return () => {
-      // Use proper websocket leaveRoom method
-      if (socket.leaveRoom) {
-        socket.leaveRoom(roomId);
-      } else {
-        // Fallback to emit for backward compatibility
-        socket.emit("leaveRoom", { roomId });
-      }
+      threadIds.forEach((roomId) => {
+        if (socket.leaveRoom) {
+          socket.leaveRoom(roomId);
+        } else {
+          socket.emit("leaveRoom", { roomId });
+        }
+      });
     };
-  }, [socket, state?.selectedChannel?.id, selectedThreadDetail?.id, selectedThread, threadId]);
+  }, [socket, threads]);
 
 
   // const handleSendMessage = async () => {
@@ -3237,6 +3922,7 @@ export default function ChatBoxComponent(props: any) {
       });
 
       // 3️⃣ Optimistic UI update
+      setPendingNewMessageCount(0);
       setMessages((prev: any) => [
         {
           threadId: currentThreadId,
@@ -3261,10 +3947,10 @@ export default function ChatBoxComponent(props: any) {
       // 4️⃣ Cleanup
       setMessage("");
       setSelectedFile(null);
+      requestAnimationFrame(() => {
+        scrollToLatestMessages();
+      });
 
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-      }, 300);
     } catch (err) {
       console.error("[handleSendMessage] Unexpected error:", err);
     }
@@ -3312,6 +3998,40 @@ export default function ChatBoxComponent(props: any) {
     // Message saving should be handled via REST API
   }
 
+  const appendIncomingMessage = useCallback((processedMessage: Message) => {
+    setMessages((prevMessages) => {
+      const exists = prevMessages.some(
+        (msg) =>
+          (msg.createdAt === processedMessage.createdAt ||
+            (!!msg.id && !!processedMessage.id && msg.id === processedMessage.id)) &&
+          msg.senderId === processedMessage.senderId &&
+          msg.message === processedMessage.message,
+      );
+
+      if (exists) {
+        return prevMessages;
+      }
+
+      const hasSenderId = typeof processedMessage.senderId === "string" && processedMessage.senderId.length > 0;
+      const hasReceiverId = typeof processedMessage.receiverId === "string" && processedMessage.receiverId.length > 0;
+      const isIncomingFromOtherUser = hasSenderId
+        ? processedMessage.senderId !== userData?.id
+        : hasReceiverId
+          ? processedMessage.receiverId === userData?.id
+          : true;
+      const isNotificationMessage = processedMessage.messageType === "notification";
+
+      if (isIncomingFromOtherUser && !isNotificationMessage && !isAtLatestMessageRef.current) {
+        setPendingNewMessageCount((prev) => prev + 1);
+      }
+      if (isIncomingFromOtherUser && !isNotificationMessage && isAtLatestMessageRef.current) {
+        shouldAutoScrollOnIncomingRef.current = true;
+      }
+
+      return [processedMessage, ...prevMessages];
+    });
+  }, [userData?.id]);
+
 
   useEffect(() => {
     if (socket) {
@@ -3343,9 +4063,44 @@ export default function ChatBoxComponent(props: any) {
   }, [socket])
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [groupedMessages]);
+    const viewport = getMessageViewportElement();
+    if (!viewport) return;
 
+    const handleViewportScroll = () => {
+      updateLatestMessageState();
+    };
+
+    updateLatestMessageState();
+    viewport.addEventListener("scroll", handleViewportScroll);
+
+    return () => {
+      viewport.removeEventListener("scroll", handleViewportScroll);
+    };
+  }, [getMessageViewportElement, updateLatestMessageState, selectedThreadDetail?.id]);
+
+  useEffect(() => {
+    if (!shouldAutoScrollOnIncomingRef.current) return;
+    requestAnimationFrame(() => {
+      scrollToLatestMessages();
+      shouldAutoScrollOnIncomingRef.current = false;
+    });
+  }, [messages.length, scrollToLatestMessages]);
+
+  useEffect(() => {
+    const request = state?.scrollToLatestRequest;
+    if (!request?.threadId) return;
+
+    const activeThreadId =
+      state?.selectedChannel?.id || selectedThreadDetail?.id || selectedThread || threadId;
+
+    if (request.threadId === activeThreadId) {
+      scrollToLatestMessages();
+      setState((prev: any) => ({
+        ...prev,
+        scrollToLatestRequest: null,
+      }));
+    }
+  }, [scrollToLatestMessages, selectedThread, selectedThreadDetail?.id, setState, state?.scrollToLatestRequest, state?.selectedChannel?.id, threadId]);
 
   // Removed joinThread event - not supported by backend, use joinRoom instead
   // useEffect(() => {
@@ -3360,53 +4115,6 @@ export default function ChatBoxComponent(props: any) {
     if (socket && currentThreadId) {
 
       console.log("[ChatBox] Setting up real-time listeners for thread:", currentThreadId);
-
-      socket.on("recievedMessage", (newMessage: Message) => {
-        console.log("[ChatBox] Received message:", newMessage);
-
-        // Only process messages for the current thread
-        if (newMessage.threadId === currentThreadId || newMessage.threadId === selectedThreadDetail?.id) {
-          // For file messages, the message field contains the file URL (should not be encrypted)
-          // For text messages, decrypt if needed
-          let processedMessage = { ...newMessage };
-
-          if (newMessage.messageType === "file") {
-            // File messages: message field contains the URL, keep it as-is
-            processedMessage.message = newMessage.message;
-          } else if (newMessage.message) {
-            // Text messages: try to decrypt if encrypted
-            try {
-              // Try to decrypt - if it fails, it might already be plain text
-              const decrypted = decryptMessage(newMessage.message);
-              processedMessage.message = decrypted;
-            } catch (error) {
-              // Message might already be decrypted or not encrypted
-              console.log("[ChatBox] Message might not be encrypted, using as-is");
-              processedMessage.message = newMessage.message;
-            }
-          }
-
-          console.log("[ChatBox] Adding message to state:", processedMessage);
-          setMessages((prevMessages) => {
-            // Check if message already exists to avoid duplicates
-            const exists = prevMessages.some(
-              msg => msg.createdAt === processedMessage.createdAt &&
-                msg.senderId === processedMessage.senderId &&
-                msg.message === processedMessage.message
-            );
-            if (exists) {
-              console.log("[ChatBox] Message already exists, skipping");
-              return prevMessages;
-            }
-            return [processedMessage, ...prevMessages];
-          });
-        } else {
-          console.log("[ChatBox] Message is for different thread, ignoring:", {
-            receivedThreadId: newMessage.threadId,
-            currentThreadId: currentThreadId
-          });
-        }
-      });
 
       socket.on("typingStatus", (typing: boolean) => {
         setIsTyping(typing);
@@ -3427,7 +4135,12 @@ export default function ChatBoxComponent(props: any) {
             ...messageData,
             threadId: threadId,
             message: messageData.message || messageData.content,
-            senderId: messageData.senderId || messageData.sender_id,
+            senderId:
+              messageData.senderId ||
+              messageData.sender_id ||
+              messageData.userId ||
+              messageData.user_id ||
+              messageData.createdBy,
             receiverId: messageData.receiverId || messageData.receiver_id,
             createdAt: messageData.createdAt || messageData.created_at,
             messageType: messageData.messageType || messageData.message_type || 'text',
@@ -3435,20 +4148,7 @@ export default function ChatBoxComponent(props: any) {
           });
 
           console.log("[ChatBox] Adding newMessage to state:", processedMessage);
-          setMessages((prevMessages) => {
-            // Check if message already exists to avoid duplicates
-            const exists = prevMessages.some(
-              msg => (msg.createdAt === processedMessage.createdAt ||
-                (msg.id && msg.id === processedMessage.id)) &&
-                msg.senderId === processedMessage.senderId &&
-                msg.message === processedMessage.message
-            );
-            if (exists) {
-              console.log("[ChatBox] Message already exists, skipping");
-              return prevMessages;
-            }
-            return [processedMessage, ...prevMessages];
-          });
+          appendIncomingMessage(processedMessage);
         } else {
           console.log("[ChatBox] newMessage is for different thread, ignoring:", {
             receivedThreadId: threadId,
@@ -3496,7 +4196,6 @@ export default function ChatBoxComponent(props: any) {
 
       return () => {
         console.log("[ChatBox] Cleaning up real-time listeners");
-        socket.off("recievedMessage");
         socket.off("newMessage", handleNewMessage);
         socket.off("typingStatus");
         socket.off("error");
@@ -3516,7 +4215,7 @@ export default function ChatBoxComponent(props: any) {
         }
       }));
     };
-  }, [socket, state?.selectedChannel?.id, selectedThreadDetail?.id]);
+  }, [appendIncomingMessage, socket, state?.selectedChannel?.id, selectedThreadDetail?.id, threadId, selectedThread]);
 
   useEffect(() => {
 
@@ -3545,24 +4244,59 @@ export default function ChatBoxComponent(props: any) {
 
   useEffect(() => {
     if (state?.newMessage) {
-      // const message = decryptMessage(state?.newMessage?.message)
       const normalized = normalizeMessage(state?.newMessage);
-      state.newMessage.message = normalized.message;
-      console.log("DAtaaaaaaaaaaa: ", state.newMessage);
+      const currentThreadId =
+        state?.selectedChannel?.id || selectedThreadDetail?.id || selectedThread || threadId;
+      const normalizedThreadId = normalized?.threadId;
+      const handledByActiveSocketListener =
+        !!socket &&
+        !!currentThreadId &&
+        (normalizedThreadId === currentThreadId || normalizedThreadId === selectedThreadDetail?.id);
 
-      setMessages((prevMessages) => [normalized, ...prevMessages]);
+      if (!handledByActiveSocketListener) {
+        appendIncomingMessage(normalized);
+      }
       setState((prev: any) => ({
         ...prev,
         newMessage: null
       }));
     }
-  }, [state.newMessage]);
+  }, [appendIncomingMessage, setState, socket, state?.newMessage, state?.selectedChannel?.id, selectedThread, selectedThreadDetail?.id, threadId]);
 
   useEffect(() => {
     if (threadId) {
       getThreadDetails(threadId);
     }
   }, [threadId]);
+
+  useEffect(() => {
+    if (!threadId || !Array.isArray(threads) || threads.length === 0) return;
+    if (selectedThreadDetail?.id) return;
+
+    const matchedThread = threads.find((thread: Thread) => threadMatchesRouteId(thread, String(threadId)));
+    if (!matchedThread) return;
+
+    const participants = [
+      ...(matchedThread?.buyerAgent ? [matchedThread.buyerAgent] : []),
+      ...(matchedThread?.sellerAgent ? [matchedThread.sellerAgent] : []),
+      ...(matchedThread?.user ? [matchedThread.user] : []),
+      ...(Array.isArray(matchedThread?.participants) ? matchedThread.participants.map((p: any) => p.user) : []),
+    ];
+    handleThreadSelection(matchedThread, participants);
+  }, [threadId, threads, selectedThreadDetail?.id]);
+
+  useEffect(() => {
+    if (!focusLatestFromNotification) return;
+    if (hasHandledNotificationFocusRef.current) return;
+    if (!selectedThreadDetail?.id || messages.length === 0) return;
+
+    scrollToLatestMessagesWithRetry(24);
+    hasHandledNotificationFocusRef.current = true;
+  }, [focusLatestFromNotification, messages.length, scrollToLatestMessagesWithRetry, selectedThreadDetail?.id]);
+
+  useEffect(() => {
+    hasHandledNotificationFocusRef.current = false;
+  }, [threadId, focusLatestFromNotification]);
 
   // Predefined light colors for consistent user avatars
   const lightColors = ["bg-blue-200", "bg-green-200", "bg-red-200", "bg-yellow-200", "bg-purple-200"];
@@ -3644,7 +4378,7 @@ export default function ChatBoxComponent(props: any) {
       </header> */}
       <section>
         <div className="flex-1 flex flex-col border-l md:flex-row bg-gray-100">
-          <div className={`w-full md:w-96 bg-white border-r ${showThreads ? "block" : "hidden md:block"} overflow-hidden`}>
+          <div className={`w-full md:basis-[25%] md:max-w-[25%] md:min-w-[25%] bg-white border-r ${showThreads ? "block" : "hidden md:block"} overflow-hidden`}>
             {/* Header */}
             <div className="p-4 border-b flex justify-between items-center">
               <h2 className="font-semibold text-lg text-gray-800">Messages</h2>
@@ -3660,10 +4394,10 @@ export default function ChatBoxComponent(props: any) {
                   size="sm"
                   variant="ghost"
                   onClick={() => {
+                    setShowUnreadOnly(false)
                     setIsRead(false)
-                    setActiveButton("all")
                   }}
-                  className={`h-10 w-full text-gray-600 rounded-full px-4 py-2 ${activeButton === "all" ? "bg-white shadow text-gray-800" : ""}`}
+                  className={`h-10 w-full text-gray-600 rounded-full px-4 py-2 ${!showUnreadOnly ? "bg-white shadow text-gray-800" : ""}`}
                 >
                   All
                 </Button>
@@ -3671,10 +4405,9 @@ export default function ChatBoxComponent(props: any) {
                   size="sm"
                   variant="ghost"
                   onClick={() => {
-                    setIsRead(true)
-                    setActiveButton("unread")
+                    setShowUnreadOnly(true)
                   }}
-                  className={`h-10 w-full text-gray-600 rounded-full px-4 py-2 ${activeButton === "unread" ? "bg-white shadow text-gray-800" : ""}`}
+                  className={`h-10 w-full text-gray-600 rounded-full px-4 py-2 ${showUnreadOnly ? "bg-white shadow text-gray-800" : ""}`}
                 >
                   Unread
                 </Button>
@@ -3706,8 +4439,9 @@ export default function ChatBoxComponent(props: any) {
                 </svg>
               </div> :
               <ScrollArea className="px-4 py-2 overflow-auto h-[calc(96vh-16rem)]">
-                {threads?.length ? (
-                  threads.map((thread: Thread) => {
+                {displayedThreads.length ? (
+                  displayedThreads.map((entry) => {
+                    const thread = entry.baseThread;
                     const participants = [
                       ...(thread?.buyerAgent ? [thread.buyerAgent] : []),
                       ...(thread?.sellerAgent ? [thread.sellerAgent] : []),
@@ -3718,83 +4452,155 @@ export default function ChatBoxComponent(props: any) {
                     const initials = getInitials(
                       `${thread?.buyerAgent?.firstName || ''} ${thread?.user?.firstName || thread?.sellerAgent?.firstName || ''}`
                     );
+                    const agentId =
+                      entry.agentId ||
+                      thread?.buyerAgent?.id ||
+                      thread?.sellerAgent?.id ||
+                      thread?.participants
+                        ?.map((participant: any) => participant?.user)
+                        .find(
+                          (participant: any) =>
+                            participant?.id && participant.id !== userData?.id,
+                        )?.id ||
+                      null;
+                    const engagedProperties = entry.properties;
+                    const engagedPropertiesCount =
+                      engagedProperties.length ||
+                      (thread?.propertyId ? 1 : 0);
+                    const entryKey = entry.entryKey;
+                    const isExpanded = expandedEntryKey === entryKey;
+                    const isActiveThread = selectedThreadDetail?.id === thread?.id;
+                    const threadCardClasses = `relative flex flex-col w-full mt-3 gap-3 rounded-2xl border p-5 transition-colors shadow-sm cursor-pointer ${isActiveThread ? 'bg-[#FFF7EF] border-[#F6D4B3]' : 'bg-white border-[#F1ECE6]'
+                      }`;
+                    const timestampColor = isActiveThread ? 'text-[#C4A189]' : 'text-gray-400';
+                    const engagedLabelColor = isActiveThread ? 'text-[#B5571E]' : 'text-gray-500';
 
                     return (
                       <div
                         key={thread.id}
-                        className={`relative flex w-full  border border-bottom mt-3 items-start gap-3 p-4 rounded-md ${selectedThreadDetail?.id === thread?.id ? 'bg-[#1B1B1B] text-white' : "bg-orange"} hover:shadow-xl  hover:bg-black hover:text-white cursor-pointer transition-colors`}
+                        className={threadCardClasses}
                         onClick={() => handleThreadSelection(thread, participants)}
                       >
-                        {/* Timestamp */}
-                        {lastMessage?.createdAt ? <span className="absolute top-2 right-3 text-[10px] sm:text-xs text-gray-400">
-                          {formatDistanceToNow(new Date(lastMessage?.createdAt), { addSuffix: true })}
-                        </span> : null}
+                        {lastMessage?.createdAt ? (
+                          <span className={`absolute top-4 right-5 text-[11px] sm:text-xs ${timestampColor}`}>
+                            {formatDistanceToNow(new Date(lastMessage?.createdAt), { addSuffix: true })}
+                          </span>
+                        ) : null}
 
-                        {/* Avatar */}
-                        {thread?.image ? (
-                          <Image
-                            src={thread.image}
-                            alt="User Avatar"
-                            width={50}
-                            height={50}
-                            className="rounded-full object-cover w-[40px] h-[40px] sm:w-[50px] sm:h-[50px]"
-                            priority
-                            unoptimized
-                          />
-                        ) : (
-                          <div
-                            className={`rounded-full flex items-center justify-center font-semibold w-[40px] h-[40px] sm:w-[50px] sm:h-[50px]  bg-gray-800 text-white `}
-                          >
-                            {initials}
+                        <div
+                          className="flex items-start gap-4 w-full"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setExpandedEntryKey((prev) =>
+                              prev === entryKey ? null : entryKey,
+                            );
+                          }}
+                        >
+                          {thread?.image ? (
+                            <Image
+                              src={thread.image}
+                              alt="User Avatar"
+                              width={50}
+                              height={50}
+                              className="rounded-full object-cover w-[40px] h-[40px] sm:w-[50px] sm:h-[50px]"
+                              priority
+                              unoptimized
+                            />
+                          ) : (
+                            <div className="rounded-full flex items-center justify-center font-semibold w-[40px] h-[40px] sm:w-[50px] sm:h-[50px] bg-gray-800 text-white">
+                              {initials}
+                            </div>
+                          )}
+
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm sm:text-base text-gray-900 truncate">
+                              {thread.buyerAgent?.firstName} & {thread?.user?.firstName || thread.sellerAgent?.firstName}
+                            </p>
+                            <p className={`text-xs font-medium ${engagedLabelColor}`}>
+                              Engaged in - {engagedPropertiesCount}{' '}
+                              {engagedPropertiesCount === 1 ? 'property' : 'properties'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {isExpanded && engagedProperties.length > 0 && (
+                          <div className="mt-4 space-y-3 w-full">
+                            {engagedProperties.map((property: AgentPropertySummary) => {
+                              const isActiveProperty = selectedThreadDetail?.id === property.threadId;
+                              const displayTitle =
+                                property.propertyAddress || property.propertyName || 'Property';
+                              const participantUsers = (property.participants ?? [])
+                                .map((participant: any) => participant?.user)
+                                .filter(
+                                  (participant: any) =>
+                                    participant?.id && participant.id !== userData?.id,
+                                )
+                                .slice(0, 3);
+
+                              return (
+                                <div
+                                  key={property.propertyId}
+                                  className={`w-full min-h-[86px] rounded-3xl border px-6 py-4 text-sm transition-all duration-200 cursor-pointer flex flex-col justify-between ${isActiveProperty
+                                    ? 'bg-[#1B1B1B] text-white border-[#1B1B1B]'
+                                    : 'bg-[#FFF4EC] text-[#352416] border-[#F5D4B7]'
+                                    }`}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    selectThreadById(property.threadId);
+                                    setExpandedEntryKey(entryKey);
+                                  }}
+                                >
+                                  <div>
+                                    <p className="font-semibold text-sm sm:text-base truncate">
+                                      {displayTitle}
+                                    </p>
+                                  </div>
+                                  <div className="mt-2 flex items-center justify-between">
+                                    <Link
+                                      href={`/dashboard/buyer/property/${property.propertyId}`}
+                                      onClick={(event) => event.stopPropagation()}
+                                      className={`text-sm font-semibold ${isActiveProperty ? 'text-[#FDD9BD]' : 'text-[#E47A36]'
+                                        }`}
+                                    >
+                                      View Property
+                                    </Link>
+                                    {participantUsers.length > 0 && (
+                                      <div className="flex -space-x-2">
+                                        {participantUsers.map((participant: any) => (
+                                          <div
+                                            key={participant?.id}
+                                            className={`h-7 w-7 rounded-full border flex items-center justify-center text-[10px] font-semibold ${isActiveProperty
+                                              ? 'border-white bg-[#FBB785] text-white'
+                                              : 'border-[#FFE8D3] bg-white text-gray-800'
+                                              }`}
+                                          >
+                                            {getInitials(
+                                              `${participant?.firstName || ''} ${participant?.lastName || ''
+                                              }`,
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
-
-                        {/* Thread Content */}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm sm:text-base truncate">
-                            {thread.buyerAgent?.firstName} & {thread?.user?.firstName || thread.sellerAgent?.firstName}
-                          </p>
-
-                          {/* <p className="text-xs sm:text-sm text-gray-500 truncate w-full">
-                            {true ? thread.message : "typing..."}
-                          </p> */}
-                          {/* <p className="text-xs sm:text-sm text-gray-500 truncate w-full">
-                            {lastMessage?.message || "No messages yet"}
-                          </p> */}
-
-                          {/* Participants */}
-                          <div className="flex flex-wrap gap-1 text-[10px] text-gray-500 truncate w-full">
-                            {participants.map((p: any, i: number) => (
-                              <span key={i} className="truncate">{p?.firstName}{i < participants.length - 1 && ','}</span>
-                            ))}
-                          </div>
-
-                          {/* Tags */}
-                          <div className="text-xs flex flex-wrap items-center gap-2 mt-2">
-                            <span className="flex items-center gap-1 border border-orange-500 bg-white text-orange-700 px-3 py-1 rounded-full text-[10px] sm:text-xs h-6">
-                              <FaHome className="text-orange-600 text-xs" />
-                              <span className="truncate max-w-[100px]">{thread.propertyName}</span>
-                            </span>
-                            <span className="flex items-center gap-1 bg-orange-100 overflow-hidden w-24  text-orange-700 px-3 py-1 rounded-full text-[10px] sm:text-xs h-6">
-                              <FaMapMarkerAlt className="text-orange-600 text-xs" />
-                              <span className="truncate max-w-[100px]">{thread.propertyAddress}</span>
-                            </span>
-                          </div>
-                          {/* {(thread.messages?.length || 0) > 0 && (
-                                                    <div className="absolute top-2 right-5 translate-x-1/2 -translate-y-1/2">
-                                                        <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-semibold leading-none text-white bg-orange-600 rounded-full shadow">
-                                                            {thread.messages?.length}
-                                                        </span>
-                                                    </div>
-                                                )} */}
-                        </div>
                       </div>
                     );
                   })
                 ) : (
                   <div className="text-center mt-6 text-gray-400">
-                    <p className="text-lg font-semibold">No threads available</p>
-                    <p className="text-sm">It seems like you have not started any conversations yet.</p>
+                    <p className="text-lg font-semibold">
+                      {showUnreadOnly ? "No unread conversations" : "No threads available"}
+                    </p>
+                    <p className="text-sm">
+                      {showUnreadOnly
+                        ? "You're all caught up for now."
+                        : "It seems like you have not started any conversations yet."}
+                    </p>
                   </div>
                 )}
               </ScrollArea>
@@ -3802,7 +4608,7 @@ export default function ChatBoxComponent(props: any) {
           </div>
 
 
-          <div className={`flex-1  flex flex-col bg-white ${showChat ? "block" : "hidden md:block"} max-h-full overflow-hidden`}>
+          <div className={`w-full ${isDetails ? "md:basis-[50%] md:max-w-[50%] md:min-w-[50%]" : "md:basis-[75%] md:max-w-[75%] md:min-w-[75%]"} flex flex-col bg-white ${showChat ? "block" : "hidden md:block"} max-h-full overflow-hidden`}>
             <header className="border-b bg-white px-4 py-2 flex items-center justify-between md:hidden">
               <div className="flex items-center gap-4">
                 <Button variant="ghost" size="icon" onClick={handleBackToThreads}>
@@ -3867,21 +4673,17 @@ export default function ChatBoxComponent(props: any) {
                             </div>
                           </div>
 
-                          {/* Right Section: Public Chat Toggle */}
+                          {/* Public Chat Toggle intentionally hidden for now.
                           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                            {/* Lock Icon */}
                             <svg className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
                             </svg>
-
-                            {/* Public Chat Label */}
                             <span className="text-xs sm:text-sm font-medium text-gray-700 hidden sm:inline">Public Chat</span>
-
-                            {/* Toggle Switch */}
                             <div className="w-11 h-6 bg-gray-300 rounded-full relative cursor-pointer hover:bg-gray-400 transition-colors flex items-center px-1">
                               <div className="w-5 h-5 bg-white rounded-full shadow-md transition-transform"></div>
                             </div>
                           </div>
+                          */}
 
                           <div className="relative">
                             <button className="p-2 rounded-full hover:bg-gray-100" onClick={toggleDropdown}>
@@ -3890,7 +4692,6 @@ export default function ChatBoxComponent(props: any) {
                             {isDropdownOpen && (
                               <div
                                 className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border"
-                                onMouseLeave={closeDropdown}
                                 style={{ zIndex: 100 }}
                               >
                                 <ul className="py-1">
@@ -3908,7 +4709,12 @@ export default function ChatBoxComponent(props: any) {
                                   </li>
                                   <li>
                                     <InviteUserModal
-                                      threadId={selectedThread}
+                                      threadId={selectedThreadDetail?.id || selectedThread}
+                                      onInviteSuccess={handleInviteSuccess}
+                                      disableInvite={isInviteLimitReached}
+                                      disableInviteMessage={inviteLimitMessage}
+                                      blockedEmails={blockedInviteEmails}
+                                      currentUserEmail={userData?.email || user?.email}
                                     />
                                   </li>
                                 </ul>
@@ -3930,10 +4736,10 @@ export default function ChatBoxComponent(props: any) {
                           </div>
 
                           {/* Seller Role */}
-                          <div className="flex items-center gap-1.5">
+                          {/* <div className="flex items-center gap-1.5">
                             <div className="w-2 h-2 rounded-full bg-yellow-500 flex-shrink-0"></div>
                             <span className="text-gray-600">Seller</span>
-                          </div>
+                          </div> */}
 
                           {/* Agent Role */}
                           <div className="flex items-center gap-1.5">
@@ -3943,273 +4749,289 @@ export default function ChatBoxComponent(props: any) {
                         </div>
                       </div>
 
-                      <ScrollArea className="ms-2 mb-2 sm:ms-5 scrollbar-hide sm:me-5 overflow-auto h-[calc(96vh-16rem)] sm:h-[calc(96vh-18rem)]">
-                        <div className="space-y-6 me-4">
-                          {Object.entries(groupedMessages)
-                            .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
-                            .map(([dateKey, dayMessages]) => {
-                              const parsedDate = new Date(dateKey);
-                              // const label = "Today"
-                              const label = isToday(parsedDate)
-                                ? "Today"
-                                : isYesterday(parsedDate)
-                                  ? "Yesterday"
-                                  : format(parsedDate, "EEEE, MMMM d");
+                      <div className="relative">
+                        <ScrollArea
+                          ref={messageScrollAreaRef}
+                          className="ms-2 mb-2 sm:ms-5 scrollbar-hide sm:me-5 overflow-auto h-[calc(96vh-16rem)] sm:h-[calc(96vh-18rem)]"
+                        >
+                          <div className="space-y-6 me-4">
+                            {Object.entries(groupedMessages)
+                              .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
+                              .map(([dateKey, dayMessages]) => {
+                                const parsedDate = new Date(dateKey);
+                                // const label = "Today"
+                                const label = isToday(parsedDate)
+                                  ? "Today"
+                                  : isYesterday(parsedDate)
+                                    ? "Yesterday"
+                                    : format(parsedDate, "EEEE, MMMM d");
 
-                              return (
-                                <div key={dateKey}>
-                                  <div className="text-center py-2">
-                                    <span className="text-gray-500 text-xs sm:text-sm font-medium bg-white px-3 py-1 rounded-full shadow">
-                                      {label}
-                                    </span>
-                                  </div>
+                                return (
+                                  <div key={dateKey}>
+                                    <div className="text-center py-2">
+                                      <span className="text-gray-500 text-xs sm:text-sm font-medium bg-white px-3 py-1 rounded-full shadow">
+                                        {label}
+                                      </span>
+                                    </div>
 
 
-                                  <div className="space-y-4">
-                                    {[...dayMessages]
-                                      .sort((a, b) => new Date(a.createdAt ?? 0).getTime() - new Date(b?.createdAt ?? 0).getTime())
-                                      .map((message, index) => {
-                                        const isSender = message.senderId === userData?.id;
-                                        const isLastMessage = index === dayMessages?.length - 1;
-                                        const formattedTime = format(new Date(message?.createdAt ?? 0), "hh:mm a");
-                                        const receiver = threadParticipants.find(
-                                          (p: any) => p.id === message.senderId && p.id !== userData?.id
-                                        );
+                                    <div className="space-y-4">
+                                      {[...dayMessages]
+                                        .sort((a, b) => new Date(a.createdAt ?? 0).getTime() - new Date(b?.createdAt ?? 0).getTime())
+                                        .map((message, index) => {
+                                          const isSender = message.senderId === userData?.id;
+                                          const isLastMessage = index === dayMessages?.length - 1;
+                                          const formattedTime = format(new Date(message?.createdAt ?? 0), "hh:mm a");
+                                          const receiver = threadParticipants.find(
+                                            (p: any) => p.id === message.senderId && p.id !== userData?.id
+                                          );
 
-                                        const notificationMessage = message?.messageType === "notification";
+                                          const notificationMessage = message?.messageType === "notification";
 
-                                        return (
-                                          <div
-                                            key={index}
-                                            className={`flex gap-3 mt-4 items-start ${isSender ? 'justify-end' : ''}`}
-                                          // ref={isLastMessage ? messagesEndRef : null}
-                                          >
-                                            {notificationMessage &&
+                                          return (
+                                            <div
+                                              key={index}
+                                              className={`flex gap-3 mt-4 items-start ${isSender ? 'justify-end' : ''}`}
+                                            // ref={isLastMessage ? messagesEndRef : null}
+                                            >
+                                              {notificationMessage &&
 
-                                              <div className="flex justify-center  rounded-xl text-center w-full  pt-6 p-3">
-                                                <div className="bg-white shadow-md rounded-full w-fit px-8 py-4 pt-6">
-                                                  <div className="flex gap-2 items-center">
-                                                    <MdNotificationAdd size={24} />
-                                                    <p className="whitespace-pre-wrap break-words  text- text-sm">{message.message}</p>
+                                                <div className="flex justify-center  rounded-xl text-center w-full  pt-6 p-3">
+                                                  <div className="bg-white shadow-md rounded-full w-fit px-8 py-4 pt-6">
+                                                    <div className="flex gap-2 items-center">
+                                                      <MdNotificationAdd size={24} />
+                                                      <p className="whitespace-pre-wrap break-words  text- text-sm">{message.message}</p>
+                                                    </div>
+                                                    <div className={`text-xs text-gray-400 px-2 mt-2 text-right`}>
+                                                      {formattedTime}
+                                                    </div>
                                                   </div>
-                                                  <div className={`text-xs text-gray-400 px-2 mt-2 text-right`}>
+
+                                                </div>
+                                              }
+                                              {!isSender && receiver && !notificationMessage && (
+                                                <div
+                                                  className="w-7 h-7 sm:w-10 bg-black mt-4 text-white sm:h-10 flex items-center justify-center bg-gray-300 text-white text-xs sm:text-sm font-semibold rounded-full bg-gray-800 text-white shrink-0"
+
+                                                >
+                                                  {getInitials(`${receiver?.firstName} ${receiver?.lastName}` || '')}
+                                                </div>
+                                              )}
+
+
+                                              {!notificationMessage &&
+
+                                                <div className="w-full flex flex-col gap-1">
+                                                  {/* Time aligned to sender/receiver side */}
+                                                  <div className={`text-xs text-gray-400 px-2 ${isSender ? "text-right" : "text-left"}`}>
                                                     {formattedTime}
                                                   </div>
-                                                </div>
 
-                                              </div>
-                                            }
-                                            {!isSender && receiver && !notificationMessage && (
-                                              <div
-                                                className="w-7 h-7 sm:w-10 bg-black mt-4 text-white sm:h-10 flex items-center justify-center bg-gray-300 text-white text-xs sm:text-sm font-semibold rounded-full bg-gray-800 text-white shrink-0"
-
-                                              >
-                                                {getInitials(`${receiver?.firstName} ${receiver?.lastName}` || '')}
-                                              </div>
-                                            )}
-
-
-                                            {!notificationMessage &&
-
-                                              <div className="w-full flex flex-col gap-1">
-                                                {/* Time aligned to sender/receiver side */}
-                                                <div className={`text-xs text-gray-400 px-2 ${isSender ? "text-right" : "text-left"}`}>
-                                                  {formattedTime}
-                                                </div>
-
-                                                {/* Message container taking full width */}
-                                                <div className={`w-full flex ${isSender ? "justify-end" : "justify-start"}`}>
-                                                  <div
-                                                    className={`p-3 sm:p-4 bg-black text-white  font-medium rounded-2xl shadow-md text-xs sm:text-sm max-w-full sm:max-w-[90%] 
+                                                  {/* Message container taking full width */}
+                                                  <div className={`w-full flex ${isSender ? "justify-end" : "justify-start"}`}>
+                                                    <div
+                                                      className={`p-3 sm:p-4 bg-black text-white  font-medium rounded-2xl shadow-md text-xs sm:text-sm max-w-full sm:max-w-[90%] 
       `}
-                                                  >
-                                                    {/* Text message */}
-                                                    {message?.messageType !== "file" && message.message && (
-                                                      <p className="whitespace-pre-wrap break-words">{message.message}</p>
-                                                    )}
+                                                    >
+                                                      {/* Text message */}
+                                                      {message?.messageType !== "file" && message.message && (
+                                                        <p className="whitespace-pre-wrap break-words">{message.message}</p>
+                                                      )}
 
-                                                    {/* File message */}
-                                                    {message?.messageType === "file" && (
-                                                      <div className="rounded-lg flex items-center gap-3 p-2">
-                                                        {(() => {
-                                                          // Get the file URL - ensure it's not encrypted
-                                                          let fileUrl = message.message || "";
+                                                      {/* File message */}
+                                                      {message?.messageType === "file" && (
+                                                        <div className="rounded-lg flex items-center gap-3 p-2">
+                                                          {(() => {
+                                                            // Get the file URL - ensure it's not encrypted
+                                                            let fileUrl = message.message || "";
 
-                                                          // Handle CL:: prefix (legacy encryption artifact)
-                                                          if (fileUrl.startsWith('CL::')) {
-                                                            fileUrl = fileUrl.substring(4);
-                                                          }
+                                                            // Handle CL:: prefix (legacy encryption artifact)
+                                                            if (fileUrl.startsWith('CL::')) {
+                                                              fileUrl = fileUrl.substring(4);
+                                                            }
 
-                                                          // If the URL looks encrypted (starts with common encryption patterns), try to decrypt
-                                                          // But file URLs from S3 should not be encrypted, so only decrypt if it looks like encrypted text
-                                                          if (fileUrl && !fileUrl.startsWith('http') && !fileUrl.startsWith('data:')) {
-                                                            try {
-                                                              const decrypted = decryptMessage(fileUrl);
-                                                              // Only use decrypted if it looks like a URL
-                                                              if (decrypted.startsWith('http') || decrypted.startsWith('data:')) {
-                                                                fileUrl = decrypted;
+                                                            // If the URL looks encrypted (starts with common encryption patterns), try to decrypt
+                                                            // But file URLs from S3 should not be encrypted, so only decrypt if it looks like encrypted text
+                                                            if (fileUrl && !fileUrl.startsWith('http') && !fileUrl.startsWith('data:')) {
+                                                              try {
+                                                                const decrypted = decryptMessage(fileUrl);
+                                                                // Only use decrypted if it looks like a URL
+                                                                if (decrypted.startsWith('http') || decrypted.startsWith('data:')) {
+                                                                  fileUrl = decrypted;
+                                                                }
+                                                              } catch (error) {
+                                                                console.log("[ChatBox] File URL might not be encrypted:", error);
                                                               }
-                                                            } catch (error) {
-                                                              console.log("[ChatBox] File URL might not be encrypted:", error);
                                                             }
-                                                          }
 
-                                                          // Helper to extract filename
-                                                          const getFileNameFromUrl = (url: string) => {
-                                                            try {
-                                                              if (!url) return "File";
-                                                              const cleanUrl = url.split('?')[0]; // Remove query params
-                                                              const fileName = cleanUrl.split('/').pop() || "File";
-                                                              const decodedFileName = decodeURIComponent(fileName);
+                                                            // Helper to extract filename
+                                                            const getFileNameFromUrl = (url: string) => {
+                                                              try {
+                                                                if (!url) return "File";
+                                                                const cleanUrl = url.split('?')[0]; // Remove query params
+                                                                const fileName = cleanUrl.split('/').pop() || "File";
+                                                                const decodedFileName = decodeURIComponent(fileName);
 
-                                                              // Regex to match UUID at the beginning of the filename (8-4-4-4-12 hex chars followed by a hyphen)
-                                                              const uuidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}-?/;
-                                                              return decodedFileName.replace(uuidPattern, "");
-                                                            } catch (e) {
-                                                              console.error("Error parsing filename:", e);
-                                                              return "File";
-                                                            }
-                                                          };
+                                                                // Regex to match UUID at the beginning of the filename (8-4-4-4-12 hex chars followed by a hyphen)
+                                                                const uuidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}-?/;
+                                                                return decodedFileName.replace(uuidPattern, "");
+                                                              } catch (e) {
+                                                                console.error("Error parsing filename:", e);
+                                                                return "File";
+                                                              }
+                                                            };
 
-                                                          if (message.fileType && imageMimeType.includes(message.fileType)) {
-                                                            return (
-                                                              <div
-                                                                className="relative cursor-pointer group"
-                                                                onClick={() => openMediaPreview(fileUrl, message.fileType ?? "")}
-                                                              >
-                                                                <Image
-                                                                  src={fileUrl || "/placeholder.svg"}
-                                                                  alt="Uploaded Image"
-                                                                  width={140}
-                                                                  height={140}
-                                                                  unoptimized={true}
-                                                                  priority
-                                                                  className="rounded-lg max-w-[120px] hover:opacity-90 transition-opacity"
-                                                                  onError={(e) => {
-                                                                    console.error("[ChatBox] Failed to load image:", fileUrl);
-                                                                    // Fallback to placeholder
-                                                                    e.currentTarget.src = "/placeholder.svg";
-                                                                  }}
-                                                                />
-                                                                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-lg transition-opacity">
-                                                                  <Maximize className="w-4 h-4 text-white" />
-                                                                </div>
-                                                              </div>
-                                                            );
-                                                          } else if (message.fileType && videoMimeType?.includes(message.fileType)) {
-                                                            return (
-                                                              <video
-                                                                controls
-                                                                className="rounded-lg max-w-[120px]"
-                                                                onClick={(e) => {
-                                                                  e.stopPropagation();
-                                                                  openMediaPreview(fileUrl, message.fileType || "");
-                                                                }}
-                                                              >
-                                                                <source src={fileUrl} type={message.fileType} />
-                                                                Your browser does not support the video tag.
-                                                              </video>
-                                                            );
-                                                          } else {
-                                                            return (
-                                                              <div className="flex items-center gap-2 text-xs sm:text-sm">
-                                                                <FileText className="w-5 h-5 text-gray-600" />
-                                                                {/* Display Filename instead of truncated URL */}
-                                                                <span className="truncate max-w-[100px] sm:max-w-full" title={getFileNameFromUrl(fileUrl)}>
-                                                                  {getFileNameFromUrl(fileUrl)}
-                                                                </span>
-                                                                <a
-                                                                  href={fileUrl}
-                                                                  target="_blank"
-                                                                  rel="noopener noreferrer"
-                                                                  className="text-blue-500 hover:underline"
+                                                            if (message.fileType && imageMimeType.includes(message.fileType)) {
+                                                              return (
+                                                                <div
+                                                                  className="relative cursor-pointer group"
+                                                                  onClick={() => openMediaPreview(fileUrl, message.fileType ?? "")}
                                                                 >
-                                                                  <Eye className="w-4 h-4 text-orange-500" />
-                                                                </a>
-                                                              </div>
-                                                            );
-                                                          }
-                                                        })()}
-                                                      </div>
-                                                    )}
+                                                                  <Image
+                                                                    src={fileUrl || "/placeholder.svg"}
+                                                                    alt="Uploaded Image"
+                                                                    width={140}
+                                                                    height={140}
+                                                                    unoptimized={true}
+                                                                    priority
+                                                                    className="rounded-lg max-w-[120px] hover:opacity-90 transition-opacity"
+                                                                    onError={(e) => {
+                                                                      console.error("[ChatBox] Failed to load image:", fileUrl);
+                                                                      // Fallback to placeholder
+                                                                      e.currentTarget.src = "/placeholder.svg";
+                                                                    }}
+                                                                  />
+                                                                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-lg transition-opacity">
+                                                                    <Maximize className="w-4 h-4 text-white" />
+                                                                  </div>
+                                                                </div>
+                                                              );
+                                                            } else if (message.fileType && videoMimeType?.includes(message.fileType)) {
+                                                              return (
+                                                                <video
+                                                                  controls
+                                                                  className="rounded-lg max-w-[120px]"
+                                                                  onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    openMediaPreview(fileUrl, message.fileType || "");
+                                                                  }}
+                                                                >
+                                                                  <source src={fileUrl} type={message.fileType} />
+                                                                  Your browser does not support the video tag.
+                                                                </video>
+                                                              );
+                                                            } else {
+                                                              return (
+                                                                <div className="flex items-center gap-2 text-xs sm:text-sm">
+                                                                  <FileText className="w-5 h-5 text-gray-600" />
+                                                                  {/* Display Filename instead of truncated URL */}
+                                                                  <span className="truncate max-w-[100px] sm:max-w-full" title={getFileNameFromUrl(fileUrl)}>
+                                                                    {getFileNameFromUrl(fileUrl)}
+                                                                  </span>
+                                                                  <a
+                                                                    href={fileUrl}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-blue-500 hover:underline"
+                                                                  >
+                                                                    <Eye className="w-4 h-4 text-orange-500" />
+                                                                  </a>
+                                                                </div>
+                                                              );
+                                                            }
+                                                          })()}
+                                                        </div>
+                                                      )}
 
-                                                    {/* Reply Preview */}
-                                                    {message.parentMessageId && (
-                                                      <div className="mt-2 p-2 border-l-4 border-gray-300 text-sm italic">
-                                                        Replying to: <span className="font-medium">{message.parentMessageId}</span>
-                                                      </div>
-                                                    )}
+                                                      {/* Reply Preview */}
+                                                      {message.parentMessageId && (
+                                                        <div className="mt-2 p-2 border-l-4 border-gray-300 text-sm italic">
+                                                          Replying to: <span className="font-medium">{message.parentMessageId}</span>
+                                                        </div>
+                                                      )}
 
-                                                    {/* Seen indicator */}
-                                                    {isSender && isLastMessage && message.seen && (
-                                                      <div className="text-xs text-blue-500 mt-1 text-right">Seen</div>
-                                                    )}
+                                                      {/* Seen indicator */}
+                                                      {isSender && isLastMessage && message.seen && (
+                                                        <div className="text-xs text-blue-500 mt-1 text-right">Seen</div>
+                                                      )}
+                                                    </div>
                                                   </div>
                                                 </div>
-                                              </div>
-                                            }
+                                              }
 
 
-                                            {isSender && !notificationMessage && (
-                                              <div className="w-7 h-7 mt-4 sm:w-10 sm:h-10 flex items-center justify-center bg-gray-300  bg-gray-800 text-white text-xs sm:text-sm font-semibold rounded-full shrink-0">
-                                                {getInitials(`${userData?.firstname} ${userData?.lastname}` || '')}
-                                              </div>
-                                            )}
-                                          </div>
-                                        );
-                                      })}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                        </div>
-
-                        {selectedFile && (
-                          <div className="mx-4 mt-2 mb-3 relative">
-                            <div className="bg-gray-100 rounded-lg p-3 pr-10">
-                              <div className="flex items-start">
-                                {selectedFile.type && imageTypes.includes(selectedFile.type) ? (
-                                  <div className="mr-3">
-                                    <div className="w-16 h-16 sm:w-20 sm:h-20 relative bg-[#FAF9F5] rounded-md overflow-hidden">
-                                      <img
-                                        src={URL.createObjectURL(selectedFile) || "/placeholder.svg"}
-                                        alt="Preview"
-                                        className="w-full h-full object-cover"
-                                      />
+                                              {isSender && !notificationMessage && (
+                                                <div className="w-7 h-7 mt-4 sm:w-10 sm:h-10 flex items-center justify-center bg-gray-300  bg-gray-800 text-white text-xs sm:text-sm font-semibold rounded-full shrink-0">
+                                                  {getInitials(`${userData?.firstname} ${userData?.lastname}` || '')}
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
                                     </div>
                                   </div>
-                                ) : selectedFile.type && selectedFile.type.startsWith("video/") ? (
-                                  <div className="mr-3">
-                                    <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center bg-[#FAF9F5] rounded-md relative">
-                                      <Play className="w-8 h-8 text-gray-500" />
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="mr-3">
-                                    <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center bg-[#FAF9F5] rounded-md">
-                                      <FileText className="w-8 h-8 text-gray-500" />
-                                    </div>
-                                  </div>
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <p className="font-medium text-sm truncate">{selectedFile.name}</p>
-                                  <p className="text-xs text-gray-500 mt-1">
-                                    {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                                  </p>
-                                  <p className="text-xs text-gray-500 capitalize">{selectedFile.type.split("/")[0]}</p>
-                                </div>
-                              </div>
-                              <button
-                                className="absolute top-3 right-3 p-1 rounded-full hover:bg-[#FAF9F5] text-gray-500"
-                                onClick={() => setSelectedFile(null)}
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
+                                );
+                              })}
                           </div>
+
+                          {selectedFile && (
+                            <div className="mx-4 mt-2 mb-3 relative">
+                              <div className="bg-gray-100 rounded-lg p-3 pr-10">
+                                <div className="flex items-start">
+                                  {selectedFile.type && imageTypes.includes(selectedFile.type) ? (
+                                    <div className="mr-3">
+                                      <div className="w-16 h-16 sm:w-20 sm:h-20 relative bg-[#FAF9F5] rounded-md overflow-hidden">
+                                        <img
+                                          src={URL.createObjectURL(selectedFile) || "/placeholder.svg"}
+                                          alt="Preview"
+                                          className="w-full h-full object-cover"
+                                        />
+                                      </div>
+                                    </div>
+                                  ) : selectedFile.type && selectedFile.type.startsWith("video/") ? (
+                                    <div className="mr-3">
+                                      <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center bg-[#FAF9F5] rounded-md relative">
+                                        <Play className="w-8 h-8 text-gray-500" />
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="mr-3">
+                                      <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center bg-[#FAF9F5] rounded-md">
+                                        <FileText className="w-8 h-8 text-gray-500" />
+                                      </div>
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-sm truncate">{selectedFile.name}</p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                                    </p>
+                                    <p className="text-xs text-gray-500 capitalize">{selectedFile.type.split("/")[0]}</p>
+                                  </div>
+                                </div>
+                                <button
+                                  className="absolute top-3 right-3 p-1 rounded-full hover:bg-[#FAF9F5] text-gray-500"
+                                  onClick={() => setSelectedFile(null)}
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                          <div ref={messagesEndRef} />
+                        </ScrollArea>
+
+                        {pendingNewMessageCount > 0 && !isAtLatestMessage && (
+                          <button
+                            type="button"
+                            onClick={scrollToLatestMessages}
+                            className="absolute bottom-4 right-6 flex items-center gap-2 rounded-full bg-black px-3 py-2 text-xs font-semibold text-white shadow-lg transition hover:bg-gray-800"
+                          >
+                            <ArrowDown className="h-4 w-4" />
+                            <span>New message</span>
+                          </button>
                         )}
-                        <div ref={messagesEndRef} />
-                      </ScrollArea>
+                      </div>
                       {/* Message Input Section
                       <div className="p-4 border-t">
                         <div className="flex items-center gap-2">
@@ -4259,19 +5081,18 @@ export default function ChatBoxComponent(props: any) {
                             {showUploadMenu && (
                               <div
                                 ref={uploadMenuRef}
-                                className="absolute bottom-full left-0 mb-2 bg-white  rounded-lg z-10 w-48"
+                                className="absolute bottom-full left-0 mb-2 bg-white rounded-xl shadow-md z-10 w-44 overflow-hidden"
                               >
-                                <div className="p-2 shadow text-xs sm:text-sm">
-                                  <p className="font-medium mb-1">Upload file</p>
+                                <div className="p-2 text-xs sm:text-sm flex flex-col items-center">
                                   <Image
                                     src="/assets/images/v2/pangea_logo1.jpg"
                                     alt="Powered by Pangea"
                                     width={100}
                                     height={100}
-                                    className="absolute top-2 right-2 object-contain"
+                                    className="object-contain mx-auto mb-2"
                                   />
-                                  <div className="space-y-2">
-                                    <label className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md cursor-pointer">
+                                  <div className="space-y-1 w-full">
+                                    <label className="flex items-center gap-2 p-1.5 hover:bg-gray-100 rounded-md cursor-pointer">
                                       <Paperclip className="h-4 w-4 text-blue-500" />
                                       <span>Image</span>
                                       <input
@@ -4281,7 +5102,7 @@ export default function ChatBoxComponent(props: any) {
                                         accept="image/jpeg,image/png,image/jpg"
                                       />
                                     </label>
-                                    <label className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md cursor-pointer">
+                                    <label className="flex items-center gap-2 p-1.5 hover:bg-gray-100 rounded-md cursor-pointer">
                                       <Play className="h-4 w-4 text-red-500" />
                                       <span>Video</span>
                                       <input
@@ -4291,7 +5112,7 @@ export default function ChatBoxComponent(props: any) {
                                         accept="video/mp4,video/webm,video/ogg"
                                       />
                                     </label>
-                                    <label className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md cursor-pointer">
+                                    <label className="flex items-center gap-2 p-1.5 hover:bg-gray-100 rounded-md cursor-pointer">
                                       <FileText className="h-4 w-4 text-gray-500" />
                                       <span>Document</span>
                                       <input
@@ -4367,7 +5188,7 @@ export default function ChatBoxComponent(props: any) {
 
           {/* Property Details Sidebar */}
           {isDetails && (
-            <div className={`w-full md:w-96 bg-gray-50 border-l ${showDetails ? "block" : "hidden md:block"}`}>
+            <div className={`w-full md:w-96 bg-gray-50 border-l ${showDetails ? "block" : "hidden md:block"} flex flex-col overflow-hidden `}>
               <div className="p-4 border-b flex justify-between items-center">
                 <h2 className="font-semibold">Property Details</h2>
                 <Button
@@ -4381,112 +5202,315 @@ export default function ChatBoxComponent(props: any) {
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              <ScrollArea className="h-[calc(82vh-10rem)]">
+              <ScrollArea className="mb-2 overflow-auto h-[calc(110vh-16rem)]">
                 <div className="p-4">
-                  {/* <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-                                        <Carousel images={propertyDetails?.property?.property?.imageURLs} />
-                                    </div> */}
-                  <div className="relative">
-                    <Image
-                      src={propertyData?.media?.photosList?.[0]?.lowRes || ""}
-                      alt={`Property Image `}
-                      width={400}
-                      height={100}
-                      className="rounded-lg objectcover"
-                      priority
-                      unoptimized
-                    />
-                  </div>
-                  <div className="mt-4">
-                    <div className="flex justify-between items-start">
-                      <div className="flex items-start gap-1">
-                        <LocationOnIcon className="text-primary" />
-                        <div>
-                          {/* <h3 className="font-semibold text-lg">{propertyDetails?.property?.address}</h3> */}
-                          <p className="text-sm text-muted-foreground">{propertyData?.courtesyOf}</p>
+                  <Accordion type="multiple" defaultValue={["property-details", "invited-users", "media-documents"]} className="w-full">
+                    <AccordionItem value="property-details" className="border rounded-xl bg-white px-3">
+                      <AccordionTrigger>Property Details</AccordionTrigger>
+                      <AccordionContent>
+                        <div className="pb-2">
+                          <div className="relative">
+                            <Image
+                              src={propertyData?.media?.photosList?.[0]?.lowRes || ""}
+                              alt={`Property Image `}
+                              width={400}
+                              height={100}
+                              className="rounded-lg objectcover"
+                              priority
+                              unoptimized
+                            />
+                          </div>
+                          <div className="mt-4">
+                            <p className="text-sm font-semibold text-gray-900">
+                              {selectedThreadDetail?.propertyAddress || selectedThreadDetail?.propertyName || "Property"}
+                            </p>
+                            <div className="flex justify-between items-start">
+                              <div className="flex items-start gap-1">
+                                <LocationOnIcon className="text-primary" />
+                                <div>
+                                  <p className="text-sm text-muted-foreground">{propertyData?.courtesyOf}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Star className="h-4 w-4 fill-primary text-primary" />
+                                <span>4.6</span>
+                              </div>
+                            </div>
+
+                            <div className="flex justify-between items-center mt-4">
+                              <div className="flex gap-2">
+                                <div className="bg-gray-200 text-sm rounded-full px-3 py-1 flex items-center">
+                                  <BathtubIcon />
+                                  <span>{propertyData?.property?.bathroomsTotal} Bath</span>
+                                </div>
+                                <div className="bg-gray-200 text-sm rounded-full px-3 py-1 flex items-center">
+                                  <KingBedIcon />
+                                  <span>{propertyData?.property?.bedroomsTotal} Bed</span>
+                                </div>
+                              </div>
+                              <FavoriteBorder className="text-gray-500 hover:text-red-500 cursor-pointer" />
+                            </div>
+                          </div>
+                          <div className="mt-4">
+                            <h4 className="font-semibold text-lg">Overview</h4>
+                            <span>{propertyData?.publicRemarks}</span>
+
+                            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Property Overview</DialogTitle>
+                                  <DialogDescription>{propertyData?.property?.descriptions?.[0]?.value}</DialogDescription>
+                                </DialogHeader>
+                                <DialogClose asChild>
+                                  <Button className="bg-orange-500 hover:bg-orange-600">Close</Button>
+                                </DialogClose>
+                              </DialogContent>
+                            </Dialog>
+                          </div>
+
+                          <div className="mt-6">
+                            <h4 className="font-medium mb-2">Amenities</h4>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="flex items-center gap-2">
+                                <Wifi className="h-4 w-4" />
+                                <span className="text-sm">Wifi</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Kitchen className="h-4 w-4" />
+                                <span className="text-sm">Kitchen</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Maximize2 className="h-4 w-4" />
+                                <span className="text-sm">Workspace</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Car className="h-4 w-4" />
+                                <span className="text-sm">Free parking</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Wind className="h-4 w-4" />
+                                <span className="text-sm">Air conditioning</span>
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            className="shadow bg-orange-500 hover:bg-orange-600 w-full mt-6"
+                            onClick={() => {
+                              router.push(`/buy/${propertyData.property?.id}/prop/preview`)
+                            }}
+                          >
+                            View Property
+                          </Button>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 fill-primary text-primary" />
-                        <span>4.6</span>
-                      </div>
-                    </div>
+                      </AccordionContent>
+                    </AccordionItem>
 
-                    {/* Additional Info */}
-                    <div className="flex justify-between items-center mt-4">
-                      <div className="flex gap-2">
-                        {/* Bedroom Capsule */}
-                        <div className="bg-gray-200 text-sm rounded-full px-3 py-1 flex items-center">
-                          <BathtubIcon />
-                          <span>{propertyData?.property?.bathroomsTotal
-                          } Bath</span>
+                    <AccordionItem value="invited-users" className="border rounded-xl bg-white px-3 mt-4">
+                      <AccordionTrigger>
+                        <div className="flex items-center gap-2">
+                          <span>Invited Users</span>
+                          <span className="text-xs text-gray-500">({invitedUsers.length})</span>
                         </div>
-                        {/* Bathroom Capsule */}
-                        <div className="bg-gray-200 text-sm rounded-full px-3 py-1 flex items-center">
-                          <KingBedIcon />
-                          <span>{propertyData?.property?.bedroomsTotal} Bed</span>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="pb-2">
+                          <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                            {invitedUsers.length === 0 ? (
+                              <div className="px-4 py-6 text-center">
+                                <p className="text-sm font-medium text-gray-600">No invited users yet</p>
+                                <p className="text-xs text-gray-400 mt-1">Users invited to this chat will appear here.</p>
+                              </div>
+                            ) : (
+                              <div className="divide-y divide-gray-100">
+                                {invitedUsers.map((invitedUser) => {
+                                  const styles = invitedUserStyles[invitedUser.status]
+                                  const isExistingInviteDisabled = isInviteLimitReached
+                                  return (
+                                    <div
+                                      key={invitedUser.id}
+                                      className={`flex items-center justify-between gap-3 px-3 py-3 transition-colors ${isExistingInviteDisabled ? "opacity-60 bg-gray-50 cursor-not-allowed" : "hover:bg-gray-50"}`}
+                                    >
+                                      <div className="flex items-center gap-3 min-w-0">
+                                        <div className={`w-11 h-11 rounded-full border-2 flex items-center justify-center text-sm font-semibold shrink-0 ${styles.avatar}`}>
+                                          {invitedUser.initials}
+                                        </div>
+                                        <div className="min-w-0">
+                                          <p className={`text-sm font-semibold truncate ${styles.name}`}>
+                                            {invitedUser.name}
+                                          </p>
+                                          <p className={`text-xs truncate ${styles.email}`}>
+                                            {invitedUser.email || "Email not available"}
+                                          </p>
+                                          <p className="text-[11px] text-gray-500 truncate">
+                                            {invitedUser.role}
+                                          </p>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${styles.badge}`}>
+                                          {isExistingInviteDisabled ? "Disabled" : styles.label}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
+
+                          <p className="text-[11px] text-gray-500 mt-2">
+                            Invites expire after 10 days if not accepted.
+                          </p>
+                          {isInviteLimitReached && (
+                            <p className="text-xs text-red-600 mt-1">
+                              {inviteLimitMessage}
+                            </p>
+                          )}
                         </div>
-                      </div>
-                      {/* Heart Icon */}
-                      <FavoriteBorder className="text-gray-500 hover:text-red-500 cursor-pointer" />
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <h4 className="font-semibold text-lg">Overview</h4>
-                    <span>
+                      </AccordionContent>
+                    </AccordionItem>
 
-                      {propertyData?.publicRemarks}
-                    </span>
+                    <AccordionItem value="media-documents" className="border rounded-xl bg-white px-3 mt-4">
+                      <AccordionTrigger>
+                        <div className="flex items-center gap-2">
+                          <span>Media & Documents</span>
+                          <span className="text-xs text-gray-500">({mediaDocuments.length})</span>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="pb-2">
+                          {mediaDocuments.length === 0 ? (
+                            <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden px-4 py-6 text-center">
+                              <p className="text-sm font-medium text-gray-600">No media or documents yet</p>
+                              <p className="text-xs text-gray-400 mt-1">Files shared in this chat will appear here.</p>
+                            </div>
+                          ) : (
+                            <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                              <Accordion
+                                type="multiple"
+                                defaultValue={["media-items", "document-items"]}
+                                className="w-full"
+                              >
+                                <AccordionItem value="media-items" className="border-0 border-b">
+                                  <AccordionTrigger className="px-3 py-3">
+                                    <span className="text-sm font-semibold">
+                                      Media ({mediaDocuments.filter((item) => item.kind === "image" || item.kind === "video").length})
+                                    </span>
+                                  </AccordionTrigger>
+                                  <AccordionContent>
+                                    <div className="max-h-[220px] overflow-y-auto divide-y divide-gray-100">
+                                      {mediaDocuments.filter((item) => item.kind === "image" || item.kind === "video").length === 0 ? (
+                                        <div className="px-4 py-5 text-center text-xs text-gray-500">
+                                          No media yet
+                                        </div>
+                                      ) : (
+                                        mediaDocuments
+                                          .filter((item) => item.kind === "image" || item.kind === "video")
+                                          .map((item) => {
+                                            const createdDate = item.createdAt ? new Date(item.createdAt) : null
+                                            const hasValidDate = createdDate instanceof Date && !Number.isNaN(createdDate.getTime())
+                                            const timeLabel = hasValidDate
+                                              ? formatDistanceToNow(createdDate, { addSuffix: true })
+                                              : "Unknown time"
+                                            return (
+                                              <button
+                                                key={item.id}
+                                                type="button"
+                                                onClick={() => openMediaPreview(item.url, item.fileType)}
+                                                className="w-full text-left px-3 py-3 hover:bg-gray-50 transition-colors"
+                                              >
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                  {item.kind === "image" ? (
+                                                    <img
+                                                      src={item.url}
+                                                      alt={item.fileName}
+                                                      className="w-12 h-12 rounded-md object-cover border border-gray-200 shrink-0"
+                                                      onError={(e) => {
+                                                        e.currentTarget.src = "/placeholder.svg"
+                                                      }}
+                                                    />
+                                                  ) : (
+                                                    <div className="w-12 h-12 rounded-md border border-gray-200 shrink-0 flex items-center justify-center bg-black text-white">
+                                                      <Play className="w-5 h-5" />
+                                                    </div>
+                                                  )}
+                                                  <div className="min-w-0 flex-1">
+                                                    <p className="text-sm font-semibold text-gray-900 truncate" title={item.fileName}>
+                                                      {item.fileName}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 truncate">
+                                                      {item.senderName} . {timeLabel}
+                                                    </p>
+                                                  </div>
+                                                  <Eye className="w-4 h-4 text-orange-500 shrink-0" />
+                                                </div>
+                                              </button>
+                                            )
+                                          })
+                                      )}
+                                    </div>
+                                  </AccordionContent>
+                                </AccordionItem>
 
-                    {/* Modal for full description */}
-                    <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Property Overview</DialogTitle>
-                          <DialogDescription>{propertyData?.property?.descriptions?.[0]?.value}</DialogDescription>
-                        </DialogHeader>
-                        <DialogClose asChild>
-                          <Button className="bg-orange-500 hover:bg-orange-600">Close</Button>
-                        </DialogClose>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-
-                  <div className="mt-6">
-                    <h4 className="font-medium mb-2">Amenities</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="flex items-center gap-2">
-                        <Wifi className="h-4 w-4" />
-                        <span className="text-sm">Wifi</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Kitchen className="h-4 w-4" />
-                        <span className="text-sm">Kitchen</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Maximize2 className="h-4 w-4" />
-                        <span className="text-sm">Workspace</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Car className="h-4 w-4" />
-                        <span className="text-sm">Free parking</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Wind className="h-4 w-4" />
-                        <span className="text-sm">Air conditioning</span>
-                      </div>
-                    </div>
-                  </div>
+                                <AccordionItem value="document-items" className="border-0">
+                                  <AccordionTrigger className="px-3 py-3">
+                                    <span className="text-sm font-semibold">
+                                      Documents ({mediaDocuments.filter((item) => item.kind === "document").length})
+                                    </span>
+                                  </AccordionTrigger>
+                                  <AccordionContent>
+                                    <div className="max-h-[220px] overflow-y-auto divide-y divide-gray-100">
+                                      {mediaDocuments.filter((item) => item.kind === "document").length === 0 ? (
+                                        <div className="px-4 py-5 text-center text-xs text-gray-500">
+                                          No documents yet
+                                        </div>
+                                      ) : (
+                                        mediaDocuments
+                                          .filter((item) => item.kind === "document")
+                                          .map((item) => {
+                                            const createdDate = item.createdAt ? new Date(item.createdAt) : null
+                                            const hasValidDate = createdDate instanceof Date && !Number.isNaN(createdDate.getTime())
+                                            const timeLabel = hasValidDate
+                                              ? formatDistanceToNow(createdDate, { addSuffix: true })
+                                              : "Unknown time"
+                                            return (
+                                              <button
+                                                key={item.id}
+                                                type="button"
+                                                onClick={() => window.open(item.url, "_blank", "noopener,noreferrer")}
+                                                className="w-full text-left px-3 py-3 hover:bg-gray-50 transition-colors"
+                                              >
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                  <div className="w-12 h-12 rounded-md border border-gray-200 shrink-0 flex items-center justify-center bg-gray-100 text-gray-700">
+                                                    <FileText className="w-5 h-5" />
+                                                  </div>
+                                                  <div className="min-w-0 flex-1">
+                                                    <p className="text-sm font-semibold text-gray-900 truncate" title={item.fileName}>
+                                                      {item.fileName}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 truncate">
+                                                      {item.senderName} . {timeLabel}
+                                                    </p>
+                                                  </div>
+                                                  <Eye className="w-4 h-4 text-orange-500 shrink-0" />
+                                                </div>
+                                              </button>
+                                            )
+                                          })
+                                      )}
+                                    </div>
+                                  </AccordionContent>
+                                </AccordionItem>
+                              </Accordion>
+                            </div>
+                          )}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
                 </div>
               </ScrollArea>
-              <Button
-                className="ms-2 me-5 shadow bg-orange-500 hover:bg-orange-600 w-full mt-6"
-                onClick={() => {
-                  router.push(`/buy/${propertyData.property?.id}/prop/preview`)
-                }}
-              >
-                View details
-              </Button>
             </div>
           )}
         </div>

@@ -1,4 +1,4 @@
-import { ReactNode, useState, createContext, useEffect, useContext } from "react";
+import { ReactNode, useState, createContext, useEffect } from "react";
 import { isUserLoggedIn, accessToken, userData } from "@/slices/auth/auth.slice";
 import { useSelector } from "react-redux";
 import { WebSocketClient, createWebSocketClient } from "@/lib/websocket-client";
@@ -7,6 +7,8 @@ import NewNotification from "@/components/chat-box/notification-bar";
 import InvitationNotification from "@/components/notifications/invitation";
 import OfferNotification from "@/components/notifications/offer";
 import { getAuthToken } from "@/lib/storage";
+import { useAtom } from "jotai";
+import { messageThreadsAtom } from "@/hooks/atoms";
 
 type SocketContextType = {
   socket: WebSocketClient | null;
@@ -21,9 +23,12 @@ export const initialState: any = {
     property: null,
     message: "",
     channelId: null,
+    action: "navigate",
     isVisible: false,
   },
   newMessage: null,
+  isCurrentChatAtBottom: false,
+  scrollToLatestRequest: null,
   selectedChannel: {
     id: "",
     propertyName: '',
@@ -49,6 +54,275 @@ export const SocketContext = createContext<SocketContextType>({
   setState: () => { },
 });
 
+const getStringValue = (...values: any[]): string => {
+  for (const value of values) {
+    if (typeof value === "string") {
+      const normalized = value.trim();
+      if (
+        normalized &&
+        normalized.toLowerCase() !== "undefined" &&
+        normalized.toLowerCase() !== "null"
+      ) {
+        return normalized;
+      }
+    }
+  }
+  return "";
+};
+
+const normalizeKey = (key: string): string => key.replace(/[^a-z0-9]/gi, "").toLowerCase();
+
+const findStringByKeysDeep = (input: any, wantedKeys: string[]): string => {
+  if (!input || typeof input !== "object") return "";
+  const wanted = new Set(wantedKeys.map((k) => normalizeKey(k)));
+  const visited = new Set<any>();
+  const queue: any[] = [input];
+
+  while (queue.length) {
+    const node = queue.shift();
+    if (!node || typeof node !== "object" || visited.has(node)) continue;
+    visited.add(node);
+
+    for (const [rawKey, value] of Object.entries(node)) {
+      const key = normalizeKey(rawKey);
+      if (wanted.has(key) && typeof value === "string") {
+        const normalized = getStringValue(value);
+        if (normalized) return normalized;
+      }
+      if (value && typeof value === "object") queue.push(value);
+    }
+  }
+
+  return "";
+};
+
+const isUuidLike = (value: string): boolean =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+
+const resolveSenderName = (messageData: any): string => {
+  const containers = [
+    messageData,
+    messageData?.data,
+    messageData?.payload,
+    messageData?.data?.payload,
+    messageData?.payload?.data,
+  ].filter(Boolean);
+
+  const firstNameKeys = [
+    "senderFirstName",
+    "sender_first_name",
+    "senderFirstname",
+    "sender_firstname",
+    "firstName",
+    "first_name",
+  ];
+  const lastNameKeys = [
+    "senderLastName",
+    "sender_last_name",
+    "senderLastname",
+    "sender_lastname",
+    "lastName",
+    "last_name",
+  ];
+  const explicitNameKeys = [
+    "senderName",
+    "sender_name",
+    "senderFullName",
+    "sender_full_name",
+    "userName",
+    "user_name",
+    "name",
+  ];
+
+  for (const container of containers) {
+    const firstName = getStringValue(...firstNameKeys.map((key) => container?.[key]));
+    const lastName = getStringValue(...lastNameKeys.map((key) => container?.[key]));
+    const fullName = `${firstName} ${lastName}`.trim();
+    if (fullName) return fullName;
+    if (firstName) return firstName;
+    if (lastName) return lastName;
+
+    const senderObject = container?.sender;
+    const senderFirst = getStringValue(
+      senderObject?.firstName,
+      senderObject?.first_name,
+      senderObject?.senderFirstName,
+      senderObject?.sender_first_name,
+    );
+    const senderLast = getStringValue(
+      senderObject?.lastName,
+      senderObject?.last_name,
+      senderObject?.senderLastName,
+      senderObject?.sender_last_name,
+    );
+    const senderFull = `${senderFirst} ${senderLast}`.trim();
+    if (senderFull) return senderFull;
+    if (senderFirst) return senderFirst;
+    if (senderLast) return senderLast;
+
+    const explicitName = getStringValue(
+      ...explicitNameKeys.map((key) => container?.[key]),
+      senderObject?.name,
+      container?.user?.name,
+      container?.user?.firstName,
+      container?.user?.first_name,
+      container?.sender,
+    );
+    if (explicitName) return explicitName;
+  }
+
+  const deepFirstName = findStringByKeysDeep(messageData, [
+    "senderFirstName",
+    "sender_first_name",
+    "firstName",
+    "first_name",
+  ]);
+  const deepLastName = findStringByKeysDeep(messageData, [
+    "senderLastName",
+    "sender_last_name",
+    "lastName",
+    "last_name",
+  ]);
+  const deepFullName = `${deepFirstName} ${deepLastName}`.trim();
+  if (deepFullName) return deepFullName;
+  if (deepFirstName) return deepFirstName;
+  if (deepLastName) return deepLastName;
+
+  const deepExplicitName = findStringByKeysDeep(messageData, [
+    "senderName",
+    "sender_name",
+    "senderFullName",
+    "sender_full_name",
+    "name",
+  ]);
+  if (deepExplicitName) return deepExplicitName;
+
+  const senderId = getStringValue(
+    messageData?.senderId,
+    messageData?.sender_id,
+    messageData?.data?.senderId,
+    messageData?.data?.sender_id,
+    messageData?.payload?.senderId,
+    messageData?.payload?.sender_id,
+    messageData?.data?.payload?.senderId,
+    messageData?.data?.payload?.sender_id,
+    messageData?.payload?.data?.senderId,
+    messageData?.payload?.data?.sender_id,
+  );
+  if (senderId && !isUuidLike(senderId)) return senderId;
+
+  return "";
+};
+
+const resolveNotificationMessage = (messageData: any): string =>
+  getStringValue(
+    messageData?.message,
+    messageData?.content,
+    messageData?.text,
+  );
+
+const normalizeId = (value: any): string => String(value ?? "").trim().toLowerCase();
+
+const resolveSenderId = (messageData: any): string =>
+  getStringValue(
+    messageData?.senderId,
+    messageData?.sender_id,
+    messageData?.sender?.id,
+    messageData?.sender?.userId,
+    messageData?.sender?.user_id,
+    messageData?.createdById,
+    messageData?.created_by_id,
+  );
+
+const resolveChannelId = (messageData: any): string =>
+  getStringValue(
+    messageData?.threadId,
+    messageData?.thread_id,
+    messageData?.thread?.id,
+    messageData?.thread?._id,
+    messageData?.thread?.threadId,
+    messageData?.thread?.thread_id,
+    messageData?.roomId,
+    messageData?.room_id,
+    messageData?.room?.id,
+    messageData?.room?._id,
+    messageData?.room?.roomId,
+    messageData?.conversationId,
+    messageData?.conversation_id,
+    messageData?.conversation?.id,
+    messageData?.conversation?._id,
+    messageData?.conversation?.threadId,
+    messageData?.conversation?.thread_id,
+    messageData?.channelId,
+    messageData?.channel_id,
+    messageData?.data?.threadId,
+    messageData?.data?.thread_id,
+    messageData?.data?.thread?.id,
+    messageData?.data?.thread?._id,
+    messageData?.data?.roomId,
+    messageData?.data?.room?.id,
+    messageData?.data?.room?._id,
+    messageData?.data?.conversationId,
+    messageData?.data?.conversation?.id,
+    messageData?.data?.conversation?._id,
+    messageData?.id,
+    messageData?._id,
+  );
+
+const resolveSenderNameFromThreads = (
+  threadId: string,
+  senderId: string,
+  threads: any[],
+): string => {
+  if (!threadId || !senderId || !Array.isArray(threads) || threads.length === 0) return "";
+
+  const normalizedThreadId = normalizeId(threadId);
+  const normalizedSenderId = normalizeId(senderId);
+  const matchedThread = threads.find((thread: any) => {
+    const candidates = [
+      thread?.id,
+      thread?.threadId,
+      thread?.thread_id,
+      thread?.roomId,
+      thread?.room_id,
+      thread?.conversationId,
+      thread?.conversation_id,
+    ];
+    return candidates.some((candidate) => normalizeId(candidate) === normalizedThreadId);
+  });
+  if (!matchedThread) return "";
+
+  const participantCandidates = [
+    ...(Array.isArray(matchedThread?.participants) ? matchedThread.participants : []),
+    matchedThread?.user,
+    matchedThread?.buyerAgent,
+    matchedThread?.sellerAgent,
+  ].filter(Boolean);
+
+  for (const rawParticipant of participantCandidates) {
+    const participant = rawParticipant?.user ?? rawParticipant;
+    const participantId = normalizeId(
+      getStringValue(
+        participant?.id,
+        participant?.userId,
+        participant?.user_id,
+      ),
+    );
+    if (!participantId || participantId !== normalizedSenderId) continue;
+
+    const firstName = getStringValue(participant?.firstName, participant?.first_name);
+    const lastName = getStringValue(participant?.lastName, participant?.last_name);
+    const fullName = `${firstName} ${lastName}`.trim();
+    if (fullName) return fullName;
+    if (firstName) return firstName;
+    if (lastName) return lastName;
+  }
+
+  return "";
+};
+
 function SocketProvider({ children }: { children: ReactNode }) {
   const SOCKET_URL = process.env.NEXT_PUBLIC_AUTH_SERIVCE_SOCKET_URL || "http://localhost:4000";
   const isLogin = useSelector(isUserLoggedIn);
@@ -60,6 +334,7 @@ function SocketProvider({ children }: { children: ReactNode }) {
   const [invitationData, setInvitationData] = useState(null);
   const [isOffer, setIsOffer] = useState(false);
   const [offerData, setOfferData] = useState(null);
+  const [messageThreads] = useAtom(messageThreadsAtom);
 
   // Get token from Redux OR Cookie
   const cookieToken = getAuthToken();
@@ -121,38 +396,84 @@ function SocketProvider({ children }: { children: ReactNode }) {
       // Removed invitation_updated, new_offer_recieved, recievedMessage - not supported by backend
       // These should be handled via REST API or separate WebSocket connection if needed
 
-      // Handle newMessage event from websocket backend (Lambda/API Gateway)
-      socket.on("newMessage", (messageData: any) => {
-        console.log('[SocketContext] Received newMessage:', messageData);
-        const threadId = messageData.threadId || messageData.thread_id;
-        
-        if (threadId !== state.selectedChannel?.id) {
-          const existingCount = state.conversationUnreadCount.find((c: any) => c.threadId === threadId)?.count ?? 0;
+      // Handle incoming message events from websocket backend
+      const handleIncomingMessage = (messageData: any, sourceEvent: "newMessage" | "recievedMessage") => {
+        const threadId = resolveChannelId(messageData);
+        const senderId = resolveSenderId(messageData);
+        const socketResolvedSenderName = resolveSenderName(messageData);
+        const threadResolvedSenderName = resolveSenderNameFromThreads(threadId, senderId, messageThreads);
+        const notificationSenderName = getStringValue(socketResolvedSenderName, threadResolvedSenderName, "Someone");
 
-          setState((prevState: any) => ({
-            ...prevState,
-            conversationUnreadCount: [
+        console.log(`[SocketContext] Received ${sourceEvent}:`, messageData);
+        console.log('[SocketContext] newMessage sender debug:', {
+          sourceEvent,
+          senderFirstName: messageData?.senderFirstName,
+          senderLastName: messageData?.senderLastName,
+          dataSenderFirstName: messageData?.data?.senderFirstName,
+          dataSenderLastName: messageData?.data?.senderLastName,
+          payloadSenderFirstName: messageData?.payload?.senderFirstName,
+          payloadSenderLastName: messageData?.payload?.senderLastName,
+          resolvedSenderName: socketResolvedSenderName,
+          resolvedSenderNameFromThreads: threadResolvedSenderName,
+          notificationSenderName,
+          resolvedNotificationMessage: resolveNotificationMessage(messageData),
+          resolvedChannelId: threadId,
+          rawPayload: messageData,
+        });
+
+        setState((prevState: any) => {
+          const normalizedThreadId = normalizeId(threadId);
+          const normalizedSelectedChannelId = normalizeId(prevState.selectedChannel?.id);
+          const isCurrentThreadOpen =
+            !!normalizedThreadId &&
+            !!normalizedSelectedChannelId &&
+            normalizedThreadId === normalizedSelectedChannelId;
+          const hasReliableSenderId = typeof senderId === "string" && senderId.length > 0;
+          const isSelfMessage = hasReliableSenderId && !!user?.id && senderId === user.id;
+          const existingCount =
+            prevState.conversationUnreadCount.find((c: any) => c.threadId === threadId)?.count ?? 0;
+
+          const updatedUnreadCounts = isCurrentThreadOpen || isSelfMessage
+            ? prevState.conversationUnreadCount
+            : [
               ...prevState.conversationUnreadCount.filter((c: any) => c.threadId !== threadId),
               { threadId: threadId || null, count: existingCount + 1 },
-            ],
-            notification: {
-              user: messageData?.userName || messageData?.senderId,
-              property: messageData?.propertyName,
-              isVisible: true,
-              channelId: threadId,
-              message: messageData?.message,
-            },
-          }));
-        } else {
-          setState((prevState: any) => ({
+            ];
+
+          const shouldShowNotification =
+            !isSelfMessage && !isCurrentThreadOpen;
+
+          return {
             ...prevState,
-            newMessage: {
-              ...messageData,
-              threadId: threadId,
-            },
-          }));
-        }
-      });
+            conversationUnreadCount: updatedUnreadCounts,
+            notification: shouldShowNotification
+              ? {
+                user: notificationSenderName,
+                property: getStringValue(
+                  messageData?.propertyName,
+                  messageData?.property_name,
+                ),
+                isVisible: true,
+                channelId: threadId,
+                action: "navigate",
+                message: resolveNotificationMessage(messageData),
+              }
+              : prevState.notification,
+            newMessage: isCurrentThreadOpen
+              ? {
+                ...messageData,
+                threadId: threadId,
+              }
+              : prevState.newMessage,
+          };
+        });
+      };
+
+      const handleNewMessage = (messageData: any) => handleIncomingMessage(messageData, "newMessage");
+      const handleRecievedMessage = (messageData: any) => handleIncomingMessage(messageData, "recievedMessage");
+
+      socket.on("newMessage", handleNewMessage);
+      socket.on("recievedMessage", handleRecievedMessage);
 
       // Handle websocket response events
       socket.on("createOrJoinConversation_response", (response: any) => {
@@ -175,14 +496,15 @@ function SocketProvider({ children }: { children: ReactNode }) {
         socket.off("recievedMessage");
         socket.off("invitation_updated");
         socket.off("new_offer_recieved");
-        socket.off("newMessage");
+        socket.off("newMessage", handleNewMessage);
+        socket.off("recievedMessage", handleRecievedMessage);
         socket.off("createOrJoinConversation_response");
         socket.off("sendMessage_response");
         socket.off("joinRoom_response");
         socket.off("leaveRoom_response");
       };
     }
-  }, [socket, state.selectedChannel]);
+  }, [messageThreads, socket, user?.id]);
 
   return (
     <SocketContext.Provider value={{ socket, state, setState }}>

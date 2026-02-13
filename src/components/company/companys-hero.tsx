@@ -9,7 +9,7 @@ export default function HeroLayout() {
       <section className="
         relative bg-[#000000] text-white
         min-h-[85vh] sm:min-h-[90vh]
-        pt-20 sm:pt-24
+        pt-20 sm:pt-24 pb-20 sm:pb-24
         flex items-center justify-center
         overflow-hidden
       ">

@@ -18,14 +18,13 @@ import { usePropertyStore } from '@/store/use-property-store';
 import { CheckSquare, Square } from 'lucide-react';
 
 const PropertyCards = (props: any) => {
+  const { snaps, fetchSnaps } = props;
   const { saveCurrenctProperty } = usePropertyActions();
   const router = useRouter();
   const [carouselEvent, setCarouselEvent] = useState(false);
   const { openCollectionModal } = useCollectionModal();
   const { isLoggedIn } = useAuth();
   const userData = useSelector((state: any) => state.auth.user);
-  const { getAllSnaps } = useUserSnapAPIs();
-  const [snaps, setSnaps] = useState<any[]>([]);
 
   // Comparison Store
   const { isCompareMode, toggleCompareProperty, selectedCompareProperties } = usePropertyStore();
@@ -39,19 +38,6 @@ const PropertyCards = (props: any) => {
     return pId == myId; // loose equality
   });
 
-  const fetchSnaps = () => {
-    if (userData?.id) {
-      getAllSnaps.mutate(userData.id, {
-        onSuccess: (data) => {
-          setSnaps(data);
-        },
-      });
-    }
-  };
-
-  useEffect(() => {
-    fetchSnaps();
-  }, [userData?.id]);
 
   const slides = props?.listing?.media?.photosList?.slice(0, 6)?.map((image: any, idx: number) => {
     if (!image?.lowRes) return null;
@@ -202,10 +188,10 @@ const PropertyCards = (props: any) => {
               });
             }}
             className={`p-2 rounded-full transition-all duration-200 ${isSelectedForCompare
-                ? 'bg-ocOrange text-white'
-                : selectedCompareProperties.length >= 4
-                  ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
-                  : 'bg-white/80 text-gray-500 hover:bg-white hover:text-ocOrange'
+              ? 'bg-ocOrange text-white'
+              : selectedCompareProperties.length >= 4
+                ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                : 'bg-white/80 text-gray-500 hover:bg-white hover:text-ocOrange'
               }`}
           >
             {isSelectedForCompare ? <CheckSquare size={24} /> : <Square size={24} />}
@@ -213,10 +199,10 @@ const PropertyCards = (props: any) => {
           </button>
           <span
             className={`ml-2 px-2 py-1 rounded-md text-sm font-bold shadow-sm transition-all duration-200 ${isSelectedForCompare
-                ? 'bg-ocOrange text-white'
-                : selectedCompareProperties.length >= 4
-                  ? 'bg-gray-100 text-gray-400 opacity-50'
-                  : 'bg-white/80 text-black'
+              ? 'bg-ocOrange text-white'
+              : selectedCompareProperties.length >= 4
+                ? 'bg-gray-100 text-gray-400 opacity-50'
+                : 'bg-white/80 text-black'
               }`}
           >
             {isSelectedForCompare ? 'Selected' : selectedCompareProperties.length >= 4 ? 'Limit Reached' : 'Compare'}

@@ -30,6 +30,7 @@ import DeleteCollectionConfirmationModal from '@/components/delete-snap.modal';
 import RenameCollectionModal from '@/components/rename-snap.modal';
 import SendSnapLinkModal from '@/components/send_snap.modal';
 import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
+import PropertyRecommendations from '@/components/dashboard/main/property-recommendations';
 
 interface SnapCollection {
     id: string;
@@ -313,15 +314,22 @@ export default function SnapDetailsPage() {
                                 ...property,
                             };
 
-                            return <FavouritePropertyCards
-                                key={safeProperty.id}
-                                {...safeProperty}
-                                snapId={id}
-                                isWishlisted={true}
-                                userSnapRole={userSnapRole}
-                                onCommentAdded={() => setCommentRefreshTrigger(prev => prev + 1)}
-                                onRead={fetchSnapProperties}
-                            />;
+                            return (
+                                <div key={safeProperty.id} className="flex flex-col">
+                                    <FavouritePropertyCards
+                                        {...safeProperty}
+                                        snapId={id}
+                                        isWishlisted={true}
+                                        userSnapRole={userSnapRole}
+                                        onCommentAdded={() => setCommentRefreshTrigger(prev => prev + 1)}
+                                        onRead={fetchSnapProperties}
+                                    />
+                                    <PropertyRecommendations
+                                        listingId={safeProperty.listingId}
+                                        propertyId={safeProperty.propertyId}
+                                    />
+                                </div>
+                            );
                         })}
                     </div>
                     <ScrollBar orientation='vertical' className='h-full' />

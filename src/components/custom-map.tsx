@@ -91,7 +91,7 @@ const CustomMap: React.FC<Props> = ({
 
   const districtPolygonCacheRef = React.useRef<Map<string, DistrictPolygonCacheEntry>>(new Map());
 
-    const containerStyle = {
+  const containerStyle = {
     height: height || '100%',
     width: '100%',
     minHeight: '350px',
@@ -360,9 +360,20 @@ const CustomMap: React.FC<Props> = ({
   useEffect(() => {
     if (!isLoaded || !mapInstance) return;
 
-    const stateLayer = mapInstance.getFeatureLayer('ADMINISTRATIVE_AREA_LEVEL_1');
-    const countyLayer = mapInstance.getFeatureLayer('ADMINISTRATIVE_AREA_LEVEL_2');
-    const cityLayer = mapInstance.getFeatureLayer('LOCALITY');
+    // Modified by Abhradip Paul showing typescript error
+    const stateLayer = mapInstance.getFeatureLayer(
+      google.maps.FeatureType.ADMINISTRATIVE_AREA_LEVEL_1
+    );
+    const countyLayer = mapInstance.getFeatureLayer(
+      google.maps.FeatureType.ADMINISTRATIVE_AREA_LEVEL_2
+    );
+    const cityLayer = mapInstance.getFeatureLayer(
+      google.maps.FeatureType.LOCALITY
+    );
+
+    // const stateLayer = mapInstance.getFeatureLayer('ADMINISTRATIVE_AREA_LEVEL_1');
+    // const countyLayer = mapInstance.getFeatureLayer('ADMINISTRATIVE_AREA_LEVEL_2');
+    // const cityLayer = mapInstance.getFeatureLayer('LOCALITY');
 
     featureLayersRef.current = {
       state: stateLayer,
@@ -376,7 +387,8 @@ const CustomMap: React.FC<Props> = ({
     if (!isLoaded || !mapInstance) return;
 
     const { state, county, city } = featureLayersRef.current;
-    const styleFn = (options: google.maps.FeatureStyleFunctionOptions) => {
+    // Modified by Abhradip Paul showing typescript error
+    const styleFn = (options: any) => {
       if (options.feature.placeId === selectedPlaceId) {
         return {
           strokeColor: '#0f172a',
@@ -585,6 +597,8 @@ const CustomMap: React.FC<Props> = ({
 
       const markers = filtered.map((place) => {
         const location = place.geometry!.location;
+        // Modified by Abhradip Paul showing typescript error
+        if (!location?.lat() || !location?.lng()) return
         const position = { lat: location.lat(), lng: location.lng() };
         const marker = new google.maps.Marker({
           map: mapInstance,
@@ -609,7 +623,8 @@ const CustomMap: React.FC<Props> = ({
         return marker;
       });
 
-      schoolMarkersRef.current = markers;
+      // Modified by Abhradip Paul showing typescript error
+      (schoolMarkersRef.current as any) = markers;
     };
 
     run();
@@ -699,118 +714,118 @@ const CustomMap: React.FC<Props> = ({
 
   return isLoaded ? (
     <div className="relative w-full" style={{ height: containerStyle.height, minHeight: containerStyle.minHeight }}>
-    {showDistricts && clickedDistrictName && (
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
-        <div className="rounded-full border border-gray-100 bg-white/95 px-5 py-2 text-sm font-semibold text-gray-900 shadow-lg backdrop-blur-sm whitespace-nowrap">
-          {clickedDistrictName}
-        </div>
-      </div>
-    )}
-    <GoogleMap
-      mapContainerStyle={containerStyle}
-      mapContainerClassName="snaphomz-map"
-      onLoad={onLoad}
-      zoom={zoom}
-      onUnmount={onUnmount}
-      onClick={handleMapClick}
-      options={{
-        fullscreenControl: false,
-        streetViewControl: false,
-        mapTypeControl: false,
-        zoomControl: true,
-        scrollwheel: true,
-        gestureHandling: 'cooperative',
-        mapId: googleMapsMapId,
-        zoomControlOptions: {
-          position: google.maps.ControlPosition.RIGHT_BOTTOM,
-        },
-        styles: [
-          {
-            featureType: 'administrative',
-            elementType: 'geometry',
-            stylers: [{ visibility: 'simplified' }],
-          },
-          {
-            featureType: 'poi',
-            stylers: [{ visibility: 'off' }],
-          },
-          {
-            featureType: 'road',
-            elementType: 'labels.icon',
-            stylers: [{ visibility: 'off' }],
-          },
-          {
-            featureType: 'transit',
-            stylers: [{ visibility: 'off' }],
-          },
-        ],
-      }}
-    >
-      {districtsLoadingError ? null : null}
-      {markers.map((marker) => (
-        <Marker
-          key={marker.id}
-          position={{ lat: marker.lat, lng: marker.lng }}
-          icon={createCustomMarker(marker.price, marker.id === selectedMarker?.id)}
-          onClick={() => {
-            setSelectedMarker(marker);
-            centerOnMarker({ lat: marker.lat, lng: marker.lng });
-            if (marker.id && onMarkerClick) onMarkerClick(marker.id);
-          }}
-        />
-      ))}
-
-      {selectedMarker && (
-        <InfoWindow
-          position={{ lat: selectedMarker.lat, lng: selectedMarker.lng }}
-          onCloseClick={() => setSelectedMarker(null)}
-          options={{
-            disableAutoPan: false,
-            pixelOffset: new google.maps.Size(0, -44),
-            maxWidth: 320,
-          }}
-        >
-          <div
-            className='infowindow-content map-info-window w-full max-w-[320px] overflow-hidden bg-black/80 rounded-xl'
-          >
-            {selectedMarker.originalData?.listing ? (
-              <MapPropertyCards
-                {...selectedMarker.originalData}
-                onClose={() => setSelectedMarker(null)}
-              />
-            ) : (
-              <div className="p-4 text-sm text-gray-600">No property details</div>
-            )}
+      {showDistricts && clickedDistrictName && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+          <div className="rounded-full border border-gray-100 bg-white/95 px-5 py-2 text-sm font-semibold text-gray-900 shadow-lg backdrop-blur-sm whitespace-nowrap">
+            {clickedDistrictName}
           </div>
-        </InfoWindow>
+        </div>
       )}
-      {selectedSchool && (
-        <InfoWindow
-          position={selectedSchool.position}
-          onCloseClick={() => setSelectedSchool(null)}
-          options={{
-            disableAutoPan: true,
-            pixelOffset: new google.maps.Size(0, -34),
-            maxWidth: 220,
-          }}
-        >
-          <div className="rounded-lg bg-white/95 px-3 py-2 shadow-lg">
-            <div className="text-sm font-semibold text-gray-900">{selectedSchool.name}</div>
-            <div className="text-xs text-gray-600">
-              {selectedSchool.rating ? (
-                <>
-                  <span className="text-amber-500">★</span>{' '}
-                  {selectedSchool.rating.toFixed(1)}
-                  {selectedSchool.total ? ` (${selectedSchool.total})` : ''}
-                </>
+      <GoogleMap
+        mapContainerStyle={containerStyle}
+        mapContainerClassName="snaphomz-map"
+        onLoad={onLoad}
+        zoom={zoom}
+        onUnmount={onUnmount}
+        onClick={handleMapClick}
+        options={{
+          fullscreenControl: false,
+          streetViewControl: false,
+          mapTypeControl: false,
+          zoomControl: true,
+          scrollwheel: true,
+          gestureHandling: 'cooperative',
+          mapId: googleMapsMapId,
+          zoomControlOptions: {
+            position: google.maps.ControlPosition.RIGHT_BOTTOM,
+          },
+          styles: [
+            {
+              featureType: 'administrative',
+              elementType: 'geometry',
+              stylers: [{ visibility: 'simplified' }],
+            },
+            {
+              featureType: 'poi',
+              stylers: [{ visibility: 'off' }],
+            },
+            {
+              featureType: 'road',
+              elementType: 'labels.icon',
+              stylers: [{ visibility: 'off' }],
+            },
+            {
+              featureType: 'transit',
+              stylers: [{ visibility: 'off' }],
+            },
+          ],
+        }}
+      >
+        {districtsLoadingError ? null : null}
+        {markers.map((marker) => (
+          <Marker
+            key={marker.id}
+            position={{ lat: marker.lat, lng: marker.lng }}
+            icon={createCustomMarker(marker.price, marker.id === selectedMarker?.id)}
+            onClick={() => {
+              setSelectedMarker(marker);
+              centerOnMarker({ lat: marker.lat, lng: marker.lng });
+              if (marker.id && onMarkerClick) onMarkerClick(marker.id);
+            }}
+          />
+        ))}
+
+        {selectedMarker && (
+          <InfoWindow
+            position={{ lat: selectedMarker.lat, lng: selectedMarker.lng }}
+            onCloseClick={() => setSelectedMarker(null)}
+            options={{
+              disableAutoPan: false,
+              pixelOffset: new google.maps.Size(0, -44),
+              maxWidth: 320,
+            }}
+          >
+            <div
+              className='infowindow-content map-info-window w-full max-w-[320px] overflow-hidden bg-black/80 rounded-xl'
+            >
+              {selectedMarker.originalData?.listing ? (
+                <MapPropertyCards
+                  {...selectedMarker.originalData}
+                  onClose={() => setSelectedMarker(null)}
+                />
               ) : (
-                'No ratings yet'
+                <div className="p-4 text-sm text-gray-600">No property details</div>
               )}
             </div>
-          </div>
-        </InfoWindow>
-      )}
-    </GoogleMap>
+          </InfoWindow>
+        )}
+        {selectedSchool && (
+          <InfoWindow
+            position={selectedSchool.position}
+            onCloseClick={() => setSelectedSchool(null)}
+            options={{
+              disableAutoPan: true,
+              pixelOffset: new google.maps.Size(0, -34),
+              maxWidth: 220,
+            }}
+          >
+            <div className="rounded-lg bg-white/95 px-3 py-2 shadow-lg">
+              <div className="text-sm font-semibold text-gray-900">{selectedSchool.name}</div>
+              <div className="text-xs text-gray-600">
+                {selectedSchool.rating ? (
+                  <>
+                    <span className="text-amber-500">★</span>{' '}
+                    {selectedSchool.rating.toFixed(1)}
+                    {selectedSchool.total ? ` (${selectedSchool.total})` : ''}
+                  </>
+                ) : (
+                  'No ratings yet'
+                )}
+              </div>
+            </div>
+          </InfoWindow>
+        )}
+      </GoogleMap>
     </div>
   ) : (
     <SkeletonLoader className="h-[350px] w-full bg-gray-400 md:col-span-9" />

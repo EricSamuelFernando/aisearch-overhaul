@@ -2410,6 +2410,8 @@ interface Message {
   receiverId?: string
   timestamp?: string
   seen?: boolean
+  // Modified by Abhradip Paul isRead is missing from the interface
+  isRead?: boolean
   parentMessageId?: string | null
   file?: {
     name?: string
@@ -5666,9 +5668,9 @@ export default function ChatBoxComponent(props: any) {
                               <div className="flex items-start gap-1">
                                 <LocationOnIcon className="text-primary" />
                                 <div>
-                                 <p className="text-sm font-semibold text-gray-900">
-                              {selectedThreadDetail?.propertyAddress || selectedThreadDetail?.propertyName || "Property"}
-                            </p>
+                                  <p className="text-sm font-semibold text-gray-900">
+                                    {selectedThreadDetail?.propertyAddress || selectedThreadDetail?.propertyName || "Property"}
+                                  </p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-1">

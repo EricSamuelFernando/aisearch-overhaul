@@ -16,7 +16,7 @@ import { googleMapsApiKey } from '@/shared/constants/env';
 import { updateBuyerOnboardingPreference } from '@/slices/onboarding/onboarding-slice';
 import { buyerPropertyPreference } from '@/slices/onboarding/onboarding-selectors';
 
-const libraries: Libraries = ['places'];
+const libraries: Libraries = ['places', 'geometry'];
 
 const PropertyArea: React.FC = () => {
   const [placeResult, updatePlaceResult] = React.useState('');
@@ -30,6 +30,9 @@ const PropertyArea: React.FC = () => {
     id: 'google-map-script',
     googleMapsApiKey: googleMapsApiKey || '',
     libraries,
+    language: "en",
+    region: "US",
+    version: "weekly",
   });
 
   const autoCompleteOptions: google.maps.places.AutocompleteOptions = {

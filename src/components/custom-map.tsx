@@ -66,6 +66,9 @@ const CustomMap: React.FC<Props> = ({
     id: 'google-map-script',
     googleMapsApiKey: googleMapsApiKey!,
     libraries,
+    language: "en",
+    region: "US",
+    version: "weekly",
   });
 
   const [mapInstance, setMap] = useState<google.maps.Map | null>(null);

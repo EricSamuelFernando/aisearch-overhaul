@@ -297,18 +297,6 @@ export function CompleteOnboardingForm() {
             ? 'Loading...'
             : 'Next'}
         </button>
-
-        <section className="my-4 flex w-full items-center justify-between">
-          <div></div>
-          <div>
-            <p className="text-sm">
-              Already have an account?{' '}
-              <Link className="text-primary-main" href="/login">
-                Login
-              </Link>
-            </p>
-          </div>
-        </section>
       </form>
     </section>
   );

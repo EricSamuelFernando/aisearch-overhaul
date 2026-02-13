@@ -25,6 +25,7 @@ import { error, success } from '@/components/alert/notify';
 import { useSelector } from 'react-redux';
 import MySnapzSection from '@/components/dashboard/main/my-snapz-section';
 import SearchHistorySection from '@/components/dashboard/main/search-history-section';
+import ViewHistorySection from '@/components/dashboard/main/view-history-section';
 
 interface Agent {
   id: string;
@@ -345,6 +346,10 @@ export default function AccountPage() {
 
         <TabsContent value='search-history'>
           <SearchHistorySection />
+        </TabsContent>
+
+        <TabsContent value='view-history'>
+          <ViewHistorySection />
         </TabsContent>
 
       </Tabs>

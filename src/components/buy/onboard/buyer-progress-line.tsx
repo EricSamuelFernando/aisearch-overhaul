@@ -16,6 +16,8 @@ import { ProgressLine } from '@/components/progress-line';
 import { ProgressStepButtons } from '@/components/progress-step-buttons';
 import { useRegister } from '@/hooks/api/auth/useRegister';
 import { error } from '@/components/alert/notify';
+import { getAuthToken } from '@/lib/storage';
+import { getIsAuthExpired } from '@/lib/api/axios';
 
 const steps = Object.values(BuyerOnboardingProgress).map((step) => step);
 
@@ -57,17 +59,74 @@ const BuyerProgressButton: React.FC<BuyerProgressButtonProps> = ({
     user?.email || data?.email,
   );
   const [saving, setSaving] = React.useState(false);
+  const canPersistPreference = React.useMemo(() => {
+    const token = getAuthToken() || localStorage.getItem('userAccessToken');
+    return Boolean(token) && !getIsAuthExpired();
+  }, []);
 
   const currentIndex = steps.indexOf(progress);
   const hideBack = hideBackOnFirst && currentIndex === 0;
 
-  const isPreferenceComplete = Boolean(
-    preferenceValues?.propertyType &&
-      preferenceValues?.preferredPropertyAddress &&
-      preferenceValues?.spendAmount?.max,
+  const isPreferenceComplete = React.useMemo(
+    () =>
+      Boolean(
+        preferenceValues?.propertyType &&
+          preferenceValues?.preferredPropertyAddress &&
+          preferenceValues?.spendAmount?.max,
+      ),
+    [preferenceValues],
+  );
+
+  const validateStep = React.useCallback(
+    (step: BuyerOnboardingProgress, isFinal = false) => {
+      // Validate only what is expected at the current step.
+      if (step === BuyerOnboardingProgress.PROPERTY_AREA) {
+        if (!preferenceValues?.preferredPropertyAddress) {
+          error({ message: 'Please choose a preferred area before continuing.' });
+          return false;
+        }
+        // If user is finishing from this step (edge case), ensure remaining fields too.
+        if (isFinal && !preferenceValues?.propertyType) {
+          error({ message: 'Please select a property type before finishing.' });
+          return false;
+        }
+        if (isFinal && !preferenceValues?.spendAmount?.max) {
+          error({ message: 'Please choose a budget range before finishing.' });
+          return false;
+        }
+      }
+
+      if (step === BuyerOnboardingProgress.PROPERTY_SELECTION) {
+        if (!preferenceValues?.propertyType) {
+          error({ message: 'Please select a property type before continuing.' });
+          return false;
+        }
+        if (isFinal) {
+          if (!preferenceValues?.preferredPropertyAddress) {
+            error({ message: 'Please choose a preferred area before finishing.' });
+            return false;
+          }
+          if (!preferenceValues?.spendAmount?.max) {
+            error({ message: 'Please choose a budget range before finishing.' });
+            return false;
+          }
+        }
+      }
+
+      if (step === BuyerOnboardingProgress.PROPERTY_SPEND_RANGE) {
+        if (!preferenceValues?.spendAmount?.max) {
+          error({ message: 'Please choose a budget range before continuing.' });
+          return false;
+        }
+        // For the last step this already covers required fields since earlier steps ran before.
+      }
+      return true;
+    },
+    [preferenceValues],
   );
 
   const persistPreference = React.useCallback(async () => {
+    if (!canPersistPreference) return; // Skip API call when unauthenticated
     setSaving(true);
     try {
       await updatePropertyPreference.mutateAsync({
@@ -84,7 +143,7 @@ const BuyerProgressButton: React.FC<BuyerProgressButtonProps> = ({
     } finally {
       setSaving(false);
     }
-  }, [isPreferenceComplete, preferenceValues, updatePropertyPreference]);
+  }, [canPersistPreference, isPreferenceComplete, preferenceValues, updatePropertyPreference]);
 
   const navigateTo = React.useCallback(
     async (skip?: boolean) => {
@@ -109,12 +168,23 @@ const BuyerProgressButton: React.FC<BuyerProgressButtonProps> = ({
     async (e: React.MouseEvent<HTMLButtonElement>) => {
       e.preventDefault();
       e.stopPropagation();
+
+      // Front-end validation to avoid backend errors and confusing toasts
+      const currentStep = steps[currentIndex];
+      const isLastStep = currentIndex === steps.length - 1;
+      const valid = validateStep(currentStep, isLastStep);
+      if (!valid) return;
+
       if (currentIndex < steps.length - 1) {
         dispatch(
           updateBuyerOnboardingProgress({ progress: steps[currentIndex + 1] }),
         );
       } else {
-        await persistPreference();
+        try {
+          await persistPreference();
+        } catch (err) {
+          // allow navigation even if persistence fails (guest users / network hiccups)
+        }
         await navigateTo(false);
       }
     },

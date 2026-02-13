@@ -112,9 +112,17 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       };
     },
 
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       if (!data?.data) {
         const apiMessage = data?.errors?.[0]?.message || '';
+        // Friendly handling for empty password submissions
+        if (!variables?.password) {
+          error({
+            message: 'Please Enter Your Password',
+            subtitle: 'Password is required to sign in.',
+          });
+          return;
+        }
         const normalized = apiMessage.toLowerCase();
         if (normalized.includes('too many') || normalized.includes('rate limit') || normalized.includes('rate-limit') || normalized.includes('try again later') || normalized.includes('attempt')) {
           error({
@@ -213,8 +221,16 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       handleCb?.();
 
     },
-    onError: (err: any) => {
+    onError: (err: any, variables) => {
       console.log(err, 'line');
+      // Friendly handling for missing password
+      if (!variables?.password) {
+        error({
+          message: 'Please Enter Your Password',
+          subtitle: 'Password is required to sign in.',
+        });
+        return;
+      }
       const apiMessage = err?.response?.data?.message || err?.message || '';
       const normalized = apiMessage.toLowerCase();
       if (normalized.includes('too many') || normalized.includes('rate limit') || normalized.includes('rate-limit') || normalized.includes('try again later') || normalized.includes('attempt')) {
@@ -544,20 +560,32 @@ export const useUserAuthApi = (handleCb?: () => void) => {
   const resendVerificationCodeMutation = useMutation({
     mutationKey: ['resend-verification-mutation'],
     mutationFn: async (data: VerifyEmail) => {
+      if (!data?.email) {
+        throw new Error('Email is required to resend code');
+      }
       return await axios.post(GRAPHQL_URI, {
         query: `mutation { resendOtp(email: "${data.email}") }`,
       });
     },
     onSuccess: (data) => {
-      if ((data as any).status === 200) {
+      const apiStatus = (data as any)?.status;
+      const message = (data as any)?.data?.data?.resendOtp;
+      if ((apiStatus === 200 || apiStatus === undefined) && message) {
         success({
-          message: 'Otp sent succesfully',
-          subtitle: 'Few More Steps TO Secure Your Home',
+          message: 'OTP sent successfully',
+          subtitle: `Sent to ${message}`,
         });
+      } else {
+        error({ message: message || 'Failed to send code. Please try again.' });
       }
     },
     onError: (err: any) => {
-      error({ message: err?.response?.data?.message });
+      const msg =
+        err?.response?.data?.errors?.[0]?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Failed to send code. Please try again.';
+      error({ message: msg });
     },
   });
 

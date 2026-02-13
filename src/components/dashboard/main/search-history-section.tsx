@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useSelector } from 'react-redux';
 
 interface HistoryMeta {
@@ -24,6 +25,7 @@ const formatTimestamp = (value: string) => {
 
 const SearchHistorySection = () => {
   const userData = useSelector((state: any) => state.auth.user);
+  const router = useRouter();
   const [searchHistory, setSearchHistory] = useState<any[]>([]);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyPerPage] = useState(10);
@@ -87,13 +89,27 @@ const SearchHistorySection = () => {
     return () => controller.abort();
   }, [userData?.id, historyPage, historyPerPage, AI_BASE_URL]);
 
+  const dedupedHistory = useMemo(() => {
+    const seen = new Set<string>();
+    const unique: any[] = [];
+    for (const item of searchHistory) {
+      const natural = item?.natural_query || item?.query || item?.search || '';
+      const createdAt = item?.timestamp || item?.created_at || item?.createdAt || '';
+      const key = `${natural}__${createdAt}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unique.push(item);
+    }
+    return unique;
+  }, [searchHistory]);
+
   return (
     <div className='py-4'>
       {historyLoading ? (
         <p className='text-sm text-gray-500'>Loading search history...</p>
       ) : historyError ? (
         <p className='text-sm text-red-600'>{historyError}</p>
-      ) : searchHistory.length === 0 ? (
+      ) : dedupedHistory.length === 0 ? (
         <p className='text-sm text-gray-500'>No search history found.</p>
       ) : (
         <div className='space-y-4'>
@@ -105,7 +121,7 @@ const SearchHistorySection = () => {
           </div>
 
           <div className='grid grid-cols-1 gap-3'>
-            {searchHistory.map((item, idx) => {
+            {dedupedHistory.map((item, idx) => {
               const natural = item?.natural_query || item?.query || item?.search || '';
               const searchQuery = item?.search_query || {};
               const location = [searchQuery?.address, searchQuery?.city, searchQuery?.state]
@@ -115,11 +131,18 @@ const SearchHistorySection = () => {
               const size = searchQuery?.size ? `Size ${searchQuery.size}` : '';
               const createdAt = item?.timestamp || item?.created_at || item?.createdAt || '';
               const label = natural || location || `Search ${idx + 1}`;
+              const targetQuery = natural || location || '';
+              const targetUrl = targetQuery
+                ? `/buy/browse?q=${encodeURIComponent(targetQuery)}`
+                : '/buy/browse';
 
               return (
-                <div
+                <button
+                  type='button'
                   key={item?.id || `${idx}-${label}`}
-                  className='rounded-lg border border-gray-200 px-4 py-3'
+                  onClick={() => router.push(targetUrl)}
+                  className='rounded-lg border border-gray-200 px-4 py-3 text-left transition hover:border-gray-300 hover:bg-gray-50'
+                  aria-label={`Open results for ${label}`}
                 >
                   <div className='grid grid-cols-1 gap-2 md:grid-cols-12 md:gap-3'>
                     <div className='md:col-span-4'>
@@ -138,7 +161,7 @@ const SearchHistorySection = () => {
                       </p>
                     </div>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>

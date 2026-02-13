@@ -6,7 +6,8 @@ import React, { Fragment, ReactNode } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { Navigate } from '@/lib/Navigate';
-import SnapHomz from '@public/assets/images/snaphomz-logo.svg';
+// Use the provided logo asset in /public/assets/Logos
+import SnapHomz from '@public/assets/Logos/Snaphomz-Logo-Black (4).png';
 
 interface AuthLayoutProps {
   children: ReactNode;
@@ -24,7 +25,12 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children }) => {
     <Fragment>
       <section className='px-6 py-3'>
         <Link href={'/home'}>
-          <Image src={SnapHomz} alt='logo' className='h-[3.75rem] w-44' />
+          <Image
+            src={SnapHomz}
+            alt='Snaphomz logo'
+            className='h-[3.75rem] w-44 object-contain'
+            priority
+          />
         </Link>
       </section>
       <article className='flex h-[70vh] w-full items-center justify-center'>

@@ -13,6 +13,7 @@ export const SetPasswordForm = () => {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState<string>('');
   const [code, setCode] = useState<string>('');
+  const [showPasswordRules, setShowPasswordRules] = useState(false);
 
   useEffect(() => {
     // Get email from localStorage or searchParams
@@ -41,7 +42,8 @@ export const SetPasswordForm = () => {
       password: (value) => {
         if (!value) return 'Password is required';
         if (value.length < 8) return 'Password must be at least 8 characters';
-        if (!/[A-Za-z]/.test(value)) return 'Password must contain at least one letter';
+        if (!/[A-Z]/.test(value)) return 'Password must contain at least one uppercase letter';
+        if (!/[a-z]/.test(value)) return 'Password must contain at least one lowercase letter';
         if (!/\d/.test(value)) return 'Password must contain at least one number';
         if (!/[@$!%*#?&]/.test(value)) return 'Password must contain at least one special character (@$!%*#?&)';
         return null;
@@ -58,6 +60,15 @@ export const SetPasswordForm = () => {
   
   const { confirmForgotPasswordMutation, resetPasswordMutation } = useUserAuthApi();
   const token = searchParams.get('token');
+
+  const passwordValue = form.values.password || '';
+  const passwordChecks = {
+    length: passwordValue.length >= 8,
+    upper: /[A-Z]/.test(passwordValue),
+    lower: /[a-z]/.test(passwordValue),
+    number: /\d/.test(passwordValue),
+    special: /[@$!%*#?&]/.test(passwordValue),
+  };
 
   const isValid =
     form.isValid() &&
@@ -98,7 +109,16 @@ export const SetPasswordForm = () => {
           </div>
         )}
 
-        <div className='mb-4'>
+        <div
+          className='mb-4'
+          onFocusCapture={() => setShowPasswordRules(true)}
+          onBlurCapture={(event) => {
+            const nextTarget = event.relatedTarget as Node | null;
+            if (!nextTarget || !event.currentTarget.contains(nextTarget)) {
+              setShowPasswordRules(false);
+            }
+          }}
+        >
           <label className='mb-2 block font-medium text-gray-700'>
             Password
           </label>
@@ -110,13 +130,65 @@ export const SetPasswordForm = () => {
           {form.errors.password && (
             <p className='mt-1 text-sm text-red-600'>{form.errors.password}</p>
           )}
-          {!form.errors.password && form.values.password && (
-            <p className='mt-1 text-xs text-green-600'>✓ Password meets requirements</p>
-          )}
-          {!form.values.password && (
-            <p className='mt-1 text-xs text-gray-500'>
-              Password must be at least 8 characters with 1 letter, 1 number, and 1 special character (@$!%*#?&)
-            </p>
+          {showPasswordRules && (
+            <div className='mt-3 space-y-1 text-sm'>
+              <p className='text-gray-600'>Password must contain:</p>
+              <div
+                className={`flex items-center gap-2 ${passwordChecks.length
+                  ? 'text-green-700'
+                  : passwordValue.length > 0
+                    ? 'text-red-500'
+                    : 'text-gray-500'
+                  }`}
+              >
+                <span>{passwordChecks.length ? '✓' : '○'}</span>
+                <span>At least 8 characters</span>
+              </div>
+              <div
+                className={`flex items-center gap-2 ${passwordChecks.upper
+                  ? 'text-green-700'
+                  : passwordValue.length > 0
+                    ? 'text-red-500'
+                    : 'text-gray-500'
+                  }`}
+              >
+                <span>{passwordChecks.upper ? '✓' : '○'}</span>
+                <span>1 uppercase letter (A-Z)</span>
+              </div>
+              <div
+                className={`flex items-center gap-2 ${passwordChecks.lower
+                  ? 'text-green-700'
+                  : passwordValue.length > 0
+                    ? 'text-red-500'
+                    : 'text-gray-500'
+                  }`}
+              >
+                <span>{passwordChecks.lower ? '✓' : '○'}</span>
+                <span>1 lowercase letter (a-z)</span>
+              </div>
+              <div
+                className={`flex items-center gap-2 ${passwordChecks.number
+                  ? 'text-green-700'
+                  : passwordValue.length > 0
+                    ? 'text-red-500'
+                    : 'text-gray-500'
+                  }`}
+              >
+                <span>{passwordChecks.number ? '✓' : '○'}</span>
+                <span>1 number (0-9)</span>
+              </div>
+              <div
+                className={`flex items-center gap-2 ${passwordChecks.special
+                  ? 'text-green-700'
+                  : passwordValue.length > 0
+                    ? 'text-red-500'
+                    : 'text-gray-500'
+                  }`}
+              >
+                <span>{passwordChecks.special ? '✓' : '○'}</span>
+                <span>1 special character (e.g., !@#$)</span>
+              </div>
+            </div>
           )}
         </div>
 

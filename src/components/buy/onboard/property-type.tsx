@@ -62,16 +62,11 @@ export const PropertyTypeData: PropertyTypeDataList = [
   },
   {
     id: 'property-type-data-003',
-    label: 'Tenancy in Common',
-    value: 'Tenancy in Common',
-  },
-  {
-    id: 'property-type-data-004',
     label: 'Mobile Home',
     value: 'Mobile Home',
   },
   {
-    id: 'property-type-data-005',
+    id: 'property-type-data-004',
     label: 'Land',
     value: 'Land',
   },

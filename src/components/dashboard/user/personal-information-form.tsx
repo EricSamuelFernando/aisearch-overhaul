@@ -90,6 +90,8 @@ export function ProfileForm({ cb }: Props) {
   const { login } = useAuthActions();
   const { updateUserMutation } = useUserAuthApi();
   const { isUploading, error, data, uploadprofileFile } = useUploadprofile();
+  const [selectedDimension, setSelectedDimension] = useState<string>('');
+  const [dimensionError, setDimensionError] = useState<string>('');
 
   useEffect(() => {
     if (data?.url) {
@@ -112,9 +114,12 @@ export function ProfileForm({ cb }: Props) {
   }, [updateUserMutation.isSuccess]);
 
   const handleFileChange = (files: File[]) => {
-    if (files.length > 0) {
-      uploadprofileFile(files[0]);
+    if (!selectedDimension) {
+      setDimensionError('Please choose desired dimensions before uploading.');
+      return;
     }
+    setDimensionError('');
+    if (files.length > 0) uploadprofileFile(files[0]);
   };
 
 
@@ -148,6 +153,25 @@ export function ProfileForm({ cb }: Props) {
         )}
 
         <div>
+          <label className="mb-2 block text-sm font-semibold text-gray-700">
+            Select desired dimensions/aspect
+          </label>
+          <select
+            value={selectedDimension}
+            onChange={(e) => {
+              setSelectedDimension(e.target.value);
+              setDimensionError('');
+            }}
+            className="mb-3 w-48 rounded-md border border-gray-300 p-2 text-sm focus:border-black focus:outline-none"
+          >
+            <option value="">Choose one</option>
+            <option value="1:1|400x400">Square (1:1, e.g., 400x400)</option>
+            <option value="3:4|600x800">Portrait (3:4, e.g., 600x800)</option>
+            <option value="16:9|1280x720">Landscape (16:9, e.g., 1280x720)</option>
+          </select>
+          {dimensionError && (
+            <p className="mb-2 text-xs text-red-600">{dimensionError}</p>
+          )}
           <CustomFileInput handleFile={handleFileChange} />
           {isUploading && <p className="mt-2 text-sm text-gray-600">Uploading...</p>}
           {error && <p className="mt-2 text-sm text-red-600">Error: {error}</p>}

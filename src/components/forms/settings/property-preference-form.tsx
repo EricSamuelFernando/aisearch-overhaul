@@ -38,7 +38,6 @@ const formSchema = z.object({
   financeType: z.enum([
     'Single Family home',
     'Condomium',
-    'Tenancy in Common',
     'Mobile Home',
     'Land',
   ]),
@@ -157,9 +156,6 @@ export function PropertyPreferenceForm({
                       Single Family home
                     </SelectItem>
                     <SelectItem value='Condomium'>Condomium</SelectItem>
-                    <SelectItem value='Tenancy in Common'>
-                      Tenancy in Common
-                    </SelectItem>
                     <SelectItem value='Mobile Home'>Mobile Home</SelectItem>
                     <SelectItem value='Land'>Land</SelectItem>
                   </SelectContent>

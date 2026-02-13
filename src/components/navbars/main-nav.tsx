@@ -249,7 +249,7 @@ function MainNav() {
             {/* Logo */}
             <Link href="/home" className="flex items-center">
             <Image src="/assets/Logos/Snaphomz-Logo-Black (4).png" 
-              height={44} width={140} alt="Snaphomz logo" className={`transition-all duration-300 ${isScrolled ? "h-[28px] w-[120px]" : "h-[44px] w-[140px]"}`} /> </Link>
+              height={54} width={170} alt="Snaphomz logo" className={`transition-all duration-300 ${isScrolled ? "h-[28px] w-[120px]" : "h-[54px] w-[170px]"}`} /> </Link>
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center">

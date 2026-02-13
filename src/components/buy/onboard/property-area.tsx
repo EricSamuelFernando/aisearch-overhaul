@@ -10,10 +10,11 @@ import { Search } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useAppDispatch } from '@/lib/hook';
+import { useAppDispatch, useAppSelector } from '@/lib/hook';
 
 import { googleMapsApiKey } from '@/shared/constants/env';
 import { updateBuyerOnboardingPreference } from '@/slices/onboarding/onboarding-slice';
+import { buyerPropertyPreference } from '@/slices/onboarding/onboarding-selectors';
 
 const libraries: Libraries = ['places'];
 
@@ -23,6 +24,7 @@ const PropertyArea: React.FC = () => {
     null,
   );
   const dispatch = useAppDispatch();
+  const { preferredPropertyAddress } = useAppSelector(buyerPropertyPreference);
 
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
@@ -30,18 +32,41 @@ const PropertyArea: React.FC = () => {
     libraries,
   });
 
+  const autoCompleteOptions: google.maps.places.AutocompleteOptions = {
+    // Only show US regions (states/cities) to keep onboarding focused on the US
+    componentRestrictions: { country: 'us' },
+    types: ['(regions)'],
+    fields: ['formatted_address', 'address_components', 'geometry'],
+  };
+
   const onLoad = (autoCompletePlaces: google.maps.places.Autocomplete) =>
     (autoCompleteRef.current = autoCompletePlaces);
+
+  // Pre-fill the input when the user navigates back in the flow
+  React.useEffect(() => {
+    if (preferredPropertyAddress) {
+      updatePlaceResult(preferredPropertyAddress);
+    }
+  }, [preferredPropertyAddress]);
 
   const handlePlaceChanged = React.useCallback(() => {
     if (autoCompleteRef.current) {
       const places = autoCompleteRef.current.getPlace();
-      if (places?.formatted_address) {
-        updatePlaceResult(places.formatted_address);
+      const country = places?.address_components?.find((comp) =>
+        comp.types.includes('country'),
+      );
+      const state = places?.address_components?.find((comp) =>
+        comp.types.includes('administrative_area_level_1'),
+      );
+      // Accept only US state-level results; ignore other countries/levels
+      const resolvedAddress =
+        places?.formatted_address || state?.long_name || '';
+      if (country?.short_name === 'US' && resolvedAddress) {
+        updatePlaceResult(resolvedAddress);
         dispatch(
           updateBuyerOnboardingPreference({
             key: 'preferredPropertyAddress',
-            value: places.formatted_address,
+            value: resolvedAddress,
           }),
         );
       }
@@ -53,7 +78,11 @@ const PropertyArea: React.FC = () => {
 
   return (
     <div className='h-full w-full'>
-      <Autocomplete onLoad={onLoad} onPlaceChanged={handlePlaceChanged}>
+      <Autocomplete
+        onLoad={onLoad}
+        onPlaceChanged={handlePlaceChanged}
+        options={autoCompleteOptions}
+      >
         <div className='relative h-14 w-full'>
           <div className='absolute left-2 top-1/2 h-max -translate-y-1/2 p-2'>
             <Search className='h-4 w-4' />

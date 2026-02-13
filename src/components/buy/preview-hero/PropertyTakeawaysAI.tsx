@@ -150,19 +150,25 @@ const PropertyTakeawaysAI: React.FC<PropertyTakeawaysAIProps> = ({
           return;
         }
 
-        const zipCode = address?.zipCode || '';
+        const zipCode = address?.zipCode || localStorage.getItem('propertyAddress2') || '';
+        console.log('📍 Takeaways resolving zipCode:', zipCode);
 
         let collegeReadiness: any = null;
         if (zipCode) {
           try {
-            const collegeResponse = await fetch(
-              `${deploymentEnv}/schools/college-readiness-by-zip?zipCode=${zipCode}`,
-            );
+            const fetchUrl = `http://localhost:4000/schools/college-readiness-by-zip?zipCode=${zipCode}`;
+            console.log('🔍 AI Fetching College Data from:', fetchUrl);
+
+            const collegeResponse = await fetch(fetchUrl);
+
             if (collegeResponse.ok) {
               collegeReadiness = await collegeResponse.json();
+              console.log('✅ AI Received College Data:', collegeReadiness);
+            } else {
+              console.error('❌ AI College Fetch Failed:', collegeResponse.status, collegeResponse.statusText);
             }
           } catch (err) {
-            console.warn('College readiness fetch failed, continuing without it.');
+            console.error('❌ AI College Fetch Error:', err);
           }
         }
 

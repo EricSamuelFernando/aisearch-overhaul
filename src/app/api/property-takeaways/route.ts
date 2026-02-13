@@ -26,10 +26,10 @@ const buildPrompt = (payload: any) => {
 
   const nearbySchools = Array.isArray(payload?.nearbySchools)
     ? payload.nearbySchools.slice(0, 6).map((school: any) => ({
-        name: school?.name,
-        distance: school?.distance,
-        rating: school?.rating,
-      }))
+      name: school?.name,
+      distance: school?.distance,
+      rating: school?.rating,
+    }))
     : [];
 
   const collegeReadiness = payload?.collegeReadiness || null;
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
 
     const promptPayload = buildPrompt(payload);
     const systemPrompt =
-      'You are Snaphomz AI. Write a concise, neutral paragraph (3-5 sentences) summarizing the property and local school readiness. Do not use bullet points. Do not invent data. If a field is missing, omit it.';
+      'You are Snaphomz AI. Write a concise, neutral paragraph (3-5 sentences) summarizing the property and local school readiness. You MUST include insights on College Readiness (e.g., top colleges graduates attend, popular majors, or diversity) if that data is available. Do not use bullet points. Do not invent data.';
 
     const userPrompt = `Property data:\n${JSON.stringify(promptPayload, null, 2)}\n\nOutput a single paragraph.`;
 

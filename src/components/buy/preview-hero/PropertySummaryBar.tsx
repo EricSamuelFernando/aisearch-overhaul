@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDownIcon } from '@heroicons/react/20/solid';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { resolveCollegeLogo } from '../../../lib/collegeLogos';
 
 // Types
 interface College {
@@ -42,8 +43,8 @@ const DEMOGRAPHIC_COLORS: { [key: string]: string } = {
   'Native American': '#d084d0',  // Lavender
   'Pacific Islander': '#ffb347', // Orange
   'International': '#5BC0EB',    // Blue
-  'Unknown': '#ddd',             // Gray
-  'Other': '#C4C4C4'             // Gray fallback
+  'Unknown': '#4B5563',          // Dark Gray (mapped to Other)
+  'Other': '#4B5563'             // Dark Gray
 };
 
 const TopCollegesSection = () => {
@@ -129,11 +130,14 @@ const TopCollegesSection = () => {
 
   if (data.diversity_breakdown && typeof data.diversity_breakdown === 'object') {
     // Convert object to array and assign requirement-specific colors
-    diversityData = Object.entries(data.diversity_breakdown).map(([label, value]) => ({
-      label,
-      value: typeof value === 'number' ? parseFloat((value * 100).toFixed(1)) : 0,
-      color: DEMOGRAPHIC_COLORS[label] || DEMOGRAPHIC_COLORS['Other'] || '#cccccc'
-    })).sort((a, b) => b.value - a.value); // Sort by highest percentage
+    diversityData = Object.entries(data.diversity_breakdown).map(([label, value]) => {
+      const displayLabel = label === 'Unknown' ? 'Other' : label;
+      return {
+        label: displayLabel,
+        value: typeof value === 'number' ? parseFloat((value * 100).toFixed(1)) : 0,
+        color: DEMOGRAPHIC_COLORS[displayLabel] || DEMOGRAPHIC_COLORS['Other'] || '#cccccc'
+      };
+    }).sort((a, b) => b.value - a.value); // Sort by highest percentage
   }
 
   console.log('📊 College Readiness Data:', {
@@ -177,18 +181,37 @@ const TopCollegesSection = () => {
             <div>
               <h3 className="text-xl font-semibold text-gray-800 mb-4">Top 3 Colleges</h3>
               <div className="space-y-3">
-                {topColleges.map((college) => (
-                  <div
-                    key={college.rank}
-                    className="flex justify-between items-center bg-orange-50 p-4 rounded-lg hover:bg-orange-100 transition-colors"
-                  >
-                    <div>
-                      <div className="font-semibold text-gray-900">{college.name}</div>
-                      <div className="text-xs text-gray-500">Institution ID: {college.ipeds}</div>
+                {topColleges.map((college) => {
+                  const { logoSrc, fallbackLogo } = resolveCollegeLogo(college.name);
+                  return (
+                    <div
+                      key={college.rank}
+                      className="flex justify-between items-center bg-orange-50 p-4 rounded-lg hover:bg-orange-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        {/* College Logo */}
+                        <div className="w-12 h-12 flex-shrink-0 bg-white rounded-full p-1 flex items-center justify-center border border-orange-100 shadow-sm">
+                          <img
+                            src={logoSrc}
+                            alt={college.name}
+                            className="w-full h-full object-contain"
+                            onError={(e) => {
+                              const target = e.currentTarget;
+                              if (target.src !== fallbackLogo) {
+                                target.src = fallbackLogo;
+                              }
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-gray-900 text-sm lg:text-base">{college.name}</div>
+                          <div className="text-xs text-gray-500">Institution ID: {college.ipeds}</div>
+                        </div>
+                      </div>
+                      <div className="text-3xl text-gray-400 font-bold">#{college.rank}</div>
                     </div>
-                    <div className="text-3xl text-gray-400 font-bold">#{college.rank}</div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -226,11 +249,8 @@ const TopCollegesSection = () => {
         <div className="flex flex-col">
           {diversityData.length > 0 ? (
             <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-              {/* Title with Icon */}
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xl">📊</span>
-                <h3 className="text-xl font-semibold text-gray-900">Student Diversity</h3>
-              </div>
+              {/* Title */}
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Student Diversity</h3>
 
               {/* Recharts Donut Chart */}
               <div className="flex justify-center h-[300px] w-full">

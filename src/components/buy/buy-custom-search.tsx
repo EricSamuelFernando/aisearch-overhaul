@@ -405,7 +405,7 @@ const BuyBreadCrumb = ({ }: Props) => {
   return (
     <div
       className={cn(
-        'sticky z-10 w-full px-4 pb-4 pt-10 md:px-8',
+        'sticky w-full px-4 pb-4 pt-10 md:px-8',
         currentView === 'grid' ? 'max-w-[1440px] mx-auto' : '',
       )}
     >

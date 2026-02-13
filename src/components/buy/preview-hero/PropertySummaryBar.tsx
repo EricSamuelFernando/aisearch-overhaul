@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ChevronDownIcon } from '@heroicons/react/20/solid';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 // Types
 interface College {
@@ -12,7 +13,7 @@ interface College {
 
 interface Major {
   name: string;
-  cip: string;
+  cip_code: string;
   rank: number;
 }
 
@@ -23,45 +24,27 @@ interface DiversityEntry {
 }
 
 interface CollegeReadinessData {
+  zipcode?: string;
+  school_name?: string;
   top_colleges: College[];
   top_majors: Major[];
   diversity_breakdown: DiversityEntry[] | { [key: string]: number };
 }
 
-// Utility function to generate donut chart segments
-function getDonutSegments(data: DiversityEntry[]) {
-  // Validate that data is an array
-  if (!Array.isArray(data) || data.length === 0) {
-    return null;
-  }
-
-  let acc = 0;
-  return data.map(({ value, color }: DiversityEntry, i: number) => {
-    const startAngle = (acc / 100) * 2 * Math.PI;
-    acc += value;
-    const endAngle = (acc / 100) * 2 * Math.PI;
-    const x1 = 50 + 40 * Math.cos(startAngle - Math.PI / 2);
-    const y1 = 50 + 40 * Math.sin(startAngle - Math.PI / 2);
-    const x2 = 50 + 40 * Math.cos(endAngle - Math.PI / 2);
-    const y2 = 50 + 40 * Math.sin(endAngle - Math.PI / 2);
-    const largeArc = value > 50 ? 1 : 0;
-    const pathData = `
-      M ${x1} ${y1}
-      A 40 40 0 ${largeArc} 1 ${x2} ${y2}
-      L 50 50
-      Z
-    `;
-    return (
-      <path
-        key={i}
-        d={pathData}
-        fill={color}
-        stroke="#fff"
-        strokeWidth="1"
-      />
-    );
-  });
-}
+// Color Palette based on requirements
+const DEMOGRAPHIC_COLORS: { [key: string]: string } = {
+  'African American': '#8884d8', // Purple-Blue
+  'Asian': '#82ca9d',            // Green
+  'Hispanic': '#E07A5F',         // Coral
+  'Latino': '#E07A5F',           // Coral (Alias)
+  'White': '#ff7c7c',            // Soft Red
+  'Multiracial': '#6A4C93',      // Deep Purple
+  'Native American': '#d084d0',  // Lavender
+  'Pacific Islander': '#ffb347', // Orange
+  'International': '#5BC0EB',    // Blue
+  'Unknown': '#ddd',             // Gray
+  'Other': '#C4C4C4'             // Gray fallback
+};
 
 const TopCollegesSection = () => {
   const [data, setData] = useState<CollegeReadinessData | null>(null);
@@ -145,27 +128,12 @@ const TopCollegesSection = () => {
   let diversityData: DiversityEntry[] = [];
 
   if (data.diversity_breakdown && typeof data.diversity_breakdown === 'object') {
-    // Define colors for each ethnicity
-    const colorMap: { [key: string]: string } = {
-      'Asian': '#FFA254',
-      'Hispanic': '#FFA785',
-      'African American': '#A39A28',
-      'Black': '#A39A28',
-      'White': '#F9F2D1',
-      'Multiracial': '#FFB395',
-      'Native American': '#6B3400',
-      'Pacific Islander': '#B2B2B2',
-      'International': '#E0643B',
-      'Unknown': '#D3D3D3',
-      'Other': '#C4C4C4'
-    };
-
-    // Convert object to array
+    // Convert object to array and assign requirement-specific colors
     diversityData = Object.entries(data.diversity_breakdown).map(([label, value]) => ({
       label,
       value: typeof value === 'number' ? parseFloat((value * 100).toFixed(1)) : 0,
-      color: colorMap[label] || '#CCCCCC' // Default gray if not in map
-    }));
+      color: DEMOGRAPHIC_COLORS[label] || DEMOGRAPHIC_COLORS['Other'] || '#cccccc'
+    })).sort((a, b) => b.value - a.value); // Sort by highest percentage
   }
 
   console.log('📊 College Readiness Data:', {
@@ -192,7 +160,10 @@ const TopCollegesSection = () => {
   return (
     <section className="p-6 w-full mt-4">
       <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-6">
-        College Readiness
+        Top Colleges Attended by Graduates From{' '}
+        <span className="text-orange-600">
+          {data.school_name || 'Richard J. Murphy School'}
+        </span>
       </h2>
 
       {/* 2-Column Layout */}
@@ -234,7 +205,7 @@ const TopCollegesSection = () => {
                   >
                     <div>
                       <div className="font-semibold text-gray-900">{major.name}</div>
-                      <div className="text-xs text-gray-500">CIP: {major.cip}</div>
+                      <div className="text-xs text-gray-500">CIP: {major.cip_code}</div>
                     </div>
                     <div className="text-3xl text-gray-400 font-bold">#{major.rank}</div>
                   </div>
@@ -254,61 +225,94 @@ const TopCollegesSection = () => {
         {/* RIGHT SIDE: Diversity Chart */}
         <div className="flex flex-col">
           {diversityData.length > 0 ? (
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
               {/* Title with Icon */}
-              <div className="flex items-center gap-2 mb-6">
-                <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xl">📊</span>
                 <h3 className="text-xl font-semibold text-gray-900">Student Diversity</h3>
               </div>
 
-              {/* Donut Chart */}
-              <div className="flex justify-center mb-6">
-                <div className="relative w-64 h-64">
-                  <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
-                    {getDonutSegments(diversityData)}
-                  </svg>
-                  {/* Center white circle */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-28 h-28 bg-white rounded-full"></div>
-                  </div>
-                </div>
+              {/* Recharts Donut Chart */}
+              <div className="flex justify-center h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={diversityData}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      innerRadius={45}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {diversityData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={entry.color}
+                          stroke="none"
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-white p-3 border border-gray-200 shadow-lg rounded-md text-sm">
+                              <p className="font-bold text-gray-900">{data.label}</p>
+                              <p className="text-gray-600">
+                                {data.value}% of students
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
 
-              {/* Legend - Multi-column grid */}
-              <div className="grid grid-cols-2 gap-x-6 gap-y-2 mb-6">
+              {/* Custom Legend - Multi-column grid */}
+              <div className="grid grid-cols-2 lg:grid-cols-2 gap-x-4 gap-y-2 mb-6 px-2">
                 {diversityData.map(({ label, value, color }: DiversityEntry) => (
                   <div key={label} className="flex items-center gap-2">
                     <span
                       className="inline-block w-3 h-3 rounded-full shrink-0"
                       style={{ backgroundColor: color }}
                     />
-                    <span className="text-sm text-gray-700">
-                      {label} ({value}%)
+                    <span className="text-sm text-gray-700 truncate" title={label}>
+                      {label}
+                    </span>
+                    <span className="text-xs text-gray-500 font-medium ml-auto">
+                      {value}%
                     </span>
                   </div>
                 ))}
               </div>
 
-              {/* Diversity Summary */}
-              <div className="border-t border-gray-200 pt-4">
-                <h4 className="text-sm font-semibold text-gray-900 mb-3">Diversity Summary</h4>
+              {/* Diversity Summary Box */}
+              <div className="bg-gray-50 rounded-md p-4 border border-gray-100">
+                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">
+                  Diversity Summary
+                </h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <span className="text-sm text-gray-600">Total Groups:</span>
-                    <span className="ml-2 text-sm font-semibold text-gray-900">
+                    <span className="block text-sm text-gray-600">Total Groups</span>
+                    <span className="block text-lg font-bold text-gray-900">
                       {diversityData.length}
                     </span>
                   </div>
                   <div>
-                    <span className="text-sm text-gray-600">Largest Group:</span>
-                    <span className="ml-2 text-sm font-semibold text-gray-900">
+                    <span className="block text-sm text-gray-600">Largest Group</span>
+                    <span className="block text-sm font-bold text-gray-900">
                       {(() => {
-                        const largest = diversityData.reduce((max, item) =>
-                          item.value > max.value ? item : max
-                          , diversityData[0]);
-                        return `${largest.label} (${largest.value}%)`;
+                        const largest = diversityData[0]; // Already sorted
+                        return (
+                          <span style={{ color: largest.color }}>
+                            {largest.label} ({largest.value}%)
+                          </span>
+                        );
                       })()}
                     </span>
                   </div>
@@ -316,8 +320,8 @@ const TopCollegesSection = () => {
               </div>
             </div>
           ) : (
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="text-center py-8 text-gray-500">
+            <div className="bg-white rounded-lg border border-gray-200 p-6 h-full flex items-center justify-center">
+              <div className="text-center text-gray-500">
                 <p>No diversity data available</p>
               </div>
             </div>

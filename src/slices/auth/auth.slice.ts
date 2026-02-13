@@ -15,7 +15,7 @@ interface AuthState {
 const initialState: AuthState = {
   isLoggedIn: false,
   user: null,
-  contextId:null
+  contextId: null
 
 };
 
@@ -27,7 +27,7 @@ const authSlice = createSlice({
       state.user = action.payload;
       state.isLoggedIn = true;
     },
-    updateContextId :(state,action)=>{
+    updateContextId: (state, action) => {
       state.contextId = action.payload;
     },
     setPropertyPreference: (
@@ -36,7 +36,7 @@ const authSlice = createSlice({
     ) => {
       state.user!.propertyPreference = action.payload;
     },
-   
+
     switchUser: (state, action: PayloadAction<UserType>) => {
       state.user!.account_type = action.payload;
       storeCookie({ key: USER_ROLE, value: action.payload });
@@ -59,12 +59,12 @@ const authSlice = createSlice({
   },
 });
 
-export const { login, logout, switchUser,updateContextId  } = authSlice.actions;
+export const { login, logout, switchUser, updateContextId } = authSlice.actions;
 export const selectIsLoggedIn = (state: { auth: AuthState }) =>
   state.auth.isLoggedIn;
 
-export const userData = (state:any)=>state.auth.user;
-export const isUserLoggedIn = (state:any)=>state.auth.isLoggedIn;
-export const accessToken = (state:any)=>state.auth.user?.access_token;
+export const userData = (state: any) => state.auth.user;
+export const isUserLoggedIn = (state: any) => state.auth.isLoggedIn;
+export const accessToken = (state: any) => state.auth.user?.access_token;
 
 export default authSlice.reducer;

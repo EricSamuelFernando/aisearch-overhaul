@@ -1486,8 +1486,8 @@ export default function Home() {
             </div>
 
             <div className="text-white text-[1rem]">
-              <span className="font-medium">Conversational search </span>
-              <span className="font-bold underline">Powered by AI</span>
+              <span className="font-medium">Conversational search, </span>
+              <span className="font-bold underline">powered by AI.</span>
             </div>
           </div>
         </section>

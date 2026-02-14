@@ -181,6 +181,11 @@ const PropertyPreview: React.FC = () => {
   const { externalAgentIvitationMutation } = useUserAuthApi();
   const { recordPropertyView } = useRecordPropertyView();
   const hasRecordedViewRef = React.useRef(false);
+  const [rentEstimate, setRentEstimate] = React.useState<number | null>(null);
+  const [rentDelta, setRentDelta] = React.useState<number | null>(null);
+  const [projectedGainPct, setProjectedGainPct] = React.useState<number | null>(null);
+  const [totalViewsCount, setTotalViewsCount] = React.useState<number | null>(null);
+  const [totalSavesCount, setTotalSavesCount] = React.useState<number | null>(null);
 
   // Neo4j schools API integration
   const [nearbySchools, setNearbySchools] = React.useState<any[]>([]);
@@ -192,6 +197,62 @@ const PropertyPreview: React.FC = () => {
       getEngagedPropertyByPropertyId.mutate(id)
     }
   }, [id])
+
+  React.useEffect(() => {
+    if (!currentUser?.id) return;
+    if (hasRecordedViewRef.current) return;
+    const listingIdToRecord =
+      proprtyData?.listingId ||
+      propertyDatas?.data?.listingId ||
+      propertyData?.listingId ||
+      property?.listingId ||
+      id;
+    if (!listingIdToRecord) return;
+
+    recordPropertyView.mutate({
+      listingId: String(listingIdToRecord),
+      propertyId: String(propertyDatas?.data?.propertyId || propertyData?.propertyId || ''),
+      propertyAddress:
+        proprtyData?.address?.unparsedAddress ||
+        propertyDatas?.data?.address?.unparsedAddress ||
+        propertyData?.listing?.address?.unparsedAddress ||
+        propertyData?.public?.address?.label ||
+        '',
+      city:
+        proprtyData?.address?.city ||
+        propertyDatas?.data?.address?.city ||
+        propertyData?.listing?.address?.city ||
+        propertyData?.public?.address?.city ||
+        '',
+      state:
+        proprtyData?.address?.stateOrProvince ||
+        propertyDatas?.data?.address?.stateOrProvince ||
+        propertyData?.listing?.address?.stateOrProvince ||
+        propertyData?.public?.address?.state ||
+        '',
+      price: String(
+        proprtyData?.listPrice ||
+          propertyDatas?.data?.listPrice ||
+          propertyData?.listing?.listPriceLow ||
+          propertyData?.listPrice ||
+          ''
+      ),
+      propertyType:
+        proprtyData?.property?.propertyType ||
+        propertyDatas?.data?.property?.propertyType ||
+        propertyData?.listing?.property?.propertyType ||
+        propertyData?.property?.propertyType ||
+        '',
+      propertyImage:
+        proprtyData?.media?.primaryListingImageUrl ||
+        propertyDatas?.data?.media?.primaryListingImageUrl ||
+        propertyData?.listing?.media?.primaryListingImageUrl ||
+        propertyData?.media?.primaryListingImageUrl ||
+        '',
+    });
+
+    hasRecordedViewRef.current = true;
+  }, [currentUser?.id, proprtyData, propertyDatas, propertyData, property?.listingId, id, recordPropertyView]);
 
   console.log("DEBUG PREVIEW:", { id, engagedProperty, propertyData });
 
@@ -515,6 +576,40 @@ const PropertyPreview: React.FC = () => {
   // }, [])
 
 
+  const daysOnMarketValue =
+    proprtyData?.daysOnMarket ??
+    propertyDatas?.data?.daysOnMarket ??
+    propertyData?.daysOnMarket ??
+    getDayCountFromUTC(
+      proprtyData?.listingContractDate ||
+        propertyDatas?.data?.listingContractDate ||
+        propertyData?.listingContractDate ||
+        propertyDatas?.data?.modificationTimestamp ||
+        propertyData?.modificationTimestamp ||
+        propertyDatas?.data?.createdAt ||
+        propertyData?.createdAt ||
+        Date.now().toString()
+    );
+
+  const viewsValue =
+    totalViewsCount ??
+    propertyDatas?.data?.viewsCounter ??
+    propertyDatas?.data?.viewsCount ??
+    propertyDatas?.data?.viewCount ??
+    propertyData?.viewsCounter ??
+    propertyData?.viewsCount ??
+    propertyData?.viewCount ??
+    propertyData?.listing?.viewsCounter ??
+    propertyData?.listing?.viewsCount ??
+    propertyData?.listing?.viewCount ??
+    0;
+
+  const savesValue =
+    totalSavesCount ??
+    propertyDatas?.data?.savesCount ??
+    propertyData?.savesCount ??
+    0;
+
   const HomeHighlightsData: HomeHighlightsProps = {
     highlights: [
       "VAULTED CEILINGS",
@@ -526,9 +621,9 @@ const PropertyPreview: React.FC = () => {
       "An enchanting tree-lined walkway leads to the front door. Enter to find a bright, open entryway. The light-filled primary suite awaits on this level of the home, complete with beautiful open beam ceilings, updated bath, walk-in closet/laundry and fireplace. " +
       "The open stairwell ascends to the spacious living room featuring gorgeous cathedral ceilings and tons of natural light. The formal dining room and updated kitchen open to a spacious wrap-around deck shaded by majestic oak trees, perfect for entertaining or dining al fresco. This level also features two additional bedrooms and a full bath...",
     stats: {
-      daysOnMarket: getDayCountFromUTC(proprtyData?.listingContractDate || Date.now().toString()).toString(),
-      views: "721",
-      saves: "18",
+      daysOnMarket: String(daysOnMarketValue ?? 0),
+      views: String(viewsValue ?? 0),
+      saves: String(savesValue ?? 0),
       sellLikelihood: "98%",
     },
     floorPlanSrc: '/assets/images/floor.png',
@@ -599,6 +694,7 @@ const PropertyPreview: React.FC = () => {
       const data = await response.json();
       setpropertyDatas(data)
       console.log("AI backend response data ", data)
+      console.log("Similar homes payload:", data?.nearbyHomes)
       console.log("🗺️ Coordinate check:", {
         'data.data.latitude': data?.data?.latitude,
         'data.data.longitude': data?.data?.longitude,
@@ -624,9 +720,26 @@ const PropertyPreview: React.FC = () => {
 
 
 
-      setPropertyData(data?.data)
-      setTags(data?.data?.tags)
-      setPropertyDetails(data?.property_detail)
+      const hasPrimaryData = Boolean(data?.data && Object.keys(data.data).length);
+      if (hasPrimaryData) {
+        setPropertyData(data?.data);
+        setTags(data?.data?.tags);
+        setPropertyDetails(data?.property_detail);
+      } else if (typeof window !== "undefined") {
+        const fallbackKey = `snaphomz_preview_fallback_${String(id)}`;
+        const fallbackRaw = localStorage.getItem(fallbackKey);
+        if (fallbackRaw) {
+          try {
+            const fallback = JSON.parse(fallbackRaw);
+            const fallbackListing = fallback?.listing || fallback;
+            setpropertyDatas({ data: fallbackListing });
+            setPropertyData(fallbackListing);
+            setTags(fallbackListing?.tags || []);
+          } catch (parseError) {
+            console.log("Failed to parse fallback listing", parseError);
+          }
+        }
+      }
     } catch (error) {
       console.log("error : ", error);
     }
@@ -671,16 +784,217 @@ const PropertyPreview: React.FC = () => {
 
 
   React.useEffect(() => {
-    if (property?.listingId) {
-      getPropertyDetails(property?.listingId)
+    const targetListingId =
+      id ||
+      listingId ||
+      property?.listingId;
+    if (targetListingId) {
+      getPropertyDetails(String(targetListingId));
     }
-  }, [property]);
+  }, [id, listingId, property?.listingId]);
+
+  const rentAddress = React.useMemo(() => {
+    const address =
+      proprtyData?.address?.unparsedAddress ||
+      propertyDatas?.data?.address?.unparsedAddress ||
+      propertyDatas?.property_detail?.data?.propertyInfo?.address?.address ||
+      propertyData?.listing?.address?.unparsedAddress ||
+      propertyData?.address?.unparsedAddress ||
+      propertyData?.public?.address?.label ||
+      "";
+    const city =
+      proprtyData?.address?.city ||
+      propertyDatas?.data?.address?.city ||
+      propertyDatas?.property_detail?.data?.propertyInfo?.address?.city ||
+      propertyData?.listing?.address?.city ||
+      propertyData?.address?.city ||
+      propertyData?.public?.address?.city ||
+      "";
+    const state =
+      proprtyData?.address?.stateOrProvince ||
+      propertyDatas?.data?.address?.stateOrProvince ||
+      propertyDatas?.property_detail?.data?.propertyInfo?.address?.stateOrProvince ||
+      propertyData?.listing?.address?.stateOrProvince ||
+      propertyData?.address?.stateOrProvince ||
+      propertyData?.public?.address?.state ||
+      "";
+    const zip =
+      proprtyData?.address?.zipCode ||
+      propertyDatas?.data?.address?.zipCode ||
+      propertyDatas?.property_detail?.data?.propertyInfo?.address?.zip ||
+      propertyData?.listing?.address?.zipCode ||
+      propertyData?.address?.zipCode ||
+      propertyData?.public?.address?.zip ||
+      "";
+
+    if (!address && !city && !state && !zip) return "";
+    const stateZip = [state, zip].filter(Boolean).join(" ");
+    if (address && city && stateZip) {
+      return `${address}, ${city}, ${stateZip}`;
+    }
+    const parts = [address, city, stateZip].filter(Boolean);
+    return parts.length ? parts.join(", ") : "";
+  }, [proprtyData, propertyDatas, propertyData]);
+
+  const rentZpid = React.useMemo(() => {
+    return (
+      proprtyData?.zpid ||
+      propertyDatas?.data?.zpid ||
+      propertyData?.listing?.zpid ||
+      propertyData?.zpid ||
+      ""
+    );
+  }, [proprtyData, propertyDatas, propertyData]);
+
+  const appreciationZip = React.useMemo(() => {
+    const zip =
+      proprtyData?.address?.zipCode ||
+      propertyDatas?.data?.address?.zipCode ||
+      propertyDatas?.property_detail?.data?.propertyInfo?.address?.zip ||
+      propertyData?.listing?.address?.zipCode ||
+      propertyData?.address?.zipCode ||
+      propertyData?.public?.address?.zip ||
+      "";
+    return zip ? String(zip) : "";
+  }, [proprtyData, propertyDatas, propertyData]);
+
+  const listingIdForViews = React.useMemo(() => {
+    return (
+      proprtyData?.listingId ||
+      propertyDatas?.data?.listingId ||
+      propertyData?.listingId ||
+      property?.listingId ||
+      id ||
+      ""
+    );
+  }, [proprtyData, propertyDatas, propertyData, property?.listingId, id]);
+
+  const propertyIdForSaves = React.useMemo(() => {
+    return (
+      proprtyData?.propertyId ||
+      propertyDatas?.data?.propertyId ||
+      propertyData?.propertyId ||
+      propertyData?.id ||
+      propertyId ||
+      ""
+    );
+  }, [proprtyData, propertyDatas, propertyData, propertyId]);
 
   React.useEffect(() => {
-    if (listingId || propertyId) {
-      getPropertyDetails(listingId)
-    }
-  }, [property]);
+    if (!rentAddress && !rentZpid) return;
+    let didCancel = false;
+
+    const loadRentEstimate = async () => {
+      try {
+        const params = new URLSearchParams();
+        if (rentAddress) params.set("address", rentAddress);
+        if (rentZpid) params.set("zpid", String(rentZpid));
+        const response = await fetch(`/api/zillow-rent?${params.toString()}`);
+        if (!response.ok) return;
+        const json = await response.json();
+        const value = Number(json?.currentRent);
+        const deltaValue = Number(json?.delta);
+        if (!didCancel && Number.isFinite(value)) {
+          setRentEstimate(value);
+          setRentDelta(Number.isFinite(deltaValue) ? deltaValue : null);
+        }
+      } catch (error) {
+        console.log("Failed to load rent estimate", error);
+      }
+    };
+
+    loadRentEstimate();
+    return () => {
+      didCancel = true;
+    };
+  }, [rentAddress, rentZpid]);
+
+  React.useEffect(() => {
+    if (!appreciationZip) return;
+    const baseUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL;
+    if (!baseUrl) return;
+    let didCancel = false;
+
+    const loadAppreciation = async () => {
+      try {
+        const response = await fetch(`${baseUrl}/market/appreciation?zip=${encodeURIComponent(appreciationZip)}`);
+        if (!response.ok) return;
+        const json = await response.json();
+        const annualRatePct = Number(json?.annualRatePct);
+        if (!Number.isFinite(annualRatePct)) return;
+        const gain5y = (Math.pow(1 + annualRatePct / 100, 5) - 1) * 100;
+        if (!didCancel && Number.isFinite(gain5y)) {
+          setProjectedGainPct(gain5y);
+        }
+      } catch (error) {
+        console.log("Failed to load appreciation rate", error);
+      }
+    };
+
+    loadAppreciation();
+    return () => {
+      didCancel = true;
+    };
+  }, [appreciationZip]);
+
+  React.useEffect(() => {
+    const baseUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL;
+    if (!baseUrl || !listingIdForViews) return;
+    let didCancel = false;
+
+    const loadViewCount = async () => {
+      try {
+        const response = await fetch(
+          `${baseUrl}/view-history/count?listingId=${encodeURIComponent(String(listingIdForViews))}`
+        );
+        if (!response.ok) return;
+        const json = await response.json();
+        const countValue = Number(json?.count);
+        if (!didCancel && Number.isFinite(countValue)) {
+          setTotalViewsCount(countValue);
+        }
+      } catch (error) {
+        console.log("Failed to load view count", error);
+      }
+    };
+
+    loadViewCount();
+    return () => {
+      didCancel = true;
+    };
+  }, [listingIdForViews]);
+
+  React.useEffect(() => {
+    const baseUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL;
+    if (!baseUrl || (!listingIdForViews && !propertyIdForSaves)) return;
+    let didCancel = false;
+
+    const loadSavesCount = async () => {
+      try {
+        const params = new URLSearchParams();
+        if (listingIdForViews) {
+          params.set('listingId', String(listingIdForViews));
+        }
+        if (propertyIdForSaves) {
+          params.set('propertyId', String(propertyIdForSaves));
+        }
+        const response = await fetch(`${baseUrl}/favourites/count?${params.toString()}`);
+        if (!response.ok) return;
+        const json = await response.json();
+        const countValue = Number(json?.count);
+        if (!didCancel && Number.isFinite(countValue)) {
+          setTotalSavesCount(countValue);
+        }
+      } catch (error) {
+        console.log('Failed to load saves count', error);
+      }
+    };
+
+    loadSavesCount();
+    return () => {
+      didCancel = true;
+    };
+  }, [listingIdForViews, propertyIdForSaves]);
 
   const getPropertyLatLng = React.useCallback(() => {
     let lat = null;
@@ -880,9 +1194,9 @@ const PropertyPreview: React.FC = () => {
   const taxAmountValue = Number(taxAmountCandidate);
   const taxPercentValue =
     Number.isFinite(listPriceValue) &&
-      listPriceValue > 0 &&
-      Number.isFinite(taxAmountValue) &&
-      taxAmountValue > 0
+    listPriceValue > 0 &&
+    Number.isFinite(taxAmountValue) &&
+    taxAmountValue > 0
       ? (taxAmountValue / listPriceValue) * 100
       : undefined;
   const currentListingId =
@@ -895,6 +1209,134 @@ const PropertyPreview: React.FC = () => {
     propertyData?.listing ||
     propertyData ||
     transformData.prop;
+
+  const estimatedHouseValue = React.useMemo(() => {
+    const toNumber = (value: any) => {
+      if (value === null || value === undefined) return 0;
+      if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+      if (typeof value === 'string') {
+        const normalized = value.replace(/[^0-9.-]/g, '');
+        const parsed = Number(normalized);
+        return Number.isFinite(parsed) ? parsed : 0;
+      }
+      return 0;
+    };
+
+    const price = toNumber(
+      transformData.prop?.listPrice ??
+        propertyDatas?.data?.listPrice ??
+        propertyDatas?.property_detail?.data?.propertyInfo?.listPrice ??
+        propertyDatas?.property_detail?.data?.propertyInfo?.listPriceLow ??
+        propertyData?.listing?.listPriceLow ??
+        propertyData?.listing?.listPrice ??
+        propertyData?.listPrice ??
+        propertyData?.listing?.price ??
+        0
+    );
+
+    const sqft = toNumber(
+      transformData.prop?.property?.livingArea ??
+        propertyDatas?.data?.property?.livingArea ??
+        propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet ??
+        propertyData?.property?.livingArea ??
+        propertyData?.property?.livingSquareFeet ??
+        0
+    );
+
+    const localPricePerSqft = toNumber(
+      propertyDatas?.data?.pricePerSqFt ??
+        propertyDatas?.property_detail?.data?.propertyInfo?.pricePerSqFt ??
+        propertyData?.pricePerSqFt ??
+        (price && sqft ? price / sqft : 0)
+    );
+
+    const nearbyHomes = propertyDatas?.nearbyHomes || [];
+    const compPpsfValues = nearbyHomes
+      .map((home: any) => {
+        const listing = home?.listing || home;
+        const compPrice = toNumber(listing?.listPriceLow ?? listing?.listPrice ?? listing?.listPriceHigh);
+        const compSqft = toNumber(
+          listing?.property?.livingArea ??
+            listing?.property?.livingSquareFeet ??
+            listing?.property?.sqft ??
+            listing?.livingArea
+        );
+        if (!compPrice || !compSqft) return null;
+        const value = compPrice / compSqft;
+        return Number.isFinite(value) && value > 0 ? value : null;
+      })
+      .filter(Boolean) as number[];
+
+    const compPpsfAvg = (() => {
+      if (compPpsfValues.length === 0) return 0;
+      const sorted = [...compPpsfValues].sort((a, b) => a - b);
+      const trimCount = sorted.length >= 5 ? Math.floor(sorted.length * 0.2) : 0;
+      const trimmed = trimCount > 0 ? sorted.slice(trimCount, sorted.length - trimCount) : sorted;
+      if (trimmed.length === 0) return 0;
+      return trimmed.reduce((sum, val) => sum + val, 0) / trimmed.length;
+    })();
+
+    const estimateParts: { value: number; weight: number }[] = [];
+    if (price > 0) estimateParts.push({ value: price, weight: 0.6 });
+    if (sqft > 0 && localPricePerSqft > 0) estimateParts.push({ value: localPricePerSqft * sqft, weight: 0.25 });
+    if (sqft > 0 && compPpsfAvg > 0) estimateParts.push({ value: compPpsfAvg * sqft, weight: 0.15 });
+
+    if (estimateParts.length === 0) return price || null;
+
+    const totalWeight = estimateParts.reduce((sum, part) => sum + part.weight, 0);
+    const weightedAvg =
+      totalWeight > 0
+        ? estimateParts.reduce((sum, part) => sum + part.value * part.weight, 0) / totalWeight
+        : estimateParts.reduce((sum, part) => sum + part.value, 0) / estimateParts.length;
+
+    let result = Math.round(weightedAvg);
+
+    if (price > 0) {
+      const lower = price * 0.85;
+      const upper = price * 1.15;
+      result = Math.min(Math.max(result, Math.round(lower)), Math.round(upper));
+    }
+
+    return result;
+  }, [transformData.prop, propertyDatas, propertyData]);
+
+  const estimatedMarketData = React.useMemo(() => {
+    const rentFormatted =
+      rentEstimate && Number.isFinite(rentEstimate)
+        ? rentEstimate.toLocaleString('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            maximumFractionDigits: 0,
+          })
+        : null;
+    const rentDeltaFormatted =
+      rentDelta !== null && Number.isFinite(rentDelta)
+        ? `${rentDelta > 0 ? '+' : rentDelta < 0 ? '-' : ''}${Math.abs(rentDelta).toLocaleString('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            maximumFractionDigits: 0,
+          })}`
+        : '';
+    const projectedGainFormatted =
+      projectedGainPct !== null && Number.isFinite(projectedGainPct)
+        ? `${projectedGainPct.toFixed(1)}%`
+        : defaultEstimatedData.projectedGain;
+
+    if (!estimatedHouseValue && !rentFormatted) return defaultEstimatedData;
+    const formatted = estimatedHouseValue
+      ? estimatedHouseValue.toLocaleString('en-US', {
+          style: 'currency',
+          currency: 'USD',
+          maximumFractionDigits: 0,
+        })
+      : defaultEstimatedData.houseValue;
+    return {
+      ...defaultEstimatedData,
+      houseValue: formatted,
+      projectedGain: projectedGainFormatted,
+      ...(rentFormatted ? { estimatedRent: rentFormatted, rentChange: rentDeltaFormatted } : {}),
+    };
+  }, [estimatedHouseValue, rentEstimate, rentDelta, projectedGainPct]);
 
 
   const [openSection, setOpenSection] = React.useState<string | null>(null);
@@ -1370,8 +1812,8 @@ const PropertyPreview: React.FC = () => {
 
 
             {/* Estimated Market Value (image_60fd3b.png) */}
-            <div className='flex flex-wrap items-center justify-between gap-2 sm:gap-3 py-2 sm:py-3 px-2 sm:px-0'>
-              <EstimatedMarketValue defaultEstimatedData={defaultEstimatedData} />
+            <div className='w-full py-2 sm:py-3 px-2 sm:px-0'>
+              <EstimatedMarketValue estimatedData={estimatedMarketData} />
             </div>
           </div>
 

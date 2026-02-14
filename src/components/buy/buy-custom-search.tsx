@@ -405,7 +405,7 @@ const BuyBreadCrumb = ({ }: Props) => {
   return (
     <div
       className={cn(
-        'sticky z-10 w-full px-4 pb-4 pt-10 md:px-8',
+        'sticky w-full px-4 pb-4 pt-10 md:px-8',
         currentView === 'grid' ? 'max-w-[1440px] mx-auto' : '',
       )}
     >
@@ -482,6 +482,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
   const { currentView } = useProperty();
   const popupRef = React.useRef<HTMLDivElement>(null);
   const toggleButtonRef = React.useRef<HTMLButtonElement>(null);
+  const lastAutoSearchRef = React.useRef<string>('');
 
   const { user } = useAuth()
   const { email } = useRegister()
@@ -538,8 +539,13 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
       query = `${searchTerm} of property sub-type ${data?.category} having ${data?.subCategories}`
     }
     let naturalQuery = ""
+    const normalizedQuery = (query || '').trim();
+    if (!normalizedQuery) return;
 
-    router.push(`/buy/browse?q=${query}`)
+    setSearchString(normalizedQuery);
+    if (lastAutoSearchRef.current === normalizedQuery) return;
+    lastAutoSearchRef.current = normalizedQuery;
+    sendSearchRequest(normalizedQuery);
   }, [searchParams, searchTerm]);
 
 
@@ -570,7 +576,9 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [showInputBox]);
 
-  const sendSearchRequest = async () => {
+  const sendSearchRequest = async (queryOverride?: string) => {
+    const queryToUse = (queryOverride ?? searchString).trim();
+    if (!queryToUse) return;
     if (searchCount + 1 >= 6 && !user?.email) {
       error({
         message:
@@ -589,7 +597,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
         PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search',
         {
           user: userId,
-          query: searchString,
+          query: queryToUse,
         }
       );
       clearProperties();

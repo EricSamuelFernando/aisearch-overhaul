@@ -8,6 +8,7 @@ import { buyerDashboardRoutes } from '@/utils/data';
 import { BuyerTabSwitch } from './BuyerTabSwitch';
 import MySnapzSection from '../my-snapz-section';
 import SearchHistorySection from '../search-history-section';
+import BuyerMessagesPanel from '@/components/dashboard/messages/buyer-messages';
 
 function useTabState(defaultTab = 'my-snapz') {
   const searchParams = useSearchParams();
@@ -29,6 +30,7 @@ function useTabState(defaultTab = 'my-snapz') {
 const DASHBOARD_SECTIONS: Record<string, JSX.Element> = {
   'my-snapz': <MySnapzSection />,
   'search-history': <SearchHistorySection />,
+  messages: <BuyerMessagesPanel />,
 };
 
 function BuyerDashboard() {
@@ -37,24 +39,23 @@ function BuyerDashboard() {
   const activeTab = searchParams.get('tab') || 'my-snapz';
 
   useEffect(() => {
-    if (activeTab === 'messages') {
-      router.replace('/dashboard/chat?tab=messages');
-      return;
-    }
-
     if (!DASHBOARD_SECTIONS[activeTab]) {
       router.replace('/dashboard/buyer?tab=my-snapz');
     }
   }, [activeTab, router]);
 
-  if (activeTab === 'messages') {
-    return null;
-  }
-
   const content = DASHBOARD_SECTIONS[activeTab] || DASHBOARD_SECTIONS['my-snapz'];
 
+  const isMessagesView = activeTab === 'messages';
+
   return (
-    <section className="bottom-0 left-0 w-full z-50 min-h-[350px] border-t border-gray-300 bg-white px-4 py-6 sm:px-6 md:px-8 lg:px-12 lg:py-8 shadow-md">
+    <section
+      className={
+        isMessagesView
+          ? 'w-full'
+          : 'bottom-0 left-0 w-full z-50 min-h-[350px] border-t border-gray-300 bg-white px-4 py-6 sm:px-6 md:px-8 lg:px-12 lg:py-8 shadow-md'
+      }
+    >
       {content}
     </section>
   );

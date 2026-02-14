@@ -8,6 +8,7 @@ import { useMutation } from '@tanstack/react-query';
 import { error, success } from '@/components/alert/notify';
 import { cn } from '@/lib/utils';
 import CognitoAuth from '@/lib/cognito';
+import { useRouter } from 'next/navigation';
 
 interface ForgotPasswordModalFormProps {
   onEmailSubmit: (email: string) => void;
@@ -15,6 +16,7 @@ interface ForgotPasswordModalFormProps {
 }
 
 export const ForgotPasswordModalForm = ({ onEmailSubmit, onBack }: ForgotPasswordModalFormProps) => {
+  const router = useRouter();
   const form = useForm({
     initialValues: {
       email: '',
@@ -51,6 +53,11 @@ export const ForgotPasswordModalForm = ({ onEmailSubmit, onBack }: ForgotPasswor
     forgotPasswordMutation.mutate(values.email);
   };
 
+  const handleBackToLogin = () => {
+    onBack();
+    router.push('/home?auth=login');
+  };
+
   return (
     <section className={cn('w-full items-center justify-center')}>
       <h2 className='m-5 text-center text-2xl font-bold'>Forgot Password?</h2>
@@ -83,7 +90,7 @@ export const ForgotPasswordModalForm = ({ onEmailSubmit, onBack }: ForgotPasswor
         <section className='flex w-full items-center justify-between'>
           <button
             type='button'
-            onClick={onBack}
+            onClick={handleBackToLogin}
             className='text-sm font-medium text-primary-main cursor-pointer'
           >
             Back to Login

@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react';
 import { Carousel, Embla } from '@mantine/carousel';
 import { useMediaQuery } from '@mantine/hooks';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
+import '@mantine/carousel/styles.css';
 
 const testimonials = [
   {

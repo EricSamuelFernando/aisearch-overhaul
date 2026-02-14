@@ -116,17 +116,8 @@ export const UserSwitchTab = () => {
     info({ message: 'Switching User' });
   };
 
-  const handleComingSoon = () => {
-    if (tooltipTimeoutRef.current) {
-      clearTimeout(tooltipTimeoutRef.current);
-    }
-    setTooltipOpen(true);
-    tooltipTimeoutRef.current = setTimeout(() => setTooltipOpen(false), 2000);
-  };
-
   const handleButtonClick = () => {
     if (currentUser?.toLowerCase() === 'buyer') {
-      handleComingSoon();
       return;
     }
     handleSwitch();
@@ -161,12 +152,7 @@ export const UserSwitchTab = () => {
 
   return (
     <TooltipProvider delayDuration={0}>
-      <Tooltip
-        open={tooltipOpen}
-        onOpenChange={(open) => {
-          if (!open) setTooltipOpen(false);
-        }}
-      >
+      <Tooltip>
         <TooltipTrigger asChild>
           {button}
         </TooltipTrigger>

@@ -69,7 +69,7 @@ const TopCollegesSection = () => {
         setError(null);
 
         const response = await fetch(
-          `http://localhost:4000/schools/college-readiness-by-zip?zipCode=${zipCode}`
+          `${process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL}/schools/college-readiness-by-zip?zipCode=${zipCode}`
         );
 
         if (!response.ok) {

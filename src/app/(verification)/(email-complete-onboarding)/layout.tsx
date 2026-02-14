@@ -18,9 +18,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <Image
               src="/assets/Logos/Snaphomz-Logo-Black (4).png"
               alt="logo"
-              className="h-[87px] w-[257px]"
+              className="h-[80px] w-[257px]"
               width={257}
-              height={87}
+              height={80}
             />
           </Link>
         </header>

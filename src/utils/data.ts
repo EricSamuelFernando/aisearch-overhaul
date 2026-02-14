@@ -15,7 +15,7 @@ export const buyerDashboardRoutes: TabLinks = [
   {
     title: 'Messages',
     query: 'messages',
-    url: '/dashboard/chat?tab=messages',
+    url: '/dashboard/buyer?tab=messages',
     hidden: !isBuyerSectionVisible('messages'),
   },
   {
@@ -70,7 +70,7 @@ export const sellerDashboardRoutes: TabLinks = [
     title: 'Conversation',
     query: 'conversation',
   },
-    {
+  {
     title: 'Inventory',
     query: 'inventory',
   },

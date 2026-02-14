@@ -193,6 +193,88 @@ const PropertyPreview: React.FC = () => {
     }
   }, [id])
 
+  React.useEffect(() => {
+    if (hasRecordedViewRef.current) return;
+    if (!propertyData && !listingId && !id) return;
+
+    const listingIdValue = propertyData?.listingId || listingId;
+    const propertyIdValue = propertyData?.id || id;
+    const listing = propertyData?.listing ?? propertyData?.public ?? propertyData;
+    const propertyInfo = listing?.property || propertyData?.property || propertyData;
+
+    const primaryImage =
+      listing?.media?.primaryListingImageUrl ||
+      listing?.media?.photosList?.[0]?.lowRes ||
+      propertyData?.propertyImage ||
+      propertyData?.media?.primaryListingImageUrl;
+
+    const payload = {
+      listingId: listingIdValue ? String(listingIdValue) : undefined,
+      propertyId: propertyIdValue ? String(propertyIdValue) : undefined,
+      propertyAddress:
+        listing?.address?.unparsedAddress ||
+        listing?.address?.label ||
+        propertyData?.propertyAddress ||
+        propertyData?.public?.address?.label,
+      city:
+        listing?.address?.city ||
+        propertyData?.city ||
+        propertyData?.public?.address?.city,
+      state:
+        listing?.address?.stateOrProvince ||
+        propertyData?.state ||
+        propertyData?.public?.address?.state,
+      price:
+        listing?.listPriceLow ||
+        listing?.listPrice ||
+        propertyData?.listPrice ||
+        propertyData?.price,
+      propertyType:
+        propertyInfo?.propertyType || listing?.propertyType || propertyData?.propertyType,
+      propertyImage: primaryImage,
+      bedroomsTotal: propertyInfo?.bedroomsTotal,
+      bathroomsTotal: propertyInfo?.bathroomsTotal,
+      livingArea: propertyInfo?.livingArea,
+    };
+
+    if (!payload.listingId && !payload.propertyId) return;
+
+    recordPropertyView.mutate(payload);
+
+    // Cache details locally so view history cards can show full info even if API is sparse
+    try {
+      const cacheKey = 'viewHistoryCache';
+      const existing = JSON.parse(localStorage.getItem(cacheKey) || '{}');
+      const key = payload.listingId || payload.propertyId;
+      if (key) {
+        existing[key] = {
+          listingId: payload.listingId,
+          propertyId: payload.propertyId,
+          listPriceLow: payload.price,
+          address: {
+            unparsedAddress: payload.propertyAddress,
+            city: payload.city,
+            stateOrProvince: payload.state,
+          },
+          media: {
+            primaryListingImageUrl: payload.propertyImage,
+          },
+          property: {
+            propertyType: payload.propertyType,
+            bedroomsTotal: payload.bedroomsTotal,
+            bathroomsTotal: payload.bathroomsTotal,
+            livingArea: payload.livingArea,
+          },
+        };
+        localStorage.setItem(cacheKey, JSON.stringify(existing));
+      }
+    } catch (err) {
+      console.warn('view history cache failed', err);
+    }
+
+    hasRecordedViewRef.current = true;
+  }, [propertyData, listingId, id, recordPropertyView]);
+
   console.log("DEBUG PREVIEW:", { id, engagedProperty, propertyData });
 
   const createEngagementAndNavigate = (meanType?: string) => {

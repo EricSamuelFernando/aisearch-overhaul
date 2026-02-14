@@ -1,145 +1,91 @@
-import { Search } from 'lucide-react';
-import { Input } from '../ui/input';
-
 const WeBelive = () => {
   return (
     <>
       {/* WHAT WE BELIEVE + MEET THE TEAM */}
-      <section className="bg-[#FFF6EC] py-20 px-4 sm:px-6 lg:px-8 xl:px-12 text-center">
-
+      <section className="bg-[#FFF6EC] px-4 py-16 text-center sm:px-6 sm:py-20 lg:px-8 xl:px-12">
         {/* WHAT WE BELIEVE */}
-        <div className="max-w-6xl mx-auto mb-32"> {/* ⬅️ increased bottom space */}
-          <h2 className="text-4xl font-bold mb-2">
+        <div className="mx-auto mb-24 max-w-6xl sm:mb-32">
+          <h2 className="mb-2 text-3xl font-bold sm:text-4xl">
             What We <span className="font-normal">Believe</span>
           </h2>
 
-          <p className="text-sm text-gray-600 mb-14 max-w-[600px] mx-auto">
-            We believe a home is more than walls and a roof—it’s where your story unfolds.
-            Our mission is to make your real estate experience clear, reliable, and
-            stress-free every step of the way, no matter who you are.
+          <p className="mx-auto mb-10 max-w-[600px] text-sm text-gray-600 sm:mb-14">
+            We believe a home is more than walls and a roof - it's where your
+            story unfolds. Our mission is to make your real estate experience
+            clear, reliable, and stress-free every step of the way, no matter
+            who you are.
           </p>
 
-          {/* ICONS */}
-          <div
-            className="
-              flex justify-center items-start
-              gap-16
-              md:gap-24
-              lg:gap-40
-              xl:gap-52
-              2xl:gap-64
-            "
-          >
+          <div className="mx-auto flex w-full max-w-[380px] flex-nowrap items-start justify-between gap-2 sm:max-w-none sm:justify-center sm:gap-12 md:gap-16 lg:gap-28 xl:gap-36">
             {[
-              { img: '/assets/images/company-webelive1.png', text: 'Where Home Begins' },
-              { img: '/assets/images/company-webelive2.png', text: 'Innovative Growth' },
+              {
+                img: '/assets/images/company-webelive1.png',
+                text: 'Where Home Begins',
+              },
+              {
+                img: '/assets/images/company-webelive2.png',
+                text: 'Innovative Growth',
+              },
               { img: '/assets/images/company-webelive3.png', text: 'Shared World' },
             ].map((item, idx) => (
-              <div key={idx} className="flex flex-col items-center w-[120px] sm:w-[200px]">
-                <div
-                  className="mb-6 flex items-center justify-center w-20 h-20 md:w-24 md:h-24 lg:w-32 lg:h-32 xl:w-36 xl:h-36 2xl:w-40 2xl:h-40"
-                >
+              <div
+                key={idx}
+                className="flex w-1/3 min-w-0 flex-col items-center sm:w-[170px] lg:w-[200px]"
+              >
+                <div className="mb-4 flex h-14 w-14 items-center justify-center sm:mb-6 sm:h-20 sm:w-20 md:h-24 md:w-24 lg:h-32 lg:w-32 xl:h-36 xl:w-36 2xl:h-40 2xl:w-40">
                   <img
                     src={item.img}
                     alt={item.text}
-                    className="max-w-full max-h-full object-contain"
+                    className="max-h-full max-w-full object-contain"
                   />
                 </div>
 
-                <h3 className="font-bold text-center text-xs sm:text-base">{item.text}</h3>
+                <h3 className="text-center text-[11px] font-bold leading-tight sm:text-base">
+                  {item.text}
+                </h3>
               </div>
             ))}
           </div>
         </div>
 
-
         {/* MEET THE TEAM */}
-        <div className="max-w-7xl mx-auto text-center mt-24">
-          <h2 className="text-4xl font-bold mb-2">
+        <div className="mx-auto mt-20 max-w-7xl text-center sm:mt-24">
+          <h2 className="mb-2 text-3xl font-bold sm:text-4xl">
             Meet The <span className="font-normal">Team</span>
           </h2>
 
-          <p className="text-sm text-gray-600 mb-12">
-            Dedicated to building real estate experience that works better for everyone
+          <p className="mb-10 text-sm text-gray-600 sm:mb-12">
+            Dedicated to building real estate experience that works better for
+            everyone
           </p>
 
-          <div className="flex flex-row flex-nowrap overflow-x-auto
-                gap-4 sm:gap-6 md:gap-8 lg:gap-12 xl:gap-16
-                px-4 sm:px-6 lg:px-0 pb-2
-                [&::-webkit-scrollbar]:hidden
-                [-ms-overflow-style:none]
-                [scrollbar-width:none]
-                justify-start lg:justify-center">
+          <div className="flex flex-row flex-nowrap justify-start gap-4 overflow-x-auto px-4 pb-2 sm:gap-6 sm:px-6 md:gap-8 lg:justify-center lg:gap-12 lg:px-0 xl:gap-16 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {[
               '/assets/images/company-power1.png',
               '/assets/images/company-power2.png',
               '/assets/images/company-power3.png',
             ].map((img, idx) => (
               <div
-                key={idx} // ✅ REQUIRED
-                className="relative flex-shrink-0
-                   w-[280px] sm:w-[300px] md:w-[260px] lg:w-[300px] xl:w-[340px]
-                   h-[320px] sm:h-[350px] md:h-[280px] lg:h-[350px] xl:h-[400px]
-                   rounded-[32px] overflow-hidden cursor-pointer"
+                key={idx}
+                className="relative h-[320px] w-[280px] flex-shrink-0 cursor-pointer overflow-hidden rounded-[32px] sm:h-[350px] sm:w-[300px] md:h-[280px] md:w-[260px] lg:h-[350px] lg:w-[300px] xl:h-[400px] xl:w-[340px]"
               >
-                {/* Image */}
                 <img
                   src={img}
                   alt="Proper Name"
-                  className="absolute inset-0 w-full h-full object-cover"
+                  className="absolute inset-0 h-full w-full object-cover"
                 />
 
-                {/* Soft bottom gradient overlay */}
-                <div
-                  className="absolute inset-0 flex items-end justify-center text-white text-center
-                     rounded-[32px]
-                     bg-gradient-to-t from-black/80 via-black/40 to-transparent
-                     p-6"
-                >
+                <div className="absolute inset-0 flex items-end justify-center rounded-[32px] bg-gradient-to-t from-black/80 via-black/40 to-transparent p-6 text-center text-white">
                   <div>
-                    <p className="font-bold text-sm sm:text-base">
-                      Proper Name
-                    </p>
-                    <p className="text-xs opacity-90">
-                      Official Title
-                    </p>
+                    <p className="text-sm font-bold sm:text-base">Proper Name</p>
+                    <p className="text-xs opacity-90">Official Title</p>
                   </div>
                 </div>
               </div>
             ))}
           </div>
         </div>
-
-
       </section>
-
-      {/* TALK TO AGENT */}
-     {/* <section className="bg-[#170800] text-white py-20 px-8 md:px-20 flex items-center justify-center md:justify-between flex-col md:flex-row w-full mx-auto">
-        <div className="max-w-lg text-center md:text-left mb-8 md:mb-0">
-          <h2 className="text-4xl font-semibold mb-4">
-            Talk to a Snaphomz <span className="font-light">Agent</span>
-          </h2>
-          <p className="text-sm text-[#8E8B8A]">
-            Take the first step by chatting with an expert local agent—there’s no pressure or obligation.
-          </p>
-        </div>
-
-        <div className="flex flex-col space-y-2 max-w-md w-full">
-          <div className="flex items-center bg-[#2d2525] rounded-lg px-4 py-2 w-full">
-            <Search className="text-[#838181] mr-3" size={20} />
-            <Input
-              className="bg-transparent border-none text-white focus:outline-none w-full"
-              placeholder="Search name, email or location"
-            />
-          </div>
-
-          <div className="w-full flex justify-end">
-            <a href="#" className="underline text-sm">
-              Invite your own
-            </a>
-          </div>
-        </div>
-      </section>*/}
     </>
   );
 };

@@ -38,6 +38,7 @@ function PropertyBrowseView({ }: Props) {
   const mapRef = useRef<HTMLDivElement>(null);
   const [isMapPinned, setIsMapPinned] = useState(true);
   const searchBarRef = useRef<HTMLDivElement>(null);
+  const [mapOverlay, setMapOverlay] = useState<'none' | 'schools'>('none');
 
   const coordinates = allProperties?.map((property: any) => ({
     id: property.id,
@@ -174,7 +175,7 @@ function PropertyBrowseView({ }: Props) {
           ref={mapRef}
           className={cn(
             'relative w-full',
-            isMapPinned ? 'md:sticky md:top-0' : 'md:relative',
+            isMapPinned ? 'md:sticky md:top-[80px]' : 'md:relative',
             'md:h-screen md:-mt-[280px]'
           )}
         >
@@ -184,6 +185,10 @@ function PropertyBrowseView({ }: Props) {
             zoom={13}
             properties={allProperties}
             height="100%"
+            searchQuery={query ?? ''}
+            showDistricts={mapOverlay === 'schools'}
+            overlayValue={mapOverlay}
+            onOverlayChange={setMapOverlay}
             onMarkerClick={(id: string) => setSelectedProperty(id)}
             onMapMove={(center) => {
               sendSearchRequest({ latitude: center.lat, longitude: center.lng });

@@ -18,6 +18,20 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
   const createNewSnap = useMutation({
     mutationKey: ["createSnap"],
     mutationFn: async (createSnapsInput: any) => {
+      const resolvedUserId = createSnapsInput?.userId || user?.id;
+      const resolvedName =
+        typeof createSnapsInput?.name === "string"
+          ? createSnapsInput.name.trim()
+          : "";
+
+      if (!resolvedUserId) {
+        throw new Error("Missing user session. Please login again.");
+      }
+
+      if (!resolvedName) {
+        throw new Error("Snapz name is required.");
+      }
+
       try {
         const data = await API.graphql({
           query: `
@@ -30,7 +44,11 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
             }
           `,
           variables: {
-            createSnapsInput,
+            createSnapsInput: {
+              ...createSnapsInput,
+              name: resolvedName,
+              userId: resolvedUserId,
+            },
           },
         });
         return { data: { createSnap: data.createSnap } }; // Keeping structure compatible if needed, or adjust

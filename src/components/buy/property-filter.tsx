@@ -842,6 +842,8 @@ function PropertyFilter() {
 
         // Check strict flag (truthy check)
         if (props[sub.propertyKey]) return true;
+        // Check strict flag (truthy check)
+        if (props[sub.propertyKey]) return true;
 
         if (remarks && sub.keywords && sub.keywords.length > 0) {
           const lowerRemarks = remarks.toLowerCase();
@@ -945,6 +947,8 @@ function PropertyFilter() {
 
             // Check strict flag (truthy check coverage for true, "true", etc)
             if (props[sub.propertyKey]) return true;
+            // Check strict flag (truthy check coverage for true, "true", etc)
+            if (props[sub.propertyKey]) return true;
 
             // Check keywords
             if (remarks && sub.keywords && sub.keywords.length > 0) {
@@ -1021,7 +1025,6 @@ function PropertyFilter() {
       className={cn(
         'w-full px-4 pb-4 md:px-8',
         currentView === 'grid' ? 'max-w-[1440px] mx-auto' : '',
-        currentView === 'map' ? 'md:w-1/2 md:mr-auto md:pl-[3.12rem] md:pr-0' : '',
       )}
     >
       <AutoLoginrModal
@@ -1029,25 +1032,25 @@ function PropertyFilter() {
         isOpen={showModal}
         onOpenChange={setShowModal}
       />
-      <div className="flex w-full flex-col gap-4 md:flex-row md:items-center">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between w-full">
         {/* Left Side: Title & Filter Drawer */}
-        <div className="flex min-w-0 select-none flex-col md:flex-row md:items-center gap-4 md:gap-6">
-          <h2 className="min-w-0 text-lg font-bold leading-6 text-black md:text-xl">
+        <div className="flex select-none flex-col md:flex-row md:items-center gap-4 md:gap-6">
+          <h2 className="text-lg font-bold leading-6 text-black md:text-xl whitespace-nowrap">
             {allProperties.length > 0
               ? 'Showing homes matched from our AI'
               : 'Explore homes only within the California region'}
           </h2>
-
           <FilterDrawer
-
             FeatureSelectorComponent={FeatureSelector}
             FeatureBathroomSelector={FeatureBathroomSelector}
             selectedSubCategories={selectedSubCategories}
             subCategories={subCategories}
           />
-          <div className="flex shrink-0 items-start gap-4 whitespace-nowrap">
-            <ViewSelection />
-          </div>
+          {currentView !== 'grid' ? (
+            <div className="flex items-start gap-4 whitespace-nowrap">
+              <ViewSelection />
+            </div>
+          ) : null}
         </div>
       </div>
       <p className="text-lg font-medium leading-9 text-grey-370">
@@ -1226,6 +1229,12 @@ function PropertyFilter() {
         </div>
 
       ) : ""}
+
+      {/* Comparison Modal */}
+      <PropertyComparisonModal
+        isOpen={showCompareModal}
+        closeModal={() => setShowCompareModal(false)}
+      />
 
       {/* Comparison Modal */}
       <PropertyComparisonModal

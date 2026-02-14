@@ -18,14 +18,13 @@ import { usePropertyStore } from '@/store/use-property-store';
 import { CheckSquare, Square } from 'lucide-react';
 
 const PropertyCards = (props: any) => {
+  const { snaps, fetchSnaps } = props;
   const { saveCurrenctProperty } = usePropertyActions();
   const router = useRouter();
   const [carouselEvent, setCarouselEvent] = useState(false);
   const { openCollectionModal } = useCollectionModal();
   const { isLoggedIn } = useAuth();
   const userData = useSelector((state: any) => state.auth.user);
-  const { getAllSnaps } = useUserSnapAPIs();
-  const [snaps, setSnaps] = useState<any[]>([]);
 
   // Comparison Store
   const { isCompareMode, toggleCompareProperty, selectedCompareProperties } = usePropertyStore();
@@ -39,19 +38,6 @@ const PropertyCards = (props: any) => {
     return pId == myId; // loose equality
   });
 
-  const fetchSnaps = () => {
-    if (userData?.id) {
-      getAllSnaps.mutate(userData.id, {
-        onSuccess: (data) => {
-          setSnaps(data);
-        },
-      });
-    }
-  };
-
-  useEffect(() => {
-    fetchSnaps();
-  }, [userData?.id]);
 
   const slides = props?.listing?.media?.photosList?.slice(0, 6)?.map((image: any, idx: number) => {
     if (!image?.lowRes) return null;

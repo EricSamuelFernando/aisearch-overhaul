@@ -38,7 +38,34 @@ const NewMLSPropertyCard = (props: Readonly<MlsPropertyListing>) => {
       });
       return;
     }
-    saveMlsProperty(props);
+    const router = useRouter();
+
+
+    const isSelectedForCompare = selectedCompareProperties.some((p: any) => {
+      // Robust ID check
+      const pId = p.data.id || p.data._id || p.data.ListingKey;
+      const myId = props.ListingKey;
+      return pId == myId;
+    });
+
+    const handleClick = useCallback((e: React.MouseEvent) => {
+      if (isCompareMode) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleCompareProperty({
+          data: props,
+          type: 'mls'
+        });
+        return;
+      }
+      saveMlsProperty(props);
+      router.push(`/buy/${props.ListingKey}/mls/preview`);
+    }, [props, saveMlsProperty, isCompareMode, router, toggleCompareProperty]);
+
+    // Conditional wrapper: Div in compare mode, Link otherwise logic handled via onClick prevention
+    // Actually, we can just use a Div with onClick for both, or keep Link and preventDefault.
+    // Using a Div is safer to avoid hydration errors or nesting issues if we messed up.
+    // But to keep it simple, we can just intercept the Link interaction.
     router.push(`/buy/${props.ListingKey}/mls/preview`);
   }, [props, saveMlsProperty, isCompareMode, router, toggleCompareProperty]);
 

@@ -53,9 +53,9 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
       success({ message: "Great! The thread has been created." });
       if (handleCb) handleCb(); // Optional callback after success
     },
-    onError: (error: any) => {
-      console.error('Error creating thread:', error);
-      const errorMessage = error?.response?.data?.errors?.[0]?.message || error.message || 'An error occurred';
+    onError: (err: any) => {
+      console.error('Error creating thread:', err);
+      const errorMessage = err?.response?.data?.errors?.[0]?.message || err.message || 'An error occurred';
       error({ message: errorMessage });
     },
   });
@@ -107,9 +107,9 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
     onSuccess: (data) => {
       console.log('Fetched threads:', data);
     },
-    onError: (error: any) => {
-      console.error('Error fetching threads:', error);
-      const errorMessage = error?.response?.data?.errors?.[0]?.message || error.message || 'An error occurred';
+    onError: (err: any) => {
+      console.error('Error fetching threads:', err);
+      const errorMessage = err?.response?.data?.errors?.[0]?.message || err.message || 'An error occurred';
       error({ message: errorMessage });
     },
   });
@@ -197,9 +197,9 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
     onSuccess: (data) => {
       console.log('Fetched threads:', data);
     },
-    onError: (error: any) => {
-      console.error('Error fetching threads:', error);
-      const errorMessage = error?.response?.data?.errors?.[0]?.message || error.message || 'An error occurred';
+    onError: (err: any) => {
+      console.error('Error fetching threads:', err);
+      const errorMessage = err?.response?.data?.errors?.[0]?.message || err.message || 'An error occurred';
       error({ message: errorMessage });
     },
   });
@@ -253,9 +253,9 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
     onSuccess: (data) => {
       console.log('Fetched threads:', data);
     },
-    onError: (error: any) => {
-      console.error('Error fetching threads:', error);
-      const errorMessage = error?.response?.data?.errors?.[0]?.message || error.message || 'An error occurred';
+    onError: (err: any) => {
+      console.error('Error fetching threads:', err);
+      const errorMessage = err?.response?.data?.errors?.[0]?.message || err.message || 'An error occurred';
       error({ message: errorMessage });
     },
   });
@@ -299,11 +299,11 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
       success({ message: 'Invitation to the user was sent successfully' });
       if (handleCb) handleCb(); // Optional callback after success
     },
-    onError: (error: any) => {
-      console.error('Error adding participant to thread:', error);
+    onError: (err: any) => {
+      console.error('Error adding participant to thread:', err);
 
       // Ensure error message is properly extracted from the error object
-      const errorMessage = error?.message || 'An error occurred while adding participant.';
+      const errorMessage = err?.message || 'An error occurred while adding participant.';
       error({ message: errorMessage });
     },
   });

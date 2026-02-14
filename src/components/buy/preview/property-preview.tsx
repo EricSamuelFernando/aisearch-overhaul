@@ -1488,7 +1488,7 @@ const PropertyPreview: React.FC = () => {
                     {/* Footer */}
                     <div className="flex items-center justify-between gap-3 mt-5">
                       <TooltipProvider>
-                          <Tooltip>
+                        <Tooltip>
                           <TooltipTrigger asChild>
                             <button
                               className="flex items-center gap-3 text-sm sm:text-[15px] font-semibold text-gray-900 bg-[#F2F2F2] px-5 py-3 rounded-full border border-gray-300"
@@ -1605,62 +1605,62 @@ const PropertyPreview: React.FC = () => {
                       : undefined;
 
               return (
-              <div
-                key={section.id}
-                id={anchorId}
-                className="border-b border-gray-200 scroll-mt-28"
-              >
-                <button
-                  onClick={() => toggleSection(section.id)}
-                  className="w-full flex items-center justify-between py-3 sm:py-4 text-left focus:outline-none transition-all"
-                >
-                  <span className="font-semibold text-sm sm:text-[16px] text-gray-900">
-                    {section.id === 'payment' ? (
-                      <span className="flex flex-wrap items-center gap-2">
-                        <span>{section.title}</span>
-                        <span className="text-[11px] font-normal text-gray-500">
-                          Powered by SnapInterest
-                        </span>
-                      </span>
-                    ) : section.id === 'interest' ? (
-                      <span className="flex flex-wrap items-center gap-2">
-                        <span>{section.title}</span>
-                        <span className="text-[11px] font-normal text-gray-500">
-                          Powered by SnapInterest
-                        </span>
-                      </span>
-                    ) : (
-                      section.title
-                    )}
-                  </span>
-                  {openSection === section.id ? (
-                    <ChevronUp className="text-gray-600 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5" />
-                  ) : (
-                    <ChevronDown className="text-gray-600 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5" />
-                  )}
-                </button>
-
-                {/* Accordion Content */}
                 <div
-                  className={`overflow-hidden transition-all duration-300 ${openSection === section.id ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0"
-                    }`}
+                  key={section.id}
+                  id={anchorId}
+                  className="border-b border-gray-200 scroll-mt-28"
                 >
-                  <div
-                    id={
-                      section.id === 'offers'
-                        ? 'property-content'
-                        : section.id === 'schools'
-                          ? 'schools-content'
-                          : section.id === 'interest'
-                            ? 'forecast-content'
-                            : undefined
-                    }
-                    className="pb-3 sm:pb-4"
+                  <button
+                    onClick={() => toggleSection(section.id)}
+                    className="w-full flex items-center justify-between py-3 sm:py-4 text-left focus:outline-none transition-all"
                   >
-                    {section.content}
+                    <span className="font-semibold text-sm sm:text-[16px] text-gray-900">
+                      {section.id === 'payment' ? (
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span>{section.title}</span>
+                          <span className="text-[11px] font-normal text-gray-500">
+                            Powered by SnapInterest
+                          </span>
+                        </span>
+                      ) : section.id === 'interest' ? (
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span>{section.title}</span>
+                          <span className="text-[11px] font-normal text-gray-500">
+                            Powered by SnapInterest
+                          </span>
+                        </span>
+                      ) : (
+                        section.title
+                      )}
+                    </span>
+                    {openSection === section.id ? (
+                      <ChevronUp className="text-gray-600 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5" />
+                    ) : (
+                      <ChevronDown className="text-gray-600 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5" />
+                    )}
+                  </button>
+
+                  {/* Accordion Content */}
+                  <div
+                    className={`overflow-hidden transition-all duration-300 ${openSection === section.id ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0"
+                      }`}
+                  >
+                    <div
+                      id={
+                        section.id === 'offers'
+                          ? 'property-content'
+                          : section.id === 'schools'
+                            ? 'schools-content'
+                            : section.id === 'interest'
+                              ? 'forecast-content'
+                              : undefined
+                      }
+                      className="pb-3 sm:pb-4"
+                    >
+                      {section.content}
+                    </div>
                   </div>
                 </div>
-              </div>
               );
             })}
 

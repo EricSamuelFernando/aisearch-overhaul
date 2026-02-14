@@ -636,6 +636,7 @@ import { Listbox } from '@headlessui/react';
 import { RootState } from '@/lib/store';
 import { useProperty } from '@/shared/hooks/useProperty';
 import { cn } from '@/lib/utils';
+import PropertyComparisonModal from './property-comparison-model';
 
 
 // Dummy property data for testing
@@ -718,7 +719,22 @@ function PropertyFilter() {
   const [sortOption, setSortOption] = useState('');
   const [propertyType, setPropertyType] = useState('');
 
-  const { allProperties, addProperties, setSearchedQuery, clearProperties, isLoading, setIsLoading } = usePropertyStore();
+  // State for Comparison Modal
+  const [showCompareModal, setShowCompareModal] = useState(false);
+
+  const {
+    allProperties,
+    addProperties,
+    setSearchedQuery,
+    clearProperties,
+    isLoading,
+    setIsLoading,
+    // Comparison Store
+    isCompareMode,
+    setCompareMode,
+    selectedCompareProperties,
+    clearCompareProperties
+  } = usePropertyStore();
 
   const sortOptions = [
     { name: 'Select type', value: '' },
@@ -820,10 +836,12 @@ function PropertyFilter() {
 
       // Check if any property has this feature (flag OR keyword in remarks)
       return allProperties.some((p: any) => {
-        const props = p?.listing?.property;
-        const remarks = p?.listing?.publicRemarks;
+        const listing = p?.listing || p?.data?.listing || p;
+        const props = listing?.property || listing?.data || {};
+        const remarks = listing?.publicRemarks;
 
-        if (props && props[sub.propertyKey] === true) return true;
+        // Check strict flag (truthy check)
+        if (props[sub.propertyKey]) return true;
 
         if (remarks && sub.keywords && sub.keywords.length > 0) {
           const lowerRemarks = remarks.toLowerCase();
@@ -921,11 +939,12 @@ function PropertyFilter() {
             if (!sub.keywords || sub.keywords.length === 0) return true;
 
             // Otherwise check flag OR keywords
-            const props = p?.listing?.property;
-            const remarks = p?.listing?.publicRemarks;
+            const listing = p?.listing || p?.data?.listing || p;
+            const props = listing?.property || listing?.data || {};
+            const remarks = listing?.publicRemarks;
 
-            // Check strict flag
-            if (props && props[sub.propertyKey] === true) return true;
+            // Check strict flag (truthy check coverage for true, "true", etc)
+            if (props[sub.propertyKey]) return true;
 
             // Check keywords
             if (remarks && sub.keywords && sub.keywords.length > 0) {
@@ -1002,7 +1021,6 @@ function PropertyFilter() {
       className={cn(
         'w-full px-4 pb-4 md:px-8',
         currentView === 'grid' ? 'max-w-[1440px] mx-auto' : '',
-        currentView === 'map' ? 'md:w-1/2 md:mr-auto md:pl-[3.12rem] md:pr-0' : '',
       )}
     >
       <AutoLoginrModal
@@ -1010,35 +1028,81 @@ function PropertyFilter() {
         isOpen={showModal}
         onOpenChange={setShowModal}
       />
-      <div className="flex w-full flex-col gap-4 md:flex-row md:items-center">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between w-full">
         {/* Left Side: Title & Filter Drawer */}
-        <div className="flex min-w-0 select-none flex-col md:flex-row md:items-center gap-4 md:gap-6">
-          <h2 className="min-w-0 text-lg font-bold leading-6 text-black md:text-xl">
+        <div className="flex select-none flex-col md:flex-row md:items-center gap-4 md:gap-6">
+          <h2 className="text-lg font-bold leading-6 text-black md:text-xl whitespace-nowrap">
             {allProperties.length > 0
               ? 'Showing homes matched from our AI'
               : 'Explore homes only within the California region'}
           </h2>
+
           <FilterDrawer
+
             FeatureSelectorComponent={FeatureSelector}
             FeatureBathroomSelector={FeatureBathroomSelector}
             selectedSubCategories={selectedSubCategories}
             subCategories={subCategories}
           />
-          <div className="flex shrink-0 items-start gap-4 whitespace-nowrap">
+          {currentView !== 'grid' ? (
+            <div className="flex items-start gap-4 whitespace-nowrap">
+              <ViewSelection />
+            </div>
+          ) : null}
+        </div>
+        {currentView === 'grid' ? (
+          <div className="flex items-start gap-4 whitespace-nowrap md:ml-auto">
             <ViewSelection />
           </div>
-        </div>
+        ) : null}
       </div>
       <p className="text-lg font-medium leading-9 text-grey-370">
         You have searched: {searchTerm}
       </p>
-      {
-        allProperties?.length ? <p className="text-lg select-none font-medium leading-9 text-grey-370">
-          {allProperties.length} Results Found
-        </p> : <p className="text-lg select-none font-medium leading-9 text-grey-370">
-          Snaphomz AI in action
-        </p>
-      }
+
+      <div className="flex flex-col md:flex-row md:items-center gap-4">
+        {
+          allProperties?.length ? <p className="text-lg select-none font-medium leading-9 text-grey-370">
+            {allProperties.length} Results Found
+          </p> : <p className="text-lg select-none font-medium leading-9 text-grey-370">
+            Snaphomz AI in action
+          </p>
+        }
+
+        {/* Comparison Mode Toggle */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setCompareMode(!isCompareMode);
+              if (isCompareMode) clearCompareProperties();
+            }}
+            className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${isCompareMode
+              ? 'bg-ocOrange text-white'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+          >
+            {isCompareMode ? 'Cancel Compare' : 'Compare'}
+          </button>
+
+          {isCompareMode && (
+            <div className="flex items-center gap-2 ml-2">
+              <span className="text-sm font-medium text-gray-600">
+                ({selectedCompareProperties.length}) Selected to Compare
+              </span>
+              <button
+                disabled={selectedCompareProperties.length < 2}
+                onClick={() => setShowCompareModal(true)}
+                className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${selectedCompareProperties.length >= 2
+                  ? 'bg-black text-white hover:bg-gray-800'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  }`}
+              >
+                Compare selected
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
 
       {selectedSubCategories.length > 0 && (
         <p className="text-lg font-medium leading-9 text-grey-370">
@@ -1168,6 +1232,12 @@ function PropertyFilter() {
         </div>
 
       ) : ""}
+
+      {/* Comparison Modal */}
+      <PropertyComparisonModal
+        isOpen={showCompareModal}
+        closeModal={() => setShowCompareModal(false)}
+      />
     </section>
 
   );

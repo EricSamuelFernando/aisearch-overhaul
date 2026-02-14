@@ -3,7 +3,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
 
 import AccountDropdown from '@/components/account-dropdown';
 import { info } from '@/components/alert/notify';
@@ -87,16 +86,6 @@ export const UserSwitchTab = () => {
   const { user } = useAuth();
   const currentUser = user?.account_type;
   const router = useRouter();
-  const [tooltipOpen, setTooltipOpen] = useState(false);
-  const tooltipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (tooltipTimeoutRef.current) {
-        clearTimeout(tooltipTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const handleSwitch = () => {
     const userType = currentUser?.toLowerCase();
@@ -116,17 +105,8 @@ export const UserSwitchTab = () => {
     info({ message: 'Switching User' });
   };
 
-  const handleComingSoon = () => {
-    if (tooltipTimeoutRef.current) {
-      clearTimeout(tooltipTimeoutRef.current);
-    }
-    setTooltipOpen(true);
-    tooltipTimeoutRef.current = setTimeout(() => setTooltipOpen(false), 2000);
-  };
-
   const handleButtonClick = () => {
     if (currentUser?.toLowerCase() === 'buyer') {
-      handleComingSoon();
       return;
     }
     handleSwitch();
@@ -161,12 +141,7 @@ export const UserSwitchTab = () => {
 
   return (
     <TooltipProvider delayDuration={0}>
-      <Tooltip
-        open={tooltipOpen}
-        onOpenChange={(open) => {
-          if (!open) setTooltipOpen(false);
-        }}
-      >
+      <Tooltip>
         <TooltipTrigger asChild>
           {button}
         </TooltipTrigger>

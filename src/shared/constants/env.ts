@@ -77,6 +77,7 @@ export const mlsDeploymentEnv = process.env.NEXT_PUBLIC_MLS_ENVIROMENT_URL || de
 export const publicDomain = process.env.NEXT_PUBLIC_DOMAIN;
 export const googleMapsUrl = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_URL;
 export const googleMapsApiKey = process.env.NEXT_PUBLIC_MAP_KEY || "AIzaSyAD1nloXcpFm5mvgyRdvgwFFpin7dEwwwc";
+export const googleMapsMapId = process.env.NEXT_PUBLIC_GOOGLE_MAP_ID || "7358af43a0d0de0eddbece56";
 
 export const awsAccessKey = process.env.NEXT_PUBLIC_ACCESS_AWS_KEY!;
 export const awsSecretKey = process.env.NEXT_PUBLIC_SECRET_AWS__ACCESS_KEY!;

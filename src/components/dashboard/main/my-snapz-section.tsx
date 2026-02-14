@@ -277,16 +277,16 @@ const MySnapzSection = () => {
     <div className="space-y-4">
       <div className="mb-4 flex flex-col gap-3 bg-transparent sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="text-lg font-bold">Snapz</h3>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
           <Button
-            className="h-9 bg-orange-500 px-3 text-sm text-white hover:bg-orange-600 sm:h-10 sm:px-4"
+            className="h-10 w-full justify-center rounded-md bg-orange-500 px-4 text-sm font-semibold text-white hover:bg-orange-600 sm:w-auto"
             onClick={fetchPendingRequests}
           >
             View Requests
           </Button>
           <Button
             variant="outline"
-            className="flex h-9 items-center gap-2 border-none bg-transparent px-2 text-sm sm:h-10 sm:px-3"
+            className="flex h-10 w-full items-center justify-center gap-2 rounded-md border border-gray-200 bg-white px-3 text-sm sm:w-auto sm:border-none sm:bg-transparent"
             onClick={() => setIsCreateSnapModalOpen(true)}
           >
             <span>Add New Snapz</span>

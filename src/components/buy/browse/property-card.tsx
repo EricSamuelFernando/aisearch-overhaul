@@ -14,6 +14,9 @@ import { useUserSnapAPIs } from '@/hooks/api/auth/snaps.API';
 import { SnapzHeartButton } from '@/components/ui/snapz-heart';
 import { useSelector } from 'react-redux';
 
+import { usePropertyStore } from '@/store/use-property-store';
+import { CheckSquare, Square } from 'lucide-react';
+
 const PropertyCards = (props: any) => {
   const { saveCurrenctProperty } = usePropertyActions();
   const router = useRouter();
@@ -23,6 +26,18 @@ const PropertyCards = (props: any) => {
   const userData = useSelector((state: any) => state.auth.user);
   const { getAllSnaps } = useUserSnapAPIs();
   const [snaps, setSnaps] = useState<any[]>([]);
+
+  // Comparison Store
+  const { isCompareMode, toggleCompareProperty, selectedCompareProperties } = usePropertyStore();
+
+  const isSelectedForCompare = selectedCompareProperties.some((p: any) => {
+    // Robust ID check
+    const pId = p.data.id || p.data._id || p.data.ListingKey;
+    // props might be wrapped (props.data) or unwrapped (props)
+    const propData = props.data || props;
+    const myId = propData.id || propData._id || propData.listingId || propData.listing?.listingId;
+    return pId == myId; // loose equality
+  });
 
   const fetchSnaps = () => {
     if (userData?.id) {
@@ -52,6 +67,20 @@ const PropertyCards = (props: any) => {
       </div>
     );
   });
+
+  // Helper to get nested property data if props is wrapped
+  const getProp = (path: string[]) => {
+    let current = props.data || props;
+    for (const key of path) {
+      if (current === undefined || current === null) return undefined;
+      current = current[key];
+    }
+    return current;
+  };
+
+  // NOTE: Existing code uses props.listing directly. 
+  // If props is wrapped, this fails. 
+  // But we are only fixing Comparison logic here.
 
   const hasCarousel = Array.isArray(props?.listing?.media?.photosList) && props.listing.media.photosList.length > 0;
 
@@ -124,7 +153,22 @@ const PropertyCards = (props: any) => {
 
   const isFavored = isPropertyInFavourite(snaps);
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    // If in compare mode, toggle selection instead of navigating
+    if (isCompareMode) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Unwrap data if necessary
+      const realData = props.data || props;
+
+      toggleCompareProperty({
+        data: realData,
+        type: 'property'
+      });
+      return;
+    }
+
     if (!carouselEvent) {
       saveCurrenctProperty(props);
       router.push(`/buy/${props.listingId}/prop/preview`);
@@ -140,8 +184,46 @@ const PropertyCards = (props: any) => {
   return (
     <div
       onClick={handleClick}
-      className="relative w-full min-h-[380px] cursor-pointer overflow-hidden rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-[1.02] border border-gray-800 hover:border-ocOrange group"
+      className={`relative w-full min-h-[380px] cursor-pointer overflow-hidden rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-[1.02] border 
+      ${isSelectedForCompare ? 'border-4 border-ocOrange' : 'border-gray-800 hover:border-ocOrange'} group`}
     >
+      {/* Compare Mode Checkbox Overlay */}
+      {isCompareMode && (
+        <div className="absolute top-4 left-4 z-50">
+          <button
+            disabled={selectedCompareProperties.length >= 4 && !isSelectedForCompare}
+            onClick={(e) => {
+              e.stopPropagation();
+              // Unwrap if necessary
+              const realData = props.data || props;
+              toggleCompareProperty({
+                data: realData,
+                type: 'property'
+              });
+            }}
+            className={`p-2 rounded-full transition-all duration-200 ${isSelectedForCompare
+              ? 'bg-ocOrange text-white'
+              : selectedCompareProperties.length >= 4
+                ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                : 'bg-white/80 text-gray-500 hover:bg-white hover:text-ocOrange'
+              }`}
+          >
+            {isSelectedForCompare ? <CheckSquare size={24} /> : <Square size={24} />}
+            {isSelectedForCompare && <span className="sr-only">Selected</span>}
+          </button>
+          <span
+            className={`ml-2 px-2 py-1 rounded-md text-sm font-bold shadow-sm transition-all duration-200 ${isSelectedForCompare
+              ? 'bg-ocOrange text-white'
+              : selectedCompareProperties.length >= 4
+                ? 'bg-gray-100 text-gray-400 opacity-50'
+                : 'bg-white/80 text-black'
+              }`}
+          >
+            {isSelectedForCompare ? 'Selected' : selectedCompareProperties.length >= 4 ? 'Limit Reached' : 'Compare'}
+          </span>
+        </div>
+      )}
+
       {/* Full Image Background */}
       <div className="absolute inset-0 w-full h-full">
         {hasCarousel && slides?.length ? (
@@ -173,7 +255,7 @@ const PropertyCards = (props: any) => {
         )}
       </div>
 
-      {statusInfo ? (
+      {!isCompareMode && statusInfo ? (
         <div
           className={`absolute top-4 left-4 px-3 py-1 rounded-full text-sm font-semibold z-10 ${statusInfo.className}`}
         >

@@ -28,23 +28,24 @@
   .mobile-nav-dropdown {
     animation: slideDown 0.2s ease-out;
   }
-  
+
   @keyframes slideDown {
     from {
       opacity: 0;
       transform: translateY(-10px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);
     }
   }
-  
+
   .mobile-nav-button {
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
   }
-  
+
   .mobile-nav-button:active {
     transform: scale(0.98);
   }
@@ -289,20 +290,24 @@ body {
     opacity: 0;
     transform: translateY(-18px) scale(0.92);
   }
+
   12% {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+
   /* icon stays while card opens and holds */
   54% {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+
   /* fade out as the card slides in (closes) */
   66% {
     opacity: 0;
     transform: translateY(-12px) scale(0.94);
   }
+
   100% {
     opacity: 0;
     transform: translateY(-12px) scale(0.94);
@@ -319,21 +324,26 @@ body {
   0% {
     clip-path: inset(0 100% 0 0 round 999px);
   }
+
   12% {
     clip-path: inset(0 100% 0 0 round 999px);
   }
+
   /* slide out (open) */
   24% {
     clip-path: inset(0 0% 0 0 round 999px);
   }
+
   /* hold open */
   54% {
     clip-path: inset(0 0% 0 0 round 999px);
   }
+
   /* slide in (close) */
   66% {
     clip-path: inset(0 100% 0 0 round 999px);
   }
+
   100% {
     clip-path: inset(0 100% 0 0 round 999px);
   }
@@ -350,22 +360,27 @@ body {
     opacity: 0;
     transform: translateX(-10px);
   }
+
   24% {
     opacity: 0;
     transform: translateX(-10px);
   }
+
   30% {
     opacity: 1;
     transform: translateX(0);
   }
+
   54% {
     opacity: 1;
     transform: translateX(0);
   }
+
   66% {
     opacity: 0;
     transform: translateX(-10px);
   }
+
   100% {
     opacity: 0;
     transform: translateX(-10px);
@@ -414,8 +429,8 @@ body {
   z-index: 0;
 }
 
-.custom-toast-success > *,
-.snaphomz-toast--success > * {
+.custom-toast-success>*,
+.snaphomz-toast--success>* {
   position: relative;
   z-index: 1;
 }
@@ -505,8 +520,8 @@ body {
   z-index: 0;
 }
 
-.custom-toast-warning > *,
-.snaphomz-toast--warning > * {
+.custom-toast-warning>*,
+.snaphomz-toast--warning>* {
   position: relative;
   z-index: 1;
 }
@@ -581,8 +596,8 @@ body {
   z-index: 0;
 }
 
-.custom-toast-info > *,
-.snaphomz-toast--info > * {
+.custom-toast-info>*,
+.snaphomz-toast--info>* {
   position: relative;
   z-index: 1;
 }
@@ -657,8 +672,8 @@ body {
   z-index: 0;
 }
 
-.custom-toast-error > *,
-.snaphomz-toast--error > * {
+.custom-toast-error>*,
+.snaphomz-toast--error>* {
   position: relative;
   z-index: 1;
 }
@@ -772,10 +787,10 @@ body {
   border: 1px solid #661010;
 }
 
-[data-sonner-toast][data-type='success'] > *,
-[data-sonner-toast][data-type='warning'] > *,
-[data-sonner-toast][data-type='info'] > *,
-[data-sonner-toast][data-type='error'] > * {
+[data-sonner-toast][data-type='success']>*,
+[data-sonner-toast][data-type='warning']>*,
+[data-sonner-toast][data-type='info']>*,
+[data-sonner-toast][data-type='error']>* {
   position: relative;
   z-index: 1;
 }
@@ -1000,8 +1015,33 @@ div.make-it-easy-component {
 }
 
 /* Place zoom controls just below the camera controls (rotate/tilt) */
-.snaphomz-map .gm-style .gmnoprint.gm-bundled-control + .gm-bundled-control {
+.snaphomz-map .gm-style .gmnoprint.gm-bundled-control+.gm-bundled-control {
   margin-top: 12px !important;
+}
+
+.map-control-overlay {
+  margin: 16px 0 0 16px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.map-control-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.map-control-select {
+  margin-top: 4px;
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  padding: 4px 8px;
+  font-size: 13px;
+  color: #111827;
 }
 
 .scrollbar-hide {
@@ -1081,6 +1121,7 @@ div.make-it-easy-component {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1095,10 +1136,13 @@ div.make-it-easy-component {
 /* .gm-style-iw-t button[aria-label="Close"] {
   display: none !important;
 } */
- input:-webkit-autofill {
-  box-shadow: 0 0 0px 1000px white inset !important; /* Matches your bg-gray-800 */
-  -webkit-text-fill-color: #1f2937 !important; /* Ensure text is visible on dark bg */
-  transition: background-color 5000s ease-in-out 0s; /* Long delay trick */
+input:-webkit-autofill {
+  box-shadow: 0 0 0px 1000px white inset !important;
+  /* Matches your bg-gray-800 */
+  -webkit-text-fill-color: #1f2937 !important;
+  /* Ensure text is visible on dark bg */
+  transition: background-color 5000s ease-in-out 0s;
+  /* Long delay trick */
 }
 
 
@@ -1108,10 +1152,13 @@ div.make-it-easy-component {
   justify-content: center;
   align-items: center;
   position: relative;
-  width: 1000px; /* Adjust as needed */
-  height: 800px; /* Adjust as needed */
+  width: 1000px;
+  /* Adjust as needed */
+  height: 800px;
+  /* Adjust as needed */
   border-radius: 50%;
-  margin: 0 auto; /* Ensure the circle stays centered */
+  margin: 0 auto;
+  /* Ensure the circle stays centered */
 }
 
 /* Keyframes to rotate images in a circle */
@@ -1119,13 +1166,14 @@ div.make-it-easy-component {
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
 }
 
 
-.indicator{
+.indicator {
   background-color: #1f2937;
 }
 
@@ -1137,7 +1185,7 @@ div.make-it-easy-component {
   border-bottom: none !important;
 }
 
-.mantine-SegmentedControl-control + .mantine-SegmentedControl-control {
+.mantine-SegmentedControl-control+.mantine-SegmentedControl-control {
   border-left: none !important;
   margin-left: 0 !important;
 }
@@ -1161,13 +1209,13 @@ div.make-it-easy-component {
 
 .mantine-SegmentedControl-control[data-active] .mantine-SegmentedControl-label,
 .mantine-SegmentedControl-control[data-active] label,
-.mantine-SegmentedControl-control[data-active] > span,
+.mantine-SegmentedControl-control[data-active]>span,
 .mantine-SegmentedControl-control[data-checked] .mantine-SegmentedControl-label,
 .mantine-SegmentedControl-control[data-checked] label,
-.mantine-SegmentedControl-control[data-checked] > span,
+.mantine-SegmentedControl-control[data-checked]>span,
 .mantine-SegmentedControl-control[aria-checked="true"] .mantine-SegmentedControl-label,
 .mantine-SegmentedControl-control[aria-checked="true"] label,
-.mantine-SegmentedControl-control[aria-checked="true"] > span {
+.mantine-SegmentedControl-control[aria-checked="true"]>span {
   color: #ffffff !important;
 }
 
@@ -1178,7 +1226,7 @@ div.make-it-easy-component {
 
 .mantine-SegmentedControl-control:not([data-active]):not([data-checked]):not([aria-checked="true"]) .mantine-SegmentedControl-label,
 .mantine-SegmentedControl-control:not([data-active]):not([data-checked]):not([aria-checked="true"]) label,
-.mantine-SegmentedControl-control:not([data-active]):not([data-checked]):not([aria-checked="true"]) > span {
+.mantine-SegmentedControl-control:not([data-active]):not([data-checked]):not([aria-checked="true"])>span {
   color: #F0F0F0 !important;
 }
 
@@ -1204,13 +1252,13 @@ div.make-it-easy-component {
 }
 
 .mantine-SegmentedControl-control:hover .mantine-SegmentedControl-label,
-.mantine-SegmentedControl-control:hover > label,
-.mantine-SegmentedControl-control:hover > span {
+.mantine-SegmentedControl-control:hover>label,
+.mantine-SegmentedControl-control:hover>span {
   color: #ffffff !important;
   font-weight: 600 !important;
 }
 
-.mantine-SegmentedControl-control + .mantine-SegmentedControl-control {
+.mantine-SegmentedControl-control+.mantine-SegmentedControl-control {
   border-left: none !important;
   margin-left: 0 !important;
 }
@@ -1234,13 +1282,13 @@ div.make-it-easy-component {
 
 .mantine-SegmentedControl-control[data-active] .mantine-SegmentedControl-label,
 .mantine-SegmentedControl-control[data-active] label,
-.mantine-SegmentedControl-control[data-active] > span,
+.mantine-SegmentedControl-control[data-active]>span,
 .mantine-SegmentedControl-control[data-checked] .mantine-SegmentedControl-label,
 .mantine-SegmentedControl-control[data-checked] label,
-.mantine-SegmentedControl-control[data-checked] > span,
+.mantine-SegmentedControl-control[data-checked]>span,
 .mantine-SegmentedControl-control[aria-checked="true"] .mantine-SegmentedControl-label,
 .mantine-SegmentedControl-control[aria-checked="true"] label,
-.mantine-SegmentedControl-control[aria-checked="true"] > span {
+.mantine-SegmentedControl-control[aria-checked="true"]>span {
   color: #ffffff !important;
 }
 
@@ -1251,7 +1299,7 @@ div.make-it-easy-component {
 
 .mantine-SegmentedControl-control:not([data-active]):not([data-checked]):not([aria-checked="true"]) .mantine-SegmentedControl-label,
 .mantine-SegmentedControl-control:not([data-active]):not([data-checked]):not([aria-checked="true"]) label,
-.mantine-SegmentedControl-control:not([data-active]):not([data-checked]):not([aria-checked="true"]) > span {
+.mantine-SegmentedControl-control:not([data-active]):not([data-checked]):not([aria-checked="true"])>span {
   color: #F0F0F0 !important;
 }
 
@@ -1277,8 +1325,8 @@ div.make-it-easy-component {
 }
 
 .mantine-SegmentedControl-control:hover .mantine-SegmentedControl-label,
-.mantine-SegmentedControl-control:hover > label,
-.mantine-SegmentedControl-control:hover > span {
+.mantine-SegmentedControl-control:hover>label,
+.mantine-SegmentedControl-control:hover>span {
   color: #ffffff !important;
   font-weight: 600 !important;
 }
@@ -1315,6 +1363,7 @@ div.make-it-easy-component {
 .company-navbar .company-dropdown-content {
   background-color: #FAF9F5 !important;
 }
+
 /* ============================= */
 /* AGENTS PAGE NAVBAR OVERRIDE */
 /* ============================= */
@@ -1368,11 +1417,11 @@ div.make-it-easy-component {
   opacity: 1;
 }
 
-.sell-sections > * + * {
+.sell-sections>*+* {
   margin-top: 8rem;
 }
 
-.home-sections > * + * {
+.home-sections>*+* {
   margin-top: 8rem;
 }
 

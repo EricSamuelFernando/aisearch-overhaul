@@ -219,15 +219,15 @@ export default function AccountPage() {
 
         <TabsContent value='documents'>
           <div className='text-center text-gray-500'>
-            <div className='grid grid-cols-1 gap-4 py-6 sm:grid-cols-2 sm:gap-5 sm:py-8 lg:grid-cols-4'>
+            <div className='grid grid-cols-1 gap-4 py-6 sm:grid-cols-2 sm:gap-5 sm:py-8 lg:grid-cols-3 xl:grid-cols-4'>
               {documents?.map((doc) => (
 
                 <div
-                  className='relative flex w-fit items-center justify-between rounded-lg p-4 transition-all duration-500 ease-in-out'
+                  className='relative flex w-full min-w-0 items-center justify-between rounded-lg p-4 transition-all duration-500 ease-in-out'
                   key={doc.id}
                 >
-                  <section className='flex cursor-pointer flex-col gap-4 '>
-                    <div className='relative flex items-center justify-center rounded-md bg-white p-4'>
+                  <section className='flex w-full cursor-pointer flex-col gap-4'>
+                    <div className='relative flex w-full items-center justify-center rounded-md bg-white p-4'>
                       <FileText className='h-20 w-20 text-black' />
 
                       <DropdownMenu>

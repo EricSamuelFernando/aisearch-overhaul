@@ -15,7 +15,7 @@ const tabContent = {
     steps: [
       {
         title: "Let's get acquainted",
-        desc: `Create your profile on Snaphomz, set preferences -  \nbudget, location and must haves. Also use our AI search  \nto boost your chances of finding the perfect match.`,
+        desc: `Create your profile on Snaphomz and set your budget, locations, and must-haves. Use AI-powered search to increase your chances of finding the right home.`,
       },
       {
         title: "Let's get financially ready",
@@ -131,9 +131,7 @@ function HowItWorksPage({ defaultTab }: Props) {
               Here's How it Works
             </h2>
             <p className="mt-4 text-lg text-gray-600 leading-relaxed">
-              Your home's about to skip a width. Whether it's finding or farewell,
-              Snaphomz turns the complex into compelling, because home sweet home
-              should actually be sweet.
+              Your next move should feel simple, not stressful. Snaphomz takes the hard parts of buying or selling and makes them clear and manageable, so “home sweet home” actually feels that way
             </p>
             <hr />
           </div>

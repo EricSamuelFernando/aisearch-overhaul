@@ -3,23 +3,14 @@ import Link from "next/link";
 
 const ChooseYourMeans = () => {
   return (
-    <section className="bg-[#FFF6EC] pt-24 px-4 sm:px-8 lg:px-12 text-center">
+    <section className="bg-[#FFF6EC] pt-16 pb-12 sm:pt-20 sm:pb-14 px-4 sm:px-8 lg:px-12 text-center">
       {/* Choose Your Means Section */}
       <div className="max-w-6xl mx-auto text-center">
         <h2 className=" satoshi text-3xl sm:text-4xl font-semibold ">
-          Choose Your <span className="font-light">Means</span>
+          Choose How You <span className="font-light">Buy</span>
         </h2>
-        <p
-          className="
-    satoshi
-    text-xs sm:text-sm
-    text-[#8E8B8A]
-    mb-10 sm:mb-20
-    max-w-[600px]
-    mx-auto
-  "
-        >
-          Gain unprecedented control with guided transactions, approval
+        <p className="satoshi text-xs sm:text-sm text-[#8E8B8A] mb-8 sm:mb-12 max-w-[600px] mx-auto">
+          Take control of your home purchase with guided transactions, approval workflows, and transparent tracking, no matter how you like to work. 
         </p>
 
 
@@ -28,7 +19,7 @@ const ChooseYourMeans = () => {
           className="flex flex-nowrap gap-6 overflow-x-auto pb-4 bg-transparent scrollbar-hide snap-x snap-mandatory sm:flex-wrap sm:justify-center sm:overflow-visible sm:snap-none"
         >
           {/* Team member 1 */}
-          <div className="min-w-[260px] sm:min-w-0 rounded-2xl overflow-hidden relative cursor-pointer scale-[0.9] origin-top">
+          <div className="min-w-[240px] sm:min-w-0 rounded-2xl overflow-hidden relative cursor-pointer scale-[0.88] origin-top">
             <img
               src="/assets/images/landing-means.png"
               alt="Proper Name"
@@ -45,7 +36,7 @@ const ChooseYourMeans = () => {
 
 
           {/* Team member 2 */}
-          <div className="min-w-[260px] sm:min-w-0 rounded-2xl overflow-hidden relative cursor-pointer scale-[0.9] origin-top">
+          <div className="min-w-[240px] sm:min-w-0 rounded-2xl overflow-hidden relative cursor-pointer scale-[0.88] origin-top">
             <img
               src="/assets/images/landing-means1.png"
               alt="Proper Name"

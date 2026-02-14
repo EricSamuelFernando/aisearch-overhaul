@@ -16,9 +16,18 @@ type Props = {
   avatar?: string | null;
   firstName: string;
   lastName: string;
+  containerClassName?: string;
+  menuClassName?: string;
 };
 
-function AccountDropdown({ username, avatar, firstName, lastName }: Props) {
+function AccountDropdown({
+  username,
+  avatar,
+  firstName,
+  lastName,
+  containerClassName,
+  menuClassName,
+}: Props) {
   const { logout } = useAuthActions();
   const router = useRouter();
   const MORTGAGE_URL = process.env.NEXT_PUBLIC_MORTGAGE_FRONTEND_URL
@@ -67,6 +76,8 @@ function AccountDropdown({ username, avatar, firstName, lastName }: Props) {
 
   return (
     <MenuDropdown
+      containerClassName={containerClassName}
+      dropdownClassName={menuClassName}
       buttonLabel={
         <div className='flex cursor-pointer items-center gap-x-1'>
          

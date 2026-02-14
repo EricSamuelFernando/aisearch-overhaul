@@ -1,3 +1,4 @@
+import type { CSSProperties, ReactNode } from 'react';
 import { toast } from 'sonner';
 
 interface NotifProps {

@@ -76,7 +76,7 @@ function MainNavPages() {
 
   // Determine logo based on text color
   const logoSrc = finalTextColorClass === 'text-black'
-    ? '/assets/images/logo-black-main.png'
+    ? '/assets/Logos/Snaphomz-Logo-Black (4).png'
     : '/assets/images/logo-main.png';
 
   // Determine background class for scrolled state - recalculate based on current pathname
@@ -192,7 +192,7 @@ function MainNavPages() {
         {/* Logo - Left side on mobile, center on desktop */}
         <Link
           href="/home"
-          className="md:absolute md:inset-y-0 md:left-1/2 md:transform md:-translate-x-1/2 flex items-center justify-center"
+          className="flex items-center justify-center md:absolute md:inset-y-0 md:left-1/2 md:transform md:-translate-x-1/2"
         >
           <Image
             src={logoSrc}
@@ -201,8 +201,8 @@ function MainNavPages() {
             unoptimized
             alt="logo"
             className={`transition-all duration-300 object-contain ${isScrolled
-              ? 'h-8 w-24 md:h-10 md:w-32'
-              : 'h-9 w-28 md:h-12 md:w-36'
+              ? 'h-9 w-28 md:h-10 md:w-32'
+              : 'h-10 w-32 md:h-12 md:w-36'
               }`}
           />
         </Link>

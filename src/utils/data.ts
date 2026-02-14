@@ -70,7 +70,7 @@ export const sellerDashboardRoutes: TabLinks = [
     title: 'Conversation',
     query: 'conversation',
   },
-    {
+  {
     title: 'Inventory',
     query: 'inventory',
   },

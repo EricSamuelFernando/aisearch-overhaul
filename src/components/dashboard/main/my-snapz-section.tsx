@@ -15,6 +15,7 @@ import CreateSnapModal from '@/components/create-snap.modal';
 import { success, error } from '@/components/alert/notify';
 import { useUserSnapAPIs } from '@/hooks/api/auth/snaps.API';
 import { useAgentConversationApi } from '@/hooks/api/auth/useConversationApi';
+import { useNotificationApi } from '@/hooks/api/user/useNotification';
 
 interface InvitationInterface {
   id: string;
@@ -38,7 +39,11 @@ interface SnapCollection {
 
 const ITEMS_PER_PAGE = 10;
 
-const MySnapzSection = () => {
+type MySnapzSectionProps = {
+  origin?: 'buyer-dashboard' | 'account';
+};
+
+const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
   const router = useRouter();
   const userData = useSelector((state: any) => state.auth.user);
   const [snaps, setSnaps] = useState<SnapCollection[]>([]);
@@ -63,6 +68,7 @@ const MySnapzSection = () => {
     createParticipents,
   } = useUserSnapAPIs();
   const { getAllSnapzRequest, updateSnapzById } = useAgentConversationApi();
+  const { notificationsQuery } = useNotificationApi();
 
   const fetchInvitationUsers = async (page: number) => {
     setIsLoading(true);
@@ -207,6 +213,7 @@ const MySnapzSection = () => {
           success({ message: 'Snapz created successfully!' });
           getAllCollections();
           setIsCreateSnapModalOpen(false);
+          notificationsQuery.refetch();
         },
         onError: (err: any) => {
           error({ message: err.message || 'Failed to create snap' });
@@ -326,7 +333,9 @@ const MySnapzSection = () => {
                   className="h-8 rounded-full px-4 text-xs font-medium"
                   onClick={() => {
                     setSelectedSnap(snap);
-                    router.push(`/account/collections/${snap.id}`);
+                    const fromBuyerDashboard = origin === 'buyer-dashboard';
+                    const suffix = fromBuyerDashboard ? '?from=buyer-dashboard' : '';
+                    router.push(`/account/collections/${snap.id}${suffix}`);
                   }}
                 >
                   View

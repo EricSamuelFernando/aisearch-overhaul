@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useGetMessages } from '@/hooks/api/useFetchMessages';
+import { useNotificationApi } from '@/hooks/api/user/useNotification';
 import Image from 'next/image';
 import { Loader } from 'lucide-react';
 
@@ -46,6 +47,7 @@ const AddComment: React.FC<{ id: string }> = ({ id }) => {
   const [comments, setComments] = useState<Chat[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { userMessages, addCommentMutation } = useGetMessages(id);
+  const { notificationsQuery } = useNotificationApi();
   const { isLoading, data } = userMessages;
 
   React.useEffect(() => {
@@ -79,6 +81,7 @@ const AddComment: React.FC<{ id: string }> = ({ id }) => {
 
       setComments((prevComments) => [...prevComments, newComment]);
       setCommentText('');
+      notificationsQuery.refetch();
     } catch (error) {
       console.error('Failed to submit comment:', error);
     } finally {

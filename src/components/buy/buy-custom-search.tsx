@@ -482,6 +482,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
   const { currentView } = useProperty();
   const popupRef = React.useRef<HTMLDivElement>(null);
   const toggleButtonRef = React.useRef<HTMLButtonElement>(null);
+  const [isFooterVisible, setIsFooterVisible] = React.useState(false);
 
   const { user } = useAuth()
   const { email } = useRegister()
@@ -570,6 +571,21 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [showInputBox]);
 
+  // Hide the floating button when the footer is in view so it doesn't overlap.
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const footer = document.querySelector('footer');
+    if (!footer) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsFooterVisible(entry.isIntersecting),
+      { threshold: 0.01 },
+    );
+
+    observer.observe(footer);
+    return () => observer.disconnect();
+  }, []);
+
   const sendSearchRequest = async () => {
     if (searchCount + 1 >= 6 && !user?.email) {
       error({
@@ -638,6 +654,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
           bottom: '24px',
           transform: 'translateX(-50%)',
           zIndex: 50,
+          display: isFooterVisible ? 'none' : 'block',
         }}
       >
         <button
@@ -749,7 +766,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
 
 
       <div id="map-unpin-sentinel" className="h-px" />
-      <div id="buy-custom-search" className={cn(currentView === 'grid' ? 'max-w-[1440px] mx-auto w-full' : 'w-full')}>
+      <div id="buy-custom-search" className={cn(currentView === 'grid' ? 'max-w-[1440px] mx-auto w-full' : 'w-full hidden')}>
         <div
           className={cn(
             'pt-16 pb-2 border-b border-gray-200',

@@ -57,17 +57,17 @@ const tabContent = {
   },
   agent: {
     heading: 'Become a Snaphomz agent',
-    subheading: 'Choose one of three possible ways',
-    subheading2: 'to introduce lorem to your home',
+    subheading: 'Pick one of three simple ways to match homes with your clients.',
+    subheading2: '',
     image: '/assets/images/home/agents-01.png',
     steps: [
       {
         title: 'Private agents',
-        desc: `Smart Match Quiz: Take our quick preference quiz\nYour Wish List: Tell us your must-haves and nice-to-haves\nBudget Blueprint: Set your comfortable price range`,
+        desc: `Work with agents who know exactly what you need.\nSmart Match Quiz: Answer a few quick questions to find the right fit.\nYour Wish List: Tell us your must-haves and nice-to-haves.\nBudget Blueprint: Set your price range that feels right.`,
       },
       {
         title: 'Partner agents',
-        desc: `Smart Suggestions: Browse personalized home listings\nVirtual Tours: Explore homes from your couch\nQuick Filters: Save time with intelligent search features`,
+        desc: `Find great agents ready to help right now.\nSmart Suggestions: See homes picked just for you.\nVirtual Tours: Check out properties without leaving home.\nQuick Filters: Find what you want fast and easy.`,
       },
     ],
   },
@@ -183,8 +183,12 @@ function HowItWorksPage({ defaultTab }: Props) {
             </h1>
             <p className="mt-2 text-lg text-gray-500">
               {content.subheading}
-              <br />
-              {content.subheading2}
+              {content.subheading2 ? (
+                <>
+                  <br />
+                  {content.subheading2}
+                </>
+              ) : null}
             </p>
           </div>
           <div className="w-full md:w-1/2 flex justify-center md:justify-end">
@@ -227,14 +231,17 @@ function HowItWorksPage({ defaultTab }: Props) {
               </ul>
               {activeTab === 'agent' ? (
                 <p className="mt-8 text-gray-700">
-                  Ready to Get Started?{' '}
-                  <LoginRegisterModal
-                    label="Sign up free today"
-                    initialStage={1}
-                    variant="link"
-                    className="p-0 text-orange-500 underline underline-offset-4 hover:text-orange-400"
-                    registerDefaults={{ userType: 'agent', startAt: 'send-code' }}
-                  />
+                  <span className="block">Ready to Get Started?</span>
+                  <span className="block">
+                    Join agents closing deals faster.{' '}
+                    <LoginRegisterModal
+                      label="Sign up free today"
+                      initialStage={1}
+                      variant="link"
+                      className="p-0 text-orange-500 underline underline-offset-4 hover:text-orange-400"
+                      registerDefaults={{ userType: 'agent', startAt: 'send-code' }}
+                    />
+                  </span>
                 </p>
               ) : null}
             </div>

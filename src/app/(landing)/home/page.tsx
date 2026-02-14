@@ -854,6 +854,21 @@ const questions = [
   },
 ];
 
+const HOME_PAGE_TESTIMONIALS = [
+  {
+    name: 'MILTON AUSTIN',
+    title: 'First-time Buyer Specialist, San Diego',
+    text: 'Snaphomz cuts the time I spend on offers and disclosures each week. The workflows keep everything organized so I can focus on advising clients instead of chasing paperwork.',
+    img: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=2080&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+  },
+  {
+    name: 'ALEX RICHARD',
+    title: 'Broker Associate, Austin',
+    text: 'The analytics and AI summaries give me clear talking points for every client meeting. I walk in prepared, and my clients feel confident in each decision we make together.',
+    img: 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?q=80&w=2080&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+  },
+];
+
 // export default function Home() {
 //   const [isOpen, setIsOpen] = useState(false);
 //   const [currentStep, setCurrentStep] = useState(0);
@@ -1486,8 +1501,8 @@ export default function Home() {
             </div>
 
             <div className="text-white text-[1rem]">
-              <span className="font-medium">Conversational search </span>
-              <span className="font-bold underline">Powered by AI</span>
+              <span className="font-medium">Conversational search, </span>
+              <span className="font-bold underline">powered by AI.</span>
             </div>
           </div>
         </section>
@@ -1505,8 +1520,14 @@ export default function Home() {
 
       {/* ================= OTHER SECTIONS ================= */}
       <div className="home-sections">
-        <ChooseYourMeans />
-        <WeMakeItEasy />
+        <ChooseYourMeans
+          heading="Choose how you buy"
+          subheading="Take control of your home purchase with guided transactions, approval workflows, and transparent tracking, no matter how you like to work."
+          yourAgentDescription="Bring the agent you already trust and manage everything together on Snaphomz."
+          ourAgentDescription="Match with a vetted local expert and handle your entire transaction in one place."
+          ctaLabel="Get started"
+        />
+        <WeMakeItEasy contentPreset="home" />
         <section className="relative">
           <Carousel
             className="home-carousel"
@@ -1554,7 +1575,11 @@ export default function Home() {
         </section>
 
         {/* <OfferStrengthAnalyzer /> */}
-        <OurClients bgColor='#FFF6EC' />
+        <OurClients
+          bgColor="#FFF6EC"
+          subtitle="We value our agents' honest feedback on how Snaphomz supports their business."
+          testimonials={HOME_PAGE_TESTIMONIALS}
+        />
       </div>
     </>
   );

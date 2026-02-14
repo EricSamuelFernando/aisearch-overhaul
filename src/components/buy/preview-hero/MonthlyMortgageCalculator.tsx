@@ -11,6 +11,7 @@ type MonthlyMortgageCalculatorProps = {
   hoaMonthly?: number;
   insuranceMonthly?: number;
   taxPercent?: number;
+  onEstimatedMonthlyPaymentChange?: (payment: number) => void;
 };
 
 const DEFAULTS = {
@@ -67,6 +68,7 @@ const MonthlyMortgageCalculator: React.FC<MonthlyMortgageCalculatorProps> = ({
   hoaMonthly,
   insuranceMonthly,
   taxPercent,
+  onEstimatedMonthlyPaymentChange,
 }) => {
   const inputClass =
     'mt-1 h-10 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 leading-5 focus:outline-none focus:ring-2 focus:ring-orange-400';
@@ -220,6 +222,12 @@ const MonthlyMortgageCalculator: React.FC<MonthlyMortgageCalculatorProps> = ({
       total,
     };
   }, [calcInputs]);
+
+  React.useEffect(() => {
+    if (typeof onEstimatedMonthlyPaymentChange === 'function' && Number.isFinite(result.total)) {
+      onEstimatedMonthlyPaymentChange(result.total);
+    }
+  }, [onEstimatedMonthlyPaymentChange, result.total]);
 
   const showUseLiveRate = rateTouched && rateMeta?.date && rateMeta?.source !== 'unavailable';
   const liveRateStatus =

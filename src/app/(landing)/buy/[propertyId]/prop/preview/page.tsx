@@ -24,7 +24,7 @@ import Footer from '@/components/footer/Footer';
 
 function Page() {
   return (
-    <div className="min-h-screen flex flex-col bg-white overflow-x-hidden">
+    <div className="min-h-screen flex flex-col bg-white">
       <main className="flex-1 w-full">
         <section className="mx-auto w-full max-w-7xl px-4 pt-4 sm:pt-6 md:px-8 md:pt-8 pb-20 md:pb-24">
           {/* Prevent child overflow */}
@@ -34,9 +34,7 @@ function Page() {
         </section>
       </main>
 
-      {/* <footer className="w-full bg-black " style={{ marginTop: '70%' }}>
-        <Footer />
-      </footer> */}
+      <Footer />
     </div>
   );
 }

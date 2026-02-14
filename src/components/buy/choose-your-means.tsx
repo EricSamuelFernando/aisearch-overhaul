@@ -1,7 +1,21 @@
 'use client';
 import Link from "next/link";
 
-const ChooseYourMeans = () => {
+type ChooseYourMeansProps = {
+  heading?: string;
+  subheading?: string;
+  yourAgentDescription?: string;
+  ourAgentDescription?: string;
+  ctaLabel?: string;
+};
+
+const ChooseYourMeans = ({
+  heading = 'Choose Your Means',
+  subheading = 'Gain unprecedented control with guided transactions, approval',
+  yourAgentDescription = 'Onboard or invite your personal agent',
+  ourAgentDescription = 'Choose from our vetted list of agents',
+  ctaLabel = 'Get Started',
+}: ChooseYourMeansProps) => {
   return (
     <section className="bg-[#FFF6EC] pt-16 pb-12 sm:pt-20 sm:pb-14 px-4 sm:px-8 lg:px-12 text-center">
       {/* Choose Your Means Section */}
@@ -27,9 +41,9 @@ const ChooseYourMeans = () => {
             />
             <div className="absolute rounded-2xl bottom-0 left-0 right-0   text-white p-6 text-center">
               <p className="font-bold text-md text-center">Your Agent</p>
-              <p className="text-xs">Onboard or invite your personal agent</p>
+              <p className="text-xs">{yourAgentDescription}</p>
               <button onClick={() => window.location.href = "https://preprod.snaphomz.com/agents"} className="mt-4 px-6 py-2 bg-black text-white text-sm rounded-full transition duration-200">
-                Get Started
+                {ctaLabel}
               </button>
             </div>
           </div>
@@ -44,9 +58,9 @@ const ChooseYourMeans = () => {
             />
             <div className="absolute bottom-0 left-0 right-0 text-white p-6 text-center">
               <p className="font-bold text-md text-center">Our Agent</p>
-              <p className="text-xs">Choose from our vetted list of agents</p>
+              <p className="text-xs">{ourAgentDescription}</p>
               <button onClick={() => window.location.href = "https://preprod.snaphomz.com/agents"} className="mt-4 px-6 py-2 bg-black text-white text-sm rounded-full transition duration-200">
-                Get Started
+                {ctaLabel}
               </button>
             </div>
           </div>

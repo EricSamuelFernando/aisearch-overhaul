@@ -9,7 +9,14 @@ import { Carousel, Embla } from '@mantine/carousel';
 import { useMediaQuery } from '@mantine/hooks';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 
-const testimonials = [
+type Testimonial = {
+  name: string;
+  title: string;
+  text: string;
+  img: string;
+};
+
+const DEFAULT_TESTIMONIALS: Testimonial[] = [
   {
     name: 'MILTON AUSTIN',
     title: 'Sales Manager, San Francisco',
@@ -24,7 +31,17 @@ const testimonials = [
   },
 ];
 
-export default function OurClients({ bgColor = '#FAF0E6' }: { bgColor?: string }) {
+type OurClientsProps = {
+  bgColor?: string;
+  subtitle?: string;
+  testimonials?: Testimonial[];
+};
+
+export default function OurClients({
+  bgColor = '#FAF0E6',
+  subtitle = "We value our customers' authentic opinion on our products.",
+  testimonials = DEFAULT_TESTIMONIALS,
+}: OurClientsProps) {
   const isMobile = useMediaQuery('(max-width: 1023px)');
   const [embla, setEmbla] = useState<Embla | null>(null);
 
@@ -60,7 +77,7 @@ export default function OurClients({ bgColor = '#FAF0E6' }: { bgColor?: string }
         </h2>
 
         <p className="satoshi text-xs sm:text-sm text-[#8E8B8A] mb-15 max-w-[600px] mx-auto text-left md:text-center">
-          We value our customers' authentic opinion on our products.
+          {subtitle}
         </p>
       </div>
       <div className="max-w-7xl mx-auto">

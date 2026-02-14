@@ -151,8 +151,8 @@ export default function HeroLayout() {
             leading-relaxed
             px-2
           ">
-            simplifying the process for buyers, sellers, and agents through smart
-            design, seamless tech, and a people-first approach
+            Simplifying the process for buyers, sellers, and agents through smart
+            design and seamless tech.
           </p>
 
         </div>

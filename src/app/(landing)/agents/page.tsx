@@ -6,6 +6,21 @@ import TimeWorth from '@/components/agents/time-worth';
 import OurClients from '@/components/company/our-clients';
 import MainTestimonial from '@/components/main-testimonial';
 
+const AGENTS_TESTIMONIALS = [
+  {
+    name: 'MILTON AUSTIN',
+    title: 'First-time Buyer Specialist, San Diego',
+    text: 'Snaphomz cuts the time I spend on offers and disclosures each week. The workflows keep everything organized so I can focus on advising clients instead of chasing paperwork.',
+    img: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=2080&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+  },
+  {
+    name: 'ALEX RICHARD',
+    title: 'Broker Associate, Austin',
+    text: 'The analytics and AI summaries give me clear talking points for every client meeting. I walk in prepared, and my clients feel confident in each decision we make together.',
+    img: 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?q=80&w=2080&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+  },
+];
+
 const GRAPHQL_URI =
   process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
   'http://localhost:4000/auth/graphql';
@@ -70,7 +85,11 @@ const AgentsPage = async () => {
       <AgentsWeMakeItEasy />
       <TimeWorth />
       {/* <MainTestimonial /> */}
-      <OurClients bgColor="#FFF6EC" />
+      <OurClients
+        bgColor="#FFF6EC"
+        subtitle="We value our agents' honest feedback on how Snaphomz supports their business."
+        testimonials={AGENTS_TESTIMONIALS}
+      />
     </main>
   );
 };

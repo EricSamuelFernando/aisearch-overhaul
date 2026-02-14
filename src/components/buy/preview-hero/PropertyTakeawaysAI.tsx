@@ -156,7 +156,7 @@ const PropertyTakeawaysAI: React.FC<PropertyTakeawaysAIProps> = ({
         let collegeReadiness: any = null;
         if (zipCode) {
           try {
-            const fetchUrl = `http://localhost:4000/schools/college-readiness-by-zip?zipCode=${zipCode}`;
+            const fetchUrl = `${process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL}/schools/college-readiness-by-zip?zipCode=${zipCode}`;
             console.log('🔍 AI Fetching College Data from:', fetchUrl);
 
             const collegeResponse = await fetch(fetchUrl);

@@ -405,8 +405,8 @@ const BuyBreadCrumb = ({ }: Props) => {
   return (
     <div
       className={cn(
-        'sticky w-full px-4 pb-4 pt-10 md:px-8',
-        currentView === 'grid' ? 'max-w-[1440px] mx-auto' : '',
+        'sticky w-full px-4 pb-4 pt-10 md:px-6',
+        currentView === 'grid' ? 'max-w-[1600px] mx-auto' : '',
       )}
     >
       <div className='flex items-center gap-x-2 font-medium'>
@@ -571,7 +571,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [showInputBox]);
 
-  // Hide the floating button when the footer is in view so it doesn't overlap.
+  // Hide the floating button when the footer enters view.
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
     const footer = document.querySelector('footer');
@@ -653,7 +653,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
           left: '50%',
           bottom: '24px',
           transform: 'translateX(-50%)',
-          zIndex: 50,
+          zIndex: 9999,
           display: isFooterVisible ? 'none' : 'block',
         }}
       >

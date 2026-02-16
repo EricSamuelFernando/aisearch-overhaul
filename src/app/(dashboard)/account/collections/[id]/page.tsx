@@ -345,7 +345,7 @@ export default function SnapDetailsPage() {
                     )}
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-10 w-10 p-0 self-end sm:self-auto">
+                            <Button variant="ghost" className="h-10 w-10 p-0">
                                 <span className="sr-only">Open menu</span>
                                 <EllipsisIcon className="h-8 w-8" />
                             </Button>

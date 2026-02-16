@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDownIcon } from '@heroicons/react/20/solid';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { PieChart as PieChartIcon, Award, BookOpen } from 'lucide-react';
 import { resolveCollegeLogo } from '../../../lib/collegeLogos';
 
 // Types
@@ -52,6 +53,8 @@ const TopCollegesSection = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [zipCode, setZipCode] = useState<string>('');
+  const schoolsApiBaseUrl =
+    process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL || 'http://localhost:4000';
 
   // Get zip code from localStorage or property data
   useEffect(() => {
@@ -69,7 +72,7 @@ const TopCollegesSection = () => {
         setError(null);
 
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL}/schools/college-readiness-by-zip?zipCode=${zipCode}`
+          `${schoolsApiBaseUrl}/schools/college-readiness-by-zip?zipCode=${encodeURIComponent(zipCode)}`
         );
 
         if (!response.ok) {
@@ -179,7 +182,10 @@ const TopCollegesSection = () => {
           {/* Top 3 Colleges */}
           {topColleges.length > 0 && (
             <div>
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">Top 3 Colleges</h3>
+              <div className="flex items-center gap-2 mb-4">
+                <Award className="h-6 w-6 text-[#F07639]" />
+                <h3 className="text-xl font-semibold text-gray-800">Top 3 Colleges</h3>
+              </div>
               <div className="space-y-3">
                 {topColleges.map((college) => {
                   const { logoSrc, fallbackLogo } = resolveCollegeLogo(college.name);
@@ -219,7 +225,10 @@ const TopCollegesSection = () => {
           {/* Top 3 Majors */}
           {topMajors.length > 0 && (
             <div>
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">Top 3 Majors</h3>
+              <div className="flex items-center gap-2 mb-4">
+                <BookOpen className="h-6 w-6 text-[#F07639]" />
+                <h3 className="text-xl font-semibold text-gray-800">Top 3 Majors</h3>
+              </div>
               <div className="space-y-3">
                 {topMajors.map((major) => (
                   <div
@@ -250,7 +259,10 @@ const TopCollegesSection = () => {
           {diversityData.length > 0 ? (
             <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
               {/* Title */}
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Student Diversity</h3>
+              <div className="flex items-center gap-2 mb-2">
+                <PieChartIcon className="h-6 w-6 text-[#F07639]" />
+                <h3 className="text-xl font-semibold text-gray-900">Student Diversity</h3>
+              </div>
 
               {/* Recharts Donut Chart */}
               <div className="flex justify-center h-[300px] w-full">

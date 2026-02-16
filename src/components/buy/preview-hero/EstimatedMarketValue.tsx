@@ -14,7 +14,7 @@ interface EstimatedMarketData {
 
 // Define the component props type
 interface EstimatedMarketValueProps {
-    estimatedData?: EstimatedMarketData; // Make the data optional with a fallback
+    estimatedData?: Partial<EstimatedMarketData>; // Allow partial overrides
 }
 
 // Default data for demonstration or fallback
@@ -48,10 +48,10 @@ const ViewButton = () => (
 );
 
 const EstimatedMarketValue: React.FC<any> = ({ estimatedData }) => {
-    const data = estimatedData || defaultEstimatedData;
+    const data = { ...defaultEstimatedData, ...(estimatedData || {}) };
 
     return (
-        <div className="bg-white p-2  md:p-2">
+        <div className="bg-white p-2 md:p-2 w-full">
             <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">
                 Estimated market value
             </h2>
@@ -65,7 +65,7 @@ const EstimatedMarketValue: React.FC<any> = ({ estimatedData }) => {
     flex md:grid 
     flex-nowrap md:flex-wrap 
     md:grid-cols-3 
-    gap-4 md:gap-6 
+    gap-4 md:gap-6 items-stretch 
     scrollbar-hide 
     snap-x snap-mandatory md:snap-none
   "
@@ -73,7 +73,7 @@ const EstimatedMarketValue: React.FC<any> = ({ estimatedData }) => {
             >
 
                 {/* Card 1: Estimated house value */}
-                <div className="bg-[#F4F4F4] p-5 rounded-lg shadow-sm border border-gray-100 flex flex-col justify-between 
+                <div className="bg-[#F4F4F4] p-5 rounded-lg shadow-sm border border-gray-100 flex flex-col justify-between h-full 
                 min-w-[85%] sm:min-w-[350px] md:min-w-0 md:w-auto 
                 snap-start md:col-span-1">
                     <div>
@@ -82,14 +82,13 @@ const EstimatedMarketValue: React.FC<any> = ({ estimatedData }) => {
                             {data.houseValue}
                         </p>
                     </div>
-                    <div className="flex items-center justify-between gap-3 text-gray-500 text-sm">
-                        <p className="flex-1">{data.houseValueDescription}</p>
+                    <div className="flex items-center justify-end gap-3 text-gray-500 text-sm mt-auto">
                         <ViewButton />
                     </div>
                 </div>
 
                 {/* Card 2: Estimated Rent */}
-                <div className="bg-[#F4F4F4] p-5 rounded-lg shadow-sm border border-gray-100 flex flex-col justify-between 
+                <div className="bg-[#F4F4F4] p-5 rounded-lg shadow-sm border border-gray-100 flex flex-col justify-between h-full 
                 min-w-[85%] sm:min-w-[350px] md:min-w-0 md:w-auto 
                 snap-start md:col-span-1">
                     <div>
@@ -99,25 +98,24 @@ const EstimatedMarketValue: React.FC<any> = ({ estimatedData }) => {
                                 {data.estimatedRent}
                             </p>
                             <span
-                                className={`font-semibold text-lg ${data.rentChange.startsWith('-')
-                                    ? 'text-orange-500'
-                                    : 'text-green-500'
+                                className={`font-semibold text-lg ${data.rentChange?.startsWith('+')
+                                    ? 'text-green-500'
+                                    : data.rentChange?.startsWith('-')
+                                        ? 'text-red-500'
+                                        : 'text-gray-400'
                                     }`}
                             >
                                 {data.rentChange}
                             </span>
                         </div>
                     </div>
-                    <div className="flex items-center justify-between gap-3 text-gray-500 text-sm">
-                        <p className="flex-1">{data.rentDescription}</p>
-                        <div className="mt-5">
-                            <ViewButton />
-                        </div>
+                    <div className="flex items-center justify-end gap-3 text-gray-500 text-sm mt-auto">
+                        <ViewButton />
                     </div>
                 </div>
 
                 {/* Card 3: Projected % Gain (5Y) */}
-                <div className="bg-[#F4F4F4] p-5 rounded-lg shadow-sm border border-gray-100 flex flex-col justify-between 
+                <div className="bg-[#F4F4F4] p-5 rounded-lg shadow-sm border border-gray-100 flex flex-col justify-between h-full 
                 min-w-[85%] sm:min-w-[350px] md:min-w-0 md:w-auto 
                 snap-start md:col-span-1">
                     <div>
@@ -126,8 +124,7 @@ const EstimatedMarketValue: React.FC<any> = ({ estimatedData }) => {
                             {data.projectedGain}
                         </p>
                     </div>
-                    <div className="flex items-center justify-between gap-3 text-gray-500 text-sm">
-                        <p className="flex-1">{data.projectedGainDescription}</p>
+                    <div className="flex items-center justify-end gap-3 text-gray-500 text-sm mt-auto">
                         <ViewButton />
                     </div>
                 </div>

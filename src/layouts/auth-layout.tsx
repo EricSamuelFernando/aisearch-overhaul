@@ -6,8 +6,7 @@ import React, { Fragment, ReactNode } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { Navigate } from '@/lib/Navigate';
-// Use the provided logo asset in /public/assets/Logos
-import SnapHomz from '@public/assets/Logos/Snaphomz-Logo-Black (4).png';
+import SnapHomz from '@public/assets/images/snaphomz-logo-black.png';
 
 interface AuthLayoutProps {
   children: ReactNode;

@@ -81,7 +81,7 @@ function Footer() {
               <div>Snaphomz Inc</div>
               <div>NMLS ID: 2790448</div>
             </div>
-            <div className="flex items-center gap-5 -ml-1">
+            <div className="flex items-center gap-2 -ml-1">
               {socialLinks.map((item, i) => (
                 <Link
                   key={`${item.title}-${i}`}
@@ -130,14 +130,7 @@ function Footer() {
           <div className="flex items-center justify-end mt-8 translate-y-4">
             <div className="text-sm text-white/80 leading-relaxed max-w-[750px]">
               <p>
-              <span className="font-semibold text-white">Disclaimer:</span> The RentvsBuy
-              calculator on Snaphomz is for informational and illustrative purposes
-              only. Results are based on assumptions and inputs you provide and do not
-              constitute financial, legal, tax, or lending advice. Actual costs,
-              interest rates, and eligibility may differ from the figures shown.
-              Snaphomz is not a lender, broker, or financial advisor. Before making any
-              housing or financing decisions, consult a licensed mortgage professional,
-              financial advisor, and/or tax professional.
+                <span className="font-semibold text-white">Disclaimer:</span> Information, tools, and calculators provided on Snaphomz are for informational and illustrative purposes only. Outputs are based on assumptions and user-provided inputs and do not constitute financial, legal, tax, or lending advice. Actual costs, interest rates, terms, and eligibility may differ from any figures shown. Snaphomz is not a lender, broker, or financial advisor. Before making any real estate or financing decisions, please consult a licensed mortgage professional, financial advisor, and/or tax professional
               </p>
               <div className="mt-4">
                 <Link href="/do-not-sell-or-share" className="underline text-white">

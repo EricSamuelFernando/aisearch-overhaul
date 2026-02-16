@@ -321,6 +321,7 @@ import CustomModal from '../shared/custom-modal';
 import { Button } from '../ui/button';
 import { cn } from '@/lib/utils';
 import { useUserSnapAPIs } from '@/hooks/api/auth/snaps.API';
+import { useNotificationApi } from '@/hooks/api/user/useNotification';
 import { success, error } from '../alert/notify';
 import { useRouter } from 'next/navigation';
 import { reverse } from 'lodash';
@@ -357,6 +358,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
     createParticipents,
     toggleFavourite
   } = useUserSnapAPIs();
+  const { notificationsQuery } = useNotificationApi();
   const userData = useSelector((state: any) => state.auth.user);
   const snapId = uuidv4();
   const randomLink = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/snaps/${snapId}`;
@@ -451,6 +453,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
             });
           }
           getAllSnapsByUserId();
+          notificationsQuery.refetch();
           if (onSuccess) onSuccess();
         },
         onError: (error) => {
@@ -530,6 +533,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
         setSnaps((prev) => [...prev, data?.data?.createSnap]);
         setCreatedSnapId(data?.data?.createSnap?.id);
         setStep(2);
+        notificationsQuery.refetch();
       },
       onError: (err: any) => {
         const message =

@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { FeatureOption } from '../property-filter';
 import CustomInput from '@/components/customs/input';
 import { removeNonNumericCharacters } from '@/lib/helpers';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { PROPERTY_SEARCH_AI_URL } from '@/shared/constants/env';
 import axios from 'axios';
 import { incrementSearchCount } from '@/slices/onboarding/property-preference';
@@ -99,6 +99,32 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
   const handleInputChange = (field: string, value: string) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
   };
+
+  // Pre-select filters from query string (q, bedRooms, bathRooms) so the UI matches the applied search.
+  useEffect(() => {
+    const bedParam = searchParams.get('bedRooms');
+    const bathParam = searchParams.get('bathRooms');
+
+    const extractNumber = (pattern: RegExp) => {
+      const match = searchQuery.match(pattern);
+      return match ? Number(match[1]) : undefined;
+    };
+
+    const inferredBeds = bedParam ? Number(bedParam) : extractNumber(/(\d+)\s*[- ]*bed/i);
+    const inferredBaths = bathParam ? Number(bathParam) : extractNumber(/(\d+)\s*[- ]*bath/i);
+
+    setLocalFilters((prev) => ({
+      ...prev,
+      bedRooms: prev.bedRooms || (inferredBeds ? inferredBeds.toString() : ''),
+      bathRooms: prev.bathRooms || (inferredBaths ? inferredBaths.toString() : ''),
+    }));
+
+    setFilters((prev: any) => ({
+      ...prev,
+      bedrooms: prev.bedrooms ?? inferredBeds ?? prev.bedrooms,
+      bathrooms: prev.bathrooms ?? inferredBaths ?? prev.bathrooms,
+    }));
+  }, [searchQuery, searchParams, setFilters]);
 
   const handleBedSelection = (selectedBed: number | string) => {
     setLocalFilters((prev) => ({ ...prev, bedRooms: selectedBed.toString() }));

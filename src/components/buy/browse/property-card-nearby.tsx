@@ -79,7 +79,7 @@ const PropertyCardHomes: React.FC<PropertyCardProps> = ({
           </div>
         )}
       </div>
-      
+
       {/* Property Type Badge */}
       {listing?.listing?.leadTypes?.mlsType?.length ? (
         <div className="absolute top-4 left-4 bg-orange-600 text-white px-3 py-1 rounded-lg text-sm font-medium z-10">
@@ -95,13 +95,12 @@ const PropertyCardHomes: React.FC<PropertyCardProps> = ({
             onToggleCompare?.();
           }}
           disabled={compareDisabled && !isSelected}
-          className={`absolute top-4 right-4 z-20 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-            isSelected
+          className={`absolute top-4 right-4 z-20 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${isSelected
               ? 'bg-white text-gray-900'
               : compareDisabled
                 ? 'bg-white/60 text-gray-400 cursor-not-allowed'
                 : 'bg-white text-gray-900 hover:bg-gray-100'
-          }`}
+            }`}
         >
           {isSelected ? 'Selected' : 'Compare'}
         </button>
@@ -140,14 +139,14 @@ const PropertyCardHomes: React.FC<PropertyCardProps> = ({
               {listing?.listing?.property?.bedroomsTotal || 0} Bed
             </span>
           </div>
-          
+
           <div className="flex items-center gap-1">
             <Bath className="w-4 h-4 text-white/80" />
             <span className="text-white text-sm font-medium">
               {listing?.listing?.property?.bathroomsTotal || 0} Bath
             </span>
           </div>
-          
+
           <div className="flex items-center gap-1">
             <Ruler className="w-4 h-4 text-white/80" />
             <span className="text-white text-sm font-medium">

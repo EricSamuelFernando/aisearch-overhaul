@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { RefObject, useEffect, useMemo, useState } from 'react';
+import { RefObject, useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { nanoid } from 'nanoid';
 import { useInView } from 'react-intersection-observer';
@@ -14,6 +14,9 @@ import { useProperty, usePropertyActions } from '@/shared/hooks/useProperty';
 import { PropCardLoader } from './buy-property-card-loader';
 import PropertyCards from './browse/property-card';
 import { usePropertyStore } from '@/store/use-property-store';
+import Pagination, { calculateTotalPages } from '@/components/card-pagination/pagination';
+import { useUserSnapAPIs } from '@/hooks/api/auth/snaps.API';
+import { useSelector } from 'react-redux';
 
 type MyComponentRef = RefObject<HTMLDivElement>;
 
@@ -22,13 +25,39 @@ type Props = {
   selectedProperty: string;
 };
 
+const ITEMS_PER_PAGE = 14;
+
 function BuyPropertyCards({ forwardedRef, selectedProperty }: Props) {
   const router = useRouter();
   const { currentView } = useProperty();
   const { ref } = useInView();
   const { saveMlsProperty } = usePropertyActions();
   const { aiData } = usePropertiesContext();
-  const { allProperties,isLoading } = usePropertyStore();
+  const { allProperties, isLoading } = usePropertyStore();
+  const userData = useSelector((state: any) => state.auth.user);
+  const { getAllSnaps } = useUserSnapAPIs();
+  const [snaps, setSnaps] = useState<any[]>([]);
+
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const fetchSnaps = () => {
+    if (userData?.id) {
+      getAllSnaps.mutate(userData.id, {
+        onSuccess: (data) => {
+          setSnaps(data);
+        },
+      });
+    }
+  };
+
+  useEffect(() => {
+    fetchSnaps();
+  }, [userData?.id]);
+
+  // Reset to page 1 when search results change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [allProperties?.length]);
 
   // Pagination: 5 rows x 2 columns = 10 cards per page for map view.
   const ITEMS_PER_PAGE = 10;
@@ -123,17 +152,10 @@ function BuyPropertyCards({ forwardedRef, selectedProperty }: Props) {
                     >
                       <PropertyCards {...prop} />
                     </div>
-                  );
-                })
-              ) : (
-                <div className="flex items-center justify-center py-10">
-                  <div className="h-40 w-40 rounded-md text-gray-300">
-                    No Property Found
                   </div>
-                </div>
-              )}
-            </>
-          )}
+                )}
+              </>
+            )}
           </div>
         </div>
       </div>

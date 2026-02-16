@@ -539,8 +539,13 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
       query = `${searchTerm} of property sub-type ${data?.category} having ${data?.subCategories}`
     }
     let naturalQuery = ""
+    const normalizedQuery = (query || '').trim();
+    if (!normalizedQuery) return;
 
-    router.push(`/buy/browse?q=${query}`)
+    setSearchString(normalizedQuery);
+    if (lastAutoSearchRef.current === normalizedQuery) return;
+    lastAutoSearchRef.current = normalizedQuery;
+    sendSearchRequest(normalizedQuery);
   }, [searchParams, searchTerm]);
 
 
@@ -605,7 +610,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
         PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search',
         {
           user: userId,
-          query: searchString,
+          query: queryToUse,
         }
       );
       clearProperties();

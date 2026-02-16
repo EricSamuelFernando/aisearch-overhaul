@@ -33,6 +33,7 @@ import DeleteCollectionConfirmationModal from '@/components/delete-snap.modal';
 import RenameCollectionModal from '@/components/rename-snap.modal';
 import SendSnapLinkModal from '@/components/send_snap.modal';
 import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
+import PropertyRecommendations from '@/components/dashboard/main/property-recommendations';
 
 interface SnapCollection {
     id: string;
@@ -399,7 +400,8 @@ export default function SnapDetailsPage() {
                                 ...property,
                             };
                             const propKey = safeProperty.listingId || safeProperty.id;
-                            return <FavouritePropertyCards
+                            return  <div key={safeProperty.id} className="flex flex-col">
+                                <FavouritePropertyCards
                                 key={safeProperty.id}
                                 {...safeProperty}
                                 snapId={id}
@@ -411,7 +413,12 @@ export default function SnapDetailsPage() {
                                 isSelected={selectedForCompare.includes(propKey)}
                                 isDisabled={selectedForCompare.length >= 4 && !selectedForCompare.includes(propKey)}
                                 onSelect={handleSelectForCompare}
-                            />;
+                            />
+                              <PropertyRecommendations
+                                        listingId={safeProperty.listingId}
+                                        propertyId={safeProperty.propertyId}
+                                    />
+                              </div>
                         })}
                     </div>
                     <ScrollBar orientation='vertical' className='h-full' />

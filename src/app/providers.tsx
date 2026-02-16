@@ -108,7 +108,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             </ModalProvider>
             <Toaster
               position="top-right"
-              duration={3500}
+              duration={6000}
               closeButton={false}
               richColors={false}
               icons={{

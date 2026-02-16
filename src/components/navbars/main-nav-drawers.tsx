@@ -3,12 +3,14 @@
 import * as React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { ChevronDown } from 'lucide-react';
 
 import CustomDrawer from '../customs/drawer';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/shared/hooks/useAuth';
 import LoginRegisterModal from '../modals/login-register-modal';
-import AccountDropdown from '../account-dropdown';
+import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
+import { getInitials } from '@/lib/helpers';
 
 interface MobileSideDrawerProps {
   closeDrawer: () => void;
@@ -20,6 +22,14 @@ const MobileSideDrawer: React.FC<MobileSideDrawerProps> = ({
   isDrawerOpen = false,
 }) => {
   const { isLoggedIn, user } = useAuth();
+  const { userLogout } = useUserAuthApi();
+  const [showAvatar, setShowAvatar] = React.useState(Boolean(user?.profile));
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    setShowAvatar(Boolean(user?.profile));
+    if (!isDrawerOpen) setIsAccountMenuOpen(false);
+  }, [user?.profile, isDrawerOpen]);
 
   return (
     <CustomDrawer
@@ -30,7 +40,16 @@ const MobileSideDrawer: React.FC<MobileSideDrawerProps> = ({
     >
       <div className="h-full bg-white flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-end px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+          <Link href="/home" onClick={closeDrawer} className="flex items-center">
+            <Image
+              src="/assets/Logos/Snaphomz-Logo-Black (4).png"
+              alt="Snaphomz"
+              width={120}
+              height={32}
+              className="h-8 w-auto object-contain"
+            />
+          </Link>
           <button
             className='flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 transition-colors'
             onClick={closeDrawer}
@@ -90,13 +109,60 @@ const MobileSideDrawer: React.FC<MobileSideDrawerProps> = ({
               >
                 Dashboard
               </Link>
-              <div className="flex justify-center">
-                <AccountDropdown
-                  username={user?.fullname!}
-                  avatar={user?.profile || null}
-                  firstName={user?.firstname!}
-                  lastName={user?.lastname!}
-                />
+
+              <div className="rounded-2xl border border-gray-200 bg-[#FAFAFA] p-4">
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-3"
+                  onClick={() => setIsAccountMenuOpen((prev) => !prev)}
+                >
+                  <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-gray-500 text-sm font-medium text-white">
+                    {user?.profile && showAvatar ? (
+                      <img
+                        src={user.profile}
+                        alt="Profile"
+                        className="h-full w-full object-cover"
+                        onError={() => setShowAvatar(false)}
+                      />
+                    ) : (
+                      getInitials(user?.firstname || '', user?.lastname || '') || 'SH'
+                    )}
+                  </div>
+                  <p className="flex-1 truncate text-left text-sm font-medium text-gray-800">
+                    {user?.fullname || 'Signed in'}
+                  </p>
+                  <ChevronDown
+                    className={`h-4 w-4 text-gray-500 transition-transform ${isAccountMenuOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
+
+                {isAccountMenuOpen && (
+                  <div className="mt-4 space-y-2">
+                    <Link
+                      href='/account'
+                      className='block w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50'
+                      onClick={closeDrawer}
+                    >
+                      Account
+                    </Link>
+                    <Link
+                      href='/profile'
+                      className='block w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50'
+                      onClick={closeDrawer}
+                    >
+                      Profile
+                    </Link>
+                    <button
+                      className='block w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-left text-sm text-red-600 transition-colors hover:bg-red-50'
+                      onClick={() => {
+                        userLogout.mutate();
+                        closeDrawer();
+                      }}
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ) : (

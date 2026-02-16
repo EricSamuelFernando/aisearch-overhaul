@@ -1036,9 +1036,7 @@ function PropertyFilter() {
               ? 'Showing homes matched from our AI'
               : 'Explore homes only within the California region'}
           </h2>
-
           <FilterDrawer
-
             FeatureSelectorComponent={FeatureSelector}
             FeatureBathroomSelector={FeatureBathroomSelector}
             selectedSubCategories={selectedSubCategories}
@@ -1050,11 +1048,6 @@ function PropertyFilter() {
             </div>
           ) : null}
         </div>
-        {currentView === 'grid' ? (
-          <div className="flex items-start gap-4 whitespace-nowrap md:ml-auto">
-            <ViewSelection />
-          </div>
-        ) : null}
       </div>
       <p className="text-lg font-medium leading-9 text-grey-370">
         You have searched: {searchTerm}

@@ -5758,9 +5758,9 @@ export default function ChatBoxComponent(props: any) {
                               <div className="flex items-start gap-1">
                                 <LocationOnIcon className="text-primary" />
                                 <div>
-                                 <p className="text-sm font-semibold text-gray-900">
-                              {selectedThreadDetail?.propertyAddress || selectedThreadDetail?.propertyName || "Property"}
-                            </p>
+                                  <p className="text-sm font-semibold text-gray-900">
+                                    {selectedThreadDetail?.propertyAddress || selectedThreadDetail?.propertyName || "Property"}
+                                  </p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-1">

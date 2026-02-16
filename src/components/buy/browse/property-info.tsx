@@ -145,7 +145,7 @@ function PropertyBrowseView({ }: Props) {
         'relative w-full mb-20 md:grid',
         currentView === 'map'
           ? 'grid-cols-2 gap-x-0'
-          : 'grid-cols-5 w-full gap-x-8 max-w-[1450px] mx-auto',
+          : 'grid-cols-5 w-full gap-x-8 max-w-[1600px] mx-auto',
       )}
     >
       {/* Property Cards */}
@@ -156,9 +156,9 @@ function PropertyBrowseView({ }: Props) {
         //   currentView === 'map' ? 'col-span-3 px-[3.12rem]' : 'col-span-5',
         // )}
         className={cn(
-          'px-4 md:px-8',
+          'px-4 md:px-6',
           currentView === 'map'
-            ? 'flex flex-col gap-y-4 md:col-span-1 md:px-[3.12rem]'
+            ? 'flex flex-col gap-y-4 md:col-span-1 md:px-6'
             : 'col-span-5',
         )}
       >

@@ -65,7 +65,7 @@ const CommentsModal: React.FC<CommentsModalProps> = ({ isOpen, onClose, property
         if (!newCommentText.trim()) return;
         setIsSubmitting(true);
         try {
-            await addComment(newCommentText, userName, propertyName, accountType); // Pass accountType
+            await addComment(newCommentText, userName, address, accountType); // Pass accountType
             setNewCommentText('');
             notificationsQuery.refetch();
             if (onCommentAdded) onCommentAdded();

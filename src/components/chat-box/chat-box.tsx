@@ -4767,8 +4767,8 @@ export default function ChatBoxComponent(props: any) {
           <Help className="h-5 w-5" />
         </Button>
       </header> */}
-      <section>
-        <div className="flex-1 flex flex-col border-l md:flex-row bg-gray-100">
+      <section className="w-full flex-1 min-w-0">
+        <div className="w-full min-w-0 flex-1 flex flex-col border-l md:flex-row bg-gray-100">
           <div className={`w-full md:basis-[25%] md:max-w-[25%] md:min-w-[25%] bg-white border-r ${showThreads ? "block" : "hidden md:block"} overflow-hidden`}>
             {/* Header */}
             <div className="p-4 border-b flex justify-between items-center">
@@ -5053,7 +5053,7 @@ export default function ChatBoxComponent(props: any) {
 
 
           <div
-            className={`w-full ${showDetails
+            className={`w-full min-w-0 ${showDetails
               ? "md:basis-[50%] md:max-w-[50%] md:min-w-[50%]"
               : "md:basis-[75%] md:max-w-[75%] md:min-w-[75%]"
               } flex flex-col bg-white ${showChat ? "block" : "hidden md:block"} max-h-full overflow-hidden`}
@@ -5721,7 +5721,7 @@ export default function ChatBoxComponent(props: any) {
 
           {/* Property Details Sidebar */}
           {showDetails && (
-            <div className={`w-full md:w-96 bg-gray-50 border-l ${showDetails ? "block" : "hidden md:block"} flex flex-col overflow-hidden `}>
+            <div className="w-full md:basis-[25%] md:max-w-[25%] md:min-w-[25%] bg-gray-50 border-l flex flex-col overflow-hidden">
               <div className="p-4 border-b flex justify-between items-center">
                 <h2 className="font-semibold">Property Details</h2>
                 <Button

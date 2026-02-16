@@ -405,8 +405,8 @@ const BuyBreadCrumb = ({ }: Props) => {
   return (
     <div
       className={cn(
-        'sticky w-full px-4 pb-4 pt-10 md:px-8',
-        currentView === 'grid' ? 'max-w-[1440px] mx-auto' : '',
+        'sticky w-full px-4 pb-4 pt-10 md:px-6',
+        currentView === 'grid' ? 'max-w-[1600px] mx-auto' : '',
       )}
     >
       <div className='flex items-center gap-x-2 font-medium'>
@@ -482,6 +482,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
   const { currentView } = useProperty();
   const popupRef = React.useRef<HTMLDivElement>(null);
   const toggleButtonRef = React.useRef<HTMLButtonElement>(null);
+  const [isFooterVisible, setIsFooterVisible] = React.useState(false);
 
   const { user } = useAuth()
   const { email } = useRegister()
@@ -570,6 +571,21 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [showInputBox]);
 
+  // Hide the floating button when the footer enters view.
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const footer = document.querySelector('footer');
+    if (!footer) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsFooterVisible(entry.isIntersecting),
+      { threshold: 0.01 },
+    );
+
+    observer.observe(footer);
+    return () => observer.disconnect();
+  }, []);
+
   const sendSearchRequest = async () => {
     if (searchCount + 1 >= 6 && !user?.email) {
       error({
@@ -637,7 +653,8 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
           left: '50%',
           bottom: '24px',
           transform: 'translateX(-50%)',
-          zIndex: 50,
+          zIndex: 9999,
+          display: isFooterVisible ? 'none' : 'block',
         }}
       >
         <button
@@ -749,7 +766,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
 
 
       <div id="map-unpin-sentinel" className="h-px" />
-      <div id="buy-custom-search" className={cn(currentView === 'grid' ? 'max-w-[1440px] mx-auto w-full' : 'w-full')}>
+      <div id="buy-custom-search" className={cn(currentView === 'grid' ? 'max-w-[1440px] mx-auto w-full' : 'w-full hidden')}>
         <div
           className={cn(
             'pt-16 pb-2 border-b border-gray-200',

@@ -517,7 +517,7 @@ interface MainNavItem extends NavItem { }
 
 const socialLinks: MainNavItem[] = [
     {
-        title: 'twitter',
+        title: 'x',
         external: true,
         href: 'https://x.com/snaphomz',
     },

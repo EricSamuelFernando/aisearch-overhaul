@@ -18,6 +18,10 @@ import { useUserSnapAPIs } from '@/hooks/api/auth/snaps.API';
 
 type PropertyCardsProps = IProperty & {
   isWishlisted?: boolean;
+  compareMode?: boolean;
+  isSelected?: boolean;
+  isDisabled?: boolean;
+  onSelect?: (id: string) => void;
 };
 
 const FavouritePropertyCards = (props: any) => {
@@ -27,6 +31,7 @@ const FavouritePropertyCards = (props: any) => {
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   // Default to true since this is the favourites card, but respect prop if passed
   const isWishlisted = props.isWishlisted !== undefined ? props.isWishlisted : true;
+  const { compareMode, isSelected, isDisabled, onSelect } = props;
 
   // Get state from zip code since old favorites don't have city/state in database
   const displayCity = props?.city; // Will be null for old favorites
@@ -54,6 +59,12 @@ const FavouritePropertyCards = (props: any) => {
   });
 
   const handleClick = (e: React.MouseEvent) => {
+    if (compareMode) {
+      if (!isDisabled || isSelected) {
+        onSelect?.(props.listingId || props.id);
+      }
+      return;
+    }
     if (!carouselEvent) {
       // Destructure to remove non-serializable function before saving to Redux
       const { onCommentAdded, ...serializableProps } = props;
@@ -86,8 +97,36 @@ const FavouritePropertyCards = (props: any) => {
   return (
     <div
       onClick={handleClick}
-      className="flex w-full min-h-[380px] sm:min-h-[420px] max-h-[420px] cursor-pointer flex-col overflow-hidden rounded-xl shadow-lg hover:shadow-xl bg-black border border-gray-800 hover:border-ocOrange group relative"
+      className={`flex w-full min-h-[380px] sm:min-h-[420px] max-h-[420px] cursor-pointer flex-col overflow-hidden rounded-xl shadow-lg hover:shadow-xl bg-black border group relative transition-all duration-200
+        ${compareMode
+          ? isSelected
+            ? 'border-[#FF8700] border-2 shadow-[0_0_0_3px_rgba(255,135,0,0.25)]'
+            : isDisabled
+              ? 'border-gray-800 opacity-40 cursor-not-allowed'
+              : 'border-gray-800 hover:border-[#FF8700]'
+          : 'border-gray-800 hover:border-ocOrange'
+        }`}
     >
+      {/* Compare Mode Selection Overlay */}
+      {compareMode && (
+        <div className="absolute top-3 right-12 z-30 pointer-events-none">
+          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all
+            ${isSelected
+              ? 'bg-[#FF8700] border-[#FF8700]'
+              : 'bg-white/80 border-gray-300'
+            }`}
+          >
+            {isSelected && (
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
+          </div>
+        </div>
+      )}
+      {compareMode && isDisabled && (
+        <div className="absolute inset-0 z-20 bg-black/30 rounded-xl pointer-events-none" />
+      )}
       <div className="relative h-48 w-full overflow-hidden">
         {isWishlisted && (
           <div className="absolute top-3 right-3 z-20">

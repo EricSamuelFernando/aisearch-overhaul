@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import CustomModal from '@/components/custom-modal';
 import NImage from 'next/image';
 import { useComments } from '@/hooks/api/useComments';
+import { useNotificationApi } from '@/hooks/api/user/useNotification';
 import { format } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 import { useAppSelector } from '@/lib/hook';
@@ -46,6 +47,7 @@ const CommentsModal: React.FC<CommentsModalProps> = ({ isOpen, onClose, property
     const propertyName = property?.name || property?.propertyName;
 
     const { comments, loading, addComment } = useComments(listingId, snapId); // Pass snapId to hook
+    const { notificationsQuery } = useNotificationApi();
     const [newCommentText, setNewCommentText] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -65,6 +67,7 @@ const CommentsModal: React.FC<CommentsModalProps> = ({ isOpen, onClose, property
         try {
             await addComment(newCommentText, userName, address, accountType); // Pass accountType
             setNewCommentText('');
+            notificationsQuery.refetch();
             if (onCommentAdded) onCommentAdded();
         } catch (error) {
             // Error handled in hook

@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -43,8 +45,11 @@ interface SnapCollection {
 export default function SnapDetailsPage() {
     const router = useRouter();
     const params = useParams();
+    const searchParams = useSearchParams();
     const id = params?.id as string;
     const userData = useSelector((state: any) => state.auth.user);
+    const fromBuyerDashboard = searchParams?.get('from') === 'buyer-dashboard';
+    const backTarget = fromBuyerDashboard ? '/dashboard/buyer?tab=my-snapz' : '/account';
 
     const [snap, setSnap] = useState<SnapCollection | null>(null);
     const [favourites, setFavourites] = useState<any[]>([]);
@@ -203,7 +208,7 @@ export default function SnapDetailsPage() {
         deleteSnap.mutateAsync(id, {
             onSuccess: (response: any) => {
                 success({ message: "Snapz has been successfully deleted!" })
-                router.push('/account');
+                router.push(backTarget);
             }
         })
     }
@@ -309,7 +314,7 @@ export default function SnapDetailsPage() {
                     <Button
                         size="sm"
                         className="border-2 bg-transparent text-gray-600 hover:bg-gray-400 rounded-full px-4 h-8 text-xs font-medium flex items-center gap-2 w-fit"
-                        onClick={() => router.push('/account')}
+                        onClick={() => router.push(backTarget)}
                     >
                         <ArrowLeft className="h-3 w-3" />
                         Back

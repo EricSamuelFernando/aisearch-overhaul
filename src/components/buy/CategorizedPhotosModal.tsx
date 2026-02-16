@@ -152,8 +152,11 @@ export default function CategorizedPhotosModal({
                 setAnalysis(analysisData);
             };
 
-            // Used preloaded data if available, otherwise fetch
-            if (preloadedData) {
+            // Used preloaded data if available AND has categorization, otherwise fetch
+            const hasCategorization = preloadedData?.categorization?.categorized_images ||
+                preloadedData?.data?.categorization?.categorized_images;
+
+            if (hasCategorization) {
                 console.log('Using preloaded data for CategorizedPhotosModal');
                 processData(preloadedData);
                 return;
@@ -164,8 +167,8 @@ export default function CategorizedPhotosModal({
 
                 const fetchCategorizedImages = async () => {
                     try {
-                        // Use POST /get_data as confirmed working
-                        const url = `${API_BASE_URL}/get_data`;
+                        // Use POST /image_categorization
+                        const url = `${API_BASE_URL}/image_categorization`;
                         const res = await fetch(url, {
                             method: 'POST',
                             headers: {

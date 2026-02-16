@@ -842,6 +842,8 @@ function PropertyFilter() {
 
         // Check strict flag (truthy check)
         if (props[sub.propertyKey]) return true;
+        // Check strict flag (truthy check)
+        if (props[sub.propertyKey]) return true;
 
         if (remarks && sub.keywords && sub.keywords.length > 0) {
           const lowerRemarks = remarks.toLowerCase();
@@ -943,6 +945,8 @@ function PropertyFilter() {
             const props = listing?.property || listing?.data || {};
             const remarks = listing?.publicRemarks;
 
+            // Check strict flag (truthy check coverage for true, "true", etc)
+            if (props[sub.propertyKey]) return true;
             // Check strict flag (truthy check coverage for true, "true", etc)
             if (props[sub.propertyKey]) return true;
 
@@ -1232,6 +1236,12 @@ function PropertyFilter() {
         </div>
 
       ) : ""}
+
+      {/* Comparison Modal */}
+      <PropertyComparisonModal
+        isOpen={showCompareModal}
+        closeModal={() => setShowCompareModal(false)}
+      />
 
       {/* Comparison Modal */}
       <PropertyComparisonModal

@@ -53,6 +53,7 @@ export const MORTGAGE_APPLICATION_URL = process.env.NEXT_PUBLIC_MORTGAGE_FRONTEN
 
 export const AI_BACKEND_BASE_URI = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI
 
+// export const PROPERTY_SEARCH_AI_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/search` || "http://13.60.114.186:9000/api/search";
 export const PROPERTY_SEARCH_AI_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/search` || "http://13.60.114.186:9000/api/search";
 
 export const PROPERTY_DETAIL_SEARCH_AI_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/get_data` || 'http://13.60.114.186:9000/api/get_data'

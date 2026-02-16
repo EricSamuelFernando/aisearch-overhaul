@@ -325,8 +325,8 @@ export default function SnapDetailsPage() {
                         <Button
                             size="sm"
                             className={`flex items-center gap-2 rounded-full px-5 h-10 text-sm font-semibold transition-all shadow-sm ${compareMode
-                                    ? 'bg-gray-800 text-white hover:bg-gray-700'
-                                    : 'bg-white text-gray-800 border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+                                ? 'bg-gray-800 text-white hover:bg-gray-700'
+                                : 'bg-white text-gray-800 border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
                                 }`}
                             onClick={handleToggleCompareMode}
                         >
@@ -453,8 +453,8 @@ export default function SnapDetailsPage() {
                             <div
                                 key={i}
                                 className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center text-xs font-bold transition-all ${selectedForCompare[i]
-                                        ? 'bg-[#FF8700] border-[#FF8700] text-white'
-                                        : 'border-gray-600 text-gray-500'
+                                    ? 'bg-[#FF8700] border-[#FF8700] text-white'
+                                    : 'border-gray-600 text-gray-500'
                                     }`}
                             >
                                 {selectedForCompare[i] ? '✓' : (i + 1)}

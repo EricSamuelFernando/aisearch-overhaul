@@ -23,7 +23,7 @@ const PropertyCardHomes: React.FC<PropertyCardProps> = ({
   const [carouselEvent, setCarouselEvent] = useState(false);
 
   if (!listing?.listing) return null;
-  console.log("Nearby Listing:", listing);
+  // console.log("Nearby Listing:", listing);
 
   // ✅ Click handlers
   const handleClick = (e: React.MouseEvent) => {

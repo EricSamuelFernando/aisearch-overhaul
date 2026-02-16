@@ -487,8 +487,8 @@ const MonthlyMortgageCalculator: React.FC<MonthlyMortgageCalculatorProps> = ({
                 type="button"
                 onClick={() => setPmiEnabled((prev) => !prev)}
                 className={`h-10 px-3 rounded-xl border text-xs ${pmiEnabled
-                    ? 'border-orange-300 bg-orange-50 text-orange-700'
-                    : 'border-gray-200 bg-white text-gray-500'
+                  ? 'border-orange-300 bg-orange-50 text-orange-700'
+                  : 'border-gray-200 bg-white text-gray-500'
                   }`}
               >
                 {pmiEnabled ? 'Enabled' : 'Off'}

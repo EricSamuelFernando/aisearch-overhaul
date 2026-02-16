@@ -17,9 +17,11 @@ export default function BrowsePage() {
 
       <BuyCustomSearch hideInMap />
 
-{/* MAP STOP SENTINEL */}
-<div id="map-stop-sentinel" className="h-px" />
-      <Footer />
+      {/* MAP STOP SENTINEL */}
+      <div id="map-stop-sentinel" className="h-px" />
+      <div className="relative z-10 pb-0">
+        <Footer />
+      </div>
     </section>
   );
 }

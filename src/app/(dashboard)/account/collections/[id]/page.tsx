@@ -163,7 +163,7 @@ export default function SnapDetailsPage() {
             snapId: id,
             email: email,
             status: "pending",
-            accountType: type === 'agent' ? 'agent' : type
+            accountType: type === 'agent' ? 'agent' : 'buyer'
         }
         createParticipents.mutateAsync(data, {
             onSuccess: (response: any) => {

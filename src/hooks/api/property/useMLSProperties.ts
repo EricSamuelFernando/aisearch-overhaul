@@ -23,6 +23,7 @@ const postProperties = async (searchTerm: string) => {
 
     const response = await axios.post(
       'https://demo-ai.snaphomz.com/api/search',
+      //'https://cr2dxaiuni.execute-api.us-west-1.amazonaws.com/api/search',
       {
         query: searchTerm,
         userId: 'yash@003',
@@ -59,7 +60,7 @@ const searchProperty = atomWithMutation((get) => ({
 // Hook to use the mutation in your component
 export const useMLSProperties = () => {
   const [{ mutate: mutatePropertySearch, status, data }] = useAtom(searchProperty);
-  
+
 
   return { mutatePropertySearch, status, data };
 };

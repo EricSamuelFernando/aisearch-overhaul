@@ -115,7 +115,7 @@ export const EmptyListing = ({ title }: EmptyListingProp) => {
     setLoading(true);
     try {
       const body = {
-       address,
+        address,
       }
       const response = await axios.post(
         `${PROPERTY_SEARCH_AI_URL}/address` || 'https://demo-ai.snaphomz.com/api/search/address',
@@ -129,7 +129,7 @@ export const EmptyListing = ({ title }: EmptyListingProp) => {
 
         const property = response?.data?.searchAddressResult?.data
         const extraInfoProperty = response?.data?.mlsDetailResult?.data
-        console.log(property , extraInfoProperty?.media?.primaryListingImageUrl)
+        console.log(property, extraInfoProperty?.media?.primaryListingImageUrl)
         const payload = {
           ...property,
           ...extraInfoProperty,

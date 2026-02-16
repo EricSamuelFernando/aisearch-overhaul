@@ -23,7 +23,7 @@ const PropertyCardHomes: React.FC<PropertyCardProps> = ({
   const [carouselEvent, setCarouselEvent] = useState(false);
 
   if (!listing?.listing) return null;
-  console.log("Nearby Listing:", listing);
+  // console.log("Nearby Listing:", listing);
 
   // ✅ Click handlers
   const handleClick = (e: React.MouseEvent) => {
@@ -81,10 +81,10 @@ const PropertyCardHomes: React.FC<PropertyCardProps> = ({
           }}
           disabled={compareDisabled && !isSelected}
           className={`absolute top-4 right-4 z-20 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${isSelected
-              ? 'bg-white text-gray-900'
-              : compareDisabled
-                ? 'bg-white/60 text-gray-400 cursor-not-allowed'
-                : 'bg-white text-gray-900 hover:bg-gray-100'
+            ? 'bg-white text-gray-900'
+            : compareDisabled
+              ? 'bg-white/60 text-gray-400 cursor-not-allowed'
+              : 'bg-white text-gray-900 hover:bg-gray-100'
             }`}
         >
           {isSelected ? 'Selected' : 'Compare'}

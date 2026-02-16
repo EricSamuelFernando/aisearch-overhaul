@@ -17,25 +17,25 @@ const getListingKey = (home: any, fallbackIndex: number) => {
 };
 
 const NearbyHomesSection = ({ nearbyHomes, currentProperty, currentListingId }: any) => {
-  console.log("Nearby Homes:", nearbyHomes);
+  // console.log("Nearby Homes:", nearbyHomes);
   if (!nearbyHomes?.length) return null;
-  
+
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'For Sale' | 'Sold'>('For Sale');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [limitReached, setLimitReached] = useState(false);
-  
+
   // Filter properties based on active tab
   const filteredHomes = nearbyHomes.filter((home: any) => {
     if (activeTab === 'For Sale') {
       // Show properties that are currently for sale
-      return home?.listing?.standardStatus === 'Active' || 
-             home?.listing?.standardStatus === 'ActiveUnderContract' ||
-             !home?.listing?.standardStatus; // Default to showing if status is unclear
+      return home?.listing?.standardStatus === 'Active' ||
+        home?.listing?.standardStatus === 'ActiveUnderContract' ||
+        !home?.listing?.standardStatus; // Default to showing if status is unclear
     } else {
       // Show sold properties
-      return home?.listing?.standardStatus === 'Sold' || 
-             home?.listing?.standardStatus === 'Closed';
+      return home?.listing?.standardStatus === 'Sold' ||
+        home?.listing?.standardStatus === 'Closed';
     }
   });
 
@@ -105,11 +105,10 @@ const NearbyHomesSection = ({ nearbyHomes, currentProperty, currentListingId }: 
             type="button"
             onClick={handleGoToCompare}
             disabled={selectedIds.length === 0}
-            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
-              selectedIds.length === 0
+            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${selectedIds.length === 0
                 ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 : 'bg-black text-white hover:bg-gray-900'
-            }`}
+              }`}
           >
             Compare selected
           </button>
@@ -130,8 +129,8 @@ const NearbyHomesSection = ({ nearbyHomes, currentProperty, currentListingId }: 
         <button
           onClick={() => setActiveTab('For Sale')}
           className={`px-4 pb-2 text-lg font-medium transition-colors ${activeTab === 'For Sale'
-              ? 'text-gray-900 border-b-2 border-black'
-              : 'text-gray-500 hover:text-gray-700'
+            ? 'text-gray-900 border-b-2 border-black'
+            : 'text-gray-500 hover:text-gray-700'
             }`}
         >
           For Sale
@@ -140,8 +139,8 @@ const NearbyHomesSection = ({ nearbyHomes, currentProperty, currentListingId }: 
         <button
           onClick={() => setActiveTab('Sold')}
           className={`px-4 pb-2 text-lg font-medium transition-colors ml-4 ${activeTab === 'Sold'
-              ? 'text-gray-900 border-b-2 border-black'
-              : 'text-gray-500 hover:text-gray-700'
+            ? 'text-gray-900 border-b-2 border-black'
+            : 'text-gray-500 hover:text-gray-700'
             }`}
         >
           Sold

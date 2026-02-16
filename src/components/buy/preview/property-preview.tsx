@@ -19,6 +19,7 @@ import { BuyTab } from '../buy-tab';
 import BuyTable from '../buy-table';
 import ItemNav from './ItemNav';
 import { useGetSingleProperty } from '@/hooks/api/property/usePropertyApi';
+import { useAskAIApi } from '@/hooks/api/ask-ai/useAskAIApi';
 import { useAppSelector } from '@/lib/hook';
 import {
   HeroCollege,
@@ -139,7 +140,7 @@ const PropertyPreview: React.FC = () => {
     };
   }
 
-  const [open, setOpen] = React.useState<number | null>(null);
+
   const [propertyDetails, setPropertyDetails] = React.useState<PropertyDetails | null>(null);
   const property: any = useAppSelector((state: any) => state.property.property);
   const [tags, setTags] = React.useState<any>([])
@@ -187,6 +188,33 @@ const PropertyPreview: React.FC = () => {
   const [schoolsLoading, setSchoolsLoading] = React.useState(false);
   const [schoolsError, setSchoolsError] = React.useState<string | null>(null);
 
+  // Ask AI Integration
+  const { askAIMutation } = useAskAIApi();
+  const [aiAnswer, setAiAnswer] = React.useState<string | null>(null);
+  const [userQuestionDisplay, setUserQuestionDisplay] = React.useState<string | null>(null);
+  const [aiSuggestions, setAiSuggestions] = React.useState<string[]>([
+    "What should I look out for?",
+    "Will I like my neighbors?",
+    "Can I raise a family here?"
+  ]);
+
+  const handleAskAIQuery = (query: string) => {
+    if (!query.trim()) return;
+
+    setUserQuestionDisplay(query);
+    setAskAIQuestion(query); // Keep input synced if needed, or clear it
+
+    askAIMutation.mutate({ question: query }, {
+      onSuccess: (data) => {
+        setAiAnswer(data.answer);
+        if (data.suggestions && data.suggestions.length > 0) {
+          setAiSuggestions(data.suggestions);
+        }
+        setAskAIQuestion(''); // Clear input after successful send
+      }
+    });
+  };
+
   React.useEffect(() => {
     if (id) {
       getEngagedPropertyByPropertyId.mutate(id)
@@ -200,17 +228,17 @@ const PropertyPreview: React.FC = () => {
     const listingIdValue = propertyData?.listingId || listingId;
     const propertyIdValue = propertyData?.id || id;
     const listing = propertyData?.listing ?? propertyData?.public ?? propertyData;
-  const propertyInfo = listing?.property || propertyData?.property || propertyData;
+    const propertyInfo = listing?.property || propertyData?.property || propertyData;
 
-  const primaryImage =
-    listing?.media?.primaryListingImageUrl ||
-    listing?.media?.photosList?.[0]?.lowRes ||
-    propertyData?.propertyImage ||
-    propertyData?.media?.primaryListingImageUrl;
+    const primaryImage =
+      listing?.media?.primaryListingImageUrl ||
+      listing?.media?.photosList?.[0]?.lowRes ||
+      propertyData?.propertyImage ||
+      propertyData?.media?.primaryListingImageUrl;
 
-  const payload = {
-    listingId: listingIdValue ? String(listingIdValue) : undefined,
-    propertyId: propertyIdValue ? String(propertyIdValue) : undefined,
+    const payload = {
+      listingId: listingIdValue ? String(listingIdValue) : undefined,
+      propertyId: propertyIdValue ? String(propertyIdValue) : undefined,
       propertyAddress:
         listing?.address?.unparsedAddress ||
         listing?.address?.label ||
@@ -233,49 +261,49 @@ const PropertyPreview: React.FC = () => {
         propertyInfo?.propertyType || listing?.propertyType || propertyData?.propertyType,
       propertyImage: primaryImage,
       bedroomsTotal: propertyInfo?.bedroomsTotal,
-    bathroomsTotal: propertyInfo?.bathroomsTotal,
-    livingArea: propertyInfo?.livingArea,
-  };
+      bathroomsTotal: propertyInfo?.bathroomsTotal,
+      livingArea: propertyInfo?.livingArea,
+    };
 
-  if (!payload.listingId && !payload.propertyId) return;
+    if (!payload.listingId && !payload.propertyId) return;
 
-  recordPropertyView.mutate(payload);
+    recordPropertyView.mutate(payload);
 
-  // Cache details locally so view history cards can show full info even if API is sparse
-  try {
-    const cacheKey = 'viewHistoryCache';
-    const existing = JSON.parse(localStorage.getItem(cacheKey) || '{}');
-    const key = payload.listingId || payload.propertyId;
-    if (key) {
-      existing[key] = {
-        listingId: payload.listingId,
-        propertyId: payload.propertyId,
-        listPriceLow: payload.price,
-        address: {
-          unparsedAddress: payload.propertyAddress,
-          city: payload.city,
-          stateOrProvince: payload.state,
-        },
-        media: {
-          primaryListingImageUrl: payload.propertyImage,
-        },
-        property: {
-          propertyType: payload.propertyType,
-          bedroomsTotal: payload.bedroomsTotal,
-          bathroomsTotal: payload.bathroomsTotal,
-          livingArea: payload.livingArea,
-        },
-      };
-      localStorage.setItem(cacheKey, JSON.stringify(existing));
+    // Cache details locally so view history cards can show full info even if API is sparse
+    try {
+      const cacheKey = 'viewHistoryCache';
+      const existing = JSON.parse(localStorage.getItem(cacheKey) || '{}');
+      const key = payload.listingId || payload.propertyId;
+      if (key) {
+        existing[key] = {
+          listingId: payload.listingId,
+          propertyId: payload.propertyId,
+          listPriceLow: payload.price,
+          address: {
+            unparsedAddress: payload.propertyAddress,
+            city: payload.city,
+            stateOrProvince: payload.state,
+          },
+          media: {
+            primaryListingImageUrl: payload.propertyImage,
+          },
+          property: {
+            propertyType: payload.propertyType,
+            bedroomsTotal: payload.bedroomsTotal,
+            bathroomsTotal: payload.bathroomsTotal,
+            livingArea: payload.livingArea,
+          },
+        };
+        localStorage.setItem(cacheKey, JSON.stringify(existing));
+      }
+    } catch (err) {
+      console.warn('view history cache failed', err);
     }
-  } catch (err) {
-    console.warn('view history cache failed', err);
-  }
 
-  hasRecordedViewRef.current = true;
-}, [propertyData, listingId, id, recordPropertyView]);
+    hasRecordedViewRef.current = true;
+  }, [propertyData, listingId, id, recordPropertyView]);
 
-  console.log("DEBUG PREVIEW:", { id, engagedProperty, propertyData });
+  // console.log("DEBUG PREVIEW:", { id, engagedProperty, propertyData });
 
   const createEngagementAndNavigate = (meanType?: string) => {
     if (!currentUser?.id) {
@@ -490,12 +518,9 @@ const PropertyPreview: React.FC = () => {
   const handleAskAI = () => {
     if (!askAIQuestion.trim()) return;
 
-    // Here you can add the logic to send the question to your AI service
-    console.log('Ask AI Question:', askAIQuestion);
-
-    // For now, just close the modal and clear the question
+    handleAskAIQuery(askAIQuestion);
     setIsAskAIModalOpen(false);
-    setAskAIQuestion('');
+    // setAskAIQuestion(''); // Cleared in onSuccess
 
     // You can add success message or handle AI response here
     // success({ message: "Your question has been sent to AI assistant!" });
@@ -753,16 +778,13 @@ const PropertyPreview: React.FC = () => {
 
 
   React.useEffect(() => {
-    if (property?.listingId) {
-      getPropertyDetails(property?.listingId)
-    }
-  }, [property]);
+    // Consolidate data fetching into one effect
+    const targetId = property?.listingId || listingId || propertyId;
 
-  React.useEffect(() => {
-    if (listingId || propertyId) {
-      getPropertyDetails(listingId)
+    if (targetId) {
+      getPropertyDetails(String(targetId));
     }
-  }, [property]);
+  }, [property?.listingId, listingId, propertyId]);
 
   const getPropertyLatLng = React.useCallback(() => {
     let lat = null;
@@ -937,7 +959,7 @@ const PropertyPreview: React.FC = () => {
     };
   }, [proprtyData, id]);
 
-  console.log(transformData, "propertyDatas")
+  // console.log(transformData, "propertyDatas")
   const [showAllSchools, setShowAllSchools] = React.useState(false);
   const [sortedSchools, setSortedSchools] = React.useState<any[]>([]);
 
@@ -1028,12 +1050,12 @@ const PropertyPreview: React.FC = () => {
       title: "Schools Nearby",
       content: (() => {
         const schoolsToDisplay = schoolsLoading ? schoolPropsData.schools : (nearbySchools.length > 0 ? nearbySchools : schoolPropsData.schools);
-        console.log('🎓 Schools being displayed:', {
-          schoolsLoading,
-          nearbySchoolsCount: nearbySchools.length,
-          nearbySchools,
-          schoolsToDisplay
-        });
+        // console.log('🎓 Schools being displayed:', {
+        //   schoolsLoading,
+        //   nearbySchoolsCount: nearbySchools.length,
+        //   nearbySchools,
+        //   schoolsToDisplay
+        // });
         return (
           <SchoolsNearAddress
             address={(proprtyData as any)?.address?.unparsedAddress || schoolPropsData.address}
@@ -1138,7 +1160,7 @@ const PropertyPreview: React.FC = () => {
     }];
   }, [transformData.prop?.media]);
 
-  console.log(transformData)
+  // console.log(transformData)
   const handleImageClick = (index: number) => {
     setCurrentImageIndex(index);
     setIsOpen(true);
@@ -1147,15 +1169,9 @@ const PropertyPreview: React.FC = () => {
 
 
 
-  const toggle = (i: number) => {
-    setOpen(open === i ? null : i);
-  };
 
-  const items = [
-    "What should I look out for?",
-    "Will I like my neighbors?",
-    "Can I raise a family here?"
-  ];
+
+
 
   React.useEffect(() => {
     const handleHashChange = () => {
@@ -1625,38 +1641,61 @@ const PropertyPreview: React.FC = () => {
                 <h3 className="text-[20px] font-semibold">Ask AI</h3>
               </div>
 
-              <p className="text-[14px] text-gray-600 leading-relaxed mb-5">
-                Your AI real estate assistant. We'll answer pretty much any question about this home.
-              </p>
+              <div className="text-[14px] text-gray-600 leading-relaxed mb-5">
+                {aiAnswer ? (
+                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                    <p className="font-semibold text-blue-800 mb-1">AI Answer:</p>
+                    <p>{aiAnswer}</p>
+                  </div>
+                ) : (
+                  <p>Your AI real estate assistant. We'll answer pretty much any question about this home.</p>
+                )}
+              </div>
 
-              {/* Accordion */}
+              {/* Suggestions */}
               <div className="space-y-3 mb-6">
-                {items.map((label: any, index: any) => (
-                  <div
+                {(aiSuggestions || []).map((label: string, index: number) => (
+                  <button
                     key={index}
-                    onClick={() => toggle(index)}
-                    className="w-full rounded-xl bg-[#F6F6F6] px-4 py-3 cursor-pointer flex items-center justify-between text-[14px] hover:bg-[#F0F0F0] transition-colors"
+                    onClick={() => handleAskAIQuery(label)}
+                    className="w-full text-left rounded-xl bg-[#F6F6F6] px-4 py-3 cursor-pointer flex items-center justify-between text-[14px] hover:bg-[#F0F0F0] transition-colors"
+                    disabled={askAIMutation.isPending}
                   >
                     <span>{label}</span>
-                    {open === index ? (
-                      <ChevronUp className="h-4 w-4 text-gray-600" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 text-gray-600" />
-                    )}
-                  </div>
+                    <ChevronDown className="h-4 w-4 text-gray-600" />
+                  </button>
                 ))}
               </div>
 
               {/* Input */}
-              <input
-                type="text"
-                placeholder="Ask me anything about this home..."
-                className="w-full border border-[#D9D9D9] rounded-xl px-4 py-3 text-[14px] mb-5 outline-none focus:ring-0 focus:border-gray-400 transition-colors"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Ask me anything about this home..."
+                  className="w-full border border-[#D9D9D9] rounded-xl px-4 py-3 text-[14px] mb-5 outline-none focus:ring-0 focus:border-gray-400 transition-colors pr-12"
+                  value={askAIQuestion}
+                  onChange={(e) => setAskAIQuestion(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !askAIMutation.isPending) {
+                      handleAskAIQuery(askAIQuestion);
+                    }
+                  }}
+                  disabled={askAIMutation.isPending}
+                />
+                {askAIMutation.isPending && (
+                  <div className="absolute right-4 top-3">
+                    <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                  </div>
+                )}
+              </div>
 
               {/* Button */}
-              <button className="w-full bg-black text-white py-3 rounded-full text-[16px] font-medium hover:bg-gray-800 transition-colors">
-                Send
+              <button
+                onClick={() => handleAskAIQuery(askAIQuestion)}
+                disabled={askAIMutation.isPending || !askAIQuestion.trim()}
+                className="w-full bg-black text-white py-3 rounded-full text-[16px] font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {askAIMutation.isPending ? 'Thinking...' : 'Send'}
               </button>
             </div>
           </div>

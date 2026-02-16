@@ -4,7 +4,6 @@ import { format } from 'date-fns';
 import { Loader2, MessageCircle, RefreshCw } from 'lucide-react';
 import RecentCommentsModal from '@/components/modals/recent-comments-modal';
 import { SocketContext } from '@/providers/socket.context';
-import { getAuthToken } from '@/lib/storage';
 import { getStateFromZip } from '@/utils/addressParser';
 
 interface Comment {
@@ -15,6 +14,68 @@ interface Comment {
     propertyId: string;
     createdAt: string;
 }
+
+const normalizeId = (value: unknown): string => {
+    if (value === null || value === undefined) return '';
+    return String(value).trim();
+};
+
+const normalizeNumericId = (value: unknown): string => {
+    const raw = normalizeId(value).replace(/\.0+$/, '');
+    if (!/^\d+$/.test(raw)) return '';
+    return String(Number(raw));
+};
+
+const idsMatch = (a: unknown, b: unknown): boolean => {
+    const left = normalizeId(a);
+    const right = normalizeId(b);
+    if (!left || !right) return false;
+    if (left === right) return true;
+
+    const leftNum = normalizeNumericId(left);
+    const rightNum = normalizeNumericId(right);
+    return Boolean(leftNum && rightNum && leftNum === rightNum);
+};
+
+const looksLikeAddress = (value: string): boolean => {
+    if (!value) return false;
+    return /\d/.test(value) || /,\s*[A-Za-z]{2}\b/.test(value);
+};
+
+const buildFullAddress = (property: any): string => {
+    const street =
+        property?.address ||
+        property?.propertyAddress ||
+        property?.propertyAddressDetails?.formattedAddress ||
+        property?.public?.address?.unparsedAddress ||
+        property?.public?.address?.label ||
+        property?.listing?.address?.unparsedAddress;
+
+    const city =
+        property?.city ||
+        property?.propertyAddressDetails?.city ||
+        property?.public?.address?.city ||
+        property?.listing?.address?.city;
+
+    const zipCode =
+        property?.zipCode ||
+        property?.postalCode ||
+        property?.propertyAddressDetails?.postalCode ||
+        property?.public?.address?.zipCode ||
+        property?.listing?.address?.zipCode;
+
+    const state =
+        property?.state ||
+        property?.propertyAddressDetails?.state ||
+        property?.propertyAddressDetails?.province ||
+        getStateFromZip(zipCode);
+
+    const cityState = [city, state].filter(Boolean).join(', ');
+    const line2 = [cityState, zipCode].filter(Boolean).join(' ');
+
+    if (street && line2) return `${street}, ${line2}`;
+    return street || line2 || '';
+};
 
 const RecentCommentsSidebar = ({ properties = [], refreshTrigger = 0, onNewComment }: { properties?: any[], refreshTrigger?: number, onNewComment?: () => void }) => {
     const [comments, setComments] = useState<Comment[]>([]);
@@ -68,19 +129,22 @@ const RecentCommentsSidebar = ({ properties = [], refreshTrigger = 0, onNewComme
 
     const getPropertyAddress = (comment: Comment) => {
         const found = properties.find((p: any) =>
-            (p.listingId && p.listingId === comment.propertyId) ||
-            (p.id && p.id === comment.propertyId)
+            [p?.propertyId, p?.listingId, p?.id].some((id) => idsMatch(id, comment.propertyId))
         );
-        if (found?.address) {
-            const parts = [found.address];
-            const city = found.city;
-            const state = getStateFromZip(found.zipCode);
-            const cityState = [city, state].filter(Boolean).join(', ');
-            if (cityState) parts.push(cityState);
-            if (found.zipCode) parts.push(found.zipCode);
-            return parts.join(', ');
+
+        if (found) {
+            const fullAddress = buildFullAddress(found);
+            if (fullAddress) return fullAddress;
         }
-        return comment.propertyName || 'Property view';
+
+        // Snap detail pages often show one property; use it as deterministic fallback.
+        if (properties.length === 1) {
+            const singleAddress = buildFullAddress(properties[0]);
+            if (singleAddress) return singleAddress;
+        }
+
+        const propertyName = (comment.propertyName || '').trim();
+        return looksLikeAddress(propertyName) ? propertyName : 'Property view';
     };
 
     useEffect(() => {
@@ -151,7 +215,7 @@ const RecentCommentsSidebar = ({ properties = [], refreshTrigger = 0, onNewComme
                             <div key={comment.id} className="border-b border-gray-100 pb-3 last:border-0 last:pb-0">
                                 {/* Property Name - Only show if known */}
                                 {showName && (
-                                    <p className="text-xs font-semibold text-ocOrange mb-1 truncate">
+                                    <p className="text-xs font-semibold text-ocOrange mb-1 break-words">
                                         {name}
                                     </p>
                                 )}

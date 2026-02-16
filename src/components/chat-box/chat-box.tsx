@@ -2380,6 +2380,7 @@ import { messageThreadsAtom } from "@/hooks/atoms"
 import { Loader } from "@mantine/core"
 import { usePropertyServiceAPI } from "@/hooks/api/agent/useAgentProperty"
 import { useRepoManagementApi } from "@/hooks/api/document/useRepoManagement"
+import { useNotificationApi } from "@/hooks/api/user/useNotification"
 import { error, success } from "../alert/notify"
 import { useAuth } from "@/shared/hooks/useAuth"
 import { MdNotificationAdd } from "react-icons/md"
@@ -2401,6 +2402,12 @@ interface Message {
   id?: string;
   fileType?: string;
   messageType?: string;
+  eventType?: "user_added" | "document_shared" | "media_shared";
+  meta?: {
+    actor?: { id?: string; name?: string };
+    target?: { id?: string; name?: string };
+    file?: { name?: string; url?: string; mimeType?: string };
+  };
   threadId: string
   message?: string
   content?: string
@@ -2410,8 +2417,8 @@ interface Message {
   receiverId?: string
   timestamp?: string
   seen?: boolean
-  // Modified by Abhradip Paul isRead is missing from the interface
   isRead?: boolean
+  read?: boolean
   parentMessageId?: string | null
   file?: {
     name?: string
@@ -2577,6 +2584,7 @@ export default function ChatBoxComponent(props: any) {
   const [inviteAgentEmail, setInviteAgentEmail] = useState('');
   const [inviteAgentError, setInviteAgentError] = useState('');
   const [isCreatingThread, setIsCreatingThread] = useState(false);
+  const [locallyReadThreadIds, setLocallyReadThreadIds] = useState<Record<string, number>>({});
   const [pendingNewMessageCount, setPendingNewMessageCount] = useState(0);
   const [isAtLatestMessage, setIsAtLatestMessage] = useState(true);
 
@@ -2677,6 +2685,8 @@ export default function ChatBoxComponent(props: any) {
 
     const groupMap = new Map<string, AggregatedAgentThread>();
     const standaloneEntries: AggregatedAgentThread[] = [];
+    const normalizeThreadId = (value?: string | null) =>
+      (value || "").toString().trim().toLowerCase();
 
     const resolveAgentCandidate = (thread: Thread) =>
       thread?.buyerAgent ||
@@ -2723,12 +2733,37 @@ export default function ChatBoxComponent(props: any) {
 
       const updatedAt = resolveLastUpdated(thread);
       const unreadCountFromMessages = Array.isArray(thread?.messages)
-        ? thread.messages.filter(
-          (message: Message) =>
-            !message?.isRead && message?.senderId !== userData?.id,
-        ).length
+        ? thread.messages.filter((message: Message) => {
+          const isUnread =
+            message?.isRead === false ||
+            message?.read === false ||
+            message?.seen === false;
+          if (!isUnread) return false;
+          const senderId =
+            message?.senderId ||
+            (message as any)?.sender_id ||
+            (message as any)?.sender?.id;
+          return !senderId || senderId !== userData?.id;
+        }).length
         : 0;
-      const unreadCount = thread?.unreadCount ?? unreadCountFromMessages;
+      const socketUnreadCount = Array.isArray(state?.conversationUnreadCount)
+        ? state.conversationUnreadCount.find(
+          (entry: any) =>
+            normalizeThreadId(entry?.threadId) === normalizeThreadId(thread?.id),
+        )?.count || 0
+        : 0;
+      const normalizedThreadId = normalizeThreadId(thread?.id);
+      const lastMessageTime = updatedAt || 0;
+      const localReadAt = locallyReadThreadIds[normalizedThreadId] || 0;
+      const isLocallyRead = localReadAt > 0 && localReadAt >= lastMessageTime;
+      let unreadCount = 0;
+      if (socketUnreadCount > 0) {
+        unreadCount = socketUnreadCount;
+      } else if (isLocallyRead) {
+        unreadCount = 0;
+      } else {
+        unreadCount = thread?.unreadCount ?? unreadCountFromMessages;
+      }
 
       if (agentId) {
         let entry = groupMap.get(agentId);
@@ -2786,16 +2821,23 @@ export default function ChatBoxComponent(props: any) {
     );
 
     return aggregated;
-  }, [threads, userData?.id]);
+  }, [threads, userData?.id, locallyReadThreadIds, state?.conversationUnreadCount]);
 
   const displayedThreads = useMemo<AggregatedAgentThread[]>(() => {
     if (showUnreadOnly) {
       return aggregatedThreads.filter(
-        (entry) => (entry.totalUnread || 0) > 0 || isRead,
+        (entry) => (entry.totalUnread || 0) > 0,
       );
     }
     return aggregatedThreads;
-  }, [aggregatedThreads, showUnreadOnly, isRead]);
+  }, [aggregatedThreads, showUnreadOnly]);
+
+  const unreadMessageCount = useMemo(() => {
+    return aggregatedThreads.reduce(
+      (total, entry) => total + (entry.totalUnread || 0),
+      0,
+    );
+  }, [aggregatedThreads]);
 
   const getMessageViewportElement = useCallback(() => {
     return messageScrollAreaRef.current?.querySelector(
@@ -3137,7 +3179,9 @@ export default function ChatBoxComponent(props: any) {
     const rawMessage = message.message ?? message.content ?? ''
     const decryptedMessage = decryptMessageSafely(rawMessage)
     const normalizedMessageType =
-      message.messageType || message.message_type || (message.fileType || message.file_type ? 'file' : 'text')
+      message.messageType ||
+      message.message_type ||
+      (message.fileType || message.file_type ? 'file' : 'text')
     const fileUrlCandidate =
       message.file?.url ||
       (isProbablyUrl(decryptedMessage) ? decryptedMessage : '') ||
@@ -3147,9 +3191,11 @@ export default function ChatBoxComponent(props: any) {
     const derivedFileType =
       message.fileType || message.file_type || getMimeTypeFromUrl(fileUrlCandidate)
     const finalMessageType =
-      normalizedMessageType === 'text' && (fileUrlCandidate || derivedFileType)
-        ? 'file'
-        : normalizedMessageType
+      normalizedMessageType === 'system'
+        ? 'system'
+        : normalizedMessageType === 'text' && (fileUrlCandidate || derivedFileType)
+            ? 'file'
+            : normalizedMessageType
     return {
       ...message,
       message: decryptedMessage,
@@ -3158,6 +3204,23 @@ export default function ChatBoxComponent(props: any) {
       fileUrl: fileUrlCandidate || message.fileUrl
     }
   }
+
+  const getSystemMessageText = (message: Message) => {
+    const actor = message?.meta?.actor?.name || "Someone";
+    const target = message?.meta?.target?.name || "someone";
+    const eventType = message?.eventType;
+
+    if (eventType === "user_added") {
+      return `${actor} added ${target}`;
+    }
+    if (eventType === "document_shared") {
+      return `${actor} shared a document`;
+    }
+    if (eventType === "media_shared") {
+      return `${actor} shared media`;
+    }
+    return message?.message || "System update";
+  };
   const getFileNameFromUrl = useCallback((url: string) => {
     try {
       if (!url) return "File"
@@ -3296,6 +3359,7 @@ export default function ChatBoxComponent(props: any) {
   const { getThreadById } = useAgentConversationApi()
   const { uploadNewFile } = usePropertyServiceAPI()
   const { createRepoWithUploadedFile } = useRepoManagementApi()
+  const { markThreadAsReadMutation } = useNotificationApi()
 
   const handleInviteSuccess = useCallback((invitedEmail: string, selectedRole: "buyer_agent" | "co_buyer" | "family_friends") => {
     const normalizedEmail = invitedEmail?.trim().toLowerCase()
@@ -3464,6 +3528,13 @@ export default function ChatBoxComponent(props: any) {
     localStorage.setItem('threadId', thread?.id || '');
 
     setSelectedThread(thread?.id)
+    if (thread?.id) {
+      const normalizedId = thread.id.toString().trim().toLowerCase();
+      setLocallyReadThreadIds((prev) => ({
+        ...prev,
+        [normalizedId]: Date.now(),
+      }));
+    }
     setIsRead(false)
     if (showUnreadOnly) {
       setShowUnreadOnly(false)
@@ -3505,6 +3576,9 @@ export default function ChatBoxComponent(props: any) {
       });
 
       socket.emit('mark_as_read', { threadId: thread.id });
+      if (thread?.id) {
+        markThreadAsReadMutation.mutate(thread.id);
+      }
 
       // Also join the room directly
       if (socket.joinRoom) {
@@ -4693,8 +4767,8 @@ export default function ChatBoxComponent(props: any) {
           <Help className="h-5 w-5" />
         </Button>
       </header> */}
-      <section>
-        <div className="flex-1 flex flex-col border-l md:flex-row bg-gray-100">
+      <section className="w-full flex-1 min-w-0">
+        <div className="w-full min-w-0 flex-1 flex flex-col border-l md:flex-row bg-gray-100">
           <div className={`w-full md:basis-[25%] md:max-w-[25%] md:min-w-[25%] bg-white border-r ${showThreads ? "block" : "hidden md:block"} overflow-hidden`}>
             {/* Header */}
             <div className="p-4 border-b flex justify-between items-center">
@@ -4743,7 +4817,7 @@ export default function ChatBoxComponent(props: any) {
                   }}
                   className={`h-10 w-full text-gray-600 rounded-full px-4 py-2 ${showUnreadOnly ? "bg-white shadow text-gray-800" : ""}`}
                 >
-                  Unread
+                  Unread {unreadMessageCount > 0 ? `(${unreadMessageCount})` : "(0)"}
                 </Button>
               </div>
             </div>
@@ -4979,7 +5053,7 @@ export default function ChatBoxComponent(props: any) {
 
 
           <div
-            className={`w-full ${showDetails
+            className={`w-full min-w-0 ${showDetails
               ? "md:basis-[50%] md:max-w-[50%] md:min-w-[50%]"
               : "md:basis-[75%] md:max-w-[75%] md:min-w-[75%]"
               } flex flex-col bg-white ${showChat ? "block" : "hidden md:block"} max-h-full overflow-hidden`}
@@ -5002,7 +5076,7 @@ export default function ChatBoxComponent(props: any) {
                 Details
               </Button>
             </header>
-            <div className="flex-1 flex bg-[#F7F2EB]">
+            <div className="flex-1 flex bg-white">
               {(state.selectedChannel.id || selectedThreadDetail?.id || selectedThread) ? (
                 <div className="flex-1 flex flex-col">
                   {messageLoading ? (
@@ -5153,7 +5227,7 @@ export default function ChatBoxComponent(props: any) {
                         </div>
                       </div>
 
-                      <div className="relative">
+                      <div className="relative bg-[#F7F2EB]">
                         <ScrollArea
                           ref={messageScrollAreaRef}
                           className="ms-2 mb-2 sm:ms-5 scrollbar-hide sm:me-5 overflow-auto h-[calc(96vh-16rem)] sm:h-[calc(96vh-18rem)]"
@@ -5205,6 +5279,7 @@ export default function ChatBoxComponent(props: any) {
                                             'NA';
 
                                           const notificationMessage = message?.messageType === "notification";
+                                          const systemMessage = message?.messageType === "system";
 
                                           return (
                                             <div
@@ -5212,6 +5287,21 @@ export default function ChatBoxComponent(props: any) {
                                               className={`flex gap-3 mt-4 items-start ${isSender ? 'justify-end' : ''}`}
                                             // ref={isLastMessage ? messagesEndRef : null}
                                             >
+                                              {systemMessage && (
+                                                <div className="flex justify-center rounded-xl text-center w-full pt-4 p-3">
+                                                  <div className="bg-white shadow-md rounded-full w-fit px-8 py-3">
+                                                    <div className="flex gap-2 items-center justify-center">
+                                                      <MdNotificationAdd size={20} />
+                                                      <p className="whitespace-pre-wrap break-words text-sm">
+                                                        {getSystemMessageText(message)}
+                                                      </p>
+                                                    </div>
+                                                    <div className="text-xs text-gray-400 px-2 mt-1 text-right">
+                                                      {formattedTime}
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              )}
                                               {notificationMessage &&
 
                                                 <div className="flex justify-center  rounded-xl text-center w-full  pt-6 p-3">
@@ -5227,7 +5317,7 @@ export default function ChatBoxComponent(props: any) {
 
                                                 </div>
                                               }
-                                              {!isSender && receiver && !notificationMessage && (
+                                              {!isSender && receiver && !notificationMessage && !systemMessage && (
                                                 <div className="w-7 h-7 sm:w-10 sm:h-10 mt-4 rounded-full border border-white/70 bg-[#FBB785] overflow-hidden flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0 text-white">
                                                   {receiverImage ? (
                                                     <Image
@@ -5245,7 +5335,7 @@ export default function ChatBoxComponent(props: any) {
                                               )}
 
 
-                                              {!notificationMessage &&
+                                              {!notificationMessage && !systemMessage &&
 
                                                 <div className="w-full flex flex-col gap-1">
                                                   {/* Time aligned to sender/receiver side */}
@@ -5385,7 +5475,7 @@ export default function ChatBoxComponent(props: any) {
                                               }
 
 
-                                              {isSender && !notificationMessage && (
+                                              {isSender && !notificationMessage && !systemMessage && (
                                                 <div className="w-7 h-7 mt-4 sm:w-10 sm:h-10 rounded-full border border-white/70 bg-[#FBB785] overflow-hidden flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0 text-white">
                                                   {senderImage ? (
                                                     <Image
@@ -5631,7 +5721,7 @@ export default function ChatBoxComponent(props: any) {
 
           {/* Property Details Sidebar */}
           {showDetails && (
-            <div className={`w-full md:w-96 bg-gray-50 border-l ${showDetails ? "block" : "hidden md:block"} flex flex-col overflow-hidden `}>
+            <div className="w-full md:basis-[25%] md:max-w-[25%] md:min-w-[25%] bg-gray-50 border-l flex flex-col overflow-hidden">
               <div className="p-4 border-b flex justify-between items-center">
                 <h2 className="font-semibold">Property Details</h2>
                 <Button

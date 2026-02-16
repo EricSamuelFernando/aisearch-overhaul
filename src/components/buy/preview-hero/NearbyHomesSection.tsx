@@ -26,17 +26,57 @@ const NearbyHomesSection = ({ nearbyHomes, currentProperty, currentListingId }: 
   const [limitReached, setLimitReached] = useState(false);
   
   // Filter properties based on active tab
+  const normalizeStatus = (raw: string) => raw.replace(/[\s_-]/g, '').toLowerCase();
+  const getListingStatus = (home: any) => {
+    const listing = home?.listing || home;
+    const status =
+      listing?.standardStatus ||
+      listing?.customStatus ||
+      listing?.status ||
+      listing?.mlsStatus ||
+      listing?.listingStatus ||
+      listing?.statusCode ||
+      '';
+    return normalizeStatus(String(status || ''));
+  };
+  const isExplicitlyListed = (home: any) => {
+    const listing = home?.listing || home;
+    if (listing?.isListed === false) return false;
+    if (listing?.isListed === true) return true;
+    return undefined;
+  };
+
+  const forSaleStatuses = new Set([
+    'active',
+    'activeundercontract',
+    'comingsoon',
+    'pending',
+    'new',
+  ]);
+  const soldStatuses = new Set(['sold', 'closed']);
+  const offMarketStatuses = new Set([
+    'offmarket',
+    'withdrawn',
+    'expired',
+    'canceled',
+    'cancelled',
+    'inactive',
+    'removed',
+    'hold',
+  ]);
+
   const filteredHomes = nearbyHomes.filter((home: any) => {
+    const status = getListingStatus(home);
+    const listedFlag = isExplicitlyListed(home);
+
     if (activeTab === 'For Sale') {
-      // Show properties that are currently for sale
-      return home?.listing?.standardStatus === 'Active' || 
-             home?.listing?.standardStatus === 'ActiveUnderContract' ||
-             !home?.listing?.standardStatus; // Default to showing if status is unclear
-    } else {
-      // Show sold properties
-      return home?.listing?.standardStatus === 'Sold' || 
-             home?.listing?.standardStatus === 'Closed';
+      if (offMarketStatuses.has(status)) return false;
+      if (listedFlag === false) return false;
+      return forSaleStatuses.has(status);
     }
+
+    if (soldStatuses.has(status)) return true;
+    return false;
   });
 
   const selectedHomes = useMemo(() => {

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import { Carousel } from '@mantine/carousel';
@@ -28,7 +28,20 @@ import reduced from '../../../public/assets/icons/Reduced.svg';
 import concierge from '../../../public/assets/icons/Concierge.svg';
 import { IconArrowLeft, IconArrowNarrowLeft, IconArrowNarrowRight, IconArrowRight } from '@tabler/icons-react';
 
-const features = [
+type FeatureItem = {
+  category: 'Transaction' | 'Technology' | 'Transparency';
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+};
+
+type WeMakeItEasyProps = {
+  heading?: React.ReactNode;
+  subtitle?: string;
+  contentPreset?: 'default' | 'home';
+};
+
+const features: FeatureItem[] = [
   // TRANSACTION category
   {
     category: 'Transaction',
@@ -77,37 +90,37 @@ const features = [
   {
     category: 'Technology',
     icon: <FaLaptop size={40} color="#FF6A13" />,
-    title: 'AI‐powered recommendations',
+    title: 'AIâ€powered recommendations',
     description:
-      'Our AI engine analyzes market data in real time to suggest best‐fit listings and financing options.',
+      'Our AI engine analyzes market data in real time to suggest bestâ€fit listings and financing options.',
   },
   {
     category: 'Technology',
     icon: <FaChartLine size={40} color="#FF6A13" />,
     title: 'Live analytics dashboard',
     description:
-      'See up‐to‐the‐minute market trends, monitor your home’s value, and track your savings goals in one place.',
+      'See upâ€toâ€theâ€minute market trends, monitor your homeâ€™s value, and track your savings goals in one place.',
   },
   {
     category: 'Technology',
     icon: <FaLock size={40} color="#FF6A13" />,
     title: 'Secure document storage',
     description:
-      'All your contracts and disclosures are encrypted and stored on our platform—accessible from anywhere.',
+      'All your contracts and disclosures are encrypted and stored on our platformâ€”accessible from anywhere.',
   },
   {
     category: 'Technology',
     icon: <FaChartLine size={40} color="#FF6A13" />,
     title: 'Live analytics dashboard',
     description:
-      'See up‐to‐the‐minute market trends, monitor your home’s value, and track your savings goals in one place.',
+      'See upâ€toâ€theâ€minute market trends, monitor your homeâ€™s value, and track your savings goals in one place.',
   },
   {
     category: 'Technology',
     icon: <FaLock size={40} color="#FF6A13" />,
     title: 'Secure document storage',
     description:
-      'All your contracts and disclosures are encrypted and stored on our platform—accessible from anywhere.',
+      'All your contracts and disclosures are encrypted and stored on our platformâ€”accessible from anywhere.',
   },
 
   // TRANSPARENCY category
@@ -121,34 +134,126 @@ const features = [
   {
     category: 'Transparency',
     icon: <FaClock size={40} color="#FF6A13" />,
-    title: 'Real‐time status updates',
+    title: 'Realâ€time status updates',
     description:
-      'Know exactly where you stand in your transaction—no more guessing or waiting for status emails.',
+      'Know exactly where you stand in your transactionâ€”no more guessing or waiting for status emails.',
   },
   {
     category: 'Transparency',
     icon: <FaConciergeBell size={40} color="#FF6A13" />,
     title: 'Open communication channels',
     description:
-      'Message, call, or video‐chat your agent, lender, and closing coordination team all from one dashboard.',
+      'Message, call, or videoâ€chat your agent, lender, and closing coordination team all from one dashboard.',
   },
   {
     category: 'Transparency',
     icon: <FaClock size={40} color="#FF6A13" />,
-    title: 'Real‐time status updates',
+    title: 'Realâ€time status updates',
     description:
-      'Know exactly where you stand in your transaction—no more guessing or waiting for status emails.',
+      'Know exactly where you stand in your transactionâ€”no more guessing or waiting for status emails.',
   },
   {
     category: 'Transparency',
     icon: <FaConciergeBell size={40} color="#FF6A13" />,
     title: 'Open communication channels',
     description:
-      'Message, call, or video‐chat your agent, lender, and closing coordination team all from one dashboard.',
+      'Message, call, or videoâ€chat your agent, lender, and closing coordination team all from one dashboard.',
   },
 ];
 
-const WeMakeItEasy = () => {
+const HOME_PAGE_FEATURES: FeatureItem[] = [
+  {
+    category: 'Transaction',
+    icon: <Image src={guidline} alt="Guided Transactions" width={50} height={50} />,
+    title: 'Guided transactions',
+    description:
+      'Gain more control with guided transactions, approval workflows, task tracking, and comprehensive closing services.',
+  },
+  {
+    category: 'Transaction',
+    icon: <Image src={reduced} alt="Reduced time for task completion" width={50} height={50} />,
+    title: 'Reduced time for task completion',
+    description:
+      'Streamline your work with workflows that improve task efficiency, saving time on both routine and complex steps.',
+  },
+  {
+    category: 'Transaction',
+    icon: <Image src={concierge} alt="Integrated concierge support" width={50} height={50} />,
+    title: 'Integrated concierge support',
+    description:
+      'Keep interior design, remodeling, renovation, landscaping, and moving services organized in one place with Concierge Services.',
+  },
+  {
+    category: 'Technology',
+    icon: <FaChartLine size={40} color="#FF6A13" />,
+    title: 'Live analytics dashboard',
+    description:
+      "See up-to-the-minute market trends, monitor your home's value, and track your savings goals in one place.",
+  },
+  {
+    category: 'Technology',
+    icon: <FaLock size={40} color="#FF6A13" />,
+    title: 'Secure document storage',
+    description:
+      'Store all your contracts and disclosures in an encrypted, always-available vault that you can access from anywhere.',
+  },
+  {
+    category: 'Technology',
+    icon: <FaLaptop size={40} color="#FF6A13" />,
+    title: 'AI-powered insights',
+    description:
+      'Use built-in AI to summarize key documents, highlight important changes, and surface next best actions during your transaction.',
+  },
+  {
+    category: 'Transparency',
+    icon: <FaComment size={40} color="#FF6A13" />,
+    title: 'Clear fee breakdowns',
+    description:
+      'No hidden costs. We show you every fee, every commission, and every closing cost in plain English.',
+  },
+  {
+    category: 'Transparency',
+    icon: <FaClock size={40} color="#FF6A13" />,
+    title: 'Real-time status updates',
+    description:
+      'Know exactly where you stand in your transaction without guessing or waiting for status emails.',
+  },
+  {
+    category: 'Transparency',
+    icon: <FaConciergeBell size={40} color="#FF6A13" />,
+    title: 'Shared timeline view',
+    description:
+      'Follow a simple, shared timeline that shows upcoming tasks, who is responsible, and when each step is due.',
+  },
+];
+
+const DEFAULT_HEADING = (
+  <>
+    We Make It <span className="font-light">Easy</span>
+  </>
+);
+
+const DEFAULT_SUBTITLE = 'Tailor your homebuying experience - your way, with the guidance you need.';
+
+const WeMakeItEasy = ({
+  heading,
+  subtitle,
+  contentPreset = 'default',
+}: WeMakeItEasyProps) => {
+  const effectiveHeading =
+    heading ??
+    (contentPreset === 'home' ? (
+      <>We Make Homebuying Easy</>
+    ) : (
+      DEFAULT_HEADING
+    ));
+  const effectiveSubtitle =
+    subtitle ??
+    (contentPreset === 'home'
+      ? 'Create your ideal homebuying journey with our all-in-one PropTech platform. From search to closing, we make every step simple, guided, and transparent.'
+      : DEFAULT_SUBTITLE);
+  const effectiveFeatures = contentPreset === 'home' ? HOME_PAGE_FEATURES : features;
+
   const [activeCategory, setActiveCategory] = useState('Transaction');
 
   // Responsive breakpoints for slide size
@@ -167,7 +272,7 @@ const WeMakeItEasy = () => {
 
 
   // Only show features matching the selected tab
-  const filteredFeatures = features.filter(
+  const filteredFeatures = effectiveFeatures.filter(
     (feature) => feature.category === activeCategory
   );
 
@@ -176,10 +281,10 @@ const WeMakeItEasy = () => {
       <div className=" mx-auto text-center">
         {/* Heading */}
         <h2 className=" satoshi text-3xl sm:text-4xl font-semibold ">
-          We Make It <span className="font-light">Easy</span>
+          {effectiveHeading}
         </h2>
         <p className="satoshi text-xs sm:text-sm text-[#8E8B8A] mb-12 max-w-[600px] mx-auto">
-          Tailor your homebuying experience — your way, with the guidance you need.
+          {effectiveSubtitle}
         </p>
 
         {/* SegmentedControl (three tabs styled like the first screenshot) */}
@@ -347,7 +452,7 @@ const WeMakeItEasy = () => {
           slideGap="lg"
           height={isSmallScreen ? 'auto' : 400}
 
-          // withControls={!isSmallScreen}   // 👈 KEY LINE
+          // withControls={!isSmallScreen}   // ðŸ‘ˆ KEY LINE
           // nextControlIcon={<IconArrowNarrowRight size={36} stroke={1} />}
           // previousControlIcon={<IconArrowNarrowLeft size={36} stroke={1} />}
 
@@ -358,7 +463,7 @@ const WeMakeItEasy = () => {
               position: 'relative',
               width: '100%',
               marginTop: '32px',
-              backgroundColor: isSmallScreen ? 'transparent' : undefined, // 👈 remove bg
+              backgroundColor: isSmallScreen ? 'transparent' : undefined, // ðŸ‘ˆ remove bg
             },
 
             controls: {
@@ -385,9 +490,9 @@ const WeMakeItEasy = () => {
                 bg="#F4E5D0"
                 style={{
                   borderRadius: '14px',
-                  padding: isSmallScreen ? '18px' : '60px', // 👈 slightly tighter
+                  padding: isSmallScreen ? '18px' : '60px', // ðŸ‘ˆ slightly tighter
                   height: '100%',
-                  maxWidth: isSmallScreen ? '320px' : '100%', // 👈 KEY LINE
+                  maxWidth: isSmallScreen ? '320px' : '100%', // ðŸ‘ˆ KEY LINE
                   margin: '0 auto',
                   display: 'flex',
                   flexDirection: 'column',
@@ -414,3 +519,4 @@ const WeMakeItEasy = () => {
 };
 
 export { WeMakeItEasy };
+

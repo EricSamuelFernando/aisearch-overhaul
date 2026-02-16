@@ -9,6 +9,7 @@ import OfferNotification from "@/components/notifications/offer";
 import { getAuthToken } from "@/lib/storage";
 import { useAtom } from "jotai";
 import { messageThreadsAtom } from "@/hooks/atoms";
+import { useQueryClient } from "@tanstack/react-query";
 
 type SocketContextType = {
   socket: WebSocketClient | null;
@@ -335,6 +336,7 @@ function SocketProvider({ children }: { children: ReactNode }) {
   const [isOffer, setIsOffer] = useState(false);
   const [offerData, setOfferData] = useState(null);
   const [messageThreads] = useAtom(messageThreadsAtom);
+  const queryClient = useQueryClient();
 
   // Get token from Redux OR Cookie
   const cookieToken = getAuthToken();
@@ -474,6 +476,10 @@ function SocketProvider({ children }: { children: ReactNode }) {
 
       socket.on("newMessage", handleNewMessage);
       socket.on("recievedMessage", handleRecievedMessage);
+      socket.on("notification_created", (payload: any) => {
+        console.log("[SocketContext] notification_created:", payload);
+        queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      });
 
       // Handle websocket response events
       socket.on("createOrJoinConversation_response", (response: any) => {
@@ -498,13 +504,14 @@ function SocketProvider({ children }: { children: ReactNode }) {
         socket.off("new_offer_recieved");
         socket.off("newMessage", handleNewMessage);
         socket.off("recievedMessage", handleRecievedMessage);
+        socket.off("notification_created");
         socket.off("createOrJoinConversation_response");
         socket.off("sendMessage_response");
         socket.off("joinRoom_response");
         socket.off("leaveRoom_response");
       };
     }
-  }, [messageThreads, socket, user?.id]);
+  }, [messageThreads, socket, user?.id, queryClient]);
 
   return (
     <SocketContext.Provider value={{ socket, state, setState }}>

@@ -27,9 +27,24 @@ const PropertyCardHomes: React.FC<PropertyCardProps> = ({
 
   // ✅ Click handlers
   const handleClick = (e: React.MouseEvent) => {
-    if (!carouselEvent) {
-      router.push(`/buy/${listing.listingId}/prop/preview`);
+    if (carouselEvent) return;
+    const targetId =
+      listing?.listingId ||
+      listing?.listing?.listingId ||
+      listing?.listing?.id ||
+      listing?.listing?.mlsNumber;
+    if (!targetId) return;
+    if (typeof window !== "undefined") {
+      const fallbackPayload = {
+        listingId: String(targetId),
+        listing: listing?.listing || listing,
+      };
+      localStorage.setItem(
+        `snaphomz_preview_fallback_${String(targetId)}`,
+        JSON.stringify(fallbackPayload)
+      );
     }
+    router.push(`/buy/${targetId}/prop/preview`);
   };
 
   const handleCarouselButtonClick = (e: React.MouseEvent) => {

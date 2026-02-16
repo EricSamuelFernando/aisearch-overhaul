@@ -210,7 +210,7 @@ const AgentsGrid = memo(function AgentsGrid({
 
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 sm:gap-6 lg:gap-8">
       {validAgents.map((agent) => {
         const anyAgent = agent as any;
         const agentName = anyAgent.full_name ?? anyAgent.Name ?? 'Agent';
@@ -256,12 +256,12 @@ const AgentsGrid = memo(function AgentsGrid({
           <Link
             href={`/agents/${(agent as any).id}`}
             key={cardId}
-            className="block group"
+            className="block w-full group"
           >
-            <div className="rounded-2xl p-5 flex flex-col sm:flex-row gap-5 items-start h-full">
+            <div className="w-full rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row gap-4 sm:gap-5 items-stretch h-full overflow-hidden">
               {/* Left: Image (Square rounded) */}
               <div className="shrink-0">
-                <div className="w-36 h-36 relative rounded-2xl overflow-hidden bg-gray-100">
+                <div className="w-28 h-28 sm:w-36 sm:h-36 relative rounded-2xl overflow-hidden bg-gray-100">
                   <Image
                     src={
                       anyAgent.profile_image_url ||
@@ -276,10 +276,10 @@ const AgentsGrid = memo(function AgentsGrid({
 
 
               {/* Right: Content */}
-              <div className="flex-grow flex flex-col min-w-0">
+              <div className="w-full flex-grow flex flex-col min-w-0">
                 {/* Header: Name + Title */}
                 <div className="mb-3">
-                  <h3 className="text-base font-semibold text-black group-hover:text-orange-600 transition-colors leading-tight">
+                  <h3 className="text-base font-semibold text-black group-hover:text-orange-600 transition-colors leading-tight break-words">
                     {agentName}
                   </h3>
                   <p className="text-xs text-gray-400 mt-0.5">
@@ -293,7 +293,7 @@ const AgentsGrid = memo(function AgentsGrid({
                   {/* Mobile */}
                   <div className="flex justify-between items-center text-xs border-b border-gray-300 pb-2.5 gap-3">
                     <span className="text-gray-500 font-medium shrink-0">Mobile</span>
-                    <span className="font-semibold text-black whitespace-nowrap text-right text-xs">{agentPhone || 'N/A'}</span>
+                    <span className="font-semibold text-black text-right text-xs break-all">{agentPhone || 'N/A'}</span>
                   </div>
 
 
@@ -304,10 +304,10 @@ const AgentsGrid = memo(function AgentsGrid({
                   {/* Ratings */}
                   <div className="flex justify-between items-center text-xs border-b border-gray-300 pb-2.5 gap-3">
                     <span className="text-gray-500 font-medium shrink-0">Ratings</span>
-                    <div className="flex items-center gap-1 font-semibold text-black shrink-0">
+                    <div className="flex items-center gap-1 font-semibold text-black min-w-0">
                       <Star className="w-3.5 h-3.5 fill-orange-400 text-orange-400" />
                       <span className="text-xs">{hasRating ? ratingNum.toFixed(1) : 'N/A'}</span>
-                      <span className="text-gray-400 font-normal ml-1 text-[10px]">
+                      <span className="text-gray-400 font-normal ml-1 text-[10px] truncate">
                         {reviewCount > 0 ? `${reviewCount} reviews` : ''}
                       </span>
                     </div>
@@ -317,7 +317,7 @@ const AgentsGrid = memo(function AgentsGrid({
                   {/* Recently Sold */}
                   <div className="flex justify-between items-center text-xs border-b border-gray-300 pb-2.5 gap-3">
                     <span className="text-gray-500 font-medium shrink-0">Recently Sold</span>
-                    <span className="font-semibold text-black shrink-0 text-xs">
+                    <span className="font-semibold text-black text-xs">
                       {recentlySoldRaw}
                     </span>
                   </div>
@@ -853,20 +853,20 @@ export default function AgentSearchPage() {
 
 
   return (
-    <div className="min-h-screen bg-[#F9F3EB] text-black font-sans">
+    <div className="min-h-screen bg-[#F9F3EB] text-black font-sans overflow-x-hidden">
       <MainNavPages />
 
 
-      <div className="pt-28 pb-20">
+      <div className="pt-8 sm:pt-10 md:pt-14 lg:pt-16 pb-16 md:pb-20">
         <div
           className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 mb-12"
           ref={searchSectionRef}
         >
-          <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-6 sm:gap-8">
             {/* Search / Filter Bar */}
-            <div className="flex flex-col md:flex-row gap-4 items-center">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-3 sm:gap-4 items-start">
               {/* Search Input */}
-              <div className="relative flex-grow w-full md:w-auto">
+              <div className="relative w-full min-w-0 md:col-span-2 xl:col-span-4">
                 <div className="flex items-center bg-white border border-gray-200 rounded-lg px-4 py-3 shadow-sm hover:border-gray-300 transition-colors">
                   <Search className="text-gray-400 w-5 h-5 mr-3" />
                   <input
@@ -881,15 +881,15 @@ export default function AgentSearchPage() {
 
 
               {/* Filters Row */}
-              <div className="flex flex-wrap gap-3 w-full md:w-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full md:col-span-2 xl:col-span-6">
                 {/* Location Filter */}
-                <div className="relative">
+                <div className="relative w-full">
                   <button
                     onClick={() => {
                       setShowLocationDropdown(!showLocationDropdown);
                       setShowRatingDropdown(false);
                     }}
-                    className="bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-600 flex items-center justify-between gap-2 hover:border-gray-300 shadow-sm transition-all whitespace-nowrap"
+                    className="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-600 flex items-center justify-between gap-2 hover:border-gray-300 shadow-sm transition-all whitespace-nowrap"
                   >
                     <span>{selectedLocation || 'Location'}</span>
                     <span className="text-gray-400 text-[10px]">▼</span>
@@ -897,7 +897,7 @@ export default function AgentSearchPage() {
 
 
                   {showLocationDropdown && (
-                    <div className="absolute top-full mt-2 left-0 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[200px]">
+                    <div className="absolute top-full mt-2 left-0 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-50">
                       <div className="py-2">
                         <button
                           onClick={() => {
@@ -929,7 +929,7 @@ export default function AgentSearchPage() {
                 {/* Property Type Filter (Disabled) */}
                 <button
                   disabled
-                  className="bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-400 flex items-center justify-between gap-2 shadow-sm whitespace-nowrap opacity-50 cursor-not-allowed"
+                  className="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-400 flex items-center justify-between gap-2 shadow-sm whitespace-nowrap opacity-50 cursor-not-allowed"
                 >
                   <span>Property Type</span>
                   <span className="text-gray-400 text-[10px]">▼</span>
@@ -939,7 +939,7 @@ export default function AgentSearchPage() {
                 {/* Budget Range Filter (Disabled) */}
                 <button
                   disabled
-                  className="bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-400 flex items-center justify-between gap-2 shadow-sm whitespace-nowrap opacity-50 cursor-not-allowed"
+                  className="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-400 flex items-center justify-between gap-2 shadow-sm whitespace-nowrap opacity-50 cursor-not-allowed"
                 >
                   <span>Budget Range</span>
                   <span className="text-gray-400 text-[10px]">▼</span>
@@ -947,13 +947,13 @@ export default function AgentSearchPage() {
 
 
                 {/* Agent Rating Filter */}
-                <div className="relative">
+                <div className="relative w-full">
                   <button
                     onClick={() => {
                       setShowRatingDropdown(!showRatingDropdown);
                       setShowLocationDropdown(false);
                     }}
-                    className="bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-600 flex items-center justify-between gap-2 hover:border-gray-300 shadow-sm transition-all whitespace-nowrap"
+                    className="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-600 flex items-center justify-between gap-2 hover:border-gray-300 shadow-sm transition-all whitespace-nowrap"
                   >
                     <span>{selectedRating || 'Agent Rating'}</span>
                     <span className="text-gray-400 text-[10px]">▼</span>
@@ -961,7 +961,7 @@ export default function AgentSearchPage() {
 
 
                   {showRatingDropdown && (
-                    <div className="absolute top-full mt-2 left-0 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[180px]">
+                    <div className="absolute top-full mt-2 left-0 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-50">
                       <div className="py-2">
                         <button
                           onClick={() => {
@@ -995,7 +995,7 @@ export default function AgentSearchPage() {
               {/* Search Button */}
               <button
                 onClick={onSubmitSearch}
-                className="bg-black text-white px-8 py-3 rounded-full font-medium text-sm hover:bg-gray-800 transition-colors shadow-lg whitespace-nowrap w-full md:w-auto"
+                className="bg-black text-white px-8 py-3 rounded-full font-medium text-sm hover:bg-gray-800 transition-colors shadow-lg whitespace-nowrap w-full md:col-span-2 xl:col-span-2 xl:justify-self-end"
               >
                 Search agent
               </button>
@@ -1049,7 +1049,7 @@ export default function AgentSearchPage() {
 
             {/* All Agents Header */}
             <div className="mt-8">
-              <h1 className="text-4xl font-bold text-black">All Agents</h1>
+              <h1 className="text-3xl sm:text-4xl font-bold text-black">All Agents</h1>
             </div>
           </div>
         </div>
@@ -1062,22 +1062,22 @@ export default function AgentSearchPage() {
           {/* Pagination and Counts */}
           <div className="mt-12 flex flex-col items-center">
             {orderedAgents && totalPages > 1 && (
-              <div className="flex items-center gap-4 mb-4">
+              <div className="w-full max-w-full flex items-center justify-center gap-2 sm:gap-4 mb-4">
                 <button
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="p-3 rounded-full bg-[#f0eadd] hover:bg-[#e6dec9] disabled:opacity-50 transition-colors"
+                  className="p-2 sm:p-3 rounded-full bg-[#f0eadd] hover:bg-[#e6dec9] disabled:opacity-50 transition-colors shrink-0"
                 >
-                  <ArrowLeft className="w-5 h-5 text-gray-700" />
+                  <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700" />
                 </button>
 
 
-                <div className="flex gap-2">
+                <div className="flex gap-1 sm:gap-2 min-w-0">
                   {pageNumbers.map(p => (
                     <button
                       key={p}
                       onClick={() => handlePageChange(p)}
-                      className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${currentPage === p
+                      className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium transition-colors shrink-0 ${currentPage === p
                         ? 'bg-black text-white'
                         : 'text-gray-600 hover:bg-[#f0eadd]'
                         }`}
@@ -1091,15 +1091,15 @@ export default function AgentSearchPage() {
                 <button
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className="p-3 rounded-full bg-[#f0eadd] hover:bg-[#e6dec9] disabled:opacity-50 transition-colors"
+                  className="p-2 sm:p-3 rounded-full bg-[#f0eadd] hover:bg-[#e6dec9] disabled:opacity-50 transition-colors shrink-0"
                 >
-                  <ArrowRight className="w-5 h-5 text-gray-700" />
+                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700" />
                 </button>
               </div>
             )}
 
 
-            <p className="text-gray-500 text-sm mt-4">
+            <p className="text-gray-500 text-sm mt-4 text-center px-2">
               {orderedAgents === null ? '' : countText}
             </p>
           </div>

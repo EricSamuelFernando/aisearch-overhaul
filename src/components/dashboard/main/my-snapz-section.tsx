@@ -69,6 +69,7 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
   } = useUserSnapAPIs();
   const { getAllSnapzRequest, updateSnapzById } = useAgentConversationApi();
   const { notificationsQuery } = useNotificationApi();
+  const { getAllSnapzRequest: getAllPendingSnapzRequest } = useAgentConversationApi();
 
   const fetchInvitationUsers = async (page: number) => {
     setIsLoading(true);
@@ -222,9 +223,9 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
     );
   };
 
-  const fetchPendingRequests = () => {
+  const fetchPendingRequests = (openModal = true) => {
     if (!userData?.id) return;
-    getAllSnapzRequest.mutateAsync(
+    getAllPendingSnapzRequest.mutateAsync(
       {
         status: 'pending',
         participentId: userData.id,
@@ -232,10 +233,12 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
       {
         onSuccess: (response: any) => {
           setPendingRequests(response || []);
-          if (response?.length > 0) {
-            setIsRequestsModalOpen(true);
-          } else {
-            success({ message: 'No pending requests found.' });
+          if (openModal) {
+            if (response?.length > 0) {
+              setIsRequestsModalOpen(true);
+            } else {
+              success({ message: 'No pending requests found.' });
+            }
           }
         },
         onError: (err) => {
@@ -244,6 +247,12 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
       },
     );
   };
+
+  useEffect(() => {
+    if (userData?.id) {
+      fetchPendingRequests(false);
+    }
+  }, [userData?.id]);
 
   const handleRequestAction = (id: string, action: 'accept' | 'reject') => {
     const status = action === 'accept' ? 'accepted' : 'rejected';
@@ -254,7 +263,7 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
           success({
             message: `Request ${action === 'accept' ? 'accepted' : 'rejected'} successfully`,
           });
-          fetchPendingRequests();
+          fetchPendingRequests(false);
           if (action === 'accept') {
             getAllCollections();
           }
@@ -286,10 +295,15 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
         <h3 className="text-lg font-bold">Snapz</h3>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
           <Button
-            className="h-10 w-full justify-center rounded-md bg-orange-500 px-4 text-sm font-semibold text-white hover:bg-orange-600 sm:w-auto"
-            onClick={fetchPendingRequests}
+            className="h-10 w-full justify-center rounded-md bg-orange-500 px-4 text-sm font-semibold text-white hover:bg-orange-600 sm:w-auto flex items-center gap-2"
+            onClick={() => fetchPendingRequests(true)}
           >
             View Requests
+            {pendingRequests.length > 0 && (
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs font-bold text-orange-500">
+                {pendingRequests.length}
+              </span>
+            )}
           </Button>
           <Button
             variant="outline"

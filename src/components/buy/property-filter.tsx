@@ -842,6 +842,8 @@ function PropertyFilter() {
 
         // Check strict flag (truthy check)
         if (props[sub.propertyKey]) return true;
+        // Check strict flag (truthy check)
+        if (props[sub.propertyKey]) return true;
 
         if (remarks && sub.keywords && sub.keywords.length > 0) {
           const lowerRemarks = remarks.toLowerCase();
@@ -945,6 +947,8 @@ function PropertyFilter() {
 
             // Check strict flag (truthy check coverage for true, "true", etc)
             if (props[sub.propertyKey]) return true;
+            // Check strict flag (truthy check coverage for true, "true", etc)
+            if (props[sub.propertyKey]) return true;
 
             // Check keywords
             if (remarks && sub.keywords && sub.keywords.length > 0) {
@@ -1028,17 +1032,15 @@ function PropertyFilter() {
         isOpen={showModal}
         onOpenChange={setShowModal}
       />
-      <div className="flex w-full flex-col gap-4 md:flex-row md:items-center">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between w-full">
         {/* Left Side: Title & Filter Drawer */}
-        <div className="flex min-w-0 select-none flex-col md:flex-row md:items-center gap-4 md:gap-6">
-          <h2 className="min-w-0 text-lg font-bold leading-6 text-black md:text-xl">
+        <div className="flex select-none flex-col md:flex-row md:items-center gap-4 md:gap-6">
+          <h2 className="text-lg font-bold leading-6 text-black md:text-xl whitespace-nowrap">
             {allProperties.length > 0
               ? 'Showing homes matched from our AI'
               : 'Explore homes only within the California region'}
           </h2>
-
           <FilterDrawer
-
             FeatureSelectorComponent={FeatureSelector}
             FeatureBathroomSelector={FeatureBathroomSelector}
             selectedSubCategories={selectedSubCategories}
@@ -1232,6 +1234,12 @@ function PropertyFilter() {
         </div>
 
       ) : ""}
+
+      {/* Comparison Modal */}
+      <PropertyComparisonModal
+        isOpen={showCompareModal}
+        closeModal={() => setShowCompareModal(false)}
+      />
 
       {/* Comparison Modal */}
       <PropertyComparisonModal

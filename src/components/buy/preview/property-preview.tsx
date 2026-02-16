@@ -104,6 +104,7 @@ interface ProprtyData {
     bathroomsTotal: number
     bedroomsTotal: number
     hasBasement: boolean
+    propertyType?: string | null
   }
   homedetails: {
     flooring: string
@@ -112,6 +113,20 @@ interface ProprtyData {
   publicRemarks: string
   tags: string[]
   listingContractDate: string
+  listingId?: string | null
+  address?: {
+    unparsedAddress?: string | null
+    city?: string | null
+    stateOrProvince?: string | null
+    zipCode?: string | null
+  }
+  media?: {
+    primaryListingImageUrl?: string | null
+  }
+  listPrice?: string | null
+  daysOnMarket?: string | null
+  propertyId?: string | null
+  zpid?: string | null
 }
 
 function getDayCountFromUTC(dateStr: string) {
@@ -231,10 +246,10 @@ const PropertyPreview: React.FC = () => {
         '',
       price: String(
         proprtyData?.listPrice ||
-          propertyDatas?.data?.listPrice ||
-          propertyData?.listing?.listPriceLow ||
-          propertyData?.listPrice ||
-          ''
+        propertyDatas?.data?.listPrice ||
+        propertyData?.listing?.listPriceLow ||
+        propertyData?.listPrice ||
+        ''
       ),
       propertyType:
         proprtyData?.property?.propertyType ||
@@ -581,13 +596,13 @@ const PropertyPreview: React.FC = () => {
     propertyData?.daysOnMarket ??
     getDayCountFromUTC(
       proprtyData?.listingContractDate ||
-        propertyDatas?.data?.listingContractDate ||
-        propertyData?.listingContractDate ||
-        propertyDatas?.data?.modificationTimestamp ||
-        propertyData?.modificationTimestamp ||
-        propertyDatas?.data?.createdAt ||
-        propertyData?.createdAt ||
-        Date.now().toString()
+      propertyDatas?.data?.listingContractDate ||
+      propertyData?.listingContractDate ||
+      propertyDatas?.data?.modificationTimestamp ||
+      propertyData?.modificationTimestamp ||
+      propertyDatas?.data?.createdAt ||
+      propertyData?.createdAt ||
+      Date.now().toString()
     );
 
   const viewsValue =
@@ -1193,9 +1208,9 @@ const PropertyPreview: React.FC = () => {
   const taxAmountValue = Number(taxAmountCandidate);
   const taxPercentValue =
     Number.isFinite(listPriceValue) &&
-    listPriceValue > 0 &&
-    Number.isFinite(taxAmountValue) &&
-    taxAmountValue > 0
+      listPriceValue > 0 &&
+      Number.isFinite(taxAmountValue) &&
+      taxAmountValue > 0
       ? (taxAmountValue / listPriceValue) * 100
       : undefined;
   const currentListingId =
@@ -1223,30 +1238,30 @@ const PropertyPreview: React.FC = () => {
 
     const price = toNumber(
       transformData.prop?.listPrice ??
-        propertyDatas?.data?.listPrice ??
-        propertyDatas?.property_detail?.data?.propertyInfo?.listPrice ??
-        propertyDatas?.property_detail?.data?.propertyInfo?.listPriceLow ??
-        propertyData?.listing?.listPriceLow ??
-        propertyData?.listing?.listPrice ??
-        propertyData?.listPrice ??
-        propertyData?.listing?.price ??
-        0
+      propertyDatas?.data?.listPrice ??
+      propertyDatas?.property_detail?.data?.propertyInfo?.listPrice ??
+      propertyDatas?.property_detail?.data?.propertyInfo?.listPriceLow ??
+      propertyData?.listing?.listPriceLow ??
+      propertyData?.listing?.listPrice ??
+      propertyData?.listPrice ??
+      propertyData?.listing?.price ??
+      0
     );
 
     const sqft = toNumber(
       transformData.prop?.property?.livingArea ??
-        propertyDatas?.data?.property?.livingArea ??
-        propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet ??
-        propertyData?.property?.livingArea ??
-        propertyData?.property?.livingSquareFeet ??
-        0
+      propertyDatas?.data?.property?.livingArea ??
+      propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet ??
+      propertyData?.property?.livingArea ??
+      propertyData?.property?.livingSquareFeet ??
+      0
     );
 
     const localPricePerSqft = toNumber(
       propertyDatas?.data?.pricePerSqFt ??
-        propertyDatas?.property_detail?.data?.propertyInfo?.pricePerSqFt ??
-        propertyData?.pricePerSqFt ??
-        (price && sqft ? price / sqft : 0)
+      propertyDatas?.property_detail?.data?.propertyInfo?.pricePerSqFt ??
+      propertyData?.pricePerSqFt ??
+      (price && sqft ? price / sqft : 0)
     );
 
     const nearbyHomes = propertyDatas?.nearbyHomes || [];
@@ -1256,9 +1271,9 @@ const PropertyPreview: React.FC = () => {
         const compPrice = toNumber(listing?.listPriceLow ?? listing?.listPrice ?? listing?.listPriceHigh);
         const compSqft = toNumber(
           listing?.property?.livingArea ??
-            listing?.property?.livingSquareFeet ??
-            listing?.property?.sqft ??
-            listing?.livingArea
+          listing?.property?.livingSquareFeet ??
+          listing?.property?.sqft ??
+          listing?.livingArea
         );
         if (!compPrice || !compSqft) return null;
         const value = compPrice / compSqft;
@@ -1303,18 +1318,18 @@ const PropertyPreview: React.FC = () => {
     const rentFormatted =
       rentEstimate && Number.isFinite(rentEstimate)
         ? rentEstimate.toLocaleString('en-US', {
-            style: 'currency',
-            currency: 'USD',
-            maximumFractionDigits: 0,
-          })
+          style: 'currency',
+          currency: 'USD',
+          maximumFractionDigits: 0,
+        })
         : null;
     const rentDeltaFormatted =
       rentDelta !== null && Number.isFinite(rentDelta)
         ? `${rentDelta > 0 ? '+' : rentDelta < 0 ? '-' : ''}${Math.abs(rentDelta).toLocaleString('en-US', {
-            style: 'currency',
-            currency: 'USD',
-            maximumFractionDigits: 0,
-          })}`
+          style: 'currency',
+          currency: 'USD',
+          maximumFractionDigits: 0,
+        })}`
         : '';
     const projectedGainFormatted =
       projectedGainPct !== null && Number.isFinite(projectedGainPct)
@@ -1324,10 +1339,10 @@ const PropertyPreview: React.FC = () => {
     if (!estimatedHouseValue && !rentFormatted) return defaultEstimatedData;
     const formatted = estimatedHouseValue
       ? estimatedHouseValue.toLocaleString('en-US', {
-          style: 'currency',
-          currency: 'USD',
-          maximumFractionDigits: 0,
-        })
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 0,
+      })
       : defaultEstimatedData.houseValue;
     return {
       ...defaultEstimatedData,
@@ -1350,12 +1365,12 @@ const PropertyPreview: React.FC = () => {
       hash === '#home-highlights' || hash === '#home'
         ? { section: 'home', scrollId: 'home-highlights' }
         : hash === '#property'
-        ? { section: 'offers', scrollId: 'property' }
-        : hash === '#schools'
-          ? { section: 'schools', scrollId: 'schools' }
-          : hash === '#forecast'
-            ? { section: 'interest', scrollId: 'forecast' }
-            : null;
+          ? { section: 'offers', scrollId: 'property' }
+          : hash === '#schools'
+            ? { section: 'schools', scrollId: 'schools' }
+            : hash === '#forecast'
+              ? { section: 'interest', scrollId: 'forecast' }
+              : null;
 
     if (!target) return;
 
@@ -1768,24 +1783,24 @@ const PropertyPreview: React.FC = () => {
               </div>
 
               {/* Bottom Section: Estimated Payment and Schedule A Tour Button */}
-	              <div className="flex flex-col w-full gap-3 sm:gap-4 mb-4 md:grid md:grid-cols-[minmax(0,1fr)_360px] md:items-center md:gap-6">
-	                {/* Left: Estimated Payment Section */}
-	                <div className="rounded-xl bg-[#FAE6DB] shadow-sm px-3 sm:px-4 py-2 sm:py-2.5 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-2.5 w-full md:max-w-[460px]">
-	                  <div className="flex items-center gap-2 flex-1">
-	                    <span className="text-xs sm:text-sm text-gray-600">Est. payment:</span>
-	                    <span className="text-xs sm:text-sm font-bold text-gray-900">
-	                      ${(() => {
-	                        const fallbackPrice = Number(transformData.prop?.listPrice || 0);
-	                        const fallbackMonthly = Number.isFinite(fallbackPrice)
-	                          ? Math.round(fallbackPrice * 0.0065)
-	                          : 0;
-	                        const monthlyPayment = topEstimatedMonthlyPayment !== null
-	                          ? Math.round(topEstimatedMonthlyPayment)
-	                          : fallbackMonthly;
-	                        return monthlyPayment.toLocaleString('en-US');
-	                      })()}/mo
-	                    </span>
-	                  </div>
+              <div className="flex flex-col w-full gap-3 sm:gap-4 mb-4 md:grid md:grid-cols-[minmax(0,1fr)_360px] md:items-center md:gap-6">
+                {/* Left: Estimated Payment Section */}
+                <div className="rounded-xl bg-[#FAE6DB] shadow-sm px-3 sm:px-4 py-2 sm:py-2.5 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-2.5 w-full md:max-w-[460px]">
+                  <div className="flex items-center gap-2 flex-1">
+                    <span className="text-xs sm:text-sm text-gray-600">Est. payment:</span>
+                    <span className="text-xs sm:text-sm font-bold text-gray-900">
+                      ${(() => {
+                        const fallbackPrice = Number(transformData.prop?.listPrice || 0);
+                        const fallbackMonthly = Number.isFinite(fallbackPrice)
+                          ? Math.round(fallbackPrice * 0.0065)
+                          : 0;
+                        const monthlyPayment = topEstimatedMonthlyPayment !== null
+                          ? Math.round(topEstimatedMonthlyPayment)
+                          : fallbackMonthly;
+                        return monthlyPayment.toLocaleString('en-US');
+                      })()}/mo
+                    </span>
+                  </div>
                   <div className="flex items-center gap-2">
                     <div className="h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-[#E8804C]-300 flex items-center justify-center shrink-0">
                       <Info className="h-2 w-2 sm:h-3 sm:w-3 text-[#E8804C]-600" />
@@ -1848,144 +1863,144 @@ const PropertyPreview: React.FC = () => {
 
             <div className="col-span-12 lg:col-span-4 lg:row-span-2 mt-4 lg:mt-0">
               <div className="w-full rounded-2xl bg-[#F9F6EF] shadow-sm border border-[#EFE7DC] p-4 sm:p-5 md:p-6">
-                  {(() => {
-                    // Calculate dynamic values
-                    const beds = transformData.prop?.property?.bedroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bedroomsTotal || 0;
-                    const baths = transformData.prop?.property?.bathroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bathroomsTotal || 0;
-                    const sqft = transformData.prop?.property?.livingArea || propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet || 0;
-                    const yearBuilt = transformData.prop?.property?.yearBuilt || propertyDatas?.property_detail?.data?.propertyInfo?.yearBuilt || "N/A";
-                    const propertyType = transformData.prop?.property?.propertyType || propertyDatas?.property_detail?.data?.propertyInfo?.propertyType || "N/A";
-                    const sqftArea = transformData.prop?.property?.livingArea || propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet || 0;
-                    const listPrice = transformData.prop?.listPrice || propertyDatas?.data?.listPrice || 0;
-                    const pricePerSqft = sqft && listPrice ? Math.round(listPrice / sqft) : 0;
-                    const status = mostRecentStatus || transformData.prop?.mostRecentStatus || "For sale";
-                    const propertyTypeShort = propertyType?.split(' ')[0] || "Single";
+                {(() => {
+                  // Calculate dynamic values
+                  const beds = transformData.prop?.property?.bedroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bedroomsTotal || 0;
+                  const baths = transformData.prop?.property?.bathroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bathroomsTotal || 0;
+                  const sqft = transformData.prop?.property?.livingArea || propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet || 0;
+                  const yearBuilt = transformData.prop?.property?.yearBuilt || propertyDatas?.property_detail?.data?.propertyInfo?.yearBuilt || "N/A";
+                  const propertyType = transformData.prop?.property?.propertyType || propertyDatas?.property_detail?.data?.propertyInfo?.propertyType || "N/A";
+                  const sqftArea = transformData.prop?.property?.livingArea || propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet || 0;
+                  const listPrice = transformData.prop?.listPrice || propertyDatas?.data?.listPrice || 0;
+                  const pricePerSqft = sqft && listPrice ? Math.round(listPrice / sqft) : 0;
+                  const status = mostRecentStatus || transformData.prop?.mostRecentStatus || "For sale";
+                  const propertyTypeShort = propertyType?.split(' ')[0] || "Single";
 
-                    return (
-                      <>
-                        {/* Status Badge */}
-                        <div className="inline-flex items-center gap-2 bg-white/70 px-3 py-1 rounded-full text-xs sm:text-[13px] font-medium text-gray-800">
-                          <span className="h-[6px] w-[6px] rounded-full bg-red-500"></span>
-                          {status}
+                  return (
+                    <>
+                      {/* Status Badge */}
+                      <div className="inline-flex items-center gap-2 bg-white/70 px-3 py-1 rounded-full text-xs sm:text-[13px] font-medium text-gray-800">
+                        <span className="h-[6px] w-[6px] rounded-full bg-red-500"></span>
+                        {status}
+                      </div>
+
+                      {/* Top stats */}
+                      <div className="mt-4 grid grid-cols-3 gap-5">
+                        <div>
+                          <p className="text-2xl sm:text-[30px] font-semibold leading-none">{beds}</p>
+                          <p className="text-xs sm:text-[13px] text-gray-600 mt-1">beds</p>
                         </div>
 
-                        {/* Top stats */}
-                        <div className="mt-4 grid grid-cols-3 gap-5">
-                          <div>
-                            <p className="text-2xl sm:text-[30px] font-semibold leading-none">{beds}</p>
-                            <p className="text-xs sm:text-[13px] text-gray-600 mt-1">beds</p>
-                          </div>
-
-                          <div>
-                            <p className="text-2xl sm:text-[30px] font-semibold leading-none">{baths}</p>
-                            <p className="text-xs sm:text-[13px] text-gray-600 mt-1">baths</p>
-                          </div>
-
-                          <div>
-                            <p className="text-2xl sm:text-[30px] font-semibold leading-none tracking-tight">
-                              {sqft ? sqft.toLocaleString('en-US') : "0"}
-                            </p>
-                            <p className="text-xs sm:text-[13px] text-gray-600 mt-1">sqft</p>
-                          </div>
+                        <div>
+                          <p className="text-2xl sm:text-[30px] font-semibold leading-none">{baths}</p>
+                          <p className="text-xs sm:text-[13px] text-gray-600 mt-1">baths</p>
                         </div>
 
-                        {/* Open house - optional, can be made dynamic if data is available */}
-                        {transformData.prop?.openHouse && (
-                          <p className="text-[13px] text-gray-700 mt-4">
-                            Open : {transformData.prop.openHouse}
+                        <div>
+                          <p className="text-2xl sm:text-[30px] font-semibold leading-none tracking-tight">
+                            {sqft ? sqft.toLocaleString('en-US') : "0"}
                           </p>
-                        )}
+                          <p className="text-xs sm:text-[13px] text-gray-600 mt-1">sqft</p>
+                        </div>
+                      </div>
 
-                        <div className="h-px bg-[#E3DCD2] my-4"></div>
+                      {/* Open house - optional, can be made dynamic if data is available */}
+                      {transformData.prop?.openHouse && (
+                        <p className="text-[13px] text-gray-700 mt-4">
+                          Open : {transformData.prop.openHouse}
+                        </p>
+                      )}
 
-                        {/* Middle grid info with SVG icons */}
-                        <div className="grid grid-cols-2 gap-y-4 text-xs sm:text-[13px]">
-                          <div className="flex items-start gap-3">
-                            <Image
-                              src="/assets/images/residental.png"
-                              alt="Year Built"
-                              width={18}
-                              height={18}
-                              className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4"
-                            />
-                            <div>
-                              <p className="text-sm sm:text-[15px] font-semibold">{yearBuilt}</p>
-                              <p className="text-gray-600 mt-1">Year Built</p>
-                            </div>
-                          </div>
+                      <div className="h-px bg-[#E3DCD2] my-4"></div>
 
-                          <div className="border-l border-[#E3DCD2] pl-4 flex items-start gap-3">
-                            <Image
-                              src="/assets/images/residential-icon.svg"
-                              alt="Property Type"
-                              width={18}
-                              height={18}
-                              className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4"
-                            />
-                            <div>
-                              <p className="text-sm sm:text-[15px] font-semibold">{propertyTypeShort}</p>
-                              <p className="text-gray-600 mt-1">Family Residence</p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-start gap-3">
-                            <Image
-                              src="/assets/images/sqft-area-icon.svg"
-                              alt="Sqft Area"
-                              width={18}
-                              height={18}
-                              className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4"
-                            />
-                            <div>
-                              <p className="text-sm sm:text-[15px] font-semibold">
-                                {sqftArea ? sqftArea.toLocaleString('en-US') : "N/A"}
-                              </p>
-                              <p className="text-gray-600 mt-1">Sqft Area</p>
-                            </div>
-                          </div>
-
-                          <div className="border-l border-[#E3DCD2] pl-4 flex items-start gap-3">
-                            <div className="mt-0.5 text-[15px] font-bold text-gray-800 leading-none">$</div>
-                            <div>
-                              <p className="text-[15px] font-semibold">
-                                {pricePerSqft ? `$${pricePerSqft}` : "N/A"}
-                              </p>
-                              <p className="text-gray-600 mt-1">Price/sqft</p>
-                            </div>
+                      {/* Middle grid info with SVG icons */}
+                      <div className="grid grid-cols-2 gap-y-4 text-xs sm:text-[13px]">
+                        <div className="flex items-start gap-3">
+                          <Image
+                            src="/assets/images/residental.png"
+                            alt="Year Built"
+                            width={18}
+                            height={18}
+                            className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4"
+                          />
+                          <div>
+                            <p className="text-sm sm:text-[15px] font-semibold">{yearBuilt}</p>
+                            <p className="text-gray-600 mt-1">Year Built</p>
                           </div>
                         </div>
 
-                        {/* Footer */}
-                        <div className="flex items-center justify-between gap-3 mt-5">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button
-                                  className="flex items-center gap-3 text-sm sm:text-[15px] font-semibold text-gray-900 bg-[#F2F2F2] px-5 py-3 rounded-full border border-gray-300"
-                                  onClick={() => setIsStreetViewOpen(true)}
-                                >
-                                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-gray-900">
-                                    <path
-                                      d="M12 22s7-5.686 7-12A7 7 0 1 0 5 10c0 6.314 7 12 7 12Z"
-                                      stroke="currentColor"
-                                      strokeWidth="1.8"
-                                    />
-                                    <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.8" />
-                                  </svg>
-                                  Street view
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Open Street View</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-
-                          {/* Schedule a tour link hidden per updated design */}
+                        <div className="border-l border-[#E3DCD2] pl-4 flex items-start gap-3">
+                          <Image
+                            src="/assets/images/residential-icon.svg"
+                            alt="Property Type"
+                            width={18}
+                            height={18}
+                            className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4"
+                          />
+                          <div>
+                            <p className="text-sm sm:text-[15px] font-semibold">{propertyTypeShort}</p>
+                            <p className="text-gray-600 mt-1">Family Residence</p>
+                          </div>
                         </div>
-                      </>
-                    );
-                  })()}
+
+                        <div className="flex items-start gap-3">
+                          <Image
+                            src="/assets/images/sqft-area-icon.svg"
+                            alt="Sqft Area"
+                            width={18}
+                            height={18}
+                            className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4"
+                          />
+                          <div>
+                            <p className="text-sm sm:text-[15px] font-semibold">
+                              {sqftArea ? sqftArea.toLocaleString('en-US') : "N/A"}
+                            </p>
+                            <p className="text-gray-600 mt-1">Sqft Area</p>
+                          </div>
+                        </div>
+
+                        <div className="border-l border-[#E3DCD2] pl-4 flex items-start gap-3">
+                          <div className="mt-0.5 text-[15px] font-bold text-gray-800 leading-none">$</div>
+                          <div>
+                            <p className="text-[15px] font-semibold">
+                              {pricePerSqft ? `$${pricePerSqft}` : "N/A"}
+                            </p>
+                            <p className="text-gray-600 mt-1">Price/sqft</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Footer */}
+                      <div className="flex items-center justify-between gap-3 mt-5">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                className="flex items-center gap-3 text-sm sm:text-[15px] font-semibold text-gray-900 bg-[#F2F2F2] px-5 py-3 rounded-full border border-gray-300"
+                                onClick={() => setIsStreetViewOpen(true)}
+                              >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-gray-900">
+                                  <path
+                                    d="M12 22s7-5.686 7-12A7 7 0 1 0 5 10c0 6.314 7 12 7 12Z"
+                                    stroke="currentColor"
+                                    strokeWidth="1.8"
+                                  />
+                                  <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.8" />
+                                </svg>
+                                Street view
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Open Street View</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+
+                        {/* Schedule a tour link hidden per updated design */}
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="hidden lg:block mt-4 lg:sticky lg:top-36 lg:self-start">
@@ -2059,12 +2074,12 @@ const PropertyPreview: React.FC = () => {
                     section.id === 'home'
                       ? 'home-highlights'
                       : section.id === 'offers'
-                      ? 'property'
-                      : section.id === 'schools'
-                        ? 'schools'
-                        : section.id === 'interest'
-                          ? 'forecast'
-                          : undefined;
+                        ? 'property'
+                        : section.id === 'schools'
+                          ? 'schools'
+                          : section.id === 'interest'
+                            ? 'forecast'
+                            : undefined;
                   const poweredBy =
                     section.id === 'schools' || section.id === 'college'
                       ? 'SnapGrad'
@@ -2168,7 +2183,7 @@ const PropertyPreview: React.FC = () => {
 
           </div>
 
-    </>
+        </>
       ) : (
         <div className='h-full w-full'>{notFound()}</div>
       )}

@@ -38,8 +38,6 @@ function BuyPropertyCards({ forwardedRef, selectedProperty }: Props) {
   const { getAllSnaps } = useUserSnapAPIs();
   const [snaps, setSnaps] = useState<any[]>([]);
 
-  const [currentPage, setCurrentPage] = useState(1);
-
   const fetchSnaps = () => {
     if (userData?.id) {
       getAllSnaps.mutate(userData.id, {
@@ -100,15 +98,15 @@ function BuyPropertyCards({ forwardedRef, selectedProperty }: Props) {
     }
   }, [selectedProperty, allProperties, currentPage]);
 
-  useEffect(() => {
-    if (selectedProperty) {
-      const element = document.getElementById(selectedProperty);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }
-  }, [selectedProperty, currentPage]);
-  
+  // useEffect(() => {
+  //   if (selectedProperty) {
+  //     const element = document.getElementById(selectedProperty);
+  //     if (element) {
+  //       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  //     }
+  //   }
+  // }, [selectedProperty, currentPage]);
+
   return (
     <div ref={forwardedRef} className="flex h-full flex-col">
       <div className="flex-auto">
@@ -125,20 +123,19 @@ function BuyPropertyCards({ forwardedRef, selectedProperty }: Props) {
                 : 'grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4 lg:grid-cols-[repeat(4,360px)] lg:gap-x-8 lg:justify-center xl:grid-cols-[repeat(4,380px)]',
             )}
           >
-          {/* Show loader while fetching properties */}
-          {isLoading ? (
-            <>
-              {Array.from({ length: currentView === 'map' ? 10 : 10 }).map(() => (
-                <PropCardLoader key={nanoid()} />
-              ))}
-            </>
-          ) : (
-            <>
-              {Array.isArray(allProperties) && allProperties.length > 0 ? (
-                paginatedProperties.map((prop: any) => {
-                  const isSelected = prop.id === selectedProperty;
-                  return (
-                    <div
+            {/* Show loader while fetching properties */}
+            {isLoading ? (
+              <>
+                {Array.from({ length: currentView === 'map' ? 10 : 10 }).map(() => (
+                  <PropCardLoader key={nanoid()} />
+                ))}
+              </>
+            ) : (
+              <>
+                {Array.isArray(allProperties) && allProperties.length > 0 && (
+                  paginatedProperties.map((prop: any) => {
+                    const isSelected = prop.id === selectedProperty;
+                    return <div
                       ref={ref}
                       key={prop.id}
                       id={prop.id}
@@ -152,10 +149,9 @@ function BuyPropertyCards({ forwardedRef, selectedProperty }: Props) {
                     >
                       <PropertyCards {...prop} />
                     </div>
-                  </div>
+                  })
                 )}
-              </>
-            )}
+              </>)}
           </div>
         </div>
       </div>

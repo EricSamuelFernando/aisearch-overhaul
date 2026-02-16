@@ -71,9 +71,9 @@ const buildHighlightRegex = (addressLabel: string, institutionNames: string[] = 
   const institutionPattern =
     institutionNames.length > 0
       ? institutionNames
-          .map(escapeRegExp)
-          .sort((a, b) => b.length - a.length)
-          .join('|')
+        .map(escapeRegExp)
+        .sort((a, b) => b.length - a.length)
+        .join('|')
       : null;
 
   const patterns = [
@@ -388,8 +388,8 @@ const PropertyTakeawaysAI: React.FC<PropertyTakeawaysAIProps> = ({
     () =>
       truncateText(
         summaryParagraphs[0] ||
-          summary ||
-          'Core property facts and value-driving features are summarized below.',
+        summary ||
+        'Core property facts and value-driving features are summarized below.',
         220
       ),
     [summary, summaryParagraphs]
@@ -399,8 +399,8 @@ const PropertyTakeawaysAI: React.FC<PropertyTakeawaysAIProps> = ({
     () =>
       truncateText(
         summaryParagraphs[1] ||
-          summaryParagraphs[0] ||
-          'Neighborhood context focuses on day-to-day livability, access, and family fit.',
+        summaryParagraphs[0] ||
+        'Neighborhood context focuses on day-to-day livability, access, and family fit.',
         210
       ),
     [summaryParagraphs]
@@ -410,8 +410,8 @@ const PropertyTakeawaysAI: React.FC<PropertyTakeawaysAIProps> = ({
     () =>
       truncateText(
         summaryParagraphs[2] ||
-          summaryParagraphs[1] ||
-          'Education context combines nearby school signals with college-readiness pathways.',
+        summaryParagraphs[1] ||
+        'Education context combines nearby school signals with college-readiness pathways.',
         210
       ),
     [summaryParagraphs]
@@ -446,7 +446,7 @@ const PropertyTakeawaysAI: React.FC<PropertyTakeawaysAIProps> = ({
     if (/shopping|restaurants?|dining|amenities/.test(summaryLower)) points.push('Dining and amenity access supports day-to-day lifestyle.');
     if (/safe|safety/.test(summaryLower)) points.push('Community context suggests a stable neighborhood profile.');
     if (/suitable for families|family|families/.test(summaryLower)) points.push('Neighborhood context aligns with family-friendly living.');
-    if ((nearbySchools || []).length > 0) points.push(`${nearbySchools.length} nearby schools support local convenience.`);
+    if ((nearbySchools || []).length > 0) points.push(`${nearbySchools?.length} nearby schools support local convenience.`);
 
     if (!points.length) {
       points.push('Balanced residential location with access to essential services.');

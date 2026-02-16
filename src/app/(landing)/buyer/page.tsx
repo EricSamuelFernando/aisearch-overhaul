@@ -72,7 +72,7 @@ export default function BuyerPage() {
                         <Button className="bg-orange-500 hover:bg-orange-600">Begin Journey sdf</Button>
                     </div>
                     <p className="text-sm text-gray-400 mt-2">
-                        Conversational search <span className="text-white font-semibold">Powered by AI</span>
+                        Conversational search, <span className="text-white font-semibold">powered by AI.</span>
                     </p>
                 </section>
             </main>

@@ -8,34 +8,34 @@ import LoginRegisterModal from '@/components/modals/login-register-modal'
 
 const tabContent = {
   buy: {
-    heading: 'Buying your dream home',
-    subheading: 'Choose one of three possible ways',
-    subheading2: 'to introduce lorem to your home',
+    heading: 'Choose how you want to begin ',
+    subheading: 'Start the way that fits you best: bring your own agent',
+    subheading2: ' match with a local expert, or use guided tools inside Snaphomz',
     image: '/assets/images/home/01.png',
     steps: [
       {
         title: "Let's get acquainted",
-        desc: `Create your profile on Snaphomz, set preferences "  
-budget, location and must haves. Also use our AI search  
-to boost your chances of finding the perfect match.`,
+        desc: `Create your profile on Snaphomz and set your budget, locations, and must-haves. Use AI-powered search to increase your chances of finding the right home`,
       },
       {
         title: "Let's get financially ready",
-        desc: `Upload or process pre-approval documents right here.  
-Connect securely with Plaid and explore mortgages.  
-Get quick insights with AI summaries on SnapHomz.`,
-      },
+        desc: `Upload or process your pre-approval documents in one place.  
+Connect securely with Plaid to explore mortgage options  
+and get quick insights with AI summaries`,
+      }
+      ,
       {
-        title: "Let's bring your agent onboard",
-        desc: `Collaborate with an agent, manage agreements, and  
-track interactions on SnapHomz. In-built messaging and  
-AI-powered summaries for clear decisions.`,
+
+        title: "Let's bring your agent on board",
+        desc: `Work with your agent inside Snaphomz to manage agreements  
+and track every interaction. Use built-in messaging and  
+AI summaries to keep each decision clear`,
       },
       {
         title: "Let's seal the deal",
-        desc: `Draft and review offers with clarity and monitor title  
-and escrow digitally on SnapHomz, with AI summaries  
-keeping you informed throughout.`,
+        desc: `Draft and review offers with confidence and track title  
+and escrow activity digitally in Snaphomz. Stay informed  
+at every step with simple AI summaries`,
       },
     ],
   },
@@ -143,9 +143,7 @@ export default function HowItWorksPage() {
               Here's How it Works
             </h2>
             <p className="mt-4 text-lg text-gray-600 leading-relaxed">
-              Your home's about to skip a width. Whether it's finding or farewell,
-              Snaphomz turns the complex into compelling, because home sweet home
-              should actually be sweet.
+              Your next move should feel simple, not stressful. Snaphomz takes the hard parts of buying or selling and makes them clear and manageable, so “home sweet home” actually feels that way
             </p>
             <hr />
           </div>

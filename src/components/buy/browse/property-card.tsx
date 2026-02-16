@@ -249,34 +249,33 @@ const PropertyCards = (props: any) => {
         </div>
       ) : null}
 
-      <div className="absolute top-4 right-4 z-10">
-        <SnapzHeartButton
-          isActive={isFavored}
-          size={20}
-          onClick={(event) => {
-            event.stopPropagation();
-            if (isLoggedIn) {
-              saveCurrenctProperty(props);
-              const propertyImage =
-                props?.listing?.media?.primaryListingImageUrl ||
-                props?.public?.imageUrl ||
-                props?.image ||
-                '/assets/images/property-placeholder.jpg';
-              openCollectionModal(propertyId?.toString(), propertyImage, fetchSnaps);
-            } else {
-              router.push('/login');
-            }
-          }}
-          className="text-white"
-        />
-      </div>
-
       {/* Bottom Overlay Content */}
       <div className="absolute bottom-0 left-0 right-0 h-[210px] bg-black/90 p-4 rounded-b-2xl flex flex-col justify-between">
-        {/* Price */}
-        <h3 className="text-2xl font-bold text-white group-hover:text-ocOrange transition-colors duration-300 mb-0">
-          {formatCurrency(props?.listing?.listPriceLow || 0, 'USD').replace('$', '$ ')}
-        </h3>
+        {/* Price + Snapz icon */}
+        <div className="flex items-start justify-between">
+          <h3 className="text-2xl font-bold text-white group-hover:text-ocOrange transition-colors duration-300 mb-0">
+            {formatCurrency(props?.listing?.listPriceLow || 0, 'USD').replace('$', '$ ')}
+          </h3>
+          <SnapzHeartButton
+            isActive={isFavored}
+            size={20}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (isLoggedIn) {
+                saveCurrenctProperty(props);
+                const propertyImage =
+                  props?.listing?.media?.primaryListingImageUrl ||
+                  props?.public?.imageUrl ||
+                  props?.image ||
+                  '/assets/images/property-placeholder.jpg';
+                openCollectionModal(propertyId?.toString(), propertyImage, fetchSnaps);
+              } else {
+                router.push('/login');
+              }
+            }}
+            className="text-white"
+          />
+        </div>
 
         {/* Address */}
         <div className="text-sm text-white mb-0.5 leading-tight">

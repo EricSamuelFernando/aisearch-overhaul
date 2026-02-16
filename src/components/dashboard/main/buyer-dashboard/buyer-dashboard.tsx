@@ -28,7 +28,7 @@ function useTabState(defaultTab = 'my-snapz') {
 }
 
 const DASHBOARD_SECTIONS: Record<string, JSX.Element> = {
-  'my-snapz': <MySnapzSection />,
+  'my-snapz': <MySnapzSection origin="buyer-dashboard" />,
   'search-history': <SearchHistorySection />,
   messages: <BuyerMessagesPanel />,
 };

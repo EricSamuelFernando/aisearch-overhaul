@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import { Carousel } from '@mantine/carousel';
@@ -35,79 +35,44 @@ const features = [
     icon: <Image src={guidline} alt="Guided Transactions" width={50} height={50} />,
     title: 'Guided transactions',
     description:
-      'Gain unprecedented control with guided transactions, approval workflows, task tracking, and comprehensive closing services.',
+      'Gain more control with guided transactions, approval workflows, task tracking, and comprehensive closing services.',
   },
   {
     category: 'Transaction',
-    icon: <Image src={reduced} alt="Guided Transactions" width={50} height={50} />,
+    icon: <Image src={reduced} alt="Reduced time for task completion" width={50} height={50} />,
     title: 'Reduced time for task completion',
     description:
-      'Our platform increases task efficiency by 50%, saving 30% on routine tasks and 80% on complex ones.',
+      'Streamline your work with workflows that improve task efficiency, saving time on both routine and complex steps.',
   },
   {
     category: 'Transaction',
-    icon: <Image src={concierge} alt="Guided Transactions" width={50} height={50} />,
-    title: 'Concierge services',
+    icon: <Image src={concierge} alt="Integrated concierge support" width={50} height={50} />,
+    title: 'Integrated concierge support',
     description:
-      'Track interior design, remodeling, renovation, landscaping, and moving with our Concierge Services feature.',
-  },
-  {
-    category: 'Transaction',
-    icon: <FaComment size={40} color="#FF6A13" />,
-    title: 'Guided transactions',
-    description:
-      'Gain unprecedented control with guided transactions, approval workflows, task tracking, and comprehensive closing services.',
-  },
-  {
-    category: 'Transaction',
-    icon: <FaClock size={40} color="#FF6A13" />,
-    title: 'Reduced time for task completion',
-    description:
-      'Our platform increases task efficiency by 50%, saving 30% on routine tasks and 80% on complex ones.',
-  },
-  {
-    category: 'Transaction',
-    icon: <FaConciergeBell size={40} color="#FF6A13" />,
-    title: 'Concierge services',
-    description:
-      'Track interior design, remodeling, renovation, landscaping, and moving with our Concierge Services feature.',
+      'Keep interior design, remodeling, renovation, landscaping, and moving services organized in one place with Concierge Services.',
   },
 
   // TECHNOLOGY category
   {
     category: 'Technology',
+    icon: <FaChartLine size={40} color="#FF6A13" />,
+    title: 'Live analytics dashboard',
+    description:
+      "See up-to-the-minute market trends, monitor your home's value, and track your savings goals in one place.",
+  },
+  {
+    category: 'Technology',
+    icon: <FaLock size={40} color="#FF6A13" />,
+    title: 'Secure document storage',
+    description:
+      'Store all your contracts and disclosures in an encrypted, always-available vault that you can access from anywhere.',
+  },
+  {
+    category: 'Technology',
     icon: <FaLaptop size={40} color="#FF6A13" />,
-    title: 'AI‐powered recommendations',
+    title: 'AI-powered insights',
     description:
-      'Our AI engine analyzes market data in real time to suggest best‐fit listings and financing options.',
-  },
-  {
-    category: 'Technology',
-    icon: <FaChartLine size={40} color="#FF6A13" />,
-    title: 'Live analytics dashboard',
-    description:
-      'See up‐to‐the‐minute market trends, monitor your home’s value, and track your savings goals in one place.',
-  },
-  {
-    category: 'Technology',
-    icon: <FaLock size={40} color="#FF6A13" />,
-    title: 'Secure document storage',
-    description:
-      'All your contracts and disclosures are encrypted and stored on our platform—accessible from anywhere.',
-  },
-  {
-    category: 'Technology',
-    icon: <FaChartLine size={40} color="#FF6A13" />,
-    title: 'Live analytics dashboard',
-    description:
-      'See up‐to‐the‐minute market trends, monitor your home’s value, and track your savings goals in one place.',
-  },
-  {
-    category: 'Technology',
-    icon: <FaLock size={40} color="#FF6A13" />,
-    title: 'Secure document storage',
-    description:
-      'All your contracts and disclosures are encrypted and stored on our platform—accessible from anywhere.',
+      'Use built-in AI to summarize key documents, highlight important changes, and surface next best actions during your transaction.',
   },
 
   // TRANSPARENCY category
@@ -121,33 +86,18 @@ const features = [
   {
     category: 'Transparency',
     icon: <FaClock size={40} color="#FF6A13" />,
-    title: 'Real‐time status updates',
+    title: 'Real-time status updates',
     description:
-      'Know exactly where you stand in your transaction—no more guessing or waiting for status emails.',
+      'Know exactly where you stand in your transaction without guessing or waiting for status emails.',
   },
   {
     category: 'Transparency',
     icon: <FaConciergeBell size={40} color="#FF6A13" />,
-    title: 'Open communication channels',
+    title: 'Shared timeline view',
     description:
-      'Message, call, or video‐chat your agent, lender, and closing coordination team all from one dashboard.',
-  },
-  {
-    category: 'Transparency',
-    icon: <FaClock size={40} color="#FF6A13" />,
-    title: 'Real‐time status updates',
-    description:
-      'Know exactly where you stand in your transaction—no more guessing or waiting for status emails.',
-  },
-  {
-    category: 'Transparency',
-    icon: <FaConciergeBell size={40} color="#FF6A13" />,
-    title: 'Open communication channels',
-    description:
-      'Message, call, or video‐chat your agent, lender, and closing coordination team all from one dashboard.',
+      'Follow a simple, shared timeline that shows upcoming tasks, who is responsible, and when each step is due.',
   },
 ];
-
 const AgentsWeMakeItEasy = () => {
   const [activeCategory, setActiveCategory] = useState('Transaction');
 
@@ -174,7 +124,7 @@ const AgentsWeMakeItEasy = () => {
           We Make It <span className="font-light">Easy</span>
         </h2>
         <p className="satoshi text-xs sm:text-sm text-[#8E8B8A] mb-12 max-w-[600px] mx-auto">
-          Tailor your homebuying experience — your way, with the guidance you need.
+          Shape your homebuying journey your way, with the support you need at every step.
         </p>
 
         {/* SegmentedControl (three tabs styled like the first screenshot) */}

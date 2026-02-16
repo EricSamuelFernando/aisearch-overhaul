@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useMemo, useState, type ComponentType } from 'react';
 import {
   Menu,
   UnstyledButton,
@@ -7,38 +7,193 @@ import {
   ScrollArea,
   Box,
 } from '@mantine/core';
-import { BellDot, CheckCheck } from 'lucide-react';
-import { useAuth } from '@/shared/hooks/useAuth';
-import { useGetAccessRequestsByUserId, useRepoManagementApi } from '@/hooks/api/document/useRepoManagement';
+import {
+  BellDot,
+  CalendarCheck2,
+  CalendarClock,
+  FileText,
+  FolderPlus,
+  Handshake,
+  MessageCircle,
+  MessageSquareText,
+  Tag,
+  CircleDot,
+} from 'lucide-react';
+import { useNotificationApi } from '@/hooks/api/user/useNotification';
+import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
+import { SocketContext } from '@/providers/socket.context';
 
+type NotificationKind =
+  | 'message'
+  | 'comment'
+  | 'snapz'
+  | 'collection'
+  | 'price'
+  | 'status'
+  | 'open_house'
+  | 'reply'
+  | 'document'
+  | 'offer'
+  | 'appointment'
+  | 'general';
+
+type UINotification = {
+  id: string;
+  title: string;
+  body: string;
+  createdAt: string;
+  read: boolean;
+  kind: NotificationKind;
+  link?: string;
+  threadId?: string;
+};
+
+type IconComponent = ComponentType<{ size?: string | number }>;
+
+const iconByKind: Record<NotificationKind, IconComponent> = {
+  message: MessageCircle,
+  comment: MessageSquareText,
+  snapz: CircleDot,
+  collection: FolderPlus,
+  price: Tag,
+  status: CircleDot,
+  open_house: CalendarClock,
+  reply: MessageCircle,
+  document: FileText,
+  offer: Handshake,
+  appointment: CalendarCheck2,
+  general: CircleDot,
+};
+
+const normalizeKind = (type?: string): NotificationKind => {
+  const value = (type || '').toLowerCase();
+  if (!value) return 'general';
+  if (value === 'message' || value === 'chat') return 'message';
+  if (value === 'comment') return 'comment';
+  if (value === 'snapz') return 'snapz';
+  if (value === 'collection') return 'collection';
+  if (value === 'price' || value === 'price_change') return 'price';
+  if (value === 'status' || value === 'status_change') return 'status';
+  if (value === 'open_house') return 'open_house';
+  if (value === 'reply') return 'reply';
+  if (value === 'document') return 'document';
+  if (value === 'offer' || value === 'offer_status') return 'offer';
+  if (value === 'appointment' || value === 'tour') return 'appointment';
+  return 'general';
+};
+
+const deriveKind = (title?: string, body?: string): NotificationKind => {
+  const text = `${title ?? ''} ${body ?? ''}`.toLowerCase();
+  if (text.includes('message') || text.includes('chat')) return 'message';
+  if (text.includes('comment')) return 'comment';
+  if (text.includes('snapz')) return 'snapz';
+  if (text.includes('collection')) return 'collection';
+  if (text.includes('price') || text.includes('drop')) return 'price';
+  if (text.includes('status') || text.includes('under contract') || text.includes('back on market')) return 'status';
+  if (text.includes('open house')) return 'open_house';
+  if (text.includes('reply') || text.includes('replied')) return 'reply';
+  if (text.includes('document') || text.includes('inspection') || text.includes('disclosure')) return 'document';
+  if (text.includes('offer')) return 'offer';
+  if (text.includes('appointment') || text.includes('tour') || text.includes('confirmed') || text.includes('rescheduled')) return 'appointment';
+  return 'general';
+};
 
 export default function NotificationDropdown() {
-  const {user} = useAuth()
-  const userId = user?.id as string;
+  const {
+    notificationsQuery,
+    markOneAsReadMutation,
+    markAllAsReadMutation,
+    markLinkAsReadMutation,
+  } = useNotificationApi();
+  const router = useRouter();
+  const { state } = useContext(SocketContext);
+  const [socketNotifications, setSocketNotifications] = useState<UINotification[]>([]);
+  const apiNotifications =
+    notificationsQuery.data?.data.data.result.result || [];
 
-  const { data: accessRequests = [], refetch } = useGetAccessRequestsByUserId(userId);
+  const notifications = useMemo(() => {
+    const normalized: UINotification[] = apiNotifications.map((item) => ({
+      id: item._id,
+      title: item.title,
+      body: item.body,
+      createdAt: item.createdAt,
+      read: item.read,
+      kind: normalizeKind((item as { type?: string }).type) || deriveKind(item.title, item.body),
+      link: (item as { link?: string }).link,
+    }));
+    return [...socketNotifications, ...normalized].reduce<UINotification[]>((acc, next) => {
+      if (!acc.find((existing) => existing.id === next.id)) {
+        acc.push(next);
+      }
+      return acc;
+    }, []);
+  }, [apiNotifications, socketNotifications]);
 
-  const unreadCount = accessRequests?.filter((n:any) => n.status === 'PENDING').length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const {updateAccessRequestStatus:{
-    mutate,
-    isPending
-  }} = useRepoManagementApi()
+  useEffect(() => {
+    if (!state?.notification?.isVisible && !state?.newMessage) return;
+    notificationsQuery.refetch();
+  }, [notificationsQuery, state?.notification?.isVisible, state?.newMessage]);
 
- 
-  const handleStatusUpdate = async (id: string, status: 'APPROVED' | 'REJECTED') => {
-    const payload = {
-      requestId: id,
-      status,
-      accessType: 'OWNER',
-    };
-  
-    mutate(payload, {
-      onSuccess: () => {
-        // ✅ Refetch access requests after successful mutation
-        refetch();
-      },
+  useEffect(() => {
+    if (!state?.notification?.isVisible) return;
+    const message = state.notification.message || 'New message';
+    const sender = state.notification.user || 'Someone';
+    const channelId = state.notification.channelId;
+    const idSuffix = channelId || Date.now().toString();
+    const link = channelId ? `/dashboard/buyer?tab=messages&threadId=${channelId}` : '/dashboard/buyer?tab=messages';
+
+    setSocketNotifications((prev) => {
+      const id = `socket-${idSuffix}-${Date.now()}`;
+      const next: UINotification = {
+        id,
+        title: 'New message in property chat',
+        body: `${sender}: ${message}`,
+        createdAt: new Date().toISOString(),
+        read: false,
+        kind: 'message',
+        link,
+        threadId: channelId || undefined,
+      };
+      return [next, ...prev].slice(0, 20);
     });
+  }, [state?.notification]);
+
+  useEffect(() => {
+    const activeThreadId = state?.selectedChannel?.id;
+    if (!activeThreadId) return;
+    setSocketNotifications((prev) =>
+      prev.map((item) =>
+        item.threadId === activeThreadId ? { ...item, read: true } : item,
+      ),
+    );
+  }, [state?.selectedChannel?.id]);
+  const handleOpenNotification = (notification: UINotification) => {
+    if (!notification.read) {
+      if (!notification.id.startsWith('socket-')) {
+        markOneAsReadMutation.mutate(notification.id);
+        if (notification.link) {
+          markLinkAsReadMutation.mutate(notification.link);
+        }
+      }
+      setSocketNotifications((prev) =>
+        prev.map((item) =>
+          item.id === notification.id ? { ...item, read: true } : item,
+        ),
+      );
+    }
+    if (notification.link) {
+      router.push(notification.link);
+    }
+  };
+
+  const handleMarkAll = () => {
+    if (unreadCount > 0) {
+      markAllAsReadMutation.mutate(undefined);
+    }
+    setSocketNotifications((prev) => prev.map((item) => ({ ...item, read: true })));
   };
 
   return (
@@ -52,8 +207,24 @@ export default function NotificationDropdown() {
       </Menu.Target>
 
       <Menu.Dropdown>
-        <ScrollArea h={350}>
-          {accessRequests.length === 0 && (
+        <Box className="flex items-center justify-between px-3 pt-2">
+          <Text size="xs" className="text-slate-500">
+            Notifications
+          </Text>
+          <button
+            type="button"
+            onClick={handleMarkAll}
+            className={cn(
+              'text-[10px] font-semibold uppercase tracking-wide',
+              unreadCount > 0 ? 'text-amber-700' : 'text-slate-400 cursor-default'
+            )}
+            aria-disabled={unreadCount === 0}
+          >
+            Mark all read
+          </button>
+        </Box>
+        <ScrollArea h={320}>
+          {notifications.length === 0 && (
             <Box p="md">
               <Text size="sm" color="dimmed">
                 No notifications
@@ -61,396 +232,60 @@ export default function NotificationDropdown() {
             </Box>
           )}
 
-          {accessRequests.map((req:any) => (
-            <Box
-              key={req.id}
-              p="xs"
-              className="bg-slate-50 p-2 mb-1 flex flex-col gap-2 rounded-md"
-            >
-              <div className="flex items-start gap-2">
-                <CheckCheck strokeWidth={1} size={16} />
-                <Text size="sm">
-                  Access request for <strong>{req.repo?.name}</strong>
-                </Text>
-              </div>
-              {req.status === 'PENDING' && (
-                <div className="flex gap-2 text-[10px] justify-end">
-                  <button
-                    disabled={isPending}
-                    onClick={() => handleStatusUpdate(req.id, 'APPROVED')}
-                    className="p-2 bg-green-600 py-1 text-white rounded-md"
+          {notifications.map((notification) => {
+            const Icon = iconByKind[notification.kind] || CircleDot;
+            const timestamp = new Date(notification.createdAt);
+            const timeLabel = Number.isNaN(timestamp.getTime())
+              ? 'Just now'
+              : `${timestamp.toLocaleDateString()} ${timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+            const isUnread = !notification.read;
+
+            return (
+              <Box
+                key={notification.id}
+                p="xs"
+                className={cn(
+                  'p-2 mb-1 flex flex-col gap-2 rounded-md border cursor-pointer',
+                  isUnread
+                    ? 'bg-amber-50 border-amber-100'
+                    : 'bg-slate-50 border-slate-100'
+                )}
+                onClick={() => handleOpenNotification(notification)}
+              >
+                <div className="flex items-start gap-2">
+                  <div
+                    className={cn(
+                      'mt-0.5 rounded-full p-1',
+                      isUnread
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-slate-200 text-slate-600'
+                    )}
                   >
-                    Accept
-                  </button>
-                  <button
-                    disabled={isPending}
-                    onClick={() => handleStatusUpdate(req.id, 'REJECTED')}
-                    className="p-2 bg-red-600 py-1 text-white rounded-md"
-                  >
-                    Reject
-                  </button>
+                    <Icon size={14} />
+                  </div>
+                  <div className="flex-1">
+                    <Text
+                      size="sm"
+                      className={
+                        isUnread ? 'font-semibold text-slate-900' : 'text-slate-700'
+                      }
+                    >
+                      {notification.title}
+                    </Text>
+                    <Text size="xs" className="text-slate-500">
+                      {notification.body}
+                    </Text>
+                  </div>
                 </div>
-              )}
-              {req.status !== 'PENDING' && (
                 <div className="text-[10px] text-right text-gray-500 italic">
-                  Status: {req.status}
+                  {timeLabel}
                 </div>
-              )}
-            </Box>
-          ))}
+              </Box>
+            );
+          })}
         </ScrollArea>
       </Menu.Dropdown>
     </Menu>
   );
 }
 
-
-// "use client";
-
-// import { useState, useEffect } from "react";
-// import { Menu, UnstyledButton, Indicator, Text, ScrollArea, Box } from "@mantine/core";
-// import { BellDot, CheckCheck } from "lucide-react";
-// import { useAuth } from "@/shared/hooks/useAuth";
-// import { useGetAccessRequestsByUserId, useRepoManagementApi } from "@/hooks/api/document/useRepoManagement";
-// import { useRouter } from "next/navigation";
-
-// export default function NotificationDropdown() {
-//   const { user } = useAuth();
-//   const userId = user?.id as string;
-//   const router = useRouter();
-
-//   // Fetch access requests initially
-//   const { data: accessRequests = [], refetch } = useGetAccessRequestsByUserId(userId);
-//   const unreadCount = accessRequests?.filter((n: any) => n.status === "PENDING").length;
-
-//   const { updateAccessRequestStatus: { mutate, isPending } } = useRepoManagementApi();
-
-//   const [notifications, setNotifications] = useState<any[]>(accessRequests);
-//   const [newNotification, setNewNotification] = useState<boolean>(false);
-
-//   // Handle status update for access requests
-//   const handleStatusUpdate = async (id: string, status: "APPROVED" | "REJECTED") => {
-//     const payload = {
-//       requestId: id,
-//       status,
-//       accessType: "OWNER",
-//     };
-
-//     mutate(payload, {
-//       onSuccess: () => {
-//         // Refetch access requests after successful mutation
-//         refetch();
-//       },
-//     });
-//   };
-
-//   // Handle visibility for new notifications (similar to NewNotification)
-//   useEffect(() => {
-//     const showTimer = setTimeout(() => {
-//       setNewNotification(false); // Hide new notification indicator after 10 seconds
-//     }, 10000);
-
-//     return () => clearTimeout(showTimer); // Clean up timer on component unmount
-//   }, [newNotification]);
-
-//   // Simulate new notifications periodically (to mimic real-time updates)
-//   useEffect(() => {
-//     // This is where you simulate the notification addition, like if a new notification is received
-//     const simulateNewNotification = () => {
-//       const newNotification = {
-//         id: `new-${Date.now()}`,  // Unique ID
-//         repo: { name: "New Property" },
-//         status: "PENDING",
-//       };
-
-//       // Only add if it doesn't already exist in state
-//       setNotifications((prevNotifications) => {
-//         if (!prevNotifications.find((notification) => notification.id === newNotification.id)) {
-//           return [...prevNotifications, newNotification];
-//         }
-//         return prevNotifications;
-//       });
-
-//       setNewNotification(true); // Show new notification indicator
-//     };
-
-//     // Simulate new notifications every 15 seconds (for demo purposes)
-//     const interval = setInterval(simulateNewNotification, 15000);
-
-//     return () => clearInterval(interval); // Cleanup on component unmount
-//   }, []);
-
-//   return (
-//     <Menu shadow="md" radius="lg" width={280} position="bottom-end">
-//       <Menu.Target>
-//         <UnstyledButton>
-//           <Indicator color="red" size={12} disabled={!unreadCount}>
-//             <BellDot size={24} />
-//           </Indicator>
-//         </UnstyledButton>
-//       </Menu.Target>
-
-//       <Menu.Dropdown>
-//         <ScrollArea h={350}>
-//           {notifications.length === 0 && (
-//             <Box p="md">
-//               <Text size="sm" color="dimmed">
-//                 No notifications
-//               </Text>
-//             </Box>
-//           )}
-
-//           {notifications.map((req: any) => (
-//             <Box
-//               key={req.id}
-//               p="xs"
-//               className="bg-slate-50 p-2 mb-1 flex flex-col gap-2 rounded-md"
-//             >
-//               <div className="flex items-start gap-2">
-//                 <CheckCheck strokeWidth={1} size={16} />
-//                 <Text size="sm">
-//                   Access request for <strong>{req.repo?.name}</strong>
-//                 </Text>
-//               </div>
-//               {req.status === "PENDING" && (
-//                 <div className="flex gap-2 text-[10px] justify-end">
-//                   <button
-//                     disabled={isPending}
-//                     onClick={() => handleStatusUpdate(req.id, "APPROVED")}
-//                     className="p-2 bg-green-600 py-1 text-white rounded-md"
-//                   >
-//                     Accept
-//                   </button>
-//                   <button
-//                     disabled={isPending}
-//                     onClick={() => handleStatusUpdate(req.id, "REJECTED")}
-//                     className="p-2 bg-red-600 py-1 text-white rounded-md"
-//                   >
-//                     Reject
-//                   </button>
-//                 </div>
-//               )}
-//               {req.status !== "PENDING" && (
-//                 <div className="text-[10px] text-right text-gray-500 italic">
-//                   Status: {req.status}
-//                 </div>
-//               )}
-//             </Box>
-//           ))}
-
-//           {newNotification && (
-//             <Box p="md" className="bg-yellow-50">
-//               <Text size="sm" color="yellow">
-//                 New Notification Received!
-//               </Text>
-//             </Box>
-//           )}
-//         </ScrollArea>
-//       </Menu.Dropdown>
-//     </Menu>
-//   );
-// }
-
-// "use client";
-
-// import { useState, useEffect } from "react";
-// import { Menu, UnstyledButton, Indicator, Text, ScrollArea, Box } from "@mantine/core";
-// import { BellDot } from "lucide-react";
-
-// export default function NotificationDropdown() {
-//   const [notifications, setNotifications] = useState<any[]>([]);
-//   const [newNotification, setNewNotification] = useState<boolean>(false);
-
-//   // Simulate new notifications periodically (to mimic real-time updates)
-//   useEffect(() => {
-//     const simulateNewNotification = () => {
-//       const newNotification = {
-//         id: `new-${Date.now()}`,  // Unique ID
-//         user: "Xavier Watt", // Simulated user
-//         property: "New Property", // Simulated property
-//         message: "Interested in your property", // Simulated message
-//       };
-
-//       // Add only if this notification doesn't already exist
-//       setNotifications((prevNotifications) => {
-//         if (!prevNotifications.find((notification) => notification.id === newNotification.id)) {
-//           return [...prevNotifications, newNotification];
-//         }
-//         return prevNotifications;
-//       });
-
-//       setNewNotification(true); // Show new notification indicator
-//     };
-
-//     // Simulate new notifications every 15 seconds (for demo purposes)
-//     const interval = setInterval(simulateNewNotification, 15000);
-
-//     return () => clearInterval(interval); // Cleanup on component unmount
-//   }, []);
-
-//   // Handle visibility for new notifications
-//   useEffect(() => {
-//     const showTimer = setTimeout(() => {
-//       setNewNotification(false); // Hide new notification indicator after 10 seconds
-//     }, 10000);
-
-//     return () => clearTimeout(showTimer); // Clean up timer on component unmount
-//   }, [newNotification]);
-
-//   return (
-//     <Menu shadow="md" radius="lg" width={280} position="bottom-end">
-//       <Menu.Target>
-//         <UnstyledButton>
-//           <Indicator color="red" size={12} disabled={!notifications.length}>
-//             <BellDot size={24} />
-//           </Indicator>
-//         </UnstyledButton>
-//       </Menu.Target>
-
-//       <Menu.Dropdown>
-//         <ScrollArea h={350}>
-//           {notifications.length === 0 && (
-//             <Box p="md">
-//               <Text size="sm" color="dimmed">
-//                 No notifications
-//               </Text>
-//             </Box>
-//           )}
-
-//           {notifications.map((req: any) => (
-//             <Box
-//               key={req.id}
-//               p="xs"
-//               className="bg-slate-50 p-2 mb-1 flex flex-col gap-2 rounded-md"
-//             >
-//               <div className="flex items-start gap-2">
-//                 <Text size="sm">
-//                   Access request from <strong>{req.user}</strong> for <strong>{req.property}</strong>
-//                 </Text>
-//                 <Text size="xs" color="gray">
-//                   {req.message}
-//                 </Text>
-//               </div>
-//             </Box>
-//           ))}
-
-//           {newNotification && (
-//             <Box p="md" className="bg-yellow-50">
-//               <Text size="sm" color="yellow">
-//                 New Notification Received!
-//               </Text>
-//             </Box>
-//           )}
-//         </ScrollArea>
-//       </Menu.Dropdown>
-//     </Menu>
-//   );
-// }
-
-
-// import { useEffect, useState } from 'react';
-// import {
-//   Menu,
-//   UnstyledButton,
-//   Indicator,
-//   Text,
-//   ScrollArea,
-//   Box,
-// } from '@mantine/core';
-// import { BellDot, CheckCheck } from 'lucide-react';
-// import { useAuth } from '@/shared/hooks/useAuth';
-// import { useGetAccessRequestsByUserId, useRepoManagementApi } from '@/hooks/api/document/useRepoManagement';
-// import NewNotification from '@/components/chat-box/notification-bar';
-
-
-// export default function NotificationDropdown() {
-//   const {user} = useAuth()
-//   const userId = user?.id as string;
-
-//   const { data: accessRequests = [], refetch } = useGetAccessRequestsByUserId(userId);
-
-//   const unreadCount = accessRequests?.filter((n:any) => n.status === 'PENDING').length;
-
-//   const {updateAccessRequestStatus:{
-//     mutate,
-//     isPending
-//   }} = useRepoManagementApi()
-
- 
-//   const handleStatusUpdate = async (id: string, status: 'APPROVED' | 'REJECTED') => {
-//     const payload = {
-//       requestId: id,
-//       status,
-//       accessType: 'OWNER',
-//     };
-  
-//     mutate(payload, {
-//       onSuccess: () => {
-//         // ✅ Refetch access requests after successful mutation
-//         refetch();
-//       },
-//     });
-//   };
-
-//   return (
-//     <Menu shadow="md" radius={'lg'} width={280} position="bottom-end">
-//       <Menu.Target>
-//         <UnstyledButton>
-//           <Indicator color="red" size={12} disabled={!unreadCount}>
-//             <BellDot size={24} />
-//           </Indicator>
-//         </UnstyledButton>
-//       </Menu.Target>
-
-//       <Menu.Dropdown>
-//         <ScrollArea h={350}>
-//           {accessRequests.length === 0 && (
-//             <Box p="md">
-//               <Text size="sm" color="dimmed">
-//                 No notifications
-//               </Text>
-//             </Box>
-//           )}
-
-//           {accessRequests.map((req:any) => (
-//             <Box
-//               key={req.id}
-//               p="xs"
-//               className="bg-slate-50 p-2 mb-1 flex flex-col gap-2 rounded-md"
-//             >
-//               <div className="flex items-start gap-2">
-//                 <CheckCheck strokeWidth={1} size={16} />
-//                 <Text size="sm">
-//                   Access request for <strong>{req.repo?.name}</strong>
-//                 </Text>
-//               </div>
-//               {req.status === 'PENDING' && (
-//                 <div className="flex gap-2 text-[10px] justify-end">
-//                   <button
-//                     disabled={isPending}
-//                     onClick={() => handleStatusUpdate(req.id, 'APPROVED')}
-//                     className="p-2 bg-green-600 py-1 text-white rounded-md"
-//                   >
-//                     Accept
-//                   </button>
-//                   <button
-//                     disabled={isPending}
-//                     onClick={() => handleStatusUpdate(req.id, 'REJECTED')}
-//                     className="p-2 bg-red-600 py-1 text-white rounded-md"
-//                   >
-//                     Reject
-//                   </button>
-//                 </div>
-//               )}
-//               {req.status !== 'PENDING' && (
-//                 <div className="text-[10px] text-right text-gray-500 italic">
-//                   Status: {req.status}
-//                 </div>
-//               )}
-//             </Box>
-//           ))}
-//         </ScrollArea>
-//       </Menu.Dropdown>
-//     </Menu>
-//   );
-// }

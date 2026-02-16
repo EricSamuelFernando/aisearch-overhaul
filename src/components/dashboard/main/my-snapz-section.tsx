@@ -15,6 +15,7 @@ import CreateSnapModal from '@/components/create-snap.modal';
 import { success, error } from '@/components/alert/notify';
 import { useUserSnapAPIs } from '@/hooks/api/auth/snaps.API';
 import { useAgentConversationApi } from '@/hooks/api/auth/useConversationApi';
+import { useNotificationApi } from '@/hooks/api/user/useNotification';
 
 interface InvitationInterface {
   id: string;
@@ -38,7 +39,11 @@ interface SnapCollection {
 
 const ITEMS_PER_PAGE = 10;
 
-const MySnapzSection = () => {
+type MySnapzSectionProps = {
+  origin?: 'buyer-dashboard' | 'account';
+};
+
+const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
   const router = useRouter();
   const userData = useSelector((state: any) => state.auth.user);
   const [snaps, setSnaps] = useState<SnapCollection[]>([]);
@@ -63,6 +68,7 @@ const MySnapzSection = () => {
     createParticipents,
   } = useUserSnapAPIs();
   const { getAllSnapzRequest, updateSnapzById } = useAgentConversationApi();
+  const { notificationsQuery } = useNotificationApi();
   const { getAllSnapzRequest: getAllPendingSnapzRequest } = useAgentConversationApi();
 
   const fetchInvitationUsers = async (page: number) => {
@@ -208,6 +214,7 @@ const MySnapzSection = () => {
           success({ message: 'Snapz created successfully!' });
           getAllCollections();
           setIsCreateSnapModalOpen(false);
+          notificationsQuery.refetch();
         },
         onError: (err: any) => {
           error({ message: err.message || 'Failed to create snap' });
@@ -308,17 +315,17 @@ const MySnapzSection = () => {
           </Button>
         </div>
       </div>
-      <div className="rounded-md border-none p-3 sm:p-4 md:p-6">
-        <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:gap-y-4 md:grid-cols-2">
+      <div className="p-0">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {snapList.length > 0 ? (
             snapList.map((snap) => (
               <div
                 key={snap.id}
-                className="flex items-center justify-between gap-3 rounded-md border border-gray-100 bg-white/70 p-2 sm:border-0 sm:bg-transparent sm:p-0"
+                className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                   {snap?.favourites?.length && snap?.favourites[0]?.image ? (
-                    <div className="h-12 w-12 overflow-hidden rounded">
+                    <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl">
                       <img
                         src={snap?.favourites?.[0]?.image}
                         alt={snap.name || 'Collection'}
@@ -326,21 +333,21 @@ const MySnapzSection = () => {
                       />
                     </div>
                   ) : (
-                    <div className="flex h-12 w-12 items-center justify-center rounded bg-indigo-500 text-white font-bold">
+                    <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-xl bg-indigo-500 text-xl font-bold text-white">
                       {snap?.name ? snap.name.charAt(0).toUpperCase() : 'C'}
                     </div>
                   )}
-                  <span className="max-w-[140px] truncate text-sm font-medium sm:max-w-[180px]">
+                  <span className="max-w-[160px] truncate text-sm font-medium text-gray-900 sm:max-w-[200px]">
                     {snap?.name || 'Collection'}
                   </span>
                 </div>
                 <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 rounded-full px-4 text-xs font-medium"
+                  className="flex-shrink-0 rounded-full bg-black px-6 py-2 text-sm font-medium text-white hover:bg-gray-800"
                   onClick={() => {
                     setSelectedSnap(snap);
-                    router.push(`/account/collections/${snap.id}`);
+                    const fromBuyerDashboard = origin === 'buyer-dashboard';
+                    const suffix = fromBuyerDashboard ? '?from=buyer-dashboard' : '';
+                    router.push(`/account/collections/${snap.id}${suffix}`);
                   }}
                 >
                   View

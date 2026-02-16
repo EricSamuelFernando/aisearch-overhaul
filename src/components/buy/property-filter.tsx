@@ -1023,8 +1023,8 @@ function PropertyFilter() {
   return (
     <section
       className={cn(
-        'w-full px-4 pb-4 md:px-8',
-        currentView === 'grid' ? 'max-w-[1440px] mx-auto' : '',
+        'w-full px-4 pb-4 md:px-6',
+        currentView === 'grid' ? 'max-w-[1600px] mx-auto lg:px-0' : '',
       )}
     >
       <AutoLoginrModal
@@ -1052,6 +1052,11 @@ function PropertyFilter() {
             </div>
           ) : null}
         </div>
+        {currentView === 'grid' ? (
+          <div className="flex items-start gap-4 whitespace-nowrap md:ml-auto">
+            <ViewSelection />
+          </div>
+        ) : null}
       </div>
       <p className="text-lg font-medium leading-9 text-grey-370">
         You have searched: {searchTerm}

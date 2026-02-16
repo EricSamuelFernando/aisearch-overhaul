@@ -12,14 +12,16 @@ export default function BrowsePage() {
     <section className='visible flex min-h-screen flex-col space-y-3 bg-primary-100 transition-all pb-0'>
       <BuyBreadCrumb />
       <PropertyFilter />
-      <PropertyBrowseView/>
+      <PropertyBrowseView />
       {/* <PropertyCardLists /> */}
 
       <BuyCustomSearch hideInMap />
 
-{/* MAP STOP SENTINEL */}
-<div id="map-stop-sentinel" className="h-px" />
-      <Footer />
+      {/* MAP STOP SENTINEL */}
+      <div id="map-stop-sentinel" className="h-px" />
+      <div className="relative z-10 pb-0">
+        <Footer />
+      </div>
     </section>
   );
 }

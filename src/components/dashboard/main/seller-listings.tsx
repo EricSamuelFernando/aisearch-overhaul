@@ -113,14 +113,6 @@ export const SellerListings = (props: any) => {
       </div>
     );
   }
-
-  if (isLoading) {
-    return (
-      <div className='fixed inset-0 z-50 flex items-center justify-center bg-white'>
-        <PageLoader />
-      </div>
-    );
-  }
   return (
     <section className='h-full'>
       {properties?.length === 0 ? (
@@ -172,6 +164,7 @@ export const SellerListings = (props: any) => {
 
                 return (
                   <SellPropertyCards
+                    key={item?.id ?? item?.listingid}
                     propertyData={item?.mls_data?.data}
                     isEditEnabled={isEditEnabled}
                     isDeleting={isDeleting}

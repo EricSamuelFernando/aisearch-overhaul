@@ -239,7 +239,7 @@ const MonthlyMortgageCalculator: React.FC<MonthlyMortgageCalculatorProps> = ({
       ? `Live rate - as of ${rateMeta.date}`
       : 'Live rate unavailable';
 
-  
+
   const LabelWithTip = ({ label, tip }: { label: string; tip: string }) => {
     const [open, setOpen] = React.useState(false);
     const wrapperRef = React.useRef<HTMLSpanElement | null>(null);
@@ -282,9 +282,8 @@ const MonthlyMortgageCalculator: React.FC<MonthlyMortgageCalculatorProps> = ({
           <span className="text-gray-600">{label}</span>
         </span>
         <span
-          className={`absolute left-0 top-0 z-50 w-[240px] -translate-y-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-[11px] leading-relaxed text-gray-700 shadow-lg transition-all duration-200 ease-out ${
-            open ? 'opacity-100 -translate-y-8 pointer-events-auto' : 'opacity-0 pointer-events-none'
-          }`}
+          className={`absolute left-0 top-0 z-50 w-[240px] -translate-y-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-[11px] leading-relaxed text-gray-700 shadow-lg transition-all duration-200 ease-out ${open ? 'opacity-100 -translate-y-8 pointer-events-auto' : 'opacity-0 pointer-events-none'
+            }`}
         >
           {tip}
         </span>
@@ -487,11 +486,10 @@ const MonthlyMortgageCalculator: React.FC<MonthlyMortgageCalculatorProps> = ({
               <button
                 type="button"
                 onClick={() => setPmiEnabled((prev) => !prev)}
-                className={`h-10 px-3 rounded-xl border text-xs ${
-                  pmiEnabled
-                    ? 'border-orange-300 bg-orange-50 text-orange-700'
-                    : 'border-gray-200 bg-white text-gray-500'
-                }`}
+                className={`h-10 px-3 rounded-xl border text-xs ${pmiEnabled
+                  ? 'border-orange-300 bg-orange-50 text-orange-700'
+                  : 'border-gray-200 bg-white text-gray-500'
+                  }`}
               >
                 {pmiEnabled ? 'Enabled' : 'Off'}
               </button>

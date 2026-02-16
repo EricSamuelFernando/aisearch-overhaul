@@ -324,11 +324,10 @@ export default function SnapDetailsPage() {
                     {favourites.length >= 2 && (
                         <Button
                             size="sm"
-                            className={`flex items-center gap-2 rounded-full px-5 h-10 text-sm font-semibold transition-all shadow-sm ${
-                                compareMode
-                                    ? 'bg-gray-800 text-white hover:bg-gray-700'
-                                    : 'bg-white text-gray-800 border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
-                            }`}
+                            className={`flex items-center gap-2 rounded-full px-5 h-10 text-sm font-semibold transition-all shadow-sm ${compareMode
+                                ? 'bg-gray-800 text-white hover:bg-gray-700'
+                                : 'bg-white text-gray-800 border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+                                }`}
                             onClick={handleToggleCompareMode}
                         >
                             {compareMode ? (
@@ -345,35 +344,35 @@ export default function SnapDetailsPage() {
                         </Button>
                     )}
                     <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-10 w-10 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <EllipsisIcon className="h-8 w-8" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem onClick={() => setIsCollaborateModalOpen(true)}>
-                            <UserPlus className="mr-2 h-4 w-4" />
-                            <span>Invite to collaborate</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => router.push('/home')}>
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            <span>Add to this Snapz</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={handleSendInvitation}>
-                            <Share2 className="mr-2 h-4 w-4" />
-                            <span>Share snapz link</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setIsModalOpen("rename")}>
-                            <FileEdit className="mr-2 h-4 w-4" />
-                            <span>Rename snapz</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600" onClick={() => setIsDeleteModalOpen(true)}>
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            <span>Delete snapz</span>
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-10 w-10 p-0">
+                                <span className="sr-only">Open menu</span>
+                                <EllipsisIcon className="h-8 w-8" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                            <DropdownMenuItem onClick={() => setIsCollaborateModalOpen(true)}>
+                                <UserPlus className="mr-2 h-4 w-4" />
+                                <span>Invite to collaborate</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push('/home')}>
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                <span>Add to this Snapz</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleSendInvitation}>
+                                <Share2 className="mr-2 h-4 w-4" />
+                                <span>Share snapz link</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setIsModalOpen("rename")}>
+                                <FileEdit className="mr-2 h-4 w-4" />
+                                <span>Rename snapz</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-red-600" onClick={() => setIsDeleteModalOpen(true)}>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                <span>Delete snapz</span>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </div>
 
@@ -400,25 +399,25 @@ export default function SnapDetailsPage() {
                                 ...property,
                             };
                             const propKey = safeProperty.listingId || safeProperty.id;
-                            return  <div key={safeProperty.id} className="flex flex-col">
+                            return <div key={safeProperty.id} className="flex flex-col">
                                 <FavouritePropertyCards
-                                key={safeProperty.id}
-                                {...safeProperty}
-                                snapId={id}
-                                isWishlisted={true}
-                                userSnapRole={userSnapRole}
-                                onCommentAdded={() => setCommentRefreshTrigger(prev => prev + 1)}
-                                onRead={fetchSnapProperties}
-                                compareMode={compareMode}
-                                isSelected={selectedForCompare.includes(propKey)}
-                                isDisabled={selectedForCompare.length >= 4 && !selectedForCompare.includes(propKey)}
-                                onSelect={handleSelectForCompare}
-                            />
-                              <PropertyRecommendations
-                                        listingId={safeProperty.listingId}
-                                        propertyId={safeProperty.propertyId}
-                                    />
-                              </div>
+                                    key={safeProperty.id}
+                                    {...safeProperty}
+                                    snapId={id}
+                                    isWishlisted={true}
+                                    userSnapRole={userSnapRole}
+                                    onCommentAdded={() => setCommentRefreshTrigger(prev => prev + 1)}
+                                    onRead={fetchSnapProperties}
+                                    compareMode={compareMode}
+                                    isSelected={selectedForCompare.includes(propKey)}
+                                    isDisabled={selectedForCompare.length >= 4 && !selectedForCompare.includes(propKey)}
+                                    onSelect={handleSelectForCompare}
+                                />
+                                <PropertyRecommendations
+                                    listingId={safeProperty.listingId}
+                                    propertyId={safeProperty.propertyId}
+                                />
+                            </div>
                         })}
                     </div>
                     <ScrollBar orientation='vertical' className='h-full' />
@@ -453,11 +452,10 @@ export default function SnapDetailsPage() {
                         {[0, 1, 2, 3].map(i => (
                             <div
                                 key={i}
-                                className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center text-xs font-bold transition-all ${
-                                    selectedForCompare[i]
-                                        ? 'bg-[#FF8700] border-[#FF8700] text-white'
-                                        : 'border-gray-600 text-gray-500'
-                                }`}
+                                className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center text-xs font-bold transition-all ${selectedForCompare[i]
+                                    ? 'bg-[#FF8700] border-[#FF8700] text-white'
+                                    : 'border-gray-600 text-gray-500'
+                                    }`}
                             >
                                 {selectedForCompare[i] ? '✓' : (i + 1)}
                             </div>

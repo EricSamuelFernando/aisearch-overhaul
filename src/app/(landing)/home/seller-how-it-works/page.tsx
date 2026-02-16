@@ -16,14 +16,14 @@ const tabContent = {
         title: "Let's get acquainted",
         desc: `Create your profile on Snaphomz and set your budget, locations, and must-haves.  
         Use AI-powered search to increase your chances of finding the right home.`,
-      },  
+      },
       {
-  title: "Let's get financially ready",
-  desc: `Upload or process your pre-approval documents in one place.  
+        title: "Let's get financially ready",
+        desc: `Upload or process your pre-approval documents in one place.  
 Connect securely with Plaid to explore mortgage options  
 and get quick insights with AI summaries.`,
-}
-,
+      }
+      ,
       {
         title: "Let's bring your agent onboard",
         desc: `Collaborate with an agent, manage agreements, and  \ntrack interactions on SnapHomz. In-built messaging and  \nAI-powered summaries for clear decisions.`,

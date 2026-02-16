@@ -12,7 +12,7 @@ export default function BrowsePage() {
     <section className='visible flex min-h-screen flex-col space-y-3 bg-primary-100 transition-all pb-0'>
       <BuyBreadCrumb />
       <PropertyFilter />
-      <PropertyBrowseView/>
+      <PropertyBrowseView />
       {/* <PropertyCardLists /> */}
 
       <BuyCustomSearch hideInMap />

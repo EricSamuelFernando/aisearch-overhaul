@@ -354,7 +354,7 @@ function SocketProvider({ children }: { children: ReactNode }) {
   // Auto-connect socket - prevent duplicate connections
   useEffect(() => {
     console.log('[SocketProvider] Effect Triggered. Token:', !!effectiveToken, 'Socket:', !!socket, 'isLogin:', isLogin);
-    
+
     // Only connect if logged in and have token, and socket doesn't exist
     if (isLogin && effectiveToken && !socket) {
       console.log('[SocketContext] Token found. Creating new socket connection to:', SOCKET_URL);

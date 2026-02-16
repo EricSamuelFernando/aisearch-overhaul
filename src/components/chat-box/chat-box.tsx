@@ -3194,8 +3194,8 @@ export default function ChatBoxComponent(props: any) {
       normalizedMessageType === 'system'
         ? 'system'
         : normalizedMessageType === 'text' && (fileUrlCandidate || derivedFileType)
-            ? 'file'
-            : normalizedMessageType
+          ? 'file'
+          : normalizedMessageType
     return {
       ...message,
       message: decryptedMessage,

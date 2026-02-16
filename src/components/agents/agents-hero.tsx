@@ -511,7 +511,7 @@ export default function HeroLayout({
       </div>
 
       <div className={`text-black min-h-screen relative pt-28 -mt-28 overflow-visible ${className}`}>
-        <div className="relative min-h-[100vh] sm:min-h-[100vh] md:min-h-[100vh] w-full overflow-visible pb-20 sm:pb-0">
+        <div className="relative min-h-[100svh] w-full overflow-visible">
           <div className="absolute inset-0 z-0 min-h-full">
             <Image
               src="/assets/images/agents-hero.jpg"
@@ -522,53 +522,53 @@ export default function HeroLayout({
             />
           </div>
 
-          <div className="relative inset-0 flex flex-col items-center px-4 sm:px-6 md:px-12 lg:px-20 z-20 pb-8 sm:pb-12">
-            <div className="pt-20 md:pt-24 lg:pt-32" />
-
-            <h1 className="text-center text-3xl sm:text-4xl lg:text-5xl font-semibold text-black drop-shadow-lg mb-10">
+          <div className="relative inset-0 min-h-[100svh] flex flex-col items-center justify-center px-4 sm:px-6 md:px-12 lg:px-20 z-20 pt-20 sm:pt-24 pb-10 sm:pb-12">
+            <h1 className="max-w-4xl text-center text-3xl sm:text-4xl lg:text-5xl leading-tight font-semibold text-black drop-shadow-lg mb-6 sm:mb-8">
               Discover Agent Possibilities
               <br />
               <span className=''>With</span>
               <span className="italic font-light">Snaphomz</span>
             </h1>
 
-            <div className="w-full max-w-2xl relative" ref={searchContainerRef}>
+            <div className="w-full max-w-3xl relative mx-auto" ref={searchContainerRef}>
               <div
-                className={`relative flex items-center w-full h-14 bg-white border-4 border-[#C08C73] shadow-xl overflow-hidden pl-4 pr-1 z-30 transition-all duration-300 ${isSearchFocused ? 'rounded-t-2xl rounded-b-none border-b-0' : 'rounded-full'
+                className={`relative flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0 w-full min-h-14 sm:h-14 bg-white border-4 border-[#C08C73] shadow-xl overflow-hidden px-2 sm:pl-4 sm:pr-1 py-2 sm:py-0 z-30 transition-all duration-300 ${isSearchFocused ? 'rounded-2xl sm:rounded-t-2xl sm:rounded-b-none sm:border-b-0' : 'rounded-2xl sm:rounded-full'
                   }`}
               >
-                <button
-                  onClick={goToSearchPage}
-                  className="flex-shrink-0 text-gray-400 mr-3 hover:text-black"
-                >
-                  <Search className="w-6 h-6" />
-                </button>
-
-                <input
-                  type="text"
-                  placeholder={placeholderText}
-                  className="flex-grow w-full h-full border-none outline-none text-gray-700 placeholder-gray-400 bg-transparent text-base"
-                  onFocus={() => setIsSearchFocused(true)}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                />
-
-                {searchQuery && (
+                <div className="flex items-center w-full min-w-0">
                   <button
-                    onClick={() => setSearchQuery('')}
-                    className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors ml-2 mr-1"
+                    onClick={goToSearchPage}
+                    className="flex-shrink-0 text-gray-400 mr-2 sm:mr-3 hover:text-black"
                   >
-                    <X className="w-5 h-5" />
+                    <Search className="w-5 h-5 sm:w-6 sm:h-6" />
                   </button>
-                )}
 
-                <div className="flex items-center ml-2 flex-shrink-0 h-full py-1.5">
-                  <div className="flex bg-gray-100 rounded-full p-1 h-full items-center">
+                  <input
+                    type="text"
+                    placeholder={placeholderText}
+                    className="flex-grow w-full min-w-0 h-full border-none outline-none text-gray-700 placeholder-gray-400 bg-transparent text-sm sm:text-base"
+                    onFocus={() => setIsSearchFocused(true)}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                  />
+
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors ml-2 mr-1"
+                    >
+                      <X className="w-4 h-4 sm:w-5 sm:h-5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="w-full sm:w-auto flex items-center sm:ml-2 flex-shrink-0 sm:h-full py-0 sm:py-1.5">
+                  <div className="grid grid-cols-2 sm:flex bg-gray-100 rounded-full p-1 w-full sm:w-auto h-10 sm:h-full items-center">
                     <button
                       type="button"
                       onClick={() => setSearchMode('location')}
-                      className={`h-full flex items-center px-4 rounded-full transition-colors text-sm font-medium ${searchMode === 'location'
+                      className={`h-full flex items-center justify-center px-3 sm:px-4 rounded-full transition-colors text-xs sm:text-sm font-medium ${searchMode === 'location'
                         ? 'bg-black text-white shadow-sm'
                         : 'text-gray-600 hover:text-black'
                         }`}
@@ -578,7 +578,7 @@ export default function HeroLayout({
                     <button
                       type="button"
                       onClick={() => setSearchMode('name')}
-                      className={`h-full flex items-center px-4 rounded-full transition-colors text-sm font-medium ${searchMode === 'name'
+                      className={`h-full flex items-center justify-center px-3 sm:px-4 rounded-full transition-colors text-xs sm:text-sm font-medium ${searchMode === 'name'
                         ? 'bg-black text-white shadow-sm'
                         : 'text-gray-600 hover:text-black'
                         }`}
@@ -590,7 +590,7 @@ export default function HeroLayout({
               </div>
 
               {isSearchFocused && (
-                <div className="absolute top-14 left-0 w-full bg-white rounded-b-2xl border-4 border-t-0 border-[#C08C73] shadow-2xl z-20 overflow-hidden min-h-[300px] max-h-[400px] overflow-y-auto">
+                <div className="absolute top-full mt-2 sm:mt-0 left-0 w-full bg-white rounded-2xl sm:rounded-b-2xl sm:rounded-t-none border-4 sm:border-t-0 border-[#C08C73] shadow-2xl z-20 overflow-hidden min-h-[300px] max-h-[400px] overflow-y-auto">
                   {searchMode === 'location' ? (
                     <div className="p-4 bg-white h-full flex flex-col">
                       <p className="text-gray-500 text-sm mb-3 pl-2">

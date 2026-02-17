@@ -306,17 +306,20 @@ export const useGetPropertyByAddress = (address: string) => {
 
 export const useGetPropertyPreference = (email?: string) => {
   const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql";
-  const token = getAuthToken() || localStorage.getItem('userAccessToken');
+
+  // NOTE: token is read INSIDE queryFn so we always get the latest token
+  // (the old code read it once at hook init, causing stale-token failures after refresh)
 
   // GraphQL query to fetch from DB
   const getPropertyPreferenceFromDB = useQuery({
     queryKey: ['property-preference-db'],
     queryFn: async () => {
-      // Bail out immediately if auth is expired to prevent Unauthorized errors
       if (getIsAuthExpired()) {
         throw new Error('Session expired. Please login again.');
       }
-      if (!token) {
+      // Read fresh token each time the query runs
+      const freshToken = getAuthToken() || localStorage.getItem('userAccessToken');
+      if (!freshToken) {
         throw new Error('No authentication token found');
       }
 
@@ -346,7 +349,7 @@ export const useGetPropertyPreference = (email?: string) => {
         {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${freshToken}`,
           },
         }
       );
@@ -357,10 +360,10 @@ export const useGetPropertyPreference = (email?: string) => {
 
       return response.data?.data?.getPropertyPreference || null;
     },
-    enabled: !!token,
+    enabled: !!(getAuthToken() || (typeof window !== 'undefined' && localStorage.getItem('userAccessToken'))),
     refetchOnMount: true,
     refetchOnWindowFocus: false,
-    staleTime: 0, // Always consider data stale to ensure fresh data
+    staleTime: 0,
   });
 
   // AI API query - returns raw response structure
@@ -369,13 +372,11 @@ export const useGetPropertyPreference = (email?: string) => {
     queryFn: async () => {
       if (!email) return null;
       const response = await axios.get(`${GET_PROPERTY_SEARCH_PREFERENCE_AI_URL}/${email}`);
-      // AI API returns { preference: {...}, user: "..." }
-      // Return the raw response structure so component can access preference.mls_type, preference.listing_price_max, etc.
       return response.data || null;
     },
     enabled: !!email,
     refetchOnMount: true,
-    staleTime: 0, // Always consider data stale to ensure fresh data
+    staleTime: 0,
   });
 
   return {
@@ -387,7 +388,6 @@ export const useGetPropertyPreference = (email?: string) => {
 export const useUpdatePropertyPreference = (email?: string) => {
   const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql";
   const PROPERTY_SEARCH_PREFERENCE_AI_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/search/preference` || 'http://13.60.114.186:9000/api/search/preference';
-  const token = getAuthToken() || localStorage.getItem('userAccessToken');
   const queryClientHook = useQueryClient();
 
   const updatePropertyPreference = useMutation({
@@ -400,11 +400,12 @@ export const useUpdatePropertyPreference = (email?: string) => {
       city?: string;
       onboardingCompleted?: boolean;
     }) => {
-      // Bail out immediately if auth is expired
       if (getIsAuthExpired()) {
         throw new Error('Session expired. Please login again.');
       }
-      if (!token) {
+      // Read fresh token each time the mutation runs
+      const freshToken = getAuthToken() || localStorage.getItem('userAccessToken');
+      if (!freshToken) {
         throw new Error('No authentication token found');
       }
 
@@ -455,7 +456,7 @@ export const useUpdatePropertyPreference = (email?: string) => {
         {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${freshToken}`,
           },
         }
       );

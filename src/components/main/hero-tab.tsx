@@ -450,7 +450,7 @@ export default function HeroTab() {
   );
 }
 
-export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchActive }: { placeholderText?: string, onSearchStateChange?: (isActive: boolean, searchTerm: string) => void, isSearchActive?: boolean }) => {
+export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchActive }: { placeholderText?: string, onSearchStateChange?: (isActive: boolean, searchTerm: string) => void, isSearchActive?: boolean, searchType?: string, showOutline?: boolean, disableAutoExpand?: boolean }) => {
   // --- Hooks & State ---
   // Mocked state
   const searchCount = 0;

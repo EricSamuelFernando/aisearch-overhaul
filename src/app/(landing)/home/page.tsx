@@ -1478,8 +1478,8 @@ export default function Home() {
             </p>
 
             <div className="relative w-full flex justify-center text-black">
-              <div className="w-full max-w-[1000px]">
-                <HeroSearchForm searchType={searchMethod} />
+              <div className="w-full max-w-7xl">
+                <HeroSearchForm />
               </div>
 
               {/* <div className="mt-4 flex justify-center gap-4 text-sm text-white">

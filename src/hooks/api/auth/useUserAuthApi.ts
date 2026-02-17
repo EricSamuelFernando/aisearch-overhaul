@@ -1506,21 +1506,21 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     },
     onSuccess: (data) => {
       if (handleCb) handleCb();
+      console.log("DAta : ", data);
+      if (data?.id) {
+        success({
+          message: 'Logged out successfully',
+          subtitle: "Don't be a stranger",
+        });
+        // Logout from local state first
+        logout();
+        router.push('/home');
+      }
 
-      success({
-        message: 'Logged out successfully',
-        subtitle: "Don't be a stranger",
-      });
-
-      // Always perform local logout and redirect, regardless of backend response
-      logout();
-      router.push('/home');
     },
-    onError: (err: any) => {
-      // Even on unexpected errors, always perform local cleanup so the user isn't stuck
-      console.error('Logout error:', err);
+    onError: (error: any) => {
       const errorMessage =
-        err?.response?.data?.errors?.[0]?.message || err?.message || 'Logout failed';
+        error?.response?.data?.errors?.[0]?.message || error?.message || 'Logout failed';
       error({ message: errorMessage });
 
       // Still clear local state and redirect
@@ -1661,7 +1661,10 @@ export const useTokenLoginMutation = (handleCb?: () => void) => {
         manageConversationUnread(messageUnreadCount);
       }
 
-      success({ message: 'You have logged in successfully' });
+      success({
+        message: 'You have logged in successfully',
+        subtitle: 'Welcome back to Snaphomz',
+      });
       // Reset the auth expired flag so API calls work again after re-login
       resetAuthExpired();
       setAuthToken(data.access_token);

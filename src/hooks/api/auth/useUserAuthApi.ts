@@ -1520,7 +1520,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     },
     onError: (error: any) => {
       const errorMessage =
-        err?.response?.data?.errors?.[0]?.message || err?.message || 'Logout failed';
+        error?.response?.data?.errors?.[0]?.message || error?.message || 'Logout failed';
       error({ message: errorMessage });
 
       // Still clear local state and redirect

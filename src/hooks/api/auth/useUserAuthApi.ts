@@ -1464,55 +1464,68 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     mutationKey: ['user-logout'],
     mutationFn: async () => {
       const token = getAuthToken() || localStorage.getItem('userAccessToken');
+
+      // If there's no token (session already expired / storage was wiped),
+      // skip the backend call — just return null so onSuccess handles local cleanup.
       if (!token) {
-        throw new Error('No authentication token found');
+        return null;
       }
 
-      const response = await axios.post(
-        GRAPHQL_URI,
-        {
-          query: `
-          mutation {
-            userLogout {
-              id
+      try {
+        const response = await axios.post(
+          GRAPHQL_URI,
+          {
+            query: `
+            mutation {
+              userLogout {
+                id
+              }
             }
-          }
-        `,
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
+          `,
           },
-        }
-      );
-
-      if (response.status !== 200 || response.data.errors) {
-        throw new Error(
-          response.data?.errors?.[0]?.message || 'Failed to log out user'
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
-      }
 
-      return response.data.data.userLogout; // Important: access actual data here
+        if (response.status !== 200 || response.data.errors) {
+          // Backend rejected (e.g. token expired) — that's OK, we still want local logout.
+          console.warn('Backend logout returned errors:', response.data?.errors);
+          return null;
+        }
+
+        return response.data.data.userLogout;
+      } catch (err) {
+        // Network error or backend unreachable — still proceed with local logout.
+        console.warn('Backend logout call failed, proceeding with local cleanup:', err);
+        return null;
+      }
     },
     onSuccess: (data) => {
       if (handleCb) handleCb();
-      console.log("DAta : ", data);
-      if (data?.id) {
-        success({
-          message: 'Logged out successfully',
-          subtitle: "Don't be a stranger",
-        });
-        // Logout from local state first
-        logout();
-        router.push('/home');
-      }
 
+      success({
+        message: 'Logged out successfully',
+        subtitle: "Don't be a stranger",
+      });
+
+      // Always perform local logout and redirect, regardless of backend response
+      logout();
+      router.push('/home');
     },
-    onError: (error: any) => {
+    onError: (err: any) => {
+      // Even on unexpected errors, always perform local cleanup so the user isn't stuck
+      console.error('Logout error:', err);
       const errorMessage =
-        error?.response?.data?.errors?.[0]?.message || error.message;
+        err?.response?.data?.errors?.[0]?.message || err?.message || 'Logout failed';
       error({ message: errorMessage });
+
+      // Still clear local state and redirect
+      logout();
+      router.push('/home');
     },
   });
 
@@ -1648,10 +1661,7 @@ export const useTokenLoginMutation = (handleCb?: () => void) => {
         manageConversationUnread(messageUnreadCount);
       }
 
-      success({
-        message: 'You have logged in successfully',
-        subtitle: 'Welcome back to Snaphomz',
-      });
+      success({ message: 'You have logged in successfully' });
       // Reset the auth expired flag so API calls work again after re-login
       resetAuthExpired();
       setAuthToken(data.access_token);

@@ -1464,36 +1464,45 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     mutationKey: ['user-logout'],
     mutationFn: async () => {
       const token = getAuthToken() || localStorage.getItem('userAccessToken');
+
+      // If there's no token (session already expired / storage was wiped),
+      // skip the backend call — just return null so onSuccess handles local cleanup.
       if (!token) {
-        throw new Error('No authentication token found');
+        return null;
       }
 
-      const response = await axios.post(
-        GRAPHQL_URI,
-        {
-          query: `
-          mutation {
-            userLogout {
-              id
+      try {
+        const response = await axios.post(
+          GRAPHQL_URI,
+          {
+            query: `
+            mutation {
+              userLogout {
+                id
+              }
             }
-          }
-        `,
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
+          `,
           },
-        }
-      );
-
-      if (response.status !== 200 || response.data.errors) {
-        throw new Error(
-          response.data?.errors?.[0]?.message || 'Failed to log out user'
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
-      }
 
-      return response.data.data.userLogout; // Important: access actual data here
+        if (response.status !== 200 || response.data.errors) {
+          // Backend rejected (e.g. token expired) — that's OK, we still want local logout.
+          console.warn('Backend logout returned errors:', response.data?.errors);
+          return null;
+        }
+
+        return response.data.data.userLogout;
+      } catch (err) {
+        // Network error or backend unreachable — still proceed with local logout.
+        console.warn('Backend logout call failed, proceeding with local cleanup:', err);
+        return null;
+      }
     },
     onSuccess: (data) => {
       if (handleCb) handleCb();
@@ -1511,8 +1520,12 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     },
     onError: (error: any) => {
       const errorMessage =
-        error?.response?.data?.errors?.[0]?.message || error.message;
+        err?.response?.data?.errors?.[0]?.message || err?.message || 'Logout failed';
       error({ message: errorMessage });
+
+      // Still clear local state and redirect
+      logout();
+      router.push('/home');
     },
   });
 

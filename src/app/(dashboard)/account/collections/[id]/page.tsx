@@ -33,7 +33,7 @@ import DeleteCollectionConfirmationModal from '@/components/delete-snap.modal';
 import RenameCollectionModal from '@/components/rename-snap.modal';
 import SendSnapLinkModal from '@/components/send_snap.modal';
 import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
-import PropertyRecommendations from '@/components/dashboard/main/property-recommendations';
+import CollectionRecommendations from '@/components/dashboard/main/collection-recommendations';
 
 interface SnapCollection {
     id: string;
@@ -413,10 +413,7 @@ export default function SnapDetailsPage() {
                                     isDisabled={selectedForCompare.length >= 4 && !selectedForCompare.includes(propKey)}
                                     onSelect={handleSelectForCompare}
                                 />
-                                <PropertyRecommendations
-                                    listingId={safeProperty.listingId}
-                                    propertyId={safeProperty.propertyId}
-                                />
+
                             </div>
                         })}
                     </div>
@@ -433,6 +430,9 @@ export default function SnapDetailsPage() {
                     </div>
                 )}
             </div>
+
+            {/* Collection Recommendations */}
+            {id && <CollectionRecommendations snapId={id} />}
 
             {/* Comparison Table */}
             {showComparison && selectedProperties.length >= 2 && (

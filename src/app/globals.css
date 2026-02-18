@@ -1417,6 +1417,17 @@ input:-webkit-autofill {
   opacity: 1;
 }
 
+@media (max-width: 640px) {
+  .home-carousel .mantine-Carousel-controls {
+    padding: 0 6px !important;
+  }
+
+  .home-carousel .mantine-Carousel-control {
+    width: 34px;
+    height: 34px;
+  }
+}
+
 .sell-sections>*+* {
   margin-top: 8rem;
 }

@@ -1419,7 +1419,7 @@ export default function Home() {
           </div>
           {/* ================= MOBILE ARC ================= */}
           <div className="relative w-full md:hidden pointer-events-none">
-            <div className="absolute left-1/2 top-20 h-[220px] w-full max-w-[460px]
+            <div className="absolute left-1/2 top-52 h-[220px] w-full max-w-[460px]
                             -translate-x-1/2 overflow-visible">
               {[
                 { a: 175, r: 180, size: 95, idx: 0, rot: 18 },
@@ -1528,7 +1528,7 @@ export default function Home() {
           ctaLabel="Get started"
         />
         <WeMakeItEasy contentPreset="home" />
-        <section className="relative">
+        <section className="relative pt-8 md:pt-10">
           <Carousel
             className="home-carousel"
             slideSize="100%"

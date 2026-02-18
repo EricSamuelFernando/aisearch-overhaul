@@ -11,7 +11,7 @@ function PrivacyPolicy() {
       {/* Hero */}
       <section className="bg-[#170800] text-white min-h-[600px] relative pt-12 -mt-24 overflow-hidden flex items-center justify-center">
         <div className="max-w-4xl mx-auto text-center mt-12">
-          <p className="text-xs md:text-sm text-[#CEB28B] mb-5">Current as of October 2025</p>
+          <p className="text-xs md:text-sm text-[#CEB28B] mb-5">Current as of March 2026</p>
 
           <h1 className="tracking-tight text-[40px] sm:text-[56px] md:text-[68px] font-semibold leading-none mb-5">
             Privacy <span className="font-light italic">Policy</span>
@@ -148,7 +148,7 @@ function PrivacyPolicy() {
                 <li>Request a copy of your data (portability).</li>
               </ul>
               <p>
-                Contact <span className="font-semibold text-[#2C211A]">privacy@snaphomz.com</span> to
+                Contact <span className="font-semibold text-[#2C211A]">support@snaphomz.com</span> to
                 exercise these rights.
               </p>
             </div>

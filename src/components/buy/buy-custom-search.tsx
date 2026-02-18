@@ -654,6 +654,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
   return (
     <>
       <div
+        className="buy-floating-search"
         style={{
           position: 'fixed',
           left: '50%',
@@ -709,11 +710,17 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
     animation: advancedSlideIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
     will-change: transform, opacity;
   }
+
+  body[data-mobile-drawer-open='true'] .buy-floating-search,
+  body[data-mobile-drawer-open='true'] .buy-floating-search-popup {
+    display: none !important;
+  }
 `}</style>
 
 
       {showInputBox && (
         <div
+          className="buy-floating-search-popup"
           ref={popupRef}
           style={{
             position: 'fixed',

@@ -67,7 +67,7 @@ const CustomDrawer: React.FC<DrawerProps> = ({
   return (
     <section>
       <div
-        className='fixed left-0 top-0 z-40 h-full w-full bg-black bg-opacity-50'
+        className='fixed left-0 top-0 z-[70] h-full w-full bg-black bg-opacity-50'
         ref={overlayRef}
         onClick={handleOverlayClick}
         style={{
@@ -76,7 +76,7 @@ const CustomDrawer: React.FC<DrawerProps> = ({
       />
       <div
         className={cn(
-          `fixed bottom-0 top-0 z-50 overflow-y-auto px-20 py-10 shadow-md transition-transform duration-100 ease-in-out`,
+          `fixed bottom-0 top-0 z-[80] overflow-y-auto px-20 py-10 shadow-md transition-transform duration-100 ease-in-out`,
           position === 'left' ? 'left-0' : 'right-0',
           className,
         )}

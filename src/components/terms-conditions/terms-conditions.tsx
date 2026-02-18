@@ -14,7 +14,7 @@ export default function TermsAndConditions() {
         {/* === Hero (dark) === */}
       <section className="bg-[#170800] text-white min-h-[600px] relative pt-12 -mt-24 overflow-hidden flex items-center justify-center">
   <div className="max-w-4xl mx-auto text-center mt-12">
-    <p className="text-xs md:text-sm text-[#CEB28B] mb-5">Current as of October 2025</p>
+    <p className="text-xs md:text-sm text-[#CEB28B] mb-5">Current as of March 2026</p>
 
     <h1 className="tracking-tight text-[40px] sm:text-[56px] md:text-[68px] font-semibold leading-none mb-5">
       Terms and <span className="font-light italic">conditions</span>
@@ -184,8 +184,8 @@ export default function TermsAndConditions() {
               <div className="text-[#4B4036] leading-relaxed space-y-4">
                 <p>
                   For any inquiries regarding these Terms, reach us at{' '}
-                  <a href="mailto:legal@snaphomz.com">
-                    legal@snaphomz.com
+                  <a href="mailto:support@snaphomz.com">
+                    support@snaphomz.com
                   </a>
                   .
                 </p>

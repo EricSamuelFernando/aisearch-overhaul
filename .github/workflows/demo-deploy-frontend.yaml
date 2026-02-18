@@ -168,6 +168,20 @@ jobs:
             --delete
           echo "Assets folder uploaded to s3 successfully"
 
+      - name: Upload logos folder to s3
+        run: |
+          echo "Deploying static assets with long cache..."
+          aws s3 sync public/logos/ s3://${{ env.S3_BUCKET }}/logos/ \
+            --delete
+          echo "Logos folder uploaded to s3 successfully"
+
+      - name: Upload data folder to s3
+        run: |
+          echo "Deploying static assets with long cache..."
+          aws s3 sync public/data/ s3://${{ env.S3_BUCKET }}/data/ \
+            --delete
+          echo "Data folder uploaded to s3 successfully"
+
       - name: Invalidate CloudFront cache
         run: |
           echo "Invalidating CloudFront cache..."

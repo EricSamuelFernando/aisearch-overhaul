@@ -26,7 +26,7 @@
 //       loginWithToken();
 //     }
 //   }, []);
- 
+
 // // useEffect(() => {
 // //   if('geolocation' in navigator) {
 // //     // Retrieve latitude & longitude coordinates from `navigator.geolocation` Web API
@@ -164,7 +164,7 @@ function MainLayout({ children }: Readonly<Props>) {
 
       {/* Conditionally render Footer based on the route */}
       {typeof pathname === 'string' &&
-      ['browse', 'preview'].some((path) => pathname.includes(path)) ? null : (
+        ['browse', 'preview'].some((path) => pathname.includes(path)) ? null : (
         <Footer />
       )}
     </>

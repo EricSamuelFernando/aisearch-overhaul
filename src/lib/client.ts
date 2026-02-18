@@ -128,31 +128,31 @@ type ErrorKeys = 'msg' | 'error_details';
 
 export const pickErrorKey =
   (key: ErrorKeys = 'msg') =>
-  async (error: {
-    request: any;
-    response?: { data: Record<ErrorKeys, string> };
-  }) => {
-    if (error?.response?.data != null) {
-      const { msg: errorMessage, error_details: errorDetails } =
-        error.response.data;
-      switch (key) {
-        case 'msg':
-          return await Promise.reject(errorMessage ?? 'An error occurred.');
-        case 'error_details':
-          return await Promise.reject(errorDetails ?? 'An error occurred.');
+    async (error: {
+      request: any;
+      response?: { data: Record<ErrorKeys, string> };
+    }) => {
+      if (error?.response?.data != null) {
+        const { msg: errorMessage, error_details: errorDetails } =
+          error.response.data;
+        switch (key) {
+          case 'msg':
+            return await Promise.reject(errorMessage ?? 'An error occurred.');
+          case 'error_details':
+            return await Promise.reject(errorDetails ?? 'An error occurred.');
+        }
+      } else if (error.request) {
+        throw new Error(`Unexpected request error`);
+      } else {
+        throw new Error(`Client error`);
       }
-    } else if (error.request) {
-      throw new Error(`Unexpected request error`);
-    } else {
-      throw new Error(`Client error`);
-    }
-  };
+    };
 
 export const pickResponseKey =
   (key: ResponseKeys = 'data') =>
-  <T = any>(response: { data: Record<ResponseKeys, any> }) => {
-    return (response.data?.[key] as T) ?? (response.data as T);
-  };
+    <T = any>(response: { data: Record<ResponseKeys, any> }) => {
+      return (response.data?.[key] as T) ?? (response.data as T);
+    };
 
 export const pickResult = pickResponseKey('data');
 export const pickErrorMessage = pickErrorKey('msg');

@@ -186,7 +186,7 @@ export default function PropertyComparisonModal({
 
     return (
         <Transition appear show={isOpen} as={Fragment}>
-            <Dialog as="div" className="relative z-50" onClose={closeModal}>
+            <Dialog as="div" className="relative z-[200]" onClose={closeModal}>
                 <Transition.Child
                     as={Fragment}
                     enter="ease-out duration-300"
@@ -200,7 +200,7 @@ export default function PropertyComparisonModal({
                 </Transition.Child>
 
                 <div className="fixed inset-0 overflow-y-auto">
-                    <div className="flex min-h-full items-center justify-center p-4 text-center">
+                    <div className="flex min-h-full items-center justify-center p-2 text-center sm:p-4">
                         <Transition.Child
                             as={Fragment}
                             enter="ease-out duration-300"
@@ -210,11 +210,11 @@ export default function PropertyComparisonModal({
                             leaveFrom="opacity-100 scale-100"
                             leaveTo="opacity-0 scale-95"
                         >
-                            <Dialog.Panel className="w-full max-w-6xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
-                                <div className="flex justify-between items-center mb-6">
+                            <Dialog.Panel className="flex h-[calc(100dvh-1rem)] w-full max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl bg-white p-3 text-left align-middle shadow-xl transition-all sm:h-auto sm:max-h-[95dvh] sm:max-w-6xl sm:rounded-2xl sm:p-6">
+                                <div className="mb-4 flex items-start justify-between gap-2 sm:mb-6 sm:items-center">
                                     <Dialog.Title
                                         as="h3"
-                                        className="text-2xl font-bold leading-6 text-gray-900"
+                                        className="text-xl font-bold leading-6 text-gray-900 sm:text-2xl"
                                     >
                                         Compare Properties
                                     </Dialog.Title>
@@ -222,19 +222,19 @@ export default function PropertyComparisonModal({
                                         onClick={closeModal}
                                         className="rounded-full p-2 hover:bg-gray-100"
                                     >
-                                        <X className="h-6 w-6" />
+                                        <X className="h-5 w-5 sm:h-6 sm:w-6" />
                                     </button>
                                 </div>
 
-                                <div className="overflow-x-auto">
-                                    <table className="min-w-full table-fixed divide-y divide-gray-200">
+                                <div className="-mx-3 flex-1 overflow-auto px-3 sm:mx-0 sm:px-0">
+                                    <table className="min-w-[820px] table-fixed divide-y divide-gray-200 sm:min-w-[980px]">
                                         <thead>
                                             <tr>
-                                                <th className="w-48 px-4 py-2 bg-gray-50 text-left text-sm font-semibold text-gray-900 border-r">
+                                                <th className="sticky left-0 z-10 w-32 border-r bg-gray-50 px-3 py-2 text-left text-sm font-semibold text-gray-900 sm:w-48 sm:px-4">
                                                     Property
                                                 </th>
                                                 {properties.map((property: any, index: number) => (
-                                                    <th key={index} className="px-4 py-2 text-left bg-white min-w-[250px]">
+                                                    <th key={index} className="min-w-[220px] bg-white px-3 py-2 text-left sm:min-w-[250px] sm:px-4">
                                                         <div className="relative aspect-video w-full overflow-hidden rounded-lg mb-2">
                                                             <Image
                                                                 src={getImage(property)}
@@ -245,7 +245,7 @@ export default function PropertyComparisonModal({
                                                                 onError={(e: any) => e.target.src = '/assets/images/placeholder.svg'}
                                                             />
                                                         </div>
-                                                        <div className="text-lg font-bold text-ocOrange">
+                                                        <div className="text-base font-bold text-ocOrange sm:text-lg">
                                                             {getValue(property, 'price')}
                                                         </div>
                                                         <div className="text-sm font-medium truncate">
@@ -261,7 +261,7 @@ export default function PropertyComparisonModal({
                                         <tbody className="divide-y divide-gray-200">
                                             {/* Basic Info Section */}
                                             <tr className="bg-gray-50">
-                                                <td colSpan={properties.length + 1} className="px-4 py-2 font-bold text-gray-700">Basic Information</td>
+                                                <td colSpan={properties.length + 1} className="sticky left-0 z-10 bg-gray-50 px-3 py-2 font-bold text-gray-700 sm:px-4">Basic Information</td>
                                             </tr>
                                             {[
                                                 { label: 'Bedrooms', key: 'beds' },
@@ -272,11 +272,11 @@ export default function PropertyComparisonModal({
                                                 { label: 'Lot Size', key: 'lot' },
                                             ].map((row) => (
                                                 <tr key={row.key}>
-                                                    <td className="px-4 py-3 text-sm font-medium text-gray-900 bg-gray-50 border-r">
+                                                    <td className="sticky left-0 z-10 border-r bg-gray-50 px-3 py-3 text-sm font-medium text-gray-900 sm:px-4">
                                                         {row.label}
                                                     </td>
                                                     {properties.map((property: any, idx: number) => (
-                                                        <td key={idx} className="px-4 py-3 text-sm text-gray-700">
+                                                        <td key={idx} className="px-3 py-3 text-sm text-gray-700 sm:px-4">
                                                             {getValue(property, row.key)}
                                                         </td>
                                                     ))}
@@ -285,7 +285,7 @@ export default function PropertyComparisonModal({
 
                                             {/* Features & Amenities */}
                                             <tr className="bg-gray-50">
-                                                <td colSpan={properties.length + 1} className="px-4 py-2 font-bold text-gray-700 mt-4">Features & Amenities</td>
+                                                <td colSpan={properties.length + 1} className="sticky left-0 z-10 mt-4 bg-gray-50 px-3 py-2 font-bold text-gray-700 sm:px-4">Features & Amenities</td>
                                             </tr>
                                             {[
                                                 { label: 'Parking', key: 'parking' },
@@ -294,11 +294,11 @@ export default function PropertyComparisonModal({
                                                 { label: 'Pool', key: 'pool' },
                                             ].map((row) => (
                                                 <tr key={row.key}>
-                                                    <td className="px-4 py-3 text-sm font-medium text-gray-900 bg-gray-50 border-r">
+                                                    <td className="sticky left-0 z-10 border-r bg-gray-50 px-3 py-3 text-sm font-medium text-gray-900 sm:px-4">
                                                         {row.label}
                                                     </td>
                                                     {properties.map((property: any, idx: number) => (
-                                                        <td key={idx} className="px-4 py-3 text-sm text-gray-700">
+                                                        <td key={idx} className="px-3 py-3 text-sm text-gray-700 sm:px-4">
                                                             {getValue(property, row.key)}
                                                         </td>
                                                     ))}
@@ -307,7 +307,7 @@ export default function PropertyComparisonModal({
 
                                             {/* Financials Section */}
                                             <tr className="bg-gray-50">
-                                                <td colSpan={properties.length + 1} className="px-4 py-2 font-bold text-gray-700 mt-4">Financial Details</td>
+                                                <td colSpan={properties.length + 1} className="sticky left-0 z-10 mt-4 bg-gray-50 px-3 py-2 font-bold text-gray-700 sm:px-4">Financial Details</td>
                                             </tr>
                                             {[
                                                 { label: 'Price per sqft', key: 'pricePerSqft' },
@@ -316,11 +316,11 @@ export default function PropertyComparisonModal({
                                                 { label: 'HOA Fees', key: 'hoa' },
                                             ].map((row) => (
                                                 <tr key={row.key}>
-                                                    <td className="px-4 py-3 text-sm font-medium text-gray-900 bg-gray-50 border-r">
+                                                    <td className="sticky left-0 z-10 border-r bg-gray-50 px-3 py-3 text-sm font-medium text-gray-900 sm:px-4">
                                                         {row.label}
                                                     </td>
                                                     {properties.map((property: any, idx: number) => (
-                                                        <td key={idx} className="px-4 py-3 text-sm text-gray-700">
+                                                        <td key={idx} className="px-3 py-3 text-sm text-gray-700 sm:px-4">
                                                             {getValue(property, row.key)}
                                                         </td>
                                                     ))}

@@ -31,6 +31,18 @@ const MobileSideDrawer: React.FC<MobileSideDrawerProps> = ({
     if (!isDrawerOpen) setIsAccountMenuOpen(false);
   }, [user?.profile, isDrawerOpen]);
 
+  React.useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (isDrawerOpen) {
+      document.body.setAttribute('data-mobile-drawer-open', 'true');
+    } else {
+      document.body.removeAttribute('data-mobile-drawer-open');
+    }
+    return () => {
+      document.body.removeAttribute('data-mobile-drawer-open');
+    };
+  }, [isDrawerOpen]);
+
   return (
     <CustomDrawer
       position='right'
@@ -261,7 +273,7 @@ const SellDropdownMenu: React.FC<DropdownMenuProps> = ({
           <h4 className='text-md font-medium'>Sell A Home With</h4>
           <div className='flex flex-col space-y-5'>
             <Link href='/sell#agents'>With an Agent</Link>
-           {/* <Link href='/sell#agents'>Our Real Estate Agents</Link>*/}
+            {/* <Link href='/sell#agents'>Our Real Estate Agents</Link>*/}
             {/* <Link href='/sell#agents'>Do it Yourself</Link> */}
           </div>
         </div>
@@ -269,7 +281,7 @@ const SellDropdownMenu: React.FC<DropdownMenuProps> = ({
           <h4 className='text-md font-medium'>Resources</h4>
           <div className='flex flex-col space-y-5'>
             <Link href='/sell#how-it-works'>How it Works</Link>
-           {/* <Link href='/sell#home-estimator'>Home Estimator</Link>*/}
+            {/* <Link href='/sell#home-estimator'>Home Estimator</Link>*/}
             <Link href='/sell#testimonials'>Testimonials</Link>
           </div>
         </div>

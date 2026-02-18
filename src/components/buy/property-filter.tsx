@@ -1064,7 +1064,7 @@ function PropertyFilter() {
         You have searched: {searchTerm}
       </p>
 
-      <div className="flex flex-col md:flex-row md:items-center gap-4">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         {
           allProperties?.length ? <p className="text-lg select-none font-medium leading-9 text-grey-370">
             {allProperties.length} Results Found
@@ -1074,7 +1074,7 @@ function PropertyFilter() {
         }
 
         {/* Comparison Mode Toggle */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => {
               setCompareMode(!isCompareMode);
@@ -1089,7 +1089,7 @@ function PropertyFilter() {
           </button>
 
           {isCompareMode && (
-            <div className="flex items-center gap-2 ml-2">
+            <div className="ml-0 flex flex-wrap items-center gap-2 sm:ml-2">
               <span className="text-sm font-medium text-gray-600">
                 ({selectedCompareProperties.length}) Selected to Compare
               </span>

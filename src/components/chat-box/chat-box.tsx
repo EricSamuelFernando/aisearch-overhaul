@@ -2390,6 +2390,7 @@ import { useUserSnapAPIs } from "@/hooks/api/auth/snaps.API"
 import { SnapzHeartButton } from "@/components/ui/snapz-heart"
 import { usePropertyActions } from "@/shared/hooks/useProperty"
 import { v4 as uuidv4 } from "uuid"
+import { getAuthToken } from "@/lib/storage"
 
 
 interface User {
@@ -2554,6 +2555,19 @@ export default function ChatBoxComponent(props: any) {
   const [showChat, setShowChat] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
   const [propertyData, setPropertyData] = useState<any>(null)
+  const [shortOverviewByProperty, setShortOverviewByProperty] = useState<
+    Record<
+      string,
+      {
+        overview_short?: string
+        overview_short_updated_at?: string
+        overview_short_model?: string
+        overview_short_source_hash?: string
+      }
+    >
+  >({})
+  const [shortOverviewLoadingByProperty, setShortOverviewLoadingByProperty] = useState<Record<string, boolean>>({})
+  const shortOverviewInFlightRef = useRef<Set<string>>(new Set())
   const [messages, setMessages] = useState<Message[]>([])
   const [mediaPreview, setMediaPreview] = useState<MediaPreview | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -2668,6 +2682,262 @@ export default function ChatBoxComponent(props: any) {
   )
 
   const isFavored = isPropertyInFavourite(snaps)
+
+  const shortOverviewApiBase = useMemo(() => {
+    if (process.env.NODE_ENV !== "production") {
+      return "http://localhost:4000"
+    }
+    const raw =
+      process.env.NEXT_PUBLIC_SHORT_OVERVIEW_API_BASE_URL ||
+      process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL ||
+      ""
+    return String(raw || "").replace(/\/$/, "")
+  }, [])
+
+  const extractOverviewMeta = useCallback((data: any) => {
+    return {
+      overview: String(
+        data?.overview ??
+        data?.publicRemarks ??
+        data?.property?.descriptions?.[0]?.value ??
+        "",
+      ).trim(),
+      overview_short: String(
+        data?.overview_short ??
+        data?.overviewShort ??
+        data?.public?.overview_short ??
+        "",
+      ).trim(),
+      overview_short_updated_at:
+        data?.overview_short_updated_at ??
+        data?.overviewShortUpdatedAt ??
+        undefined,
+      overview_short_model:
+        data?.overview_short_model ??
+        data?.overviewShortModel ??
+        undefined,
+      overview_short_source_hash:
+        data?.overview_short_source_hash ??
+        data?.overviewShortSourceHash ??
+        undefined,
+    }
+  }, [])
+
+  const activeOverviewPropertyId = useMemo(
+    () =>
+      String(
+        snapzPropertyId ||
+        propertyData?.propertyId ||
+        propertyData?.id ||
+        selectedThreadDetail?.propertyId ||
+        "",
+      ).trim(),
+    [propertyData?.id, propertyData?.propertyId, selectedThreadDetail?.propertyId, snapzPropertyId],
+  )
+
+  const activeOverviewMeta = useMemo(
+    () => extractOverviewMeta(propertyData),
+    [extractOverviewMeta, propertyData],
+  )
+
+  const displayOverviewText = useMemo(() => {
+    const cachedShort = shortOverviewByProperty[activeOverviewPropertyId]?.overview_short || ""
+    const latestShort = activeOverviewMeta.overview_short || cachedShort
+    return latestShort.trim() ? latestShort : activeOverviewMeta.overview
+  }, [activeOverviewMeta.overview, activeOverviewMeta.overview_short, activeOverviewPropertyId, shortOverviewByProperty])
+
+  const isOverviewSummaryLoading = useMemo(
+    () => !!shortOverviewLoadingByProperty[activeOverviewPropertyId],
+    [activeOverviewPropertyId, shortOverviewLoadingByProperty],
+  )
+
+  useEffect(() => {
+    if (!showDetails) return
+    const cachedShort = shortOverviewByProperty[activeOverviewPropertyId]?.overview_short || ""
+    const latestShort = activeOverviewMeta.overview_short || cachedShort
+    const mode = latestShort.trim() ? "summary" : "fallback"
+    console.info("[ChatBox][OverviewDisplay]", {
+      propertyId: activeOverviewPropertyId || null,
+      mode,
+      shortLength: latestShort?.length || 0,
+      fallbackLength: activeOverviewMeta.overview?.length || 0,
+    })
+  }, [
+    activeOverviewMeta.overview,
+    activeOverviewMeta.overview_short,
+    activeOverviewPropertyId,
+    shortOverviewByProperty,
+    showDetails,
+  ])
+
+  useEffect(() => {
+    if (!activeOverviewPropertyId) return
+    if (!activeOverviewMeta.overview_short) return
+
+    setShortOverviewByProperty((prev) => ({
+      ...prev,
+      [activeOverviewPropertyId]: {
+        overview_short: activeOverviewMeta.overview_short,
+        overview_short_updated_at: activeOverviewMeta.overview_short_updated_at,
+        overview_short_model: activeOverviewMeta.overview_short_model,
+        overview_short_source_hash: activeOverviewMeta.overview_short_source_hash,
+      },
+    }))
+  }, [
+    activeOverviewMeta.overview_short,
+    activeOverviewMeta.overview_short_model,
+    activeOverviewMeta.overview_short_source_hash,
+    activeOverviewMeta.overview_short_updated_at,
+    activeOverviewPropertyId,
+  ])
+
+  useEffect(() => {
+    if (!showDetails) return
+    if (!shortOverviewApiBase) return
+    if (!activeOverviewPropertyId) return
+    if (!activeOverviewMeta.overview) return
+    if (shortOverviewInFlightRef.current.has(activeOverviewPropertyId)) return
+
+    const controller = new AbortController()
+    shortOverviewInFlightRef.current.add(activeOverviewPropertyId)
+    setShortOverviewLoadingByProperty((prev) => ({ ...prev, [activeOverviewPropertyId]: true }))
+
+    const upsertSummary = (payload: any) => {
+      const summary = String(
+        payload?.summary ??
+        payload?.overview_short ??
+        payload?.data?.overview_short ??
+        payload?.data?.summary ??
+        "",
+      ).trim()
+      if (!summary) return
+
+      const nextMeta = {
+        overview_short: summary,
+        overview_short_updated_at:
+          payload?.overview_short_updated_at ??
+          payload?.data?.overview_short_updated_at ??
+          new Date().toISOString(),
+        overview_short_model:
+          payload?.overview_short_model ??
+          payload?.data?.overview_short_model ??
+          undefined,
+        overview_short_source_hash:
+          payload?.overview_short_source_hash ??
+          payload?.data?.overview_short_source_hash ??
+          undefined,
+      }
+
+      setShortOverviewByProperty((prev) => ({
+        ...prev,
+        [activeOverviewPropertyId]: {
+          ...(prev[activeOverviewPropertyId] || {}),
+          ...nextMeta,
+        },
+      }))
+
+      setPropertyData((prev: any) =>
+        prev
+          ? {
+            ...prev,
+            ...nextMeta,
+          }
+          : prev,
+      )
+    }
+
+    const run = async () => {
+      try {
+        const token =
+          getAuthToken() ||
+          (typeof window !== "undefined" ? localStorage.getItem("userAccessToken") : null)
+        const basePayload = {
+          propertyId: activeOverviewPropertyId,
+          overview: activeOverviewMeta.overview,
+          force: false,
+        }
+        const trimmedBase = shortOverviewApiBase.replace(/\/$/, "")
+        const rootBase = trimmedBase.endsWith("/auth")
+          ? trimmedBase.slice(0, -"/auth".length)
+          : trimmedBase
+        const endpointCandidates = Array.from(
+          new Set(
+            [
+              `${trimmedBase}/api/overview-short`,
+              `${trimmedBase}/properties/${activeOverviewPropertyId}/overview-short`,
+              `${rootBase}/api/overview-short`,
+              `${rootBase}/properties/${activeOverviewPropertyId}/overview-short`,
+            ].filter(Boolean),
+          ),
+        )
+
+        let lastErrorMessage = "No summary endpoint candidates configured"
+        for (const endpoint of endpointCandidates) {
+          try {
+            const response = await fetch(endpoint, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+              body: JSON.stringify(basePayload),
+              signal: controller.signal,
+              credentials: "include",
+            })
+
+            let responseBody: any = null
+            try {
+              responseBody = await response.json()
+            } catch (_) {
+              responseBody = null
+            }
+
+            if (!response.ok) {
+              lastErrorMessage = String(
+                responseBody?.message ||
+                responseBody?.error ||
+                `Short overview request failed (${response.status})`,
+              )
+              console.info("[ChatBox][OverviewShort] Endpoint attempt failed", {
+                endpoint,
+                status: response.status,
+                message: lastErrorMessage,
+              })
+              continue
+            }
+
+            upsertSummary(responseBody)
+            return
+          } catch (attemptErr: any) {
+            lastErrorMessage = String(attemptErr?.message || "Unknown summary request error")
+            console.info("[ChatBox][OverviewShort] Endpoint attempt error", {
+              endpoint,
+              message: lastErrorMessage,
+            })
+          }
+        }
+
+        throw new Error(lastErrorMessage)
+      } catch (err) {
+        // Non-blocking fallback: keep showing full overview.
+        console.warn("[ChatBox][OverviewShort] Unable to generate short overview", err)
+      } finally {
+        shortOverviewInFlightRef.current.delete(activeOverviewPropertyId)
+        setShortOverviewLoadingByProperty((prev) => ({ ...prev, [activeOverviewPropertyId]: false }))
+      }
+    }
+
+    run()
+
+    return () => {
+      controller.abort()
+    }
+  }, [
+    activeOverviewMeta.overview,
+    activeOverviewPropertyId,
+    shortOverviewApiBase,
+    showDetails,
+  ])
 
   interface AggregatedAgentThread {
     entryKey: string;
@@ -2965,8 +3235,12 @@ export default function ChatBoxComponent(props: any) {
       const firstName = userDetails?.firstName || ""
       const lastName = userDetails?.lastName || ""
       const combinedName = `${firstName} ${lastName}`.trim()
-      const email = userDetails?.email || participant?.email || ""
-      const name = combinedName || email?.split("@")?.[0] || "Invited User"
+      const email =
+        userDetails?.email ||
+        participant?.invitedEmail ||
+        participant?.email ||
+        ""
+      const name = combinedName || email || "Invited User"
       const role = getRoleLabel(
         participant?.inviteRole ||
         participant?.role ||
@@ -2977,8 +3251,8 @@ export default function ChatBoxComponent(props: any) {
       const id = String(userDetails?.id || participant?.id || `${email}-${index}`)
       const dedupeKey = email
         ? `email-${String(email).toLowerCase()}`
-        : userDetails?.id || participant?.id
-          ? `id-${String(userDetails?.id || participant?.id).toLowerCase()}`
+        : userDetails?.id || participant?.invitedUserId || participant?.id
+          ? `id-${String(userDetails?.id || participant?.invitedUserId || participant?.id).toLowerCase()}`
           : `fallback-${index}`
 
       if (seenKeys.has(dedupeKey)) {
@@ -3068,7 +3342,53 @@ export default function ChatBoxComponent(props: any) {
       label: "Declined",
     },
   }
-  const totalParticipantsCount = Array.isArray(threadParticipants) ? threadParticipants.length : 0
+  const acceptedParticipantsCount = useMemo(() => {
+    const baseParticipants = [
+      selectedThreadDetail?.user,
+      selectedThreadDetail?.buyerAgent,
+      selectedThreadDetail?.sellerAgent,
+    ].filter(Boolean)
+
+    const invitedAcceptedParticipants = Array.isArray(selectedThreadDetail?.participants)
+      ? selectedThreadDetail.participants.filter((participant: any) => {
+        const rawStatus = String(
+          participant?.approvalStatus ??
+          participant?.status ??
+          participant?.inviteStatus ??
+          participant?.invitationStatus ??
+          "",
+        ).toLowerCase()
+        return (
+          participant?.is_accepted === true ||
+          participant?.isAccepted === true ||
+          rawStatus.includes("accept") ||
+          rawStatus.includes("approv") ||
+          rawStatus.includes("join")
+        )
+      })
+      : []
+
+    const uniqueIds = new Set<string>()
+    const addByIdOrEmail = (value: any) => {
+      const id = String(value?.id || value?.user?.id || "").trim().toLowerCase()
+      const email = String(value?.email || value?.user?.email || "").trim().toLowerCase()
+      const key = id ? `id-${id}` : email ? `email-${email}` : ""
+      if (!key) return
+      uniqueIds.add(key)
+    }
+
+    baseParticipants.forEach(addByIdOrEmail)
+    invitedAcceptedParticipants.forEach((participant: any) => addByIdOrEmail(participant?.user || participant))
+
+    return uniqueIds.size
+  }, [
+    selectedThreadDetail?.buyerAgent,
+    selectedThreadDetail?.participants,
+    selectedThreadDetail?.sellerAgent,
+    selectedThreadDetail?.user,
+  ])
+
+  const totalParticipantsCount = acceptedParticipantsCount
   const isInviteLimitReached = totalParticipantsCount >= MAX_INVITES_PER_CHAT
   const inviteLimitMessage = `No more than ${MAX_INVITES_PER_CHAT} participants can be in this chat.`
   const blockedInviteEmails = useMemo(() => {
@@ -3367,49 +3687,17 @@ export default function ChatBoxComponent(props: any) {
     const activeThreadId = String(selectedThreadDetail?.id || selectedThread || "")
     if (!activeThreadId) return
 
-    const inferredName = invitedEmail.split("@")[0] || "Invited"
     const optimisticParticipant = {
       id: `pending-${Date.now()}-${normalizedEmail}`,
       approvalStatus: "pending",
       inviteRole: selectedRole,
       createdAt: new Date().toISOString(),
       user: {
-        firstName: inferredName,
+        firstName: "",
         lastName: "",
         email: invitedEmail,
       },
     }
-
-    setSelectedThreadDetail((prev: any) => {
-      if (!prev) return prev
-      const existingParticipants = Array.isArray(prev?.participants) ? prev.participants : []
-      const alreadyExists = existingParticipants.some(
-        (participant: any) =>
-          String(participant?.user?.email || participant?.email || "").toLowerCase() === normalizedEmail,
-      )
-      if (alreadyExists) return prev
-      return {
-        ...prev,
-        participants: [...existingParticipants, optimisticParticipant],
-      }
-    })
-
-    setThreadParticipant((prev: any) => {
-      const existingParticipants = Array.isArray(prev) ? prev : []
-      const alreadyExists = existingParticipants.some(
-        (participant: any) =>
-          String(participant?.email || "").toLowerCase() === normalizedEmail,
-      )
-      if (alreadyExists) return existingParticipants
-      return [
-        ...existingParticipants,
-        {
-          firstName: inferredName,
-          lastName: "",
-          email: invitedEmail,
-        },
-      ]
-    })
 
     setPersistedInvitesByThread((prev) => {
       const threadInvites = Array.isArray(prev[activeThreadId]) ? prev[activeThreadId] : []
@@ -3433,7 +3721,7 @@ export default function ChatBoxComponent(props: any) {
             ...(data?.buyerAgent ? [data.buyerAgent] : []),
             ...(data?.sellerAgent ? [data.sellerAgent] : []),
             ...(data?.user ? [data.user] : []),
-            ...(Array.isArray(data?.participants) ? data.participants.map((p: any) => p.user) : []),
+            ...(Array.isArray(data?.participants) ? data.participants.map((p: any) => p?.user || p).filter(Boolean) : []),
           ];
           handleThreadSelection(data, participants)
         },
@@ -3627,7 +3915,7 @@ export default function ChatBoxComponent(props: any) {
       ...(targetThread?.buyerAgent ? [targetThread.buyerAgent] : []),
       ...(targetThread?.sellerAgent ? [targetThread.sellerAgent] : []),
       ...(targetThread?.user ? [targetThread.user] : []),
-      ...(Array.isArray(targetThread?.participants) ? targetThread.participants.map((p: any) => p.user) : []),
+      ...(Array.isArray(targetThread?.participants) ? targetThread.participants.map((p: any) => p?.user || p).filter(Boolean) : []),
     ]
 
     handleThreadSelection(targetThread, participants)
@@ -4478,7 +4766,7 @@ export default function ChatBoxComponent(props: any) {
       ...(matchedThread?.buyerAgent ? [matchedThread.buyerAgent] : []),
       ...(matchedThread?.sellerAgent ? [matchedThread.sellerAgent] : []),
       ...(matchedThread?.user ? [matchedThread.user] : []),
-      ...(Array.isArray(matchedThread?.participants) ? matchedThread.participants.map((p: any) => p.user) : []),
+      ...(Array.isArray(matchedThread?.participants) ? matchedThread.participants.map((p: any) => p?.user || p).filter(Boolean) : []),
     ];
     handleThreadSelection(matchedThread, participants);
   }, [threadId, threads, selectedThreadDetail?.id]);
@@ -5128,7 +5416,7 @@ export default function ChatBoxComponent(props: any) {
                                 <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                   <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
                                 </svg>
-                                <span className="font-medium">{threadParticipants?.length || 0} participants</span>
+                                <span className="font-medium">{acceptedParticipantsCount} participants</span>
                               </div>
                             </div>
                           </div>
@@ -5859,13 +6147,25 @@ export default function ChatBoxComponent(props: any) {
                           </div>
                           <div className="mt-4">
                             <h4 className="font-semibold text-lg">Overview</h4>
-                            <span>{propertyData?.publicRemarks}</span>
+                            {isOverviewSummaryLoading && (
+                              <div className="my-2 space-y-2">
+                                <div className="h-3 w-full animate-pulse rounded bg-gray-200" />
+                                <div className="h-3 w-5/6 animate-pulse rounded bg-gray-200" />
+                              </div>
+                            )}
+                            <span>{displayOverviewText}</span>
 
                             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                               <DialogContent>
                                 <DialogHeader>
                                   <DialogTitle>Property Overview</DialogTitle>
-                                  <DialogDescription>{propertyData?.property?.descriptions?.[0]?.value}</DialogDescription>
+                                  {isOverviewSummaryLoading && (
+                                    <div className="my-2 space-y-2">
+                                      <div className="h-3 w-full animate-pulse rounded bg-gray-200" />
+                                      <div className="h-3 w-5/6 animate-pulse rounded bg-gray-200" />
+                                    </div>
+                                  )}
+                                  <DialogDescription>{displayOverviewText}</DialogDescription>
                                 </DialogHeader>
                                 <DialogClose asChild>
                                   <Button className="bg-orange-500 hover:bg-orange-600">Close</Button>

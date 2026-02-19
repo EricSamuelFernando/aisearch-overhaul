@@ -6,8 +6,7 @@ import DashboardNav from '@/components/navbars/dashboard-nav';
 import Footer from '@/components/shared/footer';
 import PropertyPreferenceModal from '@/components/modals/property-preference-modal';
 import { useAuth } from '@/shared/hooks/useAuth';
-import { useGetPropertyPreference, useUpdatePropertyPreference } from '@/hooks/api/property/usePropertyApi';
-import { getIsAuthExpired } from '@/lib/api/axios';
+import { useGetPropertyPreference } from '@/hooks/api/property/usePropertyApi';
 
 type Props = {
   children: React.ReactNode;
@@ -16,29 +15,24 @@ type Props = {
 function DashboardLayout({ children }: Readonly<Props>) {
   const pathname = usePathname();
   const { user, isLoggedIn } = useAuth();
-  const { getPropertyPreferenceFromDB, getPropertyPreferenceFromAI } = useGetPropertyPreference(user?.email);
-  const { updatePropertyPreference } = useUpdatePropertyPreference(user?.email);
+  const { getPropertyPreferenceFromAI } = useGetPropertyPreference(user?.email);
   const [showPreferenceModal, setShowPreferenceModal] = useState(false);
   const hasPromptedRef = useRef(false);
   const lastUserIdRef = useRef<string | undefined>(undefined);
-  const syncedAIRef = useRef(false);
 
-  // Reset prompt flag when user changes (logout/login) and refetch preferences
+  // Reset prompt flag when user changes (logout/login) and refetch AI preferences
   useEffect(() => {
     if (lastUserIdRef.current !== user?.id) {
-      console.log('[PropertyPreferenceModal] User changed, resetting prompt flag');
+      console.log('[DashboardLayout] User changed, resetting prompt flag');
       hasPromptedRef.current = false;
-      syncedAIRef.current = false;
       lastUserIdRef.current = user?.id;
-      
-      // Refetch preferences when user logs in (only if auth is still valid)
-      if (isLoggedIn && !getIsAuthExpired() && user?.account_type?.toLowerCase() === 'buyer' && user?.email) {
-        console.log('[PropertyPreferenceModal] Refetching preferences for new user');
-        getPropertyPreferenceFromDB.refetch?.();
+
+      if (isLoggedIn && user?.account_type?.toLowerCase() === 'buyer' && user?.email) {
+        console.log('[DashboardLayout] Refetching AI preferences for new user');
         getPropertyPreferenceFromAI.refetch?.();
       }
     }
-  }, [user?.id, isLoggedIn, user?.account_type, user?.email, getPropertyPreferenceFromDB, getPropertyPreferenceFromAI]);
+  }, [user?.id, isLoggedIn, user?.account_type, user?.email, getPropertyPreferenceFromAI]);
 
   const isSpecialPage =
     pathname.includes('/listingprocess') ||
@@ -48,203 +42,41 @@ function DashboardLayout({ children }: Readonly<Props>) {
   const navClass = isSpecialPage ? 'bg-[#F7F2EB]' : 'bg-primary-100';
   const isChatPage = pathname === '/dashboard/chat';
 
-  // Sync AI API data to GraphQL DB if GraphQL is empty/incomplete but AI has complete data
+  // Check if modal should show — ONLY using AI API
   useEffect(() => {
-    if (syncedAIRef.current) return;
-    if (!isLoggedIn || user?.account_type?.toLowerCase() !== 'buyer') return;
-    // If auth is expired, don't attempt any API calls
-    if (getIsAuthExpired()) return;
-    if (getPropertyPreferenceFromDB.isLoading || getPropertyPreferenceFromAI.isLoading) return;
-    // Don't block sync on DB error - if AI has data, we should sync it
-    if (getPropertyPreferenceFromAI.isError) return;
+    if (hasPromptedRef.current) return;
+    if (!isLoggedIn) return;
+    if (user?.account_type?.toLowerCase() !== 'buyer') return;
 
-    const dbPreference = getPropertyPreferenceFromDB.data;
+    // Wait for AI query to finish loading
+    if (getPropertyPreferenceFromAI.isLoading) return;
+
+    // Check AI API data
     const aiResponse = getPropertyPreferenceFromAI.data;
-    
-    // Check if GraphQL DB has complete data
-    const dbIsComplete = Boolean(
-      dbPreference &&
-        dbPreference.onboardingCompleted &&
-        dbPreference.propertyType &&
-        dbPreference.preferredPropertyAddress &&
-        dbPreference.spendAmount?.max,
-    );
+    const aiPref = aiResponse?.preference;
 
-    if (dbIsComplete) {
-      console.log('[PropertyPreferenceModal] GraphQL DB has complete data, skipping AI sync');
-      syncedAIRef.current = true;
-      return;
-    }
+    if (aiPref && typeof aiPref === 'object') {
+      const hasType = !!(aiPref.mls_type || aiPref.propertyType || aiPref.property_sub_type || aiPref.property_type);
+      const hasLocation = !!(aiPref.city || aiPref.preferredPropertyAddress || aiPref.location || aiPref.address || aiPref.state);
+      const hasPrice = !!(aiPref.listing_price_max || aiPref.spendAmount?.max || aiPref.budget_max || aiPref.price_max || aiPref.listing_price_min);
 
-    // Check if AI has complete data
-    const aiPreference = aiResponse?.preference;
-    const aiIsComplete = Boolean(
-      aiPreference &&
-        (aiPreference.mls_type || aiPreference.propertyType || aiPreference.property_sub_type) &&
-        (aiPreference.city || aiPreference.preferredPropertyAddress) &&
-        (aiPreference.listing_price_max || aiPreference.spendAmount?.max),
-    );
-
-    // If GraphQL is incomplete/null but AI has complete data, sync it
-    if (!dbIsComplete && aiIsComplete) {
-      console.log('[PropertyPreferenceModal] GraphQL incomplete but AI has complete data, syncing to GraphQL DB:', aiPreference);
-      
-      // Extract data from AI API response
-      let propertyType = '';
-      if (aiPreference?.property_sub_type === 'Condo') {
-        propertyType = 'Condomium';
-      } else {
-        propertyType = aiPreference?.mls_type || aiPreference?.propertyType || '';
-      }
-      if (propertyType === 'Single Family') {
-        propertyType = 'Single Family Home';
-      }
-
-      const priceMax = Number(aiPreference?.listing_price_max) || Number(aiPreference?.spendAmount?.max) || 0;
-      const priceMin = Number(aiPreference?.listing_price_min) || Number(aiPreference?.spendAmount?.min) || 0;
-      
-      let areaPreference = '';
-      if (aiPreference?.city) {
-        areaPreference = `${aiPreference.city}${aiPreference.state ? `, ${aiPreference.state}` : ''}`;
-      } else {
-        areaPreference = aiPreference?.preferredPropertyAddress || '';
-      }
-
-      // Only sync if we have meaningful data
-      if (propertyType && areaPreference && priceMax > 0) {
-        syncedAIRef.current = true;
-        updatePropertyPreference.mutate({
-          propertyType,
-          preferredPropertyAddress: areaPreference,
-          priceMin,
-          priceMax,
-          onboardingCompleted: true, // Mark as completed since AI has complete data
-        }, {
-          onSuccess: () => {
-            console.log('[PropertyPreferenceModal] Successfully synced AI data to GraphQL DB');
-            // Refetch DB to get updated data
-            if (!getIsAuthExpired()) {
-              getPropertyPreferenceFromDB.refetch?.();
-            }
-          },
-          onError: (err: any) => {
-            console.error('[PropertyPreferenceModal] Failed to sync AI data:', err);
-            // Only allow retry for non-auth errors.
-            // Auth errors must NOT reset the flag to prevent infinite loop.
-            const msg = err?.message || '';
-            if (!msg.includes('Unauthorized') && !msg.includes('Session expired')) {
-              syncedAIRef.current = false; // Reset so it can retry on next render
-            }
-          },
-        });
+      if (hasType || hasLocation || hasPrice) {
+        console.log('[DashboardLayout] AI preference data exists — not showing modal');
+        hasPromptedRef.current = true;
+        return;
       }
     }
-  }, [
-    getPropertyPreferenceFromDB.data,
-    getPropertyPreferenceFromDB.isLoading,
-    getPropertyPreferenceFromDB.isError,
-    getPropertyPreferenceFromAI.data,
-    getPropertyPreferenceFromAI.isLoading,
-    getPropertyPreferenceFromAI.isError,
-    isLoggedIn,
-    user?.account_type,
-    updatePropertyPreference,
-    getPropertyPreferenceFromDB,
-  ]);
 
-  useEffect(() => {
-    // If auth is expired, skip all preference checks to avoid triggering more errors
-    if (getIsAuthExpired()) return;
-
-    // Debug logging
-    console.log('[PropertyPreferenceModal] Checking conditions:', {
-      hasPrompted: hasPromptedRef.current,
-      isLoggedIn,
-      accountType: user?.account_type?.toLowerCase(),
-      dbLoading: getPropertyPreferenceFromDB.isLoading,
-      dbError: getPropertyPreferenceFromDB.isError,
-      dbData: getPropertyPreferenceFromDB.data,
-      aiLoading: getPropertyPreferenceFromAI.isLoading,
-      aiError: getPropertyPreferenceFromAI.isError,
-      aiData: getPropertyPreferenceFromAI.data,
-    });
-
-    if (hasPromptedRef.current) {
-      console.log('[PropertyPreferenceModal] Already prompted, skipping');
-      return;
-    }
-    
-    if (!isLoggedIn) {
-      console.log('[PropertyPreferenceModal] Not logged in, skipping');
-      return;
-    }
-    
-    if (user?.account_type?.toLowerCase() !== 'buyer') {
-      console.log('[PropertyPreferenceModal] Not a buyer, skipping');
-      return;
-    }
-    
-    // Wait for both queries to finish
-    if (getPropertyPreferenceFromDB.isLoading || getPropertyPreferenceFromAI.isLoading) {
-      console.log('[PropertyPreferenceModal] Still loading preferences, waiting...');
-      return;
-    }
-    
-    // Check GraphQL DB first (primary source)
-    const dbPreference = getPropertyPreferenceFromDB.data;
-    const dbIsComplete = Boolean(
-      dbPreference &&
-        dbPreference.onboardingCompleted &&
-        dbPreference.propertyType &&
-        dbPreference.preferredPropertyAddress &&
-        dbPreference.spendAmount?.max,
-    );
-
-    // If GraphQL DB is complete, don't show modal
-    if (dbIsComplete) {
-      console.log('[PropertyPreferenceModal] GraphQL DB preferences complete, not showing modal');
-      hasPromptedRef.current = true;
-      return;
-    }
-
-    // Check AI API as fallback (even if DB has error or is incomplete)
-    const aiResponse = getPropertyPreferenceFromAI.data;
-    const aiPreference = aiResponse?.preference;
-    
-    const aiIsComplete = Boolean(
-      aiPreference &&
-        (aiPreference.mls_type || aiPreference.propertyType || aiPreference.property_sub_type) &&
-        (aiPreference.city || aiPreference.preferredPropertyAddress) &&
-        (aiPreference.listing_price_max || aiPreference.spendAmount?.max),
-    );
-
-    // If AI API has complete data, don't show modal (sync will happen automatically)
-    if (aiIsComplete) {
-      console.log('[PropertyPreferenceModal] AI API has complete data, sync in progress - not showing modal');
-      hasPromptedRef.current = true;
-      return;
-    }
-
-    // Check if sync is in progress (mutation is pending)
-    if (updatePropertyPreference.isPending) {
-      console.log('[PropertyPreferenceModal] Sync in progress, waiting...');
-      return;
-    }
-
-    // Both sources are incomplete, show modal
-    console.log('[PropertyPreferenceModal] Both GraphQL DB and AI API incomplete, showing modal');
+    // AI has no preference data — show modal
+    console.log('[DashboardLayout] No AI preference data found — showing modal');
     setShowPreferenceModal(true);
     hasPromptedRef.current = true;
   }, [
-    getPropertyPreferenceFromDB.data,
-    getPropertyPreferenceFromDB.isError,
-    getPropertyPreferenceFromDB.isLoading,
     getPropertyPreferenceFromAI.data,
-    getPropertyPreferenceFromAI.isError,
     getPropertyPreferenceFromAI.isLoading,
+    getPropertyPreferenceFromAI.isError,
     isLoggedIn,
     user?.account_type,
-    updatePropertyPreference.isPending,
   ]);
 
   return (
@@ -254,8 +86,6 @@ function DashboardLayout({ children }: Readonly<Props>) {
         onClose={() => setShowPreferenceModal(false)}
         onComplete={() => {
           setShowPreferenceModal(false);
-          syncedAIRef.current = false; // Reset sync flag so it can sync again if needed
-          getPropertyPreferenceFromDB.refetch?.();
           getPropertyPreferenceFromAI.refetch?.();
         }}
       />

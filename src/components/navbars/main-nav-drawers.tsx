@@ -31,6 +31,18 @@ const MobileSideDrawer: React.FC<MobileSideDrawerProps> = ({
     if (!isDrawerOpen) setIsAccountMenuOpen(false);
   }, [user?.profile, isDrawerOpen]);
 
+  React.useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (isDrawerOpen) {
+      document.body.setAttribute('data-mobile-drawer-open', 'true');
+    } else {
+      document.body.removeAttribute('data-mobile-drawer-open');
+    }
+    return () => {
+      document.body.removeAttribute('data-mobile-drawer-open');
+    };
+  }, [isDrawerOpen]);
+
   return (
     <CustomDrawer
       position='right'

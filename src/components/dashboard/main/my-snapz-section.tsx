@@ -168,21 +168,21 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
     });
   };
 
-  const inviteCollaborator = (email: string, type: 'agent' | 'co-buyer') => {
+  const inviteCollaborator = (email: string, type: 'agent' | 'co-buyer' | 'other') => {
     if (!selectedSnap?.id) return;
     createParticipents.mutateAsync(
       {
         snapId: selectedSnap.id,
         email,
         status: 'pending',
-        accountType: type === 'agent' ? 'agent' : 'buyer',
+        accountType: type === 'agent' ? 'agent' : type === 'other' ? 'other' : 'buyer',
       },
       {
         onSuccess: (response: any) => {
           const successValue = response?.data?.createSnapsParticipant?.success;
           if (successValue === true || successValue === 'true') {
             success({
-              message: `Great! Your ${type === 'agent' ? 'agent' : 'co-buyer'} invite is on its way`,
+              message: `Great! Your ${type === 'agent' ? 'agent' : type === 'other' ? 'collaboration' : 'co-buyer'} invite is on its way`,
             });
             setIsCollaborateModalOpen(false);
           } else {

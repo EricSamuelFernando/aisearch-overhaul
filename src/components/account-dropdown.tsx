@@ -10,6 +10,7 @@ import CustomAvatar from './customs/avatar';
 import MenuDropdown, { MenuItem } from './customs/menu';
 import { Avatar } from './ui/avatar';
 import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
+import { getProfileImageUrl } from '@/lib/utils';
 
 type Props = {
   username: string;
@@ -36,7 +37,7 @@ function AccountDropdown({
   useEffect(() => {
     setShowAvatar(!!avatar);
   }, [avatar]);
-  
+
   const menuItems: { text: string; path: any }[] = [
     // { text: 'Mortgage-old', path: MORTGAGE_URL },
     // { text: 'Mortgage', path: `/mortgage` },
@@ -48,9 +49,9 @@ function AccountDropdown({
     { text: 'Logout', path: `/logout` },
   ];
   const { userLogout } = useUserAuthApi();
-  const handleLogout = async()=>{
+  const handleLogout = async () => {
     // console.log("Callledddd ; ");
-    
+
     userLogout.mutate();
   }
 
@@ -61,7 +62,7 @@ function AccountDropdown({
           variant='ghost'
           className='font-500 w-full cursor-pointer  justify-start bg-transparent p-0  text-left text-sm font-normal'
           onClick={() => {
-            
+
             handleLogout();
           }}
         >
@@ -80,22 +81,22 @@ function AccountDropdown({
       dropdownClassName={menuClassName}
       buttonLabel={
         <div className='flex cursor-pointer items-center gap-x-1'>
-         
+
           <CustomAvatar
             className='h-[2.4rem] w-[2.4rem] text-base text-white'
             alt='Jane Doe'
             size={'2.4rem'}
           > {
-              avatar && showAvatar ? 
-              <img
-              src={avatar}
-              alt="Profile Preview"
-              className="w-full h-full rounded-full object-cover transition-transform duration-300 group-hover:scale-105"
-              onError={() => setShowAvatar(false)}
-              /> 
-            :   getInitials(firstName, lastName) || 'SH'
-          }
-         
+              avatar && showAvatar ?
+                <img
+                  src={getProfileImageUrl(avatar)}
+                  alt="Profile Preview"
+                  className="w-full h-full rounded-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  onError={() => setShowAvatar(false)}
+                />
+                : getInitials(firstName, lastName) || 'SH'
+            }
+
           </CustomAvatar>
           <span className='hidden text-sm text-black md:inline-block'>
             {username}

@@ -176,6 +176,9 @@ export const useGetViewHistory = (page: number = 1, perPage: number = 20) => {
                     price
                     propertyType
                     propertyImage
+                    bedroomsTotal
+                    bathroomsTotal
+                    livingArea
                     viewedAt
                   }
                   total
@@ -210,9 +213,9 @@ export const useGetViewHistory = (page: number = 1, perPage: number = 20) => {
           const cached = key ? localCache[key] : null;
           return {
             ...item,
-            bedroomsTotal: cached?.property?.bedroomsTotal ?? item.bedroomsTotal,
-            bathroomsTotal: cached?.property?.bathroomsTotal ?? item.bathroomsTotal,
-            livingArea: cached?.property?.livingArea ?? item.livingArea,
+            bedroomsTotal: item.bedroomsTotal ?? cached?.property?.bedroomsTotal,
+            bathroomsTotal: item.bathroomsTotal ?? cached?.property?.bathroomsTotal,
+            livingArea: item.livingArea ?? cached?.property?.livingArea,
             propertyImage: item.propertyImage || cached?.media?.primaryListingImageUrl,
             price: item.price || (cached?.listPriceLow ? String(cached.listPriceLow) : undefined),
           };

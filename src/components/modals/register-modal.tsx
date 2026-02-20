@@ -132,7 +132,7 @@ export default function RegisterModal({
       .post(
         GRAPHQL_URI,
         JSON.stringify({
-          query: `mutation { sendVerification(sendVerificationInput: { accountType: ${activeUserType?.toUpperCase()}, email: "${values.email}" }) }`,
+          query: `mutation { sendVerification(sendVerificationInput: { accountType: ${activeUserType?.toUpperCase()}, email: "${values.email}" }) { message isVerified hasPassword } }`,
         }),
         {
           headers: {
@@ -159,7 +159,7 @@ export default function RegisterModal({
         }
 
         // Check for successful response
-        if (res?.data?.data?.sendVerification === 'Email sent successfully') {
+        if (res?.data?.data?.sendVerification?.message === 'Email sent successfully') {
           setAgentEmail(values.email);
           success({
             message: 'Otp sent succesfully',

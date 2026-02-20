@@ -447,8 +447,8 @@ export default function SnapDetailsPage() {
 
             {/* Floating selection bar */}
             {compareMode && (
-                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-2xl bg-gray-900 px-5 py-3 shadow-2xl border border-gray-700">
-                    <div className="flex items-center gap-2">
+                <div className="fixed bottom-3 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 flex w-[calc(100vw-16px)] max-w-[620px] items-center gap-2 sm:gap-3 rounded-2xl bg-gray-900/95 px-3 sm:px-5 py-2.5 sm:py-3 shadow-2xl border border-gray-700 backdrop-blur-sm">
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                         {[0, 1, 2, 3].map(i => (
                             <div
                                 key={i}
@@ -461,20 +461,20 @@ export default function SnapDetailsPage() {
                             </div>
                         ))}
                     </div>
-                    <div className="w-px h-6 bg-gray-700" />
-                    <span className="text-sm text-gray-300 font-medium">
+                    <div className="hidden sm:block w-px h-6 bg-gray-700" />
+                    <span className="text-xs sm:text-sm text-gray-300 font-medium whitespace-nowrap">
                         {selectedForCompare.length < 2 ? `Select ${2 - selectedForCompare.length} more` : `${selectedForCompare.length} of 4`}
                     </span>
                     {!showComparison ? (
                         <button
                             disabled={selectedForCompare.length < 2}
                             onClick={handleCompareNow}
-                            className="ml-2 rounded-xl bg-[#FF8700] text-white text-sm font-bold px-5 py-2 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-orange-600 transition-colors"
+                            className="ml-auto sm:ml-2 rounded-xl bg-[#FF8700] text-white text-xs sm:text-sm font-bold px-3 sm:px-5 py-2 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed hover:bg-orange-600 transition-colors"
                         >
                             Compare Now
                         </button>
                     ) : (
-                        <span className="ml-2 text-xs text-gray-400 italic">Tap a card to swap</span>
+                        <span className="ml-auto sm:ml-2 text-xs text-gray-400 italic whitespace-nowrap">Tap to swap</span>
                     )}
                 </div>
             )}

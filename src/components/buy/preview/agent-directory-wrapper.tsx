@@ -650,15 +650,15 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
       return (
         <div
           key={agentId || `agent-${Math.random()}`}
-          className="flex items-center p-4 bg-[#FAF9F6] border border-transparent rounded-xl hover:border-orange-300 hover:bg-[#FDF4EB] transition-all group"
+          className="flex flex-col gap-3 p-3 sm:p-4 bg-[#FAF9F6] border border-transparent rounded-xl hover:border-orange-300 hover:bg-[#FDF4EB] transition-all group"
         >
-          <div className="flex-grow">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex-grow min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
               <div>
-                <h4 className="font-bold text-black text-lg group-hover:text-orange-900">
+                <h4 className="font-bold text-black text-base sm:text-lg group-hover:text-orange-900 break-words">
                   {highlightMatch(agentName)}
                 </h4>
-                <p className="text-sm text-gray-500">
+                <p className="text-xs sm:text-sm text-gray-500 break-words">
                   {agent.Brokerage || 'Real Estate Agent'}
                   {' - '}
                   {agent.Location || 'CA'}
@@ -666,7 +666,7 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2 ml-4">
+          <div className="flex items-center gap-2 sm:ml-4 w-full sm:w-auto">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -674,7 +674,7 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
                   router.push(`/agents/${agentId}`);
                 }
               }}
-              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-black rounded-full text-sm font-medium transition-colors"
+              className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-gray-200 hover:bg-gray-300 text-black rounded-full text-xs sm:text-sm font-medium transition-colors whitespace-nowrap"
             >
               View Profile
             </button>
@@ -693,7 +693,7 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
                 }
               }}
               disabled={!agentId || (mode !== 'chat' && loadingAgentId === agentId)}
-              className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-full text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-full text-xs sm:text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
             >
               {mode === 'chat'
                 ? 'Start Chat'
@@ -726,11 +726,11 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
   };
 
   return (
-    <div className="w-full rounded-3xl bg-transparent py-6">
+    <div className="w-full rounded-3xl bg-transparent py-3 sm:py-6">
       {/* Search Bar */}
       <div className="w-full max-w-3xl mx-auto relative" ref={searchContainerRef}>
         <div
-          className={`relative flex items-center w-full h-16 bg-white border-4 border-[#C08C73] shadow-xl overflow-hidden pl-4 pr-1 z-50 transition-all duration-300 ${isSearchFocused ? 'rounded-t-2xl rounded-b-none border-b-0' : 'rounded-full'
+          className={`relative flex items-center w-full h-14 sm:h-16 bg-white border-2 sm:border-4 border-[#C08C73] shadow-xl overflow-hidden pl-2 sm:pl-4 pr-1 z-50 transition-all duration-300 ${isSearchFocused ? 'rounded-t-2xl rounded-b-none border-b-0' : 'rounded-full'
             }`}
         >
           <button
@@ -739,16 +739,16 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
               e.preventDefault();
               inputRef.current?.focus();
             }}
-            className="flex-shrink-0 text-gray-400 mr-3 hover:text-black"
+            className="flex-shrink-0 text-gray-400 mr-2 sm:mr-3 hover:text-black"
           >
-            <Search className="w-6 h-6" />
+            <Search className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
 
           <input
             ref={inputRef}
             type="text"
             placeholder={placeholderText}
-            className="flex-grow w-full h-full border-none outline-none text-gray-700 placeholder-gray-400 bg-transparent text-base"
+            className="flex-grow w-full h-full min-w-0 border-none outline-none text-gray-700 placeholder-gray-400 bg-transparent text-sm sm:text-base"
             onFocus={() => setIsSearchFocused(true)}
             value={searchQuery || searchQueryPreservedRef.current || ''}
             onChange={(e) => {
@@ -781,13 +781,13 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
                 setSearchQuery('');
                 searchQueryPreservedRef.current = '';
               }}
-              className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors ml-2 mr-1"
+              className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors ml-1 sm:ml-2 mr-1"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           )}
 
-          <div className="flex items-center ml-2 flex-shrink-0 h-full py-1.5">
+          <div className="flex items-center ml-1 sm:ml-2 flex-shrink-0 h-full py-1.5">
             <div className="flex bg-gray-100 rounded-full p-1 h-full items-center">
               <button
                 type="button"
@@ -797,7 +797,7 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
                     inputRef.current?.focus();
                   }, 0);
                 }}
-                className={`h-full flex items-center px-4 rounded-full transition-colors text-sm font-medium ${searchMode === 'location'
+                className={`h-full flex items-center px-2.5 sm:px-4 rounded-full transition-colors text-[11px] sm:text-sm font-medium whitespace-nowrap ${searchMode === 'location'
                   ? 'bg-black text-white shadow-sm'
                   : 'text-gray-600 hover:text-black'
                   }`}
@@ -812,7 +812,7 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
                     inputRef.current?.focus();
                   }, 0);
                 }}
-                className={`h-full flex items-center px-4 rounded-full transition-colors text-sm font-medium ${searchMode === 'name'
+                className={`h-full flex items-center px-2.5 sm:px-4 rounded-full transition-colors text-[11px] sm:text-sm font-medium whitespace-nowrap ${searchMode === 'name'
                   ? 'bg-black text-white shadow-sm'
                   : 'text-gray-600 hover:text-black'
                   }`}
@@ -825,7 +825,7 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
 
         {/* Dropdown Results */}
         <div
-          className="absolute top-16 left-0 w-full bg-white rounded-b-2xl border-4 border-t-0 border-[#C08C73] shadow-2xl z-40 overflow-hidden min-h-[500px] max-h-[calc(95vh-320px)] overflow-y-auto"
+          className="absolute top-14 sm:top-16 left-0 w-full bg-white rounded-b-2xl border-2 sm:border-4 border-t-0 border-[#C08C73] shadow-2xl z-40 overflow-hidden min-h-[320px] sm:min-h-[500px] max-h-[calc(100vh-270px)] sm:max-h-[calc(95vh-320px)] overflow-y-auto"
           onScroll={(e) => {
             if (searchMode !== 'name') return;
             if (loading || isFetchingMoreRef.current || !hasMoreAgents) return;

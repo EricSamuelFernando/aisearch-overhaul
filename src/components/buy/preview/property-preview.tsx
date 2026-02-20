@@ -1634,16 +1634,16 @@ const PropertyPreview: React.FC = () => {
 
       {/* Search Agent Modal - Large modal with agent directory */}
       <Dialog open={isSearchAgentModalOpen} onOpenChange={setIsSearchAgentModalOpen}>
-        <DialogContent className="max-w-6xl w-[95vw] h-[90vh] max-h-[90vh] overflow-hidden flex flex-col p-0">
-          <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
-            <DialogTitle className="text-2xl font-semibold">Search Agents</DialogTitle>
+        <DialogContent className="max-w-6xl w-[96vw] sm:w-[95vw] h-[90vh] max-h-[90vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="flex-shrink-0 px-3 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b">
+            <DialogTitle className="text-xl sm:text-2xl font-semibold">Search Agents</DialogTitle>
             <DialogDescription>
               Browse and search for agents to invite to this property.
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-hidden flex flex-col min-h-0">
             {engagementIdForModal ? (
-              <div className="flex-1 overflow-y-auto px-6 pb-6 min-h-0">
+              <div className="flex-1 overflow-y-auto px-3 sm:px-6 pb-3 sm:pb-6 min-h-0">
                 <AgentDirectoryWrapper
                   engagementId={engagementIdForModal}
                   propertyId={propertyData?.id || id}
@@ -1715,10 +1715,10 @@ const PropertyPreview: React.FC = () => {
         </DialogContent>
       </Dialog>
       {loading ? (
-        <div className='grid grid-flow-row place-items-center gap-3 sm:gap-4 lg:gap-6 lg:h-[28rem] lg:grid-cols-12 lg:gap-7 animate-pulse px-2 sm:px-4 md:px-6 lg:px-0'>
+        <div className='grid w-full max-w-7xl mx-auto min-h-[calc(100vh-12rem)] content-start grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-12 lg:gap-7 animate-pulse bg-white px-2 pb-8 sm:px-4 md:px-6 lg:px-0'>
           <SkeletonLoader className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[392px] w-full bg-gray-200 lg:col-span-8 rounded-lg' />
-          <div className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[392px] w-full lg:col-span-4'>
-            <PropCardLoader className='h-full w-full rounded-lg shadow-lg' />
+          <div className='w-full lg:col-span-4'>
+            <PropCardLoader className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[392px] w-full rounded-lg shadow-lg' />
           </div>
         </div>
       ) : transformData.display ? (

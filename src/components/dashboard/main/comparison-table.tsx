@@ -29,6 +29,9 @@ const Badge = ({ children }: { children: React.ReactNode }) => (
 
 const ComparisonTable = ({ properties, onClose, onDeselect }: ComparisonTableProps) => {
     const count = properties.length;
+    const labelColumnWidth = 160;
+    const valueColumnMinWidth = 220;
+    const comparisonMinWidth = labelColumnWidth + (count * valueColumnMinWidth);
 
     const prices     = properties.map(p => Number(p?.price) || null);
     const beds       = properties.map(p => Number(p?.bedRooms) || null);
@@ -80,7 +83,7 @@ const ComparisonTable = ({ properties, onClose, onDeselect }: ComparisonTablePro
     return (
         <div className="mt-8 w-full">
             {/* Top bar */}
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
                 <div>
                     <h2 className="text-xl font-bold text-gray-900">Compare Properties</h2>
                     <p className="text-sm text-gray-400 mt-0.5">
@@ -98,6 +101,8 @@ const ComparisonTable = ({ properties, onClose, onDeselect }: ComparisonTablePro
 
             {/* Card-based layout: label col + one card per property */}
             <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                    <div style={{ minWidth: `${comparisonMinWidth}px` }}>
 
                 {/* ─── Property header cards ─── */}
                 <div className="flex border-b border-gray-100">
@@ -105,7 +110,7 @@ const ComparisonTable = ({ properties, onClose, onDeselect }: ComparisonTablePro
                     <div className="w-[160px] flex-shrink-0 bg-gray-50 border-r border-gray-100" />
 
                     {/* Property cards */}
-                    <div className="flex flex-1 overflow-x-auto gap-2 p-2">
+                    <div className="flex flex-1 gap-2 p-2">
                         {properties.map((prop, idx) => {
                             const displayCity  = prop?.city;
                             const displayState = getStateFromZip(prop?.zipCode);
@@ -115,7 +120,7 @@ const ComparisonTable = ({ properties, onClose, onDeselect }: ComparisonTablePro
                             return (
                                 <div
                                     key={prop?.id || idx}
-                                    className={`flex flex-col flex-1 min-w-[200px] max-w-[360px] rounded-2xl overflow-hidden border border-gray-100 shadow-sm ${isBestPrice ? 'ring-2 ring-[#FF8700]/50' : ''}`}
+                                    className={`flex flex-col flex-1 min-w-[220px] rounded-2xl overflow-hidden border border-gray-100 shadow-sm ${isBestPrice ? 'ring-2 ring-[#FF8700]/50' : ''}`}
                                 >
                                     {/* Image with fixed aspect ratio */}
                                     <div className="relative w-full bg-gray-100" style={{ aspectRatio: '16/9' }}>
@@ -211,7 +216,7 @@ const ComparisonTable = ({ properties, onClose, onDeselect }: ComparisonTablePro
                                         return (
                                             <div
                                                 key={colIdx}
-                                                className="flex-1 min-w-[200px] max-w-[360px] px-4 py-3.5 text-center border-r border-gray-100 last:border-0 flex items-center justify-center"
+                                                className="flex-1 min-w-[220px] px-4 py-3.5 text-center border-r border-gray-100 last:border-0 flex items-center justify-center"
                                             >
                                                 {val ? (
                                                     <span className={`text-sm font-medium flex items-center gap-0.5 ${isBest ? 'text-[#FF8700] font-bold' : 'text-gray-800'}`}>
@@ -229,6 +234,8 @@ const ComparisonTable = ({ properties, onClose, onDeselect }: ComparisonTablePro
                         ))}
                     </div>
                 ))}
+                    </div>
+                </div>
             </div>
 
             {/* Legend */}

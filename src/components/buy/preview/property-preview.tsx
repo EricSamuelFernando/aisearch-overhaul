@@ -1587,7 +1587,7 @@ const PropertyPreview: React.FC = () => {
   return (
     <div>
       <ItemNav cardRef={cardRef} />
-      <div className='mt-6 sm:mt-8 md:mt-12 lg:mt-14' />
+      <div className='mt-14 sm:mt-12 md:mt-12 lg:mt-14' />
       <div id="overview" className="scroll-mt-28" />
 
       {/* Contact Agent Dialog */}
@@ -1755,9 +1755,9 @@ const PropertyPreview: React.FC = () => {
                 preloadedData={propertyDatas} // Pass existing data to prevent re-fetch
               />
               {/* Top Section: Price/Address and Agent Card */}
-              <div className="mt-3 w-full flex flex-col gap-4 md:grid md:grid-cols-[minmax(0,1fr)_360px] md:items-start md:gap-6 mb-4">
+              <div className="mt-3 w-full flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6 mb-4">
                 {/* Left: Price and Address */}
-                <div className="space-y-1 w-full md:flex-1">
+                <div className="space-y-1 w-full lg:flex-1">
                   <div className='inline-flex items-baseline gap-1'>
                     <span className='text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-gray-900'>$</span>
                     <h2 className='text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-gray-900 relative inline-block'>
@@ -1802,9 +1802,9 @@ const PropertyPreview: React.FC = () => {
               </div>
 
               {/* Bottom Section: Estimated Payment and Schedule A Tour Button */}
-              <div className="flex flex-col w-full gap-3 sm:gap-4 mb-4 md:grid md:grid-cols-[minmax(0,1fr)_360px] md:items-center md:gap-6">
+              <div className="flex flex-col w-full gap-3 sm:gap-4 mb-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center lg:gap-6">
                 {/* Left: Estimated Payment Section */}
-                <div className="rounded-xl bg-[#FAE6DB] shadow-sm px-3 sm:px-4 py-2 sm:py-2.5 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-2.5 w-full md:max-w-[460px]">
+                <div className="rounded-xl bg-[#FAE6DB] shadow-sm px-3 sm:px-4 py-2 sm:py-2.5 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-2.5 w-full lg:max-w-[460px]">
                   <div className="flex items-center gap-2 flex-1">
                     <span className="text-xs sm:text-sm text-gray-600">Est. payment:</span>
                     <span className="text-xs sm:text-sm font-bold text-gray-900">
@@ -1838,7 +1838,7 @@ const PropertyPreview: React.FC = () => {
                 {/* Right: Schedule A Tour Button */}
                 <div className="w-full flex flex-col gap-2">
                   <button
-                    className="w-full bg-black text-white px-4 sm:px-6 md:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-normal border border-black hover:bg-gray-900 transition-colors"
+                    className="w-full bg-black text-white px-4 sm:px-6 lg:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-normal border border-black hover:bg-gray-900 transition-colors"
                     onClick={handleContactAgent}
                     disabled={propertyEngagementMutation.isPending}
                   >

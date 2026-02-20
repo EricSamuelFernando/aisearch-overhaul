@@ -42,15 +42,15 @@ const HomeHighlights: React.FC<HomeHighlightsProps> = (props = defaultProps) => 
   // For the exact UI match, we will replicate the visible text and the red 'read more' link.
 
   return (
-    <div className="max-w-4xl py-10 px-4 sm:px-6 lg:px-8">
+    <div className="w-full max-w-4xl py-6 sm:py-10 px-3 sm:px-6 lg:px-8">
 
       {/* --- Title --- */}
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">
+      <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">
         Home highlights
       </h2>
 
       {/* --- Highlight Tags --- */}
-      <div className="flex flex-wrap gap-2 mb-8">
+      <div className="flex flex-wrap gap-2 mb-5 sm:mb-8">
         {highlights.map((highlight, index) => (
           <span
             key={index}
@@ -62,7 +62,7 @@ const HomeHighlights: React.FC<HomeHighlightsProps> = (props = defaultProps) => 
       </div>
 
       {/* --- Description --- */}
-      <div className="text-gray-700 leading-relaxed mb-6">
+      <div className="text-gray-700 leading-relaxed text-sm sm:text-base mb-5 sm:mb-6">
         <p className="mb-4">
           {description}
         </p>
@@ -77,22 +77,22 @@ const HomeHighlights: React.FC<HomeHighlightsProps> = (props = defaultProps) => 
       </div>
 
       {/* --- Stats --- */}
-      <div className="flex items-center  space-x-7 gap-6 mb-10 text-sm text-gray-700" style={{ fontFamily: "Satoshi", fontSize: "18px" }}>
-        <p style={{ fontFamily: "Satoshi" }}><span style={{ fontWeight: '700', fontFamily: "Satoshi" }}>{stats.daysOnMarket}</span> days on Snaphomz</p>
-        <p style={{ fontFamily: "Satoshi" }}><span style={{ fontWeight: '700', fontFamily: "Satoshi" }}>{stats.views}</span> views</p>
-        <p style={{ fontFamily: "Satoshi" }}><span style={{ fontWeight: '700', fontFamily: "Satoshi" }}>{stats.saves}</span> saves</p>
-        <p style={{ fontFamily: "Satoshi" }}>Likely to sell faster than <span className="font-bold text-gray-900">{stats.sellLikelihood}</span> nearby</p>
+      <div className="mb-6 sm:mb-10 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 text-xs sm:text-sm md:text-base text-gray-700" style={{ fontFamily: "Satoshi" }}>
+        <p className="break-words"><span style={{ fontWeight: '700', fontFamily: "Satoshi" }}>{stats.daysOnMarket}</span> days on Snaphomz</p>
+        <p><span style={{ fontWeight: '700', fontFamily: "Satoshi" }}>{stats.views}</span> views</p>
+        <p><span style={{ fontWeight: '700', fontFamily: "Satoshi" }}>{stats.saves}</span> saves</p>
+        <p className="col-span-2 md:col-span-1 break-words">Likely to sell faster than <span className="font-bold text-gray-900">{stats.sellLikelihood}</span> nearby</p>
       </div>
 
       {/* --- Floor Plan and 3D Home Images --- */}
-      <div className="flex flex-col sm:flex-row gap-6" style={{ borderTop: "1px solid #DDDDDD", paddingTop: "50px" }}>
+      <div className="flex flex-col sm:flex-row gap-4 sm:gap-6" style={{ borderTop: "1px solid #DDDDDD", paddingTop: "24px" }}>
 
         {/* Floor Plan Card */}
         <div className="flex-1 min-w-0">
           <div className="aspect-w-4 aspect-h-3">
             <img src={floorPlanSrc} alt="Floor Plans" className="w-full h-full object-cover rounded-lg border border-gray-200" />
           </div>
-          <p className="mt-2 text-md font-semibold text-gray-900">Floor plans</p>
+          <p className="mt-2 text-sm sm:text-md font-semibold text-gray-900">Floor plans</p>
         </div>
 
         {/* 3D Home Card */}
@@ -101,7 +101,7 @@ const HomeHighlights: React.FC<HomeHighlightsProps> = (props = defaultProps) => 
             {/* Replace with your Image component/tag */}
             <img src={threeDHomeSrc} alt="3D Home Tour" className="w-full h-full object-cover rounded-lg border border-gray-200" />
           </div>
-          <p className="mt-2 text-md font-semibold text-gray-900">3D home</p>
+          <p className="mt-2 text-sm sm:text-md font-semibold text-gray-900">3D home</p>
         </div>
       </div>
     </div>

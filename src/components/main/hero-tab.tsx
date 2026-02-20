@@ -429,7 +429,7 @@ export default function HeroTab() {
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
-    <div className={`w-full mx-auto flex flex-col items-center transition-all duration-500 ease-in-out ${isExpanded ? 'max-w-[1400px]' : 'max-w-4xl'}`}>
+    <div className="w-full mx-auto flex max-w-[1600px] flex-col items-center transition-all duration-500 ease-in-out">
       {/* Tabs */}
       <div className={`flex flex-row items-center gap-x-1 mb-2 transition-all duration-300 ${isExpanded ? 'opacity-0 h-0 overflow-hidden mt-0' : 'opacity-100 h-8'}`}>
         {['buy', 'sell'].map((item) => (
@@ -1832,10 +1832,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         initial={false}
         animate={{
           borderRadius: isExpanded ? 32 : 12, // 32px (rounded-3xl) vs 12px (rounded-xl) - Rectangular with soft corners
-          padding: isExpanded ? 50 : 8, // Increased padding for dominant look
+          padding: isExpanded ? 16 : 8, // keep expanded layout comfortable on mobile
         }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible max-w-[1200px]"
+        className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-x-hidden w-full ${isExpanded ? 'max-w-[1200px]' : 'max-w-[620px]'
+          }`}
       >
         <input
           type="file"
@@ -2172,13 +2173,13 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
               {/* 2) AI Logic Section */}
               {/* Chat History Loop */}
-              <div className={`flex flex-col gap-8 w-full min-h-0 overflow-y-auto pr-2 transition-all duration-500
-              ${isExpanded ? 'h-[600px] md:h-[700px] lg:h-[750px]' : 'h-auto'}`}
+              <div className={`flex flex-col gap-8 w-full min-h-0 overflow-y-auto pr-0 sm:pr-2 pb-20 sm:pb-8 transition-all duration-500
+              ${isExpanded ? 'h-[56vh] sm:h-[600px] md:h-[700px] lg:h-[750px]' : 'h-auto'}`}
                 style={{ overflowAnchor: 'none' }}>
                 {chatHistory.map((msg) => (
-                  <div key={msg.id} className={`flex flex-col w-full ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                  <div key={msg.id} className={`flex flex-col w-full min-w-0 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                     {msg.role === 'user' ? (
-                      <div className="bg-gray-50 px-6 py-3.5 rounded-2xl rounded-tr-sm max-w-[80%] border border-gray-100 shadow-sm space-y-3">
+                      <div className="bg-gray-50 px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl rounded-tr-sm max-w-[92%] sm:max-w-[80%] border border-gray-100 shadow-sm space-y-3">
                         {msg.imageUrl && (
                           <div className="space-y-2">
                             <div className="relative w-48 h-48 rounded-2xl overflow-hidden border border-gray-200">
@@ -2194,7 +2195,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                           </div>
                         )}
                         {msg.content && (
-                          <p className="text-gray-900 text-lg font-medium leading-relaxed">
+                          <p className="text-gray-900 text-base sm:text-lg font-medium leading-relaxed break-words">
                             {msg.content}
                           </p>
                         )}
@@ -2233,7 +2234,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                               />
                             </div>
                           )}
-                          <div className="flex-1 space-y-3">
+                          <div className="flex-1 min-w-0 space-y-3">
                             {!msg.relatedProperties?.length && (
                               <div className="flex items-center gap-2">
                                 <span className="font-bold text-black text-sm tracking-tight">SnapHomz AI</span>
@@ -2241,7 +2242,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                             )}
 
 
-                            <div className="text-gray-600 text-[17px] leading-relaxed text-left font-normal">
+                            <div className="text-gray-600 text-[15px] sm:text-[17px] leading-relaxed text-left font-normal break-words">
                               {formatMessageContent(msg.content || '')}
                             </div>
 
@@ -2432,8 +2433,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
                         {/* Properties Carousel */}
                         {msg.relatedProperties && msg.relatedProperties.length > 0 && (
-                          <div className={`w-full ${msg.relatedProperties?.length ? 'order-2' : ''}`}>
-                            <div className="flex items-center overflow-x-auto gap-6 px-6 py-6 snap-x snap-mandatory no-scrollbar" style={{ scrollBehavior: 'smooth' }}>
+                          <div className={`w-full max-w-full ${msg.relatedProperties?.length ? 'order-2' : ''}`}>
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center overflow-visible sm:overflow-x-auto gap-2 sm:gap-4 md:gap-6 px-0 sm:px-4 md:px-6 py-3 sm:py-5 md:py-6 sm:snap-x sm:snap-mandatory no-scrollbar" style={{ scrollBehavior: 'smooth' }}>
                               {msg.relatedProperties.map((property: any) => {
                                 const isActive = selectedPropertyId === property.id;
                                 const isExpandedCard = expandedPropertyId === property.id;
@@ -2457,8 +2458,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                     onClick={() => handlePropertyClick(property.id)}
                                     className={`
                                                                 group relative flex flex-col
-                                                                min-w-[280px] md:min-w-[320px] w-[280px] md:w-[320px]
-                                                                flex-shrink-0 rounded-2xl cursor-pointer snap-center
+                                                                w-full min-w-0 max-w-full sm:min-w-[300px] sm:w-[300px] md:min-w-[360px] md:w-[360px] md:max-w-[360px] lg:min-w-[320px] lg:w-[320px] lg:max-w-[320px]
+                                                                flex-shrink-0 rounded-2xl cursor-pointer sm:snap-center
                                                                 transition-all duration-300 ease-out border bg-white overflow-hidden
                                                                 ${isAnySelected
                                         ? isActive
@@ -2474,7 +2475,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                       <div className="absolute inset-0 bg-white/60 backdrop-blur-[0.5px] z-20 pointer-events-none transition-opacity duration-300" />
                                     )}
 
-                                    <div className="h-52 w-full relative overflow-hidden bg-gray-100 flex-shrink-0">
+                                    <div className="h-44 sm:h-48 md:h-56 lg:h-52 w-full relative overflow-hidden bg-gray-100 flex-shrink-0">
                                       <Image
                                         src={property.image}
                                         alt="Property"
@@ -2540,27 +2541,27 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                   href={`${process.env.NEXT_PUBLIC_MAIN_SITE_URL || 'https://demo.snaphomz.com'}/buy/browse?q=${encodeURIComponent(msg.query)}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="group flex-shrink-0 snap-start self-center relative flex h-48 w-48 flex-col items-center justify-center rounded-full border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-orange-100 shadow-lg transition-all duration-300 hover:scale-105 hover:border-orange-500 hover:shadow-xl hover:shadow-orange-200/60 cursor-pointer"
+                                  className="group flex-shrink-0 sm:snap-start self-stretch sm:self-center relative flex h-14 sm:h-48 w-full sm:w-48 flex-row sm:flex-col items-center justify-center gap-2 sm:gap-0 rounded-2xl sm:rounded-full border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-orange-100 shadow-lg transition-all duration-300 hover:scale-[1.01] sm:hover:scale-105 hover:border-orange-500 hover:shadow-xl hover:shadow-orange-200/60 cursor-pointer"
                                 >
                                   {/* Outer ring on hover */}
-                                  <div className="pointer-events-none absolute inset-[-6px] rounded-full border-2 border-orange-200 opacity-0 transition-all duration-500 group-hover:opacity-100" />
+                                  <div className="pointer-events-none absolute inset-[-6px] rounded-2xl sm:rounded-full border-2 border-orange-200 opacity-0 transition-all duration-500 group-hover:opacity-100" />
 
                                   {/* Icon circle */}
-                                  <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-orange-500 text-white shadow-md transition-transform duration-300 group-hover:scale-110">
+                                  <div className="sm:mb-3 flex h-9 w-9 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-orange-500 text-white shadow-md transition-transform duration-300 group-hover:scale-110">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                       <path d="M7 17L17 7" /><path d="M7 7h10v10" />
                                     </svg>
                                   </div>
 
                                   {/* Label */}
-                                  <span className="text-center text-sm font-semibold leading-tight text-orange-600 px-4">
-                                    Show More<br />Properties
+                                  <span className="text-center text-xs sm:text-sm font-semibold leading-tight text-orange-600 px-2 sm:px-4">
+                                    Show More Properties
                                   </span>
                                 </a>
                               )}
                             </div>
                             {snapConfirmationMessageId === msg.id && awaitingSnapConfirmation && (
-                              <div className="px-6 pb-6">
+                              <div className="px-0 sm:px-6 pb-6">
                                 <p className="text-base font-semibold text-gray-900 mb-1">Did you find the exact property?</p>
                                 <p className="text-sm text-gray-500 mb-4">Let me know so I can either dive deeper into a home or keep expanding the search radius.</p>
                                 <div className="flex flex-wrap gap-3">
@@ -2605,19 +2606,19 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                 transition={{ duration: 0.4, ease: [0.04, 0.62, 0.23, 0.98] }}
                                 className={`w-full overflow-hidden ${msg.relatedProperties?.length ? 'order-3' : ''}`}
                               >
-                                <div className="mt-8 flex flex-col gap-8 max-w-[1200px] mx-auto">
+                                <div className="mt-4 sm:mt-8 flex flex-col gap-5 sm:gap-8 max-w-[1200px] mx-auto">
                                   {/* 1. ABOUT & GALLERY */}
                                   <div className="flex flex-col items-start w-full">
-                                    <div className="mb-6 w-full">
-                                      <h3 className="text-2xl font-bold text-gray-900 mb-4 text-left">About this Home</h3>
-                                      <p className="text-gray-600 leading-relaxed text-lg max-w-4xl text-left">
+                                    <div className="mb-4 sm:mb-6 w-full">
+                                      <h3 className="text-lg sm:text-2xl font-bold text-gray-900 mb-2 sm:mb-4 text-left">About this Home</h3>
+                                      <p className="text-gray-600 leading-relaxed text-sm sm:text-lg max-w-4xl text-left">
                                         {selectedProp.description}
                                       </p>
                                     </div>
 
-                                    <div className="flex overflow-x-auto gap-5 w-full pb-4 no-scrollbar snap-x snap-mandatory" style={{ scrollBehavior: 'smooth' }}>
+                                    <div className="flex overflow-x-auto gap-3 sm:gap-5 w-full pb-3 sm:pb-4 no-scrollbar snap-x snap-mandatory" style={{ scrollBehavior: 'smooth' }}>
                                       {selectedProp.images.map((img: string, idx: number) => (
-                                        <div key={idx} className="relative flex-shrink-0 w-[85%] md:w-[320px] h-[240px] rounded-[20px] overflow-hidden shadow-sm group snap-center border border-gray-100">
+                                        <div key={idx} className="relative flex-shrink-0 w-[85%] md:w-[320px] h-[170px] sm:h-[240px] rounded-[16px] sm:rounded-[20px] overflow-hidden shadow-sm group snap-center border border-gray-100">
                                           <Image
                                             src={img}
                                             alt={`Gallery ${idx}`}
@@ -2639,15 +2640,15 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                       const labelNote = schoolsState.fallbackUsed ? ' (Fallback)' : '';
 
                                       return (
-                                        <div className="bg-[#FFF9F5] border border-[#FFD8B4] rounded-[20px] p-8">
-                                          <div className="flex items-center justify-between mb-6">
+                                        <div className="bg-[#FFF9F5] border border-[#FFD8B4] rounded-[16px] sm:rounded-[20px] p-4 sm:p-8">
+                                          <div className="flex items-center justify-between mb-4 sm:mb-6">
                                             <div className="flex items-center gap-3">
-                                              <GraduationCap className="w-6 h-6 text-[#F58634]" />
-                                              <h3 className="text-xl font-bold text-gray-900">
+                                              <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6 text-[#F58634]" />
+                                              <h3 className="text-base sm:text-xl font-bold text-gray-900">
                                                 Schools Near <span className="text-[#F58634]">{selectedProp.address.split(',')[0]}</span>
                                               </h3>
                                             </div>
-                                            <span className="text-[10px] font-bold text-[#F58634] bg-white border border-[#FFD8B4] px-3 py-1 rounded-full uppercase tracking-wide">
+                                            <span className="text-[9px] sm:text-[10px] font-bold text-[#F58634] bg-white border border-[#FFD8B4] px-2 sm:px-3 py-1 rounded-full uppercase tracking-wide">
                                               {label}{labelNote}
                                             </span>
                                           </div>
@@ -2676,17 +2677,17 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                           )}
 
                                           {schoolsState.status === 'ready' && schools.length > 0 && (
-                                            <div className="space-y-4">
+                                            <div className="space-y-3 sm:space-y-4">
                                               {schools.map((school: any, i: number) => (
-                                                <div key={i} className="bg-white p-5 rounded-2xl shadow-sm flex items-center justify-between border border-gray-50 hover:shadow-md transition-shadow">
+                                                <div key={i} className="bg-white p-3 sm:p-5 rounded-xl sm:rounded-2xl shadow-sm flex items-center justify-between border border-gray-50 hover:shadow-md transition-shadow">
                                                   <div>
-                                                    <p className="font-bold text-gray-900 text-lg mb-1">{school.name}</p>
-                                                    <p className="text-sm text-gray-500 font-medium">
+                                                    <p className="font-bold text-gray-900 text-sm sm:text-lg mb-1">{school.name}</p>
+                                                    <p className="text-xs sm:text-sm text-gray-500 font-medium">
                                                       {[school.level || school.type, formatSchoolDistance(school.distance_miles ?? school.distance)].filter(Boolean).join(' • ')}
                                                     </p>
                                                   </div>
                                                   <div className="flex flex-col items-end justify-center">
-                                                    <span className="text-2xl font-bold text-gray-900 tracking-tight">
+                                                    <span className="text-lg sm:text-2xl font-bold text-gray-900 tracking-tight">
                                                       {formatSchoolRating(school.rating ?? school.grade)}
                                                     </span>
                                                   </div>
@@ -2701,10 +2702,10 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
                                   {/* 3. FEATURES */}
                                   <div className="flex flex-col items-start w-full">
-                                    <h3 className="text-xl font-bold text-gray-900 mb-4 text-left">Features</h3>
-                                    <div className="flex flex-wrap justify-start gap-3 w-full">
+                                    <h3 className="text-base sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4 text-left">Features</h3>
+                                    <div className="flex flex-wrap justify-start gap-2 sm:gap-3 w-full">
                                       {selectedProp.features?.map((feature: string, i: number) => (
-                                        <span key={i} className="px-5 py-2 bg-white border border-gray-100 rounded-full text-sm font-medium text-gray-700 hover:border-gray-300 transition-colors cursor-default whitespace-nowrap">
+                                        <span key={i} className="px-3 sm:px-5 py-1.5 sm:py-2 bg-white border border-gray-100 rounded-full text-xs sm:text-sm font-medium text-gray-700 hover:border-gray-300 transition-colors cursor-default whitespace-normal">
                                           {feature}
                                         </span>
                                       ))}
@@ -2712,83 +2713,83 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                   </div>
 
                                   {/* 4. INSIGHTS */}
-                                  <div className="bg-[#FFF9F5] border border-[#FFD8B4] rounded-[20px] p-8">
-                                    <div className="flex items-center justify-between mb-6">
+                                  <div className="bg-[#FFF9F5] border border-[#FFD8B4] rounded-[16px] sm:rounded-[20px] p-4 sm:p-8">
+                                    <div className="flex items-center justify-between mb-4 sm:mb-6">
                                       <div className="flex items-center gap-3">
                                         <div className="">
-                                          <MapPin className="w-6 h-6 text-[#F58634]" />
+                                          <MapPin className="w-5 h-5 sm:w-6 sm:h-6 text-[#F58634]" />
                                         </div>
-                                        <h3 className="text-xl font-bold text-gray-900">{selectedProp.address.split(',')[0]} Insights</h3>
+                                        <h3 className="text-base sm:text-xl font-bold text-gray-900">{selectedProp.address.split(',')[0]} Insights</h3>
                                       </div>
-                                      <span className="text-[10px] font-bold text-[#F58634] bg-white border border-[#FFD8B4] px-3 py-1 rounded-full uppercase tracking-wide">
+                                      <span className="text-[9px] sm:text-[10px] font-bold text-[#F58634] bg-white border border-[#FFD8B4] px-2 sm:px-3 py-1 rounded-full uppercase tracking-wide">
                                         via Local Wiki
                                       </span>
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
                                       {/* Card 1: Price */}
-                                      <div className="bg-white p-6 rounded-[24px] shadow-sm border border-gray-100 flex flex-col justify-between h-48">
+                                      <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[24px] shadow-sm border border-gray-100 flex flex-col justify-between h-auto sm:h-48">
                                         <div className="flex justify-between items-start">
-                                          <div className="w-12 h-12 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center">
-                                            <TrendingUp className="w-6 h-6 text-[#F58634]" />
+                                          <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center">
+                                            <TrendingUp className="w-4 h-4 sm:w-6 sm:h-6 text-[#F58634]" />
                                           </div>
                                         </div>
                                         <div>
-                                          <p className="text-sm font-bold text-gray-900 mb-1">Median Price</p>
-                                          <p className="text-3xl font-bold text-gray-900 tracking-tight mb-1">{selectedProp.insights?.price}</p>
-                                          <p className="text-xs font-bold text-green-600 flex items-center gap-1">
+                                          <p className="text-xs sm:text-sm font-bold text-gray-900 mb-1">Median Price</p>
+                                          <p className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight mb-1">{selectedProp.insights?.price}</p>
+                                          <p className="text-[11px] sm:text-xs font-bold text-green-600 flex items-center gap-1">
                                             <ArrowUp className="w-3 h-3" /> +4.2% YoY <span className="text-gray-400 font-medium">vs last month</span>
                                           </p>
                                         </div>
                                       </div>
                                       {/* Card 2: Safety */}
-                                      <div className="bg-white p-6 rounded-[24px] shadow-sm border border-gray-100 flex flex-col justify-between h-48">
+                                      <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[24px] shadow-sm border border-gray-100 flex flex-col justify-between h-auto sm:h-48">
                                         <div className="flex justify-between items-start">
-                                          <div className="w-12 h-12 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center">
-                                            <Shield className="w-6 h-6 text-[#F58634]" />
+                                          <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center">
+                                            <Shield className="w-4 h-4 sm:w-6 sm:h-6 text-[#F58634]" />
                                           </div>
                                         </div>
                                         <div>
-                                          <p className="text-sm font-bold text-gray-900 mb-1">Safety</p>
-                                          <p className="text-3xl font-bold text-gray-900 tracking-tight mb-1">{selectedProp.insights?.safety}</p>
-                                          <p className="text-xs font-bold text-red-500 flex items-center gap-1">
+                                          <p className="text-xs sm:text-sm font-bold text-gray-900 mb-1">Safety</p>
+                                          <p className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight mb-1">{selectedProp.insights?.safety}</p>
+                                          <p className="text-[11px] sm:text-xs font-bold text-red-500 flex items-center gap-1">
                                             <TrendingUp className="w-3 h-3 rotate-180" /> 5% <span className="text-gray-400 font-medium">Crime Index</span>
                                           </p>
                                         </div>
                                       </div>
                                       {/* Card 3: Walkability */}
-                                      <div className="bg-white p-6 rounded-[24px] shadow-sm border border-gray-100 flex flex-col justify-between h-48">
+                                      <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[24px] shadow-sm border border-gray-100 flex flex-col justify-between h-auto sm:h-48">
                                         <div className="flex justify-between items-start">
-                                          <div className="w-12 h-12 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center">
-                                            <Trees className="w-6 h-6 text-[#F58634]" />
+                                          <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center">
+                                            <Trees className="w-4 h-4 sm:w-6 sm:h-6 text-[#F58634]" />
                                           </div>
                                         </div>
                                         <div>
-                                          <p className="text-sm font-bold text-gray-900 mb-1">Walkability</p>
+                                          <p className="text-xs sm:text-sm font-bold text-gray-900 mb-1">Walkability</p>
                                           <div className="flex items-end justify-between">
-                                            <p className="text-3xl font-bold text-gray-900 tracking-tight">{selectedProp.insights?.walkability}</p>
-                                            <span className="text-sm font-medium text-gray-400 mb-1">Walk Score</span>
+                                            <p className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">{selectedProp.insights?.walkability}</p>
+                                            <span className="text-xs sm:text-sm font-medium text-gray-400 mb-1">Walk Score</span>
                                           </div>
                                         </div>
                                       </div>
                                       {/* Card 4: Climate */}
-                                      <div className="bg-white p-6 rounded-[24px] shadow-sm border border-gray-100 flex flex-col justify-between h-48">
+                                      <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[24px] shadow-sm border border-gray-100 flex flex-col justify-between h-auto sm:h-48">
                                         <div className="flex justify-between items-start">
-                                          <div className="w-12 h-12 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center">
-                                            <CloudSun className="w-6 h-6 text-[#F58634]" />
+                                          <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center">
+                                            <CloudSun className="w-4 h-4 sm:w-6 sm:h-6 text-[#F58634]" />
                                           </div>
                                         </div>
                                         <div>
-                                          <p className="text-sm font-bold text-gray-900 mb-1">Climate</p>
+                                          <p className="text-xs sm:text-sm font-bold text-gray-900 mb-1">Climate</p>
                                           <div className="flex items-end justify-between">
-                                            <p className="text-3xl font-bold text-gray-900 tracking-tight">{selectedProp.insights?.climate}</p>
-                                            <span className="text-sm font-medium text-gray-400 mb-1">Marine Layer</span>
+                                            <p className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">{selectedProp.insights?.climate}</p>
+                                            <span className="text-xs sm:text-sm font-medium text-gray-400 mb-1">Marine Layer</span>
                                           </div>
                                         </div>
                                       </div>
                                     </div>
                                     {/* Bottom Button */}
-                                    <div className="flex justify-end mt-4">
-                                      <button className="bg-[#121212] hover:bg-black text-white px-6 py-3 rounded-full text-xs font-bold flex items-center gap-2 transition-transform hover:scale-105 shadow-md">
+                                    <div className="flex justify-end mt-3 sm:mt-4">
+                                      <button className="bg-[#121212] hover:bg-black text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-full text-[11px] sm:text-xs font-bold flex items-center gap-2 transition-transform hover:scale-105 shadow-md">
                                         Explore Manhattan Beach on Local Wiki <ArrowUp className="w-3 h-3 rotate-90" />
                                       </button>
                                     </div>
@@ -2799,7 +2800,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                       href={propertyDetailsUrl}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-2 rounded-full bg-orange-500 px-8 py-3 text-sm font-semibold text-white shadow-md hover:bg-orange-600 transition-colors"
+                                      className="inline-flex w-full sm:w-auto justify-center items-center gap-2 rounded-full bg-orange-500 px-5 sm:px-8 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white shadow-md hover:bg-orange-600 transition-colors"
                                     >
                                       Want to know more about this property?
                                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17L17 7" /><path d="M7 7h10v10" /></svg>
@@ -2851,11 +2852,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
               </div>
 
               {/* Footer / Related Questions & Search */}
-              <div className="mt-2 pt-2 border-t border-gray-100/50 sticky bottom-0 bg-white/95 backdrop-blur-md z-30 pb-4">
+              <div className="mt-2 pt-2 border-t border-gray-100/50 sticky bottom-0 bg-white/95 backdrop-blur-md z-30 pb-2 sm:pb-4">
                 {/* 1. Related Questions (Removed - now dynamic per message) */}
 
                 {/* 2. New Large Search Bar + Controls */}
-                <div ref={searchContainerRef} className="flex items-center gap-3 mb-4">
+                <div ref={searchContainerRef} className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
                   {/* Contextual Actions */}
                   <button
                     onClick={() => {
@@ -2882,9 +2883,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       }, 100);
                     }}
                     title="New Chat"
-                    className="flex-shrink-0 w-[60px] h-[68px] bg-white border border-gray-200 rounded-[28px] flex items-center justify-center text-gray-400 hover:text-[#F58634] hover:border-orange-200 hover:bg-orange-50 transition-all shadow-sm group"
+                    className="flex-shrink-0 w-11 h-12 sm:w-[60px] sm:h-[68px] bg-white border border-gray-200 rounded-2xl sm:rounded-[28px] flex items-center justify-center text-gray-400 hover:text-[#F58634] hover:border-orange-200 hover:bg-orange-50 transition-all shadow-sm group"
                   >
-                    <Sparkles className="w-6 h-6" />
+                    <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />
                   </button>
                   <button
                     onClick={() => {
@@ -2892,14 +2893,14 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll up to see the menu
                     }}
                     title="History"
-                    className="flex-shrink-0 w-[60px] h-[68px] bg-white border border-gray-200 rounded-[28px] flex items-center justify-center text-gray-400 hover:text-gray-900 hover:border-gray-300 hover:bg-gray-50 transition-all shadow-sm"
+                    className="flex-shrink-0 w-11 h-12 sm:w-[60px] sm:h-[68px] bg-white border border-gray-200 rounded-2xl sm:rounded-[28px] flex items-center justify-center text-gray-400 hover:text-gray-900 hover:border-gray-300 hover:bg-gray-50 transition-all shadow-sm"
                   >
-                    <Clock className="w-6 h-6" />
+                    <Clock className="w-5 h-5 sm:w-6 sm:h-6" />
                   </button>
 
                   {/* Search Input */}
                   <div className="relative flex-1">
-                    <div className="absolute left-6 top-1/2 -translate-y-1/2 z-20">
+                    <div className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-20">
                       <button
                         type="button"
                         onClick={() => setShowAttachMenu(!showAttachMenu)}
@@ -2939,7 +2940,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       </AnimatePresence>
                     </div>
                     {(pendingImage || pendingImagePreview) && (
-                      <div className="absolute left-14 top-1/2 -translate-y-1/2 z-10">
+                      <div className="absolute left-11 sm:left-14 top-1/2 -translate-y-1/2 z-10">
                         {renderPendingImageChip('expanded')}
                       </div>
                     )}
@@ -2961,18 +2962,18 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                         }
                       }}
                       placeholder="Ask anything about homes, neighborhoods, schools"
-                      className={`w-full bg-white text-gray-900 rounded-full h-[68px] ${pendingImage || pendingImagePreview ? 'pl-64' : 'pl-14'} pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-base placeholder:text-gray-400 font-normal`}
+                      className={`w-full bg-white text-gray-900 rounded-full h-12 sm:h-[68px] ${pendingImage || pendingImagePreview ? 'pl-40 sm:pl-64' : 'pl-11 sm:pl-14'} pr-20 sm:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-sm sm:text-base placeholder:text-gray-400 font-normal`}
                     />
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-4">
+                    <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 sm:gap-4">
                       <button className="text-gray-500 hover:text-gray-900 transition-colors">
-                        <Mic className="w-5 h-5" />
+                        <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
                       <button
                         onClick={() => pendingImage ? submitPendingImage() : handleSearchSubmit(searchTerm)}
                         disabled={!!pendingImage && pendingImageStatus !== 'ready'}
-                        className={`bg-black text-white w-10 h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shadow-md ${pendingImage && pendingImageStatus !== 'ready' ? 'opacity-50 cursor-not-allowed hover:scale-100' : 'hover:bg-gray-800'}`}
+                        className={`bg-black text-white w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shadow-md ${pendingImage && pendingImageStatus !== 'ready' ? 'opacity-50 cursor-not-allowed hover:scale-100' : 'hover:bg-gray-800'}`}
                       >
-                        {isSearching ? <Square className="w-4 h-4 fill-white" /> : <ArrowUp className="w-5 h-5" />}
+                        {isSearching ? <Square className="w-4 h-4 fill-white" /> : <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />}
                       </button>
                     </div>
                   </div>

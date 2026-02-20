@@ -1835,7 +1835,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
           padding: isExpanded ? 16 : 8, // keep expanded layout comfortable on mobile
         }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-x-hidden w-full ${isExpanded ? 'max-w-[1200px]' : 'max-w-[620px]'
+        className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full ${isExpanded ? 'max-w-[1200px]' : 'max-w-[620px]'
           }`}
       >
         <input
@@ -1893,7 +1893,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                           animate={{ opacity: 1, scale: 1, y: 0 }}
                           exit={{ opacity: 0, scale: 0.95, y: 10 }}
                           transition={{ duration: 0.2 }}
-                          className="absolute bottom-full right-0 mb-2 w-32 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-20"
+                          className="absolute bottom-full right-0 mb-2 w-32 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200 ring-1 ring-black/5 overflow-hidden z-[70]"
                         >
                           <div className="flex flex-col p-1.5 gap-1">
                             <button
@@ -2204,13 +2204,13 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       <div className="flex flex-col gap-6 w-full animate-in fade-in slide-in-from-bottom-2 duration-500">
                         {msg.relatedProperties && msg.relatedProperties.length > 0 && (
                           <div className="order-1 flex items-start gap-5 px-1">
-                            <div className="flex-shrink-0 mt-1">
+                            <div className="flex-shrink-0 mt-1 w-11 h-11 rounded-xl bg-[#140800] ring-1 ring-[#F58634]/35 shadow-sm flex items-center justify-center">
                               <Image
-                                src="/assets/images/snaphomz-icon.png"
+                                src="/assets/images/snaphomz-icon-thick.png"
                                 alt="SnapHomz AI"
-                                width={40}
-                                height={40}
-                                className="w-10 h-10 object-contain"
+                                width={32}
+                                height={32}
+                                className="w-8 h-8 object-contain"
                               />
                             </div>
                             <div className="flex-1">
@@ -2224,13 +2224,13 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                         {/* AI Avatar & Message */}
                         <div className={`flex items-start gap-5 px-1 ${msg.relatedProperties?.length ? 'order-4' : ''}`}>
                           {!msg.relatedProperties?.length && (
-                            <div className="flex-shrink-0 mt-1">
+                            <div className="flex-shrink-0 mt-1 w-11 h-11 rounded-xl bg-[#140800] ring-1 ring-[#F58634]/35 shadow-sm flex items-center justify-center">
                               <Image
-                                src="/assets/images/snaphomz-icon.png"
+                                src="/assets/images/snaphomz-icon-thick.png"
                                 alt="SnapHomz AI"
-                                width={40}
-                                height={40}
-                                className="w-10 h-10 object-contain"
+                                width={32}
+                                height={32}
+                                className="w-8 h-8 object-contain"
                               />
                             </div>
                           )}
@@ -2538,7 +2538,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
                               {msg.query && (
                                 <a
-                                  href={`/buy/browse?q=${encodeURIComponent(msg.query)}`}
+                                  href={`${process.env.NEXT_PUBLIC_MAIN_SITE_URL || 'https://demo.snaphomz.com'}/buy/browse?q=${encodeURIComponent(msg.query)}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="group flex-shrink-0 sm:snap-start self-stretch sm:self-center relative flex h-14 sm:h-48 w-full sm:w-48 flex-row sm:flex-col items-center justify-center gap-2 sm:gap-0 rounded-2xl sm:rounded-full border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-orange-100 shadow-lg transition-all duration-300 hover:scale-[1.01] sm:hover:scale-105 hover:border-orange-500 hover:shadow-xl hover:shadow-orange-200/60 cursor-pointer"
@@ -2819,13 +2819,13 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 {/* Loading State */}
                 {isSearching && (
                   <div className="flex items-start gap-4 mt-6 ml-1">
-                    <div className="flex-shrink-0">
+                    <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-[#140800] ring-1 ring-[#F58634]/35 shadow-sm flex items-center justify-center">
                       <Image
-                        src="/assets/images/snaphomz-icon.png"
+                        src="/assets/images/snaphomz-icon-thick.png"
                         alt="SnapHomz AI"
-                        width={40}
-                        height={40}
-                        className="w-10 h-10 object-contain"
+                        width={32}
+                        height={32}
+                        className="w-8 h-8 object-contain"
                       />
                     </div>
                     <div className="flex flex-col gap-3 pt-1 w-full max-w-md">
@@ -2915,7 +2915,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                             animate={{ opacity: 1, scale: 1, y: -50 }} // Floating upwards from the button
                             exit={{ opacity: 0, scale: 0.95, y: -10 }}
                             transition={{ duration: 0.2 }}
-                            className="absolute bottom-full left-0 mb-2 w-32 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-20"
+                            className="absolute bottom-full left-0 mb-2 w-32 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200 ring-1 ring-black/5 overflow-hidden z-[70]"
                           >
                             <div className="flex flex-col p-1.5 gap-1">
                               <button

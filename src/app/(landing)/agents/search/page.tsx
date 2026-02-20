@@ -181,6 +181,34 @@ const AgentsGrid = memo(function AgentsGrid({
     return null;
   };
 
+  const extractPhoneNumbers = (rawValues: any[]): string[] => {
+    const values = rawValues
+      .filter((v) => isPresent(v))
+      .map((v) => String(v));
+
+    if (values.length === 0) return [];
+
+    const found: string[] = [];
+    const phonePattern = /(?:\(\d{3}\)\s*\d{3}-\d{4})|(?:\d{3}[-.\s]?\d{3}[-.\s]?\d{4})/g;
+
+    values.forEach((value) => {
+      const matches = value.match(phonePattern);
+      if (matches && matches.length > 0) {
+        matches.forEach((m) => found.push(m.trim()));
+        return;
+      }
+
+      value
+        .split(/[;,|/]/)
+        .map((p) => p.trim())
+        .filter(Boolean)
+        .forEach((p) => found.push(p));
+    });
+
+    const deduped = Array.from(new Set(found));
+    return deduped.slice(0, 2);
+  };
+
 
   if (agents === null) {
     return (
@@ -217,7 +245,15 @@ const AgentsGrid = memo(function AgentsGrid({
         const agentBrokerage =
           anyAgent.Brokerage ?? anyAgent.brokerageName ?? 'Sales Executive';
         const agentEmail = anyAgent.email ?? anyAgent.agentEmail;
-        const agentPhone = anyAgent.phone ?? anyAgent.mobile;
+        const agentPhones = extractPhoneNumbers([
+          anyAgent.phone,
+          anyAgent.mobile,
+          anyAgent.phone2,
+          anyAgent.mobile2,
+          anyAgent.secondary_phone,
+          anyAgent.contact_number,
+        ]);
+
 
 
         // ID resolution
@@ -290,11 +326,30 @@ const AgentsGrid = memo(function AgentsGrid({
 
                 {/* Metrics Stack */}
                 <div className="flex flex-col gap-2.5 mt-3 mb-3 w-full">
-                  {/* Mobile */}
-                  <div className="flex justify-between items-center text-xs border-b border-gray-300 pb-2.5 gap-3">
-                    <span className="text-gray-500 font-medium shrink-0">Mobile</span>
-                    <span className="font-semibold text-black text-right text-xs break-all">{agentPhone || 'N/A'}</span>
-                  </div>
+                  {/* Mobile / Mobile 1 / Mobile 2 */}
+                  {agentPhones.length > 0 ? (
+                    agentPhones.map((phone, index) => (
+                      <div
+                        key={`${cardId}-phone-${index}`}
+                        className="flex justify-between items-start text-xs border-b border-gray-300 pb-2.5 gap-3"
+                      >
+                        <span className="text-gray-500 font-medium shrink-0">
+                          {agentPhones.length === 1 ? 'Mobile' : `Mobile ${index + 1}`}
+                        </span>
+                        <span className="font-semibold text-black text-right text-xs break-all">
+                          {phone}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex justify-between items-center text-xs border-b border-gray-300 pb-2.5 gap-3">
+                      <span className="text-gray-500 font-medium shrink-0">Mobile</span>
+                      <span className="font-semibold text-black text-right text-xs break-all">N/A</span>
+                    </div>
+                  )}
+
+
+
 
 
 

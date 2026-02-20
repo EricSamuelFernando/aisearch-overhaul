@@ -8,7 +8,7 @@ import { Button } from './ui/button';
 interface CollaborateModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSend: (email: string, type: 'agent' | 'co-buyer') => void;
+    onSend: (email: string, type: 'agent' | 'co-buyer' | 'other') => void;
 }
 
 const CollaborateModal: React.FC<CollaborateModalProps> = ({
@@ -17,7 +17,7 @@ const CollaborateModal: React.FC<CollaborateModalProps> = ({
     onSend,
 }) => {
     const [email, setEmail] = useState('');
-    const [inviteType, setInviteType] = useState<'co-buyer' | 'agent'>('co-buyer');
+    const [inviteType, setInviteType] = useState<'co-buyer' | 'agent' | 'other'>('co-buyer');
 
     const handleSend = () => {
         if (!email) return;
@@ -50,17 +50,18 @@ const CollaborateModal: React.FC<CollaborateModalProps> = ({
                             </label>
                             <select
                                 value={inviteType}
-                                onChange={(e) => setInviteType(e.target.value as 'agent' | 'co-buyer')}
+                                onChange={(e) => setInviteType(e.target.value as 'agent' | 'co-buyer' | 'other')}
                                 className="w-full rounded-lg border border-gray-300 p-3 focus:border-orange-500 focus:ring-orange-500 bg-white"
                             >
                                 <option value="co-buyer">Invite Co-buyer</option>
                                 <option value="agent">Invite Agent</option>
+                                <option value="other">Invite Others</option>
                             </select>
                         </div>
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                {inviteType === 'co-buyer' ? 'Co-buyer Email' : 'Agent Email'}
+                                {inviteType === 'co-buyer' ? 'Co-buyer Email' : inviteType === 'agent' ? 'Agent Email' : 'Email'}
                             </label>
                             <input
                                 type="email"

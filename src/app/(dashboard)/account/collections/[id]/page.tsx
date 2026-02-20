@@ -170,18 +170,18 @@ export default function SnapDetailsPage() {
         fetchAgents(page);
     };
 
-    const inviteCollaborator = (email: string, type: 'agent' | 'co-buyer') => {
+    const inviteCollaborator = (email: string, type: 'agent' | 'co-buyer' | 'other') => {
         const data = {
             snapId: id,
             email: email,
             status: "pending",
-            accountType: type === 'agent' ? 'agent' : type
+            accountType: type === 'agent' ? 'agent' : type === 'other' ? 'other' : 'buyer'
         }
         createParticipents.mutateAsync(data, {
             onSuccess: (response: any) => {
                 const successValue = response?.data?.createSnapsParticipant?.success;
                 if (successValue === true || successValue === "true") {
-                    success({ message: `Great! Your ${type === 'agent' ? 'agent' : 'co-buyer'} invite is on its way` })
+                    success({ message: `Great! Your ${type === 'agent' ? 'agent' : type === 'other' ? 'collaboration' : 'co-buyer'} invite is on its way` })
                     setIsCollaborateModalOpen(false);
                 } else {
                     error({ message: response?.data?.createSnapsParticipant?.message || "Failed to send invite" });

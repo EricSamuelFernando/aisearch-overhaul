@@ -129,9 +129,6 @@ const SchoolsNearAddress: React.FC<SchoolDistrictProps> = ({
                 {school.rating}
               </div>
             </div>
-            <div className="col-span-1 text-gray-700">
-              {school.rating}
-            </div>
           </div>
         ))}
       </div>

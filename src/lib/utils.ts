@@ -273,7 +273,7 @@ export function formatTime24to12(timeString: string) {
   const date = new Date();
   date.setHours(hours);
   date.setMinutes(minutes);
-  
+
   // Format the date object to a time string in 12-hour format with AM/PM
   const formattedTime = date.toLocaleTimeString('en-US', {
     hour: '2-digit',
@@ -417,7 +417,7 @@ export type UserPropertyPreference = {
 
 
 
-export const downloadDocumentPreSigned = async (url: string, filename:string ) => {
+export const downloadDocumentPreSigned = async (url: string, filename: string) => {
   const response = await fetch(url);
   const blob = await response.blob();
   const blobUrl = URL.createObjectURL(blob);
@@ -430,3 +430,14 @@ export const downloadDocumentPreSigned = async (url: string, filename:string ) =
   document.body.removeChild(link);
   URL.revokeObjectURL(blobUrl); // cleanup
 };
+
+export function getProfileImageUrl(url: string | null | undefined): string {
+  if (!url) return "";
+  if (url.includes("amazonaws.com")) {
+    const cleanUrl = url.split("?")[0];
+    const baseUrl = process.env.NEXT_PUBLIC_MORTGAGE_SERIVCE_URL || "http://localhost:4001/mortgage";
+    return `${baseUrl}/file-upload/view-profile?url=${encodeURIComponent(cleanUrl)}`;
+  }
+  return url;
+}
+

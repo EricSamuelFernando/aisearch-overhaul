@@ -483,6 +483,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
   const popupRef = React.useRef<HTMLDivElement>(null);
   const toggleButtonRef = React.useRef<HTMLButtonElement>(null);
   const [isFooterVisible, setIsFooterVisible] = React.useState(false);
+  const lastAutoSearchRef = React.useRef<string | null>(null);
 
   const { user } = useAuth()
   const { email } = useRegister()

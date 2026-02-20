@@ -630,6 +630,7 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
               threadId: selectedThread,
               message: message,
               userId: userData.id,
+              receiverId: receiverId,
               messageType: 'text'
             });
 
@@ -777,8 +778,8 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
       });
 
       // Handle newMessage event from websocket backend (Lambda/API Gateway)
-      const handleNewMessage = (messageData: any) => {
-        console.log('[conversation] Received newMessage:', messageData);
+      const handleIncomingMessage = (messageData: any, source: string) => {
+        console.log(`[conversation] Received ${source}:`, messageData);
         const threadId = messageData.threadId || messageData.thread_id;
 
         // Only add message if it's for the current thread
@@ -791,6 +792,8 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
           }, ...prevMessages]);
         }
       };
+
+      const handleNewMessage = (messageData: any) => handleIncomingMessage(messageData, 'newMessage');
 
       socket.on('newMessage', handleNewMessage);
 

@@ -1,4 +1,5 @@
-import { ReactNode, useState, createContext, useEffect } from "react";
+import { ReactNode, useState, createContext, useEffect, useRef } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { isUserLoggedIn, accessToken, userData } from "@/slices/auth/auth.slice";
 import { useSelector } from "react-redux";
 import { WebSocketClient, createWebSocketClient } from "@/lib/websocket-client";
@@ -10,6 +11,7 @@ import { getAuthToken } from "@/lib/storage";
 import { useAtom } from "jotai";
 import { messageThreadsAtom } from "@/hooks/atoms";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNotificationApi } from "@/hooks/api/user/useNotification";
 
 type SocketContextType = {
   socket: WebSocketClient | null;
@@ -23,10 +25,14 @@ export const initialState: any = {
     user: null,
     property: null,
     message: "",
+    title: "",
+    body: "",
+    kind: "message",
     channelId: null,
     action: "navigate",
     isVisible: false,
   },
+  notifications: [],
   newMessage: null,
   isCurrentChatAtBottom: false,
   scrollToLatestRequest: null,
@@ -224,6 +230,27 @@ const resolveNotificationMessage = (messageData: any): string =>
     messageData?.text,
   );
 
+const resolveNotificationThreadId = (payload: any): string =>
+  getStringValue(
+    payload?.threadId,
+    payload?.thread_id,
+    payload?.channelId,
+    payload?.channel_id,
+    payload?.data?.threadId,
+    payload?.data?.thread_id,
+  );
+
+const getFileNameFromUrl = (url?: string): string => {
+  if (!url) return "";
+  try {
+    const cleanUrl = url.split("?")[0];
+    const fileName = cleanUrl.split("/").pop() || "";
+    return decodeURIComponent(fileName);
+  } catch {
+    return "";
+  }
+};
+
 const normalizeId = (value: any): string => String(value ?? "").trim().toLowerCase();
 
 const resolveSenderId = (messageData: any): string =>
@@ -325,7 +352,8 @@ const resolveSenderNameFromThreads = (
 };
 
 function SocketProvider({ children }: { children: ReactNode }) {
-  const SOCKET_URL = process.env.NEXT_PUBLIC_AUTH_SERIVCE_SOCKET_URL || "http://localhost:4000";
+  const SOCKET_URL =
+    process.env.NEXT_PUBLIC_COMMUNICATION_SOCKET_URI || "http://localhost:4002";
   const isLogin = useSelector(isUserLoggedIn);
   const token = useSelector(accessToken);
   const user = useSelector(userData);
@@ -337,6 +365,11 @@ function SocketProvider({ children }: { children: ReactNode }) {
   const [offerData, setOfferData] = useState(null);
   const [messageThreads] = useAtom(messageThreadsAtom);
   const queryClient = useQueryClient();
+  const { notificationsQuery } = useNotificationApi();
+  const authNotificationWsRef = useRef<WebSocket | null>(null);
+  const authNotificationReconnectRef = useRef<NodeJS.Timeout | null>(null);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   // Get token from Redux OR Cookie
   const cookieToken = getAuthToken();
@@ -390,6 +423,190 @@ function SocketProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLogin, effectiveToken]); // Only depend on login status and token, not socket (to prevent loops)
 
+  // Auth WS connection for bell notifications (notification_created)
+  useEffect(() => {
+    const commWsUrl = process.env.NEXT_PUBLIC_COMMUNICATION_SOCKET_URI;
+    const baseAuthWsUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_SOCKET_URL;
+    const authServiceBaseUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL;
+    if (!isLogin || !effectiveToken) return;
+
+    let resolvedAuthWsUrl = baseAuthWsUrl || authServiceBaseUrl;
+    if (!resolvedAuthWsUrl) return;
+
+    if (commWsUrl && resolvedAuthWsUrl === commWsUrl) {
+      if (authServiceBaseUrl && authServiceBaseUrl !== commWsUrl) {
+        resolvedAuthWsUrl = authServiceBaseUrl;
+      } else {
+        console.warn(
+          '[AuthWS] Skipping Auth WS connection because Auth WS URL matches Communication WS. Set NEXT_PUBLIC_AUTH_SERIVCE_SOCKET_URL or NEXT_PUBLIC_AUTH_SERIVCE_URL to the Auth service host to enable notifications.',
+        );
+        return;
+      }
+    }
+
+    const trimmedBase = resolvedAuthWsUrl.replace(/\/$/, '');
+    const wsBase = trimmedBase.endsWith('/ws') ? trimmedBase : `${trimmedBase}/ws`;
+    const wsUrl = wsBase.startsWith('ws') ? wsBase : wsBase.replace(/^http/, 'ws');
+    const encodedToken = encodeURIComponent(`Bearer ${effectiveToken}`);
+    const authWsUrl = `${wsUrl}?token=${encodedToken}&authorization=${encodedToken}`;
+
+    const connectAuthWs = () => {
+      if (authNotificationWsRef.current) return;
+
+      const authWs = new WebSocket(authWsUrl);
+      authNotificationWsRef.current = authWs;
+
+      authWs.onopen = () => {
+        console.log('[AuthWS] Connected for notifications');
+      };
+
+      authWs.onmessage = (event) => {
+        try {
+          const packet = JSON.parse(event.data);
+          const eventName = packet?.event || packet?.action;
+          if (eventName !== 'notification_created') return;
+
+          const data = packet?.data || packet;
+          const title = getStringValue(data?.title, data?.heading);
+          const body = getStringValue(data?.body, data?.message, data?.text);
+          const kind = getStringValue(data?.type, data?.kind) || 'general';
+          const threadId = resolveNotificationThreadId(data);
+          const snapId = getStringValue(data?.snapId, data?.snap_id);
+          const link =
+            getStringValue(data?.link) ||
+            (snapId ? `/account/collections/${snapId}` : '') ||
+            (threadId ? `/dashboard/buyer?tab=messages&threadId=${threadId}` : '');
+
+          setState((prev: any) => ({
+            ...prev,
+            notification: {
+              user: prev.notification?.user,
+              property: prev.notification?.property,
+              message: body || title || 'New notification',
+              title: title || 'New notification',
+              body: body || '',
+              kind,
+              channelId: threadId,
+              action: 'navigate',
+              isVisible: true,
+              link,
+            },
+            notifications: [
+              {
+                id: data?.id || `socket-notification-${Date.now()}`,
+                title: title || 'New notification',
+                body: body || '',
+                createdAt: data?.createdAt || new Date().toISOString(),
+                read: false,
+                kind: kind || 'general',
+                link: link || undefined,
+                threadId: threadId || undefined,
+                snapId: snapId || undefined,
+                source: 'socket',
+              },
+              ...(Array.isArray(prev.notifications) ? prev.notifications : []),
+            ].slice(0, 50),
+          }));
+
+          queryClient.invalidateQueries({ queryKey: ['notifications'] });
+        } catch (error) {
+          console.error('[AuthWS] Error parsing notification payload:', error);
+        }
+      };
+
+      authWs.onerror = (error) => {
+        console.error('[AuthWS] Error event:', error);
+      };
+
+      authWs.onclose = () => {
+        authNotificationWsRef.current = null;
+        if (authNotificationReconnectRef.current) {
+          clearTimeout(authNotificationReconnectRef.current);
+        }
+        authNotificationReconnectRef.current = setTimeout(() => {
+          connectAuthWs();
+        }, 2000);
+      };
+    };
+
+    connectAuthWs();
+
+    return () => {
+      if (authNotificationReconnectRef.current) {
+        clearTimeout(authNotificationReconnectRef.current);
+        authNotificationReconnectRef.current = null;
+      }
+      if (authNotificationWsRef.current) {
+        authNotificationWsRef.current.close();
+        authNotificationWsRef.current = null;
+      }
+    };
+  }, [isLogin, effectiveToken, queryClient]);
+
+  // Hydrate bell notifications from API on load and refresh
+  useEffect(() => {
+    const apiNotifications = notificationsQuery.data?.data?.data?.result?.result || [];
+    if (!Array.isArray(apiNotifications) || apiNotifications.length === 0) return;
+
+    setState((prev: any) => {
+      const existing = Array.isArray(prev.notifications) ? prev.notifications : [];
+      const normalized = apiNotifications.map((item: any) => ({
+        id: item._id,
+        title: item.title,
+        body: item.body,
+        createdAt: item.createdAt,
+        read: item.read,
+        kind: item.type || "general",
+        link:
+          item.link ||
+          (item.snapId ? `/account/collections/${item.snapId}` : undefined) ||
+          (item.threadId ? `/dashboard/buyer?tab=messages&threadId=${item.threadId}` : undefined),
+        threadId: item.threadId,
+        snapId: item.snapId,
+        source: "api",
+      }));
+
+      const merged = [...normalized, ...existing].reduce((acc: any[], next: any) => {
+        if (!acc.find((n) => n.id === next.id)) acc.push(next);
+        return acc;
+      }, []);
+
+      return {
+        ...prev,
+        notifications: merged,
+      };
+    });
+  }, [notificationsQuery.data]);
+
+  // Sync notifications on route change to ensure hydration from API
+  useEffect(() => {
+    if (!isLogin) return;
+    notificationsQuery.refetch();
+  }, [pathname, isLogin, notificationsQuery]);
+
+  useEffect(() => {
+    if (!isLogin) return;
+    notificationsQuery.refetch();
+  }, [isLogin, effectiveToken, notificationsQuery]);
+
+  useEffect(() => {
+    const tab = searchParams?.get('tab');
+    const isMessagingRoute =
+      tab === 'messages' ||
+      pathname.includes('/dashboard/chat') ||
+      pathname.includes('/dashboard/conversation');
+
+    if (!isMessagingRoute) {
+      setState((prev: any) => ({
+        ...prev,
+        selectedChannel: {
+          id: null,
+          propertyName: '',
+        },
+      }));
+    }
+  }, [pathname, searchParams]);
+
   // Removed userConnected event - not supported by backend WebSocket handler
 
   // Handle incoming messages - only using backend-supported events
@@ -405,6 +622,24 @@ function SocketProvider({ children }: { children: ReactNode }) {
         const socketResolvedSenderName = resolveSenderName(messageData);
         const threadResolvedSenderName = resolveSenderNameFromThreads(threadId, senderId, messageThreads);
         const notificationSenderName = getStringValue(socketResolvedSenderName, threadResolvedSenderName, "Someone");
+        const resolvedMessageType = getStringValue(
+          messageData?.messageType,
+          messageData?.message_type,
+          messageData?.type,
+        );
+        const resolvedEventType = getStringValue(
+          messageData?.eventType,
+          messageData?.event_type,
+          messageData?.data?.eventType,
+          messageData?.data?.event_type,
+        );
+        const fileName =
+          getStringValue(messageData?.meta?.file?.name, messageData?.file?.name) ||
+          getFileNameFromUrl(resolveNotificationMessage(messageData));
+        const isDocumentEvent =
+          resolvedEventType === "document_shared" ||
+          resolvedEventType === "media_shared" ||
+          resolvedMessageType === "file";
 
         console.log(`[SocketContext] Received ${sourceEvent}:`, messageData);
         console.log('[SocketContext] newMessage sender debug:', {
@@ -443,7 +678,33 @@ function SocketProvider({ children }: { children: ReactNode }) {
             ];
 
           const shouldShowNotification =
-            !isSelfMessage && !isCurrentThreadOpen;
+            (!isSelfMessage && !isCurrentThreadOpen) ||
+            (isDocumentEvent && !isCurrentThreadOpen);
+
+          const nextNotifications = Array.isArray(prevState.notifications)
+            ? [...prevState.notifications]
+            : [];
+
+          if (shouldShowNotification) {
+            const notificationId = `socket-${threadId || 'thread'}-${Date.now()}`;
+            nextNotifications.unshift({
+              id: notificationId,
+              title: isDocumentEvent
+                ? "Document shared in property chat"
+                : "New message in property chat",
+              body: isDocumentEvent
+                ? `${notificationSenderName} shared ${fileName || "a document"}`
+                : `${notificationSenderName}: ${resolveNotificationMessage(messageData)}`,
+              createdAt: new Date().toISOString(),
+              read: false,
+              kind: isDocumentEvent ? "document" : "message",
+              link: threadId
+                ? `/dashboard/buyer?tab=messages&threadId=${threadId}`
+                : "/dashboard/buyer?tab=messages",
+              threadId: threadId || undefined,
+              source: "socket",
+            });
+          }
 
           return {
             ...prevState,
@@ -458,6 +719,13 @@ function SocketProvider({ children }: { children: ReactNode }) {
                 isVisible: true,
                 channelId: threadId,
                 action: "navigate",
+                kind: isDocumentEvent ? "document" : "message",
+                title: isDocumentEvent
+                  ? "Document shared in property chat"
+                  : "New message in property chat",
+                body: isDocumentEvent
+                  ? `${notificationSenderName} shared ${fileName || "a document"}`
+                  : "",
                 message: resolveNotificationMessage(messageData),
               }
               : prevState.notification,
@@ -467,6 +735,7 @@ function SocketProvider({ children }: { children: ReactNode }) {
                 threadId: threadId,
               }
               : prevState.newMessage,
+            notifications: nextNotifications.slice(0, 50),
           };
         });
       };
@@ -479,6 +748,47 @@ function SocketProvider({ children }: { children: ReactNode }) {
       socket.on("notification_created", (payload: any) => {
         console.log("[SocketContext] notification_created:", payload);
         queryClient.invalidateQueries({ queryKey: ["notifications"] });
+        const data = payload?.data || payload;
+        const threadId = resolveNotificationThreadId(data);
+        const snapId = getStringValue(data?.snapId, data?.snap_id);
+        const title = getStringValue(data?.title, data?.heading);
+        const body = getStringValue(data?.body, data?.message, data?.text);
+        const kind = getStringValue(data?.type, data?.kind) || "general";
+        const link =
+          getStringValue(data?.link) ||
+          (snapId ? `/account/collections/${snapId}` : '') ||
+          (threadId ? `/dashboard/buyer?tab=messages&threadId=${threadId}` : '');
+
+        setState((prev: any) => ({
+          ...prev,
+          notification: {
+            user: prev.notification?.user,
+            property: prev.notification?.property,
+            message: body || title || "New notification",
+            title: title || "New notification",
+            body: body || "",
+            kind,
+            channelId: threadId,
+              action: "navigate",
+              isVisible: true,
+              link,
+            },
+            notifications: [
+              {
+                id: data?.id || `socket-notification-${Date.now()}`,
+                title: title || "New notification",
+                body: body || "",
+                createdAt: data?.createdAt || new Date().toISOString(),
+                read: false,
+                kind: kind || "general",
+                link: link || undefined,
+                threadId: threadId || undefined,
+                snapId: snapId || undefined,
+                source: "socket",
+              },
+            ...(Array.isArray(prev.notifications) ? prev.notifications : []),
+          ].slice(0, 50),
+        }));
       });
 
       // Handle websocket response events

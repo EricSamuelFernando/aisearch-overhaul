@@ -25,7 +25,7 @@ type Props = {
   selectedProperty: string;
 };
 
-const ITEMS_PER_PAGE = 14;
+const ITEMS_PER_PAGE = 10;
 
 function BuyPropertyCards({ forwardedRef, selectedProperty }: Props) {
   const router = useRouter();
@@ -60,8 +60,6 @@ function BuyPropertyCards({ forwardedRef, selectedProperty }: Props) {
   }, [allProperties?.length]);
 
   // Pagination: 5 rows x 2 columns = 10 cards per page for map view.
-  const ITEMS_PER_PAGE = 10;
-  const [currentPage, setCurrentPage] = useState(1);
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil((allProperties?.length || 0) / ITEMS_PER_PAGE)),
@@ -125,35 +123,38 @@ function BuyPropertyCards({ forwardedRef, selectedProperty }: Props) {
                 : 'grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4 lg:grid-cols-[repeat(4,360px)] lg:gap-x-8 lg:justify-center xl:grid-cols-[repeat(4,380px)]',
             )}
           >
-          {/* Show loader while fetching properties */}
-          {isLoading ? (
-            <>
-              {Array.from({ length: currentView === 'map' ? 10 : 10 }).map(() => (
-                <PropCardLoader key={nanoid()} />
-              ))}
-            </>
-          ) : (
-            <>
-              {Array.isArray(allProperties) && allProperties.length > 0 ? (
-                paginatedProperties.map((prop: any) => {
-                  const isSelected = prop.id === selectedProperty;
-                  return (
-                    <div
-                      ref={ref}
-                      key={prop.id}
-                      id={prop.id}
-                      className={cn(
-                        isSelected
-                          ? 'bg-white p-1 bg-orange-500 rounded-2xl shadow-xl'
-                          : '',
-                        'transition duration-300 ease-in-out',
-                        currentView === 'grid' ? 'w-[320px]' : '',
-                      )}
-                    >
-                      <PropertyCards {...prop} />
-                    </div>
-                  </div>
+            {/* Show loader while fetching properties */}
+            {isLoading ? (
+              <>
+                {Array.from({ length: currentView === 'map' ? 10 : 10 }).map(
+                  () => (
+                    <PropCardLoader key={nanoid()} />
+                  ),
                 )}
+              </>
+            ) : (
+              <>
+                {Array.isArray(allProperties) && allProperties.length > 0
+                  ? paginatedProperties.map((prop: any) => {
+                      const isSelected = prop.id === selectedProperty;
+                      return (
+                        <div
+                          ref={ref}
+                          key={prop.id}
+                          id={prop.id}
+                          className={cn(
+                            isSelected
+                              ? 'bg-white p-1 bg-orange-500 rounded-2xl shadow-xl'
+                              : '',
+                            'transition duration-300 ease-in-out',
+                            currentView === 'grid' ? 'w-[320px]' : '',
+                          )}
+                        >
+                          <PropertyCards {...prop} />
+                        </div>
+                      );
+                    })
+                  : null}
               </>
             )}
           </div>

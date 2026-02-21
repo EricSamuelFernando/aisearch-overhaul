@@ -245,7 +245,7 @@ const PropertyStorySection: React.FC<PropertyStorySectionProps> = ({
   const collapsedDescriptionStyle: React.CSSProperties = {
     display: '-webkit-box',
     WebkitBoxOrient: 'vertical',
-    WebkitLineClamp: 2,
+    WebkitLineClamp: 4,
     overflow: 'hidden',
   };
 
@@ -259,7 +259,7 @@ const PropertyStorySection: React.FC<PropertyStorySectionProps> = ({
 
   return (
     <div
-      className={`rounded-2xl border ${accent.border} ${accent.cardBg} p-4 sm:p-5 shadow-[0_4px_20px_-18px_rgba(15,23,42,0.4)] h-full flex flex-col`}
+      className={`rounded-2xl border ${accent.border} ${accent.cardBg} p-4 sm:p-5 shadow-[0_4px_20px_-18px_rgba(15,23,42,0.4)] h-full min-h-[250px] sm:min-h-[280px] flex flex-col`}
     >
       <div className="flex items-start gap-2.5 min-w-0">
         <span className={`inline-flex shrink-0 items-center justify-center mt-0.5 ${accent.iconBg} ${accent.iconText}`}>
@@ -271,9 +271,7 @@ const PropertyStorySection: React.FC<PropertyStorySectionProps> = ({
         </div>
       </div>
 
-      <div
-        className="overflow-hidden max-h-[180px]"
-      >
+      <div className="overflow-hidden max-h-[220px]">
         <p className="mt-3 text-[13px] leading-6 text-gray-700" style={collapsedDescriptionStyle}>
           {highlightText(description, highlightRegex)}
         </p>

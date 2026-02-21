@@ -2203,9 +2203,10 @@ const PropertyPreview: React.FC = () => {
                 {/* Nearby Homes Section (Similar Homes) */}
                 <div id="comparables" className="pb-6 sm:pb-8 md:pb-12 mb-12 sm:mb-16 md:mb-20 scroll-mt-28">
                   {/* <h2 className='text-xl font-bold mt-8 mb-4'>Similar homes</h2> */}
-                  {propertyDatas?.nearbyHomes && propertyDatas.nearbyHomes.length > 0 ? (
+                  {(propertyDatas?.nearbyHomes?.length || propertyDatas?.offtheMarket?.length || propertyDatas?.offTheMarket?.length) ? (
                     <NearbyHomesSection
                       nearbyHomes={propertyDatas.nearbyHomes}
+                      soldHomes={propertyDatas?.offtheMarket || propertyDatas?.offTheMarket || []}
                       currentProperty={currentCompareProperty}
                       currentListingId={currentListingId}
                     />

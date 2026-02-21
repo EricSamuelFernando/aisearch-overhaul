@@ -592,6 +592,13 @@ export default function AgentSearchPage() {
           const typed = deferredSearchInput.trim();
 
 
+          // const data = await fetchExternalAgents({
+          //   limit: 1000,
+          //   offset: 0,
+          //   search: typed ? typed : undefined,
+          //   signal: controller.signal,
+          // });
+
           const data = await fetchExternalAgents({
             limit: 1000,
             offset: 0,
@@ -599,18 +606,22 @@ export default function AgentSearchPage() {
             signal: controller.signal,
           });
 
-
           setAgents(data);
+
         } else {
           const typed = query.trim();
 
 
+          // const data = await fetchExternalAgents({
+          //   limit: 1000,
+          //   offset: 0,
+          //   signal: controller.signal,
+          // });
           const data = await fetchExternalAgents({
             limit: 1000,
             offset: 0,
             signal: controller.signal,
           });
-
 
           const final = typed ? data.filter((a) => agentMatchesLocation(a, typed)) : data;
           setAgents(final);
@@ -632,10 +643,13 @@ export default function AgentSearchPage() {
     const typed = searchInput.trim();
 
 
+    // const t = setTimeout(() => {
+    //   router.replace(`/agents/search?query=${encodeURIComponent(typed)}&mode=name`);
+    // }, 350); // 300–500ms feels good
+
     const t = setTimeout(() => {
       router.replace(`/agents/search?query=${encodeURIComponent(typed)}&mode=name`);
     }, 350); // 300–500ms feels good
-
 
     return () => clearTimeout(t);
   }, [mode, searchInput, router]);

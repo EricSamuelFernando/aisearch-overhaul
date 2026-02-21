@@ -147,7 +147,7 @@ function BuyPropertyCards({ forwardedRef, selectedProperty }: Props) {
                         currentView === 'grid' ? 'w-[320px]' : '',
                       )}
                     >
-                      <PropertyCards {...prop} />
+                      <PropertyCards {...prop} snaps={snaps} fetchSnaps={fetchSnaps} />
                     </div>
                   })
                 )}

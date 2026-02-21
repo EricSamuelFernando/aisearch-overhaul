@@ -2,10 +2,25 @@
 
 import React, { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { getIsAuthExpired, markAuthExpired } from '@/lib/api/axios';
 
 interface AppQueryClientProps {
   children: ReactNode;
 }
+
+/**
+ * Helper: returns true when an error looks like an authentication / session error.
+ * Works for both the custom API instance AND raw-axios GraphQL calls.
+ */
+const isAuthError = (error: any): boolean => {
+  const message: string = error?.message || '';
+  return (
+    message === 'Unauthorized' ||
+    message.includes('Session expired') ||
+    message.includes('Unauthorized') ||
+    error?.response?.status === 401
+  );
+};
 
 export const queryClient = new QueryClient({
   defaultOptions: {

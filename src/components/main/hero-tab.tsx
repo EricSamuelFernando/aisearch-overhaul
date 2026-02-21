@@ -635,14 +635,14 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
   const renderPendingImageChip = (variant: 'collapsed' | 'expanded') => {
     if (!pendingImage && !pendingImagePreview) return null;
-    const statusText = pendingImageStatus === 'processing' ? 'Preparing image...' : 'Image ready';
+    const statusText = pendingImageStatus === 'processing' ? 'Preparing image...' : 'Add location and send';
     const isExpandedVariant = variant === 'expanded';
     const padding = isExpandedVariant ? 'pl-3 pr-2 py-2' : 'pl-2.5 pr-2 py-1.5';
     const thumbSize = isExpandedVariant ? 'w-10 h-10' : 'w-9 h-9';
     const textClass = isExpandedVariant ? 'text-sm' : 'text-xs';
     const statusClass = isExpandedVariant ? 'text-xs' : 'text-[11px]';
     const gap = isExpandedVariant ? 'gap-3' : 'gap-2';
-    const maxWidth = isExpandedVariant ? 'max-w-[230px]' : 'max-w-[210px]';
+    const maxWidth = isExpandedVariant ? 'max-w-[170px] sm:max-w-[220px]' : 'max-w-[210px]';
 
     return (
       <div
@@ -1489,7 +1489,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     setShowSuggestions(false);
   };
 
-  const performSnapImageSearch = async (file: File) => {
+  const performSnapImageSearch = async (file: File, locationInput?: string) => {
     clearSnapSession();
     console.log('[Snap-Search] Beginning backend search for file:', file.name, file.type);
 
@@ -1501,6 +1501,20 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     try {
       const formData = new FormData();
       formData.append('photo', file);
+      const trimmedLocation = locationInput?.trim();
+      if (trimmedLocation) {
+        const coordMatch = trimmedLocation.match(/^(-?\d+(\.\d+)?)[,\s]+(-?\d+(\.\d+)?)$/);
+        if (coordMatch) {
+          const lat = coordMatch[1];
+          const lng = coordMatch[3];
+          formData.append('manual_latitude', lat);
+          formData.append('manual_longitude', lng);
+          setSnapLastManualLocation({ latitude: lat, longitude: lng });
+        } else {
+          formData.append('manual_location_query', trimmedLocation);
+          setSnapLastManualLocation({ query: trimmedLocation });
+        }
+      }
       formData.append('results_page', '0');
 
       const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:5000';
@@ -1607,6 +1621,15 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const file = pendingImage;
     const preview = pendingImagePreview;
     const caption = searchTerm.trim();
+    if (!caption) {
+      setIsExpanded(true);
+      setChatHistory(prev => [...prev, {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: 'Please add a city, state, ZIP code, or coordinates with your image so I can search the right location.'
+      }]);
+      return;
+    }
 
     const userMsgId = Date.now().toString();
     const userMessage: ChatMessage = {
@@ -1630,7 +1653,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     setIsSearching(true);
     setSnapSearchInProgress(true);
 
-    await performSnapImageSearch(file);
+    await performSnapImageSearch(file, caption);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1870,7 +1893,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onFocus={() => setShowSuggestions(true)}
                     onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                    placeholder={placeholderText || typedPlaceholder}
+                    placeholder={pendingImage ? 'Add city, ZIP, or coordinates for this image' : (placeholderText || typedPlaceholder)}
                     className="flex-1 min-w-0 bg-transparent outline-none px-3 md:px-4 py-2 text-gray-700 placeholder-gray-400 text-sm md:text-sm font-medium"
                   />
                 </div>
@@ -1919,7 +1942,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                   </div>
                   <Button
                     type='submit'
-                    disabled={!!pendingImage && pendingImageStatus !== 'ready'}
+                    disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
                     className="bg-[#F58634] hover:bg-[#E07224] text-white rounded-xl px-8 py-3 font-semibold text-sm md:text-base flex items-center transition-all shadow-md hover:shadow-lg h-full disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634]"
                   >
                     Begin Journey
@@ -2961,8 +2984,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                           }
                         }
                       }}
-                      placeholder="Ask anything about homes, neighborhoods, schools"
-                      className={`w-full bg-white text-gray-900 rounded-full h-12 sm:h-[68px] ${pendingImage || pendingImagePreview ? 'pl-40 sm:pl-64' : 'pl-11 sm:pl-14'} pr-20 sm:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-sm sm:text-base placeholder:text-gray-400 font-normal`}
+                      placeholder={pendingImage ? "Type city, ZIP, or coordinates for this image" : "Ask anything about homes, neighborhoods, schools"}
+                      className={`w-full bg-white text-gray-900 rounded-full h-12 sm:h-[68px] ${pendingImage || pendingImagePreview ? 'pl-56 sm:pl-[19rem]' : 'pl-11 sm:pl-14'} pr-20 sm:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-sm sm:text-base placeholder:text-gray-400 font-normal`}
                     />
                     <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 sm:gap-4">
                       <button className="text-gray-500 hover:text-gray-900 transition-colors">
@@ -2970,8 +2993,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       </button>
                       <button
                         onClick={() => pendingImage ? submitPendingImage() : handleSearchSubmit(searchTerm)}
-                        disabled={!!pendingImage && pendingImageStatus !== 'ready'}
-                        className={`bg-black text-white w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shadow-md ${pendingImage && pendingImageStatus !== 'ready' ? 'opacity-50 cursor-not-allowed hover:scale-100' : 'hover:bg-gray-800'}`}
+                        disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
+                        className={`bg-black text-white w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shadow-md ${pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim()) ? 'opacity-50 cursor-not-allowed hover:scale-100' : 'hover:bg-gray-800'}`}
                       >
                         {isSearching ? <Square className="w-4 h-4 fill-white" /> : <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />}
                       </button>

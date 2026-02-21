@@ -629,7 +629,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
             <p className="text-gray-500 text-sm">Private</p>
           </div>
           <div className="ml-auto">
-            <Heart className={`h-6 w-6 ${snaps?.some(snap => isPropertyInFavourite(snap)) ? 'fill-orange-500 text-orange-500' : 'fill-orange-500 text-orange-500'}`} />
+            <Heart className={`h-6 w-6 ${snaps?.some(snap => isPropertyInFavourite(snap)) ? 'fill-orange-500 text-orange-500' : 'text-gray-400'}`} />
           </div>
         </div>
 

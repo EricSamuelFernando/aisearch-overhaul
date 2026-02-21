@@ -255,7 +255,6 @@ const AgentsGrid = memo(function AgentsGrid({
         ]);
 
 
-
         // ID resolution
         const cardId =
           (agent as any).id ??
@@ -347,9 +346,6 @@ const AgentsGrid = memo(function AgentsGrid({
                       <span className="font-semibold text-black text-right text-xs break-all">N/A</span>
                     </div>
                   )}
-
-
-
 
 
 
@@ -596,6 +592,13 @@ export default function AgentSearchPage() {
           const typed = deferredSearchInput.trim();
 
 
+          // const data = await fetchExternalAgents({
+          //   limit: 1000,
+          //   offset: 0,
+          //   search: typed ? typed : undefined,
+          //   signal: controller.signal,
+          // });
+
           const data = await fetchExternalAgents({
             limit: 1000,
             offset: 0,
@@ -605,10 +608,16 @@ export default function AgentSearchPage() {
 
 
           setAgents(data);
+
         } else {
           const typed = query.trim();
 
 
+          // const data = await fetchExternalAgents({
+          //   limit: 1000,
+          //   offset: 0,
+          //   signal: controller.signal,
+          // });
           const data = await fetchExternalAgents({
             limit: 1000,
             offset: 0,
@@ -635,6 +644,10 @@ export default function AgentSearchPage() {
 
     const typed = searchInput.trim();
 
+
+    // const t = setTimeout(() => {
+    //   router.replace(`/agents/search?query=${encodeURIComponent(typed)}&mode=name`);
+    // }, 350); // 300–500ms feels good
 
     const t = setTimeout(() => {
       router.replace(`/agents/search?query=${encodeURIComponent(typed)}&mode=name`);

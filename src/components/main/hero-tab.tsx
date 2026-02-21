@@ -33,6 +33,7 @@ interface ChatMessage {
   intent?: string;
 
   query?: string;
+  query_history_formatted?: string;
   relatedProperties?: any[];
   allProperties?: any[];  // All properties for pagination
   totalMatches?: number;  // Total number of matches
@@ -1424,6 +1425,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
           role: 'assistant',
           content: finalContent,
           query: queryToSearch,
+          query_history_formatted: data.metadata?.query_history_formatted,
           relatedProperties: mappedProps,
           relatedQuestions: relatedQuestions,
           showSchools: showSchools,
@@ -2561,7 +2563,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
                               {msg.query && (
                                 <a
-                                  href={`${process.env.NEXT_PUBLIC_MAIN_SITE_URL || 'https://demo.snaphomz.com'}/buy/browse?q=${encodeURIComponent(msg.query)}`}
+                                  href={`${process.env.NEXT_PUBLIC_MAIN_SITE_URL || 'https://demo.snaphomz.com'}/buy/browse?q=${encodeURIComponent(msg.query_history_formatted || msg.query || '')}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="group flex-shrink-0 sm:snap-start self-stretch sm:self-center relative flex h-14 sm:h-48 w-full sm:w-48 flex-row sm:flex-col items-center justify-center gap-2 sm:gap-0 rounded-2xl sm:rounded-full border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-orange-100 shadow-lg transition-all duration-300 hover:scale-[1.01] sm:hover:scale-105 hover:border-orange-500 hover:shadow-xl hover:shadow-orange-200/60 cursor-pointer"

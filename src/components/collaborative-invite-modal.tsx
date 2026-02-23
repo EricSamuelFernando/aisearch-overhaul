@@ -56,6 +56,7 @@ const CollaborateModal: React.FC<CollaborateModalProps> = ({
                                 <option value="co-buyer">Invite Co-buyer</option>
                                 <option value="agent">Invite Agent</option>
                                 <option value="other">Invite Family/Friends</option>
+
                             </select>
                         </div>
 

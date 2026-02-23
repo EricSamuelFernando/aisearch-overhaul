@@ -1463,7 +1463,7 @@ export default function Home() {
         <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pt-24 pb-16 text-center">
 
           {/* ================= TEXT + SEARCH ================= */}
-          <div className="relative z-30 flex max-w-[1250px] flex-col items-center gap-8 mt-24 md:mt-32">
+          <div className="relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-8 mt-24 md:mt-32">
 
             <h1 className="text-[2rem] font-medium leading-snug tracking-tight sm:text-[2.4rem] md:text-[3rem]">
               <span className="block">Buying a home</span>
@@ -1478,7 +1478,7 @@ export default function Home() {
             </p>
 
             <div className="relative w-full flex justify-center text-black">
-              <div className="w-full max-w-7xl">
+              <div className="w-full max-w-[1500px]">
                 <HeroSearchForm />
               </div>
 

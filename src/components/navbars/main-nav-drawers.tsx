@@ -11,6 +11,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import LoginRegisterModal from '../modals/login-register-modal';
 import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
 import { getInitials } from '@/lib/helpers';
+import { getProfileImageUrl } from '@/lib/utils';
 
 interface MobileSideDrawerProps {
   closeDrawer: () => void;
@@ -131,7 +132,7 @@ const MobileSideDrawer: React.FC<MobileSideDrawerProps> = ({
                   <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-gray-500 text-sm font-medium text-white">
                     {user?.profile && showAvatar ? (
                       <img
-                        src={user.profile}
+                        src={getProfileImageUrl(user.profile)}
                         alt="Profile"
                         className="h-full w-full object-cover"
                         onError={() => setShowAvatar(false)}
@@ -273,7 +274,7 @@ const SellDropdownMenu: React.FC<DropdownMenuProps> = ({
           <h4 className='text-md font-medium'>Sell A Home With</h4>
           <div className='flex flex-col space-y-5'>
             <Link href='/sell#agents'>With an Agent</Link>
-           {/* <Link href='/sell#agents'>Our Real Estate Agents</Link>*/}
+            {/* <Link href='/sell#agents'>Our Real Estate Agents</Link>*/}
             {/* <Link href='/sell#agents'>Do it Yourself</Link> */}
           </div>
         </div>
@@ -281,7 +282,7 @@ const SellDropdownMenu: React.FC<DropdownMenuProps> = ({
           <h4 className='text-md font-medium'>Resources</h4>
           <div className='flex flex-col space-y-5'>
             <Link href='/sell#how-it-works'>How it Works</Link>
-           {/* <Link href='/sell#home-estimator'>Home Estimator</Link>*/}
+            {/* <Link href='/sell#home-estimator'>Home Estimator</Link>*/}
             <Link href='/sell#testimonials'>Testimonials</Link>
           </div>
         </div>

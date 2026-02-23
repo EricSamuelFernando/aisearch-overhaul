@@ -1587,7 +1587,7 @@ const PropertyPreview: React.FC = () => {
   return (
     <div>
       <ItemNav cardRef={cardRef} />
-      <div className='mt-6 sm:mt-8 md:mt-12 lg:mt-14' />
+      <div className='mt-14 sm:mt-12 md:mt-12 lg:mt-14' />
       <div id="overview" className="scroll-mt-28" />
 
       {/* Contact Agent Dialog */}
@@ -1634,16 +1634,16 @@ const PropertyPreview: React.FC = () => {
 
       {/* Search Agent Modal - Large modal with agent directory */}
       <Dialog open={isSearchAgentModalOpen} onOpenChange={setIsSearchAgentModalOpen}>
-        <DialogContent className="max-w-6xl w-[95vw] h-[90vh] max-h-[90vh] overflow-hidden flex flex-col p-0">
-          <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
-            <DialogTitle className="text-2xl font-semibold">Search Agents</DialogTitle>
+        <DialogContent className="max-w-6xl w-[96vw] sm:w-[95vw] h-[90vh] max-h-[90vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="flex-shrink-0 px-3 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b">
+            <DialogTitle className="text-xl sm:text-2xl font-semibold">Search Agents</DialogTitle>
             <DialogDescription>
               Browse and search for agents to invite to this property.
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-hidden flex flex-col min-h-0">
             {engagementIdForModal ? (
-              <div className="flex-1 overflow-y-auto px-6 pb-6 min-h-0">
+              <div className="flex-1 overflow-y-auto px-3 sm:px-6 pb-3 sm:pb-6 min-h-0">
                 <AgentDirectoryWrapper
                   engagementId={engagementIdForModal}
                   propertyId={propertyData?.id || id}
@@ -1715,10 +1715,10 @@ const PropertyPreview: React.FC = () => {
         </DialogContent>
       </Dialog>
       {loading ? (
-        <div className='grid grid-flow-row place-items-center gap-3 sm:gap-4 lg:gap-6 lg:h-[28rem] lg:grid-cols-12 lg:gap-7 animate-pulse px-2 sm:px-4 md:px-6 lg:px-0'>
+        <div className='grid w-full max-w-7xl mx-auto min-h-[calc(100vh-12rem)] content-start grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-12 lg:gap-7 animate-pulse bg-white px-2 pb-8 sm:px-4 md:px-6 lg:px-0'>
           <SkeletonLoader className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[392px] w-full bg-gray-200 lg:col-span-8 rounded-lg' />
-          <div className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[392px] w-full lg:col-span-4'>
-            <PropCardLoader className='h-full w-full rounded-lg shadow-lg' />
+          <div className='w-full lg:col-span-4'>
+            <PropCardLoader className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[392px] w-full rounded-lg shadow-lg' />
           </div>
         </div>
       ) : transformData.display ? (
@@ -1755,9 +1755,9 @@ const PropertyPreview: React.FC = () => {
                 preloadedData={propertyDatas} // Pass existing data to prevent re-fetch
               />
               {/* Top Section: Price/Address and Agent Card */}
-              <div className="mt-3 w-full flex flex-col gap-4 md:grid md:grid-cols-[minmax(0,1fr)_360px] md:items-start md:gap-6 mb-4">
+              <div className="mt-3 w-full flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6 mb-4">
                 {/* Left: Price and Address */}
-                <div className="space-y-1 w-full md:flex-1">
+                <div className="space-y-1 w-full lg:flex-1">
                   <div className='inline-flex items-baseline gap-1'>
                     <span className='text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-gray-900'>$</span>
                     <h2 className='text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-gray-900 relative inline-block'>
@@ -1802,9 +1802,9 @@ const PropertyPreview: React.FC = () => {
               </div>
 
               {/* Bottom Section: Estimated Payment and Schedule A Tour Button */}
-              <div className="flex flex-col w-full gap-3 sm:gap-4 mb-4 md:grid md:grid-cols-[minmax(0,1fr)_360px] md:items-center md:gap-6">
+              <div className="flex flex-col w-full gap-3 sm:gap-4 mb-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center lg:gap-6">
                 {/* Left: Estimated Payment Section */}
-                <div className="rounded-xl bg-[#FAE6DB] shadow-sm px-3 sm:px-4 py-2 sm:py-2.5 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-2.5 w-full md:max-w-[460px]">
+                <div className="rounded-xl bg-[#FAE6DB] shadow-sm px-3 sm:px-4 py-2 sm:py-2.5 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-2.5 w-full lg:max-w-[460px]">
                   <div className="flex items-center gap-2 flex-1">
                     <span className="text-xs sm:text-sm text-gray-600">Est. payment:</span>
                     <span className="text-xs sm:text-sm font-bold text-gray-900">
@@ -1838,7 +1838,7 @@ const PropertyPreview: React.FC = () => {
                 {/* Right: Schedule A Tour Button */}
                 <div className="w-full flex flex-col gap-2">
                   <button
-                    className="w-full bg-black text-white px-4 sm:px-6 md:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-normal border border-black hover:bg-gray-900 transition-colors"
+                    className="w-full bg-black text-white px-4 sm:px-6 lg:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-normal border border-black hover:bg-gray-900 transition-colors"
                     onClick={handleContactAgent}
                     disabled={propertyEngagementMutation.isPending}
                   >
@@ -2203,9 +2203,10 @@ const PropertyPreview: React.FC = () => {
                 {/* Nearby Homes Section (Similar Homes) */}
                 <div id="comparables" className="pb-6 sm:pb-8 md:pb-12 mb-12 sm:mb-16 md:mb-20 scroll-mt-28">
                   {/* <h2 className='text-xl font-bold mt-8 mb-4'>Similar homes</h2> */}
-                  {propertyDatas?.nearbyHomes && propertyDatas.nearbyHomes.length > 0 ? (
+                  {(propertyDatas?.nearbyHomes?.length || propertyDatas?.offtheMarket?.length || propertyDatas?.offTheMarket?.length) ? (
                     <NearbyHomesSection
                       nearbyHomes={propertyDatas.nearbyHomes}
+                      soldHomes={propertyDatas?.offtheMarket || propertyDatas?.offTheMarket || []}
                       currentProperty={currentCompareProperty}
                       currentListingId={currentListingId}
                     />

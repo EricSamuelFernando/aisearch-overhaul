@@ -159,7 +159,19 @@ export default function RegisterModal({
         }
 
         // Check for successful response
-        if (res?.data?.data?.sendVerification?.message === 'Email sent successfully') {
+        const verificationData = res?.data?.data?.sendVerification;
+        if (verificationData?.isVerified && !verificationData?.hasPassword) {
+          setAgentEmail(values.email);
+          success({
+            message: 'Email already verified',
+            subtitle: 'Please complete your profile details',
+          });
+          if (activeUserType === 'buyer') {
+            router.push('/property-preference');
+          } else {
+            router.push('/complete-onboarding');
+          }
+        } else if (verificationData?.message === 'Email sent successfully') {
           setAgentEmail(values.email);
           success({
             message: 'Otp sent succesfully',

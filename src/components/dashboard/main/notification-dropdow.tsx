@@ -113,10 +113,13 @@ export default function NotificationDropdown() {
 
   const notifications = useMemo(() => {
     const socketNotifications = Array.isArray(state?.notifications) ? state.notifications : [];
-    if (socketNotifications.length > 0) {
-      return socketNotifications;
-    }
-    const normalized: UINotification[] = apiNotifications.map((item) => {
+    const normalizedSocket: UINotification[] = socketNotifications.map((item: UINotification) => ({
+      ...item,
+      kind: normalizeKind(item.kind) || deriveKind(item.title, item.body),
+      source: item.source || 'socket',
+    }));
+
+    const normalizedApi: UINotification[] = apiNotifications.map((item) => {
       const threadId = (item as { threadId?: string }).threadId;
       const snapId = (item as { snapId?: string }).snapId;
       const link =
@@ -136,7 +139,17 @@ export default function NotificationDropdown() {
         source: 'api',
       };
     });
-    return normalized;
+
+    const merged = [...normalizedSocket, ...normalizedApi].reduce((acc: UINotification[], next) => {
+      if (!acc.find((n) => n.id === next.id)) acc.push(next);
+      return acc;
+    }, []);
+
+    return merged.sort((a, b) => {
+      const aTime = new Date(a.createdAt).getTime();
+      const bTime = new Date(b.createdAt).getTime();
+      return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime);
+    });
   }, [apiNotifications, state?.notifications]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;

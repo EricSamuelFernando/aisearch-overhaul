@@ -433,15 +433,8 @@ function SocketProvider({ children }: { children: ReactNode }) {
     let resolvedAuthWsUrl = baseAuthWsUrl || authServiceBaseUrl;
     if (!resolvedAuthWsUrl) return;
 
-    if (commWsUrl && resolvedAuthWsUrl === commWsUrl) {
-      if (authServiceBaseUrl && authServiceBaseUrl !== commWsUrl) {
-        resolvedAuthWsUrl = authServiceBaseUrl;
-      } else {
-        console.warn(
-          '[AuthWS] Skipping Auth WS connection because Auth WS URL matches Communication WS. Set NEXT_PUBLIC_AUTH_SERIVCE_SOCKET_URL or NEXT_PUBLIC_AUTH_SERIVCE_URL to the Auth service host to enable notifications.',
-        );
-        return;
-      }
+    if (commWsUrl && resolvedAuthWsUrl === commWsUrl && authServiceBaseUrl && authServiceBaseUrl !== commWsUrl) {
+      resolvedAuthWsUrl = authServiceBaseUrl;
     }
 
     const trimmedBase = resolvedAuthWsUrl.replace(/\/$/, '');
@@ -477,6 +470,8 @@ function SocketProvider({ children }: { children: ReactNode }) {
             (snapId ? `/account/collections/${snapId}` : '') ||
             (threadId ? `/dashboard/buyer?tab=messages&threadId=${threadId}` : '');
 
+          console.log('[AuthWS] notification_created received:', data);
+
           setState((prev: any) => ({
             ...prev,
             notification: {
@@ -508,6 +503,7 @@ function SocketProvider({ children }: { children: ReactNode }) {
             ].slice(0, 50),
           }));
 
+          console.log('[AuthWS] Notification added to state');
           queryClient.invalidateQueries({ queryKey: ['notifications'] });
         } catch (error) {
           console.error('[AuthWS] Error parsing notification payload:', error);
@@ -759,6 +755,8 @@ function SocketProvider({ children }: { children: ReactNode }) {
           (snapId ? `/account/collections/${snapId}` : '') ||
           (threadId ? `/dashboard/buyer?tab=messages&threadId=${threadId}` : '');
 
+        console.log("[SocketContext] notification_created received:", data);
+
         setState((prev: any) => ({
           ...prev,
           notification: {
@@ -789,7 +787,61 @@ function SocketProvider({ children }: { children: ReactNode }) {
             ...(Array.isArray(prev.notifications) ? prev.notifications : []),
           ].slice(0, 50),
         }));
+
+        console.log("[SocketContext] Notification added to state");
       });
+
+      const handleRecentActivityUpdate = (payload: any) => {
+        const data = payload?.data || payload;
+        const snapId = getStringValue(data?.snapId, data?.snap_id);
+        if (!snapId) return;
+
+        const title =
+          getStringValue(data?.title, data?.heading) ||
+          "New comment in Snapz";
+        const body =
+          getStringValue(data?.body, data?.message, data?.text) ||
+          getStringValue(data?.comment, data?.content) ||
+          "";
+        const link = `/account/collections/${snapId}`;
+
+        console.log("[SocketContext] recent_activity_update received:", data);
+
+        setState((prev: any) => ({
+          ...prev,
+          notification: {
+            user: prev.notification?.user,
+            property: prev.notification?.property,
+            message: body || title,
+            title,
+            body,
+            kind: "comment",
+            channelId: null,
+            action: "navigate",
+            isVisible: true,
+            link,
+          },
+          notifications: [
+            {
+              id: data?.id || `socket-comment-${Date.now()}`,
+              title,
+              body,
+              createdAt: data?.createdAt || new Date().toISOString(),
+              read: false,
+              kind: "comment",
+              link,
+              snapId,
+              source: "socket",
+            },
+            ...(Array.isArray(prev.notifications) ? prev.notifications : []),
+          ].slice(0, 50),
+        }));
+
+        console.log("[SocketContext] Comment notification added to state");
+        queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      };
+
+      socket.on("recent_activity_update", handleRecentActivityUpdate);
 
       // Handle websocket response events
       socket.on("createOrJoinConversation_response", (response: any) => {
@@ -815,6 +867,7 @@ function SocketProvider({ children }: { children: ReactNode }) {
         socket.off("newMessage", handleNewMessage);
         socket.off("recievedMessage", handleRecievedMessage);
         socket.off("notification_created");
+        socket.off("recent_activity_update", handleRecentActivityUpdate);
         socket.off("createOrJoinConversation_response");
         socket.off("sendMessage_response");
         socket.off("joinRoom_response");

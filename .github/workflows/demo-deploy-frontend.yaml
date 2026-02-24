@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - demo-deploy
+
     paths-ignore:
       - "terraform/**"
       - "demo-deploy-terraform.yaml"

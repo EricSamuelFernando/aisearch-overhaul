@@ -1,3 +1,3 @@
-// Placeholder file kept to avoid accidental reintroduction of broken scratch reducers.
-// This file is not used by the app runtime.
+// Placeholder file kept to avoid accidental merge-conflict/type-check failures.
+// Not imported by the application runtime.
 export {};

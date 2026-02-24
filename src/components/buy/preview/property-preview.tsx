@@ -147,6 +147,8 @@ interface ProprtyData {
     city?: string | null
     stateOrProvince?: string | null
     zipCode?: string | null
+    countyOrParish?: string | null
+    [key: string]: any
   }
   media?: {
     primaryListingImageUrl?: string | null

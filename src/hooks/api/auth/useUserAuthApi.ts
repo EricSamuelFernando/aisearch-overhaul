@@ -75,7 +75,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     manageMessageUnread
   } = useAuthActions();
 
-  const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql"
+  const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/auth/graphql"
 
   const MORTGAGE_FILE_UPLOAD = process.env.NEXT_PUBLIC_MORTGAGE_SERIVCE_URL || "http://localhost:4001"
 
@@ -1048,6 +1048,9 @@ export const useUserAuthApi = (handleCb?: () => void) => {
               createExternalParticipant(input: $input) {
                 success
                 message
+                agentId
+                participantId
+                engagementId
               }
             }
           `,
@@ -1061,13 +1064,20 @@ export const useUserAuthApi = (handleCb?: () => void) => {
         }
       );
 
+      if (response.data.errors) {
+        throw new Error(response.data.errors[0].message);
+      }
+
       return response.data?.data?.createExternalParticipant;
     },
     onSuccess: (data) => {
       console.log("Agent invited:", data);
     },
     onError: (err: any) => {
-      console.error("Error inviting agent: ", err);
+      console.error("Error inviting agent [Mutation]:", err);
+      if (err?.response?.data) {
+        console.log("Full Error Response Data:", err.response.data);
+      }
     },
   });
 

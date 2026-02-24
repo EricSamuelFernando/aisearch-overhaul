@@ -627,6 +627,10 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
   const getThreadById = useMutation({
     mutationKey: ['thread'],
     mutationFn: async (id: string) => {
+      const normalizedId = String(id || '').trim();
+      if (!normalizedId) {
+        throw new Error('threadId is required');
+      }
       try {
         const response = await API.post(
           GRAPHQL_URI,
@@ -663,6 +667,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
                     email
                   }
                   parentMessage
+                  status
                   buyerAgent {
                     id
                     firstName
@@ -671,7 +676,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
                   }
                 }
         }`,
-            variables: { id },
+            variables: { id: normalizedId },
           }
         );
 
@@ -684,6 +689,45 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
         return response.data.data.getUserThreadById;
       } catch (error) {
         console.error('Error fetching thread:', error);
+        throw error;
+      }
+    },
+  });
+
+  const getAgentTiersForThreadMutation = useMutation({
+    mutationKey: ['getAgentTiersForThread'],
+    mutationFn: async (threadId: string) => {
+      const normalizedThreadId = String(threadId || '').trim();
+      if (!normalizedThreadId) {
+        throw new Error('threadId is required');
+      }
+      try {
+        const response = await API.post(
+          GRAPHQL_URI,
+          {
+            query: `
+              query GetAgentTiersForThread($threadId: String!) {
+                getAgentTiersForThread(threadId: $threadId) {
+                  threadId
+                  agentId
+                  agentEmail
+                  tiers
+                }
+              }
+            `,
+            variables: { threadId: normalizedThreadId },
+          },
+        );
+
+        if (response.status !== 200 || response.data.errors) {
+          throw new Error(
+            response.data?.errors?.[0]?.message || 'Failed to fetch agent tiers',
+          );
+        }
+
+        return response.data?.data?.getAgentTiersForThread;
+      } catch (error) {
+        console.error('Error fetching agent tiers:', error);
         throw error;
       }
     },
@@ -912,6 +956,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
     deleteEngagedPropertyById,
     searchEngagedProperty,
     getThreadById,
+    getAgentTiersForThreadMutation,
     getConversationMessagesMutation,
     removeAgentInvitation,
     getAllSnapzRequest,

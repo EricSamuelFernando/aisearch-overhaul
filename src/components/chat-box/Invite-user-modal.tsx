@@ -9,6 +9,8 @@ import { usePropertyAPI } from '@/hooks/api/auth/engagementAPI';
 import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
 import { useAgentConversationApi } from '@/hooks/api/auth/useConversationApi';
 import { SocketContext } from '@/providers/socket.context';
+import { useRouter } from 'next/navigation';
+import { sendAgentInvitationEmail } from '@/utils/email-notification';
 
 interface InviteUserModalProps {
   threadId: string
@@ -21,6 +23,7 @@ interface InviteUserModalProps {
   currentUserData?: any
   propertyId?: string | number
   listingId?: string | number
+  engagementId?: string
   propertyName?: string
   propertyAddress?: string
   propertyImage?: string
@@ -37,12 +40,14 @@ const InviteUserModal = ({
   currentUserData,
   propertyId,
   listingId,
+  engagementId: initialEngagementId,
   propertyName,
   propertyAddress,
   propertyImage,
 }: InviteUserModalProps) => {
   type InviteRole = 'buyer_agent' | 'co_buyer' | 'family_friends';
   const [opened, { open, close }] = useDisclosure(false);
+  const router = useRouter();
 
   const { socket } = useContext(SocketContext);
   const { addParticipantsToThread } = useUserAgentMessageApi();
@@ -54,7 +59,7 @@ const InviteUserModal = ({
   const [inviteRole, setInviteRole] = useState<InviteRole>('buyer_agent');
   const [isEmailValid, setIsEmailValid] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [engagementId, setEngagementId] = useState<string | null>(null);
+  const [engagementId, setEngagementId] = useState<string | null>(initialEngagementId || null);
 
   const actor = currentUserData || {};
   const normalizedPropertyId = String(propertyId || '').trim();
@@ -99,24 +104,31 @@ const InviteUserModal = ({
   };
 
   const ensureEngagement = async () => {
-    if (engagementId) return engagementId;
+    if (engagementId) {
+      console.log('[Invite-user-modal] Using existing engagementId:', engagementId);
+      return engagementId;
+    }
     if (!normalizedPropertyId) {
       error({ message: 'Property context is missing for invitation.' });
       return null;
     }
 
     try {
+      console.log('[Invite-user-modal] Looking for existing engagement for propertyId:', normalizedPropertyId);
       const existingResponse: any = await getEngagedPropertyByPropertyId.mutateAsync(normalizedPropertyId);
       const existingEngagementId = existingResponse?.data?.data?.getUserEngagementsByPropertyId?.id;
       if (existingEngagementId) {
+        console.log('[Invite-user-modal] Found existing engagement:', existingEngagementId);
         setEngagementId(existingEngagementId);
         return existingEngagementId;
       }
-    } catch (_) {
+    } catch (lookupErr: any) {
       // If lookup fails, attempt create engagement below.
+      console.log('[Invite-user-modal] Lookup for existing engagement failed, will attempt to create:', lookupErr?.message);
     }
 
     try {
+      console.log('[Invite-user-modal] Creating new engagement for property:', normalizedPropertyId);
       const createdResponse: any = await propertyEngagementMutation.mutateAsync({
         propertyName: safePropertyName,
         price: 0,
@@ -131,13 +143,30 @@ const InviteUserModal = ({
         propertyProgress: 10,
         fullAddress: safePropertyAddress,
       });
+      
+      console.log('[Invite-user-modal] Engagement creation response:', createdResponse);
       const newEngagementId = createdResponse?.data?.createEngagement?.id;
+      
       if (!newEngagementId) {
-        throw new Error('Failed to create engagement');
+        console.error('[Invite-user-modal] No engagement ID in response:', createdResponse);
+        throw new Error('Failed to create engagement - no ID returned from server');
       }
+      
+      // Validate that we got a reasonable engagement ID (UUID-like string)
+      if (typeof newEngagementId !== 'string' || newEngagementId.trim().length === 0) {
+        console.error('[Invite-user-modal] Invalid engagement ID format:', newEngagementId);
+        throw new Error('Invalid engagement ID format received from server');
+      }
+      
+      console.log('[Invite-user-modal] Successfully created engagement:', newEngagementId);
       setEngagementId(newEngagementId);
+      
+      // Small delay to allow DB transaction to commit
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       return newEngagementId;
     } catch (err: any) {
+      console.error('[Invite-user-modal] Error ensuring engagement:', err);
       error({ message: err?.message || 'Unable to prepare engagement for invitation.' });
       return null;
     }
@@ -183,11 +212,22 @@ const InviteUserModal = ({
           setIsSubmitting(false);
           return;
         }
+        console.log('[Invite-user-modal] Ensuring engagement for buyer_agent invitation...');
         const safeEngagementId = await ensureEngagement();
         if (!safeEngagementId) {
+          console.error('[Invite-user-modal] Failed to get/create engagement');
           setIsSubmitting(false);
           return;
         }
+
+        console.log('[Invite-user-modal] Sending external agent invitation with:', {
+          agentType: actor?.account_type,
+          userId: actor?.id,
+          email: email.trim(),
+          is_accepted: 'pending',
+          engagementId: safeEngagementId,
+          threadId,
+        });
 
         const response: any = await externalAgentIvitationMutation.mutateAsync({
           agentType: actor?.account_type,
@@ -212,6 +252,37 @@ const InviteUserModal = ({
             id: response.participantId,
           });
         }
+
+        // Send email notification to the agent
+        const buyerName = `${actor?.firstname || ''} ${actor?.lastname || ''}`.trim();
+        const emailSuccess = await sendAgentInvitationEmail({
+          agentEmail: email.trim(),
+          buyerName,
+          buyerEmail: actor?.email,
+          propertyAddress: safePropertyAddress,
+          propertyImage: safePropertyImage,
+          invitationStatus: 'NEGOTIATION_PENDING',
+          participantId: response?.participantId,
+          socket,
+        });
+
+        if (emailSuccess) {
+          console.log('[Invite-user-modal] Agent invitation email sent successfully');
+        } else {
+          console.warn('[Invite-user-modal] Email notification may not have been delivered');
+        }
+
+        // Redirect to messages with agent email as query parameter
+        // This will auto-open the negotiation flow
+        success({ message: 'Invitation sent successfully. Opening messages...' });
+        setTimeout(() => {
+          router.push(`/dashboard/chat?agentEmail=${encodeURIComponent(email.trim())}&focusLatest=1&showNegotiationCard=1`);
+          setEmail('');
+          setInviteRole('buyer_agent');
+          setIsEmailValid(true);
+          close();
+        }, 500);
+        return;
       } else {
         await sendThreadInviteByEmail(email.trim());
       }

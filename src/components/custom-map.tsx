@@ -338,11 +338,15 @@ const CustomMap: React.FC<Props> = ({
     service.findPlaceFromQuery(
       {
         query: trimmedQuery,
-        fields: ['place_id', 'name', 'types'],
+        fields: ['place_id', 'name', 'types', 'geometry'],
       },
       (results, status) => {
         if (status === google.maps.places.PlacesServiceStatus.OK && results?.length) {
           setSelectedPlaceId(results[0]?.place_id ?? null);
+          if (results[0]?.geometry?.location && markers.length === 0) {
+            mapInstance.panTo(results[0].geometry.location);
+            mapInstance.setZoom(12);
+          }
           return;
         }
 
@@ -355,6 +359,10 @@ const CustomMap: React.FC<Props> = ({
           }
 
           setSelectedPlaceId(geoResults[0]?.place_id ?? null);
+          if (geoResults[0]?.geometry?.location && markers.length === 0) {
+            mapInstance.panTo(geoResults[0].geometry.location);
+            mapInstance.setZoom(12);
+          }
         });
       },
     );
@@ -729,8 +737,21 @@ const CustomMap: React.FC<Props> = ({
         mapContainerClassName="snaphomz-map"
         onLoad={onLoad}
         zoom={zoom}
+        center={DEFAULT_COORD}
         onUnmount={onUnmount}
         onClick={handleMapClick}
+        onIdle={() => {
+          if (mapInstance && onMapMove) {
+            const center = mapInstance.getCenter();
+            const bounds = mapInstance.getBounds();
+            if (center && bounds) {
+              onMapMove(
+                { lat: center.lat(), lng: center.lng() },
+                bounds
+              );
+            }
+          }
+        }}
         options={{
           fullscreenControl: false,
           streetViewControl: false,

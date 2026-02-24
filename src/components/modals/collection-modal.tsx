@@ -348,7 +348,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
   const [showInput, setShowInput] = useState(false);
   const [step, setStep] = useState(1);
   const [createdSnapId, setCreatedSnapId] = useState(null);
-  const [inviteType, setInviteType] = useState<'co-buyer' | 'agent' | 'other'>('co-buyer');
+  const [inviteType, setInviteType] = useState<'co-buyer' | 'agent'>('co-buyer');
   const [partnerEmail, setPartnerEmail] = useState('');
   const propertyData = useSelector((state: any) => state.property.property);
   const {
@@ -379,20 +379,20 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
   };
 
   const handleInvite = () => {
-    const accountType = inviteType === 'agent' ? 'agent' : inviteType === 'other' ? 'other' : 'buyer';
     const data = {
       snapId: createdSnapId,
       email: partnerEmail,
       status: "pending",
-      accountType
+      accountType: inviteType === 'agent' ? 'agent' : 'buyer'
     };
     createParticipents.mutateAsync(data, {
       onSuccess: (response: any) => {
         if (response?.data?.createSnapsParticipant?.success === "true") {
           setStep(1);
+          // handleCreateFavourite(createdSnapId || "");
           handleToggleFavourite(createdSnapId || "");
           setPartnerEmail('');
-          success({ message: `Great! Your invite is on its way` });
+          success({ message: `Great! Your ${inviteType === 'agent' ? 'agent' : 'co-buyer'} invite is on its way` });
           onClose();
         } else {
           error({ message: response?.data?.createSnapsParticipant?.message || "Failed to send invite" });
@@ -688,19 +688,17 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
                     </label>
                     <select
                       value={inviteType}
-                      onChange={(e) => setInviteType(e.target.value as 'agent' | 'co-buyer' | 'other')}
+                      onChange={(e) => setInviteType(e.target.value as 'agent' | 'co-buyer')}
                       className="w-full rounded-lg border border-gray-300 p-3 focus:border-orange-500 focus:ring-orange-500 bg-white"
                     >
                       <option value="co-buyer">Invite Co-buyer</option>
                       <option value="agent">Invite Agent</option>
-                      <option value="other">Invite Family/Friends</option>
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {/* {inviteType === 'co-buyer' ? 'Co-buyer Email' : 'Agent Email'} */}
-                      {inviteType === 'co-buyer' ? 'Co-buyer Email' : inviteType === 'agent' ? 'Agent Email' : 'Email'}
+                      {inviteType === 'co-buyer' ? 'Co-buyer Email' : 'Agent Email'}
                     </label>
                     <input
                       type="email"

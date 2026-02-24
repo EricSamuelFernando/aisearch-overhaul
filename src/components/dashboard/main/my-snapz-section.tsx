@@ -96,20 +96,10 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
 
     for (const user of selectedUsers) {
       try {
-        // Explicitly map accountType so the backend selects the right email template:
-        // buyer → invite-buyer.hbs, agent/external_agent/partner → invite-agent-join.hbs
-        const rawType = user.accountType?.toLowerCase() || '';
-        const resolvedType =
-          rawType === 'buyer'
-            ? 'buyer'
-            : rawType === 'seller'
-              ? 'other'
-              : 'agent'; // agent, external_agent, partner → agent template
-
         await createParticipents.mutateAsync({
           email: user.email,
           snapId: selectedSnap.id,
-          accountType: resolvedType,
+          accountType: user.accountType?.toLowerCase() === 'buyer' ? 'buyer' : 'agent',
           status: 'pending',
         });
         successCount += 1;
@@ -126,7 +116,6 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
       setIsModalOpen('');
     }
   };
-
 
   const getAllCollections = () => {
     if (!userData?.id) return;

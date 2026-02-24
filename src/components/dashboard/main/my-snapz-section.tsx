@@ -103,7 +103,6 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
             : rawType === 'seller'
               ? 'other'
               : 'agent';
-
         await createParticipents.mutateAsync({
           email: user.email,
           snapId: selectedSnap.id,

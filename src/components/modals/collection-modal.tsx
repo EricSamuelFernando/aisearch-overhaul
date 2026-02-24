@@ -386,6 +386,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
       onSuccess: (response: any) => {
         if (response?.data?.createSnapsParticipant?.success === "true") {
           setStep(1);
+          // handleCreateFavourite(createdSnapId || "");
           handleToggleFavourite(createdSnapId || "");
           setPartnerEmail('');
           success({

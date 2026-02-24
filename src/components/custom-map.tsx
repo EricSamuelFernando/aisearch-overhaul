@@ -1526,8 +1526,21 @@ const CustomMap: React.FC<Props> = ({
         mapContainerClassName="snaphomz-map"
         onLoad={onLoad}
         zoom={zoom}
+        center={DEFAULT_COORD}
         onUnmount={onUnmount}
         onClick={handleMapClick}
+        onIdle={() => {
+          if (mapInstance && onMapMove) {
+            const center = mapInstance.getCenter();
+            const bounds = mapInstance.getBounds();
+            if (center && bounds) {
+              onMapMove(
+                { lat: center.lat(), lng: center.lng() },
+                bounds
+              );
+            }
+          }
+        }}
         options={{
           fullscreenControl: false,
           streetViewControl: false,

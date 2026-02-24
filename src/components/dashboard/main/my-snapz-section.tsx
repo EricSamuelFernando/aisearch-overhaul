@@ -96,15 +96,13 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
 
     for (const user of selectedUsers) {
       try {
-        // Explicitly map accountType so the backend selects the right email template:
-        // buyer → invite-buyer.hbs, agent/external_agent/partner → invite-agent-join.hbs
         const rawType = user.accountType?.toLowerCase() || '';
         const resolvedType =
           rawType === 'buyer'
             ? 'buyer'
             : rawType === 'seller'
               ? 'other'
-              : 'agent'; // agent, external_agent, partner → agent template
+              : 'agent';
 
         await createParticipents.mutateAsync({
           email: user.email,
@@ -126,7 +124,6 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
       setIsModalOpen('');
     }
   };
-
 
   const getAllCollections = () => {
     if (!userData?.id) return;
@@ -299,6 +296,8 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
   };
 
   const snapList = useMemo(() => snaps || [], [snaps]);
+  const myFavSnap = useMemo(() => snapList.find(s => s.name === 'My Favourite'), [snapList]);
+  const filteredSnapList = useMemo(() => snapList.filter(s => s.name !== 'My Favourite'), [snapList]);
 
   return (
     <div className="space-y-4">
@@ -328,8 +327,36 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
       </div>
       <div className="p-0">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {snapList.length > 0 ? (
-            snapList.map((snap) => (
+          {/* Pinned "My Favourite" card — always first */}
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-xl bg-orange-500">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                </svg>
+              </div>
+              <span className="max-w-[160px] truncate text-sm font-medium text-gray-900 sm:max-w-[200px]">
+                My Favourite
+              </span>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button
+                className="rounded-full bg-black px-6 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                onClick={() => {
+                  if (myFavSnap) {
+                    router.push(`/account/collections/${myFavSnap.id}`);
+                  } else {
+                    success({ message: 'No properties saved to My Favourite yet. Use the + button on any property to save here.' });
+                  }
+                }}
+              >
+                View
+              </Button>
+            </div>
+          </div>
+
+          {filteredSnapList.length > 0 ? (
+            filteredSnapList.map((snap) => (
               <div
                 key={snap.id}
                 className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"

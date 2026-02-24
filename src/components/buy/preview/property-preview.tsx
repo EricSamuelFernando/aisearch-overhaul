@@ -106,10 +106,17 @@ interface ProprtyData {
     bedroomsTotal: number
     hasBasement: boolean
     propertyType?: string | null
+    livingArea?: number | string | null
+    livingSquareFeet?: number | string | null
+    yearBuilt?: number | string | null
+    description?: string | null
+    associationFee?: number | string | null
+    [key: string]: any
   }
   homedetails: {
     flooring: string
     fireplaceYn: boolean
+    [key: string]: any
   }
   publicRemarks: string
   tags: string[]

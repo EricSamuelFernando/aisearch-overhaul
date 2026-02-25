@@ -1,10 +1,12 @@
 'use client';
 
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAtom } from 'jotai';
 import { useSelector } from 'react-redux';
 
 import ChatBoxComponent from '@/components/chat-box/chat-box';
+import { useAgentConversationApi } from '@/hooks/api/auth/useConversationApi';
 import { useUserAgentMessageApi } from '@/hooks/api/auth/useMessageApi';
 import { messageThreadsAtom } from '@/hooks/atoms';
 import { SocketContext } from '@/providers/socket.context';
@@ -23,35 +25,75 @@ function BuyerMessagesPanel() {
   const [threads, setThreads] = useState<ThreadInterface[] | []>([]);
   const [isRead, setIsRead] = useState(false);
   const [search, setSearch] = useState('');
+  const searchParams = useSearchParams();
   const [, setMessageThreads] = useAtom(messageThreadsAtom);
   const { setState } = useContext(SocketContext);
   const { getAllThreadsByUserAgentMutation } = useUserAgentMessageApi();
+  const { getAllThreadsByUserMutation, getThreadById } = useAgentConversationApi();
 
   const userData = useSelector((state: { auth: { user: any } }) => state.auth.user);
+  const routeThreadId = useMemo(
+    () => String(searchParams?.get('threadId') || '').trim(),
+    [searchParams],
+  );
 
   const getAllUserAgentMessageThreadsByUser = async () => {
     try {
+      const userId = String(userData?.id || '').trim();
+      if (!userId) {
+        setLoading(false);
+        setThreads([]);
+        setMessageThreads([]);
+        return;
+      }
       setLoading(true);
-      setThreads([]);
-      const data = {
-        userId: userData?.id,
+      const payload = {
+        userId,
         threadName: search,
         isRead: isRead,
       };
-      getAllThreadsByUserAgentMutation.mutate(data, {
-        onSuccess: (response) => {
-          const nextThreads = response?.data?.get_user_and_agent_threads || [];
-          setThreads(nextThreads);
-          setMessageThreads(nextThreads);
-          setLoading(false);
-        },
-        onError: (error) => {
-          console.log('Error in mutation: ', error);
-          setLoading(false);
-        },
-      });
+
+      const primaryResponse =
+        await getAllThreadsByUserAgentMutation.mutateAsync(payload);
+      let nextThreads = Array.isArray(primaryResponse?.data?.get_user_and_agent_threads)
+        ? primaryResponse.data.get_user_and_agent_threads
+        : [];
+
+      if (!nextThreads.length) {
+        try {
+          const secondaryResponse = await getAllThreadsByUserMutation.mutateAsync(payload);
+          nextThreads = Array.isArray(secondaryResponse?.data?.get_threads_by_user)
+            ? secondaryResponse.data.get_threads_by_user
+            : [];
+        } catch (secondaryError) {
+          console.log('Fallback get_threads_by_user failed: ', secondaryError);
+        }
+      }
+
+      if (!nextThreads.length) {
+        const cachedThreadId =
+          typeof window !== 'undefined'
+            ? String(localStorage.getItem('threadId') || '').trim()
+            : '';
+        const fallbackThreadId = routeThreadId || cachedThreadId;
+        if (fallbackThreadId) {
+          try {
+            const hydratedThread = await getThreadById.mutateAsync(fallbackThreadId);
+            if (hydratedThread?.id) {
+              nextThreads = [hydratedThread];
+            }
+          } catch (threadHydrationError) {
+            console.log('Fallback getThreadById failed: ', threadHydrationError);
+          }
+        }
+      }
+
+      setThreads(nextThreads);
+      setMessageThreads(nextThreads);
     } catch (error) {
       console.log('error : ', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -66,7 +108,7 @@ function BuyerMessagesPanel() {
         },
       }));
     };
-  }, [isRead, search]);
+  }, [isRead, routeThreadId, search, userData?.id]);
 
   return (
     <ChatBoxComponent

@@ -37,14 +37,18 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
             },
           }
         );
-        // Check if the response is successful
-        if (response.status !== 200) {
-          throw new Error(response?.data?.errors?.[0]?.message || 'Failed to create thread');
+        // Check for GraphQL errors even if status is 200
+        if (response.data?.errors) {
+          throw new Error(response.data.errors[0]?.message || 'GraphQL Error');
         }
-        console.log(response.data)
+
+        if (!response.data?.data?.create_user_agent_thread) {
+          throw new Error('No data returned from server');
+        }
 
         return response.data.data.create_user_agent_thread;  // Return the created thread
-      } catch (error) {
+      } catch (error: any) {
+        console.error('Mutation error:', error);
         throw error;  // Re-throw error for handling in onError
       }
     },
@@ -121,6 +125,10 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
       if (!token) {
         throw new Error('No authentication token found');
       }
+      const userId = String(data?.userId || '').trim();
+      if (!userId) {
+        return { data: { get_user_and_agent_threads: [] } };
+      }
 
       try {
         const response = await axios.post(
@@ -168,10 +176,16 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
                     lastName
                     email
                   }
+                  sellerAgent {
+                    id
+                    firstName
+                    lastName
+                    email
+                  }
                 }
               }`,
             variables: {
-              userId: data.userId,
+              userId,
               threadName: data.threadName,
               isRead: data.isRead
             },

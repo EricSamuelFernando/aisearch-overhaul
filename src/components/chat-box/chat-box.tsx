@@ -2374,7 +2374,6 @@ import { useUserAgentMessageApi } from "@/hooks/api/auth/useMessageApi"
 import { useUserAuthApi } from "@/hooks/api/auth/useUserAuthApi"
 import { AgentDirectoryWrapper } from "@/components/buy/preview/agent-directory-wrapper"
 import InviteUserModal from "./Invite-user-modal"
-import { threadId } from "worker_threads"
 import { useAtom } from "jotai"
 import { messageThreadsAtom } from "@/hooks/atoms"
 import { Loader } from "@mantine/core"
@@ -2390,6 +2389,9 @@ import { useUserSnapAPIs } from "@/hooks/api/auth/snaps.API"
 import { SnapzHeartButton } from "@/components/ui/snapz-heart"
 import { usePropertyActions } from "@/shared/hooks/useProperty"
 import { v4 as uuidv4 } from "uuid"
+import NegotiationCard from "./negotiation-card"
+import { normalizeAgentTiersPayload } from "./agent-tier-utils"
+
 
 
 interface User {
@@ -2451,6 +2453,7 @@ interface Thread {
   propertyAddress?: string
   propertyId?: string
   listingId?: string
+  engagementId?: string
   participants?: any
   user?: {
     id?: string
@@ -2473,6 +2476,14 @@ interface Thread {
   members?: any[]
   threadId?: string | null
   isActive?: boolean
+  status?:
+  | "NEGOTIATION_PENDING"
+  | "OFFER_SENT"
+  | "COUNTER_SENT"
+  | "AGREED"
+  | "ACTIVE"
+  | "ACCEPTED"
+  | "DECLINED"
 }
 interface AgentPropertySummary {
   propertyId: string
@@ -2587,6 +2598,45 @@ export default function ChatBoxComponent(props: any) {
   const [locallyReadThreadIds, setLocallyReadThreadIds] = useState<Record<string, number>>({});
   const [pendingNewMessageCount, setPendingNewMessageCount] = useState(0);
   const [isAtLatestMessage, setIsAtLatestMessage] = useState(true);
+  const [agentTiers, setAgentTiers] = useState<any[]>([]);
+  const [isLoadingAgentTiers, setIsLoadingAgentTiers] = useState(false);
+  const fetchedTierKeyRef = useRef<string>("");
+  const tierFetchRequestIdRef = useRef(0);
+
+  const normalizeNegotiationStatus = (value: unknown) => {
+    const normalized = String(value || "").trim().toUpperCase()
+    if (!normalized) return ""
+    if (normalized === "PENDING") return "NEGOTIATION_PENDING"
+    if (normalized === "AGREED") return "ACCEPTED"
+    return normalized
+  }
+
+  const applyNegotiationStatusToThread = useCallback(
+    (targetThreadId: string, nextStatusRaw: unknown) => {
+      const nextStatus = normalizeNegotiationStatus(nextStatusRaw)
+      if (!targetThreadId || !nextStatus) return
+
+      setSelectedThreadDetail((prev: any) => {
+        if (!prev || prev?.id !== targetThreadId) return prev
+        return {
+          ...prev,
+          status: nextStatus,
+        }
+      })
+
+      setMessageThreads((prev: any) =>
+        Array.isArray(prev)
+          ? prev.map((thread: any) =>
+            thread?.id === targetThreadId
+              ? { ...thread, status: nextStatus }
+              : thread
+          )
+          : prev
+      )
+    },
+    [setMessageThreads]
+  )
+
 
   const fetchSnaps = () => {
     const currentUserId = userData?.id
@@ -2764,6 +2814,10 @@ export default function ChatBoxComponent(props: any) {
       } else {
         unreadCount = thread?.unreadCount ?? unreadCountFromMessages;
       }
+
+      const threadStatus = (thread as any).status || "ACTIVE";
+      const isNegotiating = threadStatus === "NEGOTIATION_PENDING";
+
 
       if (agentId) {
         let entry = groupMap.get(agentId);
@@ -3175,33 +3229,154 @@ export default function ChatBoxComponent(props: any) {
       return value
     }
   }
-  const normalizeMessage = (message: Message) => {
-    const rawMessage = message.message ?? message.content ?? ''
+  const pickFirstString = (...values: any[]): string => {
+    for (const value of values) {
+      if (typeof value !== "string") continue
+      const trimmed = value.trim()
+      if (trimmed) return trimmed
+    }
+    return ""
+  }
+
+  const normalizeComparableId = (value: any): string =>
+    String(value ?? "").trim().toLowerCase()
+
+  const normalizeIsoTimestamp = (value?: string): string => {
+    if (!value) return ""
+    const timestamp = new Date(value)
+    if (Number.isNaN(timestamp.getTime())) return ""
+    return timestamp.toISOString()
+  }
+
+  const resolveMessageSenderId = (message: any): string =>
+    pickFirstString(
+      message?.senderId,
+      message?.sender_id,
+      message?.userId,
+      message?.user_id,
+      message?.sender?.id,
+      message?.sender?.userId,
+      message?.sender?.user_id,
+      message?.createdBy,
+      message?.created_by,
+      message?.createdById,
+      message?.created_by_id,
+      message?.data?.senderId,
+      message?.data?.sender_id,
+      message?.data?.userId,
+      message?.data?.user_id,
+      message?.payload?.senderId,
+      message?.payload?.sender_id,
+      message?.payload?.userId,
+      message?.payload?.user_id,
+    )
+
+  const resolveMessageReceiverId = (message: any): string =>
+    pickFirstString(
+      message?.receiverId,
+      message?.receiver_id,
+      message?.recieverId,
+      message?.reciever_id,
+      message?.recipientId,
+      message?.recipient_id,
+      message?.data?.receiverId,
+      message?.data?.receiver_id,
+      message?.data?.recipientId,
+      message?.data?.recipient_id,
+      message?.payload?.receiverId,
+      message?.payload?.receiver_id,
+      message?.payload?.recipientId,
+      message?.payload?.recipient_id,
+    )
+
+  const resolveMessageThreadId = (message: any): string =>
+    pickFirstString(
+      message?.threadId,
+      message?.thread_id,
+      message?.roomId,
+      message?.room_id,
+      message?.conversationId,
+      message?.conversation_id,
+      message?.channelId,
+      message?.channel_id,
+      message?.data?.threadId,
+      message?.data?.thread_id,
+      message?.payload?.threadId,
+      message?.payload?.thread_id,
+    )
+
+  const resolveMessageCreatedAt = (message: any): string =>
+    normalizeIsoTimestamp(
+      pickFirstString(
+        message?.createdAt,
+        message?.created_at,
+        message?.timestamp,
+        message?.data?.createdAt,
+        message?.data?.created_at,
+        message?.data?.timestamp,
+        message?.payload?.createdAt,
+        message?.payload?.created_at,
+        message?.payload?.timestamp,
+      ),
+    )
+
+  const normalizeMessage = (
+    message: Message,
+    options?: { fallbackCreatedAtToNow?: boolean },
+  ) => {
+    const messageAny = message as any
+    const rawMessage = pickFirstString(
+      messageAny?.message,
+      messageAny?.content,
+      messageAny?.text,
+      messageAny?.data?.message,
+      messageAny?.payload?.message,
+    )
     const decryptedMessage = decryptMessageSafely(rawMessage)
     const normalizedMessageType =
-      message.messageType ||
-      message.message_type ||
-      (message.fileType || message.file_type ? 'file' : 'text')
+      messageAny?.messageType ||
+      messageAny?.message_type ||
+      messageAny?.data?.messageType ||
+      messageAny?.data?.message_type ||
+      messageAny?.payload?.messageType ||
+      messageAny?.payload?.message_type ||
+      (messageAny?.fileType || messageAny?.file_type ? 'file' : 'text')
     const fileUrlCandidate =
-      message.file?.url ||
+      messageAny?.file?.url ||
       (isProbablyUrl(decryptedMessage) ? decryptedMessage : '') ||
-      message.documents?.[0] ||
-      message.fileUrl ||
+      messageAny?.documents?.[0] ||
+      messageAny?.fileUrl ||
       ''
     const derivedFileType =
-      message.fileType || message.file_type || getMimeTypeFromUrl(fileUrlCandidate)
+      messageAny?.fileType ||
+      messageAny?.file_type ||
+      messageAny?.data?.fileType ||
+      messageAny?.data?.file_type ||
+      messageAny?.payload?.fileType ||
+      messageAny?.payload?.file_type ||
+      getMimeTypeFromUrl(fileUrlCandidate)
     const finalMessageType =
       normalizedMessageType === 'system'
         ? 'system'
         : normalizedMessageType === 'text' && (fileUrlCandidate || derivedFileType)
           ? 'file'
           : normalizedMessageType
+
+    const normalizedCreatedAt =
+      resolveMessageCreatedAt(messageAny) ||
+      (options?.fallbackCreatedAtToNow ? new Date().toISOString() : '')
+
     return {
       ...message,
+      threadId: resolveMessageThreadId(messageAny) || message.threadId,
+      senderId: resolveMessageSenderId(messageAny) || message.senderId,
+      receiverId: resolveMessageReceiverId(messageAny) || message.receiverId,
+      createdAt: normalizedCreatedAt || message.createdAt,
+      timestamp: normalizedCreatedAt || message.timestamp,
       message: decryptedMessage,
       messageType: finalMessageType,
       fileType: derivedFileType,
-      fileUrl: fileUrlCandidate || message.fileUrl
+      fileUrl: fileUrlCandidate || messageAny?.fileUrl
     }
   }
 
@@ -3322,8 +3497,13 @@ export default function ChatBoxComponent(props: any) {
           getMimeTypeFromUrl(attachmentUrl) ||
           ""
         const kind = getAttachmentKind(fileType, attachmentUrl)
-        const senderId = String(message?.senderId || "").trim()
-        const senderName = senderId && senderId === userData?.id
+        const senderId = pickFirstString(
+          message?.senderId,
+          (message as any)?.userId,
+          (message as any)?.sender?.id,
+          (message as any)?.createdBy,
+        )
+        const senderName = normalizeComparableId(senderId) === normalizeComparableId(userData?.id)
           ? "You"
           : participantNameById.get(senderId) || "Unknown user"
         const createdAt = message?.createdAt || message?.timestamp
@@ -3353,10 +3533,9 @@ export default function ChatBoxComponent(props: any) {
     userData?.id,
   ])
 
-  const { getAllConversationMessagesMutation } = useAgentConversationApi()
+  const { getAllConversationMessagesMutation, getThreadById, getAgentTiersForThreadMutation } = useAgentConversationApi()
   const { getAllUserAgentMessagesMutation, createUserAgentThreadMutation } = useUserAgentMessageApi()
   const { externalAgentIvitationMutation } = useUserAuthApi()
-  const { getThreadById } = useAgentConversationApi()
   const { uploadNewFile } = usePropertyServiceAPI()
   const { createRepoWithUploadedFile } = useRepoManagementApi()
   const { markThreadAsReadMutation } = useNotificationApi()
@@ -3426,8 +3605,12 @@ export default function ChatBoxComponent(props: any) {
   }, [selectedThread, selectedThreadDetail?.id])
 
   const getThreadDetails = async (id: string) => {
+    const normalizedId = String(id || "").trim();
+    if (!normalizedId) {
+      return;
+    }
     try {
-      await getThreadById.mutateAsync(id ?? threadId, {
+      await getThreadById.mutateAsync(normalizedId, {
         onSuccess: async (data: any) => {
           const participants = await [
             ...(data?.buyerAgent ? [data.buyerAgent] : []),
@@ -3439,10 +3622,35 @@ export default function ChatBoxComponent(props: any) {
         },
       });
     } catch (err) {
-      console.error("[chat-box] Failed to fetch thread details for id:", id, err);
-      selectThreadById(id);
+      console.error("[chat-box] Failed to fetch thread details for id:", normalizedId, err);
+      selectThreadById(normalizedId);
     }
   }
+
+  const refreshThreadNegotiationStatus = useCallback((id?: string) => {
+    const normalizedId = String(id || "").trim()
+    if (!normalizedId) return
+
+    getThreadById.mutate(normalizedId, {
+      onSuccess: (data: any) => {
+        const latestStatus = normalizeNegotiationStatus(data?.status)
+        if (latestStatus) {
+          applyNegotiationStatusToThread(normalizedId, latestStatus)
+        }
+
+        setSelectedThreadDetail((prev: any) => {
+          if (!prev || prev?.id !== normalizedId) return prev
+          return {
+            ...prev,
+            status: latestStatus || prev?.status,
+          }
+        })
+      },
+      onError: (err: any) => {
+        console.warn("[chat-box] Failed to refresh thread negotiation status:", err)
+      },
+    })
+  }, [applyNegotiationStatusToThread, getThreadById])
   const normalizeThreadKey = (value?: string | null) =>
     String(value ?? "").trim().toLowerCase();
 
@@ -3529,7 +3737,7 @@ export default function ChatBoxComponent(props: any) {
 
     setSelectedThread(thread?.id)
     if (thread?.id) {
-      const normalizedId = thread.id.toString().trim().toLowerCase();
+      const normalizedId = String(thread.id).trim().toLowerCase();
       setLocallyReadThreadIds((prev) => ({
         ...prev,
         [normalizedId]: Date.now(),
@@ -3561,26 +3769,12 @@ export default function ChatBoxComponent(props: any) {
     if (socket && thread?.id && userData?.id) {
       console.log('[chat-box] Joining room for thread:', thread.id);
 
-      // First, try to create or join conversation
-      socket.createOrJoinRoom({
-        threadId: thread.id,
-        propertyId: thread.propertyId,
-        userId: userData.id,
-        userType: 'buyer',
-        buyerAgentId: thread.buyerAgent?.id,
-        sellerAgentId: thread.sellerAgent?.id,
-        roomId: thread.id,
-        threadName: thread.threadName,
-        propertyName: thread.propertyName,
-        propertyAddress: thread.propertyAddress,
-      });
-
       socket.emit('mark_as_read', { threadId: thread.id });
       if (thread?.id) {
         markThreadAsReadMutation.mutate(thread.id);
       }
 
-      // Also join the room directly
+      // Backend supports room joins directly for existing threads.
       if (socket.joinRoom) {
         socket.joinRoom(thread.id);
       }
@@ -3588,20 +3782,23 @@ export default function ChatBoxComponent(props: any) {
       // Removed joinThread event - not supported by backend, use joinRoom instead
     }
 
+    const normalizedCurrentUserId = String(userData?.id || "").trim();
+    const receiverCandidates = [
+      thread?.buyerAgent,
+      thread?.sellerAgent,
+      thread?.user,
+      ...participants,
+    ].filter((participant: any) => participant?.id);
+    const resolvedReceiver =
+      receiverCandidates.find(
+        (participant: any) => String(participant?.id || "").trim() !== normalizedCurrentUserId,
+      ) || null;
+
+    setRecieverId(String(resolvedReceiver?.id || ""));
+    setRecieverDetail(resolvedReceiver || {});
+
     // if (TYPE === "messages") {
     getAllThreadMessage(thread?.id)
-    if (userData?.id === thread?.buyerAgent?.id) {
-      setRecieverId(thread?.user?.id || "")
-      setRecieverDetail(thread?.user)
-    }
-    if (userData?.id === thread?.sellerAgent?.id) {
-      setRecieverId(thread?.user?.id || "")
-      setRecieverDetail(thread?.user)
-    }
-    else if (userData?.id === thread?.user?.id) {
-      setRecieverId(thread?.buyerAgent?.id || "")
-      setRecieverDetail(thread?.buyerAgent)
-    }
     // }
     // else {
     //   getAllConversationThreads(thread?.id)
@@ -3613,6 +3810,7 @@ export default function ChatBoxComponent(props: any) {
     //   }
     // }
     getPropertyDetails(thread?.listingId, thread.propertyId)
+    refreshThreadNegotiationStatus(thread?.id)
 
     console.log('[chat-box] Thread selection complete. showChat:', true, 'selectedThread:', thread?.id, 'selectedThreadDetail:', thread?.id);
   }
@@ -3643,6 +3841,58 @@ export default function ChatBoxComponent(props: any) {
     setSelectedThread('')
     setExpandedEntryKey(null)
   }
+
+  useEffect(() => {
+    const activeThreadId = String(selectedThreadDetail?.id || selectedThread || "").trim();
+    const normalizedStatus = normalizeNegotiationStatus(selectedThreadDetail?.status);
+    const isNegotiationPending = normalizedStatus === "NEGOTIATION_PENDING";
+    const fetchKey = `${activeThreadId}:${normalizedStatus}`;
+
+    if (!activeThreadId || !isNegotiationPending) {
+      tierFetchRequestIdRef.current += 1;
+      fetchedTierKeyRef.current = "";
+      setAgentTiers((prev) => (prev.length > 0 ? [] : prev));
+      setIsLoadingAgentTiers((prev) => (prev ? false : prev));
+      return;
+    }
+
+    if (fetchedTierKeyRef.current === fetchKey) {
+      return;
+    }
+
+    fetchedTierKeyRef.current = fetchKey;
+    tierFetchRequestIdRef.current += 1;
+    const requestId = tierFetchRequestIdRef.current;
+    setIsLoadingAgentTiers(true);
+    const loadingTimeout = window.setTimeout(() => {
+      if (tierFetchRequestIdRef.current !== requestId) return;
+      setIsLoadingAgentTiers(false);
+    }, 10000);
+
+    getAgentTiersForThreadMutation
+      .mutateAsync(activeThreadId)
+      .then((payload: any) => {
+        if (tierFetchRequestIdRef.current !== requestId) return;
+        const normalizedTiers = normalizeAgentTiersPayload(payload?.tiers ?? payload);
+        setAgentTiers(normalizedTiers);
+      })
+      .catch((mutationError: any) => {
+        if (tierFetchRequestIdRef.current !== requestId) return;
+        fetchedTierKeyRef.current = "";
+        console.error("[chat-box] Failed to load agent tiers:", mutationError);
+        setAgentTiers((prev) => (prev.length > 0 ? [] : prev));
+      })
+      .finally(() => {
+        window.clearTimeout(loadingTimeout);
+        if (tierFetchRequestIdRef.current !== requestId) return;
+        setIsLoadingAgentTiers(false);
+      });
+  }, [
+    selectedThread,
+    selectedThreadDetail?.id,
+    selectedThreadDetail?.status,
+    getAgentTiersForThreadMutation,
+  ]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -4064,6 +4314,70 @@ export default function ChatBoxComponent(props: any) {
   // }
 
 
+  const handleSelectTier = (tier: any) => {
+    if (!selectedThreadDetail?.id || !socket) return;
+
+    console.log("[Negotiation] Selecting tier:", tier);
+    const messageContent = `Buyer selected ${tier.name} (${tier.commission}%)`;
+    const newMessage = {
+      threadId: selectedThreadDetail.id,
+      message: messageContent,
+      senderId: userData?.id,
+      receiverId: receiverId,
+      messageType: 'notification',
+      createdAt: new Date().toISOString(),
+    };
+
+    // Update LOCAL status (optimistic UI)
+    applyNegotiationStatusToThread(selectedThreadDetail.id, "OFFER_SENT")
+
+    // Emit message and status update
+    socket.emit("sendMessage", newMessage);
+
+    // Custom event for backend to update status
+    socket.emit("update_negotiation_status", {
+      threadId: selectedThreadDetail.id,
+      status: "OFFER_SENT"
+    });
+
+    success({ message: `Offer for ${tier.name} sent to agent.` });
+  };
+
+  const handleNegotiate = (offer?: {
+    tierId: string;
+    tierName: string;
+    offeredCommission: number;
+    message: string;
+  }) => {
+    if (!selectedThreadDetail?.id || !socket) return;
+
+    const commission = Number(offer?.offeredCommission);
+    const commissionText = Number.isFinite(commission) ? `${commission}%` : "custom terms";
+    const tierName = offer?.tierName || "requested tier";
+
+    const messageContent =
+      offer?.message?.trim() ||
+      `Buyer proposed ${commissionText} commission for ${tierName}.`;
+
+    const negotiationMessage = {
+      threadId: selectedThreadDetail.id,
+      message: messageContent,
+      senderId: userData?.id,
+      receiverId: receiverId,
+      messageType: "notification",
+      createdAt: new Date().toISOString(),
+    };
+
+    applyNegotiationStatusToThread(selectedThreadDetail.id, "OFFER_SENT");
+    socket.emit("sendMessage", negotiationMessage);
+    socket.emit("update_negotiation_status", {
+      threadId: selectedThreadDetail.id,
+      status: "OFFER_SENT",
+    });
+
+    success({ message: "Negotiation offer sent to agent." });
+  };
+
   const handleSendMessage = async () => {
     try {
       // Validate socket
@@ -4087,6 +4401,27 @@ export default function ChatBoxComponent(props: any) {
       if (!currentThreadId || !userData?.id || !receiverId) {
         console.error("[handleSendMessage] Missing required data");
         return;
+      }
+
+      const currentNegotiationStatus = normalizeNegotiationStatus(
+        selectedThreadDetail?.status
+      )
+      if (
+        currentNegotiationStatus === "NEGOTIATION_PENDING" ||
+        currentNegotiationStatus === "OFFER_SENT"
+      ) {
+        error({
+          message:
+            "Negotiation is in progress. Resolve negotiation status before sending messages.",
+        })
+        return
+      }
+      if (currentNegotiationStatus === "DECLINED") {
+        error({
+          message:
+            "Negotiation was declined. Chat is locked for this thread.",
+        })
+        return
       }
 
       const hasText = message.trim() !== "";
@@ -4113,6 +4448,7 @@ export default function ChatBoxComponent(props: any) {
       socket.sendMessage({
         threadId: currentThreadId,
         userId: userData.id,
+        receiverId,
         messageType: hasFile ? "file" : "text",
         message: hasFile ? fileUrl : message,
         fileType: hasFile ? selectedFile?.type : undefined, // ✅ FIX
@@ -4318,44 +4654,106 @@ export default function ChatBoxComponent(props: any) {
         setIsTyping(typing);
       });
 
-      // Handle newMessage event from websocket backend (Lambda/API Gateway)
-      const handleNewMessage = (messageData: any) => {
-        console.log('[ChatBox] Received newMessage from websocket:', messageData);
+      // Handle both backend message events for compatibility.
+      const handleRealtimeMessage = (messageData: any, sourceEvent: "newMessage" | "recievedMessage") => {
+        console.log(`[ChatBox] Received ${sourceEvent} from websocket:`, messageData);
         console.log('[ChatBox] Current thread ID:', currentThreadId, 'Selected thread detail:', selectedThreadDetail?.id);
 
-        const threadId = messageData.threadId || messageData.thread_id;
+        const threadId = resolveMessageThreadId(messageData);
         console.log('[ChatBox] Message thread ID:', threadId);
+        const normalizedIncomingThreadId = normalizeComparableId(threadId);
+        const normalizedCurrentThreadId = normalizeComparableId(currentThreadId);
+        const normalizedSelectedThreadId = normalizeComparableId(selectedThreadDetail?.id);
 
         // Only process messages for the current thread
-        if (threadId === currentThreadId || threadId === selectedThreadDetail?.id) {
+        if (
+          !!normalizedIncomingThreadId &&
+          (normalizedIncomingThreadId === normalizedCurrentThreadId ||
+            normalizedIncomingThreadId === normalizedSelectedThreadId)
+        ) {
           console.log('[ChatBox] Message matches current thread, processing...');
           let processedMessage = normalizeMessage({
             ...messageData,
             threadId: threadId,
-            message: messageData.message || messageData.content,
+            message:
+              messageData.message ||
+              messageData.content ||
+              messageData?.data?.message ||
+              messageData?.payload?.message,
             senderId:
               messageData.senderId ||
               messageData.sender_id ||
               messageData.userId ||
               messageData.user_id ||
-              messageData.createdBy,
-            receiverId: messageData.receiverId || messageData.receiver_id,
-            createdAt: messageData.createdAt || messageData.created_at,
-            messageType: messageData.messageType || messageData.message_type || 'text',
+              messageData.createdBy ||
+              messageData?.data?.senderId ||
+              messageData?.data?.userId ||
+              messageData?.payload?.senderId ||
+              messageData?.payload?.userId,
+            receiverId:
+              messageData.receiverId ||
+              messageData.receiver_id ||
+              messageData?.data?.receiverId ||
+              messageData?.payload?.receiverId,
+            createdAt:
+              messageData.createdAt ||
+              messageData.created_at ||
+              messageData.timestamp ||
+              messageData?.data?.createdAt ||
+              messageData?.data?.timestamp ||
+              messageData?.payload?.createdAt ||
+              messageData?.payload?.timestamp,
+            messageType:
+              messageData.messageType ||
+              messageData.message_type ||
+              messageData?.data?.messageType ||
+              messageData?.payload?.messageType ||
+              'text',
             fileType: messageData.fileType || messageData.file_type,
-          });
+          }, { fallbackCreatedAtToNow: true });
 
           console.log("[ChatBox] Adding newMessage to state:", processedMessage);
           appendIncomingMessage(processedMessage);
         } else {
-          console.log("[ChatBox] newMessage is for different thread, ignoring:", {
+          console.log(`[ChatBox] ${sourceEvent} is for different thread, ignoring:`, {
             receivedThreadId: threadId,
             currentThreadId: currentThreadId
           });
         }
       };
+      const handleNewMessage = (messageData: any) => handleRealtimeMessage(messageData, "newMessage");
+      const handleRecievedMessage = (messageData: any) => handleRealtimeMessage(messageData, "recievedMessage");
+
+      const applyNegotiationPayload = (
+        payload: any,
+        fallbackStatus?: string
+      ) => {
+        const targetThreadId = String(
+          payload?.threadId || payload?.thread_id || ""
+        ).trim()
+        const nextStatus = normalizeNegotiationStatus(
+          payload?.status || fallbackStatus || ""
+        )
+
+        if (!targetThreadId || !nextStatus) return
+        applyNegotiationStatusToThread(targetThreadId, nextStatus)
+      }
+
+      const handleNegotiationStatusUpdated = (payload: any) =>
+        applyNegotiationPayload(payload)
+      const handleNegotiationOfferSent = (payload: any) =>
+        applyNegotiationPayload(payload, "OFFER_SENT")
+      const handleNegotiationAccepted = (payload: any) =>
+        applyNegotiationPayload(payload, "ACCEPTED")
+      const handleNegotiationDeclined = (payload: any) =>
+        applyNegotiationPayload(payload, "DECLINED")
 
       socket.on('newMessage', handleNewMessage);
+      socket.on('recievedMessage', handleRecievedMessage);
+      socket.on('negotiation_status_updated', handleNegotiationStatusUpdated);
+      socket.on('negotiation_offer_sent', handleNegotiationOfferSent);
+      socket.on('negotiation_accepted', handleNegotiationAccepted);
+      socket.on('negotiation_declined', handleNegotiationDeclined);
 
       // Handle websocket response events
       socket.on('createOrJoinConversation_response', (response: any) => {
@@ -4395,6 +4793,7 @@ export default function ChatBoxComponent(props: any) {
       return () => {
         console.log("[ChatBox] Cleaning up real-time listeners");
         socket.off("newMessage", handleNewMessage);
+        socket.off("recievedMessage", handleRecievedMessage);
         socket.off("typingStatus");
         socket.off("error");
         socket.off("connect");
@@ -4402,18 +4801,22 @@ export default function ChatBoxComponent(props: any) {
         socket.off("createOrJoinConversation_response");
         socket.off("joinRoom_response");
         socket.off("sendMessage_response");
+        socket.off("negotiation_status_updated", handleNegotiationStatusUpdated);
+        socket.off("negotiation_offer_sent", handleNegotiationOfferSent);
+        socket.off("negotiation_accepted", handleNegotiationAccepted);
+        socket.off("negotiation_declined", handleNegotiationDeclined);
       };
     }
-    return () => {
-      setState((prev: any) => ({
-        ...prev,
-        selectedChannel: {
-          id: null,
-          propertyName: ""
-        }
-      }));
-    };
-  }, [appendIncomingMessage, socket, state?.selectedChannel?.id, selectedThreadDetail?.id, threadId, selectedThread]);
+    return;
+  }, [
+    appendIncomingMessage,
+    applyNegotiationStatusToThread,
+    socket,
+    state?.selectedChannel?.id,
+    selectedThreadDetail?.id,
+    threadId,
+    selectedThread,
+  ]);
 
   useEffect(() => {
 
@@ -4442,7 +4845,9 @@ export default function ChatBoxComponent(props: any) {
 
   useEffect(() => {
     if (state?.newMessage) {
-      const normalized = normalizeMessage(state?.newMessage);
+      const normalized = normalizeMessage(state?.newMessage, {
+        fallbackCreatedAtToNow: true,
+      });
       const currentThreadId =
         state?.selectedChannel?.id || selectedThreadDetail?.id || selectedThread || threadId;
       const normalizedThreadId = normalized?.threadId;
@@ -4462,8 +4867,9 @@ export default function ChatBoxComponent(props: any) {
   }, [appendIncomingMessage, setState, socket, state?.newMessage, state?.selectedChannel?.id, selectedThread, selectedThreadDetail?.id, threadId]);
 
   useEffect(() => {
-    if (threadId) {
-      getThreadDetails(threadId);
+    const normalizedRouteThreadId = String(threadId || "").trim();
+    if (normalizedRouteThreadId) {
+      getThreadDetails(normalizedRouteThreadId);
     }
   }, [threadId]);
 
@@ -4548,10 +4954,14 @@ export default function ChatBoxComponent(props: any) {
     return /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(url);
   };
 
-  const resolveAgentIdField = () => {
-    const normalizedType = (currentUser || '').toString().toLowerCase();
-    return normalizedType === 'seller' ? 'sellerAgentId' : 'buyerAgentId';
-  };
+  const resolveCurrentAccountType = () =>
+    String(userData?.account_type || user?.account_type || currentUser || '').trim().toLowerCase();
+
+  const resolveThreadUserType = () =>
+    resolveCurrentAccountType() === 'seller' ? 'SELLER' : 'BUYER';
+
+  const resolveAgentIdField = () =>
+    resolveCurrentAccountType() === 'seller' ? 'sellerAgentId' : 'buyerAgentId';
 
   const resolveProfileImage = (person: any) =>
     person?.profile || person?.avatar || person?.image || '';
@@ -4578,19 +4988,24 @@ export default function ChatBoxComponent(props: any) {
       propertyImage: '',
       listingId: '',
       propertyAddress: '',
-      propertyOwnerId: '',
-      userType: (currentUser || 'Buyer').toString(),
+      propertyOwnerId: undefined,
+      userType: resolveThreadUserType(),
       userId: activeUserId,
       roomId: uuidv4(),
       parentMessage: "Let's connect and talk",
+      status: 'NEGOTIATION_PENDING',
       [agentIdField]: agentId,
     };
 
     createUserAgentThreadMutation.mutate(payload, {
-      onSuccess: (data: any) => {
+      onSuccess: async (data: any) => {
         const createdThreadId = data?.id;
         if (createdThreadId) {
-          getThreadDetails(createdThreadId);
+          await getThreadDetails(createdThreadId);
+          applyNegotiationStatusToThread(createdThreadId, 'NEGOTIATION_PENDING');
+          setSelectedThreadDetail((prev: any) => (
+            prev?.id === createdThreadId ? { ...prev, status: 'NEGOTIATION_PENDING' } : prev
+          ));
         }
         setIsContactAgentDialogOpen(false);
         setIsSearchAgentModalOpen(false);
@@ -4619,24 +5034,86 @@ export default function ChatBoxComponent(props: any) {
       setInviteAgentError('Please login to invite an agent.');
       return;
     }
+    const inviteAgentType = resolveCurrentAccountType();
+    if (!inviteAgentType) {
+      setInviteAgentError('Unable to detect your account type. Please sign in again.');
+      return;
+    }
     if (isCreatingThread) return;
 
     setIsCreatingThread(true);
     try {
-      const payload = {
-        agentType: currentUser,
+      // Step 1: Send agent invitation — backend auto-creates a valid engagement
+      const fallbackEngagementId = uuidv4();
+      const inviteResult: any = await externalAgentIvitationMutation.mutateAsync({
+        agentType: inviteAgentType,
         userId: activeUserId,
         email,
         is_accepted: 'pending',
-      };
-      await externalAgentIvitationMutation.mutateAsync(payload);
-      success({ message: 'Agent invitation sent successfully.' });
+        engagementId: fallbackEngagementId,
+        status: 'NEGOTIATION_PENDING',
+      });
+      if (!inviteResult?.success) {
+        throw new Error(inviteResult?.message || 'Failed to send invitation');
+      }
+
+      // Step 2: If backend returned agentId, immediately create a chat thread
+      const invitedAgentId = inviteResult?.agentId;
+      if (invitedAgentId) {
+        const agentIdField = resolveAgentIdField();
+        const threadPayload: Record<string, any> = {
+          propertyId: '',
+          threadName: `Chat with ${email.split('@')[0]}`,
+          propertyName: 'New Chat',
+          propertyImage: '',
+          listingId: '',
+          propertyAddress: '',
+          propertyOwnerId: undefined,
+          userType: resolveThreadUserType(),
+          userId: activeUserId,
+          roomId: uuidv4(),
+          parentMessage: "Let's connect and talk",
+          status: 'NEGOTIATION_PENDING',
+          engagementId: inviteResult?.engagementId || fallbackEngagementId,
+          [agentIdField]: invitedAgentId,
+        };
+
+        createUserAgentThreadMutation.mutate(threadPayload, {
+          onSuccess: async (threadData: any) => {
+            const createdThreadId = threadData?.id;
+            if (createdThreadId) {
+              // Auto-open the new thread so the buyer lands on the conversation
+              await getThreadDetails(createdThreadId);
+              applyNegotiationStatusToThread(createdThreadId, 'NEGOTIATION_PENDING');
+              setSelectedThreadDetail((prev: any) => (
+                prev?.id === createdThreadId ? { ...prev, status: 'NEGOTIATION_PENDING' } : prev
+              ));
+            }
+            success({ message: `Invitation sent to ${email}. Chat opened - negotiate a tier first.` });
+          },
+          onError: (threadErr: any) => {
+            // Thread creation failed but invite was sent — still inform the user
+            console.warn('[chat-box] Thread creation failed after invite:', threadErr);
+            success({ message: `Invitation sent to ${email}. You can open the conversation once the agent accepts.` });
+          },
+        });
+      } else {
+        // Invite succeeded but no agentId (edge case) — just show success
+        success({ message: `Invitation sent to ${email}.` });
+      }
+
+      // Close modal and reset form
       setIsInviteAgentModalOpen(false);
       setInviteAgentEmail('');
       setInviteAgentError('');
     } catch (err: any) {
       console.error('[chat-box] Invite agent failed:', err);
-      setInviteAgentError(err?.message || 'Unable to send invite right now.');
+      const errorMessage =
+        err?.response?.data?.errors?.[0]?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Unable to send invite right now.';
+      setInviteAgentError(errorMessage);
     } finally {
       setIsCreatingThread(false);
     }
@@ -4654,6 +5131,95 @@ export default function ChatBoxComponent(props: any) {
     [agentForHeader?.firstName, agentForHeader?.lastName].filter(Boolean).join(' ') || '';
   const agentImageForHeader =
     agentForHeader?.profile || agentForHeader?.image || agentForHeader?.avatar || '';
+  const normalizedNegotiationStatus = normalizeNegotiationStatus(selectedThreadDetail?.status)
+  const negotiationOfferSummary = useMemo(() => {
+    if (!Array.isArray(messages) || messages.length === 0) return null
+
+    const parseNegotiationOfferSummary = (rawText?: string) => {
+      const text = String(rawText || "").trim()
+      if (!text) return null
+
+      const selectedTierMatch = text.match(
+        /^buyer selected\s+(.+?)\s*\((\d+(?:\.\d+)?)%\)/i
+      )
+      if (selectedTierMatch) {
+        return {
+          requestedServices: selectedTierMatch[1].trim(),
+          offeredCommission: `${selectedTierMatch[2]}%`,
+          sourceMessage: text,
+        }
+      }
+
+      const proposedMatch = text.match(
+        /^buyer proposed\s+(\d+(?:\.\d+)?)%\s+commission\s+for\s+(.+?)(?:[.!]|$)/i
+      )
+      if (proposedMatch) {
+        return {
+          requestedServices: proposedMatch[2].trim(),
+          offeredCommission: `${proposedMatch[1]}%`,
+          sourceMessage: text,
+        }
+      }
+
+      const freeformMatch = text.match(
+        /i want\s+(.+?)\s+services\s+at\s+(\d+(?:\.\d+)?)%\s+commission/i
+      )
+      if (freeformMatch) {
+        return {
+          requestedServices: freeformMatch[1].trim(),
+          offeredCommission: `${freeformMatch[2]}%`,
+          sourceMessage: text,
+        }
+      }
+
+      const commissionOnlyMatch = text.match(/(\d+(?:\.\d+)?)%\s*commission/i)
+      if (commissionOnlyMatch) {
+        return {
+          requestedServices: "Custom services",
+          offeredCommission: `${commissionOnlyMatch[1]}%`,
+          sourceMessage: text,
+        }
+      }
+
+      return null
+    }
+
+    const activeThreadId = String(
+      selectedThreadDetail?.id || state?.selectedChannel?.id || ""
+    ).trim()
+
+    const candidateMessages = [...messages]
+      .filter((msg) => {
+        const messageThreadId = String(msg?.threadId || "").trim()
+        if (activeThreadId && messageThreadId && messageThreadId !== activeThreadId) {
+          return false
+        }
+        if (msg?.messageType && msg.messageType !== "notification") {
+          return false
+        }
+        const text = String(msg?.message || msg?.content || "").trim()
+        return /buyer selected|buyer proposed|commission|tier/i.test(text)
+      })
+      .sort((a, b) => {
+        const left = new Date(a?.createdAt || 0).getTime()
+        const right = new Date(b?.createdAt || 0).getTime()
+        return right - left
+      })
+
+    for (const item of candidateMessages) {
+      const parsed = parseNegotiationOfferSummary(
+        String(item?.message || item?.content || "")
+      )
+      if (parsed) return parsed
+    }
+
+    return null
+  }, [messages, selectedThreadDetail?.id, state?.selectedChannel?.id])
+  const isNegotiationInProgress =
+    normalizedNegotiationStatus === "NEGOTIATION_PENDING" ||
+    normalizedNegotiationStatus === "OFFER_SENT"
+  const isNegotiationDeclined = normalizedNegotiationStatus === "DECLINED"
+  const shouldLockChatInput = isNegotiationInProgress || isNegotiationDeclined
 
   const wrapperClassName = embedded
     ? "max-w-full min-h-[calc(100vh-6rem)] flex flex-col"
@@ -5184,6 +5750,7 @@ export default function ChatBoxComponent(props: any) {
                                       currentUserData={userData}
                                       propertyId={selectedThreadDetail?.propertyId || snapzPropertyId}
                                       listingId={selectedThreadDetail?.listingId || snapzListingId}
+                                      engagementId={selectedThreadDetail?.engagementId}
                                       propertyName={
                                         selectedThreadDetail?.propertyName ||
                                         propertyData?.listing?.courtesyOf
@@ -5233,6 +5800,56 @@ export default function ChatBoxComponent(props: any) {
                           className="ms-2 mb-2 sm:ms-5 scrollbar-hide sm:me-5 overflow-auto h-[calc(96vh-16rem)] sm:h-[calc(96vh-18rem)]"
                         >
                           <div className="space-y-6 me-4">
+                            {normalizedNegotiationStatus === "NEGOTIATION_PENDING" && (
+                              <>
+                                {isLoadingAgentTiers ? (
+                                  <div className="rounded-2xl border border-orange-100 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm">
+                                    Loading agent tier preferences...
+                                  </div>
+                                ) : agentTiers.length > 0 ? (
+                                  <NegotiationCard
+                                    tiers={agentTiers}
+                                    onSelectTier={(tier) => handleSelectTier(tier)}
+                                    onNegotiate={(offer) => handleNegotiate(offer)}
+                                    status={selectedThreadDetail.status}
+                                  />
+                                ) : (
+                                  <div className="rounded-2xl border border-orange-100 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm">
+                                    Agent has not configured tier preferences yet.
+                                  </div>
+                                )}
+                              </>
+                            )}
+                            {normalizedNegotiationStatus === "OFFER_SENT" && (
+                              <div className="rounded-2xl border border-orange-200 bg-white px-4 py-3 text-sm text-gray-700 shadow-sm">
+                                <p className="font-medium text-gray-800">
+                                  Offer sent to agent. Waiting for agent response.
+                                </p>
+                                <div className="mt-2 rounded-md border border-orange-100 bg-orange-50 px-3 py-2">
+                                  <div className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-1 text-xs sm:text-sm">
+                                    <span className="text-gray-500">Requested Services</span>
+                                    <span className="text-right font-medium text-gray-800">
+                                      {negotiationOfferSummary?.requestedServices || "Not specified"}
+                                    </span>
+                                    <span className="text-gray-500">Offered Commission</span>
+                                    <span className="text-right font-medium text-gray-800">
+                                      {negotiationOfferSummary?.offeredCommission || "Not specified"}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            {normalizedNegotiationStatus === "DECLINED" && (
+                              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
+                                Agent declined your negotiation offer. Chat is locked for this thread.
+                              </div>
+                            )}
+                            {normalizedNegotiationStatus === "ACCEPTED" && (
+                              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 shadow-sm">
+                                Negotiation accepted. Chat is now unlocked.
+                              </div>
+                            )}
+
                             {Object.entries(groupedMessages)
                               .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
                               .map(([dateKey, dayMessages]) => {
@@ -5257,11 +5874,35 @@ export default function ChatBoxComponent(props: any) {
                                       {[...dayMessages]
                                         .sort((a, b) => new Date(a.createdAt ?? 0).getTime() - new Date(b?.createdAt ?? 0).getTime())
                                         .map((message, index) => {
-                                          const isSender = message.senderId === userData?.id;
+                                          const resolvedMessageSenderId = pickFirstString(
+                                            message?.senderId,
+                                            (message as any)?.userId,
+                                            (message as any)?.sender?.id,
+                                            (message as any)?.createdBy,
+                                          );
+                                          const isSender =
+                                            !!resolvedMessageSenderId &&
+                                            normalizeComparableId(resolvedMessageSenderId) ===
+                                            normalizeComparableId(userData?.id || user?.id);
                                           const isLastMessage = index === dayMessages?.length - 1;
                                           const formattedTime = format(new Date(message?.createdAt ?? 0), "hh:mm a");
                                           const receiver = threadParticipants.find(
-                                            (p: any) => p.id === message.senderId && p.id !== userData?.id
+                                            (p: any) => {
+                                              const participantId = pickFirstString(
+                                                p?.id,
+                                                p?.user?.id,
+                                                p?.userId,
+                                                p?.user?.userId,
+                                              );
+                                              if (!participantId) return false;
+                                              const normalizedParticipantId = normalizeComparableId(participantId);
+                                              return (
+                                                normalizedParticipantId ===
+                                                normalizeComparableId(resolvedMessageSenderId) &&
+                                                normalizedParticipantId !==
+                                                normalizeComparableId(userData?.id || user?.id)
+                                              );
+                                            }
                                           );
                                           const receiverImage = resolveProfileImage(receiver);
                                           const senderImage = resolveProfileImage(userData) || resolveProfileImage(user);
@@ -5599,8 +6240,17 @@ export default function ChatBoxComponent(props: any) {
                           {/* File Upload with dropdown */}
                           <div className="relative">
                             <button
-                              className="cursor-pointer  p-1 sm:p-2 rounded-full hover:bg-[#FAF9F5]"
-                              onClick={toggleUploadMenu}
+                              disabled={shouldLockChatInput}
+                              className={`p-1 sm:p-2 rounded-full ${shouldLockChatInput
+                                ? "cursor-not-allowed opacity-40"
+                                : "cursor-pointer hover:bg-[#FAF9F5]"
+                                }`}
+                              onClick={() => {
+                                if (shouldLockChatInput) {
+                                  return
+                                }
+                                toggleUploadMenu()
+                              }}
                             >
                               <FolderOpenDot className="h-4 w-4 sm:h-5 sm:w-5 text-green-700" />
                             </button>
@@ -5657,8 +6307,17 @@ export default function ChatBoxComponent(props: any) {
                           <div className="relative">
                             <button
                               type="button"
-                              className="p-1 sm:p-2 rounded-full bg-[#FAF9F5] hover:bg-[#FAF9F5]"
-                              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                              disabled={shouldLockChatInput}
+                              className={`p-1 sm:p-2 rounded-full bg-[#FAF9F5] ${shouldLockChatInput
+                                ? "cursor-not-allowed opacity-40"
+                                : "hover:bg-[#FAF9F5]"
+                                }`}
+                              onClick={() => {
+                                if (shouldLockChatInput) {
+                                  return
+                                }
+                                setShowEmojiPicker(!showEmojiPicker)
+                              }}
                             >
                               <Smile className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" />
                             </button>
@@ -5683,20 +6342,30 @@ export default function ChatBoxComponent(props: any) {
                             className="flex-1 py-1 sm:py-2 px-2 sm:px-4"
                             onSubmit={(e) => {
                               e.preventDefault();
+                              if (shouldLockChatInput) {
+                                return
+                              }
                               handleSendMessage();
                             }}
                           >
                             <Input
                               className="flex-1 py-1 sm:py-2 px-2 sm:px-4 text-xs sm:text-sm border rounded-lg focus:outline-none"
-                              placeholder="Type a message..."
+                              placeholder={shouldLockChatInput
+                                ? normalizedNegotiationStatus === "DECLINED"
+                                  ? "Negotiation declined. Chat is locked."
+                                  : "Finish negotiation to chat..."
+                                : "Type a message..."}
                               value={message}
                               onChange={handleInputChange}
+                              disabled={shouldLockChatInput}
                             />
+
                           </form>
 
                           {/* Send Button */}
                           <Button
                             size="icon"
+                            disabled={shouldLockChatInput}
                             className="bg-black text-white rounded-xl flex h-8 w-8 sm:h-10 sm:w-auto sm:px-3 sm:gap-2 items-center justify-center"
                             onClick={handleSendMessage}
                           > <SendHorizontal className="h-3 w-3 sm:h-4 sm:w-4" />

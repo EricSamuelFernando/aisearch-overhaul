@@ -627,6 +627,52 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
     },
   });
 
+  const getAgentTiersForThreadMutation = useMutation({
+    mutationKey: ['getAgentTiersForThread'],
+    mutationFn: async (threadId: string) => {
+      const token = getAuthToken() || localStorage.getItem('userAccessToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      try {
+        const response = await axios.post(
+          GRAPHQL_URI,
+          {
+            query: `
+              query GetAgentTiersForThread($threadId: String!) {
+                getAgentTiersForThread(threadId: $threadId) {
+                  threadId
+                  agentId
+                  agentEmail
+                  tiers
+                }
+              }
+            `,
+            variables: { threadId },
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        if (response.status !== 200 || response.data.errors) {
+          throw new Error(
+            response.data?.errors?.[0]?.message || 'Failed to fetch agent tiers',
+          );
+        }
+
+        return response.data?.data?.getAgentTiersForThread;
+      } catch (error) {
+        console.error('Error fetching agent tiers:', error);
+        throw error;
+      }
+    },
+  });
+
   const getAllSnapzRequest = useMutation({
     mutationKey: ['get_snapz_request'],
     mutationFn: async (snapData: any) => {
@@ -890,6 +936,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
     searchEngagedProperty,
     addParticipant,
     getAllThreadByIdMutation,
+    getAgentTiersForThreadMutation,
     getAllSnapzRequest,
     updateSnapzById,
     getAllSnapzProperties,

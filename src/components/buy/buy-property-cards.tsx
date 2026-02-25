@@ -23,17 +23,21 @@ type MyComponentRef = RefObject<HTMLDivElement>;
 type Props = {
   forwardedRef?: MyComponentRef;
   selectedProperty: string;
+  propertiesOverride?: any[] | null;
 };
 
 const ITEMS_PER_PAGE = 10;
 
-function BuyPropertyCards({ forwardedRef, selectedProperty }: Props) {
+function BuyPropertyCards({ forwardedRef, selectedProperty, propertiesOverride }: Props) {
   const router = useRouter();
   const { currentView } = useProperty();
   const { ref } = useInView();
   const { saveMlsProperty } = usePropertyActions();
   const { aiData } = usePropertiesContext();
   const { allProperties, isLoading } = usePropertyStore();
+  const sourceProperties = Array.isArray(propertiesOverride)
+    ? propertiesOverride
+    : allProperties;
   const userData = useSelector((state: any) => state.auth.user);
   const { getAllSnaps } = useUserSnapAPIs();
   const [snaps, setSnaps] = useState<any[]>([]);
@@ -57,20 +61,26 @@ function BuyPropertyCards({ forwardedRef, selectedProperty }: Props) {
   // Reset to page 1 when search results change
   useEffect(() => {
     setCurrentPage(1);
-  }, [allProperties?.length]);
+  }, [sourceProperties?.length]);
 
   // Pagination: 5 rows x 2 columns = 10 cards per page for map view.
 
   const totalPages = useMemo(
-    () => Math.max(1, Math.ceil((allProperties?.length || 0) / ITEMS_PER_PAGE)),
-    [allProperties],
+    () =>
+      Math.max(
+        1,
+        Math.ceil((sourceProperties?.length || 0) / ITEMS_PER_PAGE),
+      ),
+    [sourceProperties],
   );
 
   const paginatedProperties = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     const end = start + ITEMS_PER_PAGE;
-    return Array.isArray(allProperties) ? allProperties.slice(start, end) : [];
-  }, [allProperties, currentPage]);
+    return Array.isArray(sourceProperties)
+      ? sourceProperties.slice(start, end)
+      : [];
+  }, [sourceProperties, currentPage]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -89,23 +99,25 @@ function BuyPropertyCards({ forwardedRef, selectedProperty }: Props) {
 
   // If a selected property is outside the current page, jump to the correct page first.
   useEffect(() => {
-    if (!selectedProperty || !Array.isArray(allProperties)) return;
-    const idx = allProperties.findIndex((p: any) => p.id === selectedProperty);
+    if (!selectedProperty || !Array.isArray(sourceProperties)) return;
+    const idx = sourceProperties.findIndex(
+      (p: any) => p.id === selectedProperty,
+    );
     if (idx === -1) return;
     const targetPage = Math.floor(idx / ITEMS_PER_PAGE) + 1;
     if (targetPage !== currentPage) {
       setCurrentPage(targetPage);
     }
-  }, [selectedProperty, allProperties, currentPage]);
+  }, [selectedProperty, sourceProperties, currentPage]);
 
-  useEffect(() => {
-    if (selectedProperty) {
-      const element = document.getElementById(selectedProperty);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }
-  }, [selectedProperty, currentPage]);
+  // useEffect(() => {
+  //   if (selectedProperty) {
+  //     const element = document.getElementById(selectedProperty);
+  //     if (element) {
+  //       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  //     }
+  //   }
+  // }, [selectedProperty, currentPage]);
   
   return (
     <div ref={forwardedRef} className="flex h-full flex-col">
@@ -119,7 +131,7 @@ function BuyPropertyCards({ forwardedRef, selectedProperty }: Props) {
             className={cn(
               'w-full',
               currentView === 'map'
-                ? 'grid grid-cols-1 gap-y-4 gap-x-8 md:grid-cols-2 md:gap-x-6 md:gap-y-6 lg:grid-cols-2'
+                ? 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2'
                 : 'grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4 lg:grid-cols-[repeat(4,360px)] lg:gap-x-8 lg:justify-center xl:grid-cols-[repeat(4,380px)]',
             )}
           >
@@ -134,7 +146,8 @@ function BuyPropertyCards({ forwardedRef, selectedProperty }: Props) {
               </>
             ) : (
               <>
-                {Array.isArray(allProperties) && allProperties.length > 0
+                {Array.isArray(sourceProperties) &&
+                sourceProperties.length > 0
                   ? paginatedProperties.map((prop: any) => {
                       const isSelected = prop.id === selectedProperty;
                       return (
@@ -150,7 +163,11 @@ function BuyPropertyCards({ forwardedRef, selectedProperty }: Props) {
                             currentView === 'grid' ? 'w-[320px]' : '',
                           )}
                         >
-                          <PropertyCards {...prop} />
+                          <PropertyCards
+                            {...prop}
+                            snaps={snaps}
+                            fetchSnaps={fetchSnaps}
+                          />
                         </div>
                       );
                     })
@@ -210,7 +227,7 @@ function BuyPropertyCards({ forwardedRef, selectedProperty }: Props) {
           </div>
 
           <div className="text-sm text-gray-600">
-            {`${allProperties?.length || 0} homes found (showing ${(currentPage - 1) * ITEMS_PER_PAGE + 1}-${Math.min(allProperties?.length || 0, currentPage * ITEMS_PER_PAGE)})`}
+            {`${sourceProperties?.length || 0} homes found (showing ${(currentPage - 1) * ITEMS_PER_PAGE + 1}-${Math.min(sourceProperties?.length || 0, currentPage * ITEMS_PER_PAGE)})`}
           </div>
         </div>
       ) : null}

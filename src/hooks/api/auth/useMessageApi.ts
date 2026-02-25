@@ -263,6 +263,10 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
   const addParticipantsToThread = useMutation({
     mutationKey: ['addUserAgentToThread'],
     mutationFn: async (data: any) => {
+      const token = getAuthToken() || localStorage.getItem('userAccessToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
       try {
         const response = await axios.post(
           GRAPHQL_URI,
@@ -278,6 +282,12 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
                 }
               }`,
             variables: { ...data }, // Spread the data to get threadId and email
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
           }
         );
 

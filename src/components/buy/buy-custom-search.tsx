@@ -483,7 +483,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
   const popupRef = React.useRef<HTMLDivElement>(null);
   const toggleButtonRef = React.useRef<HTMLButtonElement>(null);
   const [isFooterVisible, setIsFooterVisible] = React.useState(false);
-  const lastAutoSearchRef = React.useRef<null | string>(null)
+  const lastAutoSearchRef = React.useRef<string | null>(null);
 
   const { user } = useAuth()
   const { email } = useRegister()
@@ -592,7 +592,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
     return () => observer.disconnect();
   }, []);
 
-  const sendSearchRequest = async (queryToUse?: string) => {
+  const sendSearchRequest = async (queryToUse = searchString) => {
     if (searchCount + 1 >= 6 && !user?.email) {
       error({
         message:
@@ -801,10 +801,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
           )}
           onSubmit={handleSubmit}
           style={{
-            width:
-              currentView === 'map'
-                ? '100%'
-                : 'calc(100% - 3rem)',
+            width: currentView === 'map' ? '100%' : 'calc(100% - 3rem)',
           }}
         >
           <div

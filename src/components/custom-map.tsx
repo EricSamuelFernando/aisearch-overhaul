@@ -1248,26 +1248,32 @@ const CustomMap: React.FC<Props> = ({
   }, []);
 
   const onUnmount = () => setMap(null);
+  const previousSearchQueryRef = React.useRef(searchQuery);
+
   useEffect(() => {
-    if (Array.isArray(drawFilteredMarkerIds)) {
-      // Keep the user's current viewport after drawing/filtering instead of auto-fitting all markers again.
+    // If we've already drawn a polygon or are in the middle of a search, 
+    // don't auto-adjust the map as it might trigger an infinite idle loop.
+    if (Array.isArray(drawFilteredMarkerIds) || recentDataClickRef.current) {
       return;
     }
-    if (mapInstance && markers.length > 0) {
+
+    const searchQueryChanged = previousSearchQueryRef.current !== searchQuery;
+    previousSearchQueryRef.current = searchQuery;
+
+    // Only auto-center/fit bounds if markers exist AND (it's the initial load OR searchQuery changed)
+    // Avoid fitting bounds just because 'markers' changed due to a map-move search.
+    if (mapInstance && markers.length > 0 && searchQueryChanged) {
       if (markers.length === 1) {
         const { lat, lng } = markers[0];
         mapInstance.setCenter({ lat, lng });
-        mapInstance.setZoom(zoom); // use passed prop
+        mapInstance.setZoom(zoom);
       } else {
         const bounds = new window.google.maps.LatLngBounds();
         markers.forEach(({ lat, lng }) => bounds.extend({ lat, lng }));
         mapInstance.fitBounds(bounds, 50);
-        const { lat, lng } = markers[0];
-        mapInstance.setCenter({ lat, lng });
-        mapInstance.setZoom(zoom);
       }
     }
-  }, [mapInstance, markers, zoom, drawFilteredMarkerIds]);
+  }, [mapInstance, markers, zoom, drawFilteredMarkerIds, searchQuery]);
 
   const submitExploreSearch = useCallback(() => {
     const query = exploreSearchInput.trim();
@@ -1552,6 +1558,16 @@ const CustomMap: React.FC<Props> = ({
           mapId: googleMapsMapId,
           zoomControlOptions: {
             position: google.maps.ControlPosition.RIGHT_BOTTOM,
+          },
+          minZoom: 3,
+          restriction: {
+            latLngBounds: {
+              north: 85,
+              south: -85,
+              west: -180,
+              east: 180,
+            },
+            strictBounds: true,
           },
           styles: [
             {

@@ -4,7 +4,12 @@ import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
 
 export const useUserAgentMessageApi = (handleCb?: () => void) => {
-  const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql";
+  const isLocalhostRuntime =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+  const GRAPHQL_URI = isLocalhostRuntime
+    ? "http://localhost:4000/auth/graphql"
+    : process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql";
 
   const createUserAgentThreadMutation = useMutation({
     mutationKey: ['create-user-agent-thread'],
@@ -198,7 +203,7 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
           }
         );
 
-        if (response.status !== 200) {
+        if (response.status !== 200 || response.data?.errors) {
           throw new Error(response?.data?.errors?.[0]?.message || 'Failed to fetch threads');
         }
 
@@ -254,7 +259,7 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
           }
         );
 
-        if (response.status !== 200) {
+        if (response.status !== 200 || response.data?.errors) {
           throw new Error(response?.data?.errors?.[0]?.message || 'Failed to fetch threads');
         }
 

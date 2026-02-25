@@ -23,7 +23,7 @@ interface NegotiationCardProps {
         offeredCommission: number;
         message: string;
     }) => void;
-    status: string;
+    status?: string;
 }
 
 const NegotiationCard: React.FC<NegotiationCardProps> = ({ tiers, onSelectTier, onNegotiate, status }) => {
@@ -253,7 +253,7 @@ const NegotiationCard: React.FC<NegotiationCardProps> = ({ tiers, onSelectTier, 
                         </Button>
                         <p className="text-center text-xs text-gray-500">
                             <Sparkles className="mr-1 inline h-3 w-3" />
-                            Current status: {status.replace(/_/g, ' ')}
+                            Current status: {(status || 'NEGOTIATION_PENDING').replace(/_/g, ' ')}
                         </p>
                     </div>
                 </DialogContent>

@@ -596,7 +596,6 @@ const PropertyPreview: React.FC = () => {
       email: inviteAgentEmail,
       is_accepted: "pending",
       engagementId: engagementIdForModal,
-      status: "NEGOTIATION_PENDING",
       // threadId is now optional in the backend DTO
       ...(engagedProperty?.threadId && { threadId: engagedProperty.threadId }),
     };
@@ -2242,7 +2241,7 @@ const PropertyPreview: React.FC = () => {
                         <p>{aiAnswer}</p>
                       </div>
                     ) : (
-                      <p>Your AI real estate assistant. We'll answer pretty much any question about this home.</p>
+                      <p>Your AI real estate assistant. We&apos;ll answer pretty much any question about this home.</p>
                     )}
                   </div>
 

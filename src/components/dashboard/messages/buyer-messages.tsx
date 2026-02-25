@@ -26,7 +26,7 @@ function BuyerMessagesPanel() {
   const [isRead, setIsRead] = useState(false);
   const [search, setSearch] = useState('');
   const searchParams = useSearchParams();
-  const [, setMessageThreads] = useAtom(messageThreadsAtom);
+  const [cachedMessageThreads, setMessageThreads] = useAtom(messageThreadsAtom);
   const { setState } = useContext(SocketContext);
   const { getAllThreadsByUserAgentMutation } = useUserAgentMessageApi();
   const { getAllThreadsByUserMutation, getThreadById } = useAgentConversationApi();
@@ -42,11 +42,15 @@ function BuyerMessagesPanel() {
       const userId = String(userData?.id || '').trim();
       if (!userId) {
         setLoading(false);
-        setThreads([]);
-        setMessageThreads([]);
+        if (Array.isArray(cachedMessageThreads) && cachedMessageThreads.length > 0) {
+          setThreads(cachedMessageThreads as any);
+        }
         return;
       }
       setLoading(true);
+      if (Array.isArray(cachedMessageThreads) && cachedMessageThreads.length > 0) {
+        setThreads(cachedMessageThreads as any);
+      }
       const payload = {
         userId,
         threadName: search,
@@ -92,6 +96,9 @@ function BuyerMessagesPanel() {
       setMessageThreads(nextThreads);
     } catch (error) {
       console.log('error : ', error);
+      if (Array.isArray(cachedMessageThreads) && cachedMessageThreads.length > 0) {
+        setThreads(cachedMessageThreads as any);
+      }
     } finally {
       setLoading(false);
     }

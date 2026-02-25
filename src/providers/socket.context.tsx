@@ -483,42 +483,41 @@ function SocketProvider({ children }: { children: ReactNode }) {
 
       const handleNewMessage = (messageData: any) => handleIncomingMessage(messageData, "newMessage");
       const handleRecievedMessage = (messageData: any) => handleIncomingMessage(messageData, "recievedMessage");
+      const handleNotificationCreated = (payload: any) => {
+        console.log("[SocketContext] notification_created:", payload);
+        queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      };
+      const handleCreateOrJoinResponse = (response: any) => {
+        console.log('[SocketContext] createOrJoinConversation_response:', response);
+      };
+      const handleSendMessageResponse = (response: any) => {
+        console.log('[SocketContext] sendMessage_response:', response);
+      };
+      const handleJoinRoomResponse = (response: any) => {
+        console.log('[SocketContext] joinRoom_response:', response);
+      };
+      const handleLeaveRoomResponse = (response: any) => {
+        console.log('[SocketContext] leaveRoom_response:', response);
+      };
 
       socket.on("newMessage", handleNewMessage);
       socket.on("recievedMessage", handleRecievedMessage);
-      socket.on("notification_created", (payload: any) => {
-        console.log("[SocketContext] notification_created:", payload);
-        queryClient.invalidateQueries({ queryKey: ["notifications"] });
-      });
+      socket.on("notification_created", handleNotificationCreated);
 
       // Handle websocket response events
-      socket.on("createOrJoinConversation_response", (response: any) => {
-        console.log('[SocketContext] createOrJoinConversation_response:', response);
-      });
-
-      socket.on("sendMessage_response", (response: any) => {
-        console.log('[SocketContext] sendMessage_response:', response);
-      });
-
-      socket.on("joinRoom_response", (response: any) => {
-        console.log('[SocketContext] joinRoom_response:', response);
-      });
-
-      socket.on("leaveRoom_response", (response: any) => {
-        console.log('[SocketContext] leaveRoom_response:', response);
-      });
+      socket.on("createOrJoinConversation_response", handleCreateOrJoinResponse);
+      socket.on("sendMessage_response", handleSendMessageResponse);
+      socket.on("joinRoom_response", handleJoinRoomResponse);
+      socket.on("leaveRoom_response", handleLeaveRoomResponse);
 
       return () => {
-        socket.off("recievedMessage");
-        socket.off("invitation_updated");
-        socket.off("new_offer_recieved");
         socket.off("newMessage", handleNewMessage);
         socket.off("recievedMessage", handleRecievedMessage);
-        socket.off("notification_created");
-        socket.off("createOrJoinConversation_response");
-        socket.off("sendMessage_response");
-        socket.off("joinRoom_response");
-        socket.off("leaveRoom_response");
+        socket.off("notification_created", handleNotificationCreated);
+        socket.off("createOrJoinConversation_response", handleCreateOrJoinResponse);
+        socket.off("sendMessage_response", handleSendMessageResponse);
+        socket.off("joinRoom_response", handleJoinRoomResponse);
+        socket.off("leaveRoom_response", handleLeaveRoomResponse);
       };
     }
   }, [messageThreads, socket, user?.id, queryClient]);

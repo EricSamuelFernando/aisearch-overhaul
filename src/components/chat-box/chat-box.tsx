@@ -2378,6 +2378,7 @@ import { useAtom } from "jotai"
 import { messageThreadsAtom } from "@/hooks/atoms"
 import { Loader } from "@mantine/core"
 import { usePropertyServiceAPI } from "@/hooks/api/agent/useAgentProperty"
+import { usePropertyAPI } from "@/hooks/api/auth/engagementAPI"
 import { useRepoManagementApi } from "@/hooks/api/document/useRepoManagement"
 import { useNotificationApi } from "@/hooks/api/user/useNotification"
 import { error, success } from "../alert/notify"
@@ -2602,6 +2603,7 @@ export default function ChatBoxComponent(props: any) {
   const [isLoadingAgentTiers, setIsLoadingAgentTiers] = useState(false);
   const fetchedTierKeyRef = useRef<string>("");
   const tierFetchRequestIdRef = useRef(0);
+  const threadMessageRequestIdRef = useRef(0);
 
   const normalizeNegotiationStatus = (value: unknown) => {
     const normalized = String(value || "").trim().toUpperCase()
@@ -2610,6 +2612,83 @@ export default function ChatBoxComponent(props: any) {
     if (normalized === "AGREED") return "ACCEPTED"
     return normalized
   }
+
+  const deriveNegotiationStatusFromMessages = useCallback((threadMessages: any[]): string => {
+    if (!Array.isArray(threadMessages) || threadMessages.length === 0) {
+      return "NEGOTIATION_PENDING";
+    }
+
+    let hasOfferSignal = false;
+    let hasAcceptedSignal = false;
+    let hasDeclinedSignal = false;
+    let hasMeaningfulChatMessage = false;
+
+    threadMessages.forEach((rawMessage: any) => {
+      const messageType = String(rawMessage?.messageType || rawMessage?.message_type || "").trim().toLowerCase();
+      const text = String(rawMessage?.message || rawMessage?.content || "").trim();
+      const normalizedText = text.toLowerCase();
+
+      if (!normalizedText) return;
+
+      if (
+        (normalizedText.includes("negotiation") && normalizedText.includes("accepted")) ||
+        normalizedText.includes("chat is now unlocked")
+      ) {
+        hasAcceptedSignal = true;
+      }
+      if (normalizedText.includes("declined")) {
+        hasDeclinedSignal = true;
+      }
+      if (/buyer selected|buyer proposed|commission|tier/.test(normalizedText)) {
+        hasOfferSignal = true;
+      }
+
+      const isNotification = messageType === "notification";
+      const isInitialInvitationMessage = normalizedText === "let's connect and talk";
+      if (!isNotification && !isInitialInvitationMessage) {
+        hasMeaningfulChatMessage = true;
+      }
+    });
+
+    if (hasDeclinedSignal) return "DECLINED";
+    if (hasAcceptedSignal) return "ACCEPTED";
+    if (hasOfferSignal) {
+      return hasMeaningfulChatMessage ? "ACCEPTED" : "OFFER_SENT";
+    }
+    if (hasMeaningfulChatMessage) return "ACCEPTED";
+    return "NEGOTIATION_PENDING";
+  }, []);
+
+  const resolveThreadNegotiationStatus = useCallback(
+    (threadLike: any, fallbackMessages?: any[]) => {
+      const explicitStatus = normalizeNegotiationStatus(threadLike?.status);
+      const sourceMessages = Array.isArray(fallbackMessages)
+        ? fallbackMessages
+        : Array.isArray(threadLike?.messages)
+          ? threadLike.messages
+          : [];
+      const derivedStatus = deriveNegotiationStatusFromMessages(sourceMessages);
+
+      if (!explicitStatus) return derivedStatus;
+
+      // Keep terminal states when backend provides them.
+      if (explicitStatus === "ACCEPTED" || explicitStatus === "DECLINED") {
+        return explicitStatus;
+      }
+
+      // Upgrade stale OFFER_SENT / NEGOTIATION_PENDING when chat messages prove accepted flow.
+      if (derivedStatus === "ACCEPTED" || derivedStatus === "DECLINED") {
+        return derivedStatus;
+      }
+
+      if (explicitStatus === "OFFER_SENT" || derivedStatus === "OFFER_SENT") {
+        return "OFFER_SENT";
+      }
+
+      return explicitStatus;
+    },
+    [deriveNegotiationStatusFromMessages],
+  );
 
   const applyNegotiationStatusToThread = useCallback(
     (targetThreadId: string, nextStatusRaw: unknown) => {
@@ -3355,12 +3434,24 @@ export default function ChatBoxComponent(props: any) {
       messageAny?.payload?.fileType ||
       messageAny?.payload?.file_type ||
       getMimeTypeFromUrl(fileUrlCandidate)
+    const normalizedFileUrlCandidate = String(fileUrlCandidate || "").trim()
+    const hasFileReference =
+      !!normalizedFileUrlCandidate &&
+      (
+        isProbablyUrl(normalizedFileUrlCandidate) ||
+        normalizedFileUrlCandidate.startsWith("/") ||
+        normalizedFileUrlCandidate.startsWith("blob:")
+      )
     const finalMessageType =
       normalizedMessageType === 'system'
         ? 'system'
-        : normalizedMessageType === 'text' && (fileUrlCandidate || derivedFileType)
-          ? 'file'
-          : normalizedMessageType
+        : normalizedMessageType === "notification"
+          ? "notification"
+          : normalizedMessageType === "file"
+            ? (hasFileReference ? "file" : "text")
+            : normalizedMessageType === "text"
+              ? (hasFileReference ? "file" : "text")
+              : normalizedMessageType
 
     const normalizedCreatedAt =
       resolveMessageCreatedAt(messageAny) ||
@@ -3376,9 +3467,42 @@ export default function ChatBoxComponent(props: any) {
       message: decryptedMessage,
       messageType: finalMessageType,
       fileType: derivedFileType,
-      fileUrl: fileUrlCandidate || messageAny?.fileUrl
+      fileUrl: hasFileReference ? normalizedFileUrlCandidate : (messageAny?.fileUrl || "")
     }
   }
+
+  const mergeUniqueMessages = useCallback((...messageCollections: any[][]) => {
+    const mergedMessages = messageCollections
+      .flatMap((collection) => (Array.isArray(collection) ? collection : []))
+      .filter(Boolean)
+      .map((rawMessage: any) =>
+        normalizeMessage(rawMessage, { fallbackCreatedAtToNow: true }),
+      )
+
+    const dedupedMessages = new Map<string, Message>()
+    mergedMessages.forEach((message: any) => {
+      const dedupeKey =
+        String(message?.id || "").trim() ||
+        [
+          resolveMessageCreatedAt(message),
+          resolveMessageSenderId(message),
+          resolveMessageReceiverId(message),
+          String(message?.message || "").trim(),
+          String(message?.messageType || "").trim(),
+          String(message?.fileUrl || "").trim(),
+        ].join("::")
+
+      if (!dedupedMessages.has(dedupeKey)) {
+        dedupedMessages.set(dedupeKey, message)
+      }
+    })
+
+    return Array.from(dedupedMessages.values()).sort(
+      (a: any, b: any) =>
+        new Date(b?.createdAt || b?.timestamp || 0).getTime() -
+        new Date(a?.createdAt || a?.timestamp || 0).getTime(),
+    )
+  }, [normalizeMessage])
 
   const getSystemMessageText = (message: Message) => {
     const actor = message?.meta?.actor?.name || "Someone";
@@ -3533,9 +3657,16 @@ export default function ChatBoxComponent(props: any) {
     userData?.id,
   ])
 
-  const { getAllConversationMessagesMutation, getThreadById, getAgentTiersForThreadMutation } = useAgentConversationApi()
+  const {
+    getAllConversationMessagesMutation,
+    getThreadById,
+    getAgentTiersForThreadMutation,
+    getEngagedPropertyByPropertyId,
+    getAllEngagedProperties,
+  } = useAgentConversationApi()
   const { getAllUserAgentMessagesMutation, createUserAgentThreadMutation } = useUserAgentMessageApi()
   const { externalAgentIvitationMutation } = useUserAuthApi()
+  const { propertyEngagementMutation } = usePropertyAPI()
   const { uploadNewFile } = usePropertyServiceAPI()
   const { createRepoWithUploadedFile } = useRepoManagementApi()
   const { markThreadAsReadMutation } = useNotificationApi()
@@ -3731,13 +3862,21 @@ export default function ChatBoxComponent(props: any) {
         (participant: any) => participant?.id && participant.id !== userData?.id,
       )?.id ||
       null
-    setExpandedEntryKey(resolvedAgentId || thread?.id || null)
-    setSelectedThreadDetail(thread)
-    localStorage.setItem('threadId', thread?.id || '');
+    const resolvedStatus = resolveThreadNegotiationStatus(thread, thread?.messages as any[]);
+    const selectedThreadWithStatus: any = resolvedStatus
+      ? { ...thread, status: resolvedStatus }
+      : thread;
 
-    setSelectedThread(thread?.id)
-    if (thread?.id) {
-      const normalizedId = String(thread.id).trim().toLowerCase();
+    setExpandedEntryKey(resolvedAgentId || selectedThreadWithStatus?.id || null)
+    setSelectedThreadDetail(selectedThreadWithStatus)
+    if (selectedThreadWithStatus?.id && resolvedStatus) {
+      applyNegotiationStatusToThread(selectedThreadWithStatus.id, resolvedStatus)
+    }
+    localStorage.setItem('threadId', selectedThreadWithStatus?.id || '');
+
+    setSelectedThread(selectedThreadWithStatus?.id)
+    if (selectedThreadWithStatus?.id) {
+      const normalizedId = String(selectedThreadWithStatus.id).trim().toLowerCase();
       setLocallyReadThreadIds((prev) => ({
         ...prev,
         [normalizedId]: Date.now(),
@@ -3797,6 +3936,33 @@ export default function ChatBoxComponent(props: any) {
     setRecieverId(String(resolvedReceiver?.id || ""));
     setRecieverDetail(resolvedReceiver || {});
 
+    if (Array.isArray((thread as any)?.messages) && (thread as any).messages.length > 0) {
+      const scopedThreadIds = new Set(
+        [
+          thread?.id,
+          (thread as any)?.threadId,
+          (thread as any)?.thread_id,
+          (thread as any)?.roomId,
+          (thread as any)?.room_id,
+        ]
+          .map((value) => normalizeComparableId(value))
+          .filter(Boolean),
+      );
+
+      setMessages((prevMessages: any) => {
+        const scopedPrevMessages = Array.isArray(prevMessages)
+          ? prevMessages.filter((rawMessage: any) => {
+            const messageThreadId = normalizeComparableId(
+              resolveMessageThreadId(rawMessage),
+            );
+            return !messageThreadId || scopedThreadIds.has(messageThreadId);
+          })
+          : [];
+
+        return mergeUniqueMessages((thread as any).messages, scopedPrevMessages);
+      });
+    }
+
     // if (TYPE === "messages") {
     getAllThreadMessage(thread?.id)
     // }
@@ -3842,9 +4008,47 @@ export default function ChatBoxComponent(props: any) {
     setExpandedEntryKey(null)
   }
 
+  const buildAgentTierFetchIdCandidates = useCallback((threadLike: any) => {
+    return Array.from(
+      new Set(
+        [
+          threadLike?.id,
+          threadLike?.threadId,
+          threadLike?.thread_id,
+          threadLike?.roomId,
+          threadLike?.room_id,
+          selectedThread,
+        ]
+          .map((value) => String(value || "").trim())
+          .filter(Boolean),
+      ),
+    );
+  }, [selectedThread]);
+
+  const fetchAgentTiersWithTimeout = useCallback(
+    async (threadIdentifier: string, timeoutMs = 4000) => {
+      let timeoutHandle: number | undefined;
+      try {
+        return await Promise.race([
+          getAgentTiersForThreadMutation.mutateAsync(threadIdentifier),
+          new Promise((_, reject) => {
+            timeoutHandle = window.setTimeout(() => {
+              reject(new Error(`Timed out while fetching agent tiers for ${threadIdentifier}`));
+            }, timeoutMs);
+          }),
+        ]);
+      } finally {
+        if (typeof timeoutHandle === "number") {
+          window.clearTimeout(timeoutHandle);
+        }
+      }
+    },
+    [getAgentTiersForThreadMutation],
+  );
+
   useEffect(() => {
     const activeThreadId = String(selectedThreadDetail?.id || selectedThread || "").trim();
-    const normalizedStatus = normalizeNegotiationStatus(selectedThreadDetail?.status);
+    const normalizedStatus = resolveThreadNegotiationStatus(selectedThreadDetail, messages);
     const isNegotiationPending = normalizedStatus === "NEGOTIATION_PENDING";
     const fetchKey = `${activeThreadId}:${normalizedStatus}`;
 
@@ -3864,34 +4068,86 @@ export default function ChatBoxComponent(props: any) {
     tierFetchRequestIdRef.current += 1;
     const requestId = tierFetchRequestIdRef.current;
     setIsLoadingAgentTiers(true);
-    const loadingTimeout = window.setTimeout(() => {
+    const staleLoadingGuard = window.setTimeout(() => {
       if (tierFetchRequestIdRef.current !== requestId) return;
+      fetchedTierKeyRef.current = "";
       setIsLoadingAgentTiers(false);
-    }, 10000);
+    }, 12000);
 
-    getAgentTiersForThreadMutation
-      .mutateAsync(activeThreadId)
-      .then((payload: any) => {
+    const activeThreadSnapshot =
+      selectedThreadDetail?.id
+        ? selectedThreadDetail
+        : Array.isArray(threads)
+          ? threads.find((thread: any) => {
+            const threadIdCandidate = String(thread?.id || "").trim();
+            const roomIdCandidate = String(thread?.roomId || "").trim();
+            return threadIdCandidate === activeThreadId || roomIdCandidate === activeThreadId;
+          })
+          : null;
+    const fetchCandidates = buildAgentTierFetchIdCandidates(
+      activeThreadSnapshot || { id: activeThreadId, roomId: selectedThreadDetail?.roomId },
+    );
+
+    (async () => {
+      let matchedTiers: any[] = [];
+      let lastTierFetchError: any = null;
+
+      try {
+        for (const candidateId of fetchCandidates) {
+          for (let attempt = 1; attempt <= 2; attempt += 1) {
+            if (tierFetchRequestIdRef.current !== requestId) return;
+            try {
+              const payload: any = await fetchAgentTiersWithTimeout(candidateId, 4000);
+              const normalizedTiers = normalizeAgentTiersPayload(payload?.tiers ?? payload);
+              if (normalizedTiers.length > 0) {
+                matchedTiers = normalizedTiers;
+                break;
+              }
+
+              // No tiers payload means retrying the same id is unlikely to help immediately.
+              break;
+            } catch (mutationError: any) {
+              lastTierFetchError = mutationError;
+              console.warn(
+                `[chat-box] Tier fetch attempt ${attempt}/2 failed for ${candidateId}:`,
+                mutationError,
+              );
+              if (attempt < 2) {
+                await new Promise((resolve) => window.setTimeout(resolve, 500));
+              }
+            }
+          }
+          if (matchedTiers.length > 0) break;
+        }
+
         if (tierFetchRequestIdRef.current !== requestId) return;
-        const normalizedTiers = normalizeAgentTiersPayload(payload?.tiers ?? payload);
-        setAgentTiers(normalizedTiers);
-      })
-      .catch((mutationError: any) => {
-        if (tierFetchRequestIdRef.current !== requestId) return;
-        fetchedTierKeyRef.current = "";
-        console.error("[chat-box] Failed to load agent tiers:", mutationError);
-        setAgentTiers((prev) => (prev.length > 0 ? [] : prev));
-      })
-      .finally(() => {
-        window.clearTimeout(loadingTimeout);
-        if (tierFetchRequestIdRef.current !== requestId) return;
+
+        if (matchedTiers.length > 0) {
+          setAgentTiers(matchedTiers);
+        } else {
+          fetchedTierKeyRef.current = "";
+          setAgentTiers((prev) => (prev.length > 0 ? [] : prev));
+          if (lastTierFetchError) {
+            console.error("[chat-box] Failed to load agent tiers:", lastTierFetchError);
+          }
+        }
+
         setIsLoadingAgentTiers(false);
-      });
+      } finally {
+        window.clearTimeout(staleLoadingGuard);
+      }
+    })();
   }, [
+    buildAgentTierFetchIdCandidates,
+    fetchAgentTiersWithTimeout,
+    messages,
     selectedThread,
     selectedThreadDetail?.id,
+    selectedThreadDetail?.roomId,
+    selectedThreadDetail?.messages,
     selectedThreadDetail?.status,
-    getAgentTiersForThreadMutation,
+    resolveThreadNegotiationStatus,
+    threads,
   ]);
 
   useEffect(() => {
@@ -3926,23 +4182,108 @@ export default function ChatBoxComponent(props: any) {
   };
 
   const getAllThreadMessage = async (threadId: string) => {
+    const normalizedThreadId = String(threadId || "").trim();
+    if (!normalizedThreadId) return;
+
+    const requestId = threadMessageRequestIdRef.current + 1;
+    threadMessageRequestIdRef.current = requestId;
+
     try {
-      setMessages([]);
-      getAllUserAgentMessagesMutation.mutate(threadId, {
-        onSuccess: (data) => {
-          const decryptedMessages = data?.data?.messagesByThread?.map((message: Message) =>
-            normalizeMessage(message)
-          );
-          setPendingNewMessageCount(0);
-          setMessages(decryptedMessages || []);
-          if (focusLatestFromNotification) {
-            scrollToLatestMessagesWithRetry();
-          }
-        },
-        onError: (error) => {
-          console.log("Error in mutation: ", error);
-        },
+      const [messagesByThreadResult, conversationsByThreadResult] =
+        await Promise.allSettled([
+          getAllUserAgentMessagesMutation.mutateAsync(normalizedThreadId),
+          getAllConversationMessagesMutation.mutateAsync(normalizedThreadId),
+        ]);
+
+      if (threadMessageRequestIdRef.current !== requestId) return;
+
+      const readSettledMessages = (
+        settledResult: PromiseSettledResult<any>,
+        key: "messagesByThread" | "conversationsByThread",
+      ) => {
+        if (settledResult.status !== "fulfilled") return [];
+        const payload = settledResult.value;
+        const rows = payload?.data?.[key];
+        if (!Array.isArray(rows)) return [];
+        return rows.map((message: Message) => normalizeMessage(message));
+      };
+
+      const userAgentMessages = readSettledMessages(
+        messagesByThreadResult,
+        "messagesByThread",
+      );
+      const conversationMessages = readSettledMessages(
+        conversationsByThreadResult,
+        "conversationsByThread",
+      );
+
+      if (messagesByThreadResult.status === "rejected") {
+        console.warn(
+          "[chat-box] messagesByThread fetch failed:",
+          messagesByThreadResult.reason,
+        );
+      }
+      if (conversationsByThreadResult.status === "rejected") {
+        console.warn(
+          "[chat-box] conversationsByThread fetch failed:",
+          conversationsByThreadResult.reason,
+        );
+      }
+
+      const activeThreadSnapshot =
+        selectedThreadDetail?.id
+          ? selectedThreadDetail
+          : Array.isArray(threads)
+            ? threads.find((thread: any) => {
+              const candidateThreadId = String(thread?.id || "").trim();
+              const candidateRoomId = String(thread?.roomId || "").trim();
+              return (
+                candidateThreadId === normalizedThreadId ||
+                candidateRoomId === normalizedThreadId
+              );
+            })
+            : null;
+
+      const scopedThreadIds = new Set(
+        [
+          normalizedThreadId,
+          activeThreadSnapshot?.id,
+          activeThreadSnapshot?.roomId,
+          selectedThreadDetail?.id,
+          selectedThreadDetail?.roomId,
+        ]
+          .map((value) => normalizeComparableId(value))
+          .filter(Boolean),
+      );
+
+      const selectedThreadSeed = Array.isArray(selectedThreadDetail?.messages)
+        ? selectedThreadDetail.messages
+        : [];
+
+      setPendingNewMessageCount(0);
+      setMessages((prevMessages: any) => {
+        if (threadMessageRequestIdRef.current !== requestId) return prevMessages;
+
+        const scopedPrevMessages = Array.isArray(prevMessages)
+          ? prevMessages.filter((rawMessage: any) => {
+            const messageThreadId = normalizeComparableId(
+              resolveMessageThreadId(rawMessage),
+            );
+            return !messageThreadId || scopedThreadIds.has(messageThreadId);
+          })
+          : [];
+
+        return mergeUniqueMessages(
+          userAgentMessages,
+          conversationMessages,
+          selectedThreadSeed,
+          scopedPrevMessages,
+        );
       });
+
+      if (focusLatestFromNotification) {
+        scrollToLatestMessagesWithRetry();
+      }
     } catch (error) {
       console.log("error: ", error);
     }
@@ -4403,8 +4744,9 @@ export default function ChatBoxComponent(props: any) {
         return;
       }
 
-      const currentNegotiationStatus = normalizeNegotiationStatus(
-        selectedThreadDetail?.status
+      const currentNegotiationStatus = resolveThreadNegotiationStatus(
+        selectedThreadDetail,
+        messages,
       )
       if (
         currentNegotiationStatus === "NEGOTIATION_PENDING" ||
@@ -4587,8 +4929,9 @@ export default function ChatBoxComponent(props: any) {
       // Removed saveAllMessages interval - save_user_agent_messages event not supported by backend
       // const interval = setInterval(saveAllMessages, 5000);
       return () => {
-        socket.off("recievedMessage")
-        socket.off("thread_marked_as_read")
+        // No listeners are registered in this effect.
+        // Avoid calling broad `off(event)` here because it removes listeners
+        // registered by other modules (e.g. SocketContext / active chat listener).
         // Removed clearInterval(interval) - interval was removed
         // Removed saveAllMessages() - message saving removed, use REST API instead
       }
@@ -4966,6 +5309,114 @@ export default function ChatBoxComponent(props: any) {
   const resolveProfileImage = (person: any) =>
     person?.profile || person?.avatar || person?.image || '';
 
+  const hasActiveAgentInvite = useCallback((participants: any) => {
+    if (!Array.isArray(participants) || participants.length === 0) return false;
+    return participants.some((participant: any) => {
+      const status = String(participant?.is_accepted || participant?.status || '').trim().toLowerCase();
+      if (!['pending', 'accepted', 'negotiation_pending'].includes(status)) return false;
+      return Boolean(
+        participant?.bra_id ||
+        participant?.braId ||
+        participant?.agent?.id ||
+        participant?.agentId,
+      );
+    });
+  }, []);
+
+  const createPlaceholderInviteEngagement = useCallback(
+    async (activeUserId: string) => {
+      const placeholderTimestamp = Date.now();
+      const placeholderAddress = 'Direct chat invite';
+      const createPayload = {
+        propertyName: 'New Chat',
+        price: 0,
+        listingId: 0,
+        propertyId: `chat-${placeholderTimestamp}`,
+        city: 'Los angeles',
+        zipCode: '',
+        propertyAddress: placeholderAddress,
+        propertyImage: '/assets/images/property-placeholder.jpg',
+        userId: activeUserId,
+        answers: undefined,
+        propertyProgress: 10,
+        fullAddress: placeholderAddress,
+      };
+      const createdResponse: any = await propertyEngagementMutation.mutateAsync(createPayload);
+      const newEngagementId = String(createdResponse?.data?.createEngagement?.id || '').trim();
+      if (!newEngagementId) {
+        throw new Error('Unable to prepare a new chat engagement.');
+      }
+      return newEngagementId;
+    },
+    [propertyEngagementMutation],
+  );
+
+  const resolveInviteEngagementId = useCallback(
+    async (activeUserId: string) => {
+      const currentThreadEngagementId = String(selectedThreadDetail?.engagementId || '').trim();
+      if (currentThreadEngagementId) {
+        return currentThreadEngagementId;
+      }
+
+      const candidatePropertyIds = Array.from(
+        new Set(
+          [
+            selectedThreadDetail?.propertyId,
+            propertyData?.propertyId,
+            propertyData?.id,
+            ...(Array.isArray(threads) ? threads.map((thread: any) => thread?.propertyId) : []),
+            ...(Array.isArray(messageThreads) ? messageThreads.map((thread: any) => thread?.propertyId) : []),
+          ]
+            .map((value) => String(value || '').trim())
+            .filter(Boolean),
+        ),
+      );
+
+      for (const propertyId of candidatePropertyIds) {
+        try {
+          const engagementResponse: any = await getEngagedPropertyByPropertyId.mutateAsync(propertyId);
+          const engagement = engagementResponse?.data?.data?.getUserEngagementsByPropertyId;
+          const engagementIdByProperty = String(engagement?.id || '').trim();
+          if (!engagementIdByProperty) continue;
+          if (hasActiveAgentInvite(engagement?.participants)) continue;
+          return engagementIdByProperty;
+        } catch (lookupError) {
+          console.log(`[chat-box] Engagement lookup failed for property ${propertyId}:`, lookupError);
+        }
+      }
+
+      try {
+        const allEngagementsResponse: any = await getAllEngagedProperties.mutateAsync(activeUserId);
+        const engagements = allEngagementsResponse?.data?.data?.getUserEngagements;
+        if (Array.isArray(engagements)) {
+          const availableEngagement = engagements.find((engagement: any) => {
+            const engagementId = String(engagement?.id || '').trim();
+            return Boolean(engagementId) && !hasActiveAgentInvite(engagement?.participants);
+          });
+          const fallbackEngagementId = String(availableEngagement?.id || '').trim();
+          if (fallbackEngagementId) {
+            return fallbackEngagementId;
+          }
+        }
+      } catch (allEngagementsError) {
+        console.log('[chat-box] Failed to fetch user engagements for invite fallback:', allEngagementsError);
+      }
+
+      return null;
+    },
+    [
+      getAllEngagedProperties,
+      getEngagedPropertyByPropertyId,
+      hasActiveAgentInvite,
+      messageThreads,
+      propertyData?.id,
+      propertyData?.propertyId,
+      selectedThreadDetail?.engagementId,
+      selectedThreadDetail?.propertyId,
+      threads,
+    ],
+  );
+
   const handleCreateThreadWithAgent = async (agent: any) => {
     const agentId = agent?.id || agent?._id;
     if (!agentId) {
@@ -4993,7 +5444,6 @@ export default function ChatBoxComponent(props: any) {
       userId: activeUserId,
       roomId: uuidv4(),
       parentMessage: "Let's connect and talk",
-      status: 'NEGOTIATION_PENDING',
       [agentIdField]: agentId,
     };
 
@@ -5043,16 +5493,37 @@ export default function ChatBoxComponent(props: any) {
 
     setIsCreatingThread(true);
     try {
-      // Step 1: Send agent invitation — backend auto-creates a valid engagement
-      const fallbackEngagementId = uuidv4();
-      const inviteResult: any = await externalAgentIvitationMutation.mutateAsync({
-        agentType: inviteAgentType,
-        userId: activeUserId,
-        email,
-        is_accepted: 'pending',
-        engagementId: fallbackEngagementId,
-        status: 'NEGOTIATION_PENDING',
-      });
+      let usedEngagementId = await resolveInviteEngagementId(String(activeUserId));
+      if (!usedEngagementId) {
+        usedEngagementId = await createPlaceholderInviteEngagement(String(activeUserId));
+      }
+      // Step 1: Send agent invitation using an available engagement id.
+      const sendInviteForEngagement = async (engagementId: string) =>
+        externalAgentIvitationMutation.mutateAsync({
+          agentType: inviteAgentType,
+          userId: activeUserId,
+          email,
+          is_accepted: 'pending',
+          engagementId,
+        });
+
+      let inviteResult: any;
+      try {
+        inviteResult = await sendInviteForEngagement(usedEngagementId);
+      } catch (inviteError: any) {
+        const inviteErrorMessage = String(
+          inviteError?.response?.data?.errors?.[0]?.message ||
+          inviteError?.response?.data?.message ||
+          inviteError?.message ||
+          '',
+        ).toLowerCase();
+        if (!inviteErrorMessage.includes('already has an invited agent')) {
+          throw inviteError;
+        }
+
+        usedEngagementId = await createPlaceholderInviteEngagement(String(activeUserId));
+        inviteResult = await sendInviteForEngagement(usedEngagementId);
+      }
       if (!inviteResult?.success) {
         throw new Error(inviteResult?.message || 'Failed to send invitation');
       }
@@ -5073,8 +5544,7 @@ export default function ChatBoxComponent(props: any) {
           userId: activeUserId,
           roomId: uuidv4(),
           parentMessage: "Let's connect and talk",
-          status: 'NEGOTIATION_PENDING',
-          engagementId: inviteResult?.engagementId || fallbackEngagementId,
+          engagementId: inviteResult?.engagementId || usedEngagementId,
           [agentIdField]: invitedAgentId,
         };
 
@@ -5094,7 +5564,7 @@ export default function ChatBoxComponent(props: any) {
           onError: (threadErr: any) => {
             // Thread creation failed but invite was sent — still inform the user
             console.warn('[chat-box] Thread creation failed after invite:', threadErr);
-            success({ message: `Invitation sent to ${email}. You can open the conversation once the agent accepts.` });
+            error({ message: `Invitation sent to ${email}, but opening chat failed. Please refresh and try again.` });
           },
         });
       } else {
@@ -5131,7 +5601,10 @@ export default function ChatBoxComponent(props: any) {
     [agentForHeader?.firstName, agentForHeader?.lastName].filter(Boolean).join(' ') || '';
   const agentImageForHeader =
     agentForHeader?.profile || agentForHeader?.image || agentForHeader?.avatar || '';
-  const normalizedNegotiationStatus = normalizeNegotiationStatus(selectedThreadDetail?.status)
+  const normalizedNegotiationStatus = resolveThreadNegotiationStatus(
+    selectedThreadDetail,
+    messages,
+  )
   const negotiationOfferSummary = useMemo(() => {
     if (!Array.isArray(messages) || messages.length === 0) return null
 
@@ -5811,7 +6284,7 @@ export default function ChatBoxComponent(props: any) {
                                     tiers={agentTiers}
                                     onSelectTier={(tier) => handleSelectTier(tier)}
                                     onNegotiate={(offer) => handleNegotiate(offer)}
-                                    status={selectedThreadDetail.status}
+                                    status={normalizedNegotiationStatus}
                                   />
                                 ) : (
                                   <div className="rounded-2xl border border-orange-100 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm">
@@ -5999,7 +6472,7 @@ export default function ChatBoxComponent(props: any) {
                                                         <div className="rounded-lg flex items-center gap-3 p-2">
                                                           {(() => {
                                                             // Get the file URL - ensure it's not encrypted
-                                                            let fileUrl = message.message || "";
+                                                            let fileUrl = message.fileUrl || message.message || "";
 
                                                             // Handle CL:: prefix (legacy encryption artifact)
                                                             if (fileUrl.startsWith('CL::')) {

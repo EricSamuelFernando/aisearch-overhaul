@@ -667,7 +667,6 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
                     email
                   }
                   parentMessage
-                  status
                   buyerAgent {
                     id
                     firstName

@@ -4954,10 +4954,14 @@ export default function ChatBoxComponent(props: any) {
     return /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(url);
   };
 
-  const resolveAgentIdField = () => {
-    const normalizedType = String(currentUser || '').toLowerCase();
-    return normalizedType === 'seller' ? 'sellerAgentId' : 'buyerAgentId';
-  };
+  const resolveCurrentAccountType = () =>
+    String(userData?.account_type || user?.account_type || currentUser || '').trim().toLowerCase();
+
+  const resolveThreadUserType = () =>
+    resolveCurrentAccountType() === 'seller' ? 'SELLER' : 'BUYER';
+
+  const resolveAgentIdField = () =>
+    resolveCurrentAccountType() === 'seller' ? 'sellerAgentId' : 'buyerAgentId';
 
   const resolveProfileImage = (person: any) =>
     person?.profile || person?.avatar || person?.image || '';
@@ -4985,18 +4989,23 @@ export default function ChatBoxComponent(props: any) {
       listingId: '',
       propertyAddress: '',
       propertyOwnerId: undefined,
-      userType: (currentUser?.toString().toUpperCase() === 'SELLER' ? 'SELLER' : 'BUYER'),
+      userType: resolveThreadUserType(),
       userId: activeUserId,
       roomId: uuidv4(),
       parentMessage: "Let's connect and talk",
+      status: 'NEGOTIATION_PENDING',
       [agentIdField]: agentId,
     };
 
     createUserAgentThreadMutation.mutate(payload, {
-      onSuccess: (data: any) => {
+      onSuccess: async (data: any) => {
         const createdThreadId = data?.id;
         if (createdThreadId) {
-          getThreadDetails(createdThreadId);
+          await getThreadDetails(createdThreadId);
+          applyNegotiationStatusToThread(createdThreadId, 'NEGOTIATION_PENDING');
+          setSelectedThreadDetail((prev: any) => (
+            prev?.id === createdThreadId ? { ...prev, status: 'NEGOTIATION_PENDING' } : prev
+          ));
         }
         setIsContactAgentDialogOpen(false);
         setIsSearchAgentModalOpen(false);
@@ -5025,18 +5034,28 @@ export default function ChatBoxComponent(props: any) {
       setInviteAgentError('Please login to invite an agent.');
       return;
     }
+    const inviteAgentType = resolveCurrentAccountType();
+    if (!inviteAgentType) {
+      setInviteAgentError('Unable to detect your account type. Please sign in again.');
+      return;
+    }
     if (isCreatingThread) return;
 
     setIsCreatingThread(true);
     try {
       // Step 1: Send agent invitation — backend auto-creates a valid engagement
+      const fallbackEngagementId = uuidv4();
       const inviteResult: any = await externalAgentIvitationMutation.mutateAsync({
-        agentType: currentUser,
+        agentType: inviteAgentType,
         userId: activeUserId,
         email,
         is_accepted: 'pending',
-        // No engagementId — backend will create a placeholder if needed
+        engagementId: fallbackEngagementId,
+        status: 'NEGOTIATION_PENDING',
       });
+      if (!inviteResult?.success) {
+        throw new Error(inviteResult?.message || 'Failed to send invitation');
+      }
 
       // Step 2: If backend returned agentId, immediately create a chat thread
       const invitedAgentId = inviteResult?.agentId;
@@ -5050,12 +5069,12 @@ export default function ChatBoxComponent(props: any) {
           listingId: '',
           propertyAddress: '',
           propertyOwnerId: undefined,
-          userType: (currentUser?.toString().toUpperCase() === 'SELLER' ? 'SELLER' : 'BUYER'),
+          userType: resolveThreadUserType(),
           userId: activeUserId,
           roomId: uuidv4(),
           parentMessage: "Let's connect and talk",
           status: 'NEGOTIATION_PENDING',
-          engagementId: inviteResult?.engagementId,
+          engagementId: inviteResult?.engagementId || fallbackEngagementId,
           [agentIdField]: invitedAgentId,
         };
 
@@ -5065,8 +5084,12 @@ export default function ChatBoxComponent(props: any) {
             if (createdThreadId) {
               // Auto-open the new thread so the buyer lands on the conversation
               await getThreadDetails(createdThreadId);
+              applyNegotiationStatusToThread(createdThreadId, 'NEGOTIATION_PENDING');
+              setSelectedThreadDetail((prev: any) => (
+                prev?.id === createdThreadId ? { ...prev, status: 'NEGOTIATION_PENDING' } : prev
+              ));
             }
-            success({ message: `Invitation sent to ${email}. Chat opened — negotiate a tier first.` });
+            success({ message: `Invitation sent to ${email}. Chat opened - negotiate a tier first.` });
           },
           onError: (threadErr: any) => {
             // Thread creation failed but invite was sent — still inform the user
@@ -5085,7 +5108,12 @@ export default function ChatBoxComponent(props: any) {
       setInviteAgentError('');
     } catch (err: any) {
       console.error('[chat-box] Invite agent failed:', err);
-      setInviteAgentError(err?.message || 'Unable to send invite right now.');
+      const errorMessage =
+        err?.response?.data?.errors?.[0]?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Unable to send invite right now.';
+      setInviteAgentError(errorMessage);
     } finally {
       setIsCreatingThread(false);
     }

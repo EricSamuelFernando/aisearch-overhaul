@@ -1050,7 +1050,6 @@ export const useUserAuthApi = (handleCb?: () => void) => {
                 message
                 agentId
                 participantId
-                engagementId
               }
             }
           `,

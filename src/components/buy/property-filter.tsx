@@ -627,6 +627,7 @@ import { Group, Menu, MenuDropdown, MenuItem, MenuTarget, MultiSelect, Select, U
 import Dropdown from '../ui/custom-select-dropdown';
 import axios from 'axios';
 import { PROPERTY_SEARCH_AI_URL } from '@/shared/constants/env';
+import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { incrementSearchCount } from '@/slices/onboarding/property-preference';
 import { setPropertyQuery, setSearchFilters } from '@/slices/property/property-slice';
 import { useDispatch, useSelector } from 'react-redux';
@@ -923,8 +924,12 @@ function PropertyFilter() {
         });
       }
 
+      const searchUrl = isMlsBypassModeEnabled()
+        ? '/api/mls/search'
+        : (PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search');
+
       const response = await axios.post(
-        PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search',
+        searchUrl,
         requestBody
       );
 
@@ -1032,14 +1037,19 @@ function PropertyFilter() {
         isOpen={showModal}
         onOpenChange={setShowModal}
       />
-      <div className="flex w-full flex-col gap-4 md:flex-row md:items-center">
+      <div className={cn(
+        'flex w-full flex-col gap-4 md:flex-row md:items-center',
+        currentView === 'map' ? 'md:justify-between' : '',
+      )}>
         {/* Left Side: Title & Filter Drawer */}
         <div className="flex min-w-0 select-none flex-col md:flex-row md:items-center gap-4 md:gap-6">
-          <h2 className="min-w-0 text-lg font-bold leading-6 text-black md:text-xl">
-            {allProperties.length > 0
-              ? 'Showing homes matched from our AI'
-              : 'Explore homes only within the California region'}
-          </h2>
+          {currentView !== 'map' ? (
+            <h2 className="min-w-0 text-lg font-bold leading-6 text-black md:text-xl">
+              {allProperties.length > 0
+                ? 'Showing homes matched from our AI'
+                : 'Explore homes only within the California region'}
+            </h2>
+          ) : null}
 
           <FilterDrawer
 
@@ -1059,19 +1069,54 @@ function PropertyFilter() {
             <ViewSelection />
           </div>
         ) : null}
-      </div>
-      <p className="text-lg font-medium leading-9 text-grey-370">
-        You have searched: {searchTerm}
-      </p>
 
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        {
+        {currentView === 'map' ? (
+          <div className="flex flex-wrap items-center gap-2 md:ml-auto">
+            <button
+              onClick={() => {
+                setCompareMode(!isCompareMode);
+                if (isCompareMode) clearCompareProperties();
+              }}
+              className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${isCompareMode
+                ? 'bg-ocOrange text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+            >
+              {isCompareMode ? 'Cancel Compare' : 'Compare'}
+            </button>
+
+            {isCompareMode && (
+              <div className="ml-0 flex flex-wrap items-center gap-2 sm:ml-2">
+                <span className="text-sm font-medium text-gray-600">
+                  ({selectedCompareProperties.length}) Selected
+                </span>
+                <button
+                  disabled={selectedCompareProperties.length < 2}
+                  onClick={() => setShowCompareModal(true)}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${selectedCompareProperties.length >= 2
+                    ? 'bg-black text-white hover:bg-gray-800'
+                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    }`}
+                >
+                  Compare selected
+                </button>
+              </div>
+            )}
+          </div>
+        ) : null}
+      </div>
+
+      <div className={cn(
+        'flex flex-col gap-4 md:flex-row md:items-center md:justify-between',
+        currentView === 'map' ? 'hidden' : '',
+      )}>
+        {currentView !== 'map' ? (
           allProperties?.length ? <p className="text-lg select-none font-medium leading-9 text-grey-370">
             {allProperties.length} Results Found
           </p> : <p className="text-lg select-none font-medium leading-9 text-grey-370">
             Snaphomz AI in action
           </p>
-        }
+        ) : <div />}
 
         {/* Comparison Mode Toggle */}
         <div className="flex flex-wrap items-center gap-2">
@@ -1108,15 +1153,23 @@ function PropertyFilter() {
         </div>
       </div>
 
-      {selectedSubCategories.length > 0 && (
-        <p className="text-lg font-medium leading-9 text-grey-370">
-          Features selected: {selectedSubCategories.join(', ')}
-        </p>
-      )}
+      {currentView !== 'map' ? (
+        <>
+          <p className="text-lg font-medium leading-9 text-grey-370">
+            You have searched: {searchTerm}
+          </p>
+
+          {selectedSubCategories.length > 0 && (
+            <p className="text-lg font-medium leading-9 text-grey-370">
+              Features selected: {selectedSubCategories.join(', ')}
+            </p>
+          )}
+        </>
+      ) : null}
 
       {/* Render Filters and Property Results */}
       {/* Dropdown Filters */}
-      <br />
+      {currentView !== 'map' ? <br /> : null}
       {/* <div className="flex flex-wrap gap-4 mt-4">
       
         <Listbox value={selectedSort} onChange={setSelectedSort}>
@@ -1180,6 +1233,7 @@ function PropertyFilter() {
         </Listbox>
       </div> */}
 
+      {currentView !== 'map' ? (
       <div className="space-y-4">
         {/* Always show filters */}
         <div className="flex flex-wrap gap-2">
@@ -1209,6 +1263,7 @@ function PropertyFilter() {
           })}
         </div>
       </div>
+      ) : null}
 
       {/* Property Results or Suggested Locations */}
       {allProperties.length > 0 ? (

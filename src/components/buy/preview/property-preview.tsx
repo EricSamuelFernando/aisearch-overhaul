@@ -29,6 +29,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { NewFeatureCard } from './multi-feature-card';
 import { PROPERTY_DETAIL_SEARCH_AI_URL } from "@/shared/constants/env"
+import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 
 import { useSelector } from 'react-redux';
 import CategorizedPhotosModal from '../CategorizedPhotosModal'; // Import the new modal
@@ -825,11 +826,24 @@ const PropertyPreview: React.FC = () => {
     try {
       setLoading(true);
       setPropertyData(undefined);
-      const payload = {
-        listingId: +id || listingId,
-        propertyId: parseInt(propertyData?.id) || parseInt(propertyId)
-      };
-      const response = await fetch(PROPERTY_DETAIL_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search/preference', {
+      const bypassMls = isMlsBypassModeEnabled();
+      const payload = bypassMls
+        ? {
+          listingId: listingId || id,
+          propertyId: propertyData?.id || propertyId || undefined,
+          city: city || propertyData?.address?.city || undefined,
+          province: province || propertyData?.address?.stateOrProvince || undefined,
+          state: province || propertyData?.address?.stateOrProvince || undefined,
+          zip: propertyData?.address?.zipCode || undefined,
+          address: propertyData?.address?.unparsedAddress || undefined,
+        }
+        : {
+          listingId: +id || listingId,
+          propertyId: parseInt(propertyData?.id) || parseInt(propertyId)
+        };
+      const response = await fetch(
+        bypassMls ? '/api/mls/detail' : (PROPERTY_DETAIL_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search/preference'),
+        {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -1561,6 +1575,8 @@ const PropertyPreview: React.FC = () => {
     setOpenSection(openSection === section ? null : section);
   };
 
+  const propertyTags = Array.isArray((proprtyData as any)?.tags) ? (proprtyData as any).tags : [];
+
   const openSectionForHash = React.useCallback((hash: string) => {
     const target =
       hash === '#home-highlights' || hash === '#home'
@@ -1593,7 +1609,7 @@ const PropertyPreview: React.FC = () => {
       title: "Home highlights",
       content: (
         <HomeHighlights
-          highlights={proprtyData?.tags.length ? proprtyData?.tags : HomeHighlightsData.highlights}
+          highlights={propertyTags.length ? propertyTags : HomeHighlightsData.highlights}
           description={proprtyData?.publicRemarks || ""}
           stats={HomeHighlightsData.stats}
           floorPlanSrc={HomeHighlightsData.floorPlanSrc}
@@ -1634,7 +1650,7 @@ const PropertyPreview: React.FC = () => {
         hasBasement: proprtyData?.property.hasBasement || false,
         hasFireplace: proprtyData?.homedetails.fireplaceYn || false,
 
-      }} featureList={proprtyData?.tags.join(", ")} />,
+      }} featureList={propertyTags.join(", ")} />,
     },
     {
       id: "interest",

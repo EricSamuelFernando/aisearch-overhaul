@@ -1,5 +1,7 @@
 //  CONFIRMED BACKEND CONTRACT (IMMUTABLE)
 // Backend Base URL (set NEXT_PUBLIC_API_BASE_URL in production)
+import { isMlsBypassModeEnabled } from './mls-bypass-mode';
+
 const API_BASE =
     process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:5000";
 
@@ -53,6 +55,27 @@ export type QuestionPayload = {
 };
 
 export async function searchProperties(payload: SearchPayload, signal?: AbortSignal) {
+    if (isMlsBypassModeEnabled()) {
+        const res = await fetch('/api/mls/search', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                ...getAuthHeaders(),
+            },
+            body: JSON.stringify(payload),
+            signal,
+        });
+
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error('[MLS Bypass] Search Error:', res.status, errorText);
+            throw new Error('MLS search request failed');
+        }
+
+        return res.json();
+    }
+
     console.log('[API] Search Request:', {
         query: payload.query,
         session_id: payload.session_id
@@ -113,6 +136,20 @@ export async function searchProperties(payload: SearchPayload, signal?: AbortSig
 // }
 
 export async function askQuestion(payload: QuestionPayload, signal?: AbortSignal) {
+    if (isMlsBypassModeEnabled()) {
+        return {
+            intent: 'question',
+            answer:
+                'AI Q&A is currently bypassed. Turn off "Direct MLS" mode to use chat answers, or ask for a property search (city/ZIP, beds, baths, budget).',
+            suggestions: [
+                '3-bedroom homes in Los Angeles under 1.5M',
+                'Homes in 90266 with a pool',
+                '4 bed homes in Austin, TX'
+            ],
+            metadata: { response_mode: 'text_only', source: 'mls_bypass' }
+        };
+    }
+
     // Use /question endpoint (not /api/question)
     console.log('[API] Question Request:', {
         question: payload.question,
@@ -160,6 +197,7 @@ export async function cancelActiveTask(session_id: string) {
 }
 
 export async function fetchHistory() {
+    if (isMlsBypassModeEnabled()) return [];
     try {
         const res = await fetch(`${API_BASE}/api/history`, {
             headers: { ...getAuthHeaders() },
@@ -173,6 +211,7 @@ export async function fetchHistory() {
 }
 
 export async function fetchSessionDetails(session_id: string) {
+    if (isMlsBypassModeEnabled()) return null;
     try {
         const res = await fetch(`${API_BASE}/api/history/${session_id}`, {
             headers: { ...getAuthHeaders() },
@@ -185,6 +224,7 @@ export async function fetchSessionDetails(session_id: string) {
 }
 
 export async function clearHistoryAPI() {
+    if (isMlsBypassModeEnabled()) return true;
     try {
         const res = await fetch(`${API_BASE}/api/history`, {
             method: 'DELETE',

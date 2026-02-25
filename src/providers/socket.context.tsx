@@ -147,9 +147,9 @@ const resolveSenderName = (messageData: any): string => {
     const firstName = getStringValue(...firstNameKeys.map((key) => container?.[key]));
     const lastName = getStringValue(...lastNameKeys.map((key) => container?.[key]));
     const fullName = `${firstName} ${lastName}`.trim();
-    if (fullName) return fullName;
-    if (firstName) return firstName;
-    if (lastName) return lastName;
+    if (fullName && !isUuidLike(fullName)) return fullName;
+    if (firstName && !isUuidLike(firstName)) return firstName;
+    if (lastName && !isUuidLike(lastName)) return lastName;
 
     const senderObject = container?.sender;
     const senderFirst = getStringValue(
@@ -165,9 +165,9 @@ const resolveSenderName = (messageData: any): string => {
       senderObject?.sender_last_name,
     );
     const senderFull = `${senderFirst} ${senderLast}`.trim();
-    if (senderFull) return senderFull;
-    if (senderFirst) return senderFirst;
-    if (senderLast) return senderLast;
+    if (senderFull && !isUuidLike(senderFull)) return senderFull;
+    if (senderFirst && !isUuidLike(senderFirst)) return senderFirst;
+    if (senderLast && !isUuidLike(senderLast)) return senderLast;
 
     const explicitName = getStringValue(
       ...explicitNameKeys.map((key) => container?.[key]),
@@ -177,7 +177,7 @@ const resolveSenderName = (messageData: any): string => {
       container?.user?.first_name,
       container?.sender,
     );
-    if (explicitName) return explicitName;
+    if (explicitName && !isUuidLike(explicitName)) return explicitName;
   }
 
   const deepFirstName = findStringByKeysDeep(messageData, [
@@ -193,9 +193,9 @@ const resolveSenderName = (messageData: any): string => {
     "last_name",
   ]);
   const deepFullName = `${deepFirstName} ${deepLastName}`.trim();
-  if (deepFullName) return deepFullName;
-  if (deepFirstName) return deepFirstName;
-  if (deepLastName) return deepLastName;
+  if (deepFullName && !isUuidLike(deepFullName)) return deepFullName;
+  if (deepFirstName && !isUuidLike(deepFirstName)) return deepFirstName;
+  if (deepLastName && !isUuidLike(deepLastName)) return deepLastName;
 
   const deepExplicitName = findStringByKeysDeep(messageData, [
     "senderName",
@@ -204,7 +204,7 @@ const resolveSenderName = (messageData: any): string => {
     "sender_full_name",
     "name",
   ]);
-  if (deepExplicitName) return deepExplicitName;
+  if (deepExplicitName && !isUuidLike(deepExplicitName)) return deepExplicitName;
 
   const senderId = getStringValue(
     messageData?.senderId,
@@ -617,7 +617,7 @@ function SocketProvider({ children }: { children: ReactNode }) {
         const senderId = resolveSenderId(messageData);
         const socketResolvedSenderName = resolveSenderName(messageData);
         const threadResolvedSenderName = resolveSenderNameFromThreads(threadId, senderId, messageThreads);
-        const notificationSenderName = getStringValue(socketResolvedSenderName, threadResolvedSenderName, "Someone");
+        const notificationSenderName = getStringValue(socketResolvedSenderName, threadResolvedSenderName, "Agent");
         const resolvedMessageType = getStringValue(
           messageData?.messageType,
           messageData?.message_type,

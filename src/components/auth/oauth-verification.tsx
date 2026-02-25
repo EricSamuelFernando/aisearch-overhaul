@@ -71,11 +71,16 @@ export default function OAuthVerification() {
         console.log('Google Data:', data?.data);
 
         setAuthToken(token);
+        // Spread randomUserData FIRST so that googleUser fields always win.
+        // Critical: googleUser.id (the real DB UUID) must NOT be overwritten by
+        // randomUserData.id (Math.random string) — otherwise the Redux user.id
+        // won't match the JWT userId, causing all snap permission checks to fail.
         const mergedUser: User = {
-          ...googleUser,
           ...randomUserData,
-          account_type: 'buyer',
+          ...googleUser,
+          id: googleUser.id,
           email: googleUser.email || randomUserData.email,
+          account_type: (googleUser as any).accountType || googleUser.account_type || 'buyer',
           propertyPreference:
             googleUser.propertyPreference || randomUserData.propertyPreference,
         };

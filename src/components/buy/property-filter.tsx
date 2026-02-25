@@ -1032,15 +1032,17 @@ function PropertyFilter() {
         isOpen={showModal}
         onOpenChange={setShowModal}
       />
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between w-full">
+      <div className="flex w-full flex-col gap-4 md:flex-row md:items-center">
         {/* Left Side: Title & Filter Drawer */}
-        <div className="flex select-none flex-col md:flex-row md:items-center gap-4 md:gap-6">
-          <h2 className="text-lg font-bold leading-6 text-black md:text-xl whitespace-nowrap">
+        <div className="flex min-w-0 select-none flex-col md:flex-row md:items-center gap-4 md:gap-6">
+          <h2 className="min-w-0 text-lg font-bold leading-6 text-black md:text-xl">
             {allProperties.length > 0
               ? 'Showing homes matched from our AI'
               : 'Explore homes only within the California region'}
           </h2>
+
           <FilterDrawer
+
             FeatureSelectorComponent={FeatureSelector}
             FeatureBathroomSelector={FeatureBathroomSelector}
             selectedSubCategories={selectedSubCategories}

@@ -730,7 +730,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
   });
 
   const verifyPasswordResetCodeMutation = useMutation({
-    mutationKey: ['send-verification-code'],
+    mutationKey: ['verify-password-reset-code'],
     mutationFn: async (data: VerifyCode) => {
       return await handleAsync<AxiosResponse<IAuthUser>>(
         client.post,
@@ -742,16 +742,12 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     },
 
     onSuccess: (data: AxiosResponse<any>) => {
-      if ((data as any).status === 200) {
-        success({ message: data?.data?.message });
-        setAuthToken(data?.data?.data?.token);
-        storeCookie({ key: AUTH_TOKEN, value: data?.data?.data?.token });
-        storeCookie({ key: USER_ROLE, value: 'seller' });
-        router.push(`/set-password`);
-      }
+      // Keep this side-effect light; callers decide navigation/next steps
+      const message = data?.data?.message || 'Code verified successfully';
+      success({ message });
     },
     onError: (err: any) => {
-      error({ message: err?.response?.data?.message });
+      error({ message: err?.response?.data?.message || 'Invalid verification code' });
     },
   });
 

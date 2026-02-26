@@ -130,6 +130,7 @@ export function EmailForm({ origin = 'page', onSetView }: Readonly<Prop>) {
           }}
           className='h-12 max-w-xl placeholder:text-base'
           containerClass='max-w-xl'
+          autoComplete='email'
           type='email'
           error={errors.email?.message}
         />

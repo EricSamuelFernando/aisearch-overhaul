@@ -25,6 +25,11 @@ interface Suggestion {
   text: string;
 }
 
+interface LocationSuggestion {
+  placeId: string;
+  description: string;
+}
+
 interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -604,6 +609,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
   const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
   const [isLoadingAddressSuggestions, setIsLoadingAddressSuggestions] = useState(false);
+  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+  const [isLoadingLocationSuggestions, setIsLoadingLocationSuggestions] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   // Controls expansion state (Collapsed Search Bar vs Expanded Chat UI)
   const [isExpanded, setIsExpanded] = useState(false);
@@ -779,8 +787,20 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastIntentRef = useRef<string | null>(null);
   const addressSuggestDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const locationSuggestDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [expandedSchoolLists, setExpandedSchoolLists] = useState<Record<string, boolean>>({});
   const [nearbySchoolsById, setNearbySchoolsById] = useState<Record<string, { status: 'idle' | 'loading' | 'ready' | 'error'; schools: any[]; error?: string; schoolType?: string; fallbackUsed?: boolean }>>({});
+
+  useEffect(() => {
+    return () => {
+      if (addressSuggestDebounceRef.current) {
+        clearTimeout(addressSuggestDebounceRef.current);
+      }
+      if (locationSuggestDebounceRef.current) {
+        clearTimeout(locationSuggestDebounceRef.current);
+      }
+    };
+  }, []);
 
   const toggleMlsBypass = () => {
     const next = !mlsBypassMode;
@@ -1685,31 +1705,112 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     if (addressSuggestDebounceRef.current) {
       clearTimeout(addressSuggestDebounceRef.current);
     }
+    if (locationSuggestDebounceRef.current) {
+      clearTimeout(locationSuggestDebounceRef.current);
+    }
 
     const trimmed = value.trim();
-    // Only trigger for address-like queries: starts with 1–6 digit house number
+    // Address-like heuristics
     const hasHouseNumber = /\b\d{1,6}\b/.test(trimmed);
     const hasStreetKeyword = /\b(st|street|ave|avenue|rd|road|blvd|boulevard|dr|drive|ln|lane|ct|court|way|pl|place|cir|circle|pkwy|parkway|ter|terrace|hwy|highway)\b/i.test(trimmed);
     const hasCommaAddressShape = /,/.test(trimmed) && /[a-z]/i.test(trimmed);
     const isAddressLike = trimmed.length >= 3 && (hasHouseNumber || hasStreetKeyword || hasCommaAddressShape);
 
-    if (!isAddressLike) {
+    if (trimmed.length < 3) {
       setAddressSuggestions([]);
       setShowAddressSuggestions(false);
+      setLocationSuggestions([]);
+      setShowLocationSuggestions(false);
       return;
     }
 
-    addressSuggestDebounceRef.current = setTimeout(async () => {
+    if (isAddressLike) {
+      setLocationSuggestions([]);
+      setShowLocationSuggestions(false);
+      setIsLoadingLocationSuggestions(false);
+
+      addressSuggestDebounceRef.current = setTimeout(async () => {
+        try {
+          setIsLoadingAddressSuggestions(true);
+          const results = await suggestAddresses(trimmed);
+          setAddressSuggestions(results);
+          setShowAddressSuggestions(results.length > 0);
+        } catch {
+          setAddressSuggestions([]);
+          setShowAddressSuggestions(false);
+        } finally {
+          setIsLoadingAddressSuggestions(false);
+        }
+      }, 300);
+      return;
+    }
+
+    setAddressSuggestions([]);
+    setShowAddressSuggestions(false);
+    setIsLoadingAddressSuggestions(false);
+
+    locationSuggestDebounceRef.current = setTimeout(() => {
+      if (typeof window === 'undefined' || !window.google?.maps?.places) {
+        setLocationSuggestions([]);
+        setShowLocationSuggestions(false);
+        setIsLoadingLocationSuggestions(false);
+        return;
+      }
+
       try {
-        setIsLoadingAddressSuggestions(true);
-        const results = await suggestAddresses(trimmed);
-        setAddressSuggestions(results);
-        setShowAddressSuggestions(results.length > 0);
+        setIsLoadingLocationSuggestions(true);
+        const autocompleteService = new window.google.maps.places.AutocompleteService();
+        autocompleteService.getPlacePredictions(
+          {
+            input: trimmed,
+            componentRestrictions: { country: 'us' },
+          },
+          (predictions: any, status: any) => {
+            const isOk =
+              status === window.google.maps.places.PlacesServiceStatus.OK &&
+              Array.isArray(predictions);
+
+            if (!isOk) {
+              setLocationSuggestions([]);
+              setShowLocationSuggestions(false);
+              setIsLoadingLocationSuggestions(false);
+              return;
+            }
+
+            const locationTypeHints = new Set([
+              'locality',
+              'administrative_area_level_1',
+              'administrative_area_level_2',
+              'sublocality',
+              'neighborhood',
+              'postal_town',
+            ]);
+
+            const filtered = predictions.filter((prediction: any) => {
+              const types = Array.isArray(prediction?.types) ? prediction.types : [];
+              return types.some((t: string) => locationTypeHints.has(t));
+            });
+            const source = filtered.length > 0 ? filtered : predictions;
+            const mapped: LocationSuggestion[] = source.slice(0, 8).map((prediction: any) => ({
+              placeId: String(prediction?.place_id || prediction?.id || prediction?.description || ''),
+              description: String(
+                prediction?.description ||
+                [
+                  prediction?.structured_formatting?.main_text,
+                  prediction?.structured_formatting?.secondary_text,
+                ].filter(Boolean).join(', ')
+              ),
+            })).filter((item: LocationSuggestion) => item.description.trim().length > 0);
+
+            setLocationSuggestions(mapped);
+            setShowLocationSuggestions(mapped.length > 0);
+            setIsLoadingLocationSuggestions(false);
+          }
+        );
       } catch {
-        setAddressSuggestions([]);
-        setShowAddressSuggestions(false);
-      } finally {
-        setIsLoadingAddressSuggestions(false);
+        setLocationSuggestions([]);
+        setShowLocationSuggestions(false);
+        setIsLoadingLocationSuggestions(false);
       }
     }, 300);
   };
@@ -1721,6 +1822,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   const handleAddressSuggestionClick = (suggestion: AddressSuggestion) => {
     setShowAddressSuggestions(false);
     setAddressSuggestions([]);
+    setShowLocationSuggestions(false);
+    setLocationSuggestions([]);
     setSearchTerm(suggestion.address || '');
 
     const url = toMainSitePropertyPreviewUrl({
@@ -1732,6 +1835,19 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
       address: suggestion.address,
     });
     window.location.href = url;
+  };
+
+  const handleLocationSuggestionClick = (suggestion: LocationSuggestion) => {
+    setShowLocationSuggestions(false);
+    setLocationSuggestions([]);
+    setShowAddressSuggestions(false);
+    setAddressSuggestions([]);
+
+    const locationQuery = suggestion.description.trim();
+    setSearchTerm(locationQuery);
+
+    const mainSiteBase = getMainSiteBaseUrl();
+    window.location.href = `${mainSiteBase}/buy/browse?q=${encodeURIComponent(locationQuery)}`;
   };
 
   const performSnapImageSearch = async (file: File, locationInput?: string) => {
@@ -2144,6 +2260,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     onBlur={() => setTimeout(() => {
                       setShowSuggestions(false);
                       setShowAddressSuggestions(false);
+                      setShowLocationSuggestions(false);
                     }, 200)}
                     placeholder={pendingImage ? 'Add city, ZIP, or coordinates for this image' : (placeholderText || typedPlaceholder)}
                     className="flex-1 min-w-0 bg-transparent outline-none px-3 md:px-4 py-2 text-gray-700 placeholder-gray-400 text-sm md:text-sm font-medium"
@@ -2294,6 +2411,44 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                               </div>
                             );
                           })
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* ── Location (City/State) Autocomplete Suggestions ── */}
+                {searchTerm && (showLocationSuggestions || isLoadingLocationSuggestions) && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="w-full border-t border-gray-100/50"
+                  >
+                    <div className="p-2 pt-3 text-left">
+                      <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-wider pl-3">
+                        Locations
+                      </p>
+                      <div className="space-y-0.5">
+                        {isLoadingLocationSuggestions ? (
+                          <div className="flex items-center gap-3 p-3 text-sm text-gray-400">
+                            <div className="w-4 h-4 border-2 border-orange-300 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                            Searching locations...
+                          </div>
+                        ) : (
+                          locationSuggestions.map((suggestion, idx) => (
+                            <div
+                              key={suggestion.placeId || String(idx)}
+                              onMouseDown={() => handleLocationSuggestionClick(suggestion)}
+                              className="flex items-start gap-3 p-3 hover:bg-orange-50/50 rounded-xl cursor-pointer group transition-all"
+                            >
+                              <MapPin className="w-4 h-4 text-gray-300 group-hover:text-[#F58634] flex-shrink-0 mt-0.5 transition-colors" />
+                              <span className="text-gray-800 font-medium text-sm leading-snug truncate">
+                                {suggestion.description}
+                              </span>
+                            </div>
+                          ))
                         )}
                       </div>
                     </div>

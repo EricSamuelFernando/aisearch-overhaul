@@ -36,7 +36,6 @@ function BuyPropertyCards({
   const sourceProperties = Array.isArray(propertiesOverride)
     ? propertiesOverride
     : allProperties;
-
   const userData = useSelector((state: any) => state.auth.user);
   const { getAllSnaps } = useUserSnapAPIs();
   const [snaps, setSnaps] = useState<any[]>([]);
@@ -95,7 +94,6 @@ function BuyPropertyCards({
       setCurrentPage(targetPage);
     }
   }, [selectedProperty, sourceProperties, currentPage]);
-
   useEffect(() => {
     if (!selectedProperty) return;
     const raf = requestAnimationFrame(() => {
@@ -106,7 +104,6 @@ function BuyPropertyCards({
     });
     return () => cancelAnimationFrame(raf);
   }, [selectedProperty, currentPage]);
-
   return (
     <div
       ref={forwardedRef}

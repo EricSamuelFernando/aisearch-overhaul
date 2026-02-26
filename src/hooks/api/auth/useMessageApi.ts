@@ -288,12 +288,12 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
       if (!token) {
         throw new Error('No authentication token found');
       }
-
       const requestConfig = {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
+        validateStatus: () => true,
       };
       const baseVariables = {
         threadId: data?.threadId,
@@ -306,10 +306,7 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
             query: queryBody,
             variables: baseVariables,
           },
-          {
-            ...requestConfig,
-            validateStatus: () => true,
-          }
+          requestConfig,
         );
 
       try {

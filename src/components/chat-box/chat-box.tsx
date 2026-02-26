@@ -5417,11 +5417,11 @@ export default function ChatBoxComponent(props: any) {
                   className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-700 hover:bg-gray-100"
                   aria-label="Back to dashboard"
                 >
-                  ←
+                  &lt;-
                 </button>
                 <h2 className="font-semibold text-lg text-gray-800">Messages</h2>
               </div>
-              {/* <TooltipProvider delayDuration={120}>
+              <TooltipProvider delayDuration={120}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -5439,7 +5439,7 @@ export default function ChatBoxComponent(props: any) {
                     start a new chat and invite your agent
                   </TooltipContent>
                 </Tooltip>
-              </TooltipProvider> */}
+              </TooltipProvider>
             </div>
 
             {/* Toggle Buttons */}

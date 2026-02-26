@@ -1,6 +1,7 @@
 type AnyRecord = Record<string, any>;
 
 const RE_API_BASE = process.env.REALESTATE_API_BASE_URL || 'https://api.realestateapi.com';
+const US_SUFFIX_RE = /\s*,\s*(?:usa|u\.s\.a\.|united states(?: of america)?)\s*$/i;
 
 const parseLooseNumber = (value: unknown): number | null => {
   if (value === null || value === undefined || value === '') return null;
@@ -81,16 +82,44 @@ const STATE_MAP: Record<string, string> = {
 };
 
 const extractState = (query: string) => {
+  // Prefer a trailing ", CA" / ", ca" / " CA 90210" style token to avoid matching words like "in".
+  const trailingAbbrev =
+    query.match(/(?:,\s*|\s)([A-Za-z]{2})(?=\s*(?:\d{5}(?:-\d{4})?)?\s*$)/) ||
+    query.match(/(?:,\s*|\s)([A-Za-z]{2})(?=\s*$)/);
+  if (trailingAbbrev?.[1]) {
+    const abbr = trailingAbbrev[1].toUpperCase();
+    if (Object.values(STATE_MAP).includes(abbr)) return abbr;
+  }
+
   const m = query.match(/\b([A-Z]{2})\b/);
-  if (m) return m[1].toUpperCase();
+  if (m && Object.values(STATE_MAP).includes(m[1].toUpperCase())) return m[1].toUpperCase();
+
   const q = query.toLowerCase();
   const hit = Object.keys(STATE_MAP).find((name) => q.includes(name));
   return hit ? STATE_MAP[hit] : null;
 };
 
 const extractCity = (query: string, state?: string | null, zip?: string | null) => {
+  const cleaned = query.replace(US_SUFFIX_RE, '').trim();
+  // In MLS direct mode, school-ranking phrases should not become part of the location.
+  const schoolStripped = cleaned
+    .replace(/\bnear\s+top[- ]?rated\s+schools?\b/gi, '')
+    .replace(/\btop[- ]?rated\s+schools?\b/gi, '')
+    .replace(/\b(?:best|good)\s+schools?\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // Prefer the location phrase after "in ..." (e.g. "... in Manhattan Beach")
+  const inMatch = schoolStripped.match(
+    /\bin\s+([A-Za-z .'-]+?)(?:,\s*([A-Za-z]{2}|[A-Za-z .'-]+))?(?:\s+\d{5}(?:-\d{4})?)?\s*$/i,
+  );
+  if (inMatch?.[1]) {
+    const candidate = inMatch[1].trim().replace(/\s+/g, ' ');
+    if (candidate.length > 1) return candidate;
+  }
+
   // Common "City, State" or "City, StateName" format (e.g. "Folsom, California")
-  const cityStateMatch = query.match(
+  const cityStateMatch = schoolStripped.match(
     /^\s*([A-Za-z .'-]+?)\s*,\s*([A-Za-z .'-]{2,})(?:\s+\d{5}(?:-\d{4})?)?(?:\s*,\s*(?:usa|u\.s\.a\.|united states(?: of america)?))?\s*$/i,
   );
   if (cityStateMatch?.[1]) {
@@ -98,7 +127,7 @@ const extractCity = (query: string, state?: string | null, zip?: string | null) 
     if (candidate.length > 1) return candidate;
   }
 
-  const match = query.match(/\b(?:in|near|around|at)\s+([A-Za-z .'-]+?)(?:,\s*([A-Z]{2}))?(?:\s+\d{5})?(?:\b|$)/i);
+  const match = schoolStripped.match(/\b(?:near|around|at)\s+([A-Za-z .'-]+?)(?:,\s*([A-Z]{2}))?(?:\s+\d{5})?(?:\b|$)/i);
   if (match?.[1]) {
     const candidate = match[1].trim().replace(/\s+/g, ' ');
     if (candidate.length > 1 && !/^(homes?|houses?|properties)$/i.test(candidate)) {
@@ -106,20 +135,28 @@ const extractCity = (query: string, state?: string | null, zip?: string | null) 
     }
   }
   if (zip) return null;
-  if (state) {
-    const parts = query.split(',');
-    if (parts.length >= 2) {
-      const possible = parts[0].trim();
-      if (/[a-z]/i.test(possible)) return null;
-    }
+
+  // Plain city fallback: "Los Angeles", "Manhattan Beach"
+  const plain = schoolStripped.trim();
+  if (
+    plain &&
+    !/\d/.test(plain) &&
+    !/^(homes?|houses?|properties)$/i.test(plain) &&
+    !Object.keys(STATE_MAP).includes(plain.toLowerCase()) &&
+    !Object.values(STATE_MAP).includes(plain.toUpperCase())
+  ) {
+    // Remove a trailing state token if present: "Los Angeles CA"
+    const withoutState = state ? plain.replace(new RegExp(`\\b${state}\\b$`, 'i'), '').trim().replace(/[,\s]+$/, '') : plain;
+    if (withoutState.length > 1) return withoutState;
   }
+
   return null;
 };
 
 export const buildMlsSearchPayloadFromQuery = (query: string) => {
   const normalizedQuery = query
     .trim()
-    .replace(/\s*,\s*(?:usa|u\.s\.a\.|united states(?: of america)?)\s*$/i, '');
+    .replace(US_SUFFIX_RE, '');
 
   const address = extractStreetAddress(normalizedQuery);
   const zip = extractZip(normalizedQuery);
@@ -149,7 +186,8 @@ export const buildMlsSearchPayloadFromQuery = (query: string) => {
   if (/\bcondo\b|\bcondominium\b/i.test(q)) payload.listing_property_type = 'CONDO';
   if (/\bland\b|\blot\b/i.test(q)) payload.listing_property_type = 'LAND';
   if (/\bmulti[- ]?family\b|\bmfr\b/i.test(q)) payload.property_type = 'MFR';
-  if (/\bsingle[- ]?family\b|\bhouse\b|\bhome\b/i.test(q)) payload.property_type = 'SFR';
+  // Generic "homes" should not force SFR; allow condos/townhomes/apartments in MLS mode.
+  if (/\bsingle[- ]?family\b|\bhouse\b/i.test(q)) payload.property_type = 'SFR';
 
   if (!zip && !(city && state) && state) payload.state = state;
   return payload;

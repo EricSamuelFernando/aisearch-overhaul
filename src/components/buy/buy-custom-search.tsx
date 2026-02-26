@@ -648,8 +648,12 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
   const handleSubmit = React.useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      router.push(`/buy/browse?q=${encodeURIComponent(searchString)}`);
-      await sendSearchRequest(searchString)
+      const normalizedQuery = (searchString || '').trim();
+      if (!normalizedQuery) return;
+      // Prevent the searchParams effect from firing the same search again after router.push.
+      lastAutoSearchRef.current = normalizedQuery;
+      router.push(`/buy/browse?q=${encodeURIComponent(normalizedQuery)}`);
+      await sendSearchRequest(normalizedQuery)
     },
     [router, filterData, searchString, searchTerm],
   );

@@ -12,7 +12,6 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { googleMapsApiKey, googleMapsMapId } from '@/shared/constants/env';
 import SkeletonLoader from './skeleton-loader';
 import { cn, formatCurrency } from '@/lib/utils';
-import MapPropertyCards from './buy/browse/map-property-card';
 
 type Coordinate = {
   id?: string;
@@ -99,6 +98,7 @@ const CustomMap: React.FC<Props> = ({
   });
 
   const [mapInstance, setMap] = useState<google.maps.Map | null>(null);
+  const [currentMapZoom, setCurrentMapZoom] = useState<number>(zoom);
   const [selectedMarker, setSelectedMarker] = useState<any>(null);
   const [measureMode, setMeasureMode] = useState(false);
   const [measureStart, setMeasureStart] = useState<google.maps.LatLngLiteral | null>(null);
@@ -145,8 +145,9 @@ const CustomMap: React.FC<Props> = ({
 
   const districtPolygonCacheRef = React.useRef<Map<string, DistrictPolygonCacheEntry>>(new Map());
   const drawPolygonRef = React.useRef<google.maps.Polygon | null>(null);
-  const drawingManagerRef = React.useRef<google.maps.drawing.DrawingManager | null>(null);
-  const drawingManagersRef = React.useRef<Set<google.maps.drawing.DrawingManager>>(new Set());
+  const freehandDrawingActiveRef = React.useRef(false);
+  const freehandPathRef = React.useRef<google.maps.LatLngLiteral[]>([]);
+  const freehandPreviewLineRef = React.useRef<google.maps.Polyline | null>(null);
 
   const containerStyle = {
     height: height || '100%',
@@ -306,13 +307,11 @@ const CustomMap: React.FC<Props> = ({
   );
 
   const clearDrawPolygon = useCallback(() => {
-    try {
-      drawingManagersRef.current.forEach((manager) => {
-        manager.setDrawingMode(null);
-        manager.setMap(null);
-      });
-    } catch {
-      // no-op
+    freehandDrawingActiveRef.current = false;
+    freehandPathRef.current = [];
+    if (freehandPreviewLineRef.current) {
+      freehandPreviewLineRef.current.setMap(null);
+      freehandPreviewLineRef.current = null;
     }
     if (drawPolygonRef.current) {
       drawPolygonRef.current.setMap(null);
@@ -325,15 +324,11 @@ const CustomMap: React.FC<Props> = ({
   }, [onDrawFilterChange]);
 
   const handlePolygonComplete = useCallback((polygon: google.maps.Polygon) => {
-    // Immediately disable the Google drawing tool instance so it does not keep
-    // capturing clicks until React unmounts the DrawingManager component.
-    try {
-      drawingManagersRef.current.forEach((manager) => {
-        manager.setDrawingMode(null);
-        manager.setMap(null);
-      });
-    } catch {
-      // no-op
+    freehandDrawingActiveRef.current = false;
+    freehandPathRef.current = [];
+    if (freehandPreviewLineRef.current) {
+      freehandPreviewLineRef.current.setMap(null);
+      freehandPreviewLineRef.current = null;
     }
 
     if (drawPolygonRef.current) {
@@ -360,15 +355,11 @@ const CustomMap: React.FC<Props> = ({
 
   useEffect(() => {
     if (drawMode) return;
-    // React unmount of <DrawingManager /> can lag a tick; force-disable the
-    // live Google drawing tool immediately so map clicks stop creating points.
-    try {
-      drawingManagersRef.current.forEach((manager) => {
-        manager.setDrawingMode(null);
-        manager.setMap(null);
-      });
-    } catch {
-      // no-op
+    freehandDrawingActiveRef.current = false;
+    freehandPathRef.current = [];
+    if (freehandPreviewLineRef.current) {
+      freehandPreviewLineRef.current.setMap(null);
+      freehandPreviewLineRef.current = null;
     }
 
     // Google Maps sometimes keeps the crosshair cursor after drawing finishes.
@@ -396,49 +387,111 @@ const CustomMap: React.FC<Props> = ({
   }, [drawMode, mapInstance]);
 
   useEffect(() => {
-    if (!isLoaded || !mapInstance || !google?.maps?.drawing?.DrawingManager) return;
+    if (!isLoaded || !mapInstance || !drawMode) return;
 
-    if (!drawMode) return;
+    const listeners: google.maps.MapsEventListener[] = [];
 
-    const manager = new google.maps.drawing.DrawingManager({
-      drawingMode: google.maps.drawing.OverlayType.POLYGON,
-      drawingControl: false,
-      polygonOptions: {
-        fillColor: '#F57F2E',
-        fillOpacity: 0.16,
-        strokeColor: '#F57F2E',
-        strokeOpacity: 0.95,
-        strokeWeight: 2,
-        clickable: false,
-        editable: false,
-        draggable: false,
-        zIndex: 50,
-      },
-    });
+    const minPointDistanceMeters = 10;
 
-    drawingManagerRef.current = manager;
-    drawingManagersRef.current.add(manager);
-    manager.setMap(mapInstance);
+    const pushPoint = (point: google.maps.LatLngLiteral) => {
+      const path = freehandPathRef.current;
+      const last = path[path.length - 1];
+      if (last && google?.maps?.geometry?.spherical) {
+        const dist = google.maps.geometry.spherical.computeDistanceBetween(
+          new google.maps.LatLng(last.lat, last.lng),
+          new google.maps.LatLng(point.lat, point.lng),
+        );
+        if (dist < minPointDistanceMeters) return;
+      }
 
-    const polygonCompleteListener = google.maps.event.addListener(
-      manager,
-      'polygoncomplete',
-      (polygon: google.maps.Polygon) => {
-        handlePolygonComplete(polygon);
-      },
+      path.push(point);
+
+      if (!freehandPreviewLineRef.current) {
+        freehandPreviewLineRef.current = new google.maps.Polyline({
+          map: mapInstance,
+          path,
+          clickable: false,
+          strokeColor: '#F57F2E',
+          strokeOpacity: 0.95,
+          strokeWeight: 2,
+          zIndex: 50,
+        });
+        return;
+      }
+
+      freehandPreviewLineRef.current.setPath(path);
+    };
+
+    const finalizeFreehandPolygon = () => {
+      if (!freehandDrawingActiveRef.current) return;
+      freehandDrawingActiveRef.current = false;
+
+      const path = [...freehandPathRef.current];
+      freehandPathRef.current = [];
+
+      if (freehandPreviewLineRef.current) {
+        freehandPreviewLineRef.current.setMap(null);
+        freehandPreviewLineRef.current = null;
+      }
+
+      if (path.length < 3) {
+        return;
+      }
+
+      const polygon = new google.maps.Polygon({
+        paths: path,
+        map: mapInstance,
+      });
+
+      handlePolygonComplete(polygon);
+    };
+
+    listeners.push(
+      mapInstance.addListener('mousemove', (event: google.maps.MapMouseEvent) => {
+        if (!drawMode || !event?.latLng) return;
+
+        const domEvent = event.domEvent as MouseEvent | undefined;
+        const leftButtonHeld =
+          !!domEvent &&
+          (typeof domEvent.buttons === 'number'
+            ? (domEvent.buttons & 1) === 1
+            : domEvent.button === 0);
+
+        if (!leftButtonHeld) return;
+
+        if (!freehandDrawingActiveRef.current) {
+          freehandDrawingActiveRef.current = true;
+          freehandPathRef.current = [];
+
+          if (freehandPreviewLineRef.current) {
+            freehandPreviewLineRef.current.setMap(null);
+            freehandPreviewLineRef.current = null;
+          }
+        }
+
+        pushPoint(event.latLng.toJSON());
+      }),
     );
 
+    listeners.push(
+      mapInstance.addListener('mouseup', () => {
+        finalizeFreehandPolygon();
+      }),
+    );
+
+    const handleWindowMouseUp = () => {
+      finalizeFreehandPolygon();
+    };
+    window.addEventListener('mouseup', handleWindowMouseUp);
+
     return () => {
-      try {
-        google.maps.event.removeListener(polygonCompleteListener);
-        manager.setDrawingMode(null);
-        manager.setMap(null);
-      } catch {
-        // no-op
-      }
-      drawingManagersRef.current.delete(manager);
-      if (drawingManagerRef.current === manager) {
-        drawingManagerRef.current = null;
+      listeners.forEach((listener) => google.maps.event.removeListener(listener));
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+      freehandDrawingActiveRef.current = false;
+      freehandPathRef.current = [];
+      if (freehandPreviewLineRef.current) {
+        freehandPreviewLineRef.current.setMap(null);
+        freehandPreviewLineRef.current = null;
       }
     };
   }, [isLoaded, mapInstance, drawMode, handlePolygonComplete]);
@@ -468,6 +521,9 @@ const CustomMap: React.FC<Props> = ({
 
   useEffect(() => {
     return () => {
+      if (freehandPreviewLineRef.current) {
+        freehandPreviewLineRef.current.setMap(null);
+      }
       if (drawPolygonRef.current) {
         drawPolygonRef.current.setMap(null);
       }
@@ -637,26 +693,96 @@ const CustomMap: React.FC<Props> = ({
     });
   }, [isLoaded, mapInstance, matchedDistricts, showDistricts]);
 
-  const createCustomMarker = (price?: string, isSelected?: boolean) => {
-    const formattedPrice = formatCurrency(parseFloat(price || '0'));
+  const formatMarkerPriceCompact = (value?: number) => {
+    if (!Number.isFinite(value as number) || !value || value <= 0) return '$0';
+    const n = value as number;
+
+    if (n >= 1_000_000) {
+      const millions = n / 1_000_000;
+      return `$${millions >= 10 ? Math.round(millions) : millions.toFixed(1).replace(/\\.0$/, '')}M`;
+    }
+
+    if (n >= 1_000) {
+      const thousands = n / 1_000;
+      return `$${thousands >= 100 ? Math.round(thousands) : thousands.toFixed(1).replace(/\\.0$/, '')}k`;
+    }
+
+    return formatCurrency(n);
+  };
+
+  const createDotMarker = (isSelected?: boolean) => {
     const markerFill = isSelected ? '#F07639' : '#2C2C2E';
-    // const formattedPrice = "₹8.5L";
+    const svg = `
+<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="12" cy="12" r="8" fill="${markerFill}" stroke="#FFFFFF" stroke-width="3" />
+</svg>
+`;
+    return {
+      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg.trim())}`,
+      scaledSize: new google.maps.Size(16, 16),
+      anchor: new google.maps.Point(8, 8),
+    };
+  };
+
+  const createCustomMarker = (price?: string, isSelected?: boolean) => {
+    if (currentMapZoom <= 11 && !isSelected) {
+      return createDotMarker(isSelected);
+    }
+
+    const formattedPrice = formatMarkerPriceCompact(parseFloat(price || '0'));
+    const approxCharWidth = isSelected ? 10.2 : 9.8;
+    const horizontalPadding = isSelected ? 30 : 26;
+    const minBubbleWidth = isSelected ? 84 : 76;
+    const maxBubbleWidth = isSelected ? 138 : 124;
+    const bubbleWidth = Math.max(
+      minBubbleWidth,
+      Math.min(maxBubbleWidth, Math.round(formattedPrice.length * approxCharWidth + horizontalPadding))
+    );
+
+    const svgWidth = bubbleWidth + 24;
+    const svgHeight = 58;
+    const rectX = Math.round((svgWidth - bubbleWidth) / 2);
+    const centerX = Math.round(svgWidth / 2);
+    const rectY = 6;
+    const rectHeight = isSelected ? 38 : 34;
+    const rectRadius = Math.round(rectHeight / 2);
+    const fontSize = isSelected ? 16 : 15;
 
     const svg = `
-<svg width="160" height="70" viewBox="0 0 160 70" xmlns="http://www.w3.org/2000/svg">
-  <rect x="20" y="0" width="120" height="50" rx="12" ry="12" fill="${markerFill}"/>
-  <text x="80" y="30" fill="#FFFFFF" font-size="20" font-family="sans-serif" font-weight="600" text-anchor="middle" alignment-baseline="middle">
+<svg width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="pillShadow" x="-30%" y="-50%" width="160%" height="220%">
+      <feDropShadow dx="0" dy="2" stdDeviation="${isSelected ? 3 : 2.2}" flood-color="#000000" flood-opacity="${isSelected ? 0.2 : 0.14}" />
+    </filter>
+  </defs>
+  <rect
+    x="${rectX}"
+    y="${rectY}"
+    width="${bubbleWidth}"
+    height="${rectHeight}"
+    rx="${rectRadius}"
+    ry="${rectRadius}"
+    fill="#FFFFFF"
+    stroke="${isSelected ? '#F07639' : '#D4D4D8'}"
+    stroke-width="${isSelected ? 2 : 1}"
+    filter="url(#pillShadow)"
+  />
+  <text x="${centerX}" y="${rectY + Math.round(rectHeight / 2) + 1}" fill="#111827" font-size="${fontSize}" font-family="sans-serif" font-weight="700" text-anchor="middle" alignment-baseline="middle">
     ${formattedPrice}
   </text>
-  <polygon points="80,50 72,64 88,64" fill="${markerFill}"/>
 </svg>
 `;
     const svgUrl = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
 
+    const bubbleScale = isSelected ? 92 : 84;
+    const bubbleHeight = isSelected ? 52 : 46;
+    const anchorX = Math.round(bubbleScale / 2);
+    const anchorY = isSelected ? 46 : 40;
+
     return {
       url: svgUrl,
-      scaledSize: new google.maps.Size(80, 70), // Adjust scale as needed
-      anchor: new google.maps.Point(40, 64),
+      scaledSize: new google.maps.Size(bubbleScale, bubbleHeight),
+      anchor: new google.maps.Point(anchorX, anchorY),
     };
   };
 
@@ -1429,7 +1555,8 @@ const CustomMap: React.FC<Props> = ({
 
   const onLoad = useCallback((map: google.maps.Map) => {
     setMap(map);
-  }, []);
+    setCurrentMapZoom(map.getZoom() ?? zoom);
+  }, [zoom]);
 
   const onUnmount = () => setMap(null);
 
@@ -1446,12 +1573,13 @@ const CustomMap: React.FC<Props> = ({
     });
     const zoomListener = mapInstance.addListener('zoom_changed', () => {
       userMovedMapRef.current = true;
+      setCurrentMapZoom(mapInstance.getZoom() ?? zoom);
     });
     return () => {
       google.maps.event.removeListener(dragListener);
       google.maps.event.removeListener(zoomListener);
     };
-  }, [mapInstance]);
+  }, [mapInstance, zoom]);
 
   useEffect(() => {
     if (Array.isArray(drawFilteredMarkerIds)) {
@@ -1596,10 +1724,10 @@ const CustomMap: React.FC<Props> = ({
               </div>
               <div className="mt-2 text-[11px] leading-4 text-gray-600">
                 {drawMode
-                  ? 'Click points, double-click to finish.'
+                  ? 'Click and drag to draw a freehand area.'
                   : drawFilteredMarkerIds
                     ? `${drawFilteredMarkerIds.length} listing${drawFilteredMarkerIds.length === 1 ? '' : 's'} in area.`
-                    : 'Draw a polygon to filter current listings.'}
+                    : 'Draw a freehand shape to filter current listings.'}
               </div>
               <button
                 className="mt-2 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-400"
@@ -1820,7 +1948,9 @@ const CustomMap: React.FC<Props> = ({
           fullscreenControl: false,
           streetViewControl: false,
           mapTypeControl: false,
+          clickableIcons: false,
           zoomControl: true,
+          draggable: !drawMode,
           scrollwheel: true,
           gestureHandling: 'cooperative',
           draggableCursor: drawMode ? 'crosshair' : undefined,
@@ -1863,6 +1993,14 @@ const CustomMap: React.FC<Props> = ({
               if (measureModeRef.current) {
                 applyMeasurePointFromMarker(markerPos, 'listing');
                 if (marker.id && onMarkerClick) onMarkerClick(marker.id);
+                return;
+              }
+              const sameSelected =
+                !!selectedMarker &&
+                ((marker.id && selectedMarker.id && String(marker.id) === String(selectedMarker.id)) ||
+                  (selectedMarker.lat === marker.lat && selectedMarker.lng === marker.lng));
+              if (sameSelected) {
+                setSelectedMarker(null);
                 return;
               }
               setSelectedMarker(marker);
@@ -1928,30 +2066,6 @@ const CustomMap: React.FC<Props> = ({
           />
         )}
 
-        {selectedMarker && (
-          <InfoWindow
-            position={{ lat: selectedMarker.lat, lng: selectedMarker.lng }}
-            onCloseClick={() => setSelectedMarker(null)}
-            options={{
-              disableAutoPan: false,
-              pixelOffset: new google.maps.Size(0, -44),
-              maxWidth: 320,
-            }}
-          >
-            <div
-              className='infowindow-content map-info-window w-full max-w-[320px] overflow-hidden bg-black/80 rounded-xl'
-            >
-              {selectedMarker.originalData?.listing ? (
-                <MapPropertyCards
-                  {...selectedMarker.originalData}
-                  onClose={() => setSelectedMarker(null)}
-                />
-              ) : (
-                <div className="p-4 text-sm text-gray-600">No property details</div>
-              )}
-            </div>
-          </InfoWindow>
-        )}
         {selectedSchool && (
           <InfoWindow
             position={selectedSchool.position}
@@ -2098,3 +2212,4 @@ const CustomMap: React.FC<Props> = ({
 };
 
 export default React.memo(CustomMap);
+

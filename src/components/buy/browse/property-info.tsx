@@ -3,7 +3,7 @@
 import CustomMap from '@/components/custom-map';
 import { cn } from '@/lib/utils';
 import { useProperty, usePropertyActions } from '@/shared/hooks/useProperty';
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { BuyPropertyCards } from '../buy-property-cards';
 import { usePropertyStore } from '@/store/use-property-store';
 import { incrementSearchCount } from '@/slices/onboarding/property-preference';
@@ -28,6 +28,8 @@ function PropertyBrowseView({ }: Props) {
   const { savePropertyView } = usePropertyActions();
   const divRef = useRef<HTMLDivElement>(null);
   const isSearchingRef = useRef(false);
+  const lastSearchFingerprintRef = useRef<string>('');
+  const lastSearchSentAtRef = useRef<number>(0);
   const [divHeight, setDivHeight] = useState<number | null>(null);
   const {
     allProperties,
@@ -46,14 +48,18 @@ function PropertyBrowseView({ }: Props) {
   const [isSearching, setIsSearching] = useState(false);
   const searchParams = useSearchParams();
   const query = searchParams.get('q');
-  const activeSearchFilters = {
+  const activeSearchFilters = useMemo(() => ({
     bedrooms: Number(searchParams.get('bedRooms') || '') || undefined,
     bathrooms: Number(searchParams.get('bathRooms') || '') || undefined,
     listing_price_min: Number(searchParams.get('priceMin') || '') || undefined,
     listing_price_max: Number(searchParams.get('priceMax') || '') || undefined,
     listing_property_type: searchParams.get('propertyType') || undefined,
     public_land_use: searchParams.get('subType') || undefined,
-  };
+  }), [searchParams]);
+  const activeSearchFiltersKey = useMemo(
+    () => JSON.stringify(activeSearchFilters),
+    [activeSearchFilters],
+  );
   const mapRef = useRef<HTMLDivElement>(null);
   const [isMapPinned, setIsMapPinned] = useState(true);
   const [mapOverlay, setMapOverlay] = useState<'none' | 'schools'>('none');
@@ -93,6 +99,28 @@ function PropertyBrowseView({ }: Props) {
     debounce(async (body: Record<string, any>) => {
       if (isSearchingRef.current) return;
 
+      const fingerprint = JSON.stringify({
+        mode: isMlsBypassModeEnabled() ? 'mls' : 'ai',
+        query: query ?? '',
+        ...activeSearchFilters,
+        ...body,
+        latitude:
+          typeof body?.latitude === 'number' ? Number(body.latitude.toFixed(3)) : body?.latitude,
+        longitude:
+          typeof body?.longitude === 'number' ? Number(body.longitude.toFixed(3)) : body?.longitude,
+      });
+      const isMapRefresh = body?.latitude !== undefined && body?.longitude !== undefined;
+      const duplicateCooldownMs = isMapRefresh ? 6000 : 1500;
+      const now = Date.now();
+      if (
+        lastSearchFingerprintRef.current === fingerprint &&
+        now - lastSearchSentAtRef.current < duplicateCooldownMs
+      ) {
+        return;
+      }
+      lastSearchFingerprintRef.current = fingerprint;
+      lastSearchSentAtRef.current = now;
+
       isSearchingRef.current = true;
       setIsSearching(true);
       try {
@@ -131,7 +159,7 @@ function PropertyBrowseView({ }: Props) {
         setIsSearching(false);
       }
     }, 1000),
-    [query, clearProperties, addProperties, setSearchedQuery, dispatch, searchParams],
+    [query, activeSearchFiltersKey, clearProperties, addProperties, setSearchedQuery, dispatch],
   );
 
   useEffect(() => {
@@ -152,7 +180,7 @@ function PropertyBrowseView({ }: Props) {
               width="100%"
               coord={coordinates}
               zoom={13}
-              properties={allProperties}
+              properties={displayedProperties}
               height="100%"
               searchQuery={query ?? ''}
               showDistricts={mapOverlay === 'schools'}
@@ -169,6 +197,7 @@ function PropertyBrowseView({ }: Props) {
               clearDrawSignal={clearDrawSignal}
               useOverlayResultsRail
               onMapMove={(center) => {
+                if (isMlsBypassModeEnabled()) return;
                 sendSearchRequest({ latitude: center.lat, longitude: center.lng });
               }}
             />
@@ -346,7 +375,7 @@ function PropertyBrowseView({ }: Props) {
             width="100%"
             coord={coordinates}
             zoom={13}
-            properties={allProperties}
+            properties={displayedProperties}
             height="100%"
             searchQuery={query ?? ''}
             showDistricts={mapOverlay === 'schools'}
@@ -362,6 +391,7 @@ function PropertyBrowseView({ }: Props) {
             }}
             clearDrawSignal={clearDrawSignal}
             onMapMove={(center) => {
+              if (isMlsBypassModeEnabled()) return;
               sendSearchRequest({ latitude: center.lat, longitude: center.lng });
             }}
           />

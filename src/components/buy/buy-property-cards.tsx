@@ -93,7 +93,7 @@ function BuyPropertyCards({ forwardedRef, selectedProperty, propertiesOverride, 
   // If a selected property is outside the current page, jump to the correct page first.
   useEffect(() => {
     if (!selectedProperty || !Array.isArray(sourceProperties)) return;
-    const idx = sourceProperties.findIndex((p: any) => p.id === selectedProperty);
+    const idx = sourceProperties.findIndex((p: any) => String(p?.id) === String(selectedProperty));
     if (idx === -1) return;
     const targetPage = Math.floor(idx / ITEMS_PER_PAGE) + 1;
     if (targetPage !== currentPage) {
@@ -101,14 +101,16 @@ function BuyPropertyCards({ forwardedRef, selectedProperty, propertiesOverride, 
     }
   }, [selectedProperty, sourceProperties, currentPage]);
 
-  // useEffect(() => {
-  //   if (selectedProperty) {
-  //     const element = document.getElementById(selectedProperty);
-  //     if (element) {
-  //       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  //     }
-  //   }
-  // }, [selectedProperty, currentPage]);
+  useEffect(() => {
+    if (!selectedProperty) return;
+    const raf = requestAnimationFrame(() => {
+      const element = document.getElementById(String(selectedProperty));
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      }
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [selectedProperty, currentPage]);
 
   return (
     <div
@@ -146,15 +148,16 @@ function BuyPropertyCards({ forwardedRef, selectedProperty, propertiesOverride, 
               <>
                 {Array.isArray(sourceProperties) && sourceProperties.length > 0 && (
                   paginatedProperties.map((prop: any) => {
-                    const isSelected = prop.id === selectedProperty;
+                    const isSelected = String(prop?.id) === String(selectedProperty);
                     return <div
                       ref={ref}
                       key={prop.id}
-                      id={prop.id}
+                      id={String(prop.id)}
                       className={cn(
                         isSelected
                           ? overlayMode
-                            ? 'rounded-2xl ring-2 ring-orange-400 shadow-lg'
+                            ? "relative rounded-xl shadow-md before:pointer-events-none before:absolute before:inset-0 before:rounded-xl before:ring-2 before:ring-inset before:ring-orange-400 before:content-['']"
+                            + " before:z-20"
                             : 'bg-white p-1 bg-orange-500 rounded-2xl shadow-xl'
                           : '',
                         'transition duration-300 ease-in-out',

@@ -202,7 +202,7 @@ const PropertyCards = (props: any) => {
     return (
       <div
         onClick={handleClick}
-        className={`relative w-full cursor-pointer overflow-hidden rounded-xl border bg-white shadow-sm transition-all duration-200 hover:shadow-md ${
+        className={`relative flex h-full min-h-[260px] w-full cursor-pointer flex-col overflow-hidden rounded-xl border bg-white shadow-sm transition-all duration-200 hover:shadow-md ${
           isSelectedForCompare ? 'border-orange-400' : 'border-gray-200'
         }`}
       >
@@ -280,12 +280,12 @@ const PropertyCards = (props: any) => {
           )}
         </div>
 
-        <div className="space-y-1.5 p-2.5">
+        <div className="flex min-h-0 flex-1 flex-col p-2.5">
           <div className="text-[15px] font-bold leading-none text-gray-900">
             {priceText}
           </div>
 
-          <div className="text-[11px] leading-4 text-gray-600">
+          <div className="mt-1.5 text-[11px] leading-4 text-gray-600">
             <span>{beds} bds</span>
             <span className="mx-1 text-gray-400">|</span>
             <span>{baths} ba</span>
@@ -295,13 +295,13 @@ const PropertyCards = (props: any) => {
             <span>{compactStatusLabel}</span>
           </div>
 
-          <div className="line-clamp-2 text-[12px] leading-4 text-gray-800">
+          <div className="mt-1.5 min-h-[2rem] line-clamp-2 text-[12px] leading-4 text-gray-800">
             {[address?.unparsedAddress, address?.city && `${address.city},`, address?.stateOrProvince, address?.zipCode]
               .filter(Boolean)
               .join(' ')}
           </div>
 
-          <div className="truncate text-[10px] uppercase tracking-wide text-gray-400">
+          <div className="mt-1.5 truncate text-[10px] uppercase tracking-wide text-gray-400">
             {brokerageLabel || propertyTypeLabel}
           </div>
         </div>

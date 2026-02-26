@@ -16,6 +16,7 @@ import { googleMapsApiKey } from '@/shared/constants/env';
 import { updateBuyerOnboardingPreference } from '@/slices/onboarding/onboarding-slice';
 import { buyerPropertyPreference } from '@/slices/onboarding/onboarding-selectors';
 
+// Keep loader options identical across the app (custom-map also loads drawing).
 const libraries: Libraries = ['places', 'geometry', 'drawing'];
 
 const PropertyArea: React.FC = () => {

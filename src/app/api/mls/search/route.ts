@@ -8,6 +8,52 @@ import {
 
 export const runtime = 'nodejs';
 
+type UpstreamResult = { ok: boolean; status: number; json: any };
+
+const MLS_PAGE_CACHE_TTL_MS = 3000;
+const mlsPageInflight = new Map<string, Promise<UpstreamResult>>();
+const mlsPageRecentCache = new Map<string, { expiresAt: number; value: UpstreamResult }>();
+
+const stableKey = (value: any): string => {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableKey).join(',')}]`;
+  const keys = Object.keys(value).sort();
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${stableKey(value[k])}`).join(',')}}`;
+};
+
+const dedupedMlsSearchPagePost = async (payload: Record<string, any>): Promise<UpstreamResult> => {
+  const key = stableKey(payload);
+  const now = Date.now();
+
+  const cached = mlsPageRecentCache.get(key);
+  if (cached && cached.expiresAt > now) {
+    return cached.value;
+  }
+  if (cached) {
+    mlsPageRecentCache.delete(key);
+  }
+
+  const inflight = mlsPageInflight.get(key);
+  if (inflight) {
+    return inflight;
+  }
+
+  const promise = realEstatePost('/v2/MLSSearch', payload)
+    .then((result) => {
+      mlsPageRecentCache.set(key, {
+        expiresAt: Date.now() + MLS_PAGE_CACHE_TTL_MS,
+        value: result,
+      });
+      return result;
+    })
+    .finally(() => {
+      mlsPageInflight.delete(key);
+    });
+
+  mlsPageInflight.set(key, promise);
+  return promise;
+};
+
 const coerceNumber = (value: unknown) => {
   if (value === null || value === undefined || value === '') return undefined;
   const n = Number(value);
@@ -19,6 +65,26 @@ const coerceString = (value: unknown) => {
   const s = String(value).trim();
   return s ? s : undefined;
 };
+
+const textFields = (record: any) =>
+  [
+    record?.propertyType,
+    record?.listing_property_type,
+    record?.listing?.propertyType,
+    record?.listing?.listingPropertyType,
+    record?.public_land_use,
+    record?.publicLandUse,
+    record?.propertySubType,
+    record?.listing?.propertySubType,
+    record?.property?.propertyType,
+    record?.property?.propertySubType,
+    record?.listing?.standardStatus,
+    record?.standardStatus,
+    record?.listing?.customStatus,
+    record?.customStatus,
+  ]
+    .filter(Boolean)
+    .map((v) => String(v).toLowerCase());
 
 const isActiveListing = (record: any) => {
   const std = String(
@@ -43,6 +109,38 @@ const isActiveListing = (record: any) => {
   return false;
 };
 
+const isLeaseOrRentalLike = (record: any) => {
+  const values = textFields(record);
+  return values.some((v) =>
+    /\b(residential\s+lease|lease|leased|rental|rent)\b/i.test(v),
+  );
+};
+
+const isDisallowedCategory = (record: any) => {
+  const values = textFields(record);
+  return values.some((v) =>
+    /\b(commercial|farm|land|lot|business(?:_opportunity)?|industrial)\b/i.test(v),
+  );
+};
+
+const isLeaseOrRentalLikeNormalized = (record: any) =>
+  isLeaseOrRentalLike(record) ||
+  [
+    record?.propertyType,
+    record?.propertySubType,
+    record?.listing?.propertyType,
+    record?.listing?.propertySubType,
+    record?.public_land_use,
+  ]
+    .filter(Boolean)
+    .some((v) => /\b(residential\s+lease|lease|rental|rent)\b/i.test(String(v)));
+
+const isDisallowedCategoryNormalized = (record: any) =>
+  isDisallowedCategory(record) ||
+  [record?.propertyType, record?.propertySubType, record?.public_land_use]
+    .filter(Boolean)
+    .some((v) => /\b(commercial|farm|land|lot|business|industrial)\b/i.test(String(v)));
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
@@ -56,6 +154,7 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = buildMlsSearchPayloadFromQuery(query);
+    const isMapViewportRefresh = body?.latitude !== undefined && body?.longitude !== undefined;
 
     // Merge explicit UI filters from browse/filter drawers when present.
     const mergedPayload = {
@@ -72,6 +171,7 @@ export async function POST(request: NextRequest) {
         body?.additional_criteria && typeof body.additional_criteria === 'object'
           ? body.additional_criteria
           : payload.additional_criteria,
+      propertyType: coerceString(body?.propertyType) ?? undefined,
     };
 
     // Defensive cleanup so we do not send empty values upstream.
@@ -92,31 +192,90 @@ export async function POST(request: NextRequest) {
     ) {
       delete (mergedPayload as Record<string, any>).additional_criteria;
     }
-    const upstream = await realEstatePost('/v2/MLSSearch', mergedPayload);
+    const pageSize = isMapViewportRefresh ? 24 : 50;
+    const requestedMax = Number(process.env.MLS_DIRECT_MAX_RESULTS || 200);
+    const maxResults = isMapViewportRefresh
+      ? pageSize
+      : Math.min(500, Number.isFinite(requestedMax) && requestedMax > 0 ? requestedMax : 200);
 
-    if (!upstream.ok) {
-      return NextResponse.json(
-        {
-          error: 'MLS search upstream request failed',
-          upstreamStatus: upstream.status,
-          upstreamBody: upstream.json,
-          payload: mergedPayload,
-        },
-        { status: 502 },
-      );
+    const aggregateRaw: any[] = [];
+    const seenKeys = new Set<string>();
+    let lastUpstream: { ok: boolean; status: number; json: any } | null = null;
+    let partialUpstreamFailure:
+      | { status: number; body: any; pagePayload: Record<string, any> }
+      | null = null;
+    let resultIndex = 0;
+    let pagesFetched = 0;
+
+    while (aggregateRaw.length < maxResults) {
+      const pagePayload = {
+        ...mergedPayload,
+        size: Math.min(pageSize, maxResults - aggregateRaw.length),
+        resultIndex,
+      };
+      const upstream = await dedupedMlsSearchPagePost(pagePayload);
+      pagesFetched += 1;
+
+      if (!upstream.ok) {
+        if (aggregateRaw.length > 0) {
+          partialUpstreamFailure = {
+            status: upstream.status,
+            body: upstream.json,
+            pagePayload,
+          };
+          break;
+        }
+        return NextResponse.json(
+          {
+            error: 'MLS search upstream request failed',
+            upstreamStatus: upstream.status,
+            upstreamBody: upstream.json,
+            payload: pagePayload,
+          },
+          { status: 502 },
+        );
+      }
+      lastUpstream = upstream;
+
+      const pageRecords = extractMlsSearchRecords(upstream.json);
+      if (!pageRecords.length) break;
+
+      for (const rec of pageRecords) {
+        const key = String(
+          rec?.listing?.listingId ??
+          rec?.listingId ??
+          rec?.listing_id ??
+          rec?.id ??
+          rec?.mlsNumber ??
+          `${resultIndex}-${aggregateRaw.length}`,
+        );
+        if (seenKeys.has(key)) continue;
+        seenKeys.add(key);
+        aggregateRaw.push(rec);
+        if (aggregateRaw.length >= maxResults) break;
+      }
+
+      if (isMapViewportRefresh) break;
+      if (pageRecords.length < (pagePayload.size || pageSize)) break;
+      resultIndex += pageRecords.length;
+      if (pagesFetched >= 10) break;
     }
 
-    const rawRecords = extractMlsSearchRecords(upstream.json);
-    const filteredRecords = rawRecords.filter(isActiveListing);
+    const filteredRecords = aggregateRaw
+      .filter(isActiveListing)
+      .filter((r) => !isLeaseOrRentalLike(r))
+      .filter((r) => !isDisallowedCategory(r));
+
     const properties = filteredRecords
       .map((record, idx) => normalizeMlsSearchRecord(record, idx))
-      .filter((p) => p && (p.latitude !== null && p.longitude !== null));
+      .filter((p) => p && (p.latitude !== null && p.longitude !== null))
+      .filter((p) => !isLeaseOrRentalLikeNormalized(p))
+      .filter((p) => !isDisallowedCategoryNormalized(p));
 
     const countHint =
-      (filteredRecords.length ||
-        upstream.json?.resultCount ||
-        upstream.json?.count ||
-        upstream.json?.data?.resultCount) ??
+      ((lastUpstream?.json?.resultCount ||
+        lastUpstream?.json?.count ||
+        lastUpstream?.json?.data?.resultCount) as number | undefined) ??
       properties.length;
 
     const finalResponse =
@@ -142,7 +301,16 @@ export async function POST(request: NextRequest) {
         source: 'mls_bypass',
       },
       query_history_formatted: query,
-      debug: process.env.NODE_ENV !== 'production' ? { payload: mergedPayload, upstreamStatus: upstream.status } : undefined,
+      debug:
+        process.env.NODE_ENV !== 'production'
+          ? {
+              payload: mergedPayload,
+              upstreamStatus: lastUpstream?.status,
+              pagesFetched,
+              aggregated: aggregateRaw.length,
+              partialUpstreamFailure,
+            }
+          : undefined,
     });
   } catch (error) {
     return NextResponse.json(

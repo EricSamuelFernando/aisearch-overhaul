@@ -481,6 +481,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
   const [filterData, setFilterData] = React.useState({});
   const [showInputBox, setShowInputBox] = React.useState(false);
   const { currentView } = useProperty();
+  const isHiddenInMapMode = hideInMap && currentView === 'map';
   const popupRef = React.useRef<HTMLDivElement>(null);
   const toggleButtonRef = React.useRef<HTMLButtonElement>(null);
   const [isFooterVisible, setIsFooterVisible] = React.useState(false);
@@ -505,6 +506,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [placeholderText, setPlaceholderText] = React.useState('Start a new search');
   React.useEffect(() => {
+    if (isHiddenInMapMode) return;
     const data: Record<string, string | undefined> = {
       bedRooms: searchParams.get("bedRooms") || undefined,
       bathRooms: searchParams.get("bathRooms") || undefined,
@@ -548,19 +550,20 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
     if (lastAutoSearchRef.current === normalizedQuery) return;
     lastAutoSearchRef.current = normalizedQuery;
     sendSearchRequest(normalizedQuery);
-  }, [searchParams, searchTerm]);
+  }, [searchParams, searchTerm, isHiddenInMapMode]);
 
 
   React.useEffect(() => {
+    if (isHiddenInMapMode) return;
     if (scrollDirection === 'down' && isScrolling) {
       setIsVisible(false);
     } else if (!isScrolling || scrollDirection === 'up') {
       setIsVisible(true);
     }
-  }, [scrollDirection, isScrolling]);
+  }, [scrollDirection, isScrolling, isHiddenInMapMode]);
 
   React.useEffect(() => {
-    if (!showInputBox) return;
+    if (isHiddenInMapMode || !showInputBox) return;
 
     const handleOutsideClick = (event: MouseEvent) => {
       const target = event.target as Node;
@@ -576,11 +579,12 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
 
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [showInputBox]);
+  }, [showInputBox, isHiddenInMapMode]);
 
   // Hide the floating button when the footer enters view.
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (isHiddenInMapMode) return;
     const footer = document.querySelector('footer');
     if (!footer) return;
 
@@ -591,9 +595,10 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
 
     observer.observe(footer);
     return () => observer.disconnect();
-  }, []);
+  }, [isHiddenInMapMode]);
 
   const sendSearchRequest = async (queryToUse?: string) => {
+    if (isHiddenInMapMode) return;
     const resolvedQuery = (queryToUse ?? searchString ?? '').trim();
     if (!resolvedQuery) return;
     if (searchCount + 1 >= 6 && !user?.email) {
@@ -659,7 +664,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
   );
 
 
-  if (hideInMap && currentView === 'map') {
+  if (isHiddenInMapMode) {
     return null;
   }
 

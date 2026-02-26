@@ -1,22 +1,16 @@
 'use client';
 
-import Link from 'next/link';
-import { RefObject, useEffect, useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { RefObject, useEffect, useMemo, useState } from 'react';
 import { nanoid } from 'nanoid';
 import { useInView } from 'react-intersection-observer';
+import { useSelector } from 'react-redux';
 
 import { cn } from '@/lib/utils';
-import { usePropertiesContext } from '@/providers/property-provider';
-import { MlsPropertyListing } from '@/interfaces/mls-data.interface';
-import { MLSPropertyCard } from '@/components/mls-property-card';
-import { useProperty, usePropertyActions } from '@/shared/hooks/useProperty';
+import { useProperty } from '@/shared/hooks/useProperty';
 import { PropCardLoader } from './buy-property-card-loader';
 import PropertyCards from './browse/property-card';
 import { usePropertyStore } from '@/store/use-property-store';
-import Pagination, { calculateTotalPages } from '@/components/card-pagination/pagination';
 import { useUserSnapAPIs } from '@/hooks/api/auth/snaps.API';
-import { useSelector } from 'react-redux';
 
 type MyComponentRef = RefObject<HTMLDivElement>;
 
@@ -28,17 +22,22 @@ type Props = {
 
 const ITEMS_PER_PAGE = 10;
 
-function BuyPropertyCards({ forwardedRef, selectedProperty, propertiesOverride }: Props) {
-  const router = useRouter();
+function BuyPropertyCards({
+  forwardedRef,
+  selectedProperty,
+  propertiesOverride,
+}: Props) {
   const { currentView } = useProperty();
   const { ref } = useInView();
-  const { saveMlsProperty } = usePropertyActions();
-  const { aiData } = usePropertiesContext();
   const { allProperties, isLoading } = usePropertyStore();
-  const sourceProperties = Array.isArray(propertiesOverride) ? propertiesOverride : allProperties;
+  const sourceProperties = Array.isArray(propertiesOverride)
+    ? propertiesOverride
+    : allProperties;
+
   const userData = useSelector((state: any) => state.auth.user);
   const { getAllSnaps } = useUserSnapAPIs();
   const [snaps, setSnaps] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const fetchSnaps = () => {
     if (userData?.id) {
@@ -54,12 +53,9 @@ function BuyPropertyCards({ forwardedRef, selectedProperty, propertiesOverride }
     fetchSnaps();
   }, [userData?.id]);
 
-  // Reset to page 1 when search results change
   useEffect(() => {
     setCurrentPage(1);
   }, [sourceProperties?.length]);
-
-  // Pagination: 5 rows x 2 columns = 10 cards per page for map view.
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil((sourceProperties?.length || 0) / ITEMS_PER_PAGE)),
@@ -87,7 +83,6 @@ function BuyPropertyCards({ forwardedRef, selectedProperty, propertiesOverride }
     return Array.from({ length: end - start + 1 }, (_, i) => start + i);
   }, [totalPages, currentPage]);
 
-  // If a selected property is outside the current page, jump to the correct page first.
   useEffect(() => {
     if (!selectedProperty || !Array.isArray(sourceProperties)) return;
     const idx = sourceProperties.findIndex((p: any) => p.id === selectedProperty);
@@ -97,15 +92,6 @@ function BuyPropertyCards({ forwardedRef, selectedProperty, propertiesOverride }
       setCurrentPage(targetPage);
     }
   }, [selectedProperty, sourceProperties, currentPage]);
-
-  // useEffect(() => {
-  //   if (selectedProperty) {
-  //     const element = document.getElementById(selectedProperty);
-  //     if (element) {
-  //       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  //     }
-  //   }
-  // }, [selectedProperty, currentPage]);
 
   return (
     <div ref={forwardedRef} className="flex h-full flex-col">
@@ -123,18 +109,15 @@ function BuyPropertyCards({ forwardedRef, selectedProperty, propertiesOverride }
                 : 'grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4 lg:grid-cols-[repeat(4,360px)] lg:gap-x-8 lg:justify-center xl:grid-cols-[repeat(4,380px)]',
             )}
           >
-            {/* Show loader while fetching properties */}
             {isLoading ? (
               <>
-                {Array.from({ length: currentView === 'map' ? 10 : 10 }).map(
-                  () => (
-                    <PropCardLoader key={nanoid()} />
-                  ),
-                )}
+                {Array.from({ length: 10 }).map(() => (
+                  <PropCardLoader key={nanoid()} />
+                ))}
               </>
             ) : (
               <>
-                {Array.isArray(allProperties) && allProperties.length > 0
+                {Array.isArray(sourceProperties) && sourceProperties.length > 0
                   ? paginatedProperties.map((prop: any) => {
                       const isSelected = prop.id === selectedProperty;
                       return (
@@ -150,42 +133,21 @@ function BuyPropertyCards({ forwardedRef, selectedProperty, propertiesOverride }
                             currentView === 'grid' ? 'w-[320px]' : '',
                           )}
                         >
-                          <PropertyCards {...prop} />
+                          <PropertyCards
+                            {...prop}
+                            snaps={snaps}
+                            fetchSnaps={fetchSnaps}
+                          />
                         </div>
                       );
                     })
                   : null}
               </>
             )}
-                {Array.from({ length: currentView === 'map' ? 10 : 10 }).map(() => (
-                  <PropCardLoader key={nanoid()} />
-                ))}
-              </>
-            ) : (
-              <>
-                {Array.isArray(sourceProperties) && sourceProperties.length > 0 && (
-                  paginatedProperties.map((prop: any) => {
-                    const isSelected = prop.id === selectedProperty;
-                    return <div
-                      ref={ref}
-                      key={prop.id}
-                      id={prop.id}
-                      className={cn(
-                        isSelected
-                          ? 'bg-white p-1 bg-orange-500 rounded-2xl shadow-xl'
-                          : '',
-                        'transition duration-300 ease-in-out',
-                        currentView === 'grid' ? 'w-[320px]' : '',
-                      )}
-                    >
-                      <PropertyCards {...prop} snaps={snaps} fetchSnaps={fetchSnaps} />
-                    </div>
-                  })
-                )}
-              </>)}
           </div>
         </div>
       </div>
+
       {totalPages > 1 ? (
         <div className="mt-6 flex flex-col items-center gap-3">
           <div className="flex items-center gap-3">
@@ -194,17 +156,17 @@ function BuyPropertyCards({ forwardedRef, selectedProperty, propertiesOverride }
                 'h-10 w-10 rounded-full border text-base font-medium transition',
                 currentPage === 1
                   ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                  : 'bg-white text-gray-700 border-gray-200 shadow hover:shadow-md'
+                  : 'bg-white text-gray-700 border-gray-200 shadow hover:shadow-md',
               )}
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
               aria-label="Previous page"
             >
-              ←
+              {'<'}
             </button>
 
             <div className="flex items-center gap-3">
-              {pageNumbers.map(num => (
+              {pageNumbers.map((num) => (
                 <button
                   key={num}
                   onClick={() => setCurrentPage(num)}
@@ -212,7 +174,7 @@ function BuyPropertyCards({ forwardedRef, selectedProperty, propertiesOverride }
                     'h-10 w-10 rounded-full text-sm font-medium transition',
                     num === currentPage
                       ? 'bg-black text-white shadow'
-                      : 'bg-white text-gray-700 border border-gray-200 hover:shadow-md'
+                      : 'bg-white text-gray-700 border border-gray-200 hover:shadow-md',
                   )}
                 >
                   {num}
@@ -225,13 +187,13 @@ function BuyPropertyCards({ forwardedRef, selectedProperty, propertiesOverride }
                 'h-10 w-10 rounded-full border text-base font-medium transition',
                 currentPage === totalPages
                   ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                  : 'bg-white text-gray-700 border-gray-200 shadow hover:shadow-md'
+                  : 'bg-white text-gray-700 border-gray-200 shadow hover:shadow-md',
               )}
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
               aria-label="Next page"
             >
-              →
+              {'>'}
             </button>
           </div>
 

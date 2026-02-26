@@ -3650,8 +3650,8 @@ export default function ChatBoxComponent(props: any) {
       resolvedMessageType === 'system'
         ? 'system'
         : resolvedMessageType === 'text' && (fileUrlCandidate || derivedFileType)
-            ? 'file'
-            : resolvedMessageType
+          ? 'file'
+          : resolvedMessageType
     return {
       ...message,
       message: decryptedMessage,

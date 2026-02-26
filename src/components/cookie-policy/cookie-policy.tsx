@@ -177,7 +177,7 @@ export default function CookiePolicy() {
                   href="mailto:cookies@snaphomz.com"
                   className="text-[#373635] underline-offset-2 hover:underline"
                 >
-                  <strong>cookies@snaphomz.com</strong>
+                  <strong>support@snaphomz.com</strong>
                 </a>
                 .
               </p>

@@ -8,6 +8,7 @@ import { AGENT_APPLICATIONS } from '@/shared/constants/env';
 
 export function NavigationListPages({ isScrolled = false }: { isScrolled?: boolean }) {
   const pathname = usePathname();
+  const hiddenTopNavItems = new Set(['/sell', '/company']);
 
   // Determine text color based on route
   const getTextColor = (route: string) => {
@@ -82,7 +83,7 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
           </NavigationMenuContent>
         </NavigationMenuItem>
 
-        <NavigationMenuItem>
+        <NavigationMenuItem className={hiddenTopNavItems.has('/sell') ? 'hidden' : undefined}>
           <NavigationMenuTrigger className='bg-transparent px-4 hover:bg-transparent hover:underline focus:bg-transparent'>
             <Link href='/sell' className={isActive('/sell') ? (isScrolled ? 'text-black' : 'text-black') : textColorClass}>
               Sell
@@ -138,7 +139,7 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
           </NavigationMenuContent>
         </NavigationMenuItem>
 
-        <NavigationMenuItem>
+        <NavigationMenuItem className={hiddenTopNavItems.has('/company') ? 'hidden' : undefined}>
           <Link href='/company' legacyBehavior passHref>
             <NavigationMenuLink className={`bg-transparent px-4 font-medium ${isActive('/company') ? (isScrolled ? 'text-white' : 'text-white') : textColorClass}`}>
               Company

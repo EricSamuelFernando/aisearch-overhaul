@@ -5,15 +5,13 @@ import {
   InfoWindow,
   Marker,
   DirectionsRenderer,
-  DrawingManager,
   Libraries,
   useJsApiLoader,
 } from '@react-google-maps/api';
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { googleMapsApiKey, googleMapsMapId } from '@/shared/constants/env';
 import SkeletonLoader from './skeleton-loader';
-import { formatCurrency } from '@/lib/utils';
-import MapPropertyCards from './buy/browse/map-property-card';
+import { cn, formatCurrency } from '@/lib/utils';
 
 type Coordinate = {
   id?: string;
@@ -38,6 +36,8 @@ type Props = {
     bounds: google.maps.LatLngBounds
   ) => void;
   onDrawFilterChange?: (filteredIds: string[] | null) => void;
+  clearDrawSignal?: number;
+  useOverlayResultsRail?: boolean;
 };
 
 const DEFAULT_COORD = { lat: 36.778, lng: -119.417 };
@@ -53,6 +53,7 @@ type DistrictPolygonCacheEntry = {
 };
 
 type PlaceDetailsState = {
+  placeId?: string;
   name: string;
   rating?: number;
   total?: number;
@@ -84,6 +85,8 @@ const CustomMap: React.FC<Props> = ({
   onMarkerClick,
   onMapMove,
   onDrawFilterChange,
+  clearDrawSignal = 0,
+  useOverlayResultsRail = false,
 }) => {
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
@@ -95,6 +98,7 @@ const CustomMap: React.FC<Props> = ({
   });
 
   const [mapInstance, setMap] = useState<google.maps.Map | null>(null);
+  const [currentMapZoom, setCurrentMapZoom] = useState<number>(zoom);
   const [selectedMarker, setSelectedMarker] = useState<any>(null);
   const [measureMode, setMeasureMode] = useState(false);
   const [measureStart, setMeasureStart] = useState<google.maps.LatLngLiteral | null>(null);
@@ -110,7 +114,7 @@ const CustomMap: React.FC<Props> = ({
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [selectedSchool, setSelectedSchool] = useState<PlaceDetailsState | null>(null);
   const [selectedSearchPlace, setSelectedSearchPlace] = useState<SearchPlaceDetails | null>(null);
-  const [exploreOpen, setExploreOpen] = useState(false);
+  const [activeToolPanel, setActiveToolPanel] = useState<'measure' | 'draw' | 'explore' | null>(null);
   const [exploreSearchInput, setExploreSearchInput] = useState('');
   const [activeCategoryKeys, setActiveCategoryKeys] = useState<string[]>([]);
   const [exploreFeedback, setExploreFeedback] = useState<string | null>(null);
@@ -133,9 +137,17 @@ const CustomMap: React.FC<Props> = ({
   const searchRequestIdRef = React.useRef(0);
   const measureModeRef = React.useRef(false);
   const measureStartRef = React.useRef<google.maps.LatLngLiteral | null>(null);
+  const selectedSearchPlaceRef = React.useRef<SearchPlaceDetails | null>(null);
+  const selectedSchoolRef = React.useRef<PlaceDetailsState | null>(null);
+  const userMovedMapRef = React.useRef(false);
+  const lastAutoFitQueryRef = React.useRef<string | null>(null);
+  const suppressNextOnIdleRef = React.useRef(false);
 
   const districtPolygonCacheRef = React.useRef<Map<string, DistrictPolygonCacheEntry>>(new Map());
   const drawPolygonRef = React.useRef<google.maps.Polygon | null>(null);
+  const freehandDrawingActiveRef = React.useRef(false);
+  const freehandPathRef = React.useRef<google.maps.LatLngLiteral[]>([]);
+  const freehandPreviewLineRef = React.useRef<google.maps.Polyline | null>(null);
 
   const containerStyle = {
     height: height || '100%',
@@ -160,6 +172,14 @@ const CustomMap: React.FC<Props> = ({
   useEffect(() => {
     measureStartRef.current = measureStart;
   }, [measureStart]);
+
+  useEffect(() => {
+    selectedSearchPlaceRef.current = selectedSearchPlace;
+  }, [selectedSearchPlace]);
+
+  useEffect(() => {
+    selectedSchoolRef.current = selectedSchool;
+  }, [selectedSchool]);
 
   useEffect(() => {
     const applyClickable = (marker: google.maps.Marker) => {
@@ -287,6 +307,12 @@ const CustomMap: React.FC<Props> = ({
   );
 
   const clearDrawPolygon = useCallback(() => {
+    freehandDrawingActiveRef.current = false;
+    freehandPathRef.current = [];
+    if (freehandPreviewLineRef.current) {
+      freehandPreviewLineRef.current.setMap(null);
+      freehandPreviewLineRef.current = null;
+    }
     if (drawPolygonRef.current) {
       drawPolygonRef.current.setMap(null);
     }
@@ -298,6 +324,13 @@ const CustomMap: React.FC<Props> = ({
   }, [onDrawFilterChange]);
 
   const handlePolygonComplete = useCallback((polygon: google.maps.Polygon) => {
+    freehandDrawingActiveRef.current = false;
+    freehandPathRef.current = [];
+    if (freehandPreviewLineRef.current) {
+      freehandPreviewLineRef.current.setMap(null);
+      freehandPreviewLineRef.current = null;
+    }
+
     if (drawPolygonRef.current) {
       drawPolygonRef.current.setMap(null);
     }
@@ -321,9 +354,157 @@ const CustomMap: React.FC<Props> = ({
   }, [applyDrawFilterFromPolygon]);
 
   useEffect(() => {
+    if (drawMode) return;
+    freehandDrawingActiveRef.current = false;
+    freehandPathRef.current = [];
+    if (freehandPreviewLineRef.current) {
+      freehandPreviewLineRef.current.setMap(null);
+      freehandPreviewLineRef.current = null;
+    }
+
+    // Google Maps sometimes keeps the crosshair cursor after drawing finishes.
+    // Reset cursors explicitly so the UI does not look like draw mode is still active.
+    try {
+      mapInstance?.setOptions({
+        draggableCursor: 'grab',
+        draggingCursor: 'grabbing',
+      });
+    } catch {
+      // no-op
+    }
+  }, [drawMode, mapInstance]);
+
+  useEffect(() => {
+    if (!mapInstance) return;
+    try {
+      mapInstance.setOptions({
+        draggableCursor: drawMode ? 'crosshair' : 'grab',
+        draggingCursor: drawMode ? 'crosshair' : 'grabbing',
+      });
+    } catch {
+      // no-op
+    }
+  }, [drawMode, mapInstance]);
+
+  useEffect(() => {
+    if (!isLoaded || !mapInstance || !drawMode) return;
+
+    const listeners: google.maps.MapsEventListener[] = [];
+
+    const minPointDistanceMeters = 10;
+
+    const pushPoint = (point: google.maps.LatLngLiteral) => {
+      const path = freehandPathRef.current;
+      const last = path[path.length - 1];
+      if (last && google?.maps?.geometry?.spherical) {
+        const dist = google.maps.geometry.spherical.computeDistanceBetween(
+          new google.maps.LatLng(last.lat, last.lng),
+          new google.maps.LatLng(point.lat, point.lng),
+        );
+        if (dist < minPointDistanceMeters) return;
+      }
+
+      path.push(point);
+
+      if (!freehandPreviewLineRef.current) {
+        freehandPreviewLineRef.current = new google.maps.Polyline({
+          map: mapInstance,
+          path,
+          clickable: false,
+          strokeColor: '#F57F2E',
+          strokeOpacity: 0.95,
+          strokeWeight: 2,
+          zIndex: 50,
+        });
+        return;
+      }
+
+      freehandPreviewLineRef.current.setPath(path);
+    };
+
+    const finalizeFreehandPolygon = () => {
+      if (!freehandDrawingActiveRef.current) return;
+      freehandDrawingActiveRef.current = false;
+
+      const path = [...freehandPathRef.current];
+      freehandPathRef.current = [];
+
+      if (freehandPreviewLineRef.current) {
+        freehandPreviewLineRef.current.setMap(null);
+        freehandPreviewLineRef.current = null;
+      }
+
+      if (path.length < 3) {
+        return;
+      }
+
+      const polygon = new google.maps.Polygon({
+        paths: path,
+        map: mapInstance,
+      });
+
+      handlePolygonComplete(polygon);
+    };
+
+    listeners.push(
+      mapInstance.addListener('mousemove', (event: google.maps.MapMouseEvent) => {
+        if (!drawMode || !event?.latLng) return;
+
+        const domEvent = event.domEvent as MouseEvent | undefined;
+        const leftButtonHeld =
+          !!domEvent &&
+          (typeof domEvent.buttons === 'number'
+            ? (domEvent.buttons & 1) === 1
+            : domEvent.button === 0);
+
+        if (!leftButtonHeld) return;
+
+        if (!freehandDrawingActiveRef.current) {
+          freehandDrawingActiveRef.current = true;
+          freehandPathRef.current = [];
+
+          if (freehandPreviewLineRef.current) {
+            freehandPreviewLineRef.current.setMap(null);
+            freehandPreviewLineRef.current = null;
+          }
+        }
+
+        pushPoint(event.latLng.toJSON());
+      }),
+    );
+
+    listeners.push(
+      mapInstance.addListener('mouseup', () => {
+        finalizeFreehandPolygon();
+      }),
+    );
+
+    const handleWindowMouseUp = () => {
+      finalizeFreehandPolygon();
+    };
+    window.addEventListener('mouseup', handleWindowMouseUp);
+
+    return () => {
+      listeners.forEach((listener) => google.maps.event.removeListener(listener));
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+      freehandDrawingActiveRef.current = false;
+      freehandPathRef.current = [];
+      if (freehandPreviewLineRef.current) {
+        freehandPreviewLineRef.current.setMap(null);
+        freehandPreviewLineRef.current = null;
+      }
+    };
+  }, [isLoaded, mapInstance, drawMode, handlePolygonComplete]);
+
+  useEffect(() => {
     if (!drawPolygonRef.current) return;
     applyDrawFilterFromPolygon(drawPolygonRef.current);
   }, [markers, applyDrawFilterFromPolygon]);
+
+  useEffect(() => {
+    if (!clearDrawSignal) return;
+    clearDrawPolygon();
+  }, [clearDrawSignal, clearDrawPolygon]);
 
   const visibleMarkers = useMemo(() => {
     if (!drawFilteredMarkerIds) return markers;
@@ -340,6 +521,9 @@ const CustomMap: React.FC<Props> = ({
 
   useEffect(() => {
     return () => {
+      if (freehandPreviewLineRef.current) {
+        freehandPreviewLineRef.current.setMap(null);
+      }
       if (drawPolygonRef.current) {
         drawPolygonRef.current.setMap(null);
       }
@@ -509,26 +693,96 @@ const CustomMap: React.FC<Props> = ({
     });
   }, [isLoaded, mapInstance, matchedDistricts, showDistricts]);
 
-  const createCustomMarker = (price?: string, isSelected?: boolean) => {
-    const formattedPrice = formatCurrency(parseFloat(price || '0'));
+  const formatMarkerPriceCompact = (value?: number) => {
+    if (!Number.isFinite(value as number) || !value || value <= 0) return '$0';
+    const n = value as number;
+
+    if (n >= 1_000_000) {
+      const millions = n / 1_000_000;
+      return `$${millions >= 10 ? Math.round(millions) : millions.toFixed(1).replace(/\\.0$/, '')}M`;
+    }
+
+    if (n >= 1_000) {
+      const thousands = n / 1_000;
+      return `$${thousands >= 100 ? Math.round(thousands) : thousands.toFixed(1).replace(/\\.0$/, '')}k`;
+    }
+
+    return formatCurrency(n);
+  };
+
+  const createDotMarker = (isSelected?: boolean) => {
     const markerFill = isSelected ? '#F07639' : '#2C2C2E';
-    // const formattedPrice = "₹8.5L";
+    const svg = `
+<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="12" cy="12" r="8" fill="${markerFill}" stroke="#FFFFFF" stroke-width="3" />
+</svg>
+`;
+    return {
+      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg.trim())}`,
+      scaledSize: new google.maps.Size(16, 16),
+      anchor: new google.maps.Point(8, 8),
+    };
+  };
+
+  const createCustomMarker = (price?: string, isSelected?: boolean) => {
+    if (currentMapZoom <= 11 && !isSelected) {
+      return createDotMarker(isSelected);
+    }
+
+    const formattedPrice = formatMarkerPriceCompact(parseFloat(price || '0'));
+    const approxCharWidth = isSelected ? 10.2 : 9.8;
+    const horizontalPadding = isSelected ? 30 : 26;
+    const minBubbleWidth = isSelected ? 84 : 76;
+    const maxBubbleWidth = isSelected ? 138 : 124;
+    const bubbleWidth = Math.max(
+      minBubbleWidth,
+      Math.min(maxBubbleWidth, Math.round(formattedPrice.length * approxCharWidth + horizontalPadding))
+    );
+
+    const svgWidth = bubbleWidth + 24;
+    const svgHeight = 58;
+    const rectX = Math.round((svgWidth - bubbleWidth) / 2);
+    const centerX = Math.round(svgWidth / 2);
+    const rectY = 6;
+    const rectHeight = isSelected ? 38 : 34;
+    const rectRadius = Math.round(rectHeight / 2);
+    const fontSize = isSelected ? 16 : 15;
 
     const svg = `
-<svg width="160" height="70" viewBox="0 0 160 70" xmlns="http://www.w3.org/2000/svg">
-  <rect x="20" y="0" width="120" height="50" rx="12" ry="12" fill="${markerFill}"/>
-  <text x="80" y="30" fill="#FFFFFF" font-size="20" font-family="sans-serif" font-weight="600" text-anchor="middle" alignment-baseline="middle">
+<svg width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="pillShadow" x="-30%" y="-50%" width="160%" height="220%">
+      <feDropShadow dx="0" dy="2" stdDeviation="${isSelected ? 3 : 2.2}" flood-color="#000000" flood-opacity="${isSelected ? 0.2 : 0.14}" />
+    </filter>
+  </defs>
+  <rect
+    x="${rectX}"
+    y="${rectY}"
+    width="${bubbleWidth}"
+    height="${rectHeight}"
+    rx="${rectRadius}"
+    ry="${rectRadius}"
+    fill="#FFFFFF"
+    stroke="${isSelected ? '#F07639' : '#D4D4D8'}"
+    stroke-width="${isSelected ? 2 : 1}"
+    filter="url(#pillShadow)"
+  />
+  <text x="${centerX}" y="${rectY + Math.round(rectHeight / 2) + 1}" fill="#111827" font-size="${fontSize}" font-family="sans-serif" font-weight="700" text-anchor="middle" alignment-baseline="middle">
     ${formattedPrice}
   </text>
-  <polygon points="80,50 72,64 88,64" fill="${markerFill}"/>
 </svg>
 `;
     const svgUrl = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
 
+    const bubbleScale = isSelected ? 92 : 84;
+    const bubbleHeight = isSelected ? 52 : 46;
+    const anchorX = Math.round(bubbleScale / 2);
+    const anchorY = isSelected ? 46 : 40;
+
     return {
       url: svgUrl,
-      scaledSize: new google.maps.Size(80, 70), // Adjust scale as needed
-      anchor: new google.maps.Point(40, 64),
+      scaledSize: new google.maps.Size(bubbleScale, bubbleHeight),
+      anchor: new google.maps.Point(anchorX, anchorY),
     };
   };
 
@@ -633,12 +887,13 @@ const CustomMap: React.FC<Props> = ({
         (place, status) => {
           if (currentRequest !== requestRef.current) return;
           if (status !== google.maps.places.PlacesServiceStatus.OK || !place) {
-            setState({ ...fallback, position });
+            setState({ ...fallback, placeId, position });
             return;
           }
 
           const placeAny = place as any;
           setState({
+            placeId,
             name: place.name ?? fallback.name,
             rating: place.rating ?? fallback.rating,
             total: place.user_ratings_total ?? fallback.total,
@@ -792,7 +1047,23 @@ const CustomMap: React.FC<Props> = ({
           });
           marker.addListener('click', () => {
             const position = { lat: loc.lat(), lng: loc.lng() };
-            centerOnMeasurePoint(position);
+            const current = selectedSearchPlaceRef.current;
+            const sameSelected =
+              !!current &&
+              ((place.place_id && current.placeId && current.placeId === place.place_id) ||
+                (current.categoryKey === opts?.categoryKey &&
+                  current.position?.lat === position.lat &&
+                  current.position?.lng === position.lng));
+
+            if (sameSelected) {
+              searchDetailsRequestRef.current += 1;
+              setSelectedSearchPlace(null);
+              return;
+            }
+
+            if (!measureModeRef.current) {
+              centerOnMeasurePoint(position);
+            }
             applyMeasurePointFromMarker(position, 'poi');
             attachPlaceMarkerClick(place, position, setSelectedSearchPlace, opts?.categoryKey);
           });
@@ -864,6 +1135,20 @@ const CustomMap: React.FC<Props> = ({
       }
       searchPlaceBoundsRef.current = null;
     };
+    const focusQueryGeometry = (geometry?: google.maps.places.PlaceGeometry | null) => {
+      if (!geometry || !mapInstance) return;
+      suppressNextOnIdleRef.current = true;
+      userMovedMapRef.current = false;
+      if (geometry.viewport) {
+        mapInstance.fitBounds(geometry.viewport, 50);
+        return;
+      }
+      const location = geometry.location;
+      if (location) {
+        mapInstance.panTo(location);
+        mapInstance.setZoom(Math.max(zoom, 12));
+      }
+    };
 
     service.findPlaceFromQuery(
       {
@@ -886,6 +1171,7 @@ const CustomMap: React.FC<Props> = ({
           if (isAdmin) {
             setSelectedPlaceId(place?.place_id ?? null);
             updateSearchBounds(place?.geometry ?? null);
+            focusQueryGeometry(place?.geometry ?? null);
             return;
           }
         }
@@ -900,10 +1186,11 @@ const CustomMap: React.FC<Props> = ({
 
           setSelectedPlaceId(geoResults[0]?.place_id ?? null);
           updateSearchBounds(geoResults[0]?.geometry ?? null);
+          focusQueryGeometry(geoResults[0]?.geometry ?? null);
         });
       },
     );
-  }, [isLoaded, mapInstance, searchQuery, extractPlaceQuery, extractLastLocationPhrase]);
+  }, [isLoaded, mapInstance, searchQuery, extractPlaceQuery, extractLastLocationPhrase, zoom]);
 
   useEffect(() => {
     if (!isLoaded || !mapInstance) return;
@@ -967,11 +1254,6 @@ const CustomMap: React.FC<Props> = ({
       return;
     }
 
-    if (matchedDistricts.length === 0) {
-      clearSchoolMarkers();
-      return;
-    }
-
     let cancelled = false;
 
     const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -991,6 +1273,7 @@ const CustomMap: React.FC<Props> = ({
           500,
           google.maps.geometry.spherical.computeDistanceBetween(center, bounds.getNorthEast()),
         );
+        const cappedRadius = Math.min(radius, 50000);
 
         const results: google.maps.places.PlaceResult[] = [];
 
@@ -1014,7 +1297,7 @@ const CustomMap: React.FC<Props> = ({
         service.nearbySearch(
           {
             location: center,
-            radius,
+            radius: cappedRadius,
             type: 'school',
           },
           handlePage,
@@ -1027,9 +1310,16 @@ const CustomMap: React.FC<Props> = ({
       const matchedEntries = getMatchedEntries();
       const allBounds = matchedEntries.flatMap((entry) => entry.bounds);
       const polygons = matchedEntries.flatMap((entry) => entry.polygons);
+      const viewportBounds = mapInstance.getBounds();
+      const boundsToSearch =
+        allBounds.length > 0
+          ? allBounds
+          : viewportBounds
+            ? [viewportBounds]
+            : [];
 
       const allPlaces: google.maps.places.PlaceResult[] = [];
-      for (const bounds of allBounds) {
+      for (const bounds of boundsToSearch) {
         if (cancelled) return;
         const places = await collectPlacesForBounds(bounds);
         allPlaces.push(...places);
@@ -1044,11 +1334,15 @@ const CustomMap: React.FC<Props> = ({
         uniqueById.set(place.place_id, place);
       }
 
-      const filtered = Array.from(uniqueById.values()).filter((place) => {
+      const uniquePlaces = Array.from(uniqueById.values());
+      const filtered = polygons.length > 0
+        ? uniquePlaces.filter((place) => {
         const location = place.geometry?.location;
         if (!location) return false;
         return polygons.some((poly) => google.maps.geometry.poly.containsLocation(location, poly));
-      });
+      })
+        : uniquePlaces;
+      const placesToRender = filtered.length > 0 ? filtered : uniquePlaces;
 
       const bookIconSvg = `
 <svg width="62" height="80" viewBox="0 0 52 66" xmlns="http://www.w3.org/2000/svg">
@@ -1074,7 +1368,7 @@ const CustomMap: React.FC<Props> = ({
 
       const bookIconUrl = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(bookIconSvg.trim());
 
-      const markers = filtered.map((place) => {
+      const markers = placesToRender.map((place) => {
         const location = place.geometry!.location;
         // Modified by Abhradip Paul showing typescript error
         if (!location?.lat() || !location?.lng()) return;
@@ -1091,7 +1385,22 @@ const CustomMap: React.FC<Props> = ({
         });
 
         marker.addListener('click', () => {
-          centerOnMeasurePoint(position);
+          if (!measureModeRef.current) {
+            centerOnMeasurePoint(position);
+          }
+          const currentSchool = selectedSchoolRef.current;
+          const sameSchoolSelected =
+            !!currentSchool &&
+            ((place.place_id && currentSchool.placeId && currentSchool.placeId === place.place_id) ||
+              (currentSchool.position?.lat === position.lat &&
+                currentSchool.position?.lng === position.lng));
+
+          if (sameSchoolSelected) {
+            schoolDetailsRequestRef.current += 1;
+            setSelectedSchool(null);
+            return;
+          }
+
           applyMeasurePointFromMarker(position, 'poi');
           if (place.place_id) {
             fetchPlaceDetails(
@@ -1107,6 +1416,7 @@ const CustomMap: React.FC<Props> = ({
             );
           } else {
             setSelectedSchool({
+              placeId: place.place_id ?? undefined,
               name: place.name ?? 'School',
               rating: place.rating ?? undefined,
               total: place.user_ratings_total ?? undefined,
@@ -1119,7 +1429,7 @@ const CustomMap: React.FC<Props> = ({
       });
 
       // Modified by Abhradip Paul showing typescript error
-      (schoolMarkersRef.current as any) = markers;
+      (schoolMarkersRef.current as any) = markers.filter(Boolean);
     };
 
     run();
@@ -1245,10 +1555,31 @@ const CustomMap: React.FC<Props> = ({
 
   const onLoad = useCallback((map: google.maps.Map) => {
     setMap(map);
-  }, []);
+    setCurrentMapZoom(map.getZoom() ?? zoom);
+  }, [zoom]);
 
   const onUnmount = () => setMap(null);
-  const previousSearchQueryRef = React.useRef(searchQuery);
+
+  useEffect(() => {
+    // A new search query should be allowed to auto-fit again.
+    userMovedMapRef.current = false;
+    lastAutoFitQueryRef.current = null;
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (!mapInstance) return;
+    const dragListener = mapInstance.addListener('dragstart', () => {
+      userMovedMapRef.current = true;
+    });
+    const zoomListener = mapInstance.addListener('zoom_changed', () => {
+      userMovedMapRef.current = true;
+      setCurrentMapZoom(mapInstance.getZoom() ?? zoom);
+    });
+    return () => {
+      google.maps.event.removeListener(dragListener);
+      google.maps.event.removeListener(zoomListener);
+    };
+  }, [mapInstance, zoom]);
 
   useEffect(() => {
     // If we've already drawn a polygon or are in the middle of a search, 
@@ -1256,13 +1587,11 @@ const CustomMap: React.FC<Props> = ({
     if (Array.isArray(drawFilteredMarkerIds) || recentDataClickRef.current) {
       return;
     }
-
-    const searchQueryChanged = previousSearchQueryRef.current !== searchQuery;
-    previousSearchQueryRef.current = searchQuery;
-
-    // Only auto-center/fit bounds if markers exist AND (it's the initial load OR searchQuery changed)
-    // Avoid fitting bounds just because 'markers' changed due to a map-move search.
-    if (mapInstance && markers.length > 0 && searchQueryChanged) {
+    if (mapInstance && markers.length > 0) {
+      const currentQueryKey = (searchQuery || '').trim().toLowerCase() || '__no_query__';
+      if (userMovedMapRef.current && lastAutoFitQueryRef.current === currentQueryKey) {
+        return;
+      }
       if (markers.length === 1) {
         const { lat, lng } = markers[0];
         mapInstance.setCenter({ lat, lng });
@@ -1272,6 +1601,7 @@ const CustomMap: React.FC<Props> = ({
         markers.forEach(({ lat, lng }) => bounds.extend({ lat, lng }));
         mapInstance.fitBounds(bounds, 50);
       }
+      lastAutoFitQueryRef.current = currentQueryKey;
     }
   }, [mapInstance, markers, zoom, drawFilteredMarkerIds, searchQuery]);
 
@@ -1328,104 +1658,97 @@ const CustomMap: React.FC<Props> = ({
         </div>
       )}
       <div className="absolute right-3 top-3 z-20 pointer-events-auto sm:right-4 sm:top-4">
-        <div className="w-[200px] rounded-2xl border border-gray-200 bg-white/95 p-3 shadow-lg backdrop-blur-sm sm:w-[220px]">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 sm:text-xs">
-              Measure Time
-            </span>
-            <button
-              className={`rounded-full px-2 py-1 text-xs font-semibold ${measureMode ? 'bg-black text-white' : 'bg-gray-100 text-gray-700'}`}
-              onClick={() => {
-                setMeasureMode((prev) => {
-                  const next = !prev;
-                  if (!next) resetMeasure();
-                  return next;
-                });
-              }}
-            >
-              {measureMode ? 'On' : 'Off'}
-            </button>
-          </div>
-          <div className="mt-2 text-xs text-gray-600">
-            {measureMode ? 'Click a listing marker, then a school/place marker (or click two map points).' : 'Enable to measure travel time.'}
-          </div>
-          <div className="mt-3 text-xs text-gray-700">
-            {measureDuration && measureDistance ? (
-              <div>
-                <div className="font-semibold">{measureDuration}</div>
-                <div className="text-gray-500">{measureDistance}</div>
+        <div className="flex items-start gap-2">
+          {activeToolPanel === 'measure' && (
+            <div className="w-[220px] rounded-xl border border-gray-200 bg-white p-3 shadow-lg">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Measure</span>
+                <button
+                  className={cn(
+                    'rounded-full px-2 py-1 text-[11px] font-semibold',
+                    measureMode ? 'bg-black text-white' : 'bg-gray-100 text-gray-700',
+                  )}
+                  onClick={() => {
+                    setMeasureMode((prev) => {
+                      const next = !prev;
+                      if (!next) resetMeasure();
+                      return next;
+                    });
+                  }}
+                >
+                  {measureMode ? 'On' : 'Off'}
+                </button>
               </div>
-            ) : measureError ? (
-              <div className="text-red-500">{measureError}</div>
-            ) : (
-              <div className="text-gray-400">Select start and end points.</div>
-            )}
-          </div>
-          {measureMode && (measureStart || measureEnd) ? (
-            <button
-              className="mt-3 w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-100"
-              onClick={resetMeasure}
-            >
-              Clear
-            </button>
-          ) : null}
-        </div>
-        <div className="mt-2 w-[200px] rounded-2xl border border-gray-200 bg-white/95 p-3 shadow-lg backdrop-blur-sm sm:w-[220px]">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 sm:text-xs">
-              Draw Area
-            </span>
-            <button
-              className={`rounded-full px-2 py-1 text-xs font-semibold ${drawMode ? 'bg-black text-white' : 'bg-gray-100 text-gray-700'}`}
-              onClick={() => setDrawMode((prev) => !prev)}
-            >
-              {drawMode ? 'On' : 'Off'}
-            </button>
-          </div>
-          <div className="mt-2 text-xs text-gray-600">
-            {drawMode
-              ? 'Click to place polygon points, then double-click to finish.'
-              : drawFilteredMarkerIds
-                ? `${drawFilteredMarkerIds.length} listing${drawFilteredMarkerIds.length === 1 ? '' : 's'} in drawn area.`
-                : 'Enable to draw and filter listings on the current map.'}
-          </div>
-          <div className="mt-3 flex gap-2">
-            <button
-              className="flex-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-100"
-              onClick={() => {
-                clearDrawPolygon();
-                setSelectedMarker(null);
-              }}
-              disabled={!drawPolygon}
-            >
-              Clear Draw
-            </button>
-          </div>
-        </div>
-      </div>
-      <div className="absolute left-3 top-3 z-20 pointer-events-auto sm:left-4 sm:top-4">
-        <div
-          className={`overflow-hidden rounded-2xl border border-gray-200 bg-white/95 shadow-lg backdrop-blur-sm transition-all duration-200 ${exploreOpen ? 'w-[260px] sm:w-[300px]' : 'w-[46px]'}`}
-        >
-          <button
-            type="button"
-            aria-label="Explore places"
-            className="flex h-[46px] w-full items-center justify-center"
-            onClick={() => setExploreOpen((prev) => !prev)}
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14Zm0 2a5 5 0 1 1 0 10a5 5 0 0 1 0-10Z" fill="#6b7280" />
-              <path d="M15.8 15.8l3.9 3.9" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </button>
+              <div className="mt-2 text-[11px] leading-4 text-gray-600">
+                {measureMode ? 'Pick listing, then school/place (or click two map points).' : 'Enable route measuring.'}
+              </div>
+              <div className="mt-2 text-[11px]">
+                {measureDuration && measureDistance ? (
+                  <div>
+                    <div className="font-semibold text-gray-900">{measureDuration}</div>
+                    <div className="text-gray-500">{measureDistance}</div>
+                  </div>
+                ) : measureError ? (
+                  <div className="text-red-500">{measureError}</div>
+                ) : (
+                  <div className="text-gray-400">No route selected.</div>
+                )}
+              </div>
+              {measureMode && (measureStart || measureEnd) ? (
+                <button
+                  className="mt-2 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-100"
+                  onClick={resetMeasure}
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
+          )}
 
-          {exploreOpen && (
-            <div className="border-t border-gray-200 p-3">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Explore Places
+          {activeToolPanel === 'draw' && (
+            <div className="w-[220px] rounded-xl border border-gray-200 bg-white p-3 shadow-lg">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Draw Area</span>
+                <button
+                  className={cn(
+                    'rounded-full px-2 py-1 text-[11px] font-semibold',
+                    drawMode ? 'bg-black text-white' : 'bg-gray-100 text-gray-700',
+                  )}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDrawMode((prev) => !prev);
+                  }}
+                >
+                  {drawMode ? 'On' : 'Off'}
+                </button>
+              </div>
+              <div className="mt-2 text-[11px] leading-4 text-gray-600">
+                {drawMode
+                  ? 'Click and drag to draw a freehand area.'
+                  : drawFilteredMarkerIds
+                    ? `${drawFilteredMarkerIds.length} listing${drawFilteredMarkerIds.length === 1 ? '' : 's'} in area.`
+                    : 'Draw a freehand shape to filter current listings.'}
+              </div>
+              <button
+                className="mt-2 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-400"
+                onClick={() => {
+                  clearDrawPolygon();
+                  setSelectedMarker(null);
+                }}
+                disabled={!drawPolygon}
+              >
+                Clear Draw
+              </button>
+            </div>
+          )}
+
+          {activeToolPanel === 'explore' && (
+            <div className="w-[280px] rounded-xl border border-gray-200 bg-white p-3 shadow-lg">
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                Explore Search
               </div>
               <form
-                className="flex items-center gap-2"
+                className="flex items-stretch gap-2"
                 onSubmit={(e) => {
                   e.preventDefault();
                   submitExploreSearch();
@@ -1437,25 +1760,54 @@ const CustomMap: React.FC<Props> = ({
                     value={exploreSearchInput}
                     onChange={(e) => setExploreSearchInput(e.target.value)}
                     placeholder="Search places in view"
-                    className="block h-10 min-h-10 w-full appearance-none rounded-lg border border-gray-200 bg-white px-3 text-sm leading-5 text-gray-900 placeholder:text-gray-400 outline-none ring-0 focus:border-gray-400"
-                    style={{ height: 40, minHeight: 40 }}
+                    className="block w-full appearance-none rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none ring-0 focus:border-gray-400"
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      height: 36,
+                      minHeight: 36,
+                      lineHeight: '20px',
+                      paddingTop: 0,
+                      paddingBottom: 0,
+                      backgroundColor: '#fff',
+                      borderWidth: 1,
+                    }}
                   />
                 </div>
                 <button
                   type="submit"
-                  className="h-10 shrink-0 rounded-lg bg-gray-900 px-4 text-xs font-semibold text-white hover:bg-black"
+                  className="shrink-0 rounded-lg bg-gray-900 px-3 text-xs font-semibold text-white hover:bg-black"
+                  style={{ height: 36, minWidth: 44 }}
                 >
                   Go
                 </button>
               </form>
-
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  className="text-[11px] font-medium text-gray-600 hover:text-gray-900"
+                  onClick={() => {
+                    searchRequestIdRef.current += 1;
+                    clearSearchMarkers();
+                    setExploreSearchInput('');
+                    setExploreFeedback(null);
+                  }}
+                >
+                  Clear Search
+                </button>
+                <button
+                  type="button"
+                  className="text-[11px] font-medium text-gray-600 hover:text-gray-900"
+                  onClick={() => setActiveToolPanel(null)}
+                >
+                  Close
+                </button>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
                 {onOverlayChange && (
                   <button
                     type="button"
-                    onClick={() =>
-                      onOverlayChange(overlayValue === 'schools' ? 'none' : 'schools')
-                    }
+                    onClick={() => onOverlayChange(overlayValue === 'schools' ? 'none' : 'schools')}
                     className="rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
                     style={{
                       borderColor: overlayValue === 'schools' ? '#1d4ed8' : '#e5e7eb',
@@ -1485,23 +1837,10 @@ const CustomMap: React.FC<Props> = ({
                   );
                 })}
               </div>
-
-              <div className="mt-3 flex items-center justify-between gap-2">
+              <div className="mt-2 flex items-center justify-between gap-2">
                 <button
                   type="button"
-                  className="text-xs font-medium text-gray-600 hover:text-gray-900"
-                  onClick={() => {
-                    searchRequestIdRef.current += 1;
-                    clearSearchMarkers();
-                    setExploreSearchInput('');
-                    setExploreFeedback(null);
-                  }}
-                >
-                  Clear Search
-                </button>
-                <button
-                  type="button"
-                  className="text-xs font-medium text-gray-600 hover:text-gray-900"
+                  className="text-[11px] font-medium text-gray-600 hover:text-gray-900"
                   onClick={() => {
                     Object.keys(categoryMarkersRef.current).forEach((key) => {
                       categoryRequestIdRef.current[key] = (categoryRequestIdRef.current[key] ?? 0) + 1;
@@ -1509,14 +1848,17 @@ const CustomMap: React.FC<Props> = ({
                     activeCategoryKeysRef.current = new Set();
                     setActiveCategoryKeys([]);
                     clearAllCategoryMarkers();
-                    if (onOverlayChange && overlayValue === 'schools') {
-                      onOverlayChange('none');
-                    }
+                    if (onOverlayChange && overlayValue === 'schools') onOverlayChange('none');
                     setExploreFeedback(null);
                   }}
                 >
                   Clear Categories
                 </button>
+                {(activeCategoryKeys.length > 0 || overlayValue === 'schools') && (
+                  <span className="text-[10px] text-gray-500">
+                    {activeCategoryKeys.length + (overlayValue === 'schools' ? 1 : 0)} active
+                  </span>
+                )}
               </div>
               {exploreFeedback && (
                 <div className="mt-2 rounded-md bg-gray-50 px-2.5 py-2 text-[11px] text-gray-600">
@@ -1525,8 +1867,58 @@ const CustomMap: React.FC<Props> = ({
               )}
             </div>
           )}
+
+          <div className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-white p-1.5 shadow-lg">
+            <button
+              type="button"
+              title="Measure Time"
+              onClick={() => setActiveToolPanel((prev) => (prev === 'measure' ? null : 'measure'))}
+              className={cn(
+                'flex h-10 w-10 items-center justify-center rounded-lg border text-[11px] font-semibold',
+                activeToolPanel === 'measure' || measureMode
+                  ? 'border-black bg-black text-white'
+                  : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50',
+              )}
+            >
+              M
+            </button>
+            <button
+              type="button"
+              title="Draw Area"
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveToolPanel((prev) => (prev === 'draw' ? null : 'draw'));
+              }}
+              className={cn(
+                'flex h-10 w-10 items-center justify-center rounded-lg border text-[11px] font-semibold',
+                activeToolPanel === 'draw' || drawMode || !!drawPolygon
+                  ? 'border-black bg-black text-white'
+                  : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50',
+              )}
+            >
+              D
+            </button>
+            <button
+              type="button"
+              title="Explore Search"
+              onClick={() => setActiveToolPanel((prev) => (prev === 'explore' ? null : 'explore'))}
+              className={cn(
+                'flex h-10 w-10 items-center justify-center rounded-lg border',
+                activeToolPanel === 'explore'
+                  ? 'border-black bg-black'
+                  : 'border-gray-200 bg-white hover:bg-gray-50',
+              )}
+              aria-label="Explore places"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14Zm0 2a5 5 0 1 1 0 10a5 5 0 0 1 0-10Z" fill={activeToolPanel === 'explore' ? '#fff' : '#6b7280'} />
+                <path d="M15.8 15.8l3.9 3.9" stroke={activeToolPanel === 'explore' ? '#fff' : '#6b7280'} strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
+
       <GoogleMap
         mapContainerStyle={containerStyle}
         mapContainerClassName="snaphomz-map"
@@ -1536,6 +1928,11 @@ const CustomMap: React.FC<Props> = ({
         onUnmount={onUnmount}
         onClick={handleMapClick}
         onIdle={() => {
+          if (drawMode || Array.isArray(drawFilteredMarkerIds)) return;
+          if (suppressNextOnIdleRef.current) {
+            suppressNextOnIdleRef.current = false;
+            return;
+          }
           if (mapInstance && onMapMove) {
             const center = mapInstance.getCenter();
             const bounds = mapInstance.getBounds();
@@ -1551,7 +1948,9 @@ const CustomMap: React.FC<Props> = ({
           fullscreenControl: false,
           streetViewControl: false,
           mapTypeControl: false,
+          clickableIcons: false,
           zoomControl: true,
+          draggable: !drawMode,
           scrollwheel: true,
           gestureHandling: 'cooperative',
           draggableCursor: drawMode ? 'crosshair' : undefined,
@@ -1592,27 +1991,6 @@ const CustomMap: React.FC<Props> = ({
         }}
       >
         {districtsLoadingError ? null : null}
-        {drawMode && (
-          <DrawingManager
-            onPolygonComplete={handlePolygonComplete}
-            options={{
-              drawingMode: 'polygon' as any,
-              drawingControl: false,
-              polygonOptions: {
-                fillColor: '#F57F2E',
-                fillOpacity: 0.16,
-                strokeColor: '#F57F2E',
-                strokeOpacity: 0.95,
-                strokeWeight: 2,
-                clickable: false,
-                editable: false,
-                draggable: false,
-                zIndex: 50,
-              },
-            }}
-          />
-        )}
-
         {visibleMarkers.map((marker) => (
           <Marker
             key={marker.id}
@@ -1621,9 +1999,23 @@ const CustomMap: React.FC<Props> = ({
             options={{ clickable: !drawMode }}
             onClick={() => {
               if (drawMode) return;
+              const markerPos = { lat: marker.lat, lng: marker.lng };
+              if (measureModeRef.current) {
+                applyMeasurePointFromMarker(markerPos, 'listing');
+                if (marker.id && onMarkerClick) onMarkerClick(marker.id);
+                return;
+              }
+              const sameSelected =
+                !!selectedMarker &&
+                ((marker.id && selectedMarker.id && String(marker.id) === String(selectedMarker.id)) ||
+                  (selectedMarker.lat === marker.lat && selectedMarker.lng === marker.lng));
+              if (sameSelected) {
+                setSelectedMarker(null);
+                return;
+              }
               setSelectedMarker(marker);
-              centerOnMarker({ lat: marker.lat, lng: marker.lng });
-              applyMeasurePointFromMarker({ lat: marker.lat, lng: marker.lng }, 'listing');
+              centerOnMarker(markerPos);
+              applyMeasurePointFromMarker(markerPos, 'listing');
               if (marker.id && onMarkerClick) onMarkerClick(marker.id);
             }}
           />
@@ -1684,30 +2076,6 @@ const CustomMap: React.FC<Props> = ({
           />
         )}
 
-        {selectedMarker && (
-          <InfoWindow
-            position={{ lat: selectedMarker.lat, lng: selectedMarker.lng }}
-            onCloseClick={() => setSelectedMarker(null)}
-            options={{
-              disableAutoPan: false,
-              pixelOffset: new google.maps.Size(0, -44),
-              maxWidth: 320,
-            }}
-          >
-            <div
-              className='infowindow-content map-info-window w-full max-w-[320px] overflow-hidden bg-black/80 rounded-xl'
-            >
-              {selectedMarker.originalData?.listing ? (
-                <MapPropertyCards
-                  {...selectedMarker.originalData}
-                  onClose={() => setSelectedMarker(null)}
-                />
-              ) : (
-                <div className="p-4 text-sm text-gray-600">No property details</div>
-              )}
-            </div>
-          </InfoWindow>
-        )}
         {selectedSchool && (
           <InfoWindow
             position={selectedSchool.position}
@@ -1854,3 +2222,4 @@ const CustomMap: React.FC<Props> = ({
 };
 
 export default React.memo(CustomMap);
+

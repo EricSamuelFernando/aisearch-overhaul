@@ -5440,24 +5440,6 @@ export default function ChatBoxComponent(props: any) {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      aria-label="New chat"
-                      className="gap-2"
-                      onClick={() => setIsContactAgentDialogOpen(true)}
-                    >
-                      <span className="text-sm font-medium text-gray-700">New chat</span>
-                      <MessageCircle className="h-6 w-6 text-gray-600" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" align="end">
-                    start a new chat and invite your agent
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider> */}
             </div>
 
             {/* Toggle Buttons */}

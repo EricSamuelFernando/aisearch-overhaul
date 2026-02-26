@@ -36,6 +36,13 @@ function PropertyBrowseView({ }: Props) {
   const [isMapPinned, setIsMapPinned] = useState(true);
   const searchBarRef = useRef<HTMLDivElement>(null);
   const [mapOverlay, setMapOverlay] = useState<'none' | 'schools'>('none');
+  const [drawFilteredPropertyIds, setDrawFilteredPropertyIds] = useState<string[] | null>(null);
+
+  const displayedProperties = Array.isArray(drawFilteredPropertyIds)
+    ? (Array.isArray(allProperties)
+      ? allProperties.filter((p: any) => drawFilteredPropertyIds.includes(String(p?.id)))
+      : [])
+    : allProperties;
 
   const coordinates = allProperties?.map((property: any) => ({
     id: property.id,
@@ -55,10 +62,13 @@ function PropertyBrowseView({ }: Props) {
     return () => sessionStorage.removeItem('search');
   }, []);
 
+  const isSearchingRef = useRef(false);
+
   const sendSearchRequest = useCallback(
     debounce(async (body: Record<string, any>) => {
-      if (isSearching) return;
+      if (isSearchingRef.current) return;
 
+      isSearchingRef.current = true;
       setIsSearching(true);
       try {
         const response = await axios.post(PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search', {
@@ -70,6 +80,9 @@ function PropertyBrowseView({ }: Props) {
         const newProperties = response?.data?.records || response?.data?.result?.records;
 
         if (Array.isArray(newProperties) && newProperties.length > 0) {
+          // Only clear if we are not moving the map (i.e. no latitude/longitude in body) 
+          // or if we really want a fresh set. For map moves, we usually want to append or replace smoothly.
+          // For now, let's keep the logic but ensure we don't trigger unnecessary re-renders.
           if (body.latitude && body.longitude) {
             clearProperties();
           }
@@ -87,10 +100,11 @@ function PropertyBrowseView({ }: Props) {
           message: err?.response?.data?.error || 'An unexpected error occurred.',
         });
       } finally {
+        isSearchingRef.current = false;
         setIsSearching(false);
       }
     }, 1000),
-    [query, isSearching, clearProperties, addProperties, setSearchedQuery, dispatch],
+    [query, clearProperties, addProperties, setSearchedQuery, dispatch],
   );
 
   useEffect(() => {
@@ -133,7 +147,7 @@ function PropertyBrowseView({ }: Props) {
             : 'col-span-5',
         )}
       >
-        <BuyPropertyCards selectedProperty={selectedProperty} />
+        <BuyPropertyCards selectedProperty={selectedProperty} propertiesOverride={displayedProperties} />
         {currentView === 'map' ? (
           <div ref={searchBarRef}>
             <BuyCustomSearch />
@@ -162,6 +176,13 @@ function PropertyBrowseView({ }: Props) {
             overlayValue={mapOverlay}
             onOverlayChange={setMapOverlay}
             onMarkerClick={(id: string) => setSelectedProperty(id)}
+            onDrawFilterChange={(ids) => {
+              setDrawFilteredPropertyIds(ids);
+              if (!ids || ids.length === 0) return;
+              if (selectedProperty && !ids.includes(String(selectedProperty))) {
+                setSelectedProperty('');
+              }
+            }}
             onMapMove={(center) => {
               sendSearchRequest({ latitude: center.lat, longitude: center.lng });
             }}

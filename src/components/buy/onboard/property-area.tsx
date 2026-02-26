@@ -16,7 +16,7 @@ import { googleMapsApiKey } from '@/shared/constants/env';
 import { updateBuyerOnboardingPreference } from '@/slices/onboarding/onboarding-slice';
 import { buyerPropertyPreference } from '@/slices/onboarding/onboarding-selectors';
 
-const libraries: Libraries = ['places', 'geometry'];
+const libraries: Libraries = ['places', 'geometry', 'drawing'];
 
 const PropertyArea: React.FC = () => {
   const [placeResult, updatePlaceResult] = React.useState('');

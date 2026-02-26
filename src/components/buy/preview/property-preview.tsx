@@ -104,6 +104,15 @@ const clampNumber = (value: number, min: number, max: number) => {
   return Math.min(Math.max(value, min), max);
 };
 
+const toPositiveIntegerOrNull = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  const intValue = Math.trunc(parsed);
+  if (intValue === 0) return null;
+  return Math.abs(intValue);
+};
+
 
 interface HomeHighlightsProps {
   highlights: string[];
@@ -822,18 +831,22 @@ const PropertyPreview: React.FC = () => {
   };
 
 
-  const readPreviewFallbackListing = (targetListingId: string) => {
+  const readPreviewFallbackListing = (candidateIds: Array<string | number | null | undefined>) => {
     if (typeof window === 'undefined') return null;
-    const fallbackKey = `snaphomz_preview_fallback_${String(targetListingId)}`;
-    const fallbackRaw = localStorage.getItem(fallbackKey);
-    if (!fallbackRaw) return null;
-    try {
-      const fallback = JSON.parse(fallbackRaw);
-      return fallback?.listing || fallback || null;
-    } catch (parseError) {
-      console.log("Failed to parse fallback listing", parseError);
-      return null;
+
+    for (const rawId of candidateIds) {
+      if (rawId === null || rawId === undefined || String(rawId).trim() === '') continue;
+      const fallbackKey = `snaphomz_preview_fallback_${String(rawId)}`;
+      const fallbackRaw = localStorage.getItem(fallbackKey);
+      if (!fallbackRaw) continue;
+      try {
+        const fallback = JSON.parse(fallbackRaw);
+        return fallback?.listing || fallback || null;
+      } catch (parseError) {
+        console.log("Failed to parse fallback listing", parseError);
+      }
     }
+    return null;
   };
 
   const persistPreviewContext = (sourceListing: any, sourceResponse: any) => {
@@ -863,31 +876,80 @@ const PropertyPreview: React.FC = () => {
       setLoading(true);
       setPropertyData(undefined);
       const bypassMls = isMlsBypassModeEnabled();
-      const payload = bypassMls
-        ? {
-          listingId: listingId || id,
-          propertyId: propertyData?.id || propertyId || undefined,
+      const endpoint = bypassMls
+        ? '/api/mls/detail'
+        : (PROPERTY_DETAIL_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search/preference');
+
+      const listingIdFromPath = toPositiveIntegerOrNull(id);
+      const listingIdFromQuery = toPositiveIntegerOrNull(listingId);
+      const propertyIdFromQuery = toPositiveIntegerOrNull(propertyId);
+      const propertyIdFromStore = toPositiveIntegerOrNull(propertyData?.id);
+
+      const primaryListingId =
+        listingIdFromQuery ??
+        listingIdFromPath ??
+        propertyIdFromQuery ??
+        propertyIdFromStore;
+      const alternateListingId =
+        propertyIdFromQuery ??
+        propertyIdFromStore ??
+        listingIdFromPath ??
+        listingIdFromQuery;
+      const requestPropertyId =
+        propertyIdFromQuery ??
+        propertyIdFromStore ??
+        listingIdFromPath ??
+        listingIdFromQuery;
+
+      const requestPayloads: Array<Record<string, any>> = [];
+
+      if (bypassMls) {
+        requestPayloads.push({
+          listingId: primaryListingId || listingId || id,
+          propertyId: requestPropertyId || undefined,
           city: city || propertyData?.address?.city || undefined,
           province: province || propertyData?.address?.stateOrProvince || undefined,
           state: province || propertyData?.address?.stateOrProvince || undefined,
           zip: propertyData?.address?.zipCode || undefined,
           address: propertyData?.address?.unparsedAddress || undefined,
+        });
+      } else {
+        if (primaryListingId) {
+          requestPayloads.push({
+            listingId: primaryListingId,
+            propertyId: requestPropertyId || undefined,
+          });
         }
-        : {
-          listingId: +id || listingId,
-          propertyId: parseInt(propertyData?.id) || parseInt(propertyId)
-        };
-      const response = await fetch(
-        bypassMls ? '/api/mls/detail' : (PROPERTY_DETAIL_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search/preference'),
-        {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
+        if (alternateListingId && alternateListingId !== primaryListingId) {
+          requestPayloads.push({
+            listingId: alternateListingId,
+            propertyId: requestPropertyId || undefined,
+          });
+        }
+        if (!requestPayloads.length && requestPropertyId) {
+          requestPayloads.push({
+            listingId: requestPropertyId,
+            propertyId: requestPropertyId,
+          });
+        }
+      }
 
-      const data = await response.json();
+      let data: any = null;
+      for (const payload of requestPayloads) {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+        const responseData = await response.json().catch(() => ({}));
+        data = responseData;
+        if (responseData?.data && typeof responseData.data === 'object' && Object.keys(responseData.data).length) {
+          break;
+        }
+      }
+
       console.log("AI backend response data ", data)
       console.log("Similar homes payload:", data?.nearbyHomes)
 
@@ -899,7 +961,14 @@ const PropertyPreview: React.FC = () => {
         setPropertyDetails(data?.property_detail);
         persistPreviewContext(data?.data, data);
       } else {
-        const fallbackListing = readPreviewFallbackListing(String(id));
+        const fallbackListing = readPreviewFallbackListing([
+          id,
+          listingId,
+          propertyId,
+          listingIdFromPath,
+          listingIdFromQuery,
+          propertyIdFromQuery,
+        ]);
         if (fallbackListing) {
           setpropertyDatas({
             data: fallbackListing,
@@ -917,7 +986,7 @@ const PropertyPreview: React.FC = () => {
       }
     } catch (error) {
       console.log("error : ", error);
-      const fallbackListing = readPreviewFallbackListing(String(id));
+      const fallbackListing = readPreviewFallbackListing([id, listingId, propertyId]);
       if (fallbackListing) {
         setpropertyDatas({ data: fallbackListing, property_detail: null, nearbyHomes: [] });
         setPropertyData(fallbackListing);
@@ -967,13 +1036,14 @@ const PropertyPreview: React.FC = () => {
 
   React.useEffect(() => {
     const targetListingId =
-      id ||
       listingId ||
+      id ||
+      propertyId ||
       property?.listingId;
     if (targetListingId) {
       getPropertyDetails(String(targetListingId));
     }
-  }, [id, listingId, property?.listingId]);
+  }, [id, listingId, propertyId, property?.listingId]);
 
   const rentAddress = React.useMemo(() => {
     const address =

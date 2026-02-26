@@ -151,19 +151,48 @@ const getMainSiteBaseUrl = () => {
   return raw.replace(/\/+$/, '');
 };
 
+const pickFirstValidId = (candidates: any[]): string | undefined => {
+  for (const candidate of candidates) {
+    if (candidate === undefined || candidate === null) continue;
+    const raw = String(candidate).trim();
+    if (!raw) continue;
+    if (raw === '0' || /^null$/i.test(raw) || /^undefined$/i.test(raw)) continue;
+
+    // MLS/detail IDs should not be negative; skip them and try the next candidate.
+    if (/^-?\d+$/.test(raw)) {
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed) || parsed <= 0) continue;
+      return String(Math.trunc(parsed));
+    }
+
+    return raw;
+  }
+  return undefined;
+};
+
 const resolveListingId = (property: any) =>
-  property?.listingId ??
-  property?.listing_id ??
-  property?.ListingId ??
-  property?.mls_id ??
-  property?.id ??
-  property?.zpid;
+  pickFirstValidId([
+    property?.listingId,
+    property?.listing_id,
+    property?.ListingId,
+    property?.mls_id,
+    property?.zpid,
+    property?.propertyId,
+    property?.property_id,
+    property?.id,
+  ]);
 
 const resolvePropertyId = (property: any) =>
-  property?.propertyId ??
-  property?.property_id ??
-  property?.id ??
-  property?.zpid ??
+  pickFirstValidId([
+    property?.propertyId,
+    property?.property_id,
+    property?.zpid,
+    property?.id,
+    property?.listingId,
+    property?.listing_id,
+    property?.ListingId,
+    property?.mls_id,
+  ]) ??
   resolveListingId(property);
 
 const buildStableFallbackId = (property: any, prefix: string, index: number) => {
@@ -310,15 +339,23 @@ const buildPreviewFallbackListing = (property: any) => {
 const storePreviewFallback = (property: any) => {
   if (typeof window === 'undefined') return;
   const listingId = resolveListingId(property);
-  if (listingId === undefined || listingId === null || String(listingId).trim() === '') return;
+  const propertyId = resolvePropertyId(property);
+  const cacheIds = [listingId, propertyId].filter(
+    (value): value is string => value !== undefined && value !== null && String(value).trim() !== ''
+  );
+  if (!cacheIds.length) return;
+
   const fallbackPayload = {
-    listingId: String(listingId),
+    listingId: String(listingId || propertyId),
     listing: buildPreviewFallbackListing(property),
   };
-  localStorage.setItem(
-    `snaphomz_preview_fallback_${String(listingId)}`,
-    JSON.stringify(fallbackPayload)
-  );
+
+  cacheIds.forEach((cacheId) => {
+    localStorage.setItem(
+      `snaphomz_preview_fallback_${String(cacheId)}`,
+      JSON.stringify(fallbackPayload)
+    );
+  });
 };
 
 const mapSnapProperties = (rawProperties: any[]) => {
@@ -2839,7 +2876,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
                               {msg.query && (
                                 <a
-                                  href={`${process.env.NEXT_PUBLIC_MAIN_SITE_URL || 'https://demo.snaphomz.com'}/buy/browse?q=${encodeURIComponent(msg.query_history_formatted || msg.query || '')}`}
+                                  href={`${process.env.NEXT_PUBLIC_MAIN_SITE_URL || 'https://demo.snaphomz.com'}/buy/browse?q=${encodeURIComponent(msg.query || '')}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="group flex-shrink-0 sm:snap-start self-stretch sm:self-center relative flex h-14 sm:h-48 w-full sm:w-48 flex-row sm:flex-col items-center justify-center gap-2 sm:gap-0 rounded-2xl sm:rounded-full border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-orange-100 shadow-lg transition-all duration-300 hover:scale-[1.01] sm:hover:scale-105 hover:border-orange-500 hover:shadow-xl hover:shadow-orange-200/60 cursor-pointer"

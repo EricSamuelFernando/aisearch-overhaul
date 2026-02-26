@@ -108,12 +108,14 @@ export const LoginForm = ({
             placeholder='Email'
             className='h-12 max-w-xl placeholder:text-base'
             containerClass='max-w-xl'
+            autoComplete='email'
             {...form.getInputProps('email')}
           />
 
           <PasswordInput2
             placeholder='Password'
             className='h-12 max-w-xl placeholder:text-base focus-visible:border focus-visible:border-black  focus-visible:ring-0'
+            autoComplete='current-password'
             {...form.getInputProps('password')}
           />
         </div>

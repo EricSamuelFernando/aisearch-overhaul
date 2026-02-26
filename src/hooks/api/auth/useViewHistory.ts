@@ -12,7 +12,7 @@ const getCacheKey = () => {
   try {
     const user = JSON.parse(localStorage.getItem('userDetails') || '{}');
     if (user?.id) return `viewHistoryCache:${user.id}`;
-  } catch {}
+  } catch { }
   return 'viewHistoryCache:anon';
 };
 
@@ -132,7 +132,7 @@ export const useRecordPropertyView = () => {
           };
           localStorage.setItem(cacheKey, JSON.stringify(existing));
         }
-      } catch {}
+      } catch { }
 
       return response.data?.data?.recordPropertyView;
     },
@@ -176,6 +176,9 @@ export const useGetViewHistory = (page: number = 1, perPage: number = 20) => {
                     price
                     propertyType
                     propertyImage
+                    bedroomsTotal
+                    bathroomsTotal
+                    livingArea
                     viewedAt
                   }
                   total
@@ -203,16 +206,16 @@ export const useGetViewHistory = (page: number = 1, perPage: number = 20) => {
         // (the backend query schema doesn't expose these fields, but we saved them locally on view)
         let localCache: Record<string, any> = {};
         if (typeof window !== 'undefined') {
-          try { localCache = JSON.parse(localStorage.getItem(getCacheKey()) || '{}'); } catch {}
+          try { localCache = JSON.parse(localStorage.getItem(getCacheKey()) || '{}'); } catch { }
         }
         payload.items = [...(payload.items || [])].map((item: ViewHistoryItem) => {
           const key = item.listingId || item.propertyId;
           const cached = key ? localCache[key] : null;
           return {
             ...item,
-            bedroomsTotal: cached?.property?.bedroomsTotal ?? item.bedroomsTotal,
-            bathroomsTotal: cached?.property?.bathroomsTotal ?? item.bathroomsTotal,
-            livingArea: cached?.property?.livingArea ?? item.livingArea,
+            bedroomsTotal: item.bedroomsTotal ?? cached?.property?.bedroomsTotal,
+            bathroomsTotal: item.bathroomsTotal ?? cached?.property?.bathroomsTotal,
+            livingArea: item.livingArea ?? cached?.property?.livingArea,
             propertyImage: item.propertyImage || cached?.media?.primaryListingImageUrl,
             price: item.price || (cached?.listPriceLow ? String(cached.listPriceLow) : undefined),
           };
@@ -245,8 +248,8 @@ export const useGetViewHistory = (page: number = 1, perPage: number = 20) => {
                 price: value?.listPriceLow
                   ? String(value.listPriceLow)
                   : value?.price
-                  ? String(value.price)
-                  : undefined,
+                    ? String(value.price)
+                    : undefined,
                 propertyType: value?.property?.propertyType,
                 propertyImage:
                   value?.media?.primaryListingImageUrl ||

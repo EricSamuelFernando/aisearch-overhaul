@@ -17,23 +17,23 @@ const tabContent = {
         title: "Let's get acquainted",
         desc: `Create your profile on Snaphomz and set your budget, locations, and must-haves. Use AI-powered search to increase your chances of finding the right home`,
       },
-     {
-  title: "Let's get financially ready",
-  desc: `Upload or process your pre-approval documents in one place.  
+      {
+        title: "Let's get financially ready",
+        desc: `Upload or process your pre-approval documents in one place.  
 Connect securely with Plaid to explore mortgage options  
 and get quick insights with AI summaries`,
-}
-,
+      }
+      ,
       {
-        
-  title: "Let's bring your agent on board",
-  desc: `Work with your agent inside Snaphomz to manage agreements  
+
+        title: "Let's bring your agent on board",
+        desc: `Work with your agent inside Snaphomz to manage agreements  
 and track every interaction. Use built-in messaging and  
 AI summaries to keep each decision clear`,
       },
       {
-       title: "Let's seal the deal",
-  desc: `Draft and review offers with confidence and track title  
+        title: "Let's seal the deal",
+        desc: `Draft and review offers with confidence and track title  
 and escrow activity digitally in Snaphomz. Stay informed  
 at every step with simple AI summaries`,
       },
@@ -143,7 +143,7 @@ export default function HowItWorksPage() {
               Here's How it Works
             </h2>
             <p className="mt-4 text-lg text-gray-600 leading-relaxed">
-             Your next move should feel simple, not stressful. Snaphomz takes the hard parts of buying or selling and makes them clear and manageable, so “home sweet home” actually feels that way 
+              Your next move should feel simple, not stressful. Snaphomz takes the hard parts of buying or selling and makes them clear and manageable, so “home sweet home” actually feels that way
             </p>
             <hr />
           </div>

@@ -64,9 +64,9 @@ function Footer() {
       </div>
 
       {/* New footer layout */}
-      <section className="mx-auto w-full px-6 md:px-12 py-10">
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-[260px_180px_200px_1fr] md:items-center">
-          <div className="flex flex-col gap-4 translate-y-5">
+      <section className="mx-auto w-full px-4 sm:px-6 lg:px-12 py-10">
+        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 xl:grid-cols-12 xl:gap-10 items-start">
+          <div className="flex flex-col gap-4 sm:col-span-2 xl:col-span-3">
             <Link href="/" className="inline-flex items-center gap-3">
               <Image
                 src="/assets/images/logo-main.png"
@@ -99,7 +99,7 @@ function Footer() {
             </div>
           </div>
 
-          <div>
+          <div className="xl:col-span-2">
             <h3 className="mb-4 text-sm font-semibold">Company</h3>
             <ul className="space-y-3 text-sm text-white/80">
               {footerLinks.company.links
@@ -114,7 +114,7 @@ function Footer() {
             </ul>
           </div>
 
-          <div className="translate-y-14">
+          <div className="xl:col-span-2">
             <h3 className="mb-4 text-sm font-semibold">Legal</h3>
             <ul className="space-y-3 text-sm text-white/80">
               {footerLinks.legal.links.map((item) => (
@@ -127,10 +127,10 @@ function Footer() {
             </ul>
           </div>
 
-          <div className="flex items-center justify-end mt-8 translate-y-4">
-            <div className="text-sm text-white/80 leading-relaxed max-w-[750px]">
+          <div className="sm:col-span-2 xl:col-span-5 mt-2 sm:mt-0">
+            <div className="text-sm text-white/80 leading-relaxed max-w-none xl:max-w-[750px]">
               <p>
-              <span className="font-semibold text-white">Disclaimer:</span> Information, tools, and calculators provided on Snaphomz are for informational and illustrative purposes only. Outputs are based on assumptions and user-provided inputs and do not constitute financial, legal, tax, or lending advice. Actual costs, interest rates, terms, and eligibility may differ from any figures shown. Snaphomz is not a lender, broker, or financial advisor. Before making any real estate or financing decisions, please consult a licensed mortgage professional, financial advisor, and/or tax professional
+                <span className="font-semibold text-white">Disclaimer:</span> Information, tools, and calculators provided on Snaphomz are for informational and illustrative purposes only. Outputs are based on assumptions and user-provided inputs and do not constitute financial, legal, tax, or lending advice. Actual costs, interest rates, terms, and eligibility may differ from any figures shown. Snaphomz is not a lender, broker, or financial advisor. Before making any real estate or financing decisions, please consult a licensed mortgage professional, financial advisor, and/or tax professional
               </p>
               <div className="mt-4">
                 <Link href="/do-not-sell-or-share" className="underline text-white">
@@ -141,7 +141,7 @@ function Footer() {
           </div>
         </div>
 
-        <div className="mt-20 flex flex-col gap-4 border-t border-white/20 pt-6 md:items-center md:justify-center">
+        <div className="mt-10 sm:mt-14 flex flex-col gap-4 border-t border-white/20 pt-6 md:items-center md:justify-center">
           <p className="text-sm text-white/70 text-center">
             © Snaphomz Inc. {new Date().getFullYear()}
           </p>

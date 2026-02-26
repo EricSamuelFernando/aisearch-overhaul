@@ -71,9 +71,9 @@ const buildHighlightRegex = (addressLabel: string, institutionNames: string[] = 
   const institutionPattern =
     institutionNames.length > 0
       ? institutionNames
-          .map(escapeRegExp)
-          .sort((a, b) => b.length - a.length)
-          .join('|')
+        .map(escapeRegExp)
+        .sort((a, b) => b.length - a.length)
+        .join('|')
       : null;
 
   const patterns = [
@@ -242,12 +242,6 @@ const PropertyStorySection: React.FC<PropertyStorySectionProps> = ({
 }) => {
   const DEFAULT_VISIBLE_HIGHLIGHTS = 2;
   const visibleHighlights = highlights.slice(0, DEFAULT_VISIBLE_HIGHLIGHTS);
-  const collapsedDescriptionStyle: React.CSSProperties = {
-    display: '-webkit-box',
-    WebkitBoxOrient: 'vertical',
-    WebkitLineClamp: 2,
-    overflow: 'hidden',
-  };
 
   const handleShowMoreClick = () => {
     if (typeof window === 'undefined') return;
@@ -259,7 +253,7 @@ const PropertyStorySection: React.FC<PropertyStorySectionProps> = ({
 
   return (
     <div
-      className={`rounded-2xl border ${accent.border} ${accent.cardBg} p-4 sm:p-5 shadow-[0_4px_20px_-18px_rgba(15,23,42,0.4)] h-full flex flex-col`}
+      className={`rounded-2xl border ${accent.border} ${accent.cardBg} p-4 sm:p-5 shadow-[0_4px_20px_-18px_rgba(15,23,42,0.4)] h-full min-h-[320px] sm:min-h-[380px] flex flex-col`}
     >
       <div className="flex items-start gap-2.5 min-w-0">
         <span className={`inline-flex shrink-0 items-center justify-center mt-0.5 ${accent.iconBg} ${accent.iconText}`}>
@@ -271,10 +265,8 @@ const PropertyStorySection: React.FC<PropertyStorySectionProps> = ({
         </div>
       </div>
 
-      <div
-        className="overflow-hidden max-h-[180px]"
-      >
-        <p className="mt-3 text-[13px] leading-6 text-gray-700" style={collapsedDescriptionStyle}>
+      <div className="min-h-0">
+        <p className="mt-3 text-[13px] leading-6 text-gray-700">
           {highlightText(description, highlightRegex)}
         </p>
 
@@ -386,34 +378,25 @@ const PropertyTakeawaysAI: React.FC<PropertyTakeawaysAIProps> = ({
 
   const homeDescription = React.useMemo(
     () =>
-      truncateText(
-        summaryParagraphs[0] ||
-          summary ||
-          'Core property facts and value-driving features are summarized below.',
-        220
-      ),
+      summaryParagraphs[0] ||
+      summary ||
+      'Core property facts and value-driving features are summarized below.',
     [summary, summaryParagraphs]
   );
 
   const neighborhoodDescription = React.useMemo(
     () =>
-      truncateText(
-        summaryParagraphs[1] ||
-          summaryParagraphs[0] ||
-          'Neighborhood context focuses on day-to-day livability, access, and family fit.',
-        210
-      ),
+      summaryParagraphs[1] ||
+      summaryParagraphs[0] ||
+      'Neighborhood context focuses on day-to-day livability, access, and family fit.',
     [summaryParagraphs]
   );
 
   const schoolsDescription = React.useMemo(
     () =>
-      truncateText(
-        summaryParagraphs[2] ||
-          summaryParagraphs[1] ||
-          'Education context combines nearby school signals with college-readiness pathways.',
-        210
-      ),
+      summaryParagraphs[2] ||
+      summaryParagraphs[1] ||
+      'Education context combines nearby school signals with college-readiness pathways.',
     [summaryParagraphs]
   );
 
@@ -446,7 +429,7 @@ const PropertyTakeawaysAI: React.FC<PropertyTakeawaysAIProps> = ({
     if (/shopping|restaurants?|dining|amenities/.test(summaryLower)) points.push('Dining and amenity access supports day-to-day lifestyle.');
     if (/safe|safety/.test(summaryLower)) points.push('Community context suggests a stable neighborhood profile.');
     if (/suitable for families|family|families/.test(summaryLower)) points.push('Neighborhood context aligns with family-friendly living.');
-    if ((nearbySchools || []).length > 0) points.push(`${nearbySchools.length} nearby schools support local convenience.`);
+    if ((nearbySchools || []).length > 0) points.push(`${nearbySchools?.length} nearby schools support local convenience.`);
 
     if (!points.length) {
       points.push('Balanced residential location with access to essential services.');

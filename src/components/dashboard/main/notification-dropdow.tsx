@@ -51,7 +51,9 @@ type UINotification = {
   source?: 'socket' | 'api';
 };
 
-const iconByKind: Record<NotificationKind, ComponentType<{ size?: number }>> = {
+type IconComponent = ComponentType<{ size?: string | number }>;
+
+const iconByKind: Record<NotificationKind, IconComponent> = {
   message: MessageCircle,
   comment: MessageSquareText,
   snapz: CircleDot,

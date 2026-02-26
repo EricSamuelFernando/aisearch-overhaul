@@ -16,7 +16,6 @@ import { PROPERTY_SEARCH_AI_URL } from '@/shared/constants/env';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useSearchParams } from 'next/navigation';
 import debounce from 'lodash.debounce';
-import { ViewSelection } from '../buy-dropdowns';
 import { BuyCustomSearch } from '../buy-custom-search';
 
 type Props = {};
@@ -27,18 +26,23 @@ function PropertyBrowseView({ }: Props) {
   const [divHeight, setDivHeight] = useState<number | null>(null);
   const { allProperties, addProperties, setSearchedQuery, clearProperties } = usePropertyStore();
   const [selectedProperty, setSelectedProperty] = useState<string>('');
-  const [mapWidth, setMapWidth] = useState<number>(0);
   const dispatch = useAppDispatch();
   const { user } = useAuth();
   const { searchCount } = useAppSelector((state: RootState) => state.propertyPreference);
   const [isSearching, setIsSearching] = useState(false);
   const searchParams = useSearchParams();
   const query = searchParams.get('q');
-  const [scrollOffset, setScrollOffset] = useState(0);
   const mapRef = useRef<HTMLDivElement>(null);
   const [isMapPinned, setIsMapPinned] = useState(true);
   const searchBarRef = useRef<HTMLDivElement>(null);
   const [mapOverlay, setMapOverlay] = useState<'none' | 'schools'>('none');
+  const [drawFilteredPropertyIds, setDrawFilteredPropertyIds] = useState<string[] | null>(null);
+
+  const displayedProperties = Array.isArray(drawFilteredPropertyIds)
+    ? (Array.isArray(allProperties)
+      ? allProperties.filter((p: any) => drawFilteredPropertyIds.includes(String(p?.id)))
+      : [])
+    : allProperties;
 
   const coordinates = allProperties?.map((property: any) => ({
     id: property.id,
@@ -46,19 +50,6 @@ function PropertyBrowseView({ }: Props) {
     lat: property?.public?.latitude,
     lng: property?.public?.longitude,
   })).filter(coord => coord.lat && coord.lng);
-
-  useEffect(() => {
-    const updateWidth = () => {
-      if (mapRef.current) {
-        setMapWidth(mapRef.current.offsetWidth);
-      }
-    };
-
-    updateWidth();
-    window.addEventListener('resize', updateWidth);
-
-    return () => window.removeEventListener('resize', updateWidth);
-  }, []);
 
   useEffect(() => {
     if (divRef.current) {
@@ -110,19 +101,6 @@ function PropertyBrowseView({ }: Props) {
   );
 
   useEffect(() => {
-    const handleScroll = () => {
-      // Adjust how much it moves up on scroll (change `min` and `max` values as needed)
-      const scrollY = window.scrollY;
-      const newOffset = Math.min(scrollY * 0.3, 300); // Moves up to max 80px
-
-      setScrollOffset(newOffset);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  useEffect(() => {
     const handlePinState = () => {
       if (!searchBarRef.current) return;
       const searchRect = searchBarRef.current.getBoundingClientRect();
@@ -142,10 +120,10 @@ function PropertyBrowseView({ }: Props) {
   return (
     <section
       className={cn(
-        'relative w-full mb-20 md:grid',
+        'relative mb-20 w-full',
         currentView === 'map'
-          ? 'grid-cols-2 gap-x-0'
-          : 'grid-cols-5 w-full gap-x-8 max-w-[1600px] mx-auto',
+          ? 'grid w-full gap-6 lg:grid-cols-12 lg:items-start'
+          : 'mx-auto grid w-full max-w-[1600px] grid-cols-5 gap-x-8',
       )}
     >
       {/* Property Cards */}
@@ -158,11 +136,11 @@ function PropertyBrowseView({ }: Props) {
         className={cn(
           'px-4 md:px-6',
           currentView === 'map'
-            ? 'flex flex-col gap-y-4 md:col-span-1 md:px-6'
+            ? 'flex flex-col gap-y-4 lg:col-span-7 xl:col-span-6'
             : 'col-span-5',
         )}
       >
-        <BuyPropertyCards selectedProperty={selectedProperty} />
+        <BuyPropertyCards selectedProperty={selectedProperty} propertiesOverride={displayedProperties} />
         {currentView === 'map' ? (
           <div ref={searchBarRef}>
             <BuyCustomSearch />
@@ -174,13 +152,14 @@ function PropertyBrowseView({ }: Props) {
         <div
           ref={mapRef}
           className={cn(
-            'relative w-full',
-            isMapPinned ? 'md:sticky md:top-[80px]' : 'md:relative',
-            'md:h-screen md:-mt-[280px]'
+            'relative w-full px-4 md:px-6 lg:px-0',
+            currentView === 'map' ? 'mt-2 lg:col-span-5 lg:mt-0 xl:col-span-6' : '',
+            isMapPinned ? 'lg:sticky lg:top-[88px]' : 'lg:relative',
+            'h-[420px] sm:h-[500px] lg:h-[calc(100vh-104px)]'
           )}
         >
           <CustomMap
-            width={`${mapWidth}px`}
+            width="100%"
             coord={coordinates}
             zoom={13}
             properties={allProperties}
@@ -190,6 +169,13 @@ function PropertyBrowseView({ }: Props) {
             overlayValue={mapOverlay}
             onOverlayChange={setMapOverlay}
             onMarkerClick={(id: string) => setSelectedProperty(id)}
+            onDrawFilterChange={(ids) => {
+              setDrawFilteredPropertyIds(ids);
+              if (!ids || ids.length === 0) return;
+              if (selectedProperty && !ids.includes(String(selectedProperty))) {
+                setSelectedProperty('');
+              }
+            }}
             onMapMove={(center) => {
               sendSearchRequest({ latitude: center.lat, longitude: center.lng });
             }}

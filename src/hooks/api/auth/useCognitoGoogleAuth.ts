@@ -280,6 +280,7 @@ function useCognitoGoogleAuth(handleCb?: () => void) {
         console.error('No ID token in response:', tokenResponse.data);
         throw new Error('No ID token received from Cognito');
       }
+      
     } catch (err: any) {
       console.error('Cognito Callback Error Full:', err);
       if (err.response) {

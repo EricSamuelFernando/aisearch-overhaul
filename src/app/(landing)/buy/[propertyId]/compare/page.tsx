@@ -251,24 +251,50 @@ const ComparePage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F8F5F1] px-6 py-10">
+    <div className="min-h-screen bg-[#F8F5F1] px-4 sm:px-6 py-8 sm:py-10">
       <div className="max-w-6xl mx-auto">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
             <p className="text-sm text-gray-500 uppercase tracking-widest">Buy Listing - AI Search - Grid</p>
-            <h1 className="text-3xl font-semibold text-gray-900 mt-2">Which property is right for you?</h1>
+            <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900 mt-2">Which property is right for you?</h1>
             <p className="text-sm text-gray-600 mt-1">Compare specifications, location, and value side by side.</p>
           </div>
           <button
             type="button"
             onClick={() => router.push(`/buy/${propertyId}/prop/preview`)}
-            className="rounded-full bg-black px-5 py-2 text-sm font-medium text-white hover:bg-gray-900 transition-colors"
+            className="rounded-full bg-black px-5 py-2 text-sm font-medium text-white hover:bg-gray-900 transition-colors w-full sm:w-auto"
           >
             Back to property
           </button>
         </div>
 
-        <div className="overflow-x-auto mb-10">
+        {/* Mobile cards */}
+        <div className="md:hidden mb-8 space-y-4">
+          {items.map((item, index) => (
+            <div key={item.id} className="bg-white rounded-2xl shadow-sm p-4">
+              <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-gray-100">
+                {item.image ? (
+                  <Image src={item.image} alt={item.address || 'Property'} fill className="object-cover" unoptimized />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
+                    No image
+                  </div>
+                )}
+                <span className="absolute top-3 left-3 text-xs font-semibold bg-orange-600 text-white px-3 py-1 rounded-full">
+                  {index === 0 ? 'Current Home' : 'Similar Home'}
+                </span>
+              </div>
+              <div className="mt-3">
+                <p className="text-2xl font-semibold text-gray-900">{formatCurrency(item.price)}</p>
+                <p className="text-sm text-gray-700">{item.address ?? '—'}</p>
+                <p className="text-xs text-gray-500">{item.cityStateZip ?? '—'}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop/Tablet grid */}
+        <div className="hidden md:block overflow-x-auto mb-10">
           <div className="min-w-[900px] flex gap-4">
             <div className="min-w-[12rem] flex items-center justify-center text-sm font-semibold text-gray-700">
               Property details
@@ -302,8 +328,37 @@ const ComparePage = () => {
           </div>
         </div>
 
+        {/* Mobile sections */}
+        <div className="md:hidden space-y-6">
+          {sections.map((section) => (
+            <div key={`mobile-${section.title}`}>
+              <div className="inline-flex items-center px-5 py-2 bg-black text-white rounded-full text-sm font-semibold">
+                {section.title}
+              </div>
+              <div className="mt-3 space-y-3">
+                {items.map((item, itemIndex) => (
+                  <div key={`${section.title}-${item.id}-mobile`} className="bg-white rounded-xl shadow-sm p-4">
+                    <div className="text-sm font-semibold text-gray-900 mb-3">
+                      {itemIndex === 0 ? 'Current Home' : `Similar Home ${itemIndex}`}
+                    </div>
+                    <div className="space-y-2">
+                      {section.rows.map((row) => (
+                        <div key={`${section.title}-${row.label}-${item.id}`} className="flex items-center justify-between gap-3 border-b border-gray-100 pb-2 last:border-b-0 last:pb-0">
+                          <span className="text-sm text-gray-600">{row.label}</span>
+                          <span className="text-sm font-medium text-gray-900 text-right">{row.render(item)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop/Tablet sections */}
         {sections.map((section) => (
-          <div key={section.title} className="mb-8">
+          <div key={section.title} className="mb-8 hidden md:block">
             <div className="inline-flex items-center px-6 py-2 bg-black text-white rounded-full text-sm font-semibold">
               {section.title}
             </div>

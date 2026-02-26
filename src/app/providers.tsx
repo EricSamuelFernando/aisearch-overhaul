@@ -22,6 +22,7 @@ import './globals.css';
 import { WindowSizeProvider } from '@/providers/window-size-provider';
 import SocketProvider from '@/providers/socket.context';
 import AuthSessionSync from '@/providers/auth-session-sync';
+import TokenRefreshProvider from '@/providers/token-refresh-provider';
 import '@/utils/testCognitoConfig'; // Makes testCognitoConfig available in browser console
 
 const ToastSuccessIcon = () => (
@@ -99,6 +100,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             <ModalProvider initialModals={initialModals}>
               <Modals />
               <AuthSessionSync />
+              <TokenRefreshProvider />
               <SocketProvider>
                 <CollectionModalProvider>
                   {children}

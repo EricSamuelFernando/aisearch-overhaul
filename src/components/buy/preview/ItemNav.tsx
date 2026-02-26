@@ -265,7 +265,7 @@ function ItemNav({ cardRef }: Props) {
   const isFavored = isPropertyInFavourite(snaps);
 
   const Server_URL = process.env.NEXT_PUBLIC_APPLICATION_URL;
-  const propertyLink = `${Server_URL}buy/${propertyId}/prop/preview?propertyId=${propertyData?.id}&listingId=${propertyData?.listingId}`;
+  const propertyLink = `${Server_URL}/buy/${propertyId}/prop/preview?propertyId=${propertyData?.id}&listingId=${propertyData?.listingId}`;
 
   useEffect(() => {
     setHash(window.location.hash as string);

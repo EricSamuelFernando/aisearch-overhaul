@@ -592,7 +592,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
     return () => observer.disconnect();
   }, []);
 
-  const sendSearchRequest = async () => {
+  const sendSearchRequest = async (queryToUse?: string) => {
     if (searchCount + 1 >= 6 && !user?.email) {
       error({
         message:
@@ -654,6 +654,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
   return (
     <>
       <div
+        className="buy-floating-search"
         style={{
           position: 'fixed',
           left: '50%',
@@ -709,11 +710,17 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
     animation: advancedSlideIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
     will-change: transform, opacity;
   }
+
+  body[data-mobile-drawer-open='true'] .buy-floating-search,
+  body[data-mobile-drawer-open='true'] .buy-floating-search-popup {
+    display: none !important;
+  }
 `}</style>
 
 
       {showInputBox && (
         <div
+          className="buy-floating-search-popup"
           ref={popupRef}
           style={{
             position: 'fixed',
@@ -788,18 +795,18 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
           id='buyer-search-hero-form'
           className={cn(
             'border-t border-gray-100 py-6',
-          currentView === 'map'
-            ? 'relative top-2 z-20 flex items-center gap-2 rounded-xl bg-white p-2 shadow-md mb-[2px] mr-auto ml-0'
-            : 'flex items-center gap-2 rounded-xl bg-white p-2 shadow-md mx-auto',
-        )}
-        onSubmit={handleSubmit}
-        style={{
-          width:
             currentView === 'map'
-              ? '100%'
-              : 'calc(100% - 3rem)',
-        }}
-      >
+              ? 'relative top-2 z-20 flex items-center gap-2 rounded-xl bg-white p-2 shadow-md mb-[2px] mr-auto ml-0'
+              : 'flex items-center gap-2 rounded-xl bg-white p-2 shadow-md mx-auto',
+          )}
+          onSubmit={handleSubmit}
+          style={{
+            width:
+              currentView === 'map'
+                ? '100%'
+                : 'calc(100% - 3rem)',
+          }}
+        >
           <div
             className={cn(
               'flex h-12 w-full items-center transition-colors duration-300',

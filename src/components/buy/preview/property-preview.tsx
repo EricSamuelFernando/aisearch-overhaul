@@ -18,6 +18,7 @@ import { BuyTab } from '../buy-tab';
 import BuyTable from '../buy-table';
 import ItemNav from './ItemNav';
 import { useGetSingleProperty } from '@/hooks/api/property/usePropertyApi';
+import { useAskAIApi } from '@/hooks/api/ask-ai/useAskAIApi';
 import { useAppSelector } from '@/lib/hook';
 import {
   HeroCollege,
@@ -82,6 +83,26 @@ const defaultEstimatedData: any = {
   projectedGainDescription: "Post-graduation enrolment rates",
 };
 
+const normalizeAuthServiceRestBaseUrl = (raw?: string | null) => {
+  const trimmed = (raw || '').trim().replace(/\/+$/, '');
+  if (!trimmed) return '';
+  return /\/auth$/i.test(trimmed) ? trimmed : `${trimmed}/auth`;
+};
+
+const firstFiniteNumber = (...values: any[]): number | null => {
+  for (const value of values) {
+    if (value === null || value === undefined || value === '') continue;
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+};
+
+const clampNumber = (value: number, min: number, max: number) => {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(Math.max(value, min), max);
+};
+
 
 interface HomeHighlightsProps {
   highlights: string[];
@@ -104,6 +125,7 @@ interface ProprtyData {
     bathroomsTotal: number
     bedroomsTotal: number
     hasBasement: boolean
+    propertyType?: string | null
   }
   homedetails: {
     flooring: string
@@ -112,6 +134,20 @@ interface ProprtyData {
   publicRemarks: string
   tags: string[]
   listingContractDate: string
+  listingId?: string | null
+  address?: {
+    unparsedAddress?: string | null
+    city?: string | null
+    stateOrProvince?: string | null
+    zipCode?: string | null
+  }
+  media?: {
+    primaryListingImageUrl?: string | null
+  }
+  listPrice?: string | null
+  daysOnMarket?: string | null
+  propertyId?: string | null
+  zpid?: string | null
 }
 
 function getDayCountFromUTC(dateStr: string) {
@@ -138,7 +174,7 @@ const PropertyPreview: React.FC = () => {
     };
   }
 
-  const [open, setOpen] = React.useState<number | null>(null);
+
   const [propertyDetails, setPropertyDetails] = React.useState<PropertyDetails | null>(null);
   const property: any = useAppSelector((state: any) => state.property.property);
   const [tags, setTags] = React.useState<any>([])
@@ -185,11 +221,42 @@ const PropertyPreview: React.FC = () => {
   const [projectedGainPct, setProjectedGainPct] = React.useState<number | null>(null);
   const [totalViewsCount, setTotalViewsCount] = React.useState<number | null>(null);
   const [totalSavesCount, setTotalSavesCount] = React.useState<number | null>(null);
+  const authRestBaseUrl = React.useMemo(
+    () => normalizeAuthServiceRestBaseUrl(process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL),
+    []
+  );
 
   // Neo4j schools API integration
   const [nearbySchools, setNearbySchools] = React.useState<any[]>([]);
   const [schoolsLoading, setSchoolsLoading] = React.useState(false);
   const [schoolsError, setSchoolsError] = React.useState<string | null>(null);
+
+  // Ask AI Integration
+  const { askAIMutation } = useAskAIApi();
+  const [aiAnswer, setAiAnswer] = React.useState<string | null>(null);
+  const [userQuestionDisplay, setUserQuestionDisplay] = React.useState<string | null>(null);
+  const [aiSuggestions, setAiSuggestions] = React.useState<string[]>([
+    "What should I look out for?",
+    "Will I like my neighbors?",
+    "Can I raise a family here?"
+  ]);
+
+  const handleAskAIQuery = (query: string) => {
+    if (!query.trim()) return;
+
+    setUserQuestionDisplay(query);
+    setAskAIQuestion(query); // Keep input synced if needed, or clear it
+
+    askAIMutation.mutate({ question: query }, {
+      onSuccess: (data) => {
+        setAiAnswer(data.answer);
+        if (data.suggestions && data.suggestions.length > 0) {
+          setAiSuggestions(data.suggestions);
+        }
+        setAskAIQuestion(''); // Clear input after successful send
+      }
+    });
+  };
 
   React.useEffect(() => {
     if (id) {
@@ -231,10 +298,10 @@ const PropertyPreview: React.FC = () => {
         '',
       price: String(
         proprtyData?.listPrice ||
-          propertyDatas?.data?.listPrice ||
-          propertyData?.listing?.listPriceLow ||
-          propertyData?.listPrice ||
-          ''
+        propertyDatas?.data?.listPrice ||
+        propertyData?.listing?.listPriceLow ||
+        propertyData?.listPrice ||
+        ''
       ),
       propertyType:
         proprtyData?.property?.propertyType ||
@@ -253,7 +320,7 @@ const PropertyPreview: React.FC = () => {
     hasRecordedViewRef.current = true;
   }, [currentUser?.id, proprtyData, propertyDatas, propertyData, property?.listingId, id, recordPropertyView]);
 
-  console.log("DEBUG PREVIEW:", { id, engagedProperty, propertyData });
+  // console.log("DEBUG PREVIEW:", { id, engagedProperty, propertyData });
 
   const createEngagementAndNavigate = (meanType?: string) => {
     if (!currentUser?.id) {
@@ -468,12 +535,9 @@ const PropertyPreview: React.FC = () => {
   const handleAskAI = () => {
     if (!askAIQuestion.trim()) return;
 
-    // Here you can add the logic to send the question to your AI service
-    console.log('Ask AI Question:', askAIQuestion);
-
-    // For now, just close the modal and clear the question
+    handleAskAIQuery(askAIQuestion);
     setIsAskAIModalOpen(false);
-    setAskAIQuestion('');
+    // setAskAIQuestion(''); // Cleared in onSuccess
 
     // You can add success message or handle AI response here
     // success({ message: "Your question has been sent to AI assistant!" });
@@ -581,33 +645,33 @@ const PropertyPreview: React.FC = () => {
     propertyData?.daysOnMarket ??
     getDayCountFromUTC(
       proprtyData?.listingContractDate ||
-        propertyDatas?.data?.listingContractDate ||
-        propertyData?.listingContractDate ||
-        propertyDatas?.data?.modificationTimestamp ||
-        propertyData?.modificationTimestamp ||
-        propertyDatas?.data?.createdAt ||
-        propertyData?.createdAt ||
-        Date.now().toString()
+      propertyDatas?.data?.listingContractDate ||
+      propertyData?.listingContractDate ||
+      propertyDatas?.data?.modificationTimestamp ||
+      propertyData?.modificationTimestamp ||
+      propertyDatas?.data?.createdAt ||
+      propertyData?.createdAt ||
+      Date.now().toString()
     );
 
-  const viewsValue =
-    totalViewsCount ??
-    propertyDatas?.data?.viewsCounter ??
-    propertyDatas?.data?.viewsCount ??
-    propertyDatas?.data?.viewCount ??
-    propertyData?.viewsCounter ??
-    propertyData?.viewsCount ??
-    propertyData?.viewCount ??
-    propertyData?.listing?.viewsCounter ??
-    propertyData?.listing?.viewsCount ??
-    propertyData?.listing?.viewCount ??
-    0;
+  const viewsValue = firstFiniteNumber(
+    totalViewsCount,
+    propertyDatas?.data?.viewsCounter,
+    propertyDatas?.data?.viewsCount,
+    propertyDatas?.data?.viewCount,
+    propertyData?.viewsCounter,
+    propertyData?.viewsCount,
+    propertyData?.viewCount,
+    propertyData?.listing?.viewsCounter,
+    propertyData?.listing?.viewsCount,
+    propertyData?.listing?.viewCount,
+  );
 
-  const savesValue =
-    totalSavesCount ??
-    propertyDatas?.data?.savesCount ??
-    propertyData?.savesCount ??
-    0;
+  const savesValue = firstFiniteNumber(
+    totalSavesCount,
+    propertyDatas?.data?.savesCount,
+    propertyData?.savesCount,
+  );
 
   const HomeHighlightsData: HomeHighlightsProps = {
     highlights: [
@@ -621,13 +685,88 @@ const PropertyPreview: React.FC = () => {
       "The open stairwell ascends to the spacious living room featuring gorgeous cathedral ceilings and tons of natural light. The formal dining room and updated kitchen open to a spacious wrap-around deck shaded by majestic oak trees, perfect for entertaining or dining al fresco. This level also features two additional bedrooms and a full bath...",
     stats: {
       daysOnMarket: String(daysOnMarketValue ?? 0),
-      views: String(viewsValue ?? 0),
-      saves: String(savesValue ?? 0),
+      views: viewsValue !== null ? String(viewsValue) : '—',
+      saves: savesValue !== null ? String(savesValue) : '—',
       sellLikelihood: "98%",
     },
     floorPlanSrc: '/assets/images/floor.png',
     threeDHomeSrc: '/assets/images/building.png',
   };
+
+  const projectionSignals = React.useMemo(() => {
+    const toNumber = (value: any) => {
+      if (value === null || value === undefined || value === '') return 0;
+      if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+      if (typeof value === 'string') {
+        const normalized = value.replace(/[^0-9.-]/g, '');
+        const parsed = Number(normalized);
+        return Number.isFinite(parsed) ? parsed : 0;
+      }
+      return 0;
+    };
+
+    const subjectPrice = toNumber(
+      proprtyData?.listPrice ??
+      propertyDatas?.data?.listPrice ??
+      propertyDatas?.property_detail?.data?.propertyInfo?.listPrice ??
+      propertyDatas?.property_detail?.data?.propertyInfo?.listPriceLow ??
+      propertyData?.listing?.listPriceLow ??
+      propertyData?.listing?.listPrice ??
+      propertyData?.listPrice ??
+      propertyData?.listing?.price
+    );
+
+    const subjectSqft = toNumber(
+      proprtyData?.property?.livingArea ??
+      propertyDatas?.data?.property?.livingArea ??
+      propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet ??
+      propertyData?.property?.livingArea ??
+      propertyData?.property?.livingSquareFeet
+    );
+
+    const subjectPpsf = toNumber(
+      propertyDatas?.data?.pricePerSqFt ??
+      propertyDatas?.property_detail?.data?.propertyInfo?.pricePerSqFt ??
+      propertyData?.pricePerSqFt ??
+      (subjectPrice && subjectSqft ? subjectPrice / subjectSqft : 0)
+    );
+
+    const nearbyHomes = propertyDatas?.nearbyHomes || [];
+    const compPpsfValues = nearbyHomes
+      .map((home: any) => {
+        const listing = home?.listing || home;
+        const compPrice = toNumber(
+          listing?.listPriceLow ?? listing?.listPrice ?? listing?.listPriceHigh
+        );
+        const compSqft = toNumber(
+          listing?.property?.livingArea ??
+          listing?.property?.livingSquareFeet ??
+          listing?.property?.sqft ??
+          listing?.livingArea
+        );
+        if (!compPrice || !compSqft) return null;
+        const ppsf = compPrice / compSqft;
+        return Number.isFinite(ppsf) && ppsf > 0 ? ppsf : null;
+      })
+      .filter(Boolean) as number[];
+
+    const compPpsfAvg = (() => {
+      if (compPpsfValues.length === 0) return 0;
+      const sorted = [...compPpsfValues].sort((a, b) => a - b);
+      const trimCount = sorted.length >= 5 ? Math.floor(sorted.length * 0.2) : 0;
+      const trimmed = trimCount > 0 ? sorted.slice(trimCount, sorted.length - trimCount) : sorted;
+      if (trimmed.length === 0) return 0;
+      return trimmed.reduce((sum, val) => sum + val, 0) / trimmed.length;
+    })();
+
+    const dom = Number(daysOnMarketValue);
+
+    return {
+      subjectPpsf: subjectPpsf > 0 ? subjectPpsf : 0,
+      compPpsfAvg: compPpsfAvg > 0 ? compPpsfAvg : 0,
+      daysOnMarket: Number.isFinite(dom) && dom >= 0 ? dom : null,
+    };
+  }, [proprtyData, propertyDatas, propertyData, daysOnMarketValue]);
 
 
   const schoolPropsData: any = {
@@ -845,6 +984,18 @@ const PropertyPreview: React.FC = () => {
     );
   }, [proprtyData, propertyDatas, propertyData]);
 
+  const rentCountyOrParish = React.useMemo(() => {
+    return (
+      proprtyData?.address?.countyOrParish ||
+      propertyDatas?.data?.address?.countyOrParish ||
+      propertyDatas?.property_detail?.data?.propertyInfo?.address?.countyOrParish ||
+      propertyData?.listing?.address?.countyOrParish ||
+      propertyData?.address?.countyOrParish ||
+      propertyData?.public?.address?.county ||
+      ""
+    );
+  }, [proprtyData, propertyDatas, propertyData]);
+
   const appreciationZip = React.useMemo(() => {
     const zip =
       proprtyData?.address?.zipCode ||
@@ -888,8 +1039,12 @@ const PropertyPreview: React.FC = () => {
         const params = new URLSearchParams();
         if (rentAddress) params.set("address", rentAddress);
         if (rentZpid) params.set("zpid", String(rentZpid));
+        if (rentCountyOrParish) params.set("county", String(rentCountyOrParish));
         const response = await fetch(`/api/zillow-rent?${params.toString()}`);
-        if (!response.ok) return;
+        if (!response.ok) {
+          console.warn('Rent estimate API returned non-OK status:', response.status);
+          return;
+        }
         const json = await response.json();
         const value = Number(json?.currentRent);
         const deltaValue = Number(json?.delta);
@@ -906,27 +1061,70 @@ const PropertyPreview: React.FC = () => {
     return () => {
       didCancel = true;
     };
-  }, [rentAddress, rentZpid]);
+  }, [rentAddress, rentZpid, rentCountyOrParish]);
 
   React.useEffect(() => {
-    if (!appreciationZip) return;
-    const baseUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL;
-    if (!baseUrl) return;
+    if (!appreciationZip) {
+      setProjectedGainPct(null);
+      return;
+    }
+    if (!authRestBaseUrl) {
+      setProjectedGainPct(null);
+      return;
+    }
     let didCancel = false;
+    setProjectedGainPct(null);
 
     const loadAppreciation = async () => {
       try {
-        const response = await fetch(`${baseUrl}/market/appreciation?zip=${encodeURIComponent(appreciationZip)}`);
-        if (!response.ok) return;
+        const response = await fetch(`${authRestBaseUrl}/market/appreciation?zip=${encodeURIComponent(appreciationZip)}`);
+        if (!response.ok) {
+          console.warn('Appreciation API returned non-OK status:', response.status);
+          if (!didCancel) setProjectedGainPct(null);
+          return;
+        }
         const json = await response.json();
         const annualRatePct = Number(json?.annualRatePct);
-        if (!Number.isFinite(annualRatePct)) return;
-        const gain5y = (Math.pow(1 + annualRatePct / 100, 5) - 1) * 100;
+        if (!Number.isFinite(annualRatePct)) {
+          if (!didCancel) setProjectedGainPct(null);
+          return;
+        }
+        const regionalAnnual = annualRatePct / 100;
+
+        // Lightweight property-specific projection:
+        // - Start with regional (state-level) annual appreciation
+        // - Adjust by local comp PPSF gap (subject undervalued vs comps => slightly higher)
+        // - Add a small liquidity adjustment from DOM
+        const subjectPpsf = projectionSignals.subjectPpsf;
+        const compPpsfAvg = projectionSignals.compPpsfAvg;
+        const dom = projectionSignals.daysOnMarket;
+
+        const compGap =
+          subjectPpsf > 0 && compPpsfAvg > 0
+            ? clampNumber((compPpsfAvg - subjectPpsf) / subjectPpsf, -0.15, 0.15)
+            : 0;
+        const compAdjustment = compGap * 0.35; // bounded to +/- 5.25% annual before final clamp
+
+        const liquidityAdjustment =
+          dom !== null
+            ? clampNumber((45 - dom) / 3650, -0.02, 0.02)
+            : 0;
+
+        const blendedAnnual = clampNumber(
+          regionalAnnual + compAdjustment + liquidityAdjustment,
+          -0.03,
+          0.12
+        );
+
+        const gain5y = (Math.pow(1 + blendedAnnual, 5) - 1) * 100;
         if (!didCancel && Number.isFinite(gain5y)) {
           setProjectedGainPct(gain5y);
+        } else if (!didCancel) {
+          setProjectedGainPct(null);
         }
       } catch (error) {
         console.log("Failed to load appreciation rate", error);
+        if (!didCancel) setProjectedGainPct(null);
       }
     };
 
@@ -934,19 +1132,21 @@ const PropertyPreview: React.FC = () => {
     return () => {
       didCancel = true;
     };
-  }, [appreciationZip]);
+  }, [appreciationZip, authRestBaseUrl, projectionSignals]);
 
   React.useEffect(() => {
-    const baseUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL;
-    if (!baseUrl || !listingIdForViews) return;
+    if (!authRestBaseUrl || !listingIdForViews) return;
     let didCancel = false;
 
     const loadViewCount = async () => {
       try {
         const response = await fetch(
-          `${baseUrl}/view-history/count?listingId=${encodeURIComponent(String(listingIdForViews))}`
+          `${authRestBaseUrl}/view-history/count?listingId=${encodeURIComponent(String(listingIdForViews))}&unique=true`
         );
-        if (!response.ok) return;
+        if (!response.ok) {
+          console.warn('View count API returned non-OK status:', response.status);
+          return;
+        }
         const json = await response.json();
         const countValue = Number(json?.count);
         if (!didCancel && Number.isFinite(countValue)) {
@@ -961,11 +1161,10 @@ const PropertyPreview: React.FC = () => {
     return () => {
       didCancel = true;
     };
-  }, [listingIdForViews]);
+  }, [listingIdForViews, authRestBaseUrl]);
 
   React.useEffect(() => {
-    const baseUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL;
-    if (!baseUrl || (!listingIdForViews && !propertyIdForSaves)) return;
+    if (!authRestBaseUrl || (!listingIdForViews && !propertyIdForSaves)) return;
     let didCancel = false;
 
     const loadSavesCount = async () => {
@@ -977,8 +1176,12 @@ const PropertyPreview: React.FC = () => {
         if (propertyIdForSaves) {
           params.set('propertyId', String(propertyIdForSaves));
         }
-        const response = await fetch(`${baseUrl}/favourites/count?${params.toString()}`);
-        if (!response.ok) return;
+        params.set('unique', 'true');
+        const response = await fetch(`${authRestBaseUrl}/favourites/count?${params.toString()}`);
+        if (!response.ok) {
+          console.warn('Saves count API returned non-OK status:', response.status);
+          return;
+        }
         const json = await response.json();
         const countValue = Number(json?.count);
         if (!didCancel && Number.isFinite(countValue)) {
@@ -993,7 +1196,7 @@ const PropertyPreview: React.FC = () => {
     return () => {
       didCancel = true;
     };
-  }, [listingIdForViews, propertyIdForSaves]);
+  }, [listingIdForViews, propertyIdForSaves, authRestBaseUrl]);
 
   const getPropertyLatLng = React.useCallback(() => {
     let lat = null;
@@ -1071,13 +1274,18 @@ const PropertyPreview: React.FC = () => {
         return;
       }
 
-      console.log(`🔍 Fetching schools from: ${process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL}/schools/nearby?lat=${lat}&lon=${lon}`);
+      if (!authRestBaseUrl) {
+        setSchoolsError('Auth service URL is not configured');
+        return;
+      }
+
+      console.log(`🔍 Fetching schools from: ${authRestBaseUrl}/schools/nearby?lat=${lat}&lon=${lon}`);
       setSchoolsLoading(true);
       setSchoolsError(null);
 
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL}/schools/nearby?lat=${lat}&lon=${lon}`
+          `${authRestBaseUrl}/schools/nearby?lat=${lat}&lon=${lon}`
         );
 
         if (!response.ok) {
@@ -1107,7 +1315,7 @@ const PropertyPreview: React.FC = () => {
     };
 
     fetchNearbySchools();
-  }, [propertyDatas, proprtyData]);
+  }, [propertyDatas, proprtyData, authRestBaseUrl]);
 
   React.useEffect(() => {
     if (!isStreetViewOpen) return;
@@ -1168,7 +1376,7 @@ const PropertyPreview: React.FC = () => {
     };
   }, [proprtyData, id]);
 
-  console.log(transformData, "propertyDatas")
+  // console.log(transformData, "propertyDatas")
   const [showAllSchools, setShowAllSchools] = React.useState(false);
   const [sortedSchools, setSortedSchools] = React.useState<any[]>([]);
 
@@ -1193,9 +1401,9 @@ const PropertyPreview: React.FC = () => {
   const taxAmountValue = Number(taxAmountCandidate);
   const taxPercentValue =
     Number.isFinite(listPriceValue) &&
-    listPriceValue > 0 &&
-    Number.isFinite(taxAmountValue) &&
-    taxAmountValue > 0
+      listPriceValue > 0 &&
+      Number.isFinite(taxAmountValue) &&
+      taxAmountValue > 0
       ? (taxAmountValue / listPriceValue) * 100
       : undefined;
   const currentListingId =
@@ -1223,30 +1431,30 @@ const PropertyPreview: React.FC = () => {
 
     const price = toNumber(
       transformData.prop?.listPrice ??
-        propertyDatas?.data?.listPrice ??
-        propertyDatas?.property_detail?.data?.propertyInfo?.listPrice ??
-        propertyDatas?.property_detail?.data?.propertyInfo?.listPriceLow ??
-        propertyData?.listing?.listPriceLow ??
-        propertyData?.listing?.listPrice ??
-        propertyData?.listPrice ??
-        propertyData?.listing?.price ??
-        0
+      propertyDatas?.data?.listPrice ??
+      propertyDatas?.property_detail?.data?.propertyInfo?.listPrice ??
+      propertyDatas?.property_detail?.data?.propertyInfo?.listPriceLow ??
+      propertyData?.listing?.listPriceLow ??
+      propertyData?.listing?.listPrice ??
+      propertyData?.listPrice ??
+      propertyData?.listing?.price ??
+      0
     );
 
     const sqft = toNumber(
       transformData.prop?.property?.livingArea ??
-        propertyDatas?.data?.property?.livingArea ??
-        propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet ??
-        propertyData?.property?.livingArea ??
-        propertyData?.property?.livingSquareFeet ??
-        0
+      propertyDatas?.data?.property?.livingArea ??
+      propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet ??
+      propertyData?.property?.livingArea ??
+      propertyData?.property?.livingSquareFeet ??
+      0
     );
 
     const localPricePerSqft = toNumber(
       propertyDatas?.data?.pricePerSqFt ??
-        propertyDatas?.property_detail?.data?.propertyInfo?.pricePerSqFt ??
-        propertyData?.pricePerSqFt ??
-        (price && sqft ? price / sqft : 0)
+      propertyDatas?.property_detail?.data?.propertyInfo?.pricePerSqFt ??
+      propertyData?.pricePerSqFt ??
+      (price && sqft ? price / sqft : 0)
     );
 
     const nearbyHomes = propertyDatas?.nearbyHomes || [];
@@ -1256,9 +1464,9 @@ const PropertyPreview: React.FC = () => {
         const compPrice = toNumber(listing?.listPriceLow ?? listing?.listPrice ?? listing?.listPriceHigh);
         const compSqft = toNumber(
           listing?.property?.livingArea ??
-            listing?.property?.livingSquareFeet ??
-            listing?.property?.sqft ??
-            listing?.livingArea
+          listing?.property?.livingSquareFeet ??
+          listing?.property?.sqft ??
+          listing?.livingArea
         );
         if (!compPrice || !compSqft) return null;
         const value = compPrice / compSqft;
@@ -1303,37 +1511,36 @@ const PropertyPreview: React.FC = () => {
     const rentFormatted =
       rentEstimate && Number.isFinite(rentEstimate)
         ? rentEstimate.toLocaleString('en-US', {
-            style: 'currency',
-            currency: 'USD',
-            maximumFractionDigits: 0,
-          })
-        : null;
-    const rentDeltaFormatted =
-      rentDelta !== null && Number.isFinite(rentDelta)
-        ? `${rentDelta > 0 ? '+' : rentDelta < 0 ? '-' : ''}${Math.abs(rentDelta).toLocaleString('en-US', {
-            style: 'currency',
-            currency: 'USD',
-            maximumFractionDigits: 0,
-          })}`
-        : '';
-    const projectedGainFormatted =
-      projectedGainPct !== null && Number.isFinite(projectedGainPct)
-        ? `${projectedGainPct.toFixed(1)}%`
-        : defaultEstimatedData.projectedGain;
-
-    if (!estimatedHouseValue && !rentFormatted) return defaultEstimatedData;
-    const formatted = estimatedHouseValue
-      ? estimatedHouseValue.toLocaleString('en-US', {
           style: 'currency',
           currency: 'USD',
           maximumFractionDigits: 0,
         })
-      : defaultEstimatedData.houseValue;
+        : null;
+    const rentDeltaFormatted =
+      rentDelta !== null && Number.isFinite(rentDelta)
+        ? `${rentDelta > 0 ? '+' : rentDelta < 0 ? '-' : ''}${Math.abs(rentDelta).toLocaleString('en-US', {
+          style: 'currency',
+          currency: 'USD',
+          maximumFractionDigits: 0,
+        })}`
+        : '';
+    const projectedGainFormatted =
+      projectedGainPct !== null && Number.isFinite(projectedGainPct)
+        ? `${projectedGainPct.toFixed(1)}%`
+        : 'Unavailable';
+    const formatted = estimatedHouseValue
+      ? estimatedHouseValue.toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 0,
+      })
+      : 'Unavailable';
     return {
       ...defaultEstimatedData,
       houseValue: formatted,
       projectedGain: projectedGainFormatted,
-      ...(rentFormatted ? { estimatedRent: rentFormatted, rentChange: rentDeltaFormatted } : {}),
+      estimatedRent: rentFormatted || 'Unavailable',
+      rentChange: rentFormatted ? rentDeltaFormatted : '',
     };
   }, [estimatedHouseValue, rentEstimate, rentDelta, projectedGainPct]);
 
@@ -1350,12 +1557,12 @@ const PropertyPreview: React.FC = () => {
       hash === '#home-highlights' || hash === '#home'
         ? { section: 'home', scrollId: 'home-highlights' }
         : hash === '#property'
-        ? { section: 'offers', scrollId: 'property' }
-        : hash === '#schools'
-          ? { section: 'schools', scrollId: 'schools' }
-          : hash === '#forecast'
-            ? { section: 'interest', scrollId: 'forecast' }
-            : null;
+          ? { section: 'offers', scrollId: 'property' }
+          : hash === '#schools'
+            ? { section: 'schools', scrollId: 'schools' }
+            : hash === '#forecast'
+              ? { section: 'interest', scrollId: 'forecast' }
+              : null;
 
     if (!target) return;
 
@@ -1390,12 +1597,12 @@ const PropertyPreview: React.FC = () => {
       title: "Schools Nearby",
       content: (() => {
         const schoolsToDisplay = schoolsLoading ? schoolPropsData.schools : (nearbySchools.length > 0 ? nearbySchools : schoolPropsData.schools);
-        console.log('🎓 Schools being displayed:', {
-          schoolsLoading,
-          nearbySchoolsCount: nearbySchools.length,
-          nearbySchools,
-          schoolsToDisplay
-        });
+        // console.log('🎓 Schools being displayed:', {
+        //   schoolsLoading,
+        //   nearbySchoolsCount: nearbySchools.length,
+        //   nearbySchools,
+        //   schoolsToDisplay
+        // });
         return (
           <SchoolsNearAddress
             address={(proprtyData as any)?.address?.unparsedAddress || schoolPropsData.address}
@@ -1501,7 +1708,7 @@ const PropertyPreview: React.FC = () => {
     }];
   }, [transformData.prop?.media]);
 
-  console.log(transformData)
+  // console.log(transformData)
   const handleImageClick = (index: number) => {
     setCurrentImageIndex(index);
     setIsOpen(true);
@@ -1510,15 +1717,9 @@ const PropertyPreview: React.FC = () => {
 
 
 
-  const toggle = (i: number) => {
-    setOpen(open === i ? null : i);
-  };
 
-  const items = [
-    "What should I look out for?",
-    "Will I like my neighbors?",
-    "Can I raise a family here?"
-  ];
+
+
 
   React.useEffect(() => {
     const handleHashChange = () => {
@@ -1553,7 +1754,7 @@ const PropertyPreview: React.FC = () => {
   return (
     <div>
       <ItemNav cardRef={cardRef} />
-      <div className='mt-6 sm:mt-8 md:mt-12 lg:mt-14' />
+      <div className='mt-14 sm:mt-12 md:mt-12 lg:mt-14' />
       <div id="overview" className="scroll-mt-28" />
 
       {/* Contact Agent Dialog */}
@@ -1600,16 +1801,16 @@ const PropertyPreview: React.FC = () => {
 
       {/* Search Agent Modal - Large modal with agent directory */}
       <Dialog open={isSearchAgentModalOpen} onOpenChange={setIsSearchAgentModalOpen}>
-        <DialogContent className="max-w-6xl w-[95vw] h-[90vh] max-h-[90vh] overflow-hidden flex flex-col p-0">
-          <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
-            <DialogTitle className="text-2xl font-semibold">Search Agents</DialogTitle>
+        <DialogContent className="max-w-6xl w-[96vw] sm:w-[95vw] h-[90vh] max-h-[90vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="flex-shrink-0 px-3 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b">
+            <DialogTitle className="text-xl sm:text-2xl font-semibold">Search Agents</DialogTitle>
             <DialogDescription>
               Browse and search for agents to invite to this property.
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-hidden flex flex-col min-h-0">
             {engagementIdForModal ? (
-              <div className="flex-1 overflow-y-auto px-6 pb-6 min-h-0">
+              <div className="flex-1 overflow-y-auto px-3 sm:px-6 pb-3 sm:pb-6 min-h-0">
                 <AgentDirectoryWrapper
                   engagementId={engagementIdForModal}
                   propertyId={propertyData?.id || id}
@@ -1681,10 +1882,10 @@ const PropertyPreview: React.FC = () => {
         </DialogContent>
       </Dialog>
       {loading ? (
-        <div className='grid grid-flow-row place-items-center gap-3 sm:gap-4 lg:gap-6 lg:h-[28rem] lg:grid-cols-12 lg:gap-7 animate-pulse px-2 sm:px-4 md:px-6 lg:px-0'>
+        <div className='grid w-full max-w-7xl mx-auto min-h-[calc(100vh-12rem)] content-start grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-12 lg:gap-7 animate-pulse bg-white px-2 pb-8 sm:px-4 md:px-6 lg:px-0'>
           <SkeletonLoader className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[392px] w-full bg-gray-200 lg:col-span-8 rounded-lg' />
-          <div className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[392px] w-full lg:col-span-4'>
-            <PropCardLoader className='h-full w-full rounded-lg shadow-lg' />
+          <div className='w-full lg:col-span-4'>
+            <PropCardLoader className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[392px] w-full rounded-lg shadow-lg' />
           </div>
         </div>
       ) : transformData.display ? (
@@ -1721,9 +1922,9 @@ const PropertyPreview: React.FC = () => {
                 preloadedData={propertyDatas} // Pass existing data to prevent re-fetch
               />
               {/* Top Section: Price/Address and Agent Card */}
-              <div className="mt-3 w-full flex flex-col gap-4 md:grid md:grid-cols-[minmax(0,1fr)_360px] md:items-start md:gap-6 mb-4">
+              <div className="mt-3 w-full flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6 mb-4">
                 {/* Left: Price and Address */}
-                <div className="space-y-1 w-full md:flex-1">
+                <div className="space-y-1 w-full lg:flex-1">
                   <div className='inline-flex items-baseline gap-1'>
                     <span className='text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-gray-900'>$</span>
                     <h2 className='text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-gray-900 relative inline-block'>
@@ -1768,24 +1969,24 @@ const PropertyPreview: React.FC = () => {
               </div>
 
               {/* Bottom Section: Estimated Payment and Schedule A Tour Button */}
-	              <div className="flex flex-col w-full gap-3 sm:gap-4 mb-4 md:grid md:grid-cols-[minmax(0,1fr)_360px] md:items-center md:gap-6">
-	                {/* Left: Estimated Payment Section */}
-	                <div className="rounded-xl bg-[#FAE6DB] shadow-sm px-3 sm:px-4 py-2 sm:py-2.5 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-2.5 w-full md:max-w-[460px]">
-	                  <div className="flex items-center gap-2 flex-1">
-	                    <span className="text-xs sm:text-sm text-gray-600">Est. payment:</span>
-	                    <span className="text-xs sm:text-sm font-bold text-gray-900">
-	                      ${(() => {
-	                        const fallbackPrice = Number(transformData.prop?.listPrice || 0);
-	                        const fallbackMonthly = Number.isFinite(fallbackPrice)
-	                          ? Math.round(fallbackPrice * 0.0065)
-	                          : 0;
-	                        const monthlyPayment = topEstimatedMonthlyPayment !== null
-	                          ? Math.round(topEstimatedMonthlyPayment)
-	                          : fallbackMonthly;
-	                        return monthlyPayment.toLocaleString('en-US');
-	                      })()}/mo
-	                    </span>
-	                  </div>
+              <div className="flex flex-col w-full gap-3 sm:gap-4 mb-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center lg:gap-6">
+                {/* Left: Estimated Payment Section */}
+                <div className="rounded-xl bg-[#FAE6DB] shadow-sm px-3 sm:px-4 py-2 sm:py-2.5 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-2.5 w-full lg:max-w-[460px]">
+                  <div className="flex items-center gap-2 flex-1">
+                    <span className="text-xs sm:text-sm text-gray-600">Est. payment:</span>
+                    <span className="text-xs sm:text-sm font-bold text-gray-900">
+                      ${(() => {
+                        const fallbackPrice = Number(transformData.prop?.listPrice || 0);
+                        const fallbackMonthly = Number.isFinite(fallbackPrice)
+                          ? Math.round(fallbackPrice * 0.0065)
+                          : 0;
+                        const monthlyPayment = topEstimatedMonthlyPayment !== null
+                          ? Math.round(topEstimatedMonthlyPayment)
+                          : fallbackMonthly;
+                        return monthlyPayment.toLocaleString('en-US');
+                      })()}/mo
+                    </span>
+                  </div>
                   <div className="flex items-center gap-2">
                     <div className="h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-[#E8804C]-300 flex items-center justify-center shrink-0">
                       <Info className="h-2 w-2 sm:h-3 sm:w-3 text-[#E8804C]-600" />
@@ -1804,7 +2005,7 @@ const PropertyPreview: React.FC = () => {
                 {/* Right: Schedule A Tour Button */}
                 <div className="w-full flex flex-col gap-2">
                   <button
-                    className="w-full bg-black text-white px-4 sm:px-6 md:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-normal border border-black hover:bg-gray-900 transition-colors"
+                    className="w-full bg-black text-white px-4 sm:px-6 lg:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-normal border border-black hover:bg-gray-900 transition-colors"
                     onClick={handleContactAgent}
                     disabled={propertyEngagementMutation.isPending}
                   >
@@ -1840,7 +2041,7 @@ const PropertyPreview: React.FC = () => {
 
               {/* Estimated Market Value (image_60fd3b.png) */}
               <div className='flex flex-wrap items-center justify-between gap-2 sm:gap-3 py-2 sm:py-3 px-2 sm:px-0'>
-                <EstimatedMarketValue defaultEstimatedData={defaultEstimatedData} />
+                <EstimatedMarketValue estimatedData={estimatedMarketData} />
               </div>
 
             </div>
@@ -1848,144 +2049,144 @@ const PropertyPreview: React.FC = () => {
 
             <div className="col-span-12 lg:col-span-4 lg:row-span-2 mt-4 lg:mt-0">
               <div className="w-full rounded-2xl bg-[#F9F6EF] shadow-sm border border-[#EFE7DC] p-4 sm:p-5 md:p-6">
-                  {(() => {
-                    // Calculate dynamic values
-                    const beds = transformData.prop?.property?.bedroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bedroomsTotal || 0;
-                    const baths = transformData.prop?.property?.bathroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bathroomsTotal || 0;
-                    const sqft = transformData.prop?.property?.livingArea || propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet || 0;
-                    const yearBuilt = transformData.prop?.property?.yearBuilt || propertyDatas?.property_detail?.data?.propertyInfo?.yearBuilt || "N/A";
-                    const propertyType = transformData.prop?.property?.propertyType || propertyDatas?.property_detail?.data?.propertyInfo?.propertyType || "N/A";
-                    const sqftArea = transformData.prop?.property?.livingArea || propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet || 0;
-                    const listPrice = transformData.prop?.listPrice || propertyDatas?.data?.listPrice || 0;
-                    const pricePerSqft = sqft && listPrice ? Math.round(listPrice / sqft) : 0;
-                    const status = mostRecentStatus || transformData.prop?.mostRecentStatus || "For sale";
-                    const propertyTypeShort = propertyType?.split(' ')[0] || "Single";
+                {(() => {
+                  // Calculate dynamic values
+                  const beds = transformData.prop?.property?.bedroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bedroomsTotal || 0;
+                  const baths = transformData.prop?.property?.bathroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bathroomsTotal || 0;
+                  const sqft = transformData.prop?.property?.livingArea || propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet || 0;
+                  const yearBuilt = transformData.prop?.property?.yearBuilt || propertyDatas?.property_detail?.data?.propertyInfo?.yearBuilt || "N/A";
+                  const propertyType = transformData.prop?.property?.propertyType || propertyDatas?.property_detail?.data?.propertyInfo?.propertyType || "N/A";
+                  const sqftArea = transformData.prop?.property?.livingArea || propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet || 0;
+                  const listPrice = transformData.prop?.listPrice || propertyDatas?.data?.listPrice || 0;
+                  const pricePerSqft = sqft && listPrice ? Math.round(listPrice / sqft) : 0;
+                  const status = mostRecentStatus || transformData.prop?.mostRecentStatus || "For sale";
+                  const propertyTypeShort = propertyType?.split(' ')[0] || "Single";
 
-                    return (
-                      <>
-                        {/* Status Badge */}
-                        <div className="inline-flex items-center gap-2 bg-white/70 px-3 py-1 rounded-full text-xs sm:text-[13px] font-medium text-gray-800">
-                          <span className="h-[6px] w-[6px] rounded-full bg-red-500"></span>
-                          {status}
+                  return (
+                    <>
+                      {/* Status Badge */}
+                      <div className="inline-flex items-center gap-2 bg-white/70 px-3 py-1 rounded-full text-xs sm:text-[13px] font-medium text-gray-800">
+                        <span className="h-[6px] w-[6px] rounded-full bg-red-500"></span>
+                        {status}
+                      </div>
+
+                      {/* Top stats */}
+                      <div className="mt-4 grid grid-cols-3 gap-5">
+                        <div>
+                          <p className="text-2xl sm:text-[30px] font-semibold leading-none">{beds}</p>
+                          <p className="text-xs sm:text-[13px] text-gray-600 mt-1">beds</p>
                         </div>
 
-                        {/* Top stats */}
-                        <div className="mt-4 grid grid-cols-3 gap-5">
-                          <div>
-                            <p className="text-2xl sm:text-[30px] font-semibold leading-none">{beds}</p>
-                            <p className="text-xs sm:text-[13px] text-gray-600 mt-1">beds</p>
-                          </div>
-
-                          <div>
-                            <p className="text-2xl sm:text-[30px] font-semibold leading-none">{baths}</p>
-                            <p className="text-xs sm:text-[13px] text-gray-600 mt-1">baths</p>
-                          </div>
-
-                          <div>
-                            <p className="text-2xl sm:text-[30px] font-semibold leading-none tracking-tight">
-                              {sqft ? sqft.toLocaleString('en-US') : "0"}
-                            </p>
-                            <p className="text-xs sm:text-[13px] text-gray-600 mt-1">sqft</p>
-                          </div>
+                        <div>
+                          <p className="text-2xl sm:text-[30px] font-semibold leading-none">{baths}</p>
+                          <p className="text-xs sm:text-[13px] text-gray-600 mt-1">baths</p>
                         </div>
 
-                        {/* Open house - optional, can be made dynamic if data is available */}
-                        {transformData.prop?.openHouse && (
-                          <p className="text-[13px] text-gray-700 mt-4">
-                            Open : {transformData.prop.openHouse}
+                        <div>
+                          <p className="text-2xl sm:text-[30px] font-semibold leading-none tracking-tight">
+                            {sqft ? sqft.toLocaleString('en-US') : "0"}
                           </p>
-                        )}
+                          <p className="text-xs sm:text-[13px] text-gray-600 mt-1">sqft</p>
+                        </div>
+                      </div>
 
-                        <div className="h-px bg-[#E3DCD2] my-4"></div>
+                      {/* Open house - optional, can be made dynamic if data is available */}
+                      {transformData.prop?.openHouse && (
+                        <p className="text-[13px] text-gray-700 mt-4">
+                          Open : {transformData.prop.openHouse}
+                        </p>
+                      )}
 
-                        {/* Middle grid info with SVG icons */}
-                        <div className="grid grid-cols-2 gap-y-4 text-xs sm:text-[13px]">
-                          <div className="flex items-start gap-3">
-                            <Image
-                              src="/assets/images/residental.png"
-                              alt="Year Built"
-                              width={18}
-                              height={18}
-                              className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4"
-                            />
-                            <div>
-                              <p className="text-sm sm:text-[15px] font-semibold">{yearBuilt}</p>
-                              <p className="text-gray-600 mt-1">Year Built</p>
-                            </div>
-                          </div>
+                      <div className="h-px bg-[#E3DCD2] my-4"></div>
 
-                          <div className="border-l border-[#E3DCD2] pl-4 flex items-start gap-3">
-                            <Image
-                              src="/assets/images/residential-icon.svg"
-                              alt="Property Type"
-                              width={18}
-                              height={18}
-                              className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4"
-                            />
-                            <div>
-                              <p className="text-sm sm:text-[15px] font-semibold">{propertyTypeShort}</p>
-                              <p className="text-gray-600 mt-1">Family Residence</p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-start gap-3">
-                            <Image
-                              src="/assets/images/sqft-area-icon.svg"
-                              alt="Sqft Area"
-                              width={18}
-                              height={18}
-                              className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4"
-                            />
-                            <div>
-                              <p className="text-sm sm:text-[15px] font-semibold">
-                                {sqftArea ? sqftArea.toLocaleString('en-US') : "N/A"}
-                              </p>
-                              <p className="text-gray-600 mt-1">Sqft Area</p>
-                            </div>
-                          </div>
-
-                          <div className="border-l border-[#E3DCD2] pl-4 flex items-start gap-3">
-                            <div className="mt-0.5 text-[15px] font-bold text-gray-800 leading-none">$</div>
-                            <div>
-                              <p className="text-[15px] font-semibold">
-                                {pricePerSqft ? `$${pricePerSqft}` : "N/A"}
-                              </p>
-                              <p className="text-gray-600 mt-1">Price/sqft</p>
-                            </div>
+                      {/* Middle grid info with SVG icons */}
+                      <div className="grid grid-cols-2 gap-y-4 text-xs sm:text-[13px]">
+                        <div className="flex items-start gap-3">
+                          <Image
+                            src="/assets/images/residental.png"
+                            alt="Year Built"
+                            width={18}
+                            height={18}
+                            className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4"
+                          />
+                          <div>
+                            <p className="text-sm sm:text-[15px] font-semibold">{yearBuilt}</p>
+                            <p className="text-gray-600 mt-1">Year Built</p>
                           </div>
                         </div>
 
-                        {/* Footer */}
-                        <div className="flex items-center justify-between gap-3 mt-5">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button
-                                  className="flex items-center gap-3 text-sm sm:text-[15px] font-semibold text-gray-900 bg-[#F2F2F2] px-5 py-3 rounded-full border border-gray-300"
-                                  onClick={() => setIsStreetViewOpen(true)}
-                                >
-                                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-gray-900">
-                                    <path
-                                      d="M12 22s7-5.686 7-12A7 7 0 1 0 5 10c0 6.314 7 12 7 12Z"
-                                      stroke="currentColor"
-                                      strokeWidth="1.8"
-                                    />
-                                    <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.8" />
-                                  </svg>
-                                  Street view
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Open Street View</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-
-                          {/* Schedule a tour link hidden per updated design */}
+                        <div className="border-l border-[#E3DCD2] pl-4 flex items-start gap-3">
+                          <Image
+                            src="/assets/images/residential-icon.svg"
+                            alt="Property Type"
+                            width={18}
+                            height={18}
+                            className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4"
+                          />
+                          <div>
+                            <p className="text-sm sm:text-[15px] font-semibold">{propertyTypeShort}</p>
+                            <p className="text-gray-600 mt-1">Family Residence</p>
+                          </div>
                         </div>
-                      </>
-                    );
-                  })()}
+
+                        <div className="flex items-start gap-3">
+                          <Image
+                            src="/assets/images/sqft-area-icon.svg"
+                            alt="Sqft Area"
+                            width={18}
+                            height={18}
+                            className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4"
+                          />
+                          <div>
+                            <p className="text-sm sm:text-[15px] font-semibold">
+                              {sqftArea ? sqftArea.toLocaleString('en-US') : "N/A"}
+                            </p>
+                            <p className="text-gray-600 mt-1">Sqft Area</p>
+                          </div>
+                        </div>
+
+                        <div className="border-l border-[#E3DCD2] pl-4 flex items-start gap-3">
+                          <div className="mt-0.5 text-[15px] font-bold text-gray-800 leading-none">$</div>
+                          <div>
+                            <p className="text-[15px] font-semibold">
+                              {pricePerSqft ? `$${pricePerSqft}` : "N/A"}
+                            </p>
+                            <p className="text-gray-600 mt-1">Price/sqft</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Footer */}
+                      <div className="flex items-center justify-between gap-3 mt-5">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                className="flex items-center gap-3 text-sm sm:text-[15px] font-semibold text-gray-900 bg-[#F2F2F2] px-5 py-3 rounded-full border border-gray-300"
+                                onClick={() => setIsStreetViewOpen(true)}
+                              >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-gray-900">
+                                  <path
+                                    d="M12 22s7-5.686 7-12A7 7 0 1 0 5 10c0 6.314 7 12 7 12Z"
+                                    stroke="currentColor"
+                                    strokeWidth="1.8"
+                                  />
+                                  <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.8" />
+                                </svg>
+                                Street view
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Open Street View</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+
+                        {/* Schedule a tour link hidden per updated design */}
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="hidden lg:block mt-4 lg:sticky lg:top-36 lg:self-start">
@@ -2014,38 +2215,60 @@ const PropertyPreview: React.FC = () => {
                     <h3 className="text-[20px] font-semibold">Ask AI</h3>
                   </div>
 
-                  <p className="text-[14px] text-gray-600 leading-relaxed mb-5">
-                    Your AI real estate assistant. We&apos;ll answer pretty much any question about this home.
-                  </p>
-
-                  {/* Accordion */}
-                  <div className="space-y-3 mb-6">
-                    {items.map((label: any, index: any) => (
-                      <div
-                        key={index}
-                        onClick={() => toggle(index)}
-                        className="w-full rounded-xl bg-[#F6F6F6] px-4 py-3 cursor-pointer flex items-center justify-between text-[14px] hover:bg-[#F0F0F0] transition-colors"
-                      >
-                        <span>{label}</span>
-                        {open === index ? (
-                          <ChevronUp className="h-4 w-4 text-gray-600" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-gray-600" />
-                        )}
+                  <div className="text-[14px] text-gray-600 leading-relaxed mb-5">
+                    {aiAnswer ? (
+                      <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                        <p className="font-semibold text-blue-800 mb-1">AI Answer:</p>
+                        <p>{aiAnswer}</p>
                       </div>
+                    ) : (
+                      <p>Your AI real estate assistant. We'll answer pretty much any question about this home.</p>
+                    )}
+                  </div>
+
+                  {/* Suggestions */}
+                  <div className="space-y-3 mb-6">
+                    {(aiSuggestions || []).map((label: string, index: number) => (
+                      <button
+                        key={index}
+                        onClick={() => handleAskAIQuery(label)}
+                        className="w-full text-left rounded-xl bg-[#F6F6F6] px-4 py-3 cursor-pointer flex items-center justify-between text-[14px] hover:bg-[#F0F0F0] transition-colors"
+                        disabled={askAIMutation.isPending}>
+                        <span>{label}</span>
+                        <ChevronDown className="h-4 w-4 text-gray-600" />
+                      </button>
                     ))}
                   </div>
 
                   {/* Input */}
-                  <input
-                    type="text"
-                    placeholder="Ask me anything about this home..."
-                    className="w-full border border-[#D9D9D9] rounded-xl px-4 py-3 text-[14px] mb-5 outline-none focus:ring-0 focus:border-gray-400 transition-colors"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Ask me anything about this home..."
+                      className="w-full border border-[#D9D9D9] rounded-xl px-4 py-3 text-[14px] mb-5 outline-none focus:ring-0 focus:border-gray-400 transition-colors pr-12"
+                      value={askAIQuestion}
+                      onChange={(e) => setAskAIQuestion(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !askAIMutation.isPending) {
+                          handleAskAIQuery(askAIQuestion);
+                        }
+                      }}
+                      disabled={askAIMutation.isPending}
+                    />
+                    {askAIMutation.isPending && (
+                      <div className="absolute right-4 top-3">
+                        <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                      </div>
+                    )}
+                  </div>
 
                   {/* Button */}
-                  <button className="w-full bg-black text-white py-3 rounded-full text-[16px] font-medium hover:bg-gray-800 transition-colors">
-                    Send
+                  <button
+                    onClick={() => handleAskAIQuery(askAIQuestion)}
+                    disabled={askAIMutation.isPending || !askAIQuestion.trim()}
+                    className="w-full bg-black text-white py-3 rounded-full text-[16px] font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {askAIMutation.isPending ? 'Thinking...' : 'Send'}
                   </button>
                 </div>
               </div>
@@ -2059,12 +2282,12 @@ const PropertyPreview: React.FC = () => {
                     section.id === 'home'
                       ? 'home-highlights'
                       : section.id === 'offers'
-                      ? 'property'
-                      : section.id === 'schools'
-                        ? 'schools'
-                        : section.id === 'interest'
-                          ? 'forecast'
-                          : undefined;
+                        ? 'property'
+                        : section.id === 'schools'
+                          ? 'schools'
+                          : section.id === 'interest'
+                            ? 'forecast'
+                            : undefined;
                   const poweredBy =
                     section.id === 'schools' || section.id === 'college'
                       ? 'SnapGrad'
@@ -2147,9 +2370,10 @@ const PropertyPreview: React.FC = () => {
                 {/* Nearby Homes Section (Similar Homes) */}
                 <div id="comparables" className="pb-6 sm:pb-8 md:pb-12 mb-12 sm:mb-16 md:mb-20 scroll-mt-28">
                   {/* <h2 className='text-xl font-bold mt-8 mb-4'>Similar homes</h2> */}
-                  {propertyDatas?.nearbyHomes && propertyDatas.nearbyHomes.length > 0 ? (
+                  {(propertyDatas?.nearbyHomes?.length || propertyDatas?.offtheMarket?.length || propertyDatas?.offTheMarket?.length) ? (
                     <NearbyHomesSection
                       nearbyHomes={propertyDatas.nearbyHomes}
+                      soldHomes={propertyDatas?.offtheMarket || propertyDatas?.offTheMarket || []}
                       currentProperty={currentCompareProperty}
                       currentListingId={currentListingId}
                     />
@@ -2168,7 +2392,7 @@ const PropertyPreview: React.FC = () => {
 
           </div>
 
-    </>
+        </>
       ) : (
         <div className='h-full w-full'>{notFound()}</div>
       )}
@@ -2280,5 +2504,3 @@ const PropertyPreview: React.FC = () => {
 };
 
 export { PropertyPreview };
-
-

@@ -95,7 +95,7 @@ export const socialLinks: MainNavItem[] = [
   {
     title: 'rss',
     external: true,
-    href: 'https://www.tiktok.com/@snaphomz',
+    href: 'https://www.tiktok.com/@snaphomz_usa',
     icon: TikTokIcon,
   },
   {

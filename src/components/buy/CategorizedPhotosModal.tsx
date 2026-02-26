@@ -152,8 +152,11 @@ export default function CategorizedPhotosModal({
                 setAnalysis(analysisData);
             };
 
-            // Used preloaded data if available, otherwise fetch
-            if (preloadedData) {
+            // Used preloaded data if available AND has categorization, otherwise fetch
+            const hasCategorization = preloadedData?.categorization?.categorized_images ||
+                preloadedData?.data?.categorization?.categorized_images;
+
+            if (hasCategorization) {
                 console.log('Using preloaded data for CategorizedPhotosModal');
                 processData(preloadedData);
                 return;
@@ -164,8 +167,8 @@ export default function CategorizedPhotosModal({
 
                 const fetchCategorizedImages = async () => {
                     try {
-                        // Use POST /get_data as confirmed working
-                        const url = `${API_BASE_URL}/get_data`;
+                        // Use POST /image_categorization
+                        const url = `${API_BASE_URL}/image_categorization`;
                         const res = await fetch(url, {
                             method: 'POST',
                             headers: {
@@ -202,6 +205,10 @@ export default function CategorizedPhotosModal({
         if (!cats) return [];
         const entries = Object.entries(cats);
         entries.sort((a, b) => {
+            const aCount = Array.isArray(a[1]) ? a[1].length : 0;
+            const bCount = Array.isArray(b[1]) ? b[1].length : 0;
+            if (aCount !== bCount) return bCount - aCount;
+
             const aIdx = ROOM_ORDER_LOOKUP.get(a[0]);
             const bIdx = ROOM_ORDER_LOOKUP.get(b[0]);
             const safeA = aIdx ?? ROOM_ORDER.length;
@@ -230,22 +237,22 @@ export default function CategorizedPhotosModal({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm" onClick={onClose}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-2 sm:p-4 backdrop-blur-sm" onClick={onClose}>
             <div
-                className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col"
+                className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] sm:max-h-[90vh] overflow-hidden flex flex-col"
                 onClick={e => e.stopPropagation()}
             >
 
                 {/* Header - Matched to App.jsx style */}
-                <div className="p-4 border-b flex items-center justify-between shrink-0">
-                    <div>
-                        <div className="font-bold text-lg">
+                <div className="p-3 sm:p-4 border-b flex items-start sm:items-center justify-between gap-3 shrink-0">
+                    <div className="min-w-0">
+                        <div className="font-bold text-base sm:text-lg break-words">
                             {address || "Property Photos"}
                         </div>
-                        <div className="text-sm text-gray-600">
+                        <div className="text-xs sm:text-sm text-gray-600 break-words">
                             {[city, state, zip].filter(Boolean).join(", ")}
                         </div>
-                        <div className="text-indigo-600 font-semibold">
+                        <div className="text-sm sm:text-base text-indigo-600 font-semibold break-words">
                             {price ? `$${Number(price).toLocaleString()}` : ''}
                             {beds ? ` - ${beds} bd` : ''}
                             {baths ? ` - ${baths} ba` : ''}
@@ -253,7 +260,7 @@ export default function CategorizedPhotosModal({
                         </div>
                     </div>
                     <button
-                        className="px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm font-semibold text-gray-700"
+                        className="px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-xs sm:text-sm font-semibold text-gray-700 whitespace-nowrap shrink-0"
                         onClick={onClose}
                     >
                         Close
@@ -261,7 +268,7 @@ export default function CategorizedPhotosModal({
                 </div>
 
                 {/* Content */}
-                <div className="overflow-y-auto p-4 grow">
+                <div className="overflow-y-auto p-3 sm:p-4 grow">
                     {/* Original Summary Text (fallback) */}
                     {summaryText && (
                         <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-sm text-emerald-900">
@@ -314,20 +321,20 @@ export default function CategorizedPhotosModal({
 
                     {/* Property Condition Insights Summary */}
                     {analysis?.executive_summary && (
-                        <div className="mt-8 mb-5 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-bold text-gray-900">Property Condition Insights Summary</h3>
+                        <div className="mt-6 sm:mt-8 mb-5 rounded-2xl border border-gray-200 bg-white p-3 sm:p-5 shadow-sm">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-3 mb-4">
+                                <h3 className="text-base sm:text-lg font-bold text-gray-900 break-words">Property Condition Insights Summary</h3>
                                 {analysis.generated_at && (
-                                    <span className="text-xs text-gray-500">Generated {new Date(analysis.generated_at).toLocaleDateString()}</span>
+                                    <span className="text-[11px] sm:text-xs text-gray-500">Generated {new Date(analysis.generated_at).toLocaleDateString()}</span>
                                 )}
                             </div>
-                            <p className="text-sm text-gray-600 mb-4">Based solely on visible elements in the images.</p>
+                            <p className="text-xs sm:text-sm text-gray-600 mb-4">Based solely on visible elements in the images.</p>
 
                             {/* Executive Summary */}
                             {analysis.executive_summary && analysis.executive_summary.length > 0 && (
                                 <div className="mb-4">
-                                    <h4 className="text-sm font-semibold text-gray-700 mb-3">EXECUTIVE SUMMARY</h4>
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <h4 className="text-xs sm:text-sm font-semibold text-gray-700 mb-3">EXECUTIVE SUMMARY</h4>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         {/* Red Alerts */}
                                         {(() => {
                                             const redAlertCount = analysis.insights?.filter((i: any) =>
@@ -339,7 +346,7 @@ export default function CategorizedPhotosModal({
                                             return (
                                                 <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                                                     <div className="text-xs font-semibold text-red-700 mb-1">RED ALERTS</div>
-                                                    <div className="text-2xl font-bold text-red-700">
+                                                    <div className="text-xl sm:text-2xl font-bold text-red-700">
                                                         {redAlertCount}
                                                     </div>
                                                     <div className="text-xs text-red-600 mt-1">Critical risks requiring immediate verification</div>
@@ -358,7 +365,7 @@ export default function CategorizedPhotosModal({
                                             return (
                                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                                                     <div className="text-xs font-semibold text-blue-700 mb-1">OPPORTUNITIES</div>
-                                                    <div className="text-2xl font-bold text-blue-700">
+                                                    <div className="text-xl sm:text-2xl font-bold text-blue-700">
                                                         {opportunityCount}
                                                     </div>
                                                     <div className="text-xs text-blue-600 mt-1">Renovation or value-add plays for forced appreciation</div>
@@ -374,15 +381,15 @@ export default function CategorizedPhotosModal({
                                 {analysis.executive_summary?.map((section: any, idx: number) => (
                                     section.items && section.items.length > 0 && (
                                         <div key={idx}>
-                                            <h5 className="text-sm font-semibold text-gray-700 mb-2">{section.label}</h5>
-                                            <ul className="text-sm text-gray-700 space-y-1">
+                                            <h5 className="text-xs sm:text-sm font-semibold text-gray-700 mb-2">{section.label}</h5>
+                                            <ul className="text-xs sm:text-sm text-gray-700 space-y-1">
                                                 {section.items.map((item: string, itemIdx: number) => (
                                                     <li key={itemIdx} className="flex items-start">
                                                         <span className={`mr-2 ${section.label === 'High-priority repairs' ? 'text-red-600' :
                                                             section.label === 'Renovation opportunities' ? 'text-blue-600' :
                                                                 'text-gray-600'
                                                             }`}>•</span>
-                                                        <span>{item}</span>
+                                                        <span className="break-words">{item}</span>
                                                     </li>
                                                 ))}
                                             </ul>
@@ -393,8 +400,8 @@ export default function CategorizedPhotosModal({
 
                             {/* Key Callouts from insights */}
                             {analysis.insights && analysis.insights.length > 0 && (
-                                <div className="bg-violet-50/50 rounded-lg p-5">
-                                    <h4 className="text-base font-semibold text-gray-800 mb-4">Key Callouts</h4>
+                                <div className="bg-violet-50/50 rounded-lg p-3 sm:p-5">
+                                    <h4 className="text-sm sm:text-base font-semibold text-gray-800 mb-4">Key Callouts</h4>
                                     <ul className="space-y-3">
                                         {analysis.insights.slice(0, 5).map((insight: any, idx: number) => {
                                             // Determine color based on severity
@@ -410,7 +417,7 @@ export default function CategorizedPhotosModal({
                                             return (
                                                 <li key={idx} className="flex items-start gap-3">
                                                     <span className={`w-4 h-4 rounded-full mt-0.5 flex-shrink-0 ${colorClass}`}></span>
-                                                    <span className="text-sm text-gray-700 leading-relaxed">{insight.what}</span>
+                                                    <span className="text-xs sm:text-sm text-gray-700 leading-relaxed break-words">{insight.what}</span>
                                                 </li>
                                             );
                                         })}

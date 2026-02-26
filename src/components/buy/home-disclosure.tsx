@@ -2,12 +2,13 @@ import Image from "next/image";
 
 export default function HomeDisclosure() {
   return (
-    <section className="w-full h-full bg-[#170800] text-white
+    <section className="w-full h-auto md:h-full bg-[#170800] text-white
   px-6 md:px-12 lg:px-24
   flex flex-col md:flex-row
-  justify-center
-  items-center
-  gap-20">
+  justify-start md:justify-center
+  items-start md:items-center
+  py-8 sm:py-10 md:py-0
+  gap-8 sm:gap-10 md:gap-20">
 
       {/* Left Side */}
       <div className="w-full md:w-1/2 flex justify-center px-4 md:px-0">
@@ -116,7 +117,7 @@ export default function HomeDisclosure() {
 
 
       {/* Right Side */}
-      <div className="w-full md:w-1/2 flex flex-col gap-8">
+      <div className="w-full md:w-1/2 flex flex-col gap-5 sm:gap-6 md:gap-8">
         {/* Heading / Description */}
         <div>
           <h2 className="text-3xl md:text-4xl font-semibold leading-tight">

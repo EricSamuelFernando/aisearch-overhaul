@@ -69,6 +69,7 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
   } = useUserSnapAPIs();
   const { getAllSnapzRequest, updateSnapzById } = useAgentConversationApi();
   const { notificationsQuery } = useNotificationApi();
+  const { getAllSnapzRequest: getAllPendingSnapzRequest } = useAgentConversationApi();
 
   const fetchInvitationUsers = async (page: number) => {
     setIsLoading(true);
@@ -95,10 +96,17 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
 
     for (const user of selectedUsers) {
       try {
+        const rawType = user.accountType?.toLowerCase() || '';
+        const resolvedType =
+          rawType === 'buyer'
+            ? 'buyer'
+            : rawType === 'seller'
+              ? 'other'
+              : 'agent';
         await createParticipents.mutateAsync({
           email: user.email,
           snapId: selectedSnap.id,
-          accountType: user.accountType?.toLowerCase() === 'buyer' ? 'buyer' : 'agent',
+          accountType: resolvedType,
           status: 'pending',
         });
         successCount += 1;
@@ -167,21 +175,21 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
     });
   };
 
-  const inviteCollaborator = (email: string, type: 'agent' | 'co-buyer') => {
+  const inviteCollaborator = (email: string, type: 'agent' | 'co-buyer' | 'other') => {
     if (!selectedSnap?.id) return;
     createParticipents.mutateAsync(
       {
         snapId: selectedSnap.id,
         email,
         status: 'pending',
-        accountType: type === 'agent' ? 'agent' : 'buyer',
+        accountType: type === 'agent' ? 'agent' : type === 'other' ? 'other' : 'buyer',
       },
       {
         onSuccess: (response: any) => {
           const successValue = response?.data?.createSnapsParticipant?.success;
           if (successValue === true || successValue === 'true') {
             success({
-              message: `Great! Your ${type === 'agent' ? 'agent' : 'co-buyer'} invite is on its way`,
+              message: `Great! Your ${type === 'agent' ? 'agent' : type === 'other' ? 'collaboration' : 'co-buyer'} invite is on its way`,
             });
             setIsCollaborateModalOpen(false);
           } else {
@@ -222,9 +230,9 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
     );
   };
 
-  const fetchPendingRequests = () => {
+  const fetchPendingRequests = (openModal = true) => {
     if (!userData?.id) return;
-    getAllSnapzRequest.mutateAsync(
+    getAllPendingSnapzRequest.mutateAsync(
       {
         status: 'pending',
         participentId: userData.id,
@@ -232,10 +240,12 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
       {
         onSuccess: (response: any) => {
           setPendingRequests(response || []);
-          if (response?.length > 0) {
-            setIsRequestsModalOpen(true);
-          } else {
-            success({ message: 'No pending requests found.' });
+          if (openModal) {
+            if (response?.length > 0) {
+              setIsRequestsModalOpen(true);
+            } else {
+              success({ message: 'No pending requests found.' });
+            }
           }
         },
         onError: (err) => {
@@ -244,6 +254,12 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
       },
     );
   };
+
+  useEffect(() => {
+    if (userData?.id) {
+      fetchPendingRequests(false);
+    }
+  }, [userData?.id]);
 
   const handleRequestAction = (id: string, action: 'accept' | 'reject') => {
     const status = action === 'accept' ? 'accepted' : 'rejected';
@@ -254,7 +270,7 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
           success({
             message: `Request ${action === 'accept' ? 'accepted' : 'rejected'} successfully`,
           });
-          fetchPendingRequests();
+          fetchPendingRequests(false);
           if (action === 'accept') {
             getAllCollections();
           }
@@ -279,6 +295,8 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
   };
 
   const snapList = useMemo(() => snaps || [], [snaps]);
+  const myFavSnap = useMemo(() => snapList.find(s => s.name === 'My Favourite'), [snapList]);
+  const filteredSnapList = useMemo(() => snapList.filter(s => s.name !== 'My Favourite'), [snapList]);
 
   return (
     <div className="space-y-4">
@@ -286,10 +304,15 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
         <h3 className="text-lg font-bold">Snapz</h3>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
           <Button
-            className="h-10 w-full justify-center rounded-md bg-orange-500 px-4 text-sm font-semibold text-white hover:bg-orange-600 sm:w-auto"
-            onClick={fetchPendingRequests}
+            className="h-10 w-full justify-center rounded-md bg-orange-500 px-4 text-sm font-semibold text-white hover:bg-orange-600 sm:w-auto flex items-center gap-2"
+            onClick={() => fetchPendingRequests(true)}
           >
             View Requests
+            {pendingRequests.length > 0 && (
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs font-bold text-orange-500">
+                {pendingRequests.length}
+              </span>
+            )}
           </Button>
           <Button
             variant="outline"
@@ -303,8 +326,36 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
       </div>
       <div className="p-0">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {snapList.length > 0 ? (
-            snapList.map((snap) => (
+          {/* Pinned "My Favourite" card — always first */}
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-xl bg-orange-500">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                </svg>
+              </div>
+              <span className="max-w-[160px] truncate text-sm font-medium text-gray-900 sm:max-w-[200px]">
+                My Favourite
+              </span>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button
+                className="rounded-full bg-black px-6 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                onClick={() => {
+                  if (myFavSnap) {
+                    router.push(`/account/collections/${myFavSnap.id}`);
+                  } else {
+                    success({ message: 'No properties saved to My Favourite yet. Use the + button on any property to save here.' });
+                  }
+                }}
+              >
+                View
+              </Button>
+            </div>
+          </div>
+
+          {filteredSnapList.length > 0 ? (
+            filteredSnapList.map((snap) => (
               <div
                 key={snap.id}
                 className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"

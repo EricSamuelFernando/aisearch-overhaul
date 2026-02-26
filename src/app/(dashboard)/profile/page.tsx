@@ -156,7 +156,7 @@
 
 //         </div>
 //       </section>
-  
+
 
 //         <div className=' flex  w-full items-center justify-between '>
 //           {
@@ -186,7 +186,7 @@
 
 //         </div>
 
-      
+
 
 //       <section className='py-8'>
 //         <h3 className='border-b-[1px] border-b-grey-590 pb-4 font-bold'>
@@ -375,6 +375,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import UserPropfilePreference from '@/components/dashboard/user/user-profile-preference';
 import { getInitials } from '@/lib/helpers';
+import { getProfileImageUrl } from '@/lib/utils';
 
 enum Field {
   PROFILE = 'PROFILE',
@@ -440,7 +441,7 @@ function Profile() {
         {
           user?.profile && showProfileImage ? (
             <img
-              src={user.profile} // ensure this is a valid full URL if needed
+              src={getProfileImageUrl(user.profile)} // ensure this is a valid full URL if needed
               alt="Profile Picture"
               className="h-20 w-20 rounded-full object-cover border border-gray-300"
               onError={() => setShowProfileImage(false)}

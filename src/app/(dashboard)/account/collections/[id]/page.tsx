@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -33,7 +33,9 @@ import DeleteCollectionConfirmationModal from '@/components/delete-snap.modal';
 import RenameCollectionModal from '@/components/rename-snap.modal';
 import SendSnapLinkModal from '@/components/send_snap.modal';
 import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
-import PropertyRecommendations from '@/components/dashboard/main/property-recommendations';
+// import PropertyRecommendations from '@/components/dashboard/main/property-recommendations'; // replaced by SnapzAIAssistant
+import SnapzAIAssistant from '@/components/dashboard/main/snapz-ai-assistant';
+import SnapzAIReel from '@/components/dashboard/main/snapz-ai-reel';
 
 interface SnapCollection {
     id: string;
@@ -57,9 +59,57 @@ export default function SnapDetailsPage() {
 
     // Compare mode state
     const [compareMode, setCompareMode] = useState(false);
-    const [selectedForCompare, setSelectedForCompare] = useState<string[]>([]);
-    const [showComparison, setShowComparison] = useState(false);
+    const [compareSlots, setCompareSlots] = useState<Array<string | null>>([null, null, null, null]);
+    const [activeCompareSlot, setActiveCompareSlot] = useState(0);
+    const [recentlyFilledSlot, setRecentlyFilledSlot] = useState<number | null>(null);
     const comparisonRef = useRef<HTMLDivElement>(null);
+    const propertyGridRef = useRef<HTMLDivElement>(null);
+    const fillAnimationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const reelSectionRef = useRef<HTMLDivElement>(null);
+
+    // AI reel recommendations
+    const [aiRecommendations, setAiRecommendations] = useState<any[]>([]);
+
+    const getScrollableAncestor = useCallback((node: HTMLElement | null): HTMLElement | null => {
+        let current = node?.parentElement || null;
+        while (current) {
+            const style = window.getComputedStyle(current);
+            const overflowY = style.overflowY;
+            const isScrollable = /(auto|scroll|overlay)/.test(overflowY);
+            if (isScrollable && current.scrollHeight > current.clientHeight + 2) {
+                return current;
+            }
+            current = current.parentElement;
+        }
+        return null;
+    }, []);
+
+    const smoothScrollToTarget = useCallback((target: HTMLElement | null, offset: number) => {
+        if (!target) return;
+
+        const container = getScrollableAncestor(target);
+
+        if (container) {
+            const containerRect = container.getBoundingClientRect();
+            const targetRect = target.getBoundingClientRect();
+            const nextTop = container.scrollTop + (targetRect.top - containerRect.top) - offset;
+            container.scrollTo({ top: Math.max(0, nextTop), behavior: 'smooth' });
+
+            window.setTimeout(() => {
+                const latestRect = target.getBoundingClientRect();
+                const correctedTop = container.scrollTop + (latestRect.top - containerRect.top) - offset;
+                container.scrollTo({ top: Math.max(0, correctedTop), behavior: 'smooth' });
+            }, 220);
+            return;
+        }
+
+        const absoluteTop = target.getBoundingClientRect().top + window.scrollY - offset;
+        window.scrollTo({ top: Math.max(0, absoluteTop), behavior: 'smooth' });
+        window.setTimeout(() => {
+            const corrected = target.getBoundingClientRect().top + window.scrollY - offset;
+            window.scrollTo({ top: Math.max(0, corrected), behavior: 'smooth' });
+        }, 220);
+    }, [getScrollableAncestor]);
 
     // Modals state
     const [isCollaborateModalOpen, setIsCollaborateModalOpen] = useState(false);
@@ -170,18 +220,18 @@ export default function SnapDetailsPage() {
         fetchAgents(page);
     };
 
-    const inviteCollaborator = (email: string, type: 'agent' | 'co-buyer') => {
+    const inviteCollaborator = (email: string, type: 'agent' | 'co-buyer' | 'other') => {
         const data = {
             snapId: id,
             email: email,
             status: "pending",
-            accountType: type === 'agent' ? 'agent' : type
+            accountType: type === 'agent' ? 'agent' : type === 'other' ? 'other' : 'buyer'
         }
         createParticipents.mutateAsync(data, {
             onSuccess: (response: any) => {
                 const successValue = response?.data?.createSnapsParticipant?.success;
                 if (successValue === true || successValue === "true") {
-                    success({ message: `Great! Your ${type === 'agent' ? 'agent' : 'co-buyer'} invite is on its way` })
+                    success({ message: `Great! Your ${type === 'agent' ? 'agent' : type === 'other' ? 'collaboration' : 'co-buyer'} invite is on its way` })
                     setIsCollaborateModalOpen(false);
                 } else {
                     error({ message: response?.data?.createSnapsParticipant?.message || "Failed to send invite" });
@@ -219,8 +269,13 @@ export default function SnapDetailsPage() {
             const promises = users.map(user => {
                 // Logic: Use existing accountType (e.g. 'buyer', 'agent'). Default to 'agent' for External Agents.
                 // Normalize to lowercase to match backend values (e.g. 'BUYER' -> 'buyer')
-                const rawAccountType = user.accountType || 'agent';
-                const accountTypeToSend = rawAccountType.toLowerCase();
+                const rawAccountType = (user.accountType || 'agent').toLowerCase();
+                const accountTypeToSend =
+                    rawAccountType === 'buyer'
+                        ? 'buyer'
+                        : rawAccountType === 'seller'
+                            ? 'other'
+                            : 'agent';
 
                 const data = {
                     snapId: id,
@@ -263,42 +318,128 @@ export default function SnapDetailsPage() {
     const handleToggleCompareMode = () => {
         if (compareMode) {
             setCompareMode(false);
-            setSelectedForCompare([]);
-            setShowComparison(false);
+            setCompareSlots([null, null, null, null]);
+            setActiveCompareSlot(0);
+            setRecentlyFilledSlot(null);
         } else {
             setCompareMode(true);
-            setShowComparison(false);
+            setCompareSlots([null, null, null, null]);
+            setActiveCompareSlot(0);
+            setRecentlyFilledSlot(null);
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    smoothScrollToTarget(comparisonRef.current, 88);
+                });
+            });
         }
     };
 
+    const getPropertyKey = (property: any) => property?.listingId || property?.id;
+
+    const scrollToPropertySelection = () => {
+        smoothScrollToTarget(propertyGridRef.current, 96);
+    };
+
+    const handleFocusCompareSlot = (slotIndex: number) => {
+        setActiveCompareSlot(slotIndex);
+        scrollToPropertySelection();
+    };
+
     const handleSelectForCompare = (propertyId: string) => {
-        setSelectedForCompare(prev => {
-            if (prev.includes(propertyId)) {
-                const next = prev.filter(id => id !== propertyId);
-                if (next.length < 2) setShowComparison(false);
+        setCompareSlots(prev => {
+            const next = [...prev];
+            const existingIndex = next.findIndex(id => id === propertyId);
+            const targetIndex = activeCompareSlot;
+
+            if (existingIndex !== -1) {
+                next[existingIndex] = null;
+                setRecentlyFilledSlot(null);
+                setActiveCompareSlot(existingIndex);
                 return next;
             }
-            if (prev.length >= 4) return prev;
-            return [...prev, propertyId];
+
+            next[targetIndex] = propertyId;
+            setRecentlyFilledSlot(targetIndex);
+            if (fillAnimationTimeoutRef.current) {
+                clearTimeout(fillAnimationTimeoutRef.current);
+            }
+            fillAnimationTimeoutRef.current = setTimeout(() => {
+                setRecentlyFilledSlot(null);
+            }, 280);
+
+            const nextEmpty = next.findIndex(slot => !slot);
+            setActiveCompareSlot(nextEmpty === -1 ? targetIndex : nextEmpty);
+            return next;
         });
     };
 
-    const handleCompareNow = () => {
-        setShowComparison(true);
-        setTimeout(() => {
-            comparisonRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 100);
+    const handleRemoveCompareSlot = (slotIndex: number) => {
+        setCompareSlots(prev => {
+            const next = [...prev];
+            next[slotIndex] = null;
+            return next;
+        });
+        setRecentlyFilledSlot(null);
+        setActiveCompareSlot(slotIndex);
     };
 
     const handleExitComparison = () => {
-        setShowComparison(false);
-        setSelectedForCompare([]);
         setCompareMode(false);
+        setCompareSlots([null, null, null, null]);
+        setActiveCompareSlot(0);
+        setRecentlyFilledSlot(null);
     };
 
-    const selectedProperties = favourites.filter(p =>
-        selectedForCompare.includes(p.listingId || p.id)
+    useEffect(() => {
+        return () => {
+            if (fillAnimationTimeoutRef.current) {
+                clearTimeout(fillAnimationTimeoutRef.current);
+            }
+        };
+    }, []);
+
+    const handleRecommendationsReady = useCallback((props: any[]) => {
+        setAiRecommendations(props);
+    }, []);
+
+    // Auto-scroll to reel section when recommendations first arrive
+    useEffect(() => {
+        if (aiRecommendations.length > 0 && reelSectionRef.current) {
+            const timer = setTimeout(() => {
+                smoothScrollToTarget(reelSectionRef.current, 80);
+            }, 150);
+            return () => clearTimeout(timer);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [aiRecommendations.length]);
+
+    const compareSlotProperties = useMemo(
+        () =>
+            compareSlots.map(slotId => {
+                if (!slotId) return null;
+                return favourites.find(property => getPropertyKey(property) === slotId) || null;
+            }),
+        [compareSlots, favourites]
     );
+
+    const selectedCount = compareSlots.filter(Boolean).length;
+    const previousSelectedCountRef = useRef(0);
+
+    useEffect(() => {
+        if (!compareMode) {
+            previousSelectedCountRef.current = selectedCount;
+            return;
+        }
+
+        const becameFull = previousSelectedCountRef.current < 4 && selectedCount === 4;
+        if (becameFull) {
+            window.setTimeout(() => {
+                smoothScrollToTarget(comparisonRef.current, 88);
+            }, 160);
+        }
+
+        previousSelectedCountRef.current = selectedCount;
+    }, [compareMode, selectedCount, smoothScrollToTarget]);
 
     if (!snap) return <div className="p-10">Loading Snap Details...</div>;
 
@@ -324,11 +465,10 @@ export default function SnapDetailsPage() {
                     {favourites.length >= 2 && (
                         <Button
                             size="sm"
-                            className={`flex items-center gap-2 rounded-full px-5 h-10 text-sm font-semibold transition-all shadow-sm ${
-                                compareMode
-                                    ? 'bg-gray-800 text-white hover:bg-gray-700'
-                                    : 'bg-white text-gray-800 border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
-                            }`}
+                            className={`flex items-center gap-2 rounded-full px-5 h-10 text-sm font-semibold transition-all shadow-sm ${compareMode
+                                ? 'bg-gray-800 text-white hover:bg-gray-700'
+                                : 'bg-white text-gray-800 border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+                                }`}
                             onClick={handleToggleCompareMode}
                         >
                             {compareMode ? (
@@ -345,50 +485,50 @@ export default function SnapDetailsPage() {
                         </Button>
                     )}
                     <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-10 w-10 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <EllipsisIcon className="h-8 w-8" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem onClick={() => setIsCollaborateModalOpen(true)}>
-                            <UserPlus className="mr-2 h-4 w-4" />
-                            <span>Invite to collaborate</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => router.push('/home')}>
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            <span>Add to this Snapz</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={handleSendInvitation}>
-                            <Share2 className="mr-2 h-4 w-4" />
-                            <span>Share snapz link</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setIsModalOpen("rename")}>
-                            <FileEdit className="mr-2 h-4 w-4" />
-                            <span>Rename snapz</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600" onClick={() => setIsDeleteModalOpen(true)}>
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            <span>Delete snapz</span>
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-10 w-10 p-0">
+                                <span className="sr-only">Open menu</span>
+                                <EllipsisIcon className="h-8 w-8" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                            <DropdownMenuItem onClick={() => setIsCollaborateModalOpen(true)}>
+                                <UserPlus className="mr-2 h-4 w-4" />
+                                <span>Invite to collaborate</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push('/home')}>
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                <span>Add to this Snapz</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleSendInvitation}>
+                                <Share2 className="mr-2 h-4 w-4" />
+                                <span>Share snapz link</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setIsModalOpen("rename")}>
+                                <FileEdit className="mr-2 h-4 w-4" />
+                                <span>Rename snapz</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-red-600" onClick={() => setIsDeleteModalOpen(true)}>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                <span>Delete snapz</span>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </div>
 
             {/* Compare mode instruction banner */}
-            {compareMode && !showComparison && (
+            {compareMode && (
                 <div className="mb-3 flex items-center gap-2 rounded-xl bg-orange-50 border border-orange-200 px-4 py-2.5 text-sm text-orange-700 font-medium">
                     <Columns2 className="w-4 h-4 flex-shrink-0" />
-                    Select 2 to 4 properties to compare
-                    <span className="ml-auto text-xs font-normal text-orange-500">{selectedForCompare.length} / 4 selected</span>
+                    Pick a slot below, then tap a property card to fill it
+                    <span className="ml-auto text-xs font-normal text-orange-500">{selectedCount} / 4 selected</span>
                 </div>
             )}
 
             <div className={`flex gap-4 lg:gap-6 items-start w-full ${compareMode ? 'flex-col' : 'flex-col lg:flex-row min-h-[60vh] lg:h-[70vh]'}`}>
                 <ScrollArea className={`flex-1 w-full ${compareMode ? 'h-auto' : 'h-[50vh] lg:h-full'} overflow-y-auto`}>
-                    <div className='grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 w-full'>
+                    <div ref={propertyGridRef} className='grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 w-full'>
                         {[...favourites].reverse().map((property: any) => {
                             const safeProperty = {
                                 id: property.id || Math.random().toString(),
@@ -400,87 +540,102 @@ export default function SnapDetailsPage() {
                                 ...property,
                             };
                             const propKey = safeProperty.listingId || safeProperty.id;
-                            return  <div key={safeProperty.id} className="flex flex-col">
+                            return <div key={safeProperty.id} className="flex flex-col">
                                 <FavouritePropertyCards
-                                key={safeProperty.id}
-                                {...safeProperty}
-                                snapId={id}
-                                isWishlisted={true}
-                                userSnapRole={userSnapRole}
-                                onCommentAdded={() => setCommentRefreshTrigger(prev => prev + 1)}
-                                onRead={fetchSnapProperties}
-                                compareMode={compareMode}
-                                isSelected={selectedForCompare.includes(propKey)}
-                                isDisabled={selectedForCompare.length >= 4 && !selectedForCompare.includes(propKey)}
-                                onSelect={handleSelectForCompare}
-                            />
-                              <PropertyRecommendations
+                                    key={safeProperty.id}
+                                    {...safeProperty}
+                                    snapId={id}
+                                    isWishlisted={true}
+                                    userSnapRole={userSnapRole}
+                                    onCommentAdded={() => setCommentRefreshTrigger(prev => prev + 1)}
+                                    onRead={fetchSnapProperties}
+                                    compareMode={compareMode}
+                                    isSelected={compareSlots.includes(propKey)}
+                                    isDisabled={false}
+                                    onSelect={handleSelectForCompare}
+                                />
+                                {/* SnapzAI: per-card recommendations removed — personalised panel is now in the right sidebar
+                                {!compareMode && (
+                                    <PropertyRecommendations
                                         listingId={safeProperty.listingId}
                                         propertyId={safeProperty.propertyId}
                                     />
-                              </div>
+                                )}
+                                */}
+                            </div>
                         })}
                     </div>
                     <ScrollBar orientation='vertical' className='h-full' />
                 </ScrollArea>
 
                 {!compareMode && (
-                    <div className="w-full lg:w-[320px] xl:w-[380px] flex-shrink-0">
-                        <RecentCommentsSidebar
-                            properties={favourites}
-                            refreshTrigger={commentRefreshTrigger}
-                            onNewComment={fetchSnapProperties}
-                        />
+                    <div className="w-full lg:w-[320px] xl:w-[380px] flex-shrink-0 flex flex-col gap-3 lg:h-[70vh]">
+                        {/* Recent Activity — top 45% */}
+                        <div className="flex-[0_0_45%] min-h-0 flex flex-col">
+                            <RecentCommentsSidebar
+                                properties={favourites}
+                                snapId={id}
+                                refreshTrigger={commentRefreshTrigger}
+                                onNewComment={fetchSnapProperties}
+                            />
+                        </div>
+                        {/* Snapz AI — bottom 55% */}
+                        <div className="flex-[0_0_55%] min-h-0">
+                            <SnapzAIAssistant
+                                key={id}
+                                snapProperties={favourites}
+                                snapId={id}
+                                onPropertyAdded={fetchSnapProperties}
+                                onRecommendationsReady={handleRecommendationsReady}
+                            />
+                        </div>
                     </div>
                 )}
             </div>
 
-            {/* Comparison Table */}
-            {showComparison && selectedProperties.length >= 2 && (
-                <div ref={comparisonRef}>
-                    <ComparisonTable
-                        properties={selectedProperties}
-                        onClose={handleExitComparison}
-                        onDeselect={handleSelectForCompare}
+            {/* ── AI Picks Reel (Option C: full-width section below snap grid) ── */}
+            {!compareMode && aiRecommendations.length > 0 && (
+                <div ref={reelSectionRef} className="mt-6 pt-6 border-t border-gray-200 animate-in fade-in slide-in-from-bottom-3 duration-500">
+                    {/* Section header */}
+                    <div className="flex items-center gap-3 mb-5">
+                        <div className="flex items-center gap-2">
+                            <span className="text-ocOrange font-bold text-[15px]">✦</span>
+                            <h2 className="text-[17px] font-bold text-gray-900">AI Picks for you</h2>
+                        </div>
+                        <span className="text-[12px] text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full font-medium">
+                            {aiRecommendations.length} homes
+                        </span>
+                        <span className="text-[12px] text-gray-400 hidden sm:inline">· based on your answers</span>
+                        <button
+                            onClick={() => setAiRecommendations([])}
+                            className="ml-auto flex items-center gap-1 text-[12px] text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                            <X className="w-3.5 h-3.5" /> Dismiss
+                        </button>
+                    </div>
+
+                    {/* Horizontal reel */}
+                    <SnapzAIReel
+                        properties={aiRecommendations}
+                        snapId={id}
+                        onPropertyAdded={fetchSnapProperties}
                     />
                 </div>
             )}
 
-            {/* Floating selection bar */}
+            {/* Comparison Table */}
             {compareMode && (
-                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-2xl bg-gray-900 px-5 py-3 shadow-2xl border border-gray-700">
-                    <div className="flex items-center gap-2">
-                        {[0, 1, 2, 3].map(i => (
-                            <div
-                                key={i}
-                                className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center text-xs font-bold transition-all ${
-                                    selectedForCompare[i]
-                                        ? 'bg-[#FF8700] border-[#FF8700] text-white'
-                                        : 'border-gray-600 text-gray-500'
-                                }`}
-                            >
-                                {selectedForCompare[i] ? '✓' : (i + 1)}
-                            </div>
-                        ))}
-                    </div>
-                    <div className="w-px h-6 bg-gray-700" />
-                    <span className="text-sm text-gray-300 font-medium">
-                        {selectedForCompare.length < 2 ? `Select ${2 - selectedForCompare.length} more` : `${selectedForCompare.length} of 4`}
-                    </span>
-                    {!showComparison ? (
-                        <button
-                            disabled={selectedForCompare.length < 2}
-                            onClick={handleCompareNow}
-                            className="ml-2 rounded-xl bg-[#FF8700] text-white text-sm font-bold px-5 py-2 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-orange-600 transition-colors"
-                        >
-                            Compare Now
-                        </button>
-                    ) : (
-                        <span className="ml-2 text-xs text-gray-400 italic">Tap a card to swap</span>
-                    )}
+                <div ref={comparisonRef}>
+                    <ComparisonTable
+                        slotProperties={compareSlotProperties}
+                        activeSlotIndex={activeCompareSlot}
+                        recentlyFilledSlotIndex={recentlyFilledSlot}
+                        onSelectSlot={handleFocusCompareSlot}
+                        onRemoveFromSlot={handleRemoveCompareSlot}
+                        onClose={handleExitComparison}
+                    />
                 </div>
             )}
-
             <CollaborateModal
                 isOpen={isCollaborateModalOpen}
                 onClose={() => setIsCollaborateModalOpen(false)}
@@ -509,3 +664,4 @@ export default function SnapDetailsPage() {
         </main>
     );
 }
+

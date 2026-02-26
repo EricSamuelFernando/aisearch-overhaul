@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Info } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 type ToggleOption = 'percent' | 'amount';
 type TaxMode = 'percent' | 'annual';
 type PmiMode = 'percent' | 'monthly';
@@ -150,20 +150,36 @@ const MonthlyMortgageCalculator: React.FC<MonthlyMortgageCalculatorProps> = ({
     }
   }, [taxPercent, taxTouched]);
 
-  const liveInputs = {
-    price,
-    downPayment,
-    downType,
-    term,
-    rate,
-    tax,
-    taxMode,
-    insurance,
-    hoa,
-    pmiEnabled,
-    pmi,
-    pmiMode,
-  };
+  const liveInputs = React.useMemo(
+    () => ({
+      price,
+      downPayment,
+      downType,
+      term,
+      rate,
+      tax,
+      taxMode,
+      insurance,
+      hoa,
+      pmiEnabled,
+      pmi,
+      pmiMode,
+    }),
+    [
+      price,
+      downPayment,
+      downType,
+      term,
+      rate,
+      tax,
+      taxMode,
+      insurance,
+      hoa,
+      pmiEnabled,
+      pmi,
+      pmiMode,
+    ],
+  );
 
   const debouncedInputs = useDebouncedValue(liveInputs, 200);
   const [calcInputs, setCalcInputs] = React.useState(liveInputs);
@@ -239,61 +255,47 @@ const MonthlyMortgageCalculator: React.FC<MonthlyMortgageCalculatorProps> = ({
       ? `Live rate - as of ${rateMeta.date}`
       : 'Live rate unavailable';
 
-  
-  const LabelWithTip = ({ label, tip }: { label: string; tip: string }) => {
-    const [open, setOpen] = React.useState(false);
-    const wrapperRef = React.useRef<HTMLSpanElement | null>(null);
 
-    React.useEffect(() => {
-      const handleClickOutside = (event: MouseEvent) => {
-        if (!wrapperRef.current) return;
-        if (!wrapperRef.current.contains(event.target as Node)) {
-          setOpen(false);
-        }
-      };
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    const toggleOpen = (event: React.MouseEvent | React.KeyboardEvent) => {
-      event.stopPropagation();
-      setOpen((prev) => !prev);
-    };
-
+  const LabelWithTip = ({ label, tip }: { label: string; tip?: string }) => {
     return (
-      <span
-        ref={wrapperRef}
-        className="relative inline-flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-gray-500"
-      >
-        <span
-          role="button"
-          tabIndex={0}
-          onClick={toggleOpen}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              toggleOpen(event);
-            }
-          }}
-          className="inline-flex items-center gap-2 cursor-pointer"
-        >
-          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-cyan-200 bg-gray-100 text-cyan-500">
-            <Info className="h-3.5 w-3.5" />
-          </span>
-          <span className="text-gray-600">{label}</span>
-        </span>
-        <span
-          className={`absolute left-0 top-0 z-50 w-[240px] -translate-y-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-[11px] leading-relaxed text-gray-700 shadow-lg transition-all duration-200 ease-out ${
-            open ? 'opacity-100 -translate-y-8 pointer-events-auto' : 'opacity-0 pointer-events-none'
-          }`}
-        >
-          {tip}
-        </span>
+      <span className="inline-flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-gray-600">
+        {tip ? (
+          <Tooltip disableHoverableContent={false}>
+            <TooltipTrigger asChild>
+              <span
+                role="button"
+                tabIndex={0}
+                className="mmc-tooltip-icon"
+                aria-label={`${label} info`}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                >
+                  <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 22c-5.518 0-10-4.482-10-10s4.482-10 10-10 10 4.482 10 10-4.482 10-10 10zm-1-16h2v6h-2zm0 8h2v2h-2z" />
+                </svg>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent
+              side="top"
+              align="center"
+              sideOffset={4}
+              className="max-w-[240px] rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-xs leading-relaxed text-white shadow-xl animate-none data-[state=closed]:animate-none data-[side=top]:slide-in-from-bottom-0 data-[side=bottom]:slide-in-from-top-0 data-[side=left]:slide-in-from-right-0 data-[side=right]:slide-in-from-left-0"
+            >
+              <p className="normal-case">{tip}</p>
+            </TooltipContent>
+          </Tooltip>
+        ) : null}
+        <span>{label}</span>
       </span>
     );
   };
 
   return (
-    <div>
+    <TooltipProvider delayDuration={120} skipDelayDuration={0} disableHoverableContent={false}>
+      <div className="mmc-root">
       <div className="w-full rounded-3xl border border-gray-200 bg-white p-4 sm:p-6 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -487,11 +489,10 @@ const MonthlyMortgageCalculator: React.FC<MonthlyMortgageCalculatorProps> = ({
               <button
                 type="button"
                 onClick={() => setPmiEnabled((prev) => !prev)}
-                className={`h-10 px-3 rounded-xl border text-xs ${
-                  pmiEnabled
-                    ? 'border-orange-300 bg-orange-50 text-orange-700'
-                    : 'border-gray-200 bg-white text-gray-500'
-                }`}
+                className={`h-10 px-3 rounded-xl border text-xs ${pmiEnabled
+                  ? 'border-orange-300 bg-orange-50 text-orange-700'
+                  : 'border-gray-200 bg-white text-gray-500'
+                  }`}
               >
                 {pmiEnabled ? 'Enabled' : 'Off'}
               </button>
@@ -572,7 +573,33 @@ const MonthlyMortgageCalculator: React.FC<MonthlyMortgageCalculatorProps> = ({
           </button>
         </div>
       </div>
-    </div>
+      <style jsx global>{`
+        .mmc-root .mmc-tooltip-icon {
+          width: 20px;
+          height: 20px;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          cursor: pointer;
+          border: 1px solid rgb(254 215 170);
+          border-radius: 9999px;
+          background: rgb(255 247 237);
+          color: rgb(249 115 22);
+          padding: 0;
+        }
+
+        .mmc-root .mmc-tooltip-icon svg {
+          fill: currentColor;
+        }
+
+        .mmc-root .mmc-tooltip-icon:focus-visible {
+          outline: 2px solid rgb(251 146 60);
+          outline-offset: 2px;
+        }
+
+      `}</style>
+      </div>
+    </TooltipProvider>
   );
 
 };

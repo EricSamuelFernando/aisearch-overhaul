@@ -26,8 +26,6 @@ let isAuthExpired = false;
  */
 export const resetAuthExpired = () => {
   isAuthExpired = false;
-  // Notify AuthSessionSync that the user logged in again,
-  // so it can reset its hasHandled flag for future session expirations.
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('auth-session-reset'));
   }
@@ -35,27 +33,20 @@ export const resetAuthExpired = () => {
 
 /**
  * Check whether auth has been marked as expired.
- * Useful for code that uses raw `axios` instead of the custom API instance,
- * so it can bail out early and avoid showing redundant error toasts.
  */
 export const getIsAuthExpired = () => isAuthExpired;
 
 /**
  * Mark auth as expired and dispatch the session-expired event.
- * Call this from global error handlers (e.g. React Query onError) when
- * an "Unauthorized" error is detected on calls that bypass this interceptor.
+ * This is now only called as an absolute last resort — when the refresh token
+ * itself is invalid / expired and we truly cannot recover the session.
  */
 export const markAuthExpired = () => {
   if (isAuthExpired) return; // already handled
   isAuthExpired = true;
 
-  // Nuclear cleanup: wipe ALL auth data (cookies, localStorage, sessionStorage,
-  // Redux Persist, and Cognito SDK storage) immediately so no stale token
-  // can be picked up by any subsequent code path.
   clearAllAuthStorage();
 
-  // Dispatch custom event so the React app can handle forced logout
-  // (AuthSessionSync will dispatch Redux logout, show a single toast, redirect)
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('auth-session-expired'));
   }
@@ -68,16 +59,57 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
-API.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  // If auth has expired (refresh token failed), reject all subsequent requests immediately
-  if (isAuthExpired) {
-    return Promise.reject(new Error('Session expired. Please login again.')) as any;
-  }
-  const token = getAuthToken() || localStorage.getItem('userAccessToken');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
+// ────────────────────────────────────────────────────────────
+// Shared refresh-token logic — exported so `client.ts` can reuse it
+// ────────────────────────────────────────────────────────────
+export const performTokenRefresh = async (): Promise<string | null> => {
+  const refreshToken =
+    getStoredCookie(REFRESH_TOKEN) || localStorage.getItem('userRefreshToken');
+  if (!refreshToken) return null;
 
+  const graphqlUrl =
+    process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
+    'http://localhost:4000/auth/graphql';
+
+  const { data } = await axios.post(
+    graphqlUrl,
+    {
+      query: `
+        mutation RefreshToken($refreshToken: String!) {
+          refreshToken(refreshToken: $refreshToken) {
+            accessToken
+            refreshToken
+          }
+        }
+      `,
+      variables: { refreshToken },
+    },
+    { headers: { 'Content-Type': 'application/json' } }
+  );
+
+  if (data.errors) {
+    throw new Error(data.errors[0].message);
+  }
+
+  const { accessToken: newAccessToken, refreshToken: newRefreshToken } =
+    data.data.refreshToken;
+
+  // Persist new tokens
+  localStorage.setItem('userAccessToken', newAccessToken);
+  storeCookie({ key: AUTH_TOKEN, value: newAccessToken });
+
+  if (newRefreshToken) {
+    localStorage.setItem('userRefreshToken', newRefreshToken);
+    storeCookie({ key: REFRESH_TOKEN, value: newRefreshToken });
+  }
+
+  API.defaults.headers.common['Authorization'] = 'Bearer ' + newAccessToken;
+  return newAccessToken;
+};
+
+// ────────────────────────────────────────────────────────────
+// Internal refresh logic for the API instance interceptor
+// ────────────────────────────────────────────────────────────
 const refreshTokenLogic = async (originalRequest: any) => {
   if (isRefreshing) {
     return new Promise((resolve, reject) => {
@@ -92,55 +124,34 @@ const refreshTokenLogic = async (originalRequest: any) => {
   originalRequest._retry = true;
 
   try {
-    const refreshToken = getStoredCookie(REFRESH_TOKEN) || localStorage.getItem('userRefreshToken'); // Assuming refresh token stays in LS
-    const graphqlUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || 'http://localhost:4000/auth/graphql';
-
-    const { data } = await axios.post(
-      graphqlUrl,
-      {
-        query: `
-          mutation RefreshToken($refreshToken: String!) {
-            refreshToken(refreshToken: $refreshToken) {
-              accessToken
-              refreshToken
-            }
-          }
-        `,
-        variables: {
-          refreshToken,
-        },
-      },
-      {
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
-
-    if (data.errors) {
-      throw new Error(data.errors[0].message);
+    const newAccessToken = await performTokenRefresh();
+    if (!newAccessToken) {
+      throw new Error('No refresh token available');
     }
 
-    const { accessToken: newAccessToken, refreshToken: newRefreshToken } = data.data.refreshToken;
-
-    // Update both storage mechanisms
-    localStorage.setItem('userAccessToken', newAccessToken);
-    storeCookie({ key: AUTH_TOKEN, value: newAccessToken });
-
-    if (newRefreshToken) {
-      localStorage.setItem('userRefreshToken', newRefreshToken);
-      storeCookie({ key: REFRESH_TOKEN, value: newRefreshToken });
-    }
-
-    API.defaults.headers.common['Authorization'] = 'Bearer ' + newAccessToken;
     originalRequest.headers['Authorization'] = 'Bearer ' + newAccessToken;
 
     processQueue(null, newAccessToken);
     return API(originalRequest);
-  } catch (err) {
+  } catch (err: any) {
     processQueue(err, null);
 
-    // Mark auth as expired and do full cleanup
-    // markAuthExpired() handles: set flag, clear ALL storage, dispatch event
-    markAuthExpired();
+    // Only nuke the session if the refresh token is truly invalid/expired
+    // (not just a transient network error).
+    const isRefreshTokenInvalid =
+      err?.message === 'No refresh token available' ||
+      err?.message?.includes('Unauthorized') ||
+      err?.message?.includes('jwt expired') ||
+      err?.message?.includes('invalid token') ||
+      err?.message?.includes('invalid signature') ||
+      err?.message?.includes('jwt malformed') ||
+      err?.response?.status === 401;
+
+    if (isRefreshTokenInvalid) {
+      markAuthExpired();
+    }
+    // For transient errors (network timeout, 500, etc.) we do NOT nuke the session.
+    // The user can retry the action and it will attempt refresh again.
 
     return Promise.reject(err);
   } finally {
@@ -148,11 +159,21 @@ const refreshTokenLogic = async (originalRequest: any) => {
   }
 };
 
+// ── Request interceptor ─────────────────────────────────────
+API.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  if (isAuthExpired) {
+    return Promise.reject(new Error('Session expired. Please login again.')) as any;
+  }
+  const token = getAuthToken() || localStorage.getItem('userAccessToken');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+// ── Response interceptor ────────────────────────────────────
 API.interceptors.response.use(
   async (res) => {
     // Check for GraphQL Unauthorized error in 200 OK response
     if (res.data?.errors?.some((err: any) => err.message === 'Unauthorized')) {
-      // If auth is already expired, don't try anything - just reject
       if (isAuthExpired) {
         return Promise.reject(new Error('Session expired. Please login again.'));
       }
@@ -160,13 +181,11 @@ API.interceptors.response.use(
       if (!originalRequest._retry) {
         return refreshTokenLogic(originalRequest);
       }
-      // Retry was already attempted and failed - reject instead of returning error response
       return Promise.reject(new Error('Session expired. Please login again.'));
     }
     return res;
   },
   async (error: AxiosError) => {
-    // If auth is already expired, don't try anything - just reject
     if (isAuthExpired) {
       return Promise.reject(new Error('Session expired. Please login again.'));
     }
@@ -190,9 +209,6 @@ async function graphqlRequest<T = any>(
   const response = await API.post('', body, { headers });
   if (response.data.errors) {
     if (response.data.errors[0].message === 'Unauthorized') {
-      // This block might be unreachable if interceptor catches it first, 
-      // but good for safety if using this helper directly.
-      // However, the interceptor above handles the 200 OK with errors case.
       throw new Error(response.data.errors[0].message);
     }
     throw new Error(response.data.errors[0].message);
@@ -203,4 +219,3 @@ async function graphqlRequest<T = any>(
 API.graphql = graphqlRequest;
 
 export default API;
-

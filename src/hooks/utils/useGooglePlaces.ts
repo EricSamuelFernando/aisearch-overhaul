@@ -40,9 +40,9 @@ const usePlacesAutocomplete = (input: string, searchType = "nlp") => {
         types: searchType === "nlp" ? ['(cities)'] : ['address'],
         componentRestrictions: { country: 'us' },
       },
-      (predictions, status) => {
+      (predictions: any, status: any) => {
         if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
-          setSuggestions(predictions.map((p) => p.description));
+          setSuggestions(predictions.map((p: any) => p.description));
         } else {
           setSuggestions([]);
         }

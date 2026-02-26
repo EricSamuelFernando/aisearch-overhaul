@@ -113,6 +113,34 @@ const toPositiveIntegerOrNull = (value: unknown): number | null => {
   return Math.abs(intValue);
 };
 
+const hasUsablePropertyData = (response: any): boolean => {
+  if (typeof response?.statusCode === 'number' && response.statusCode >= 400) {
+    return false;
+  }
+
+  const data = response?.data;
+  if (!data || typeof data !== 'object') return false;
+
+  const hasAddress = Boolean(
+    data?.address?.unparsedAddress ||
+    data?.address?.city ||
+    data?.address?.zipCode
+  );
+  const hasPropertyNode = Boolean(
+    data?.property &&
+    typeof data.property === 'object' &&
+    Object.keys(data.property).length > 0
+  );
+  const hasMedia = Boolean(
+    data?.media?.primaryListingImageUrl ||
+    (Array.isArray(data?.media?.photosList) && data.media.photosList.length > 0)
+  );
+  const hasPrice = Boolean(
+    data?.listPrice !== undefined && data?.listPrice !== null && data?.listPrice !== ''
+  );
+  return hasAddress || hasPropertyNode || hasMedia || hasPrice;
+};
+
 
 interface HomeHighlightsProps {
   highlights: string[];
@@ -935,6 +963,7 @@ const PropertyPreview: React.FC = () => {
       }
 
       let data: any = null;
+      let hasResolvedPrimaryData = false;
       for (const payload of requestPayloads) {
         const response = await fetch(endpoint, {
           method: 'POST',
@@ -945,15 +974,62 @@ const PropertyPreview: React.FC = () => {
         });
         const responseData = await response.json().catch(() => ({}));
         data = responseData;
-        if (responseData?.data && typeof responseData.data === 'object' && Object.keys(responseData.data).length) {
+        if (hasUsablePropertyData(responseData)) {
+          hasResolvedPrimaryData = true;
           break;
+        }
+      }
+
+      if (!hasResolvedPrimaryData && !bypassMls) {
+        const mlsFallbackPayloads: Array<Record<string, any>> = [];
+        const baseFallbackPayload = {
+          city: city || propertyData?.address?.city || undefined,
+          province: province || propertyData?.address?.stateOrProvince || undefined,
+          state: province || propertyData?.address?.stateOrProvince || undefined,
+          zip: propertyData?.address?.zipCode || undefined,
+          address: propertyData?.address?.unparsedAddress || undefined,
+        };
+
+        if (requestPropertyId) {
+          mlsFallbackPayloads.push({
+            ...baseFallbackPayload,
+            propertyId: requestPropertyId,
+          });
+        }
+        if (primaryListingId) {
+          mlsFallbackPayloads.push({
+            ...baseFallbackPayload,
+            listingId: primaryListingId,
+            propertyId: requestPropertyId || undefined,
+          });
+        }
+        if (alternateListingId && alternateListingId !== primaryListingId) {
+          mlsFallbackPayloads.push({
+            ...baseFallbackPayload,
+            listingId: alternateListingId,
+            propertyId: requestPropertyId || undefined,
+          });
+        }
+
+        for (const fallbackPayload of mlsFallbackPayloads) {
+          const mlsResponse = await fetch('/api/mls/detail', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(fallbackPayload),
+          });
+          const mlsData = await mlsResponse.json().catch(() => ({}));
+          if (hasUsablePropertyData(mlsData)) {
+            data = mlsData;
+            hasResolvedPrimaryData = true;
+            break;
+          }
         }
       }
 
       console.log("AI backend response data ", data)
       console.log("Similar homes payload:", data?.nearbyHomes)
 
-      const hasPrimaryData = Boolean(data?.data && typeof data.data === 'object' && Object.keys(data.data).length);
+      const hasPrimaryData = hasUsablePropertyData(data);
       if (hasPrimaryData) {
         setpropertyDatas(data)
         setPropertyData(data?.data);

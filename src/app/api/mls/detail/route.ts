@@ -35,10 +35,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const hasUsableUpstreamData = (json: any) => {
+      if (!json || typeof json !== 'object') return false;
+      const statusCode = Number(json?.statusCode);
+      if (Number.isFinite(statusCode) && statusCode >= 400) return false;
+      if (json?.errorMessage) return false;
+      const dataNode = json?.data;
+      if (!dataNode || typeof dataNode !== 'object') return false;
+      return Object.keys(dataNode).length > 0;
+    };
+
     let lastError: any = null;
     for (const attempt of attempts) {
       const upstream = await realEstatePost('/v2/MLSDetail', attempt);
-      if (!upstream.ok) {
+      if (!upstream.ok || !hasUsableUpstreamData(upstream.json)) {
         lastError = { status: upstream.status, body: upstream.json, attempt };
         continue;
       }

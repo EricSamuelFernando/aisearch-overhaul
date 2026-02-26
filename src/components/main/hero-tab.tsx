@@ -1688,7 +1688,10 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
     const trimmed = value.trim();
     // Only trigger for address-like queries: starts with 1–6 digit house number
-    const isAddressLike = /^\d{1,6}\s+/.test(trimmed) && trimmed.length >= 3;
+    const hasHouseNumber = /\b\d{1,6}\b/.test(trimmed);
+    const hasStreetKeyword = /\b(st|street|ave|avenue|rd|road|blvd|boulevard|dr|drive|ln|lane|ct|court|way|pl|place|cir|circle|pkwy|parkway|ter|terrace|hwy|highway)\b/i.test(trimmed);
+    const hasCommaAddressShape = /,/.test(trimmed) && /[a-z]/i.test(trimmed);
+    const isAddressLike = trimmed.length >= 3 && (hasHouseNumber || hasStreetKeyword || hasCommaAddressShape);
 
     if (!isAddressLike) {
       setAddressSuggestions([]);
@@ -3348,3 +3351,4 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     </div >
   );
 };
+

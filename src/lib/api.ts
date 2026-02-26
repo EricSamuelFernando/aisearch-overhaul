@@ -4,6 +4,8 @@ import { isMlsBypassModeEnabled } from './mls-bypass-mode';
 
 const API_BASE =
     process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:5000";
+const AI_BASE =
+    process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI ?? API_BASE;
 
 const _COGNITO_CLIENT_ID =
     process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID ?? "10a2kdoa42lc0enni43mnbj5an";
@@ -254,18 +256,24 @@ export type AddressSuggestion = {
  * Returns an empty array on any error so it never breaks the UI.
  */
 export async function suggestAddresses(q: string, limit = 5): Promise<AddressSuggestion[]> {
-    try {
-        const params = new URLSearchParams({ q, limit: String(limit) });
-        const res = await fetch(`${API_BASE}/api/address/suggest?${params.toString()}`, {
-            headers: {
-                "Accept": "application/json",
-                ...getAuthHeaders(),
-            },
-        });
-        if (!res.ok) return [];
-        const data = await res.json();
-        return Array.isArray(data) ? data : [];
-    } catch {
-        return [];
+    const params = new URLSearchParams({ q, limit: String(limit) });
+    const baseCandidates = [AI_BASE, API_BASE].filter(Boolean);
+    const uniqueBases = Array.from(new Set(baseCandidates));
+
+    for (const base of uniqueBases) {
+        try {
+            const res = await fetch(`${base}/api/address/suggest?${params.toString()}`, {
+                headers: {
+                    "Accept": "application/json",
+                    ...getAuthHeaders(),
+                },
+            });
+            if (!res.ok) continue;
+            const data = await res.json();
+            if (Array.isArray(data)) return data;
+        } catch {
+            // Try next base candidate.
+        }
     }
+    return [];
 }

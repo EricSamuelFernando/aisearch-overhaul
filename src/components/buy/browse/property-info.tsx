@@ -2,7 +2,7 @@
 
 import CustomMap from '@/components/custom-map';
 import { cn } from '@/lib/utils';
-import { useProperty } from '@/shared/hooks/useProperty';
+import { useProperty, usePropertyActions } from '@/shared/hooks/useProperty';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { BuyPropertyCards } from '../buy-property-cards';
 import { usePropertyStore } from '@/store/use-property-store';
@@ -17,15 +17,28 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { useSearchParams } from 'next/navigation';
 import debounce from 'lodash.debounce';
 import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
-import { MapPinned } from 'lucide-react';
+import { Grid2X2, Map, MapPinned, SlidersHorizontal } from 'lucide-react';
+import FilterDrawer from './filter-drawer';
+import { FeatureBathroomSelector, FeatureSelector } from '../property-filter';
 
 type Props = {};
 
 function PropertyBrowseView({ }: Props) {
   const { currentView } = useProperty();
+  const { savePropertyView } = usePropertyActions();
   const divRef = useRef<HTMLDivElement>(null);
+  const isSearchingRef = useRef(false);
   const [divHeight, setDivHeight] = useState<number | null>(null);
-  const { allProperties, addProperties, setSearchedQuery, clearProperties } = usePropertyStore();
+  const {
+    allProperties,
+    addProperties,
+    setSearchedQuery,
+    clearProperties,
+    isCompareMode,
+    setCompareMode,
+    selectedCompareProperties,
+    clearCompareProperties,
+  } = usePropertyStore();
   const [selectedProperty, setSelectedProperty] = useState<string>('');
   const dispatch = useAppDispatch();
   const { user } = useAuth();
@@ -46,6 +59,8 @@ function PropertyBrowseView({ }: Props) {
   const [mapOverlay, setMapOverlay] = useState<'none' | 'schools'>('none');
   const [drawFilteredPropertyIds, setDrawFilteredPropertyIds] = useState<string[] | null>(null);
   const [clearDrawSignal, setClearDrawSignal] = useState(0);
+  const overlayFilterSubCategories: any[] = [];
+  const overlaySelectedSubCategories: any[] = [];
 
   const displayedProperties = Array.isArray(drawFilteredPropertyIds)
     ? (Array.isArray(allProperties)
@@ -76,8 +91,9 @@ function PropertyBrowseView({ }: Props) {
 
   const sendSearchRequest = useCallback(
     debounce(async (body: Record<string, any>) => {
-      if (isSearching) return;
+      if (isSearchingRef.current) return;
 
+      isSearchingRef.current = true;
       setIsSearching(true);
       try {
         const searchUrl = isMlsBypassModeEnabled()
@@ -111,10 +127,11 @@ function PropertyBrowseView({ }: Props) {
           message: err?.response?.data?.error || 'An unexpected error occurred.',
         });
       } finally {
+        isSearchingRef.current = false;
         setIsSearching(false);
       }
     }, 1000),
-    [query, isSearching, clearProperties, addProperties, setSearchedQuery, dispatch, searchParams],
+    [query, clearProperties, addProperties, setSearchedQuery, dispatch, searchParams],
   );
 
   useEffect(() => {
@@ -183,6 +200,54 @@ function PropertyBrowseView({ }: Props) {
                 </div>
 
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                  <FilterDrawer
+                    FeatureSelectorComponent={FeatureSelector}
+                    FeatureBathroomSelector={FeatureBathroomSelector}
+                    subCategories={overlayFilterSubCategories}
+                    selectedSubCategories={overlaySelectedSubCategories}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => savePropertyView('map')}
+                    className={cn(
+                      'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium',
+                      currentView === 'map'
+                        ? 'bg-gray-900 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+                    )}
+                  >
+                    <Map className="h-3.5 w-3.5" />
+                    Map
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => savePropertyView('grid')}
+                    className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
+                  >
+                    <Grid2X2 className="h-3.5 w-3.5" />
+                    Grid
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCompareMode(!isCompareMode);
+                      if (isCompareMode) clearCompareProperties();
+                    }}
+                    className={cn(
+                      'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium',
+                      isCompareMode
+                        ? 'bg-ocOrange text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+                    )}
+                  >
+                    <SlidersHorizontal className="h-3.5 w-3.5" />
+                    {isCompareMode ? 'Cancel Compare' : 'Compare'}
+                  </button>
+                  {isCompareMode ? (
+                    <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-700">
+                      {selectedCompareProperties.length} selected
+                    </span>
+                  ) : null}
                   <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-700">
                     {resultCount} listing{resultCount === 1 ? '' : 's'}
                   </span>

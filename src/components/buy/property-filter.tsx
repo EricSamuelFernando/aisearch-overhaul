@@ -1039,7 +1039,7 @@ function PropertyFilter() {
       />
       <div className={cn(
         'flex w-full flex-col gap-4 md:flex-row md:items-center',
-        currentView === 'map' ? 'md:justify-between' : '',
+        currentView === 'map' ? 'hidden md:justify-between' : '',
       )}>
         {/* Left Side: Title & Filter Drawer */}
         <div className="flex min-w-0 select-none flex-col md:flex-row md:items-center gap-4 md:gap-6">
@@ -1070,40 +1070,7 @@ function PropertyFilter() {
           </div>
         ) : null}
 
-        {currentView === 'map' ? (
-          <div className="flex flex-wrap items-center gap-2 md:ml-auto">
-            <button
-              onClick={() => {
-                setCompareMode(!isCompareMode);
-                if (isCompareMode) clearCompareProperties();
-              }}
-              className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${isCompareMode
-                ? 'bg-ocOrange text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-            >
-              {isCompareMode ? 'Cancel Compare' : 'Compare'}
-            </button>
-
-            {isCompareMode && (
-              <div className="ml-0 flex flex-wrap items-center gap-2 sm:ml-2">
-                <span className="text-sm font-medium text-gray-600">
-                  ({selectedCompareProperties.length}) Selected
-                </span>
-                <button
-                  disabled={selectedCompareProperties.length < 2}
-                  onClick={() => setShowCompareModal(true)}
-                  className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${selectedCompareProperties.length >= 2
-                    ? 'bg-black text-white hover:bg-gray-800'
-                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                    }`}
-                >
-                  Compare selected
-                </button>
-              </div>
-            )}
-          </div>
-        ) : null}
+        {currentView === 'map' ? null : null}
       </div>
 
       <div className={cn(
@@ -1418,4 +1385,4 @@ const FeatureBathroomSelector: React.FC<{
   );
 };
 
-export { PropertyFilter };
+export { PropertyFilter, FeatureSelector, FeatureBathroomSelector };

@@ -288,12 +288,12 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
       if (!token) {
         throw new Error('No authentication token found');
       }
-
       const requestConfig = {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
+        validateStatus: () => true,
       };
       const baseVariables = {
         threadId: data?.threadId,
@@ -306,9 +306,40 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
             query: queryBody,
             variables: baseVariables,
           },
-          {
-            ...requestConfig,
-            validateStatus: () => true,
+          requestConfig,
+        );
+
+      try {
+        console.info('[InviteMutation][Request]', {
+          graphqlUrl: GRAPHQL_URI,
+          mutationBody: ADD_PARTICIPANT_TO_THREAD,
+          variables: baseVariables,
+        });
+
+        const finalResponse = await runInviteMutation(ADD_PARTICIPANT_TO_THREAD);
+
+        console.info('[InviteMutation][RawResult]', JSON.stringify(finalResponse?.data ?? {}, null, 2));
+        console.info('[InviteMutation][DataNode]', finalResponse?.data?.data?.add_participant_to_thread ?? null);
+
+        if (finalResponse.status === 200) {
+          const graphQLErrors = finalResponse?.data?.errors || [];
+          const mutationData = finalResponse?.data?.data?.add_participant_to_thread;
+
+          return {
+            data: mutationData,
+            graphQLErrors: graphQLErrors,
+            rawResponse: finalResponse?.data,
+            mutationBody: ADD_PARTICIPANT_TO_THREAD,
+          };
+        }
+
+        const errorMessage = finalResponse?.data?.errors?.[0]?.message || 'Failed to add participant to thread';
+        throw new Error(errorMessage);
+      } catch (error) {
+        console.error('Error adding participant to thread:', error);
+        throw error; // Re-throw error to be caught by onError callback
+      }
+
           }
         );
 

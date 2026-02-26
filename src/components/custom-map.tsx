@@ -1671,7 +1671,12 @@ const CustomMap: React.FC<Props> = ({
                   onClick={() => {
                     setMeasureMode((prev) => {
                       const next = !prev;
-                      if (!next) resetMeasure();
+                      if (next) {
+                        setDrawMode(false);
+                        setActiveToolPanel((panel) => (panel === 'draw' ? 'measure' : panel));
+                      } else {
+                        resetMeasure();
+                      }
                       return next;
                     });
                   }}
@@ -1716,7 +1721,15 @@ const CustomMap: React.FC<Props> = ({
                   )}
                   onClick={(e) => {
                     e.stopPropagation();
-                    setDrawMode((prev) => !prev);
+                    setDrawMode((prev) => {
+                      const next = !prev;
+                      if (next) {
+                        setMeasureMode(false);
+                        resetMeasure();
+                        setActiveToolPanel((panel) => (panel === 'measure' ? 'draw' : panel));
+                      }
+                      return next;
+                    });
                   }}
                 >
                   {drawMode ? 'On' : 'Off'}
@@ -1872,7 +1885,19 @@ const CustomMap: React.FC<Props> = ({
             <button
               type="button"
               title="Measure Time"
-              onClick={() => setActiveToolPanel((prev) => (prev === 'measure' ? null : 'measure'))}
+              onClick={() =>
+                setActiveToolPanel((prev) => {
+                  const nextPanel = prev === 'measure' ? null : 'measure';
+                  if (nextPanel === 'measure') {
+                    setDrawMode(false);
+                    setMeasureMode(true);
+                  } else {
+                    setMeasureMode(false);
+                    resetMeasure();
+                  }
+                  return nextPanel;
+                })
+              }
               className={cn(
                 'flex h-10 w-10 items-center justify-center rounded-lg border text-[11px] font-semibold',
                 activeToolPanel === 'measure' || measureMode
@@ -1880,14 +1905,43 @@ const CustomMap: React.FC<Props> = ({
                   : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50',
               )}
             >
-              M
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M4.5 14.8 14.8 4.5a2 2 0 0 1 2.8 0l1.9 1.9a2 2 0 0 1 0 2.8L9.2 19.5a2 2 0 0 1-2.8 0l-1.9-1.9a2 2 0 0 1 0-2.8Z"
+                  stroke={activeToolPanel === 'measure' || measureMode ? '#fff' : '#6b7280'}
+                  strokeWidth="1.8"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M13 6.3l1.7 1.7M10.8 8.5l.9.9M9 10.3l1.7 1.7M6.8 12.5l.9.9M5 14.3l1.7 1.7M14.8 11.5l.9.9"
+                  stroke={activeToolPanel === 'measure' || measureMode ? '#fff' : '#6b7280'}
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                />
+              </svg>
             </button>
             <button
               type="button"
               title="Draw Area"
               onClick={(e) => {
                 e.stopPropagation();
-                setActiveToolPanel((prev) => (prev === 'draw' ? null : 'draw'));
+                if (drawMode || !!drawPolygon) {
+                  clearDrawPolygon();
+                  setDrawMode(false);
+                  setActiveToolPanel((prev) => (prev === 'draw' ? null : prev));
+                  return;
+                }
+
+                setMeasureMode(false);
+                resetMeasure();
+                setActiveToolPanel((prev) => (prev === 'measure' ? null : prev));
+                setDrawMode(true);
               }}
               className={cn(
                 'flex h-10 w-10 items-center justify-center rounded-lg border text-[11px] font-semibold',
@@ -1896,7 +1950,30 @@ const CustomMap: React.FC<Props> = ({
                   : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50',
               )}
             >
-              D
+              <svg
+                width="19"
+                height="19"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M4 20h4.2l10-10a1.8 1.8 0 0 0 0-2.55l-1.65-1.65a1.8 1.8 0 0 0-2.55 0L4 15.8V20Z"
+                  stroke={activeToolPanel === 'draw' || drawMode || !!drawPolygon ? '#fff' : '#6b7280'}
+                  strokeWidth="1.8"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M12.9 7.05 16.95 11.1"
+                  stroke={activeToolPanel === 'draw' || drawMode || !!drawPolygon ? '#fff' : '#6b7280'}
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M4 20l3.2-.7L4.7 16.8 4 20Z"
+                  fill={activeToolPanel === 'draw' || drawMode || !!drawPolygon ? '#fff' : '#6b7280'}
+                />
+              </svg>
             </button>
             <button
               type="button"
@@ -1910,7 +1987,7 @@ const CustomMap: React.FC<Props> = ({
               )}
               aria-label="Explore places"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14Zm0 2a5 5 0 1 1 0 10a5 5 0 0 1 0-10Z" fill={activeToolPanel === 'explore' ? '#fff' : '#6b7280'} />
                 <path d="M15.8 15.8l3.9 3.9" stroke={activeToolPanel === 'explore' ? '#fff' : '#6b7280'} strokeWidth="2" strokeLinecap="round" />
               </svg>

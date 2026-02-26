@@ -22,11 +22,11 @@ export default function BrowsePage() {
       }
     >
       {currentView !== 'map' ? <BuyBreadCrumb /> : null}
-      <PropertyFilter />
+      {currentView !== 'map' ? <PropertyFilter /> : null}
       <PropertyBrowseView />
       {/* <PropertyCardLists /> */}
 
-      <BuyCustomSearch hideInMap={false} />
+      {currentView !== 'map' ? <BuyCustomSearch hideInMap /> : null}
 
       {/* MAP STOP SENTINEL */}
       <div id="map-stop-sentinel" className="h-px" />

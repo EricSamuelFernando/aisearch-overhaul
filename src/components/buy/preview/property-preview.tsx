@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { useDeferredValue } from 'react';
@@ -29,6 +29,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { NewFeatureCard } from './multi-feature-card';
 import { PROPERTY_DETAIL_SEARCH_AI_URL } from "@/shared/constants/env"
+import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 
 import { useSelector } from 'react-redux';
 import CategorizedPhotosModal from '../CategorizedPhotosModal'; // Import the new modal
@@ -103,6 +104,43 @@ const clampNumber = (value: number, min: number, max: number) => {
   return Math.min(Math.max(value, min), max);
 };
 
+const toPositiveIntegerOrNull = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  const intValue = Math.trunc(parsed);
+  if (intValue === 0) return null;
+  return Math.abs(intValue);
+};
+
+const hasUsablePropertyData = (response: any): boolean => {
+  if (typeof response?.statusCode === 'number' && response.statusCode >= 400) {
+    return false;
+  }
+
+  const data = response?.data;
+  if (!data || typeof data !== 'object') return false;
+
+  const hasAddress = Boolean(
+    data?.address?.unparsedAddress ||
+    data?.address?.city ||
+    data?.address?.zipCode
+  );
+  const hasPropertyNode = Boolean(
+    data?.property &&
+    typeof data.property === 'object' &&
+    Object.keys(data.property).length > 0
+  );
+  const hasMedia = Boolean(
+    data?.media?.primaryListingImageUrl ||
+    (Array.isArray(data?.media?.photosList) && data.media.photosList.length > 0)
+  );
+  const hasPrice = Boolean(
+    data?.listPrice !== undefined && data?.listPrice !== null && data?.listPrice !== ''
+  );
+  return hasAddress || hasPropertyNode || hasMedia || hasPrice;
+};
+
 
 interface HomeHighlightsProps {
   highlights: string[];
@@ -126,10 +164,17 @@ interface ProprtyData {
     bedroomsTotal: number
     hasBasement: boolean
     propertyType?: string | null
+    livingArea?: number | string | null
+    livingSquareFeet?: number | string | null
+    yearBuilt?: number | string | null
+    description?: string | null
+    associationFee?: number | string | null
+    [key: string]: any
   }
   homedetails: {
     flooring: string
     fireplaceYn: boolean
+    [key: string]: any
   }
   publicRemarks: string
   tags: string[]
@@ -140,6 +185,8 @@ interface ProprtyData {
     city?: string | null
     stateOrProvince?: string | null
     zipCode?: string | null
+    countyOrParish?: string | null
+    [key: string]: any
   }
   media?: {
     primaryListingImageUrl?: string | null
@@ -525,7 +572,7 @@ const PropertyPreview: React.FC = () => {
     setInviteAgentEmail(value);
 
     if (!validateEmail(value)) {
-      setInviteEmailError('✨ Almost there! Please enter a valid email address');
+      setInviteEmailError('âœ¨ Almost there! Please enter a valid email address');
       return;
     } else {
       setInviteEmailError('');
@@ -685,8 +732,8 @@ const PropertyPreview: React.FC = () => {
       "The open stairwell ascends to the spacious living room featuring gorgeous cathedral ceilings and tons of natural light. The formal dining room and updated kitchen open to a spacious wrap-around deck shaded by majestic oak trees, perfect for entertaining or dining al fresco. This level also features two additional bedrooms and a full bath...",
     stats: {
       daysOnMarket: String(daysOnMarketValue ?? 0),
-      views: viewsValue !== null ? String(viewsValue) : '—',
-      saves: savesValue !== null ? String(savesValue) : '—',
+      views: viewsValue !== null ? String(viewsValue) : 'â€”',
+      saves: savesValue !== null ? String(savesValue) : 'â€”',
       sellLikelihood: "98%",
     },
     floorPlanSrc: '/assets/images/floor.png',
@@ -812,80 +859,222 @@ const PropertyPreview: React.FC = () => {
   };
 
 
+  const readPreviewFallbackListing = (candidateIds: Array<string | number | null | undefined>) => {
+    if (typeof window === 'undefined') return null;
+
+    for (const rawId of candidateIds) {
+      if (rawId === null || rawId === undefined || String(rawId).trim() === '') continue;
+      const fallbackKey = `snaphomz_preview_fallback_${String(rawId)}`;
+      const fallbackRaw = localStorage.getItem(fallbackKey);
+      if (!fallbackRaw) continue;
+      try {
+        const fallback = JSON.parse(fallbackRaw);
+        return fallback?.listing || fallback || null;
+      } catch (parseError) {
+        console.log("Failed to parse fallback listing", parseError);
+      }
+    }
+    return null;
+  };
+
+  const persistPreviewContext = (sourceListing: any, sourceResponse: any) => {
+    if (typeof window === 'undefined' || !sourceListing) return;
+    const address = sourceListing?.address || {};
+    const propertyNode = sourceListing?.property || {};
+    localStorage.setItem('stateOrProvince', address?.stateOrProvince || '');
+    localStorage.setItem('listingId', String(sourceListing?.listingId || ''));
+    localStorage.setItem('propertyType', propertyNode?.propertyType || '');
+    localStorage.setItem(
+      'propertyId',
+      String(
+        sourceResponse?.property_id ||
+        sourceListing?.propertyId ||
+        sourceResponse?.data?.property_detail?.property_id ||
+        ''
+      )
+    );
+    localStorage.setItem('propertyAddress', address?.unparsedAddress || '');
+    localStorage.setItem('propertyAddress1', address?.countyOrParish || '');
+    localStorage.setItem('propertyAddress2', address?.zipCode || '');
+    localStorage.setItem('listPrice', String(sourceListing?.listPrice || ''));
+  };
+
   const getPropertyDetails = async (id: string) => {
     try {
       setLoading(true);
       setPropertyData(undefined);
-      const payload = {
-        listingId: +id || listingId,
-        propertyId: parseInt(propertyData?.id) || parseInt(propertyId)
-      };
-      const response = await fetch(PROPERTY_DETAIL_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search/preference', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
+      const bypassMls = isMlsBypassModeEnabled();
+      const endpoint = bypassMls
+        ? '/api/mls/detail'
+        : (PROPERTY_DETAIL_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search/preference');
 
-      // debugger
-      const data = await response.json();
-      setpropertyDatas(data)
+      const listingIdFromPath = toPositiveIntegerOrNull(id);
+      const listingIdFromQuery = toPositiveIntegerOrNull(listingId);
+      const propertyIdFromQuery = toPositiveIntegerOrNull(propertyId);
+      const propertyIdFromStore = toPositiveIntegerOrNull(propertyData?.id);
+
+      const primaryListingId =
+        listingIdFromQuery ??
+        listingIdFromPath ??
+        propertyIdFromQuery ??
+        propertyIdFromStore;
+      const alternateListingId =
+        propertyIdFromQuery ??
+        propertyIdFromStore ??
+        listingIdFromPath ??
+        listingIdFromQuery;
+      const requestPropertyId =
+        propertyIdFromQuery ??
+        propertyIdFromStore ??
+        listingIdFromPath ??
+        listingIdFromQuery;
+
+      const requestPayloads: Array<Record<string, any>> = [];
+
+      if (bypassMls) {
+        requestPayloads.push({
+          listingId: primaryListingId || listingId || id,
+          propertyId: requestPropertyId || undefined,
+          city: city || propertyData?.address?.city || undefined,
+          province: province || propertyData?.address?.stateOrProvince || undefined,
+          state: province || propertyData?.address?.stateOrProvince || undefined,
+          zip: propertyData?.address?.zipCode || undefined,
+          address: propertyData?.address?.unparsedAddress || undefined,
+        });
+      } else {
+        if (primaryListingId) {
+          requestPayloads.push({
+            listingId: primaryListingId,
+            propertyId: requestPropertyId || undefined,
+          });
+        }
+        if (alternateListingId && alternateListingId !== primaryListingId) {
+          requestPayloads.push({
+            listingId: alternateListingId,
+            propertyId: requestPropertyId || undefined,
+          });
+        }
+        if (!requestPayloads.length && requestPropertyId) {
+          requestPayloads.push({
+            listingId: requestPropertyId,
+            propertyId: requestPropertyId,
+          });
+        }
+      }
+
+      let data: any = null;
+      let hasResolvedPrimaryData = false;
+      for (const payload of requestPayloads) {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+        const responseData = await response.json().catch(() => ({}));
+        data = responseData;
+        if (hasUsablePropertyData(responseData)) {
+          hasResolvedPrimaryData = true;
+          break;
+        }
+      }
+
+      if (!hasResolvedPrimaryData && !bypassMls) {
+        const mlsFallbackPayloads: Array<Record<string, any>> = [];
+        const baseFallbackPayload = {
+          city: city || propertyData?.address?.city || undefined,
+          province: province || propertyData?.address?.stateOrProvince || undefined,
+          state: province || propertyData?.address?.stateOrProvince || undefined,
+          zip: propertyData?.address?.zipCode || undefined,
+          address: propertyData?.address?.unparsedAddress || undefined,
+        };
+
+        if (requestPropertyId) {
+          mlsFallbackPayloads.push({
+            ...baseFallbackPayload,
+            propertyId: requestPropertyId,
+          });
+        }
+        if (primaryListingId) {
+          mlsFallbackPayloads.push({
+            ...baseFallbackPayload,
+            listingId: primaryListingId,
+            propertyId: requestPropertyId || undefined,
+          });
+        }
+        if (alternateListingId && alternateListingId !== primaryListingId) {
+          mlsFallbackPayloads.push({
+            ...baseFallbackPayload,
+            listingId: alternateListingId,
+            propertyId: requestPropertyId || undefined,
+          });
+        }
+
+        for (const fallbackPayload of mlsFallbackPayloads) {
+          const mlsResponse = await fetch('/api/mls/detail', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(fallbackPayload),
+          });
+          const mlsData = await mlsResponse.json().catch(() => ({}));
+          if (hasUsablePropertyData(mlsData)) {
+            data = mlsData;
+            hasResolvedPrimaryData = true;
+            break;
+          }
+        }
+      }
+
       console.log("AI backend response data ", data)
       console.log("Similar homes payload:", data?.nearbyHomes)
-      console.log("🗺️ Coordinate check:", {
-        'data.data.latitude': data?.data?.latitude,
-        'data.data.longitude': data?.data?.longitude,
-        'data.data.Latitude': data?.data?.Latitude,
-        'data.data.Longitude': data?.data?.Longitude,
-        'data.data.property.latitude': data?.data?.property?.latitude,
-        'data.data.property.longitude': data?.data?.property?.longitude,
-        'data.data.location.latitude': data?.data?.location?.latitude,
-        'data.data.location.longitude': data?.data?.location?.longitude,
-        'data.latitude': data?.latitude,
-        'data.longitude': data?.longitude,
-        'data.property_detail': data?.property_detail
-      });
-      localStorage.setItem('stateOrProvince', data.data.address.stateOrProvince || '')
-      localStorage.setItem('listingId', String(data.data.listingId))
-      localStorage.setItem('propertyType', data.data.property.propertyType || '')
-      localStorage.setItem('propertyId', String(data.property_id || data.data.property_detail?.property_id))
-      // just the raw (unparsed) street address
-      localStorage.setItem('propertyAddress', data.data.address.unparsedAddress || '');
-      localStorage.setItem('propertyAddress1', data.data.address.countyOrParish || '');
-      localStorage.setItem('propertyAddress2', data.data.address.zipCode || '');
-      localStorage.setItem('listPrice', data.data.listPrice || '');
 
-
-
-      const hasPrimaryData = Boolean(data?.data && Object.keys(data.data).length);
+      const hasPrimaryData = hasUsablePropertyData(data);
       if (hasPrimaryData) {
+        setpropertyDatas(data)
         setPropertyData(data?.data);
         setTags(data?.data?.tags);
         setPropertyDetails(data?.property_detail);
-      } else if (typeof window !== "undefined") {
-        const fallbackKey = `snaphomz_preview_fallback_${String(id)}`;
-        const fallbackRaw = localStorage.getItem(fallbackKey);
-        if (fallbackRaw) {
-          try {
-            const fallback = JSON.parse(fallbackRaw);
-            const fallbackListing = fallback?.listing || fallback;
-            setpropertyDatas({ data: fallbackListing });
-            setPropertyData(fallbackListing);
-            setTags(fallbackListing?.tags || []);
-          } catch (parseError) {
-            console.log("Failed to parse fallback listing", parseError);
-          }
+        persistPreviewContext(data?.data, data);
+      } else {
+        const fallbackListing = readPreviewFallbackListing([
+          id,
+          listingId,
+          propertyId,
+          listingIdFromPath,
+          listingIdFromQuery,
+          propertyIdFromQuery,
+        ]);
+        if (fallbackListing) {
+          setpropertyDatas({
+            data: fallbackListing,
+            property_detail: data?.property_detail ?? null,
+            nearbyHomes: data?.nearbyHomes ?? [],
+          });
+          setPropertyData(fallbackListing);
+          setTags(fallbackListing?.tags || []);
+          setPropertyDetails(data?.property_detail ?? null);
+          persistPreviewContext(fallbackListing, data);
+        } else {
+          setpropertyDatas(data);
+          setPropertyDetails(data?.property_detail ?? null);
         }
       }
     } catch (error) {
       console.log("error : ", error);
+      const fallbackListing = readPreviewFallbackListing([id, listingId, propertyId]);
+      if (fallbackListing) {
+        setpropertyDatas({ data: fallbackListing, property_detail: null, nearbyHomes: [] });
+        setPropertyData(fallbackListing);
+        setTags(fallbackListing?.tags || []);
+        setPropertyDetails(null);
+        persistPreviewContext(fallbackListing, null);
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
 
   }
-
-
   React.useEffect(() => {
     const handleIntersect: IntersectionObserverCallback = (entries) => {
       entries.forEach((entry) => {
@@ -923,13 +1112,14 @@ const PropertyPreview: React.FC = () => {
 
   React.useEffect(() => {
     const targetListingId =
-      id ||
       listingId ||
+      id ||
+      propertyId ||
       property?.listingId;
     if (targetListingId) {
       getPropertyDetails(String(targetListingId));
     }
-  }, [id, listingId, property?.listingId]);
+  }, [id, listingId, propertyId, property?.listingId]);
 
   const rentAddress = React.useMemo(() => {
     const address =
@@ -1261,7 +1451,7 @@ const PropertyPreview: React.FC = () => {
         lon = (proprtyData as any)?.property?.longitude || (proprtyData as any)?.property?.Longitude;
       }
 
-      console.log('🏫 Schools API Debug:', {
+      console.log('ðŸ« Schools API Debug:', {
         hasPropertyDatas: !!propertyDatas,
         lat,
         lon,
@@ -1270,7 +1460,7 @@ const PropertyPreview: React.FC = () => {
       });
 
       if (!lat || !lon) {
-        console.log('❌ No coordinates available for schools API');
+        console.log('âŒ No coordinates available for schools API');
         return;
       }
 
@@ -1279,7 +1469,7 @@ const PropertyPreview: React.FC = () => {
         return;
       }
 
-      console.log(`🔍 Fetching schools from: ${authRestBaseUrl}/schools/nearby?lat=${lat}&lon=${lon}`);
+      console.log(`ðŸ” Fetching schools from: ${authRestBaseUrl}/schools/nearby?lat=${lat}&lon=${lon}`);
       setSchoolsLoading(true);
       setSchoolsError(null);
 
@@ -1293,7 +1483,7 @@ const PropertyPreview: React.FC = () => {
         }
 
         const schools = await response.json();
-        console.log('✅ Schools API response:', schools);
+        console.log('âœ… Schools API response:', schools);
 
         // Transform Neo4j response to match the expected format
         const transformedSchools = schools.map((school: any) => ({
@@ -1304,10 +1494,10 @@ const PropertyPreview: React.FC = () => {
           distance: `${school.distanceMiles.toFixed(1)} mi`
         }));
 
-        console.log('📚 Transformed schools:', transformedSchools);
+        console.log('ðŸ“š Transformed schools:', transformedSchools);
         setNearbySchools(transformedSchools);
       } catch (err) {
-        console.error('❌ Error fetching nearby schools:', err);
+        console.error('âŒ Error fetching nearby schools:', err);
         setSchoolsError(err instanceof Error ? err.message : 'Failed to load schools');
       } finally {
         setSchoolsLoading(false);
@@ -1552,6 +1742,8 @@ const PropertyPreview: React.FC = () => {
     setOpenSection(openSection === section ? null : section);
   };
 
+  const propertyTags = Array.isArray((proprtyData as any)?.tags) ? (proprtyData as any).tags : [];
+
   const openSectionForHash = React.useCallback((hash: string) => {
     const target =
       hash === '#home-highlights' || hash === '#home'
@@ -1584,7 +1776,7 @@ const PropertyPreview: React.FC = () => {
       title: "Home highlights",
       content: (
         <HomeHighlights
-          highlights={proprtyData?.tags.length ? proprtyData?.tags : HomeHighlightsData.highlights}
+          highlights={propertyTags.length ? propertyTags : HomeHighlightsData.highlights}
           description={proprtyData?.publicRemarks || ""}
           stats={HomeHighlightsData.stats}
           floorPlanSrc={HomeHighlightsData.floorPlanSrc}
@@ -1597,7 +1789,7 @@ const PropertyPreview: React.FC = () => {
       title: "Schools Nearby",
       content: (() => {
         const schoolsToDisplay = schoolsLoading ? schoolPropsData.schools : (nearbySchools.length > 0 ? nearbySchools : schoolPropsData.schools);
-        // console.log('🎓 Schools being displayed:', {
+        // console.log('ðŸŽ“ Schools being displayed:', {
         //   schoolsLoading,
         //   nearbySchoolsCount: nearbySchools.length,
         //   nearbySchools,
@@ -1621,11 +1813,11 @@ const PropertyPreview: React.FC = () => {
       id: "offers",
       title: "What this place offers",
       content: <InteriorOffersSection BathRoomAndBedRoom={proprtyData?.property} features={{
-        flooring: proprtyData?.homedetails.flooring || "",
-        hasBasement: proprtyData?.property.hasBasement || false,
-        hasFireplace: proprtyData?.homedetails.fireplaceYn || false,
+        flooring: proprtyData?.homedetails?.flooring || "",
+        hasBasement: proprtyData?.property?.hasBasement || false,
+        hasFireplace: proprtyData?.homedetails?.fireplaceYn || false,
 
-      }} featureList={proprtyData?.tags.join(", ")} />,
+      }} featureList={propertyTags.join(", ")} />,
     },
     {
       id: "interest",

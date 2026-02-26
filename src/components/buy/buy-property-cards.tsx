@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { RefObject, useEffect, useMemo, useState } from 'react';
 import { nanoid } from 'nanoid';
 import { useInView } from 'react-intersection-observer';
@@ -18,6 +19,7 @@ type Props = {
   forwardedRef?: MyComponentRef;
   selectedProperty: string;
   propertiesOverride?: any[] | null;
+  overlayMode?: boolean;
 };
 
 const ITEMS_PER_PAGE = 10;
@@ -26,6 +28,7 @@ function BuyPropertyCards({
   forwardedRef,
   selectedProperty,
   propertiesOverride,
+  overlayMode = false,
 }: Props) {
   const { currentView } = useProperty();
   const { ref } = useInView();
@@ -85,7 +88,7 @@ function BuyPropertyCards({
 
   useEffect(() => {
     if (!selectedProperty || !Array.isArray(sourceProperties)) return;
-    const idx = sourceProperties.findIndex((p: any) => p.id === selectedProperty);
+    const idx = sourceProperties.findIndex((p: any) => String(p?.id) === String(selectedProperty));
     if (idx === -1) return;
     const targetPage = Math.floor(idx / ITEMS_PER_PAGE) + 1;
     if (targetPage !== currentPage) {
@@ -93,20 +96,40 @@ function BuyPropertyCards({
     }
   }, [selectedProperty, sourceProperties, currentPage]);
 
+  useEffect(() => {
+    if (!selectedProperty) return;
+    const raf = requestAnimationFrame(() => {
+      const element = document.getElementById(String(selectedProperty));
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      }
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [selectedProperty, currentPage]);
+
   return (
-    <div ref={forwardedRef} className="flex h-full flex-col">
-      <div className="flex-auto">
+    <div
+      ref={forwardedRef}
+      className={cn(
+        'flex h-full flex-col',
+        overlayMode ? 'min-h-0' : '',
+      )}
+    >
+      <div className={cn('flex-auto', overlayMode ? 'min-h-0 overflow-y-auto overscroll-contain pr-1' : '')}>
         <div
           className={cn(
             currentView === 'grid' ? 'max-w-[1450px] mx-auto w-full' : 'w-full',
+            overlayMode ? 'max-w-none' : '',
           )}
         >
           <div
             className={cn(
               'w-full',
-              currentView === 'map'
-                ? 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2'
-                : 'grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4 lg:grid-cols-[repeat(4,360px)] lg:gap-x-8 lg:justify-center xl:grid-cols-[repeat(4,380px)]',
+              overlayMode
+                ? 'grid grid-cols-1 gap-3 xl:grid-cols-2'
+                : currentView === 'map'
+                  ? 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2'
+                  : 'grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4 lg:grid-cols-[repeat(4,360px)] lg:gap-x-8 lg:justify-center xl:grid-cols-[repeat(4,380px)]',
             )}
           >
             {isLoading ? (
@@ -119,24 +142,27 @@ function BuyPropertyCards({
               <>
                 {Array.isArray(sourceProperties) && sourceProperties.length > 0
                   ? paginatedProperties.map((prop: any) => {
-                      const isSelected = prop.id === selectedProperty;
+                      const isSelected = String(prop?.id) === String(selectedProperty);
                       return (
                         <div
                           ref={ref}
                           key={prop.id}
-                          id={prop.id}
+                          id={String(prop.id)}
                           className={cn(
                             isSelected
-                              ? 'bg-white p-1 bg-orange-500 rounded-2xl shadow-xl'
+                              ? overlayMode
+                                ? "relative rounded-xl shadow-md before:pointer-events-none before:absolute before:inset-0 before:rounded-xl before:ring-2 before:ring-inset before:ring-orange-400 before:content-[''] before:z-20"
+                                : 'bg-white p-1 bg-orange-500 rounded-2xl shadow-xl'
                               : '',
                             'transition duration-300 ease-in-out',
-                            currentView === 'grid' ? 'w-[320px]' : '',
+                            currentView === 'grid' && !overlayMode ? 'w-[320px]' : '',
                           )}
                         >
                           <PropertyCards
                             {...prop}
                             snaps={snaps}
                             fetchSnaps={fetchSnaps}
+                            overlayMode={overlayMode}
                           />
                         </div>
                       );
@@ -149,7 +175,14 @@ function BuyPropertyCards({
       </div>
 
       {totalPages > 1 ? (
-        <div className="mt-6 flex flex-col items-center gap-3">
+        <div
+          className={cn(
+            'flex flex-col items-center gap-3',
+            overlayMode
+              ? 'mt-1 shrink-0 border-t border-gray-200 bg-white px-2 pt-2 pb-2'
+              : 'mt-6',
+          )}
+        >
           <div className="flex items-center gap-3">
             <button
               className={cn(
@@ -197,8 +230,31 @@ function BuyPropertyCards({
             </button>
           </div>
 
-          <div className="text-sm text-gray-600">
+          <div className={cn('text-sm text-gray-600', overlayMode ? 'text-center text-xs font-medium' : '')}>
             {`${sourceProperties?.length || 0} homes found (showing ${(currentPage - 1) * ITEMS_PER_PAGE + 1}-${Math.min(sourceProperties?.length || 0, currentPage * ITEMS_PER_PAGE)})`}
+          </div>
+        </div>
+      ) : null}
+
+      {overlayMode ? (
+        <div className="shrink-0 border-t border-gray-200 bg-white px-3 py-2 text-[10px] leading-5 text-gray-600">
+          <div className="mb-1 font-semibold text-gray-800">Snaphomz</div>
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
+            <Link href="/terms-and-conditions" className="hover:text-gray-900">
+              Terms
+            </Link>
+            <Link href="/privacy-policy" className="hover:text-gray-900">
+              Privacy
+            </Link>
+            <Link href="/cookie-policy" className="hover:text-gray-900">
+              Cookies
+            </Link>
+            <Link href="/disclosure" className="hover:text-gray-900">
+              Disclosure
+            </Link>
+          </div>
+          <div className="mt-2 text-[10px] text-gray-500">
+            Results and tools are for informational purposes only.
           </div>
         </div>
       ) : null}

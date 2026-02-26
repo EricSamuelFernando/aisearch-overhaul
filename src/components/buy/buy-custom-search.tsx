@@ -368,6 +368,7 @@ import { RootState } from '@/lib/store';
 import { success, error } from '../alert/notify';
 import { usePropertyStore } from '@/store/use-property-store';
 import { PROPERTY_SEARCH_AI_URL } from '@/shared/constants/env';
+import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { setPropertyQuery } from '@/slices/property/property-slice';
 import { Input } from '../ui/input';
 import { cn } from '@/lib/utils';
@@ -592,7 +593,9 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
     return () => observer.disconnect();
   }, []);
 
-  const sendSearchRequest = async (queryToUse = searchString) => {
+  const sendSearchRequest = async (queryToUse?: string) => {
+    const resolvedQuery = (queryToUse ?? searchString ?? '').trim();
+    if (!resolvedQuery) return;
     if (searchCount + 1 >= 6 && !user?.email) {
       error({
         message:
@@ -607,18 +610,23 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
     setIsLoading(true)
     setSearchedQuery("");
     try {
+      const searchUrl = isMlsBypassModeEnabled()
+        ? '/api/mls/search'
+        : (PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search');
+
       const response = await axios.post(
-        PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search',
+        searchUrl,
         {
           user: userId,
-          query: queryToUse,
+          query: resolvedQuery,
         }
       );
       clearProperties();
       dispatch(incrementSearchCount());
-      dispatch(setPropertyQuery(response.data?.result.search_query));
-      setSearchedQuery(response.data?.result.records);
-      addProperties(response.data?.result.records);
+      dispatch(setPropertyQuery(response.data?.result?.search_query ?? response.data?.search_query ?? resolvedQuery));
+      const records = response.data?.result?.records ?? response.data?.records ?? [];
+      setSearchedQuery(records);
+      addProperties(records);
 
     } catch (err: any) {
 
@@ -640,8 +648,12 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
   const handleSubmit = React.useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      router.push(`/buy/browse?q=${encodeURIComponent(searchString)}`);
-      await sendSearchRequest()
+      const normalizedQuery = (searchString || '').trim();
+      if (!normalizedQuery) return;
+      // Prevent the searchParams effect from firing the same search again after router.push.
+      lastAutoSearchRef.current = normalizedQuery;
+      router.push(`/buy/browse?q=${encodeURIComponent(normalizedQuery)}`);
+      await sendSearchRequest(normalizedQuery)
     },
     [router, filterData, searchString, searchTerm],
   );

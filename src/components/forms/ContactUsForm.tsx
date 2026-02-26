@@ -33,7 +33,7 @@ export default function ContactUsForm() {
     const { isLoaded } = useLoadScript({
         id: 'google-map-script',
         googleMapsApiKey: googleMapsApiKey!,
-        libraries: ['places', 'geometry'],
+        libraries: ['places', 'geometry', 'drawing'],
     });
 
     const {

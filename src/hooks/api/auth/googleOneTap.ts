@@ -59,7 +59,7 @@ const GoogleOneTap = () => {
         login(user);
         storeCookie({ key: AUTH_TOKEN, value: access_token });
         storeCookie({ key: USER_ROLE, value: accountType });
-        router.push(`/home`);
+        router.push(`/`);
       }
     } catch (err) {
       console.error('Google One Tap Auth Error:', err);

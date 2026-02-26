@@ -46,16 +46,16 @@ export function middleware(request: NextRequest) {
   const pathname = nextUrl.pathname.includes('/api/auth/logout');
   const token = cookies.get(AUTH_TOKEN);
   const isWaitlistExists: any = cookies.get("waitlist")
-  const isHome = ['/'].includes(nextUrl.pathname);
+  const isHome = nextUrl.pathname === '/home';
   // if(isWaitlistNotAllow && isWaitlistExists?.value==='false'){    
   //   return NextResponse.redirect(new URL('/waitlist', url));
   // }
 
 
 
-  if (isHome && !isPublicRoute) {
+  if (isHome) {
     // return NextResponse.next();
-    return NextResponse.redirect(new URL('/home', url));
+    return NextResponse.redirect(new URL('/', url));
   }
 
 
@@ -88,23 +88,23 @@ export function middleware(request: NextRequest) {
   // }
 
   // const userRole = getUserRole(token?.value);
-  
+
   // if (token?.value) {
-  
+
   //   const path = nextUrl.pathname;
   //   console.log(userRole , path.startsWith('/dashboard/seller') )
-  
+
   //   // 🔒 Restrict access to seller routes
   //   if (path.startsWith('/dashboard/seller') && userRole !== 'seller') {
   //     return NextResponse.redirect(new URL('/home', url));
   //   }
-  
+
   //   // 🔒 Restrict access to buyer routes
   //   if (path.startsWith('/dashboard/buyer') && userRole !== 'buyer') {
   //     return NextResponse.redirect(new URL('/home', url));
   //   }
- // }
-  
+  // }
+
   // if (isHome && token?.value !== undefined) {
   //   return NextResponse.redirect(new URL('/dashboard', url));
   // }

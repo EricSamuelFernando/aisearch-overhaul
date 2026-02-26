@@ -104,7 +104,7 @@ function useCognitoGoogleAuth(handleCb?: () => void) {
             }
           );
         }
-        router.push(`/home`);
+        router.push(`/`);
         handleCb?.();
       } else {
         console.error('No data in backend response:', response.data);
@@ -280,7 +280,7 @@ function useCognitoGoogleAuth(handleCb?: () => void) {
         console.error('No ID token in response:', tokenResponse.data);
         throw new Error('No ID token received from Cognito');
       }
-      
+
     } catch (err: any) {
       console.error('Cognito Callback Error Full:', err);
       if (err.response) {

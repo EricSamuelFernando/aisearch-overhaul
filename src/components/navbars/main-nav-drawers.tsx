@@ -55,7 +55,7 @@ const MobileSideDrawer: React.FC<MobileSideDrawerProps> = ({
       <div className="h-full bg-white flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-          <Link href="/home" onClick={closeDrawer} className="flex items-center">
+          <Link href="/" onClick={closeDrawer} className="flex items-center">
             <Image
               src="/assets/Logos/Snaphomz-Logo-Black (4).png"
               alt="Snaphomz"
@@ -82,7 +82,7 @@ const MobileSideDrawer: React.FC<MobileSideDrawerProps> = ({
         <div className='flex-1 px-6 py-8'>
           <div className="space-y-6">
             <Link
-              href="/home"
+              href="/"
               className="block text-lg font-normal text-gray-900 hover:text-primary transition-colors"
               onClick={closeDrawer}
             >
@@ -234,17 +234,17 @@ const BuyDropdownMenu: React.FC<DropdownMenuProps> = ({
         <div className='flex flex-col space-y-7 pr-14'>
           <h4 className='text-md font-medium'>Buy a Home With</h4>
           <div className='flex flex-col space-y-5'>
-            <Link href='/home#agents'>Your Agent</Link>
-            <Link href='/home#agents'>Our Real Estate Agents</Link>
-            {/* <Link href='/home#agents'>Do it Yourself</Link> */}
+            <Link href='/#agents'>Your Agent</Link>
+            <Link href='/#agents'>Our Real Estate Agents</Link>
+            {/* <Link href='/#agents'>Do it Yourself</Link> */}
           </div>
         </div>
         <div className='flex flex-col space-y-7 pl-14'>
           <h4 className='text-md font-medium'>Resources</h4>
           <div className='flex flex-col space-y-5'>
-            <Link href='/home#how-it-works'>How it Works</Link>
-            <Link href='/home#strength-analyzer'>Offer Strength Analyzer</Link>
-            <Link href='/home#testimonials'>Testimonials</Link>
+            <Link href='/#how-it-works'>How it Works</Link>
+            <Link href='/#strength-analyzer'>Offer Strength Analyzer</Link>
+            <Link href='/#testimonials'>Testimonials</Link>
           </div>
         </div>
       </div>

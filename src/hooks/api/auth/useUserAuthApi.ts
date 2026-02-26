@@ -206,12 +206,12 @@ export const useUserAuthApi = (handleCb?: () => void) => {
         if (user.account_type === "seller") {
           router.push('/sell')
         } else
-          router.push(`/home`)
+          router.push(`/`)
       }
       // if (searchTerm) {
       //   router.push(`/buy/browse?q=${encodeURIComponent(searchTerm)}`);
       // } else {
-      //   router.push(`/home`);
+      //   router.push(`/`);
       // }
       handleCb?.();
 
@@ -323,7 +323,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     },
     onSuccess: () => {
       success({ message: 'Password has been reset successfully.' });
-      router.push('/home');
+      router.push('/');
     },
     onError: (err: any) => {
       const apiMessage = err?.response?.data?.errors?.[0]?.message || err?.message || '';
@@ -1509,7 +1509,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
 
       // Always perform local logout and redirect, regardless of backend response
       logout();
-      router.push('/home');
+      router.push('/');
     },
     onError: (err: any) => {
       // Even on unexpected errors, always perform local cleanup so the user isn't stuck
@@ -1520,7 +1520,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
 
       // Still clear local state and redirect
       logout();
-      router.push('/home');
+      router.push('/');
     },
   });
 
@@ -1669,7 +1669,7 @@ export const useTokenLoginMutation = (handleCb?: () => void) => {
         router.push(redirect);
         return;
       }
-      router.push(`/home`);
+      router.push(`/`);
       handleCb?.();
     },
 

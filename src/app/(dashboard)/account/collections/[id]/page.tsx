@@ -410,7 +410,7 @@ export default function SnapDetailsPage() {
             }, 150);
             return () => clearTimeout(timer);
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [aiRecommendations.length]);
 
     const compareSlotProperties = useMemo(
@@ -496,7 +496,7 @@ export default function SnapDetailsPage() {
                                 <UserPlus className="mr-2 h-4 w-4" />
                                 <span>Invite to collaborate</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => router.push('/home')}>
+                            <DropdownMenuItem onClick={() => router.push('/')}>
                                 <PlusCircle className="mr-2 h-4 w-4" />
                                 <span>Add to this Snapz</span>
                             </DropdownMenuItem>

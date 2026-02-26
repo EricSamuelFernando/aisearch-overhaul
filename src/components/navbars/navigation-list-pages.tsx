@@ -12,7 +12,7 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
 
   // Determine text color based on route
   const getTextColor = (route: string) => {
-    if (pathname?.startsWith('/home') || pathname === '/home' || pathname === '/home/buy') {
+    if (pathname === '/' || pathname?.startsWith('/home') || pathname === '/home' || pathname === '/home/buy') {
       return 'text-white';
     } else if (pathname === '/sell') {
       return 'text-black';
@@ -27,8 +27,8 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
 
   // Check if a route is active
   const isActive = (route: string) => {
-    if (route === '/home') {
-      return pathname === '/home' || pathname === '/home/buy' || pathname?.startsWith('/home/buy');
+    if (route === '/' || route === '/home') {
+      return pathname === '/' || pathname === '/home' || pathname === '/home/buy' || pathname?.startsWith('/home/buy');
     }
     return pathname === route || pathname?.startsWith(route + '/');
   };
@@ -49,7 +49,7 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
       <NavigationMenuList>
         <NavigationMenuItem>
           <NavigationMenuTrigger className='bg-transparent px-4 hover:bg-transparent hover:underline focus:bg-transparent'>
-            <Link href='/home' className={isActive('/home') ? (isScrolled ? 'text-white' : 'text-white') : textColorClass}>
+            <Link href='/' className={isActive('/') ? (isScrolled ? 'text-white' : 'text-white') : textColorClass}>
               Buy
             </Link>
           </NavigationMenuTrigger>
@@ -107,7 +107,7 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
               </div>
               <div className='flex flex-col space-y-4 pl-8'>
                 <div className='flex flex-col space-y-3'>
-                {/*  <Link href='#home-estimator' className='text-black hover:text-primary hover:underline'>
+                  {/*  <Link href='#home-estimator' className='text-black hover:text-primary hover:underline'>
                     Home Estimator
                   </Link>*/}
                   <Link href="#testimonials" className='text-black hover:text-primary hover:underline'>

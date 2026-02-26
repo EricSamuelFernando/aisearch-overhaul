@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { askQuestion, searchProperties, cancelActiveTask, fetchHistory, fetchSessionDetails, clearHistoryAPI, suggestAddresses } from '@/lib/api';
 import type { QuestionPayload, AddressSuggestion } from '@/lib/api';
+import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { detectIntent } from '@/lib/chatRouting';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
@@ -578,6 +579,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   // Session State for Conversation Persistence
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [recentSessions, setRecentSessions] = useState<any[]>([]);
+  const [mlsBypassMode, setMlsBypassMode] = useState(false);
   const [pendingLocationImage, setPendingLocationImage] = useState<File | null>(null);
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const [pendingImagePreview, setPendingImagePreview] = useState<string | null>(null);
@@ -587,6 +589,24 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   const [isClearingHistory, setIsClearingHistory] = useState(false);
 
   // Rent Vs Buy State
+
+  useEffect(() => {
+    setMlsBypassMode(isMlsBypassModeEnabled());
+
+    const handleBypassChange = (event: Event) => {
+      const customEvent = event as CustomEvent<boolean>;
+      if (typeof customEvent.detail === 'boolean') {
+        setMlsBypassMode(customEvent.detail);
+        return;
+      }
+      setMlsBypassMode(isMlsBypassModeEnabled());
+    };
+
+    window.addEventListener('snaphomz:mls-bypass-changed', handleBypassChange as EventListener);
+    return () => {
+      window.removeEventListener('snaphomz:mls-bypass-changed', handleBypassChange as EventListener);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -724,6 +744,16 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   const addressSuggestDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [expandedSchoolLists, setExpandedSchoolLists] = useState<Record<string, boolean>>({});
   const [nearbySchoolsById, setNearbySchoolsById] = useState<Record<string, { status: 'idle' | 'loading' | 'ready' | 'error'; schools: any[]; error?: string; schoolType?: string; fallbackUsed?: boolean }>>({});
+
+  const toggleMlsBypass = () => {
+    const next = !mlsBypassMode;
+    setMlsBypassModeEnabled(next);
+    setMlsBypassMode(next);
+    if (next) {
+      setSessionId(null);
+      setRecentSessions([]);
+    }
+  };
 
   const appendAssistantMessage = (content: string) => {
     const msgId = (Date.now() + Math.random()).toString();
@@ -1106,8 +1136,15 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   const handleSearchSubmit = async (queryToSearch: string) => {
     if (!queryToSearch.trim()) return;
 
-
-
+    // Direct MLS mode should behave like a normal search bar:
+    // skip chat expansion/conversation and route to the listings page.
+    if (mlsBypassMode && !pendingLocationImage) {
+      const destination = `/buy/browse?q=${encodeURIComponent(queryToSearch.trim())}`;
+      if (typeof window !== 'undefined') {
+        window.location.assign(destination);
+      }
+      return;
+    }
     setIsExpanded(true); // Immediate UI response
     if (onSearchStateChange) {
       onSearchStateChange(true, queryToSearch);
@@ -2075,6 +2112,17 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
                 {/* Right Actions */}
                 <div className="flex items-center gap-2 flex-shrink-0 pr-1">
+                  <button
+                    type="button"
+                    onClick={toggleMlsBypass}
+                    title={mlsBypassMode ? 'Direct MLS mode is ON (AI search bypassed)' : 'Use Direct MLS mode'}
+                    className={`h-8 rounded-full px-3 text-[11px] font-semibold transition-colors border ${mlsBypassMode
+                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                      }`}
+                  >
+                    {mlsBypassMode ? 'MLS Direct' : 'AI Search'}
+                  </button>
                   <div className="relative">
                     <div
                       className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
@@ -3219,6 +3267,17 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       className={`w-full bg-white text-gray-900 rounded-full h-12 sm:h-[68px] ${pendingImage || pendingImagePreview ? 'pl-56 sm:pl-[19rem]' : 'pl-11 sm:pl-14'} pr-20 sm:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-sm sm:text-base placeholder:text-gray-400 font-normal`}
                     />
                     <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 sm:gap-4">
+                      <button
+                        type="button"
+                        onClick={toggleMlsBypass}
+                        title={mlsBypassMode ? 'Direct MLS mode is ON (AI search bypassed)' : 'Use Direct MLS mode'}
+                        className={`h-7 sm:h-8 rounded-full px-2.5 sm:px-3 text-[10px] sm:text-[11px] font-semibold border transition-colors ${mlsBypassMode
+                          ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                          }`}
+                      >
+                        {mlsBypassMode ? 'MLS' : 'AI'}
+                      </button>
                       <button className="text-gray-500 hover:text-gray-900 transition-colors">
                         <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
@@ -3238,6 +3297,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                   <p className="text-xs text-gray-400">
                     Snapz AI can make mistakes. Consider checking important information.
                   </p>
+                  {mlsBypassMode && (
+                    <p className="mt-1 text-[11px] text-amber-600">
+                      Direct MLS mode enabled: AI chat answers/history are bypassed for search reliability.
+                    </p>
+                  )}
                 </div>
               </div>
             </motion.div>

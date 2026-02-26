@@ -1,8 +1,8 @@
 'use client';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useRef, useState } from 'react';
-import { askQuestion, searchProperties, cancelActiveTask, fetchHistory, fetchSessionDetails, clearHistoryAPI } from '@/lib/api';
-import type { QuestionPayload } from '@/lib/api';
+import { askQuestion, searchProperties, cancelActiveTask, fetchHistory, fetchSessionDetails, clearHistoryAPI, suggestAddresses } from '@/lib/api';
+import type { QuestionPayload, AddressSuggestion } from '@/lib/api';
 import { detectIntent } from '@/lib/chatRouting';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
@@ -214,6 +214,110 @@ const toMainSitePropertyPreviewUrl = (property: any, fallbackQuery?: string) => 
   }
 
   return `${mainSiteBase}/buy/browse`;
+};
+
+const parseNumericValue = (value: any): number | null => {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const cleaned = value.replace(/[^0-9.-]/g, '');
+    if (!cleaned) return null;
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const buildPreviewFallbackListing = (property: any) => {
+  const listingId = resolveListingId(property);
+  const propertyId = resolvePropertyId(property);
+  const imageCandidates = Array.isArray(property?.images)
+    ? property.images
+    : Array.isArray(property?.photos)
+      ? property.photos
+      : [];
+  const galleryImages = imageCandidates
+    .map((img: any) => {
+      if (typeof img === 'string') return img;
+      return img?.highRes || img?.midRes || img?.lowRes || img?.url || null;
+    })
+    .filter(Boolean);
+  const primaryImage =
+    property?.image ||
+    property?.primaryListingImageUrl ||
+    property?.primaryImage ||
+    galleryImages[0] ||
+    null;
+  const photosList = (galleryImages.length ? galleryImages : primaryImage ? [primaryImage] : []).map((url: string) => ({
+    lowRes: url,
+    midRes: url,
+    highRes: url,
+    url,
+  }));
+  const rawAddress =
+    property?.address ||
+    property?.unparsedAddress ||
+    property?.streetAddress ||
+    property?.formattedAddress ||
+    '';
+  const listPriceValue = parseNumericValue(property?.listPrice ?? property?.price);
+
+  return {
+    listingId: listingId ?? propertyId,
+    propertyId: propertyId ?? listingId,
+    listPrice: listPriceValue ?? property?.listPrice ?? property?.price ?? null,
+    listPriceLow: listPriceValue ?? property?.listPrice ?? property?.price ?? null,
+    zpid: property?.zpid ?? propertyId ?? listingId,
+    address: {
+      unparsedAddress: rawAddress,
+      city: property?.city || '',
+      stateOrProvince: property?.state || property?.province || property?.stateOrProvince || '',
+      zipCode: property?.zipCode || property?.zipcode || property?.zip_code || '',
+      countyOrParish: property?.countyOrParish || '',
+    },
+    property: {
+      bedroomsTotal: parseNumericValue(property?.beds ?? property?.bedrooms ?? property?.bedroomTotal),
+      bathroomsTotal: parseNumericValue(property?.baths ?? property?.bathrooms ?? property?.bathroomTotal),
+      livingArea: parseNumericValue(property?.sqft ?? property?.livingArea),
+      yearBuilt: property?.yearBuilt || null,
+      propertyType: property?.propertyType || property?.homeType || property?.type || 'Residential',
+      hasPool: Boolean(property?.hasPool ?? property?.has_pool),
+      latitude: parseNumericValue(property?.latitude ?? property?.lat),
+      longitude: parseNumericValue(property?.longitude ?? property?.lon ?? property?.long),
+    },
+    homedetails: {
+      flooring: '',
+      fireplaceYn: false,
+    },
+    media: {
+      primaryListingImageUrl: primaryImage,
+      photosList,
+    },
+    publicRemarks: property?.description || '',
+    tags: Array.isArray(property?.features) ? property.features : [],
+    standardStatus: property?.homeStatus || property?.status || property?.mostRecentStatus || 'Active',
+    mostRecentStatus: property?.homeStatus || property?.status || property?.mostRecentStatus || 'Active',
+    daysOnMarket: property?.daysOnMarket ?? null,
+    listingContractDate: property?.listingContractDate ?? null,
+    latitude: parseNumericValue(property?.latitude ?? property?.lat),
+    longitude: parseNumericValue(property?.longitude ?? property?.lon ?? property?.long),
+    url: property?.listingUrl || property?.listing_url || property?.url || null,
+  };
+};
+
+const storePreviewFallback = (property: any) => {
+  if (typeof window === 'undefined') return;
+  const listingId = resolveListingId(property);
+  if (listingId === undefined || listingId === null || String(listingId).trim() === '') return;
+  const fallbackPayload = {
+    listingId: String(listingId),
+    listing: buildPreviewFallbackListing(property),
+  };
+  localStorage.setItem(
+    `snaphomz_preview_fallback_${String(listingId)}`,
+    JSON.stringify(fallbackPayload)
+  );
 };
 
 const mapSnapProperties = (rawProperties: any[]) => {
@@ -458,6 +562,10 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   const user = null;
   const [searchTerm, setSearchTerm] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
+  // Address autocomplete state
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
+  const [isLoadingAddressSuggestions, setIsLoadingAddressSuggestions] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   // Controls expansion state (Collapsed Search Bar vs Expanded Chat UI)
   const [isExpanded, setIsExpanded] = useState(false);
@@ -613,6 +721,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   const searchInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastIntentRef = useRef<string | null>(null);
+  const addressSuggestDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [expandedSchoolLists, setExpandedSchoolLists] = useState<Record<string, boolean>>({});
   const [nearbySchoolsById, setNearbySchoolsById] = useState<Record<string, { status: 'idle' | 'loading' | 'ready' | 'error'; schools: any[]; error?: string; schoolType?: string; fallbackUsed?: boolean }>>({});
 
@@ -1491,6 +1600,63 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     setShowSuggestions(false);
   };
 
+  // ─── Address autocomplete helpers ──────────────────────────────────────────
+
+  /**
+   * Debounced fetch of address suggestions from the MLS API.
+   * Only fires when the input looks like a street address (starts with digits).
+   */
+  const fetchAddressSuggestions = (value: string) => {
+    // Cancel any pending debounce
+    if (addressSuggestDebounceRef.current) {
+      clearTimeout(addressSuggestDebounceRef.current);
+    }
+
+    const trimmed = value.trim();
+    // Only trigger for address-like queries: starts with 1–6 digit house number
+    const isAddressLike = /^\d{1,6}\s+/.test(trimmed) && trimmed.length >= 3;
+
+    if (!isAddressLike) {
+      setAddressSuggestions([]);
+      setShowAddressSuggestions(false);
+      return;
+    }
+
+    addressSuggestDebounceRef.current = setTimeout(async () => {
+      try {
+        setIsLoadingAddressSuggestions(true);
+        const results = await suggestAddresses(trimmed);
+        setAddressSuggestions(results);
+        setShowAddressSuggestions(results.length > 0);
+      } catch {
+        setAddressSuggestions([]);
+        setShowAddressSuggestions(false);
+      } finally {
+        setIsLoadingAddressSuggestions(false);
+      }
+    }, 300);
+  };
+
+  /**
+   * Navigate directly to the property detail page when a suggestion is clicked.
+   * Bypasses the AI search pipeline entirely.
+   */
+  const handleAddressSuggestionClick = (suggestion: AddressSuggestion) => {
+    setShowAddressSuggestions(false);
+    setAddressSuggestions([]);
+    setSearchTerm(suggestion.address || '');
+
+    const url = toMainSitePropertyPreviewUrl({
+      listingId: suggestion.listingId,
+      id: suggestion.id,
+      city: suggestion.city,
+      state: suggestion.state,
+      zip_code: suggestion.zip_code,
+      address: suggestion.address,
+    });
+    window.location.href = url;
+  };
+
   const performSnapImageSearch = async (file: File, locationInput?: string) => {
     clearSnapSession();
     console.log('[Snap-Search] Beginning backend search for file:', file.name, file.type);
@@ -1892,9 +2058,16 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                   <input
                     type="text"
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSearchTerm(val);
+                      fetchAddressSuggestions(val);
+                    }}
                     onFocus={() => setShowSuggestions(true)}
-                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                    onBlur={() => setTimeout(() => {
+                      setShowSuggestions(false);
+                      setShowAddressSuggestions(false);
+                    }, 200)}
                     placeholder={pendingImage ? 'Add city, ZIP, or coordinates for this image' : (placeholderText || typedPlaceholder)}
                     className="flex-1 min-w-0 bg-transparent outline-none px-3 md:px-4 py-2 text-gray-700 placeholder-gray-400 text-sm md:text-sm font-medium"
                   />
@@ -1979,6 +2152,61 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                             </span>
                           </div>
                         ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* ── Address Autocomplete Suggestions ── */}
+                {searchTerm && (showAddressSuggestions || isLoadingAddressSuggestions) && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="w-full border-t border-gray-100/50"
+                  >
+                    <div className="p-2 pt-3 text-left">
+                      <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-wider pl-3">
+                        Properties
+                      </p>
+                      <div className="space-y-0.5">
+                        {isLoadingAddressSuggestions ? (
+                          <div className="flex items-center gap-3 p-3 text-sm text-gray-400">
+                            <div className="w-4 h-4 border-2 border-orange-300 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                            Searching addresses…
+                          </div>
+                        ) : (
+                          addressSuggestions.map((suggestion, idx) => {
+                            // Split "123 Main St, City, State ZIP" into street vs city-state
+                            const commaIdx = suggestion.address.indexOf(',');
+                            const streetPart = commaIdx !== -1
+                              ? suggestion.address.slice(0, commaIdx).trim()
+                              : suggestion.address;
+                            const cityStatePart = commaIdx !== -1
+                              ? suggestion.address.slice(commaIdx + 1).trim()
+                              : '';
+                            return (
+                              <div
+                                key={suggestion.id || String(idx)}
+                                onMouseDown={() => handleAddressSuggestionClick(suggestion)}
+                                className="flex items-start gap-3 p-3 hover:bg-orange-50/50 rounded-xl cursor-pointer group transition-all"
+                              >
+                                <MapPin className="w-4 h-4 text-gray-300 group-hover:text-[#F58634] flex-shrink-0 mt-0.5 transition-colors" />
+                                <span className="flex flex-col min-w-0">
+                                  <span className="text-gray-800 font-semibold text-sm leading-snug truncate">
+                                    {streetPart}
+                                  </span>
+                                  {cityStatePart && (
+                                    <span className="text-gray-400 text-xs leading-snug truncate">
+                                      {cityStatePart}
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
+                            );
+                          })
+                        )}
                       </div>
                     </div>
                   </motion.div>
@@ -2825,6 +3053,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                       href={propertyDetailsUrl}
                                       target="_blank"
                                       rel="noopener noreferrer"
+                                      onClick={() => storePreviewFallback(selectedProp)}
                                       className="inline-flex w-full sm:w-auto justify-center items-center gap-2 rounded-full bg-orange-500 px-5 sm:px-8 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white shadow-md hover:bg-orange-600 transition-colors"
                                     >
                                       Want to know more about this property?

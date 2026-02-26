@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { useDeferredValue } from 'react';
@@ -534,7 +534,7 @@ const PropertyPreview: React.FC = () => {
     setInviteAgentEmail(value);
 
     if (!validateEmail(value)) {
-      setInviteEmailError('✨ Almost there! Please enter a valid email address');
+      setInviteEmailError('âœ¨ Almost there! Please enter a valid email address');
       return;
     } else {
       setInviteEmailError('');
@@ -694,8 +694,8 @@ const PropertyPreview: React.FC = () => {
       "The open stairwell ascends to the spacious living room featuring gorgeous cathedral ceilings and tons of natural light. The formal dining room and updated kitchen open to a spacious wrap-around deck shaded by majestic oak trees, perfect for entertaining or dining al fresco. This level also features two additional bedrooms and a full bath...",
     stats: {
       daysOnMarket: String(daysOnMarketValue ?? 0),
-      views: viewsValue !== null ? String(viewsValue) : '—',
-      saves: savesValue !== null ? String(savesValue) : '—',
+      views: viewsValue !== null ? String(viewsValue) : 'â€”',
+      saves: savesValue !== null ? String(savesValue) : 'â€”',
       sellLikelihood: "98%",
     },
     floorPlanSrc: '/assets/images/floor.png',
@@ -821,6 +821,42 @@ const PropertyPreview: React.FC = () => {
   };
 
 
+  const readPreviewFallbackListing = (targetListingId: string) => {
+    if (typeof window === 'undefined') return null;
+    const fallbackKey = `snaphomz_preview_fallback_${String(targetListingId)}`;
+    const fallbackRaw = localStorage.getItem(fallbackKey);
+    if (!fallbackRaw) return null;
+    try {
+      const fallback = JSON.parse(fallbackRaw);
+      return fallback?.listing || fallback || null;
+    } catch (parseError) {
+      console.log("Failed to parse fallback listing", parseError);
+      return null;
+    }
+  };
+
+  const persistPreviewContext = (sourceListing: any, sourceResponse: any) => {
+    if (typeof window === 'undefined' || !sourceListing) return;
+    const address = sourceListing?.address || {};
+    const propertyNode = sourceListing?.property || {};
+    localStorage.setItem('stateOrProvince', address?.stateOrProvince || '');
+    localStorage.setItem('listingId', String(sourceListing?.listingId || ''));
+    localStorage.setItem('propertyType', propertyNode?.propertyType || '');
+    localStorage.setItem(
+      'propertyId',
+      String(
+        sourceResponse?.property_id ||
+        sourceListing?.propertyId ||
+        sourceResponse?.data?.property_detail?.property_id ||
+        ''
+      )
+    );
+    localStorage.setItem('propertyAddress', address?.unparsedAddress || '');
+    localStorage.setItem('propertyAddress1', address?.countyOrParish || '');
+    localStorage.setItem('propertyAddress2', address?.zipCode || '');
+    localStorage.setItem('listPrice', String(sourceListing?.listPrice || ''));
+  };
+
   const getPropertyDetails = async (id: string) => {
     try {
       setLoading(true);
@@ -837,64 +873,49 @@ const PropertyPreview: React.FC = () => {
         body: JSON.stringify(payload)
       });
 
-      // debugger
       const data = await response.json();
-      setpropertyDatas(data)
       console.log("AI backend response data ", data)
       console.log("Similar homes payload:", data?.nearbyHomes)
-      console.log("🗺️ Coordinate check:", {
-        'data.data.latitude': data?.data?.latitude,
-        'data.data.longitude': data?.data?.longitude,
-        'data.data.Latitude': data?.data?.Latitude,
-        'data.data.Longitude': data?.data?.Longitude,
-        'data.data.property.latitude': data?.data?.property?.latitude,
-        'data.data.property.longitude': data?.data?.property?.longitude,
-        'data.data.location.latitude': data?.data?.location?.latitude,
-        'data.data.location.longitude': data?.data?.location?.longitude,
-        'data.latitude': data?.latitude,
-        'data.longitude': data?.longitude,
-        'data.property_detail': data?.property_detail
-      });
-      localStorage.setItem('stateOrProvince', data.data.address.stateOrProvince || '')
-      localStorage.setItem('listingId', String(data.data.listingId))
-      localStorage.setItem('propertyType', data.data.property.propertyType || '')
-      localStorage.setItem('propertyId', String(data.property_id || data.data.property_detail?.property_id))
-      // just the raw (unparsed) street address
-      localStorage.setItem('propertyAddress', data.data.address.unparsedAddress || '');
-      localStorage.setItem('propertyAddress1', data.data.address.countyOrParish || '');
-      localStorage.setItem('propertyAddress2', data.data.address.zipCode || '');
-      localStorage.setItem('listPrice', data.data.listPrice || '');
 
-
-
-      const hasPrimaryData = Boolean(data?.data && Object.keys(data.data).length);
+      const hasPrimaryData = Boolean(data?.data && typeof data.data === 'object' && Object.keys(data.data).length);
       if (hasPrimaryData) {
+        setpropertyDatas(data)
         setPropertyData(data?.data);
         setTags(data?.data?.tags);
         setPropertyDetails(data?.property_detail);
-      } else if (typeof window !== "undefined") {
-        const fallbackKey = `snaphomz_preview_fallback_${String(id)}`;
-        const fallbackRaw = localStorage.getItem(fallbackKey);
-        if (fallbackRaw) {
-          try {
-            const fallback = JSON.parse(fallbackRaw);
-            const fallbackListing = fallback?.listing || fallback;
-            setpropertyDatas({ data: fallbackListing });
-            setPropertyData(fallbackListing);
-            setTags(fallbackListing?.tags || []);
-          } catch (parseError) {
-            console.log("Failed to parse fallback listing", parseError);
-          }
+        persistPreviewContext(data?.data, data);
+      } else {
+        const fallbackListing = readPreviewFallbackListing(String(id));
+        if (fallbackListing) {
+          setpropertyDatas({
+            data: fallbackListing,
+            property_detail: data?.property_detail ?? null,
+            nearbyHomes: data?.nearbyHomes ?? [],
+          });
+          setPropertyData(fallbackListing);
+          setTags(fallbackListing?.tags || []);
+          setPropertyDetails(data?.property_detail ?? null);
+          persistPreviewContext(fallbackListing, data);
+        } else {
+          setpropertyDatas(data);
+          setPropertyDetails(data?.property_detail ?? null);
         }
       }
     } catch (error) {
       console.log("error : ", error);
+      const fallbackListing = readPreviewFallbackListing(String(id));
+      if (fallbackListing) {
+        setpropertyDatas({ data: fallbackListing, property_detail: null, nearbyHomes: [] });
+        setPropertyData(fallbackListing);
+        setTags(fallbackListing?.tags || []);
+        setPropertyDetails(null);
+        persistPreviewContext(fallbackListing, null);
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
 
   }
-
-
   React.useEffect(() => {
     const handleIntersect: IntersectionObserverCallback = (entries) => {
       entries.forEach((entry) => {
@@ -1270,7 +1291,7 @@ const PropertyPreview: React.FC = () => {
         lon = (proprtyData as any)?.property?.longitude || (proprtyData as any)?.property?.Longitude;
       }
 
-      console.log('🏫 Schools API Debug:', {
+      console.log('ðŸ« Schools API Debug:', {
         hasPropertyDatas: !!propertyDatas,
         lat,
         lon,
@@ -1279,7 +1300,7 @@ const PropertyPreview: React.FC = () => {
       });
 
       if (!lat || !lon) {
-        console.log('❌ No coordinates available for schools API');
+        console.log('âŒ No coordinates available for schools API');
         return;
       }
 
@@ -1288,7 +1309,7 @@ const PropertyPreview: React.FC = () => {
         return;
       }
 
-      console.log(`🔍 Fetching schools from: ${authRestBaseUrl}/schools/nearby?lat=${lat}&lon=${lon}`);
+      console.log(`ðŸ” Fetching schools from: ${authRestBaseUrl}/schools/nearby?lat=${lat}&lon=${lon}`);
       setSchoolsLoading(true);
       setSchoolsError(null);
 
@@ -1302,7 +1323,7 @@ const PropertyPreview: React.FC = () => {
         }
 
         const schools = await response.json();
-        console.log('✅ Schools API response:', schools);
+        console.log('âœ… Schools API response:', schools);
 
         // Transform Neo4j response to match the expected format
         const transformedSchools = schools.map((school: any) => ({
@@ -1313,10 +1334,10 @@ const PropertyPreview: React.FC = () => {
           distance: `${school.distanceMiles.toFixed(1)} mi`
         }));
 
-        console.log('📚 Transformed schools:', transformedSchools);
+        console.log('ðŸ“š Transformed schools:', transformedSchools);
         setNearbySchools(transformedSchools);
       } catch (err) {
-        console.error('❌ Error fetching nearby schools:', err);
+        console.error('âŒ Error fetching nearby schools:', err);
         setSchoolsError(err instanceof Error ? err.message : 'Failed to load schools');
       } finally {
         setSchoolsLoading(false);
@@ -1593,7 +1614,7 @@ const PropertyPreview: React.FC = () => {
       title: "Home highlights",
       content: (
         <HomeHighlights
-          highlights={proprtyData?.tags.length ? proprtyData?.tags : HomeHighlightsData.highlights}
+          highlights={proprtyData?.tags?.length ? proprtyData?.tags : HomeHighlightsData.highlights}
           description={proprtyData?.publicRemarks || ""}
           stats={HomeHighlightsData.stats}
           floorPlanSrc={HomeHighlightsData.floorPlanSrc}
@@ -1606,7 +1627,7 @@ const PropertyPreview: React.FC = () => {
       title: "Schools Nearby",
       content: (() => {
         const schoolsToDisplay = schoolsLoading ? schoolPropsData.schools : (nearbySchools.length > 0 ? nearbySchools : schoolPropsData.schools);
-        // console.log('🎓 Schools being displayed:', {
+        // console.log('ðŸŽ“ Schools being displayed:', {
         //   schoolsLoading,
         //   nearbySchoolsCount: nearbySchools.length,
         //   nearbySchools,
@@ -1630,11 +1651,11 @@ const PropertyPreview: React.FC = () => {
       id: "offers",
       title: "What this place offers",
       content: <InteriorOffersSection BathRoomAndBedRoom={proprtyData?.property} features={{
-        flooring: proprtyData?.homedetails.flooring || "",
-        hasBasement: proprtyData?.property.hasBasement || false,
-        hasFireplace: proprtyData?.homedetails.fireplaceYn || false,
+        flooring: proprtyData?.homedetails?.flooring || "",
+        hasBasement: proprtyData?.property?.hasBasement || false,
+        hasFireplace: proprtyData?.homedetails?.fireplaceYn || false,
 
-      }} featureList={proprtyData?.tags.join(", ")} />,
+      }} featureList={proprtyData?.tags?.join(", ")} />,
     },
     {
       id: "interest",

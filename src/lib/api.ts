@@ -196,3 +196,36 @@ export async function clearHistoryAPI() {
         return false;
     }
 }
+
+// ─── Address Autocomplete ────────────────────────────────────────────────────
+
+export type AddressSuggestion = {
+    address: string;
+    id: string;
+    listingId: string;
+    city: string;
+    state: string;
+    zip_code: string;
+};
+
+/**
+ * Fetches MLS property address suggestions for the given partial address string.
+ * Used by the hero search box to show a live autocomplete dropdown.
+ * Returns an empty array on any error so it never breaks the UI.
+ */
+export async function suggestAddresses(q: string, limit = 5): Promise<AddressSuggestion[]> {
+    try {
+        const params = new URLSearchParams({ q, limit: String(limit) });
+        const res = await fetch(`${API_BASE}/api/address/suggest?${params.toString()}`, {
+            headers: {
+                "Accept": "application/json",
+                ...getAuthHeaders(),
+            },
+        });
+        if (!res.ok) return [];
+        const data = await res.json();
+        return Array.isArray(data) ? data : [];
+    } catch {
+        return [];
+    }
+}

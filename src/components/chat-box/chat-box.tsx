@@ -5421,7 +5421,7 @@ export default function ChatBoxComponent(props: any) {
                 </button>
                 <h2 className="font-semibold text-lg text-gray-800">Messages</h2>
               </div>
-              <TooltipProvider delayDuration={120}>
+              {/* <TooltipProvider delayDuration={120}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -5439,7 +5439,7 @@ export default function ChatBoxComponent(props: any) {
                     start a new chat and invite your agent
                   </TooltipContent>
                 </Tooltip>
-              </TooltipProvider>
+              </TooltipProvider> */}
             </div>
 
             {/* Toggle Buttons */}

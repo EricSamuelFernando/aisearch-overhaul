@@ -1582,8 +1582,9 @@ const CustomMap: React.FC<Props> = ({
   }, [mapInstance, zoom]);
 
   useEffect(() => {
-    if (Array.isArray(drawFilteredMarkerIds)) {
-      // Keep the user's current viewport after drawing/filtering instead of auto-fitting all markers again.
+    // If we've already drawn a polygon or are in the middle of a search, 
+    // don't auto-adjust the map as it might trigger an infinite idle loop.
+    if (Array.isArray(drawFilteredMarkerIds) || recentDataClickRef.current) {
       return;
     }
     if (mapInstance && markers.length > 0) {
@@ -1591,11 +1592,10 @@ const CustomMap: React.FC<Props> = ({
       if (userMovedMapRef.current && lastAutoFitQueryRef.current === currentQueryKey) {
         return;
       }
-
       if (markers.length === 1) {
         const { lat, lng } = markers[0];
         mapInstance.setCenter({ lat, lng });
-        mapInstance.setZoom(zoom); // use passed prop
+        mapInstance.setZoom(zoom);
       } else {
         const bounds = new window.google.maps.LatLngBounds();
         markers.forEach(({ lat, lng }) => bounds.extend({ lat, lng }));
@@ -1957,6 +1957,16 @@ const CustomMap: React.FC<Props> = ({
           mapId: googleMapsMapId,
           zoomControlOptions: {
             position: google.maps.ControlPosition.RIGHT_BOTTOM,
+          },
+          minZoom: 3,
+          restriction: {
+            latLngBounds: {
+              north: 85,
+              south: -85,
+              west: -180,
+              east: 180,
+            },
+            strictBounds: true,
           },
           styles: [
             {

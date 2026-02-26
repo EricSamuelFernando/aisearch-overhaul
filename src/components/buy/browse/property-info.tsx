@@ -98,7 +98,6 @@ function PropertyBrowseView({ }: Props) {
   const sendSearchRequest = useCallback(
     debounce(async (body: Record<string, any>) => {
       if (isSearchingRef.current) return;
-
       const fingerprint = JSON.stringify({
         mode: isMlsBypassModeEnabled() ? 'mls' : 'ai',
         query: query ?? '',
@@ -120,7 +119,6 @@ function PropertyBrowseView({ }: Props) {
       }
       lastSearchFingerprintRef.current = fingerprint;
       lastSearchSentAtRef.current = now;
-
       isSearchingRef.current = true;
       setIsSearching(true);
       try {
@@ -138,6 +136,9 @@ function PropertyBrowseView({ }: Props) {
         const newProperties = response?.data?.records || response?.data?.result?.records;
 
         if (Array.isArray(newProperties) && newProperties.length > 0) {
+          // Only clear if we are not moving the map (i.e. no latitude/longitude in body) 
+          // or if we really want a fresh set. For map moves, we usually want to append or replace smoothly.
+          // For now, let's keep the logic but ensure we don't trigger unnecessary re-renders.
           if (body.latitude && body.longitude) {
             clearProperties();
           }

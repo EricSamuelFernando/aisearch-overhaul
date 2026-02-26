@@ -1,5 +1,5 @@
 'use client';
-/*just a push to deploy*/
+
 import MainNavPages from '@/components/navbars/main-nav-pages';
 import Footer from '@/components/shared/footer';
 

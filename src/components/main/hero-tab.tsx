@@ -643,7 +643,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const textClass = isExpandedVariant ? 'text-sm' : 'text-xs';
     const statusClass = isExpandedVariant ? 'text-xs' : 'text-[11px]';
     const gap = isExpandedVariant ? 'gap-3' : 'gap-2';
-    const maxWidth = isExpandedVariant ? 'max-w-[170px] sm:max-w-[220px]' : 'max-w-[210px]';
+    const maxWidth = isExpandedVariant ? 'max-w-[130px] sm:max-w-[220px]' : 'max-w-[180px] sm:max-w-[210px]';
 
     return (
       <div
@@ -2881,7 +2881,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 {/* 1. Related Questions (Removed - now dynamic per message) */}
 
                 {/* 2. New Large Search Bar + Controls */}
-                <div ref={searchContainerRef} className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                <div ref={searchContainerRef} className="mb-3 flex flex-wrap items-center gap-2 sm:mb-4 sm:flex-nowrap sm:gap-3">
                   {/* Contextual Actions */}
                   <button
                     onClick={() => {
@@ -2924,7 +2924,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                   </button>
 
                   {/* Search Input */}
-                  <div className="relative flex-1">
+                  <div className={`relative min-w-0 ${pendingImage || pendingImagePreview ? 'w-full sm:flex-1' : 'flex-1'}`}>
                     <div className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-20">
                       <button
                         type="button"
@@ -2987,7 +2987,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                         }
                       }}
                       placeholder={pendingImage ? "Type city, ZIP, or coordinates for this image" : "Ask anything about homes, neighborhoods, schools"}
-                      className={`w-full bg-white text-gray-900 rounded-full h-12 sm:h-[68px] ${pendingImage || pendingImagePreview ? 'pl-56 sm:pl-[19rem]' : 'pl-11 sm:pl-14'} pr-20 sm:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-sm sm:text-base placeholder:text-gray-400 font-normal`}
+                      className={`w-full bg-white text-gray-900 rounded-full h-12 sm:h-[68px] ${pendingImage || pendingImagePreview ? 'pl-40 sm:pl-[19rem]' : 'pl-11 sm:pl-14'} pr-16 sm:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-sm sm:text-base placeholder:text-gray-400 font-normal`}
                     />
                     <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 sm:gap-4">
                       <button className="text-gray-500 hover:text-gray-900 transition-colors">

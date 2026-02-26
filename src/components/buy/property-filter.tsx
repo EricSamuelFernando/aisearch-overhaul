@@ -762,7 +762,13 @@ function PropertyFilter() {
   const [selectedSort, setSelectedSort] = useState(sortOptions[0]);
   const [selectedPropertyType, setSelectedPropertyType] = useState(propertyTypes[0]);
 
+  const isInitialSortMount = useRef(true);
+
   useEffect(() => {
+    if (isInitialSortMount.current) {
+      isInitialSortMount.current = false;
+      return;
+    }
     if (selectedSort.value || selectedPropertyType.value)
       sendSearchRequest()
   }, [selectedSort, selectedPropertyType]);
@@ -980,7 +986,22 @@ function PropertyFilter() {
     }
   };
 
+  const isInitialFilterMount = useRef(true);
+  const initializedFiltersRef = useRef(false);
+
   useEffect(() => {
+    // If it's the very first render, skip it
+    if (isInitialFilterMount.current) {
+      isInitialFilterMount.current = false;
+      return;
+    }
+
+    // We also want to skip the "initial" state synchronization if no categories were actually clicked
+    if (!initializedFiltersRef.current && selectedCategories.length === 0 && selectedSubCategories.length === 0) {
+      initializedFiltersRef.current = true;
+      return;
+    }
+
     sendSearchRequest();
   }, [selectedCategories, selectedSubCategories]);
 

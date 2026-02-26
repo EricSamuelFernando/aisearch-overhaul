@@ -9,6 +9,7 @@ import CustomInput from '@/components/customs/input';
 import { removeNonNumericCharacters } from '@/lib/helpers';
 import { useEffect, useState } from 'react';
 import { PROPERTY_SEARCH_AI_URL } from '@/shared/constants/env';
+import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import axios from 'axios';
 import { incrementSearchCount } from '@/slices/onboarding/property-preference';
 import { setPropertyQuery, setSearchFilters } from '@/slices/property/property-slice';
@@ -306,8 +307,8 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
     const data: any = {
       bedrooms: +localFilters?.bedRooms || undefined,
       bathrooms: +localFilters?.bathRooms || undefined,
-      listing_price_max: +(filters?.maxPrice ?? "") || undefined,
-      listing_price_min: +(filters?.minPrice ?? "") || undefined,
+      listing_price_max: +(localFilters?.priceMax ?? "") || undefined,
+      listing_price_min: +(localFilters?.priceMin ?? "") || undefined,
       additional_criteria: {}
     }
     dispatch(setSearchFilters({
@@ -349,8 +350,12 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
     router.replace(qs ? `${pathname}?${qs}` : pathname);
 
     try {
+      const searchUrl = isMlsBypassModeEnabled()
+        ? '/api/mls/search'
+        : (PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search');
+
       const response = await axios.post(
-        PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search',
+        searchUrl,
         {
           ...data,
           user: userId,
@@ -362,9 +367,10 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
       );
       clearProperties();
       dispatch(incrementSearchCount());
-      dispatch(setPropertyQuery(response.data?.result.search_query));
-      setSearchedQuery(response.data?.result.records);
-      addProperties(response.data?.result.records);
+      const responseRecords = response.data?.result?.records || response.data?.records || [];
+      dispatch(setPropertyQuery(response.data?.result?.search_query || response.data?.search_query || searchQuery));
+      setSearchedQuery(responseRecords);
+      addProperties(responseRecords);
       setLoading(false)
       if (!user?.email) {
         error({ message: 'You have reached the search limit for non-logged-in users. Please create an account to continue.' });

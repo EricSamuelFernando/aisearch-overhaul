@@ -427,7 +427,7 @@ function SocketProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const commWsUrl = process.env.NEXT_PUBLIC_COMMUNICATION_SOCKET_URI;
     const baseAuthWsUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_SOCKET_URL;
-    const authServiceBaseUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL;
+    const authServiceBaseUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_SOCKET_URL;
     if (!isLogin || !effectiveToken) return;
 
     let resolvedAuthWsUrl = baseAuthWsUrl || authServiceBaseUrl;
@@ -437,12 +437,12 @@ function SocketProvider({ children }: { children: ReactNode }) {
       resolvedAuthWsUrl = authServiceBaseUrl;
     }
 
-    const trimmedBase = resolvedAuthWsUrl.replace(/\/$/, '');
-    const wsBase = trimmedBase.endsWith('/ws') ? trimmedBase : `${trimmedBase}/ws`;
-    const wsUrl = wsBase.startsWith('ws') ? wsBase : wsBase.replace(/^http/, 'ws');
+    // const trimmedBase = resolvedAuthWsUrl.replace(/\/$/, '');
+    // const wsBase = trimmedBase.endsWith('/ws') ? trimmedBase : `${trimmedBase}/ws`;
+    // const wsUrl = wsBase.startsWith('ws') ? wsBase : wsBase.replace(/^http/, 'ws');
     const encodedToken = encodeURIComponent(`Bearer ${effectiveToken}`);
-    const authWsUrl = `${wsUrl}?token=${encodedToken}&authorization=${encodedToken}`;
-
+    const authWsUrl = `${resolvedAuthWsUrl}?token=${encodedToken}&authorization=${encodedToken}`;
+    console.log("Websocket url is ", authWsUrl)
     const connectAuthWs = () => {
       if (authNotificationWsRef.current) return;
 
@@ -767,23 +767,23 @@ function SocketProvider({ children }: { children: ReactNode }) {
             body: body || "",
             kind,
             channelId: threadId,
-              action: "navigate",
-              isVisible: true,
-              link,
+            action: "navigate",
+            isVisible: true,
+            link,
+          },
+          notifications: [
+            {
+              id: data?.id || `socket-notification-${Date.now()}`,
+              title: title || "New notification",
+              body: body || "",
+              createdAt: data?.createdAt || new Date().toISOString(),
+              read: false,
+              kind: kind || "general",
+              link: link || undefined,
+              threadId: threadId || undefined,
+              snapId: snapId || undefined,
+              source: "socket",
             },
-            notifications: [
-              {
-                id: data?.id || `socket-notification-${Date.now()}`,
-                title: title || "New notification",
-                body: body || "",
-                createdAt: data?.createdAt || new Date().toISOString(),
-                read: false,
-                kind: kind || "general",
-                link: link || undefined,
-                threadId: threadId || undefined,
-                snapId: snapId || undefined,
-                source: "socket",
-              },
             ...(Array.isArray(prev.notifications) ? prev.notifications : []),
           ].slice(0, 50),
         }));

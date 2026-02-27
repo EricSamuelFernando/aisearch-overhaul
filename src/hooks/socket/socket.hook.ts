@@ -1,8 +1,7 @@
 import { createWebSocketClient, WebSocketClient } from "@/lib/websocket-client";
 
-const SOCKET_URL =
-  process.env.NEXT_PUBLIC_COMMUNICATION_SOCKET_URI || "http://localhost:4002";
-console.log("SOCKET_URL", process.env.NEXT_PUBLIC_COMMUNICATION_SOCKET_URI, SOCKET_URL);
+const SOCKET_URL = process.env.NEXT_PUBLIC_AUTH_SERIVCE_SOCKET_URL || "http://localhost:4000";
+console.log("SOCKET_URL", process.env.NEXT_PUBLIC_AUTH_SERIVCE_SOCKET_URL, SOCKET_URL);
 
 // ⚠️ DISABLED: Socket is now managed by SocketContext to prevent duplicate connections
 // Use SocketContext instead of this singleton

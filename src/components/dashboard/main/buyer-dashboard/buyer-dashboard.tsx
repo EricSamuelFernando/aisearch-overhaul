@@ -89,7 +89,6 @@ function SwitchLayout() {
   }, [pathname, selectedTab, setSelectedTab]);
 
   if (excludedPaths.some((path) => pathname.includes(path))) return null;
-  if (selectedTab === 'messages') return null;
   if (!visibleTabs.length) return null;
 
   return (

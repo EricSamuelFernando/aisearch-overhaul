@@ -50,13 +50,13 @@ export function EmailForm({ origin = 'page', onSetView }: Readonly<Prop>) {
 
   const { selectEmail } = useRegisterActions();
   const payload = useRegister();
-  const { sendCodeMutation  } = useUserAuthApi();
+  const { sendCodeMutation } = useUserAuthApi();
   const { openModal, closeModal } = useModalContext();
 
   const clearView = () => {
     onSetView?.(null);
   };
-  
+
   const { cognitoGoogleLogin } = useCognitoGoogleAuth();
 
   const handleGoogleLogin = () => {
@@ -130,7 +130,6 @@ export function EmailForm({ origin = 'page', onSetView }: Readonly<Prop>) {
           }}
           className='h-12 max-w-xl placeholder:text-base'
           containerClass='max-w-xl'
-          autoComplete='email'
           type='email'
           error={errors.email?.message}
         />

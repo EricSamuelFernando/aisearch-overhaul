@@ -210,8 +210,8 @@ const BuyerProgressButton: React.FC<BuyerProgressButtonProps> = ({
       handleCancel={() => navigateTo(true)}
       handleNextContinue={handleNext}
       cancelLabel={cancelLabel}
-      hideCancel={true}
       loading={saving}
+      hideCancel={hideCancel}
       hideBack={hideBack}
     />
   );

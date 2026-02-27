@@ -36,7 +36,6 @@ import axios from 'axios';
 import { GET_PROPERTY_SEARCH_PREFERENCE_AI_URL, PROPERTY_DETAIL_SEARCH_AI_URL } from '@/shared/constants/env';
 import { getAuthToken } from '@/lib/storage';
 import { getIsAuthExpired } from '@/lib/api/axios';
-import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 
 interface SharePropertyRequestBody {
   role: string;
@@ -250,20 +249,9 @@ export const useGetSingleProperty = (propertyId: string) => {
     queryKey: ['get-property-single-listing', propertyId],
     queryFn: async () => {
       try {
-        const bypass = isMlsBypassModeEnabled();
-        const detailUrl = bypass
-          ? '/api/mls/detail'
-          : (PROPERTY_DETAIL_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search/preference');
-
-        const numericId = Number(propertyId);
-        const response = await axios.post(detailUrl, bypass
-          ? {
-              listingId: Number.isFinite(numericId) ? numericId : propertyId,
-              propertyId: Number.isFinite(numericId) ? numericId : propertyId,
-            }
-          : {
-              listingId: Number(propertyId)
-            });
+        const response = await axios.post(PROPERTY_DETAIL_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search/preference', {
+          listingId: Number(propertyId)
+        });
 
         // Map the response to match expected structure
         // dashboard layout expects data.property to be the property object

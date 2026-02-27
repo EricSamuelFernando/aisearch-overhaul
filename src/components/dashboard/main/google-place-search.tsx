@@ -19,7 +19,7 @@ const PlacesComponent: React.FC = () => {
   const { isLoaded } = useLoadScript({
     id: 'google-map-script',
     googleMapsApiKey: googleMapsApiKey!,
-    libraries: ['places', 'geometry', 'drawing'],
+    libraries: ['places', 'geometry'],
   });
 
   if (!isLoaded) return <div>Loading...</div>;

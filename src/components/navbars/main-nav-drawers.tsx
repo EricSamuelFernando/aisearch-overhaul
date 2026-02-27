@@ -22,7 +22,6 @@ const MobileSideDrawer: React.FC<MobileSideDrawerProps> = ({
   closeDrawer,
   isDrawerOpen = false,
 }) => {
-  const hiddenMobileNavItems = new Set(['/sell', '/company']);
   const { isLoggedIn, user } = useAuth();
   const { userLogout } = useUserAuthApi();
   const [showAvatar, setShowAvatar] = React.useState(Boolean(user?.profile));
@@ -90,7 +89,7 @@ const MobileSideDrawer: React.FC<MobileSideDrawerProps> = ({
             </Link>
             <Link
               href="/sell"
-              className={`block text-lg font-normal text-gray-900 hover:text-primary transition-colors ${hiddenMobileNavItems.has('/sell') ? 'hidden' : ''}`}
+              className="block text-lg font-normal text-gray-900 hover:text-primary transition-colors"
               onClick={closeDrawer}
             >
               Sell
@@ -104,7 +103,7 @@ const MobileSideDrawer: React.FC<MobileSideDrawerProps> = ({
             </Link>
             <Link
               href="/company"
-              className={`block text-lg font-normal text-gray-900 hover:text-primary transition-colors ${hiddenMobileNavItems.has('/company') ? 'hidden' : ''}`}
+              className="block text-lg font-normal text-gray-900 hover:text-primary transition-colors"
               onClick={closeDrawer}
             >
               Company
@@ -234,8 +233,7 @@ const BuyDropdownMenu: React.FC<DropdownMenuProps> = ({
         <div className='flex flex-col space-y-7 pr-14'>
           <h4 className='text-md font-medium'>Buy a Home With</h4>
           <div className='flex flex-col space-y-5'>
-            <Link href='/home?q=California'>Homes in California</Link>
-            <Link href='/home?q=Texas'>Homes in Texas</Link>
+            <Link href='/home#agents'>Your Agent</Link>
             <Link href='/home#agents'>Our Real Estate Agents</Link>
             {/* <Link href='/home#agents'>Do it Yourself</Link> */}
           </div>
@@ -245,6 +243,7 @@ const BuyDropdownMenu: React.FC<DropdownMenuProps> = ({
           <div className='flex flex-col space-y-5'>
             <Link href='/home#how-it-works'>How it Works</Link>
             <Link href='/home#strength-analyzer'>Offer Strength Analyzer</Link>
+            <Link href='/home#testimonials'>Testimonials</Link>
           </div>
         </div>
       </div>

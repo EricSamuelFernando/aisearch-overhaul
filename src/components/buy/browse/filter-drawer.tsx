@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { FeatureOption } from '../property-filter';
@@ -9,7 +9,6 @@ import CustomInput from '@/components/customs/input';
 import { removeNonNumericCharacters } from '@/lib/helpers';
 import { useEffect, useState } from 'react';
 import { PROPERTY_SEARCH_AI_URL } from '@/shared/constants/env';
-import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import axios from 'axios';
 import { incrementSearchCount } from '@/slices/onboarding/property-preference';
 import { setPropertyQuery, setSearchFilters } from '@/slices/property/property-slice';
@@ -37,117 +36,7 @@ interface FilterDrawerProps {
   selectedSubCategories?: any;
 }
 
-type ParsedQueryFilters = {
-  bedRooms?: number;
-  bathRooms?: number;
-  priceMin?: number;
-  priceMax?: number;
-  propertyType?: string;
-};
-
-const normalizeText = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-const parseQueryFilters = (
-  query: string,
-  typeOptions: Array<{ name: string; value: string }>,
-): ParsedQueryFilters => {
-  const text = query.toLowerCase();
-  if (!text) return {};
-
-  const toNumber = (raw: string): number | undefined => {
-    const clean = raw.toLowerCase().replace(/,/g, '').trim();
-    let value: number;
-    if (clean.endsWith('m')) value = parseFloat(clean) * 1_000_000;
-    else if (clean.endsWith('k')) value = parseFloat(clean) * 1_000;
-    else if (clean.endsWith('b') || clean.endsWith('bn')) value = parseFloat(clean) * 1_000_000_000;
-    else if (clean.includes('billion')) value = parseFloat(clean) * 1_000_000_000;
-    else if (clean.includes('million')) value = parseFloat(clean) * 1_000_000;
-    else value = parseFloat(clean.replace(/[^\d.]/g, ''));
-    return Number.isFinite(value) ? Math.round(value) : undefined;
-  };
-
-  const bedMatch = text.match(/(\d+)\s*[- ]*(?:bed|bedroom)s?\b/i);
-  const bathMatch = text.match(/(\d+)\s*[- ]*(?:bath|bathroom)s?\b/i);
-
-  const normalizedQuery = normalizeText(query);
-  let inferredType: string | undefined;
-  if (normalizedQuery && typeOptions?.length) {
-    let bestScore = 0;
-    typeOptions.forEach((opt) => {
-      if (!opt.value) return;
-      const nameNorm = normalizeText(opt.name);
-      const valueNorm = normalizeText(opt.value);
-      const matched =
-        (nameNorm && normalizedQuery.includes(nameNorm)) ||
-        (valueNorm && normalizedQuery.includes(valueNorm));
-      if (!matched) return;
-      const score = Math.max(nameNorm.length, valueNorm.length);
-      if (score > bestScore) {
-        bestScore = score;
-        inferredType = opt.value;
-      }
-    });
-  }
-
-  const base = {
-    bedRooms: bedMatch ? Number(bedMatch[1]) : undefined,
-    bathRooms: bathMatch ? Number(bathMatch[1]) : undefined,
-    propertyType: inferredType,
-  };
-
-  const between = text.match(
-    /between\s+\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)\s+and\s+\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
-  );
-  if (between) {
-    const a = toNumber(between[1]);
-    const b = toNumber(between[2]);
-    if (a !== undefined && b !== undefined) {
-      return { ...base, priceMin: Math.min(a, b), priceMax: Math.max(a, b) };
-    }
-    return base;
-  }
-
-  const dash = text.match(
-    /\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)\s*-\s*\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
-  );
-  if (dash) {
-    const a = toNumber(dash[1]);
-    const b = toNumber(dash[2]);
-    if (a !== undefined && b !== undefined) {
-      return { ...base, priceMin: Math.min(a, b), priceMax: Math.max(a, b) };
-    }
-    return base;
-  }
-
-  const fromTo = text.match(
-    /from\s+\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)\s+(?:to|through|until|till)\s+\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
-  );
-  if (fromTo) {
-    const a = toNumber(fromTo[1]);
-    const b = toNumber(fromTo[2]);
-    if (a !== undefined && b !== undefined) {
-      return { ...base, priceMin: Math.min(a, b), priceMax: Math.max(a, b) };
-    }
-  }
-
-  const maxCue = text.match(
-    /\b(at\s*most|atmost|under|below|less than|up to|max(?:imum)?|no more than|not more than|not exceeding|<=|<)\b[^$\d]*\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
-  );
-  const minCue = text.match(
-    /\b(at\s*least|atleast|over|above|more than|no less than|min(?:imum)?|starting\s*(?:at|from)|from|>=|>)\b[^$\d]*\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
-  );
-  const budgetCue = text.match(
-    /\b(budget|around|approximately|about|roughly|circa)\b[^$\d]{0,24}\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
-  );
-
-  const minValue = minCue ? toNumber(minCue[2]) : undefined;
-  const maxValue = maxCue ? toNumber(maxCue[2]) : budgetCue ? toNumber(budgetCue[2]) : undefined;
-
-  return { ...base, priceMin: minValue, priceMax: maxValue };
-};
-
 const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCategories, selectedSubCategories }: FilterDrawerProps) => {
-  const pathname = usePathname();
   const router = useRouter();
   const dispatch = useDispatch();
   const { user } = useAuth()
@@ -178,23 +67,15 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
 
   const searchQuery = searchParams.get("q") || ""
   const searchFilters = useSelector((state: RootState) => state.property.filters);
-  const [localFilters, setLocalFilters] = useState(() => {
-    const inferred = parseQueryFilters(searchQuery, sortOptions);
-    const bedParam = searchParams.get('bedRooms') || '';
-    const bathParam = searchParams.get('bathRooms') || '';
-    const priceMinParam = searchParams.get('priceMin') || '';
-    const priceMaxParam = searchParams.get('priceMax') || '';
-    const propertyTypeParam = searchParams.get('propertyType') || '';
-    return {
-      priceMin: priceMinParam || (filters.minPrice ? String(filters.minPrice) : inferred.priceMin ? String(inferred.priceMin) : ''),
-      priceMax: priceMaxParam || (filters.maxPrice ? String(filters.maxPrice) : inferred.priceMax ? String(inferred.priceMax) : ''),
-      bedRooms: bedParam || (filters.bedrooms ? String(filters.bedrooms) : inferred.bedRooms ? String(inferred.bedRooms) : ''),
-      bathRooms: bathParam || (filters.bathrooms ? String(filters.bathrooms) : inferred.bathRooms ? String(inferred.bathRooms) : ''),
-      sqTfMin: searchParams.get('sqTfMin') || '',
-      sqTfMax: searchParams.get('sqTfMax') || '',
-      propertyType: propertyTypeParam || inferred.propertyType || '',
-      listing_property_type: selectedSort.value,
-    };
+  const [localFilters, setLocalFilters] = useState({
+    priceMin: +(filters.minPrice ?? "") || '',
+    priceMax: +(filters.maxPrice ?? "") || '',
+    bedRooms: filters.bedrooms || '',
+    bathRooms: filters.bathrooms || '',
+    sqTfMin: searchParams.get('sqTfMin') || '',
+    sqTfMax: searchParams.get('sqTfMax') || '',
+    propertyType: searchParams.get('propertyType') || '',
+    listing_property_type: selectedSort.value,
   });
 
   const {
@@ -216,55 +97,33 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
   ];
 
   const handleInputChange = (field: string, value: string) => {
-    if (field === 'minPrice') {
-      setLocalFilters((prev) => ({ ...prev, priceMin: value }));
-    } else if (field === 'maxPrice') {
-      setLocalFilters((prev) => ({ ...prev, priceMax: value }));
-    } else if (field === 'sqTfMin') {
-      setLocalFilters((prev) => ({ ...prev, sqTfMin: value }));
-    } else if (field === 'sqTfMax') {
-      setLocalFilters((prev) => ({ ...prev, sqTfMax: value }));
-    }
     setFilters((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Pre-select filters from query string so the UI matches the applied search.
+  // Pre-select filters from query string (q, bedRooms, bathRooms) so the UI matches the applied search.
   useEffect(() => {
-    const inferred = parseQueryFilters(searchQuery, sortOptions);
-    const bedParam = searchParams.get('bedRooms') || '';
-    const bathParam = searchParams.get('bathRooms') || '';
-    const priceMinParam = searchParams.get('priceMin') || '';
-    const priceMaxParam = searchParams.get('priceMax') || '';
-    const propertyTypeParam = searchParams.get('propertyType') || '';
+    const bedParam = searchParams.get('bedRooms');
+    const bathParam = searchParams.get('bathRooms');
 
-    const nextLocal = {
-      priceMin: priceMinParam || (inferred.priceMin ? String(inferred.priceMin) : ''),
-      priceMax: priceMaxParam || (inferred.priceMax ? String(inferred.priceMax) : ''),
-      bedRooms: bedParam || (inferred.bedRooms ? String(inferred.bedRooms) : ''),
-      bathRooms: bathParam || (inferred.bathRooms ? String(inferred.bathRooms) : ''),
-      sqTfMin: searchParams.get('sqTfMin') || '',
-      sqTfMax: searchParams.get('sqTfMax') || '',
-      propertyType: propertyTypeParam || inferred.propertyType || '',
-      listing_property_type: selectedSort.value,
+    const extractNumber = (pattern: RegExp) => {
+      const match = searchQuery.match(pattern);
+      return match ? Number(match[1]) : undefined;
     };
 
-    setLocalFilters(nextLocal);
+    const inferredBeds = bedParam ? Number(bedParam) : extractNumber(/(\d+)\s*[- ]*bed/i);
+    const inferredBaths = bathParam ? Number(bathParam) : extractNumber(/(\d+)\s*[- ]*bath/i);
+
+    setLocalFilters((prev) => ({
+      ...prev,
+      bedRooms: prev.bedRooms || (inferredBeds ? inferredBeds.toString() : ''),
+      bathRooms: prev.bathRooms || (inferredBaths ? inferredBaths.toString() : ''),
+    }));
 
     setFilters((prev: any) => ({
       ...prev,
-      bedrooms: nextLocal.bedRooms ? Number(nextLocal.bedRooms) : undefined,
-      bathrooms: nextLocal.bathRooms ? Number(nextLocal.bathRooms) : undefined,
-      minPrice: nextLocal.priceMin ? Number(nextLocal.priceMin) : undefined,
-      maxPrice: nextLocal.priceMax ? Number(nextLocal.priceMax) : undefined,
-      propertyType: nextLocal.propertyType || prev.propertyType,
+      bedrooms: prev.bedrooms ?? inferredBeds ?? prev.bedrooms,
+      bathrooms: prev.bathrooms ?? inferredBaths ?? prev.bathrooms,
     }));
-
-    if (nextLocal.propertyType) {
-      const matched = sortOptions.find((opt) => opt.value === nextLocal.propertyType);
-      if (matched && matched.value !== selectedSort.value) {
-        setSelectedSort(matched);
-      }
-    }
   }, [searchQuery, searchParams, setFilters]);
 
   const handleBedSelection = (selectedBed: number | string) => {
@@ -307,8 +166,8 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
     const data: any = {
       bedrooms: +localFilters?.bedRooms || undefined,
       bathrooms: +localFilters?.bathRooms || undefined,
-      listing_price_max: +(localFilters?.priceMax ?? "") || undefined,
-      listing_price_min: +(localFilters?.priceMin ?? "") || undefined,
+      listing_price_max: +(filters?.maxPrice ?? "") || undefined,
+      listing_price_min: +(filters?.minPrice ?? "") || undefined,
       additional_criteria: {}
     }
     dispatch(setSearchFilters({
@@ -317,15 +176,12 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
       maxPrice: +localFilters?.priceMax || undefined,
       bedRooms: +localFilters?.bedRooms || undefined,
       bathRooms: +localFilters?.bathRooms || undefined,
-      propertyType: selectedSort.value || undefined,
+
     }))
     setFilters((prev: any) => ({
       ...prev,
-      bedrooms: +localFilters?.bedRooms || undefined,
-      bathrooms: +localFilters?.bathRooms || undefined,
-      minPrice: +localFilters?.priceMin || undefined,
-      maxPrice: +localFilters?.priceMax || undefined,
-      propertyType: selectedSort.value || undefined,
+      bedrooms: +localFilters?.bedRooms,
+      bathrooms: +localFilters?.bathRooms,
     }));
     if (selectedSubCategories.length > 0) {
       selectedSubCategories.forEach((subCat: any) => {
@@ -335,42 +191,23 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
         }
       });
     }
-    const params = new URLSearchParams(searchParams.toString());
-    const setOrDelete = (key: string, value?: string | number) => {
-      if (value === undefined || value === null || value === '' || value === 'All') params.delete(key);
-      else params.set(key, String(value));
-    };
-    if (searchQuery) params.set('q', searchQuery);
-    setOrDelete('bedRooms', localFilters.bedRooms);
-    setOrDelete('bathRooms', localFilters.bathRooms);
-    setOrDelete('priceMin', localFilters.priceMin);
-    setOrDelete('priceMax', localFilters.priceMax);
-    setOrDelete('propertyType', selectedSort.value);
-    const qs = params.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname);
-
     try {
-      const searchUrl = isMlsBypassModeEnabled()
-        ? '/api/mls/search'
-        : (PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search');
-
       const response = await axios.post(
-        searchUrl,
+        PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search',
         {
           ...data,
           user: userId,
           query: searchQuery,
           // num_records: process.env.SEARCH_RECORDS || 10,
-          listing_property_type: selectedSort.value || searchFilters.propertyType || undefined,
+          listing_property_type: searchFilters.propertyType || undefined,
           public_land_use: searchFilters.subType || undefined,
         }
       );
       clearProperties();
       dispatch(incrementSearchCount());
-      const responseRecords = response.data?.result?.records || response.data?.records || [];
-      dispatch(setPropertyQuery(response.data?.result?.search_query || response.data?.search_query || searchQuery));
-      setSearchedQuery(responseRecords);
-      addProperties(responseRecords);
+      dispatch(setPropertyQuery(response.data?.result.search_query));
+      setSearchedQuery(response.data?.result.records);
+      addProperties(response.data?.result.records);
       setLoading(false)
       if (!user?.email) {
         error({ message: 'You have reached the search limit for non-logged-in users. Please create an account to continue.' });
@@ -400,15 +237,6 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
       propertyType: '',
       listing_property_type: '',
     });
-    setSelectedSort(sortOptions[0]);
-    setFilters((prev: any) => ({
-      ...prev,
-      bedrooms: undefined,
-      bathrooms: undefined,
-      minPrice: undefined,
-      maxPrice: undefined,
-      propertyType: undefined,
-    }));
   };
   console.log("filters", filters);
 

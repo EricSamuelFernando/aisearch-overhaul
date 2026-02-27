@@ -1075,7 +1075,6 @@ const HOME_PAGE_TESTIMONIALS = [
 export default function Home() {
   const [isOpen, setIsOpen] = useState(false);
   const [searchMethod, setSearchMethod] = useState('');
-  const [isHomeSearchActive, setIsHomeSearchActive] = useState(false);
   const dispatch = useAppDispatch();
   const { email } = useRegister();
   const [carouselEmbla, setCarouselEmbla] = useState<any>(null);
@@ -1480,9 +1479,7 @@ export default function Home() {
 
             <div className="relative w-full flex justify-center text-black">
               <div className="w-full max-w-[1500px]">
-                <HeroSearchForm
-                  onSearchStateChange={(isActive) => setIsHomeSearchActive(isActive)}
-                />
+                <HeroSearchForm />
               </div>
 
               {/* <div className="mt-4 flex justify-center gap-4 text-sm text-white">
@@ -1503,9 +1500,7 @@ export default function Home() {
               </div> */}
             </div>
 
-            <div
-              className={`text-[1rem] transition-colors ${isHomeSearchActive ? 'text-white md:text-[#2C211A]' : 'text-white'}`}
-            >
+            <div className="text-white text-[1rem]">
               <span className="font-medium">Conversational search, </span>
               <span className="font-bold underline">powered by AI.</span>
             </div>

@@ -19,7 +19,6 @@ import { CheckSquare, Square } from 'lucide-react';
 
 const PropertyCards = (props: any) => {
   const { snaps, fetchSnaps } = props;
-  const isOverlayMode = !!props.overlayMode;
   const { saveCurrenctProperty } = usePropertyActions();
   const router = useRouter();
   const [carouselEvent, setCarouselEvent] = useState(false);
@@ -123,36 +122,6 @@ const PropertyCards = (props: any) => {
 
   const statusInfo = getStatusInfo(props?.listing);
   const propertyId = props?.id ?? props?.propertyId ?? props?.listingId;
-  const listing = props?.listing ?? props?.data?.listing ?? {};
-  const address = listing?.address ?? {};
-  const property = listing?.property ?? {};
-  const primaryImage =
-    listing?.media?.primaryListingImageUrl ||
-    props?.public?.imageUrl ||
-    props?.image ||
-    '/assets/images/placeholder.svg';
-  const priceText = formatCurrency(listing?.listPriceLow || listing?.listPrice || 0, 'USD').replace('$', '$');
-  const beds = property?.bedroomsTotal ?? 0;
-  const baths = property?.bathroomsTotal ?? 0;
-  const sqft = property?.livingArea ?? 0;
-  const propertyTypeLabel =
-    listing?.propertyType ||
-    property?.propertyType ||
-    property?.propertySubType ||
-    'House';
-  const compactStatusLabel =
-    statusInfo?.label === 'Active'
-      ? 'House for sale'
-      : statusInfo?.label
-        ? `${statusInfo.label}`
-        : 'For sale';
-  const brokerageLabel =
-    listing?.attribution?.brokerName ||
-    listing?.attribution?.officeName ||
-    listing?.office?.name ||
-    listing?.listingOfficeName ||
-    listing?.listOfficeName ||
-    '';
 
   const isPropertyInFavourite = (snapsList: any[]) => {
     if (!Array.isArray(snapsList)) {
@@ -197,117 +166,6 @@ const PropertyCards = (props: any) => {
     setCarouselEvent(true);
     setTimeout(() => setCarouselEvent(false), 300);
   };
-
-  if (isOverlayMode) {
-    return (
-      <div
-        onClick={handleClick}
-        className={`relative flex h-full min-h-[260px] w-full cursor-pointer flex-col overflow-hidden rounded-xl border bg-white shadow-sm transition-all duration-200 hover:shadow-md ${
-          isSelectedForCompare ? 'border-orange-400' : 'border-gray-200'
-        }`}
-      >
-        {isCompareMode && (
-          <div className="absolute left-3 top-3 z-50">
-            <button
-              disabled={selectedCompareProperties.length >= 4 && !isSelectedForCompare}
-              onClick={(e) => {
-                e.stopPropagation();
-                const realData = props.data || props;
-                toggleCompareProperty({ data: realData, type: 'property' });
-              }}
-              className={`rounded-full p-1.5 shadow ${
-                isSelectedForCompare
-                  ? 'bg-orange-500 text-white'
-                  : 'bg-white/90 text-gray-600'
-              }`}
-            >
-              {isSelectedForCompare ? <CheckSquare size={18} /> : <Square size={18} />}
-            </button>
-          </div>
-        )}
-
-        <div className="relative aspect-[16/9] w-full overflow-hidden bg-gray-100">
-          {hasCarousel && slides?.length ? (
-            <div className="relative h-full">
-              <EmblaCarousel
-                slides={slides}
-                options={{ loop: true }}
-                onScrollButtonClick={handleCarouselButtonClick}
-              />
-            </div>
-          ) : (
-            <NImage
-              className="object-cover object-center"
-              fill
-              loader={imageLoader}
-              alt="snaphomz-property-image"
-              src={primaryImage}
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.src = '/assets/images/placeholder.svg';
-              }}
-            />
-          )}
-
-          {!isCompareMode && statusInfo ? (
-            <div className={`absolute left-2 top-2 z-10 rounded-full px-2 py-0.5 text-[10px] font-semibold shadow-sm ${statusInfo.className}`}>
-              {statusInfo.label}
-            </div>
-          ) : null}
-
-          {!isCompareMode && (
-            <div className="absolute right-2 top-2 z-10">
-              <SnapzHeartButton
-                isActive={isFavored}
-                size={16}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  if (isLoggedIn) {
-                    saveCurrenctProperty(props);
-                    const propertyImage =
-                      listing?.media?.primaryListingImageUrl ||
-                      props?.public?.imageUrl ||
-                      props?.image ||
-                      '/assets/images/property-placeholder.jpg';
-                    openCollectionModal(propertyId?.toString(), propertyImage, fetchSnaps);
-                  } else {
-                    router.push('/login');
-                  }
-                }}
-                className="rounded-full bg-white/95 p-1 text-gray-800 shadow-sm"
-              />
-            </div>
-          )}
-        </div>
-
-        <div className="flex min-h-0 flex-1 flex-col p-2.5">
-          <div className="text-[15px] font-bold leading-none text-gray-900">
-            {priceText}
-          </div>
-
-          <div className="mt-1.5 text-[11px] leading-4 text-gray-600">
-            <span>{beds} bds</span>
-            <span className="mx-1 text-gray-400">|</span>
-            <span>{baths} ba</span>
-            <span className="mx-1 text-gray-400">|</span>
-            <span>{sqft?.toString() || 0} sqft</span>
-            <span className="mx-1 text-gray-400">|</span>
-            <span>{compactStatusLabel}</span>
-          </div>
-
-          <div className="mt-1.5 min-h-[2rem] line-clamp-2 text-[12px] leading-4 text-gray-800">
-            {[address?.unparsedAddress, address?.city && `${address.city},`, address?.stateOrProvince, address?.zipCode]
-              .filter(Boolean)
-              .join(' ')}
-          </div>
-
-          <div className="mt-1.5 truncate text-[10px] uppercase tracking-wide text-gray-400">
-            {brokerageLabel || propertyTypeLabel}
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div

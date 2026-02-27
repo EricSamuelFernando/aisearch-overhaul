@@ -1,4 +1,4 @@
-name: Deploying microservices frontend change PROD ENV using lambda in AWS
+name: Deploying microservices frontend PROD ENV using lambda in AWS
 
 on:
   push:

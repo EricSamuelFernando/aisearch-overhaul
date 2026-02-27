@@ -61,24 +61,33 @@ const WeBelive = () => {
 
           <div className="flex flex-row flex-nowrap justify-start gap-4 overflow-x-auto px-4 pb-2 sm:gap-6 sm:px-6 md:gap-8 lg:justify-center lg:gap-12 lg:px-0 xl:gap-16 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {[
-              '/assets/images/company-power1.png',
-              '/assets/images/company-power2.png',
-              '/assets/images/company-power3.png',
-            ].map((img, idx) => (
+              {
+                img: '/assets/images/company-power1.png',
+                name: 'Nrupen Mandava',
+              },
+              {
+                img: '/assets/images/company-power2.png',
+                name: 'Sundeep Ambati',
+              },
+              {
+                img: '/assets/images/company-power3.png',
+                name: 'Chygoz Obike',
+              },
+            ].map((item, idx) => (
               <div
                 key={idx}
                 className="relative h-[320px] w-[280px] flex-shrink-0 cursor-pointer overflow-hidden rounded-[32px] sm:h-[350px] sm:w-[300px] md:h-[280px] md:w-[260px] lg:h-[350px] lg:w-[300px] xl:h-[400px] xl:w-[340px]"
               >
                 <img
-                  src={img}
-                  alt="Proper Name"
+                  src={item.img}
+                  alt={item.name}
                   className="absolute inset-0 h-full w-full object-cover"
                 />
 
                 <div className="absolute inset-0 flex items-end justify-center rounded-[32px] bg-gradient-to-t from-black/80 via-black/40 to-transparent p-6 text-center text-white">
                   <div>
-                    <p className="text-sm font-bold sm:text-base">Proper Name</p>
-                    <p className="text-xs opacity-90">Official Title</p>
+                    <p className="text-sm font-bold sm:text-base">{item.name}</p>
+                
                   </div>
                 </div>
               </div>

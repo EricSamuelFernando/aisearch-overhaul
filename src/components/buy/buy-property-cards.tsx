@@ -22,7 +22,8 @@ type Props = {
   overlayMode?: boolean;
 };
 
-const ITEMS_PER_PAGE = 10;
+const MAP_ITEMS_PER_PAGE = 10;
+const GRID_ITEMS_PER_PAGE = 12;
 
 function BuyPropertyCards({
   forwardedRef,
@@ -36,6 +37,13 @@ function BuyPropertyCards({
   const sourceProperties = Array.isArray(propertiesOverride)
     ? propertiesOverride
     : allProperties;
+  const normalizedProperties = useMemo(
+    () =>
+      Array.isArray(sourceProperties)
+        ? sourceProperties.filter((prop) => prop !== null && prop !== undefined)
+        : [],
+    [sourceProperties],
+  );
   const userData = useSelector((state: any) => state.auth.user);
   const { getAllSnaps } = useUserSnapAPIs();
   const [snaps, setSnaps] = useState<any[]>([]);
@@ -55,20 +63,26 @@ function BuyPropertyCards({
     fetchSnaps();
   }, [userData?.id]);
 
+  const itemsPerPage = useMemo(() => {
+    if (overlayMode) return MAP_ITEMS_PER_PAGE;
+    if (currentView === 'map') return MAP_ITEMS_PER_PAGE;
+    return GRID_ITEMS_PER_PAGE;
+  }, [currentView, overlayMode]);
+
   useEffect(() => {
     setCurrentPage(1);
-  }, [sourceProperties?.length]);
+  }, [normalizedProperties.length, itemsPerPage]);
 
   const totalPages = useMemo(
-    () => Math.max(1, Math.ceil((sourceProperties?.length || 0) / ITEMS_PER_PAGE)),
-    [sourceProperties],
+    () => Math.max(1, Math.ceil(normalizedProperties.length / itemsPerPage)),
+    [normalizedProperties.length, itemsPerPage],
   );
 
   const paginatedProperties = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    const end = start + ITEMS_PER_PAGE;
-    return Array.isArray(sourceProperties) ? sourceProperties.slice(start, end) : [];
-  }, [sourceProperties, currentPage]);
+    const start = (currentPage - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    return normalizedProperties.slice(start, end);
+  }, [normalizedProperties, currentPage, itemsPerPage]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -86,14 +100,14 @@ function BuyPropertyCards({
   }, [totalPages, currentPage]);
 
   useEffect(() => {
-    if (!selectedProperty || !Array.isArray(sourceProperties)) return;
-    const idx = sourceProperties.findIndex((p: any) => String(p?.id) === String(selectedProperty));
+    if (!selectedProperty || !Array.isArray(normalizedProperties)) return;
+    const idx = normalizedProperties.findIndex((p: any) => String(p?.id) === String(selectedProperty));
     if (idx === -1) return;
-    const targetPage = Math.floor(idx / ITEMS_PER_PAGE) + 1;
+    const targetPage = Math.floor(idx / itemsPerPage) + 1;
     if (targetPage !== currentPage) {
       setCurrentPage(targetPage);
     }
-  }, [selectedProperty, sourceProperties, currentPage]);
+  }, [selectedProperty, normalizedProperties, currentPage, itemsPerPage]);
   useEffect(() => {
     if (!selectedProperty) return;
     const raf = requestAnimationFrame(() => {
@@ -115,7 +129,7 @@ function BuyPropertyCards({
       <div className={cn('flex-auto', overlayMode ? 'min-h-0 overflow-y-auto overscroll-contain pr-1' : '')}>
         <div
           className={cn(
-            currentView === 'grid' ? 'max-w-[1450px] mx-auto w-full' : 'w-full',
+            'w-full',
             overlayMode ? 'max-w-none' : '',
           )}
         >
@@ -125,19 +139,19 @@ function BuyPropertyCards({
               overlayMode
                 ? 'grid grid-cols-1 gap-3 xl:grid-cols-2'
                 : currentView === 'map'
-                  ? 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2'
-                  : 'grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4 lg:grid-cols-[repeat(4,360px)] lg:gap-x-8 lg:justify-center xl:grid-cols-[repeat(4,380px)]',
+                  ? 'grid grid-cols-1 gap-y-4 gap-x-8 md:grid-cols-2 md:gap-x-6 md:gap-y-6 lg:grid-cols-2'
+                  : 'grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4 lg:grid-cols-4 lg:gap-x-6 xl:gap-x-8',
             )}
           >
             {isLoading ? (
               <>
-                {Array.from({ length: 10 }).map(() => (
+                {Array.from({ length: itemsPerPage }).map(() => (
                   <PropCardLoader key={nanoid()} />
                 ))}
               </>
             ) : (
               <>
-                {Array.isArray(sourceProperties) && sourceProperties.length > 0
+                {normalizedProperties.length > 0
                   ? paginatedProperties.map((prop: any) => {
                       const isSelected = String(prop?.id) === String(selectedProperty);
                       return (
@@ -152,7 +166,6 @@ function BuyPropertyCards({
                                 : 'bg-white p-1 bg-orange-500 rounded-2xl shadow-xl'
                               : '',
                             'transition duration-300 ease-in-out',
-                            currentView === 'grid' && !overlayMode ? 'w-[320px]' : '',
                           )}
                         >
                           <PropertyCards
@@ -228,7 +241,7 @@ function BuyPropertyCards({
           </div>
 
           <div className={cn('text-sm text-gray-600', overlayMode ? 'text-center text-xs font-medium' : '')}>
-            {`${sourceProperties?.length || 0} homes found (showing ${(currentPage - 1) * ITEMS_PER_PAGE + 1}-${Math.min(sourceProperties?.length || 0, currentPage * ITEMS_PER_PAGE)})`}
+            {`${normalizedProperties.length || 0} homes found (showing ${(currentPage - 1) * itemsPerPage + 1}-${Math.min(normalizedProperties.length || 0, currentPage * itemsPerPage)})`}
           </div>
         </div>
       ) : null}

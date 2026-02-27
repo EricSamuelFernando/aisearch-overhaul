@@ -41,6 +41,8 @@ function MainNavPages() {
   const getTextColor = () => {
     if (pathname?.startsWith('/home') || pathname === '/home' || pathname === '/home/buy') {
       return 'text-white';
+    } else if (pathname?.startsWith('/buy')) {
+      return 'text-black';
     } else if (pathname === '/sell') {
       return 'text-black';
     } else if (pathname?.startsWith('/agents')) {
@@ -56,6 +58,8 @@ function MainNavPages() {
   const getBackgroundColor = () => {
     if (pathname?.startsWith('/home') || pathname === '/home' || pathname === '/home/buy') {
       return 'bg-black';
+    } else if (pathname?.startsWith('/buy')) {
+      return 'bg-white';
     } else if (pathname === '/sell') {
       return 'bg-white';
     } else if (pathname?.startsWith('/agents')) {
@@ -71,7 +75,7 @@ function MainNavPages() {
 
   // When scrolled, use appropriate text color based on background
   const finalTextColorClass = isScrolled
-    ? (pathname === '/sell' || pathname?.startsWith('/agents') ? 'text-black' : 'text-white')
+    ? (pathname === '/sell' ? 'text-black' : 'text-white')
     : textColorClass;
 
   // Determine logo based on text color
@@ -86,10 +90,12 @@ function MainNavPages() {
     // Inline the background color logic to ensure pathname is used correctly
     if (pathname?.startsWith('/home') || pathname === '/home' || pathname === '/home/buy') {
       return 'bg-black';
+    } else if (pathname?.startsWith('/buy')) {
+      return 'bg-black';
     } else if (pathname === '/sell') {
       return 'bg-white';
     } else if (pathname?.startsWith('/agents')) {
-      return 'bg-white';
+      return 'bg-black';
     } else if (pathname === '/company') {
       return 'bg-black';
     }
@@ -98,7 +104,7 @@ function MainNavPages() {
   }, [isScrolled, pathname]);
 
   React.useEffect(() => {
-    const handleScroll = () => {
+    const handleScroll = (event?: Event) => {
       // Check multiple scroll sources for better compatibility
       const windowScroll = window.scrollY || window.pageYOffset || 0;
       const docScroll = document.documentElement.scrollTop || 0;
@@ -108,8 +114,12 @@ function MainNavPages() {
       const mainElement = document.querySelector('main') as HTMLElement | null;
       const mainScroll = mainElement ? mainElement.scrollTop || 0 : 0;
 
+      // Capture scroll on any nested container (non-bubbling scroll events)
+      const target = event?.target as HTMLElement | null;
+      const targetScroll = target && typeof target.scrollTop === 'number' ? target.scrollTop : 0;
+
       // Use the maximum scroll value from all sources
-      const scrollPosition = Math.max(windowScroll, docScroll, bodyScroll, mainScroll);
+      const scrollPosition = Math.max(windowScroll, docScroll, bodyScroll, mainScroll, targetScroll);
 
       // Set scrolled state - using threshold of 10px for better responsiveness
       setIsScrolled(scrollPosition > 10);
@@ -119,6 +129,7 @@ function MainNavPages() {
 
     // Add scroll listener to window
     window.addEventListener("scroll", handleScroll, { passive: true });
+    document.addEventListener("scroll", handleScroll, { passive: true, capture: true });
 
     // Also listen to main element if it exists (check after DOM is ready)
     let mainElementTimeout: NodeJS.Timeout;
@@ -135,6 +146,7 @@ function MainNavPages() {
       clearTimeout(initTimeout);
       clearTimeout(mainElementTimeout);
       window.removeEventListener("scroll", handleScroll);
+      document.removeEventListener("scroll", handleScroll, true);
       if (mainElement) {
         mainElement.removeEventListener("scroll", handleScroll);
       }
@@ -172,7 +184,9 @@ function MainNavPages() {
     const baseClasses = 'fixed left-0 right-0 top-0 z-50 flex w-full items-center justify-between px-4 md:px-8 transition-all duration-300';
     const backgroundClasses = isScrolled
       ? `${scrollBackgroundClass} shadow-lg py-2`
-      : (pathname === '/do-not-sell-or-share' ? 'bg-black py-4' : 'bg-transparent py-4');
+      : (pathname === '/do-not-sell-or-share'
+        ? 'bg-black py-4'
+        : (pathname?.startsWith('/buy') ? 'bg-white py-4' : 'bg-transparent py-4'));
 
     return `${baseClasses} ${finalTextColorClass} ${backgroundClasses}`;
   }, [finalTextColorClass, isScrolled, scrollBackgroundClass]);

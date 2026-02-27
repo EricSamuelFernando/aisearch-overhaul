@@ -289,7 +289,7 @@ function ItemNav({ cardRef }: Props) {
   return (
     <div
       ref={navSection}
-      className="fixed left-0 top-[70px] z-20 w-full bg-white px-4 py-3 sm:px-6 md:px-8 shadow-sm mt-[10px] md:mt-0"
+      className="w-full bg-white px-4 py-3 sm:px-6 md:px-8 shadow-sm"
     >
       {/* MOBILE: Two rows  */}
       <div className='flex flex-col gap-2 md:flex-row md:items-center md:justify-between'>

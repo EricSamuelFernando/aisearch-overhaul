@@ -23,6 +23,120 @@ import PropertyComparisonModal from '../property-comparison-model';
 
 type Props = {};
 
+type ParsedQueryFilters = {
+  bedRooms?: number;
+  bathRooms?: number;
+  priceMin?: number;
+  priceMax?: number;
+};
+
+const parseQueryFilters = (query: string): ParsedQueryFilters => {
+  const text = query.toLowerCase();
+  if (!text) return {};
+
+  const toNumber = (raw: string): number | undefined => {
+    const clean = raw.toLowerCase().replace(/,/g, '').trim();
+    let value: number;
+    if (clean.endsWith('m')) value = parseFloat(clean) * 1_000_000;
+    else if (clean.endsWith('k')) value = parseFloat(clean) * 1_000;
+    else if (clean.endsWith('b') || clean.endsWith('bn')) value = parseFloat(clean) * 1_000_000_000;
+    else if (clean.includes('billion')) value = parseFloat(clean) * 1_000_000_000;
+    else if (clean.includes('million')) value = parseFloat(clean) * 1_000_000;
+    else value = parseFloat(clean.replace(/[^\d.]/g, ''));
+    return Number.isFinite(value) ? Math.round(value) : undefined;
+  };
+
+  const bedMatch = text.match(/(\d+)\s*[- ]*(?:bed|bedroom)s?\b/i);
+  const bathMatch = text.match(/(\d+)\s*[- ]*(?:bath|bathroom)s?\b/i);
+
+  const base = {
+    bedRooms: bedMatch ? Number(bedMatch[1]) : undefined,
+    bathRooms: bathMatch ? Number(bathMatch[1]) : undefined,
+  };
+
+  const between = text.match(
+    /between\s+\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)\s+and\s+\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
+  );
+  if (between) {
+    const a = toNumber(between[1]);
+    const b = toNumber(between[2]);
+    if (a !== undefined && b !== undefined) {
+      return { ...base, priceMin: Math.min(a, b), priceMax: Math.max(a, b) };
+    }
+    return base;
+  }
+
+  const dash = text.match(
+    /\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)\s*-\s*\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
+  );
+  if (dash) {
+    const a = toNumber(dash[1]);
+    const b = toNumber(dash[2]);
+    if (a !== undefined && b !== undefined) {
+      return { ...base, priceMin: Math.min(a, b), priceMax: Math.max(a, b) };
+    }
+    return base;
+  }
+
+  const fromTo = text.match(
+    /from\s+\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)\s+(?:to|through|until|till)\s+\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
+  );
+  if (fromTo) {
+    const a = toNumber(fromTo[1]);
+    const b = toNumber(fromTo[2]);
+    if (a !== undefined && b !== undefined) {
+      return { ...base, priceMin: Math.min(a, b), priceMax: Math.max(a, b) };
+    }
+  }
+
+  const maxCue = text.match(
+    /\b(at\s*most|atmost|under|below|less than|up to|max(?:imum)?|no more than|not more than|not exceeding|<=|<)\b[^$\d]*\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
+  );
+  const minCue = text.match(
+    /\b(at\s*least|atleast|over|above|more than|no less than|min(?:imum)?|starting\s*(?:at|from)|from|>=|>)\b[^$\d]*\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
+  );
+  const aroundCue = text.match(
+    /\baround\b[^$\d]{0,24}\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
+  );
+  const budgetCue = text.match(
+    /\b(budget|approximately|about|roughly|circa)\b[^$\d]{0,24}\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
+  );
+
+  const minValue = minCue ? toNumber(minCue[2]) : undefined;
+  const maxValue = maxCue ? toNumber(maxCue[2]) : budgetCue ? toNumber(budgetCue[2]) : undefined;
+
+  const aroundValue = aroundCue ? toNumber(aroundCue[1]) : undefined;
+  if (aroundValue !== undefined) {
+    return {
+      ...base,
+      priceMin: Math.max(0, aroundValue - 50_000),
+      priceMax: aroundValue + 50_000,
+    };
+  }
+
+  if (minValue !== undefined || maxValue !== undefined) {
+    return { ...base, priceMin: minValue, priceMax: maxValue };
+  }
+
+  const singlePriceKeyword = text.match(
+    /\b(for|at|priced(?:\s+at)?|price(?:d)?(?:\s+at)?|costing|listed(?:\s+at)?)\b[^$\d]{0,12}\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
+  );
+  const singlePriceKeywordPlain = text.match(
+    /\b(for|at|priced(?:\s+at)?|price(?:d)?(?:\s+at)?|costing|listed(?:\s+at)?)\b[^$\d]{0,12}(\d{5,})(?:\b|$)/i,
+  );
+  const singlePriceDollar = text.match(
+    /\$\s*([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
+  );
+  const singlePriceComma = text.match(
+    /\b(\d{1,3}(?:,\d{3})+(?:\.\d+)?)(?:\s*(?:m|k|b|bn|million|billion))?\b/i,
+  );
+
+  const singleRaw = singlePriceKeyword?.[2] ?? singlePriceKeywordPlain?.[2] ?? singlePriceDollar?.[1] ?? singlePriceComma?.[1];
+  const singleValue = singleRaw ? toNumber(singleRaw) : undefined;
+
+  return { ...base, priceMax: singleValue };
+};
+
 function PropertyBrowseView({ }: Props) {
   const { currentView } = useProperty();
   const { savePropertyView } = usePropertyActions();
@@ -98,11 +212,12 @@ function PropertyBrowseView({ }: Props) {
   const hasDrawFilter = Array.isArray(drawFilteredPropertyIds);
 
   useEffect(() => {
+    const inferred = parseQueryFilters(query ?? '');
     setTopSearchValue(query ?? '');
-    setDraftPriceMin(searchParams.get('priceMin') || '');
-    setDraftPriceMax(searchParams.get('priceMax') || '');
-    setDraftBeds(searchParams.get('bedRooms') || '');
-    setDraftBaths(searchParams.get('bathRooms') || '');
+    setDraftPriceMin(searchParams.get('priceMin') || (inferred.priceMin ? String(inferred.priceMin) : ''));
+    setDraftPriceMax(searchParams.get('priceMax') || (inferred.priceMax ? String(inferred.priceMax) : ''));
+    setDraftBeds(searchParams.get('bedRooms') || (inferred.bedRooms ? String(inferred.bedRooms) : ''));
+    setDraftBaths(searchParams.get('bathRooms') || (inferred.bathRooms ? String(inferred.bathRooms) : ''));
   }, [query, searchParams]);
 
   useEffect(() => {
@@ -606,7 +721,12 @@ function PropertyBrowseView({ }: Props) {
   return (
     <>
       <section
-        className="relative mb-20 mx-auto grid w-full max-w-[1600px] grid-cols-5 gap-x-8"
+        className={cn(
+          'relative mb-20 mx-auto w-full',
+          currentView === 'map'
+            ? 'md:grid grid-cols-2 gap-x-0'
+            : 'md:grid grid-cols-5 w-full gap-x-8 max-w-[1600px] mx-auto pl-12 pr-8 md:pl-16 md:pr-12',
+        )}
       >
       {/* Property Cards */}
       <div
@@ -616,8 +736,10 @@ function PropertyBrowseView({ }: Props) {
         //   currentView === 'map' ? 'col-span-3 px-[3.12rem]' : 'col-span-5',
         // )}
         className={cn(
-          'px-4 md:px-6',
-          'col-span-5',
+          currentView === 'grid' ? 'px-0' : 'px-4 md:px-6',
+          currentView === 'map'
+            ? 'flex flex-col gap-y-4 md:col-span-1 md:px-6'
+            : 'col-span-5',
         )}
       >
         <BuyPropertyCards selectedProperty={selectedProperty} propertiesOverride={displayedProperties} />

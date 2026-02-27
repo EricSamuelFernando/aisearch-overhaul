@@ -56,6 +56,7 @@
   :root {
     --background: 0 0% 100%;
     --foreground: 0 0% 3.9%;
+    --home-section-gap: 4rem;
 
     --card: 0 0% 100%;
     --card-foreground: 0 0% 3.9%;
@@ -1433,11 +1434,29 @@ input:-webkit-autofill {
 }
 
 .home-sections>*+* {
-  margin-top: 8rem;
+  margin-top: 0;
 }
 
 .home-sections {
   background-color: #FFF6EC;
+}
+
+.home-sections > * {
+  padding-top: var(--home-section-gap) !important;
+  padding-bottom: 0 !important;
+}
+
+.home-sections > *:first-child {
+  padding-top: 0 !important;
+}
+
+.home-section-gap {
+  padding-top: var(--home-section-gap) !important;
+  background-color: #FFF6EC;
+}
+
+.home-section-gap-tight {
+  padding-top: 0 !important;
 }
 
 

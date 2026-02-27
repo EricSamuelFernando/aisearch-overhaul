@@ -1946,7 +1946,6 @@ const PropertyPreview: React.FC = () => {
   return (
     <div>
       <ItemNav cardRef={cardRef} />
-      <div className='mt-14 sm:mt-12 md:mt-12 lg:mt-14' />
       <div id="overview" className="scroll-mt-28" />
 
       {/* Contact Agent Dialog */}

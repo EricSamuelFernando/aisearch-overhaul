@@ -791,6 +791,37 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   const [expandedSchoolLists, setExpandedSchoolLists] = useState<Record<string, boolean>>({});
   const [nearbySchoolsById, setNearbySchoolsById] = useState<Record<string, { status: 'idle' | 'loading' | 'ready' | 'error'; schools: any[]; error?: string; schoolType?: string; fallbackUsed?: boolean }>>({});
 
+  const startNewChat = React.useCallback((options?: { focusInput?: boolean }) => {
+    setIsExpanded(true);
+    setSearchTerm('');
+    setChatHistory([]);
+    setSessionId(null);
+    setIsSearching(false);
+    setIsMenuOpen(false);
+    setSelectedPropertyId(null);
+    setExpandedPropertyId(null);
+    setNearbySchoolsById({});
+    if (onSearchStateChange) onSearchStateChange(true, '');
+
+    if (options?.focusInput) {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 120);
+    }
+  }, [onSearchStateChange, setChatHistory, setExpandedPropertyId, setIsExpanded, setIsMenuOpen, setIsSearching, setNearbySchoolsById, setSearchTerm, setSelectedPropertyId, setSessionId]);
+
+  useEffect(() => {
+    const handleOpenSearch = (event: Event) => {
+      const customEvent = event as CustomEvent<{ focusInput?: boolean }>;
+      startNewChat({ focusInput: customEvent.detail?.focusInput });
+    };
+
+    window.addEventListener('snaphomz:open-hero-search', handleOpenSearch as EventListener);
+    return () => {
+      window.removeEventListener('snaphomz:open-hero-search', handleOpenSearch as EventListener);
+    };
+  }, [startNewChat]);
+
   useEffect(() => {
     return () => {
       if (addressSuggestDebounceRef.current) {

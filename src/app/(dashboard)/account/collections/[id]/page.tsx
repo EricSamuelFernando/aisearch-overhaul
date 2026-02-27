@@ -143,9 +143,9 @@ export default function SnapDetailsPage() {
                             image: favourites[0]?.image || undefined
                         });
                         // Determine user's role in this snap from participants
-                        const participant = snapData.participants?.find((p: any) => p.userId === userData?.id || p.email === userData?.email);
-                        if (participant?.accountType) {
-                            setUserSnapRole(participant.accountType);
+                        const participant = snapData.participants?.find((p: any) => p.participant?.id === userData?.id || p.participant?.email === userData?.email);
+                        if (participant?.participant?.accountType) {
+                            setUserSnapRole(participant.participant.accountType);
                         }
                     }
                 },

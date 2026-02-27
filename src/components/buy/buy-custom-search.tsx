@@ -392,10 +392,6 @@ const breadcrumbList = [
     path: '/',
   },
   {
-    name: 'Buy a home',
-    path: '/buy',
-  },
-  {
     name: 'Search listing',
     path: '/buy/browse',
   },

@@ -1504,7 +1504,7 @@ export default function Home() {
             </div>
 
             <div
-              className={`text-[1rem] transition-colors ${isHomeSearchActive ? 'text-[#2C211A]' : 'text-white'}`}
+              className={`text-[1rem] transition-colors ${isHomeSearchActive ? 'text-white md:text-[#2C211A]' : 'text-white'}`}
             >
               <span className="font-medium">Conversational search, </span>
               <span className="font-bold underline">powered by AI.</span>

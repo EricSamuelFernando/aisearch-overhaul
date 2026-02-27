@@ -8,11 +8,11 @@ import MainTestimonial from '@/components/main-testimonial';
 
 const CompanysPage = () => {
   return (
-    <main>
+    <main className="overflow-x-hidden">
       <AgentsHero />
       <WhoWeCompany />
       <WeBelive />
-      <OurClients />
+      <OurClients bgColor="#FFF6EC" />
       {/* <AgentsWeMakeItEasy /> */}
       {/* <TimeWorth /> */}
       {/* <MainTestimonial /> */}

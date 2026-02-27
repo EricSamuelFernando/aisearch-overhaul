@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { getInitials } from '@/lib/helpers';
 import { useAuthActions } from '@/shared/hooks/useAuth';
@@ -9,19 +10,34 @@ import CustomAvatar from './customs/avatar';
 import MenuDropdown, { MenuItem } from './customs/menu';
 import { Avatar } from './ui/avatar';
 import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
+import { getProfileImageUrl } from '@/lib/utils';
 
 type Props = {
   username: string;
   avatar?: string | null;
   firstName: string;
   lastName: string;
+  containerClassName?: string;
+  menuClassName?: string;
 };
 
-function AccountDropdown({ username, avatar, firstName, lastName }: Props) {
+function AccountDropdown({
+  username,
+  avatar,
+  firstName,
+  lastName,
+  containerClassName,
+  menuClassName,
+}: Props) {
   const { logout } = useAuthActions();
   const router = useRouter();
   const MORTGAGE_URL = process.env.NEXT_PUBLIC_MORTGAGE_FRONTEND_URL
-  
+  const [showAvatar, setShowAvatar] = useState(!!avatar);
+
+  useEffect(() => {
+    setShowAvatar(!!avatar);
+  }, [avatar]);
+
   const menuItems: { text: string; path: any }[] = [
     // { text: 'Mortgage-old', path: MORTGAGE_URL },
     // { text: 'Mortgage', path: `/mortgage` },
@@ -33,9 +49,9 @@ function AccountDropdown({ username, avatar, firstName, lastName }: Props) {
     { text: 'Logout', path: `/logout` },
   ];
   const { userLogout } = useUserAuthApi();
-  const handleLogout = async()=>{
+  const handleLogout = async () => {
     // console.log("Callledddd ; ");
-    
+
     userLogout.mutate();
   }
 
@@ -46,8 +62,8 @@ function AccountDropdown({ username, avatar, firstName, lastName }: Props) {
           variant='ghost'
           className='font-500 w-full cursor-pointer  justify-start bg-transparent p-0  text-left text-sm font-normal'
           onClick={() => {
-            logout();
-            router.push('/home');
+
+            handleLogout();
           }}
         >
           {menuItem.text}
@@ -61,23 +77,26 @@ function AccountDropdown({ username, avatar, firstName, lastName }: Props) {
 
   return (
     <MenuDropdown
+      containerClassName={containerClassName}
+      dropdownClassName={menuClassName}
       buttonLabel={
         <div className='flex cursor-pointer items-center gap-x-1'>
-         
+
           <CustomAvatar
             className='h-[2.4rem] w-[2.4rem] text-base text-white'
             alt='Jane Doe'
             size={'2.4rem'}
           > {
-              avatar ? 
-              <img
-              src={avatar}
-              alt="Profile Preview"
-              className="w-full h-full rounded-full object-cover transition-transform duration-300 group-hover:scale-105"
-              /> 
-            :   getInitials(firstName, lastName) || 'SH'
-          }
-         
+              avatar && showAvatar ?
+                <img
+                  src={getProfileImageUrl(avatar)}
+                  alt="Profile Preview"
+                  className="w-full h-full rounded-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  onError={() => setShowAvatar(false)}
+                />
+                : getInitials(firstName, lastName) || 'SH'
+            }
+
           </CustomAvatar>
           <span className='hidden text-sm text-black md:inline-block'>
             {username}

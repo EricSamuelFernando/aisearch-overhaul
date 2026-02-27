@@ -196,7 +196,7 @@
 
 // export default ItemNav;
 import { cn } from '@/lib/utils';
-import { ChevronLeft, Heart } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { RefObject, useEffect, useRef, useState } from 'react';
@@ -205,6 +205,7 @@ import { useCollectionModal } from '@/providers/collection-modal-provider';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useSelector } from 'react-redux';
 import { useUserSnapAPIs } from '@/hooks/api/auth/snaps.API';
+import { SnapzHeartButton } from '@/components/ui/snapz-heart';
 
 type Props = {
   cardRef: RefObject<HTMLDivElement>;
@@ -212,11 +213,9 @@ type Props = {
 
 const navItems = [
   { hash: '#overview', title: 'Overview' },
-  { hash: '#location', title: 'Location' },
   { hash: '#property', title: 'Property' },
-  { hash: '#history', title: 'History' },
-  { hash: '#analysis', title: 'Analysis' },
   { hash: '#schools', title: 'Schools' },
+  { hash: '#forecast', title: 'Forecast' },
   { hash: '#comparables', title: 'Comparables' },
 ];
 
@@ -266,7 +265,7 @@ function ItemNav({ cardRef }: Props) {
   const isFavored = isPropertyInFavourite(snaps);
 
   const Server_URL = process.env.NEXT_PUBLIC_APPLICATION_URL;
-  const propertyLink = `${Server_URL}buy/${propertyId}/prop/preview?propertyId=${propertyData?.id}&listingId=${propertyData?.listingId}`;
+  const propertyLink = `${Server_URL}/buy/${propertyId}/prop/preview?propertyId=${propertyData?.id}&listingId=${propertyData?.listingId}`;
 
   useEffect(() => {
     setHash(window.location.hash as string);
@@ -317,18 +316,19 @@ function ItemNav({ cardRef }: Props) {
             </button>
 
             {/* Save */}
-            <button
+            <SnapzHeartButton
+              isActive={isFavored}
+              size={20}
               onClick={() => {
                 if (isLoggedIn) {
-                  openCollectionModal(propertyId, '/assets/images/property-placeholder.jpg', fetchSnaps);
+                  const propertyImage = propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.public?.imageUrl || propertyData?.image || '/assets/images/property-placeholder.jpg';
+                  openCollectionModal(propertyId, propertyImage, fetchSnaps);
                 } else {
                   router.push('/login');
                 }
               }}
-              className='flex items-center gap-2 text-[#818181] hover:text-black'
-            >
-              <Heart className={cn('h-4 w-4', isFavored ? 'fill-orange-500 text-orange-500' : '')} />
-            </button>
+              className='text-[#818181] hover:text-black'
+            />
           </div>
         </div>
 
@@ -338,6 +338,12 @@ function ItemNav({ cardRef }: Props) {
             <Link
               key={item.hash}
               href={item.hash}
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  window.location.hash = item.hash;
+                  window.dispatchEvent(new CustomEvent('preview-nav', { detail: item.hash }));
+                }
+              }}
               className={cn(
                 'snap-start whitespace-nowrap px-4 py-2 text-sm font-medium text-[#818181] hover:border-b-[2px] hover:border-black hover:text-black',
                 hash === item.hash &&
@@ -358,18 +364,19 @@ function ItemNav({ cardRef }: Props) {
             <Icons.Share className='h-4 w-4' />
           </button>
 
-          <button
+          <SnapzHeartButton
+            isActive={isFavored}
+            size={20}
             onClick={() => {
               if (isLoggedIn) {
-                openCollectionModal(propertyId, '/assets/images/property-placeholder.jpg', fetchSnaps);
+                const propertyImage = propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.public?.imageUrl || propertyData?.image || '/assets/images/property-placeholder.jpg';
+                openCollectionModal(propertyId, propertyImage, fetchSnaps);
               } else {
                 router.push('/login');
               }
             }}
-            className='flex items-center gap-2 text-[#818181] hover:text-black'
-          >
-            <Heart className={cn('h-4 w-4', isFavored ? 'fill-orange-500 text-orange-500' : '')} />
-          </button>
+            className='text-[#818181] hover:text-black'
+          />
         </div>
       </div>
     </div>

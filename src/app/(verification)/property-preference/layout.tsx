@@ -3,7 +3,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import * as React from 'react';
 
-import SnapHomz from '@public/assets/images/snaphomz-logo.svg';
 import { Button } from '@/components/ui/button';
 import {
   BuyerProgressButton,
@@ -25,13 +24,19 @@ const BuyerOnboardingLayout: React.FC<React.PropsWithChildren> = ({
   >
     <div className='mb-2 flex w-full items-center justify-between px-4 py-3 md:px-8'>
       <Link href='/'>
-        <Image src={SnapHomz} alt='logo' className='h-[3.75rem] w-44' />
+        <Image
+          src='/assets/Logos/Snaphomz-Logo-Black (4).png'
+          alt='logo'
+          className='h-[80px] w-[257px]'
+          width={257}
+          height={80}
+        />
       </Link>
       <Link rel='no-refferer no-openner' href='/complete-onboarding'>
         <Button
           roundness='full'
           variant='ghost'
-          className='px-8 py-2 text-ocOrange'
+          className='border border-black px-8 py-2 text-ocOrange transition-transform hover:bg-transparent hover:text-ocOrange active:scale-95 active:bg-black/5'
         >
           Skip
         </Button>
@@ -58,7 +63,7 @@ const BuyerOnboardingLayout: React.FC<React.PropsWithChildren> = ({
         </div>
         {children}
       </div>
-      <BuyerProgressButton />
+      <BuyerProgressButton hideCancel hideBackOnFirst />
     </div>
   </section>
 );

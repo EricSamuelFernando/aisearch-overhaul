@@ -26,7 +26,7 @@
 //       loginWithToken();
 //     }
 //   }, []);
- 
+
 // // useEffect(() => {
 // //   if('geolocation' in navigator) {
 // //     // Retrieve latitude & longitude coordinates from `navigator.geolocation` Web API
@@ -55,12 +55,15 @@
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 
 import MainNav from '@/components/navbars/main-nav';
 import Footer from '@/components/shared/footer';
 import { useTokenLoginMutation } from '@/hooks/api/auth/useUserAuthApi';
+import PropertyPreferenceModal from '@/components/modals/property-preference-modal';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { useGetPropertyPreference } from '@/hooks/api/property/usePropertyApi';
 
 type Props = {
   children: React.ReactNode;
@@ -70,6 +73,12 @@ function MainLayout({ children }: Readonly<Props>) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { mutate: loginWithToken } = useTokenLoginMutation();
+  const { user, isLoggedIn } = useAuth();
+  const { getPropertyPreferenceFromAI } = useGetPropertyPreference(user?.email);
+  const [showPreferenceModal, setShowPreferenceModal] = useState(false);
+  const hasPromptedRef = useRef(false);
+  const dismissedSessionRef = useRef(false);
+  const lastUserIdRef = useRef<string | undefined>(undefined);
   const [location, setLocation] = useState({
     latitude: 0,
     longitude: 0,
@@ -82,21 +91,92 @@ function MainLayout({ children }: Readonly<Props>) {
     }
   }, []);
 
-  // Optionally, you can add geolocation code if required
-  // useEffect(() => {
-  //   if('geolocation' in navigator) {
-  //     navigator.geolocation.getCurrentPosition(({ coords }) => {
-  //       const { latitude, longitude } = coords;
-  //       setLocation({ latitude, longitude });
-  //     });
-  //   }
-  // }, []);
+  // Reset prompt flag when user changes (logout/login) and refetch AI preferences
+  useEffect(() => {
+    if (lastUserIdRef.current !== user?.id) {
+      console.log('[MainLayout] User changed, resetting prompt flag');
+      hasPromptedRef.current = false;
+      dismissedSessionRef.current = false;
+      lastUserIdRef.current = user?.id;
+
+      if (isLoggedIn && user?.account_type?.toLowerCase() === 'buyer' && user?.email) {
+        console.log('[MainLayout] Refetching AI preferences for new user');
+        getPropertyPreferenceFromAI.refetch?.();
+      }
+    }
+  }, [user?.id, isLoggedIn, user?.account_type, user?.email, getPropertyPreferenceFromAI]);
+
+  // Check if modal should show — ONLY using AI API
+  useEffect(() => {
+    if (hasPromptedRef.current) return;
+    if (!isLoggedIn) return;
+    if (user?.account_type?.toLowerCase() !== 'buyer') return;
+    if (typeof window !== 'undefined' && user?.id) {
+      const dismissedThisSession =
+        sessionStorage.getItem(`buyerPreferenceDismissed:${user.id}`) === 'true';
+      if (dismissedThisSession) {
+        console.log('[MainLayout] Preference modal dismissed this session — skipping');
+        hasPromptedRef.current = true;
+        dismissedSessionRef.current = true;
+        return;
+      }
+    }
+
+    // Wait for AI query to finish loading
+    if (getPropertyPreferenceFromAI.isLoading) return;
+
+    // Check AI API data
+    const aiResponse = getPropertyPreferenceFromAI.data;
+    const aiPref = aiResponse?.preference;
+
+    if (aiPref && typeof aiPref === 'object') {
+      const hasType = !!(aiPref.mls_type || aiPref.propertyType || aiPref.property_sub_type || aiPref.property_type);
+      const hasLocation = !!(aiPref.city || aiPref.preferredPropertyAddress || aiPref.location || aiPref.address || aiPref.state);
+      const hasPrice = !!(aiPref.listing_price_max || aiPref.spendAmount?.max || aiPref.budget_max || aiPref.price_max || aiPref.listing_price_min);
+
+      if (hasType || hasLocation || hasPrice) {
+        console.log('[MainLayout] AI preference data exists — not showing modal');
+        hasPromptedRef.current = true;
+        return;
+      }
+    }
+
+    // AI has no preference data — show modal
+    console.log('[MainLayout] No AI preference data found — showing modal');
+    setShowPreferenceModal(true);
+    hasPromptedRef.current = true;
+  }, [
+    getPropertyPreferenceFromAI.data,
+    getPropertyPreferenceFromAI.isLoading,
+    getPropertyPreferenceFromAI.isError,
+    isLoggedIn,
+    user?.account_type,
+    pathname,
+  ]);
 
   // Check if the pathname includes any routes where you want to hide the header and footer
-  const shouldHideHeaderFooter = ['sell', 'agents', 'company', 'home'].some(path => pathname.includes(path));
+  const shouldHideHeaderFooter = ['sell', 'agents', 'company', 'home'].some(
+    (path) => pathname.includes(path),
+  );
 
   return (
     <>
+      <PropertyPreferenceModal
+        isOpen={showPreferenceModal}
+        onClose={() => setShowPreferenceModal(false)}
+        onComplete={() => {
+          setShowPreferenceModal(false);
+          getPropertyPreferenceFromAI.refetch?.();
+        }}
+        onSkip={() => {
+          if (typeof window !== 'undefined' && user?.id) {
+            sessionStorage.setItem(`buyerPreferenceDismissed:${user.id}`, 'true');
+          }
+          hasPromptedRef.current = true;
+          dismissedSessionRef.current = true;
+          setShowPreferenceModal(false);
+        }}
+      />
       {/* Conditionally render MainNav (Header) based on the route */}
       {!shouldHideHeaderFooter && <MainNav />}
 
@@ -104,7 +184,7 @@ function MainLayout({ children }: Readonly<Props>) {
 
       {/* Conditionally render Footer based on the route */}
       {typeof pathname === 'string' &&
-      ['browse', 'preview'].some((path) => pathname.includes(path)) ? null : (
+        ['browse', 'preview'].some((path) => pathname.includes(path)) ? null : (
         <Footer />
       )}
     </>

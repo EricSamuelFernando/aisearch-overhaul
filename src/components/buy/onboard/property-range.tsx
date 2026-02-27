@@ -4,16 +4,31 @@ import * as React from 'react';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useAppDispatch } from '@/lib/hook';
+import { useAppDispatch, useAppSelector } from '@/lib/hook';
 import { updateBuyerOnboardingPreference } from '@/slices/onboarding/onboarding-slice';
+import { buyerPropertyPreference } from '@/slices/onboarding/onboarding-selectors';
 
 const PropertyRange: React.FC = () => {
   const dispatch = useAppDispatch();
+  const { spendAmount } = useAppSelector(buyerPropertyPreference);
   const [selected, setSelected] = React.useState('');
 
+  // Restore selection when navigating back
+  React.useEffect(() => {
+    if (!spendAmount?.max) return;
+    const match = PropertyPriceData.find(
+      ({ value }) =>
+        value.min === spendAmount.min && value.max === spendAmount.max,
+    );
+    if (match) {
+      setSelected(match.label);
+    }
+  }, [spendAmount]);
+
   const handleClick = React.useCallback(
-    (value: { min: number; max: number }) => {
+    (value: { min: number; max: number }, label: string) => {
       dispatch(updateBuyerOnboardingPreference({ key: 'spendAmount', value }));
+      setSelected(label);
     },
     [dispatch],
   );
@@ -25,15 +40,13 @@ const PropertyRange: React.FC = () => {
           key={id}
           variant='outline'
           onClick={() => {
-            handleClick(value);
-            setSelected(label);
-            if (selected === label) {
-              setSelected('');
-            }
+            handleClick(value, label);
           }}
           className={cn(
             `w-full rounded-md px-4 py-6 text-black transition-all hover:bg-gray-200`,
-            selected === label && ['bg-black text-white'],
+            selected === label && [
+              'bg-black text-white hover:bg-black hover:text-white',
+            ],
           )}
         >
           {label}

@@ -1,251 +1,373 @@
-// import React from 'react';
-// import { ChevronDownIcon } from '@heroicons/react/24/solid';
+'use client';
 
-// // --- Data Interfaces ---
-// interface CollegeEntry {
-//   rank: number;
-//   name: string;
-//   institutionId: string;
-// }
+import React, { useState, useEffect } from 'react';
+import { ChevronDownIcon } from '@heroicons/react/20/solid';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { PieChart as PieChartIcon, Award, BookOpen } from 'lucide-react';
+import { resolveCollegeLogo } from '../../../lib/collegeLogos';
 
-// interface DiversityEntry {
-//   label: string;
-//   percentage: string; // e.g., "47.2%"
-//   color: string; // Hex color code for exact match
-// }
+// Types
+interface College {
+  name: string;
+  ipeds: string;
+  rank: number;
+}
 
-// interface TopCollegesProps {
-//   schoolName?: string; // Optional, will use default
-//   topColleges?: CollegeEntry[]; // Optional, will use default
-//   diversityData?: DiversityEntry[]; // Optional, will use default
-// }
+interface Major {
+  name: string;
+  cip_code: string;
+  rank: number;
+}
 
-// // --- Default Data (Pixel-matched from screenshot) ---
-// const defaultTopColleges: CollegeEntry[] = [
-//   { rank: 1, name: 'Yale University', institutionId: '94569.0' },
-//   { rank: 2, name: 'University of Florida', institutionId: '94569.0' },
-//   { rank: 3, name: 'University of Texas at Austin', institutionId: '94569.0' },
-//   { rank: 4, name: 'Duke University', institutionId: '94569.0' },
-// ];
-
-// const defaultDiversityData: DiversityEntry[] = [
-//   { label: 'African American', percentage: '16.8%', color: '#E97451' }, // Orange-brown
-//   { label: 'Asian', percentage: '47.2%', color: '#E0643B' },          // Darker orange
-//   { label: 'Hispanic/Latino', percentage: '21.0%', color: '#F8B179' }, // Light orange
-//   { label: 'Multiracial', percentage: '3.4%', color: '#D3D3D3' },      // Light gray
-//   { label: 'Native American', percentage: '0.3%', color: '#964B00' },   // Dark brown
-//   { label: 'Pacific Islander', percentage: '0.1%', color: '#C4C4C4' }, // Medium gray
-//   { label: 'White', percentage: '11.2%', color: '#E4CCAE' },           // Beige
-// ];
-
-// // --- Main Component ---
-// const TopCollegesSection: React.FC<TopCollegesProps> = ({
-//   schoolName = 'Richard J. Murphy School',
-//   topColleges = defaultTopColleges,
-//   diversityData = defaultDiversityData,
-// }) => {
-//   return (
-//     <div className="bg-white p-8 md:p-10 max-w-6xl mx-auto">
-      
-//       {/* --- Header --- */}
-    //   <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-6">
-    //     Top Colleges Attended by Graduates From{' '}
-    //     <span className="text-orange-600">{schoolName}</span>
-    //   </h2>
-
-//       {/* --- Content Grid: Responsive Layout --- */}
-//       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-start">
-        
-//         {/* === Left Column: College List === */}
-//         <div className="flex flex-col space-y-4">
-//           {topColleges.map((college) => (
-//             <div
-//               key={college.rank}
-//               className={`flex justify-between items-center p-4 rounded-xl transition-all duration-200 
-//                 ${college.rank <= 2 ? 'bg-gray-100 shadow-sm' : 'bg-white'}`} 
-//             >
-//               <div className="flex flex-col">
-//                 <p className="text-lg font-bold text-gray-900">{college.name}</p>
-//                 <p className="text-sm text-gray-500 mt-1">
-//                   Institution ID: {college.institutionId}
-//                 </p>
-//               </div>
-//               <div className="text-5xl font-extrabold text-gray-300 ml-4">
-//                 #{college.rank}
-//               </div>
-//             </div>
-//           ))}
-
-//           {/* Show More Button */}
-//           <button className="flex items-center mt-5 text-orange-600 font-medium hover:text-orange-700 w-max">
-//             <ChevronDownIcon className="w-5 h-5 mr-1" aria-hidden="true" />
-//             Show more
-//           </button>
-//         </div>
-
-//         {/* === Right Column: Pie Chart and Legend === */}
-//         <div className="flex flex-col items-center lg:items-start pt-4 lg:pt-0">
-//           {/* Pie Chart Placeholder (Requires a charting library for actual functionality) */}
-//           {/* Visual approximation: A ring with the primary color segment visible */}
-//           <div className="relative w-64 h-64 mb-8">
-//             {/* The outer ring */}
-//             <div className="absolute inset-0 rounded-full border-[30px] border-orange-200"></div>
-//             {/* The primary segment (47.2% Asian) */}
-//             <div className="absolute inset-0 rounded-full border-[30px] border-orange-600 clip-pie-segment"></div>
-//             {/* Inner circle to make it a donut chart */}
-//             <div className="absolute inset-0 m-[30px] rounded-full bg-white"></div>
-//           </div>
-          
-//           {/* Legend */}
-//           <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm max-w-xs sm:max-w-md w-full">
-//             {diversityData.map((item, index) => (
-//               <div key={index} className="flex items-center space-x-2">
-//                 <span
-//                   className="w-3 h-3 rounded-full shrink-0"
-//                   style={{ backgroundColor: item.color }}
-//                 ></span>
-//                 <span className="text-gray-900 font-medium">{item.label}</span>
-//                 <span className="text-gray-600 ml-auto">({item.percentage})</span> {/* ml-auto pushes percentage to the right */}
-//               </div>
-//             ))}
-//           </div>
-//         </div>
-//       </div>
-
-//       {/* --- Footer Disclaimer --- */}
-//       <p className="text-xs text-gray-500 mt-10 border-t border-gray-200 pt-4">
-//         School ratings are provided by{' '}
-//         <a href="https://snaphomecollege.org" className="text-orange-600 hover:underline">
-//           Snaphomecollege.org
-//         </a>
-//         . This information should only be used as a reference. Proximity or boundaries shown here are not a guarantee of enrollment. Please reach out to schools directly to verify all information and enrollment eligibility.
-//       </p>
-//     </div>
-//   );
-// };
-
-// export default TopCollegesSection;
-
-
-
-
-
-
-import React from "react";
-import { ChevronDownIcon } from '@heroicons/react/20/solid'; // Assuming you use Heroicons
-
-
-const colleges :any  = [
-  { name: "Yale University", id: "94569.0", rank: 1 },
-  { name: "University of Florida", id: "94569.0", rank: 2 },
-  { name: "University of Texas at Austin", id: "94569.0", rank: 3 },
-  { name: "Duke University", id: "94569.0", rank: 4 },
-];
-
-const ethnicData :any = [
-  { label: "Asian", value: 47.2, color: "#FFA254" },
-  { label: "Hispanic/Latino", value: 21.0, color: "#FFA785" },
-  { label: "African American", value: 16.8, color: "#A39A28" },
-  { label: "White", value: 11.2, color: "#F9F2D1" },
-  { label: "Multiracial", value: 3.4, color: "#FFB395" },
-  { label: "Native American", value: 0.3, color: "#6B3400" },
-  { label: "Pacific Islander", value: 0.1, color: "#B2B2B2" },
-];
-
-// Util to convert percent data to SVG path for donut
-interface EthnicEntry {
+interface DiversityEntry {
   label: string;
   value: number;
   color: string;
 }
 
-function getDonutSegments(data: EthnicEntry[]) {
-  let acc = 0;
-  return data.map(({ value, color }: EthnicEntry, i: number) => {
-    const startAngle = (acc / 100) * 2 * Math.PI;
-    acc += value;
-    const endAngle = (acc / 100) * 2 * Math.PI;
-    const x1 = 50 + 40 * Math.cos(startAngle - Math.PI / 2);
-    const y1 = 50 + 40 * Math.sin(startAngle - Math.PI / 2);
-    const x2 = 50 + 40 * Math.cos(endAngle - Math.PI / 2);
-    const y2 = 50 + 40 * Math.sin(endAngle - Math.PI / 2);
-    const largeArc = value > 50 ? 1 : 0;
-    const pathData = `
-      M ${x1} ${y1}
-      A 40 40 0 ${largeArc} 1 ${x2} ${y2}
-      L 50 50
-      Z
-    `;
-    return (
-      <path
-        key={i}
-        d={pathData}
-        fill={color}
-        stroke="#fff"
-        strokeWidth="1"
-      />
-    );
-  });
+interface CollegeReadinessData {
+  zipcode?: string;
+  school_name?: string;
+  top_colleges: College[];
+  top_majors: Major[];
+  diversity_breakdown: DiversityEntry[] | { [key: string]: number };
 }
 
-const TopCollegesSection = () => (
-  <section className="p-6 w-full mt-4">
-     <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-6">
+// Color Palette based on requirements
+const DEMOGRAPHIC_COLORS: { [key: string]: string } = {
+  'African American': '#8884d8', // Purple-Blue
+  'Asian': '#82ca9d',            // Green
+  'Hispanic': '#E07A5F',         // Coral
+  'Latino': '#E07A5F',           // Coral (Alias)
+  'White': '#ff7c7c',            // Soft Red
+  'Multiracial': '#6A4C93',      // Deep Purple
+  'Native American': '#d084d0',  // Lavender
+  'Pacific Islander': '#ffb347', // Orange
+  'International': '#5BC0EB',    // Blue
+  'Unknown': '#4B5563',          // Dark Gray (mapped to Other)
+  'Other': '#4B5563'             // Dark Gray
+};
+
+const TopCollegesSection = () => {
+  const [data, setData] = useState<CollegeReadinessData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [zipCode, setZipCode] = useState<string>('');
+  const schoolsApiBaseUrl =
+    process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL || 'http://localhost:4000';
+
+  // Get zip code from localStorage or property data
+  useEffect(() => {
+    const storedZip = localStorage.getItem('propertyAddress2') || '99623';
+    setZipCode(storedZip);
+  }, []);
+
+  // Fetch college readiness data
+  useEffect(() => {
+    if (!zipCode) return;
+
+    const fetchCollegeReadiness = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const response = await fetch(
+          `${schoolsApiBaseUrl}/schools/college-readiness-by-zip?zipCode=${encodeURIComponent(zipCode)}`
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch college readiness data: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        console.log('✅ College Readiness API response:', result);
+        setData(result);
+      } catch (err) {
+        console.error('❌ Error fetching college readiness data:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load college readiness data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCollegeReadiness();
+  }, [zipCode]);
+
+  if (loading) {
+    return (
+      <section className="p-6 w-full mt-4">
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+        </div>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="p-6 w-full mt-4">
+        <div className="text-center py-12 text-red-600">
+          <p>Error loading college readiness data</p>
+          <p className="text-sm mt-2">{error}</p>
+        </div>
+      </section>
+    );
+  }
+
+  if (!data) {
+    return (
+      <section className="p-6 w-full mt-4">
+        <div className="text-center py-12 text-gray-500">
+          <p>No college readiness data available</p>
+        </div>
+      </section>
+    );
+  }
+
+  // Validate and get top 3 colleges and majors
+  const topColleges = Array.isArray(data.top_colleges) ? data.top_colleges.slice(0, 3) : [];
+  const topMajors = Array.isArray(data.top_majors) ? data.top_majors.slice(0, 3) : [];
+
+  // Transform diversity_breakdown from object to array format
+  let diversityData: DiversityEntry[] = [];
+
+  if (data.diversity_breakdown && typeof data.diversity_breakdown === 'object') {
+    // Convert object to array and assign requirement-specific colors
+    diversityData = Object.entries(data.diversity_breakdown).map(([label, value]) => {
+      const displayLabel = label === 'Unknown' ? 'Other' : label;
+      return {
+        label: displayLabel,
+        value: typeof value === 'number' ? parseFloat((value * 100).toFixed(1)) : 0,
+        color: DEMOGRAPHIC_COLORS[displayLabel] || DEMOGRAPHIC_COLORS['Other'] || '#cccccc'
+      };
+    }).sort((a, b) => b.value - a.value); // Sort by highest percentage
+  }
+
+  console.log('📊 College Readiness Data:', {
+    topColleges,
+    topMajors,
+    diversityData,
+    rawData: data
+  });
+
+  // If no data at all, show message
+  if (topColleges.length === 0 && topMajors.length === 0 && diversityData.length === 0) {
+    return (
+      <section className="p-6 w-full mt-4">
+        <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-6">
+          College Readiness
+        </h2>
+        <div className="text-center py-12 text-gray-500">
+          <p>No college readiness data available for this location</p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="p-6 w-full mt-4">
+      <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-6">
         Top Colleges Attended by Graduates From{' '}
-        <span className="text-orange-600">Richard J. Murphy School</span>
+        <span className="text-orange-600">
+          {data.school_name || 'Richard J. Murphy School'}
+        </span>
       </h2>
-    <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-      <div className="flex-1 w-full">
-        <div className="space-y-4">
-          {colleges.map((college:any, idx:any) => (
-            <div
-              key={college.rank}
-              className="flex justify-between items-center bg-orange-50 p-4 rounded-lg"
-            >
-              <div>
-                <div className="font-semibold">{college.name}</div>
-                <div className="text-xs text-gray-500">Institution ID: {college.id}</div>
+
+      {/* 2-Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+
+        {/* LEFT SIDE: Top Colleges + Top Majors */}
+        <div className="space-y-10">
+
+          {/* Top 3 Colleges */}
+          {topColleges.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <Award className="h-6 w-6 text-[#F07639]" />
+                <h3 className="text-xl font-semibold text-gray-800">Top 3 Colleges</h3>
               </div>
-              <div className="text-3xl text-gray-400 font-bold">#{college.rank}</div>
+              <div className="space-y-3">
+                {topColleges.map((college) => {
+                  const { logoSrc, fallbackLogo } = resolveCollegeLogo(college.name);
+                  return (
+                    <div
+                      key={college.rank}
+                      className="flex justify-between items-center bg-orange-50 p-4 rounded-lg hover:bg-orange-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        {/* College Logo */}
+                        <div className="w-12 h-12 flex-shrink-0 bg-white rounded-full p-1 flex items-center justify-center border border-orange-100 shadow-sm">
+                          <img
+                            src={logoSrc}
+                            alt={college.name}
+                            className="w-full h-full object-contain"
+                            onError={(e) => {
+                              const target = e.currentTarget;
+                              if (target.src !== fallbackLogo) {
+                                target.src = fallbackLogo;
+                              }
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-gray-900 text-sm lg:text-base">{college.name}</div>
+                          <div className="text-xs text-gray-500">Institution ID: {college.ipeds}</div>
+                        </div>
+                      </div>
+                      <div className="text-3xl text-gray-400 font-bold">#{college.rank}</div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          ))}
+          )}
+
+          {/* Top 3 Majors */}
+          {topMajors.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <BookOpen className="h-6 w-6 text-[#F07639]" />
+                <h3 className="text-xl font-semibold text-gray-800">Top 3 Majors</h3>
+              </div>
+              <div className="space-y-3">
+                {topMajors.map((major) => (
+                  <div
+                    key={major.rank}
+                    className="flex justify-between items-center bg-blue-50 p-4 rounded-lg hover:bg-blue-100 transition-colors"
+                  >
+                    <div>
+                      <div className="font-semibold text-gray-900">{major.name}</div>
+                      <div className="text-xs text-gray-500">CIP: {major.cip_code}</div>
+                    </div>
+                    <div className="text-3xl text-gray-400 font-bold">#{major.rank}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Show message if no colleges or majors */}
+          {topColleges.length === 0 && topMajors.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              <p>No college or major data available</p>
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT SIDE: Diversity Chart */}
+        <div className="flex flex-col">
+          {diversityData.length > 0 ? (
+            <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+              {/* Title */}
+              <div className="flex items-center gap-2 mb-2">
+                <PieChartIcon className="h-6 w-6 text-[#F07639]" />
+                <h3 className="text-xl font-semibold text-gray-900">Student Diversity</h3>
+              </div>
+
+              {/* Recharts Donut Chart */}
+              <div className="flex justify-center h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={diversityData}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      innerRadius={45}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {diversityData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={entry.color}
+                          stroke="none"
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-white p-3 border border-gray-200 shadow-lg rounded-md text-sm">
+                              <p className="font-bold text-gray-900">{data.label}</p>
+                              <p className="text-gray-600">
+                                {data.value}% of students
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Custom Legend - Multi-column grid */}
+              <div className="grid grid-cols-2 lg:grid-cols-2 gap-x-4 gap-y-2 mb-6 px-2">
+                {diversityData.map(({ label, value, color }: DiversityEntry) => (
+                  <div key={label} className="flex items-center gap-2">
+                    <span
+                      className="inline-block w-3 h-3 rounded-full shrink-0"
+                      style={{ backgroundColor: color }}
+                    />
+                    <span className="text-sm text-gray-700 truncate" title={label}>
+                      {label}
+                    </span>
+                    <span className="text-xs text-gray-500 font-medium ml-auto">
+                      {value}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Diversity Summary Box */}
+              <div className="bg-gray-50 rounded-md p-4 border border-gray-100">
+                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">
+                  Diversity Summary
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <span className="block text-sm text-gray-600">Total Groups</span>
+                    <span className="block text-lg font-bold text-gray-900">
+                      {diversityData.length}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-sm text-gray-600">Largest Group</span>
+                    <span className="block text-sm font-bold text-gray-900">
+                      {(() => {
+                        const largest = diversityData[0]; // Already sorted
+                        return (
+                          <span style={{ color: largest.color }}>
+                            {largest.label} ({largest.value}%)
+                          </span>
+                        );
+                      })()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg border border-gray-200 p-6 h-full flex items-center justify-center">
+              <div className="text-center text-gray-500">
+                <p>No diversity data available</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="flex flex-col items-center justify-center w-full md:w-1/2 mt-10 md:mt-0">
-        {/* Donut Chart */}
-        <div className="relative w-56 h-56">
-          <svg viewBox="0 0 100 100" className="w-full h-full">
-            {getDonutSegments(ethnicData)}
-            <circle cx="50" cy="50" r="29" fill="white" />
-          </svg>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="sr-only">Ethnic Diversity Donut Chart</span>
-          </div>
-        </div>
-        {/* Legend */}
-        <div className="grid grid-cols-2 gap-x-8 gap-y-1 mt-6">
-          {ethnicData.map(({ label, value, color }: EthnicEntry) => (
-            <div key={label} className="flex items-center space-x-2">
-              <span
-                className="inline-block w-4 h-4 rounded-full"
-                style={{ backgroundColor: color }}
-              />
-              <span className="text-gray-700 text-sm">{label} ({value}%)</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-     <button className="flex items-center mt-4 text-orange-600 font-medium hover:text-orange-700">
-            <ChevronDownIcon className="w-5 h-5 mr-1" aria-hidden="true" />
-            Show more
-          </button>
-    <p className="text-[11px] text-gray-400 mt-6">
-      School ratings are provided by Snaponhscollege.org. This information should only be used as a reference. 
-      Proximity or boundaries shown here are not a guarantee of enrollment. Please reach out to schools directly to verify all information and enrollment eligibility.
-    </p>
-  </section>
-);
+      {/* Footer Disclaimer */}
+      <p className="text-[11px] text-gray-400 mt-8 pt-4 border-t border-gray-200">
+        School ratings are provided by Snaphomecollege.org. This information should only be used as a reference.
+        Proximity or boundaries shown here are not a guarantee of enrollment. Please reach out to schools directly to verify all information and enrollment eligibility.
+      </p>
+    </section>
+  );
+};
 
 export default TopCollegesSection;

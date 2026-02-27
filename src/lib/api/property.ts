@@ -1096,3 +1096,4 @@ export const useGetPropertyCounterOfferById = (id: any) =>
       return response.data.data.getPropertyCounterOfferById;
     },
   });
+

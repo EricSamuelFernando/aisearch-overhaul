@@ -3,8 +3,6 @@
 import React, { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
-
 import { success, error } from '@/components/alert/notify';
 import {
   IPropertiesResponse,
@@ -37,6 +35,8 @@ import { useEditPropertyFormContext } from '@/providers/edit-property-context';
 import axios from 'axios';
 import { GET_PROPERTY_SEARCH_PREFERENCE_AI_URL, PROPERTY_DETAIL_SEARCH_AI_URL } from '@/shared/constants/env';
 import { getAuthToken } from '@/lib/storage';
+import { getIsAuthExpired } from '@/lib/api/axios';
+import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 
 interface SharePropertyRequestBody {
   role: string;
@@ -168,9 +168,17 @@ export const usePublishMutation = (publishStatus: string) => {
       queryClient.invalidateQueries({ queryKey: ['property', id] });
 
       if (data.message) {
-        toast.success(data.message || 'Success! The property is now published."');
+        success({
+          message:
+            data.message ||
+            'Success! The property is now published."',
+        });
       } else {
-        toast.error(data.message || 'The property could not be published. Please try again.');
+        error({
+          message:
+            data.message ||
+            'The property could not be published. Please try again.',
+        });
       }
     },
 
@@ -179,7 +187,7 @@ export const usePublishMutation = (publishStatus: string) => {
         error.response?.data?.message ||
         'An error occurred while publishing the property.';
       console.error('Failed to update property status', error);
-      toast.error(errorMessage);
+      error({ message: errorMessage });
     },
   });
 
@@ -242,9 +250,20 @@ export const useGetSingleProperty = (propertyId: string) => {
     queryKey: ['get-property-single-listing', propertyId],
     queryFn: async () => {
       try {
-        const response = await axios.post(PROPERTY_DETAIL_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search/preference', {
-          listingId: Number(propertyId)
-        });
+        const bypass = isMlsBypassModeEnabled();
+        const detailUrl = bypass
+          ? '/api/mls/detail'
+          : (PROPERTY_DETAIL_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search/preference');
+
+        const numericId = Number(propertyId);
+        const response = await axios.post(detailUrl, bypass
+          ? {
+              listingId: Number.isFinite(numericId) ? numericId : propertyId,
+              propertyId: Number.isFinite(numericId) ? numericId : propertyId,
+            }
+          : {
+              listingId: Number(propertyId)
+            });
 
         // Map the response to match expected structure
         // dashboard layout expects data.property to be the property object
@@ -299,13 +318,20 @@ export const useGetPropertyByAddress = (address: string) => {
 
 export const useGetPropertyPreference = (email?: string) => {
   const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql";
-  const token = getAuthToken() || localStorage.getItem('userAccessToken');
+
+  // NOTE: token is read INSIDE queryFn so we always get the latest token
+  // (the old code read it once at hook init, causing stale-token failures after refresh)
 
   // GraphQL query to fetch from DB
   const getPropertyPreferenceFromDB = useQuery({
     queryKey: ['property-preference-db'],
     queryFn: async () => {
-      if (!token) {
+      if (getIsAuthExpired()) {
+        throw new Error('Session expired. Please login again.');
+      }
+      // Read fresh token each time the query runs
+      const freshToken = getAuthToken() || localStorage.getItem('userAccessToken');
+      if (!freshToken) {
         throw new Error('No authentication token found');
       }
 
@@ -335,7 +361,7 @@ export const useGetPropertyPreference = (email?: string) => {
         {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${freshToken}`,
           },
         }
       );
@@ -346,10 +372,10 @@ export const useGetPropertyPreference = (email?: string) => {
 
       return response.data?.data?.getPropertyPreference || null;
     },
-    enabled: !!token,
+    enabled: !!(getAuthToken() || (typeof window !== 'undefined' && localStorage.getItem('userAccessToken'))),
     refetchOnMount: true,
     refetchOnWindowFocus: false,
-    staleTime: 0, // Always consider data stale to ensure fresh data
+    staleTime: 0,
   });
 
   // AI API query - returns raw response structure
@@ -358,16 +384,15 @@ export const useGetPropertyPreference = (email?: string) => {
     queryFn: async () => {
       if (!email) return null;
       const response = await axios.get(`${GET_PROPERTY_SEARCH_PREFERENCE_AI_URL}/${email}`);
-      // AI API returns { preference: {...}, user: "..." }
-      // Return the raw response structure so component can access preference.mls_type, preference.listing_price_max, etc.
       return response.data || null;
     },
     enabled: !!email,
     refetchOnMount: true,
-    staleTime: 0, // Always consider data stale to ensure fresh data
+    staleTime: 0,
   });
 
   return {
+    getPropertyPreferenceFromDB,
     getPropertyPreferenceFromAI
   };
 }
@@ -375,7 +400,6 @@ export const useGetPropertyPreference = (email?: string) => {
 export const useUpdatePropertyPreference = (email?: string) => {
   const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql";
   const PROPERTY_SEARCH_PREFERENCE_AI_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/search/preference` || 'http://13.60.114.186:9000/api/search/preference';
-  const token = getAuthToken() || localStorage.getItem('userAccessToken');
   const queryClientHook = useQueryClient();
 
   const updatePropertyPreference = useMutation({
@@ -386,14 +410,20 @@ export const useUpdatePropertyPreference = (email?: string) => {
       priceMin?: number;
       priceMax?: number;
       city?: string;
+      onboardingCompleted?: boolean;
     }) => {
-      if (!token) {
+      if (getIsAuthExpired()) {
+        throw new Error('Session expired. Please login again.');
+      }
+      // Read fresh token each time the mutation runs
+      const freshToken = getAuthToken() || localStorage.getItem('userAccessToken');
+      if (!freshToken) {
         throw new Error('No authentication token found');
       }
 
       // Prepare GraphQL mutation data according to PropertyPreferenceInput schema
       const propertyData: any = {
-        onboardingCompleted: false,
+        onboardingCompleted: data.onboardingCompleted ?? false,
         preApprovalAffiliates: false,
       };
 
@@ -438,7 +468,7 @@ export const useUpdatePropertyPreference = (email?: string) => {
         {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${freshToken}`,
           },
         }
       );
@@ -476,13 +506,18 @@ export const useUpdatePropertyPreference = (email?: string) => {
     },
     onSuccess: async (data: any) => {
       console.log('Preference updated:', data);
-      success({ message: "Preference has been successfully updated" });
+      // NOTE: Toast is NOT shown here to prevent auto-sync from layouts triggering it on every page load.
+      // The calling component should show its own toast in the mutate onSuccess callback when user explicitly saves.
       // Invalidate queries to refetch
       queryClientHook.invalidateQueries({ queryKey: ['property-preference-db'] });
       queryClientHook.invalidateQueries({ queryKey: ['property-preference-ai'] });
     },
     onError: (err: any) => {
-      error({ message: err?.response?.data?.errors?.[0]?.message || err?.message || 'Failed to update preference' });
+      // Don't show toast for auth/session errors – the global AuthSessionSync handler
+      // will show a single "session expired" toast and redirect to login.
+      const msg = err?.message || '';
+      if (msg.includes('Unauthorized') || msg.includes('Session expired')) return;
+      error({ message: err?.response?.data?.errors?.[0]?.message || msg || 'Failed to update preference' });
     },
   });
 
@@ -529,3 +564,4 @@ export const useCompleteUserPreference = () => {
     },
   });
 };
+

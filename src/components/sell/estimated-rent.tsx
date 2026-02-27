@@ -7,8 +7,8 @@ const EstimatedRent = () => {
       id='home-estimator'
       className='flex flex-col bg-[#FAF0E6] md:bg-[#FAF0E6] py-0 md:py-7 mt-0 md:mt-32'
     >
-      {/* Mobile: Title Section at Top */}
-      <div className='md:hidden bg-[#FDF6EE] px-4 pt-6 pb-4 text-center'>
+      {/* Mobile/Tablet: Title Section at Top */}
+      <div className='lg:hidden bg-[#FDF6EE] px-4 pt-6 pb-4 text-center'>
         <h2 className='text-3xl font-bold text-[#2A1C14] mb-2'>
           EasyOffer Strength <span className='font-normal italic'>Analyzer</span>
         </h2>
@@ -17,12 +17,12 @@ const EstimatedRent = () => {
         </p>
       </div>
 
-      <div className='flex flex-col md:grid md:grid-cols-4 md:min-h-[80vh] bg-[#FDF6EE]'>
+      <div className='flex flex-col lg:grid lg:grid-cols-4 lg:min-h-[80vh] bg-[#FDF6EE]'>
         {/* First Section - Rental Estimate */}
-        <div className='col-span-1 md:col-span-2 flex flex-col items-center justify-center gap-3 bg-[#2A1C14] px-4 md:px-16 py-6 md:py-2'>
-          {/* Mobile: Small rounded button header */}
-          <div className='mx-auto flex w-fit items-center px-3 py-1.5 justify-center rounded-full bg-[#100C07] text-[#F07639] mb-2 md:mb-0'>
-            <p className='text-center text-xs md:text-[16px] font-bold capitalize'>
+        <div className='col-span-1 lg:col-span-2 flex flex-col items-center justify-center gap-3 bg-[#2A1C14] px-4 lg:px-16 py-6 lg:py-2'>
+          {/* Mobile/Tablet: Small rounded button header */}
+          <div className='mx-auto flex w-fit items-center px-3 py-1.5 justify-center rounded-full bg-[#100C07] text-[#F07639] mb-2 lg:mb-0'>
+            <p className='text-center text-xs lg:text-[16px] font-bold capitalize'>
               Estimated monthly rent in your area
             </p>
           </div>
@@ -64,14 +64,14 @@ const EstimatedRent = () => {
             </div>
 
             {/* MLS Search Input */}
-            <div className='w-full mt-6 md:mt-24'>
-              <MLSSearch placeholderText='Enter your address or MLS#' />
+            <div className='w-full mt-6 lg:mt-24'>
+              <MLSSearch placeholderText='Enter your MLS#' />
             </div>
           </div>
         </div>
 
         {/* Second Section - Analytics */}
-        <div className='col-span-1 md:col-span-2 h-full w-full bg-[#FDF6EE] md:bg-[#FDF6EE]'>
+        <div className='col-span-1 lg:col-span-2 h-full w-full bg-[#FDF6EE] lg:bg-[#FDF6EE]'>
           <SellAnalytics />
         </div>
       </div>

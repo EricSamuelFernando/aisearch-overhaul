@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import CustomModal from '@/components/custom-modal';
 import NImage from 'next/image';
 import { useComments } from '@/hooks/api/useComments';
+import { useNotificationApi } from '@/hooks/api/user/useNotification';
 import { format } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 import { useAppSelector } from '@/lib/hook';
@@ -13,9 +14,10 @@ interface CommentsModalProps {
     property: any;
     snapId?: string; // Add snapId prop
     onCommentAdded?: () => void;
+    userSnapRole?: string;
 }
 
-const CommentsModal: React.FC<CommentsModalProps> = ({ isOpen, onClose, property, snapId, onCommentAdded }) => {
+const CommentsModal: React.FC<CommentsModalProps> = ({ isOpen, onClose, property, snapId, onCommentAdded, userSnapRole }) => {
     const listingId = property?.listingId || property?.property?.listingId || property?.listingid;
     const getDisplayAddress = () => {
         const details = property?.propertyAddressDetails;
@@ -45,6 +47,7 @@ const CommentsModal: React.FC<CommentsModalProps> = ({ isOpen, onClose, property
     const propertyName = property?.name || property?.propertyName;
 
     const { comments, loading, addComment } = useComments(listingId, snapId); // Pass snapId to hook
+    const { notificationsQuery } = useNotificationApi();
     const [newCommentText, setNewCommentText] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -56,13 +59,15 @@ const CommentsModal: React.FC<CommentsModalProps> = ({ isOpen, onClose, property
         return `${currentUser.firstname} ${currentUser.lastname || ''}`.trim();
     };
     const userName = getUserName();
+    const accountType = userSnapRole || currentUser?.account_type || 'buyer'; // Use snap role if available, fallback to user account type
 
     const handleAddComment = async () => {
         if (!newCommentText.trim()) return;
         setIsSubmitting(true);
         try {
-            await addComment(newCommentText, userName, propertyName);
+            await addComment(newCommentText, userName, address, accountType); // Pass accountType
             setNewCommentText('');
+            notificationsQuery.refetch();
             if (onCommentAdded) onCommentAdded();
         } catch (error) {
             // Error handled in hook
@@ -106,7 +111,19 @@ const CommentsModal: React.FC<CommentsModalProps> = ({ isOpen, onClose, property
                         comments.map((comment) => (
                             <div key={comment.id} className="bg-gray-100 p-4 rounded-r-xl border-l-2 border-[#FF8700] shadow-sm mb-3">
                                 <div className="flex justify-between items-center mb-2">
-                                    <h4 className="font-bold text-sm text-gray-900">{comment.userName}</h4>
+                                    <div className="flex items-center gap-2">
+                                        <h4 className="font-bold text-sm text-gray-900">{comment.userName}</h4>
+                                        {comment.accountType && (
+                                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${comment.accountType.toLowerCase() === 'agent'
+                                                    ? 'bg-blue-100 text-blue-700'
+                                                    : comment.accountType.toLowerCase() === 'co-buyer'
+                                                        ? 'bg-purple-100 text-purple-700'
+                                                        : 'bg-green-100 text-green-700'
+                                                }`}>
+                                                {comment.accountType.toLowerCase() === 'agent' ? 'Agent' : comment.accountType.toLowerCase() === 'co-buyer' ? 'Co-Buyer' : 'Buyer'}
+                                            </span>
+                                        )}
+                                    </div>
                                     <span className="text-xs text-gray-400">
                                         {format(new Date(comment.createdAt), 'MMM dd, yyyy')}
                                     </span>

@@ -20,12 +20,13 @@ interface ThreadInterface {
 const ChatBox = () => {
     const router = useRouter();
     const params = useParams()
-    const id = params?.id;
+    const idParam = params?.id;
+    const id = Array.isArray(idParam) ? idParam[0] : idParam;
     const [conversations, setConversations] = useState([]);
     const [loading, setLoading] = useState(false);
     const { socket, state, setState } = useContext(SocketContext)
     const [threads, setThreads] = useState<ThreadInterface[] | []>([]);
-    const [isRead, setIsRead] = useState(true);
+    const [isRead, setIsRead] = useState(false);
     const [search, setSearch] = useState("");
     const {
         getAllThreadsMutation,

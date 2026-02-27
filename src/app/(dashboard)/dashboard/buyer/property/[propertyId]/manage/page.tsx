@@ -137,16 +137,18 @@ function ManagePropertyPage({ params }: { params: { propertyId: string } }) {
 
 
   return (
-    <section className='px-16 py-8'>
-      <UserBackButton />
+    <section className='px-1 sm:px-2 md:px-4 lg:px-8 xl:px-12 2xl:px-16 py-1 sm:py-2 md:py-4 lg:py-6 xl:py-8'>
+      <div className='mb-3 sm:mb-4 lg:mb-6'>
+        <UserBackButton />
+      </div>
 
-      <div className='my-8 grid grid-cols-6'>
-        <div className='col-span-4'>
+      <div className='grid gap-3 sm:gap-4 md:gap-6 lg:gap-8 lg:grid-cols-6'>
+        <div className='lg:col-span-4 order-2 lg:order-1'>
           <ManagePropertyContent />
         </div>
-        <div className='col-span-2'>
+        <div className='lg:col-span-2 order-1 lg:order-2 space-y-3 sm:space-y-4 md:space-y-6 lg:space-y-8'>
           <PropertyOverview
-            className='w-full rounded-2xl bg-black p-3 text-white'
+            className='w-full rounded-lg sm:rounded-xl lg:rounded-2xl bg-black p-2 sm:p-3 md:p-4 lg:p-6 text-white'
             trailColor='#454545'
             textColor='text-white'
             pathColor='white'
@@ -158,24 +160,24 @@ function ManagePropertyPage({ params }: { params: { propertyId: string } }) {
             progress={engagedProperty?.propertyProgress || 0}
           />
 
-          {(agentData?.[0]?.is_accepted !== "rejected" && agentData?.[0]?.agent?.email) ? <div className='my-8 flex items-center justify-between gap-x-2'>
-            <div className='flex items-center gap-x-4'>
+          {(agentData?.[0]?.is_accepted !== "rejected" && agentData?.[0]?.agent?.email) ? <div className='flex flex-col gap-2 sm:gap-3 md:gap-4 p-2 sm:p-3 md:p-4 bg-gray-50 rounded-lg sm:rounded-xl'>
+            <div className='flex items-center gap-x-2 sm:gap-x-3 md:gap-x-4 flex-1 min-w-0'>
               {hasImage ? (
                 <Image
-                  height={50}
-                  width={50}
+                  height={32}
+                  width={32}
                   src={agentData.imageUrl}
                   objectFit='contain'
                   alt='AgentData'
-                  className='rounded-full object-cover'
+                  className='rounded-full object-cover sm:h-[40px] sm:w-[40px] md:h-[50px] md:w-[50px]'
                 />
               ) : (
-                <div className='flex h-[50px] w-[50px] items-center justify-center rounded-full bg-ocOrange text-white text-lg font-semibold'>
+                <div className='flex h-[32px] w-[32px] sm:h-[40px] sm:w-[40px] md:h-[50px] md:w-[50px] items-center justify-center rounded-full bg-ocOrange text-white text-xs sm:text-sm md:text-lg font-semibold flex-shrink-0'>
                   {initials}
                 </div>
               )}
-              <div className='leading-1 font-bold'>
-                <p className='text-base'>
+              <div className='leading-tight font-bold min-w-0 flex-1'>
+                <p className='text-xs sm:text-sm md:text-base truncate'>
                   {agentData?.[0]?.agent?.firstName && agentData?.[0]?.agent?.lastName
                     ? `${agentData[0].agent.firstName} ${agentData[0].agent.lastName}`
                     : "External Agent"}
@@ -183,41 +185,42 @@ function ManagePropertyPage({ params }: { params: { propertyId: string } }) {
 
                 {
                   (agentData?.[0]?.is_accepted === "pending" || agentData?.[0]?.is_accepted === "PENDING") ?
-                    <p className='text-md text-yellow-500'>Agent pending</p>
+                    <p className='text-xs sm:text-xs md:text-sm text-yellow-500'>Agent pending</p>
                     : agentData?.[0]?.is_accepted === "rejected" ?
-                      <p className='text-md text-red-500'>Agent rejected</p> :
-                      <p className='text-sm text-ocOrange'>Agent accepted</p>
+                      <p className='text-xs sm:text-xs md:text-sm text-red-500'>Agent rejected</p> :
+                      <p className='text-xs sm:text-xs md:text-sm text-ocOrange'>Agent accepted</p>
                 }
               </div>
             </div>
 
             {agentData?.[0]?.is_accepted === "pending" || agentData?.[0]?.is_accepted === "PENDING" ? <Button
-              className='md:w-[120px] flex items-center justify-center gap-2'
+              className='w-full min-w-[80px] sm:min-w-[100px] md:min-w-[120px] flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm h-8 sm:h-9 md:h-10'
               disabled={loading || agentData?.is_accepted === "accepted"}
               onClick={handleRemoveInvitation}
             >
               {loading ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-3 w-3 sm:h-3 sm:w-3 md:h-4 md:w-4 animate-spin" />
                 </>
               ) : (
                 'Remove'
               )}
             </Button> : null}
           </div> : <>
-            <br />
-            <Button
-              asChild
-              className='font-bold md:min-w-[150px]'
-              roundness='full'
-            >
-              <Link
-                href={`/start-process/${engagedProperty?.propertyId}/transaction-agreement?dashboard=true&engagementId=${engagedProperty?.id}`}
-              // href={`${userPath}/property/${propertyData?.propertyId}/add-agent?engagementId=${propertyData?.id}`}
+            <div className='p-2 sm:p-3 md:p-4 bg-gray-50 rounded-lg sm:rounded-xl'>
+              <Button
+                asChild
+                className='w-full font-bold text-xs sm:text-sm md:text-base h-8 sm:h-9 md:h-10'
+                roundness='full'
               >
-                Add Agent
-              </Link>
-            </Button>
+                <Link
+                  href={`/start-process/${engagedProperty?.propertyId}/transaction-agreement?dashboard=true&engagementId=${engagedProperty?.id}`}
+                // href={`${userPath}/property/${propertyData?.propertyId}/add-agent?engagementId=${propertyData?.id}`}
+                >
+                  Add Agent
+                </Link>
+              </Button>
+            </div>
           </>}
         </div>
       </div>

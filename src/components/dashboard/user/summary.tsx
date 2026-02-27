@@ -154,7 +154,7 @@ export default function Component() {
     <div>
       <h2 className='mb-4 font-bold'>Summary Terms</h2>
 
-      <div className='grid grid-cols-2 place-content-center place-items-center content-center gap-10 md:grid-cols-3'>
+      <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-10 place-content-center place-items-stretch content-center'>
         <CustomInput
           {...form.getInputProps('offerPrice.amount')}
           value={form.values.offerPrice?.amount}

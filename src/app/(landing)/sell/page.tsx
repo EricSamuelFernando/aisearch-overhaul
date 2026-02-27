@@ -8,14 +8,16 @@ import SellWeMakeItEasy from '@/components/sell/sell-we-make-it-easy';
 
 function Sell() {
   return (
-    <main suppressHydrationWarning className='bg-[#FAF0E6]'>
+    <main suppressHydrationWarning className='bg-[#FFF6EC]'>
       <SellHero />
-      <ChooseYourMeans />
-      {/* <SellWeMakeItEasy /> */}
-      <WeMakeItEasy/>
-      <EstimatedRent />
-      {/* <MainTestimonial /> */}
-      <OurClients />
+      <div className="sell-sections mt-16">
+        <ChooseYourMeans />
+        {/* <SellWeMakeItEasy /> */}
+        <WeMakeItEasy/>
+       {/* <EstimatedRent />*/}
+        {/* <MainTestimonial /> */}
+        <OurClients bgColor="#FFF6EC" />
+      </div>
     </main>
   );
 }

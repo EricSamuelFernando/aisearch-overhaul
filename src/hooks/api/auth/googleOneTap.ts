@@ -8,12 +8,13 @@ import { useRouter } from 'next/navigation';
 import { useAuthActions } from '@/shared/hooks/useAuth';
 import { AUTH_TOKEN, USER_ROLE } from '@/shared/constants/env';
 import { storeCookie } from '@/lib/storage';
+import { resetAuthExpired } from '@/lib/api/axios';
 import { setAuthToken } from '@/slices/auth/register.slices';
 
 const GRAPHQL_URI =
   process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || 'http://localhost:4000/graphql';
 
-const GoogleOneTap = () => {    
+const GoogleOneTap = () => {
   const router = useRouter();
   const { login } = useAuthActions();
 
@@ -53,6 +54,7 @@ const GoogleOneTap = () => {
         localStorage.setItem('userDetails', JSON.stringify(user));
 
         success({ message: 'Success! Welcome back via Google.' });
+        resetAuthExpired();
         setAuthToken(access_token);
         login(user);
         storeCookie({ key: AUTH_TOKEN, value: access_token });
@@ -80,3 +82,4 @@ const GoogleOneTap = () => {
 };
 
 export default GoogleOneTap;
+

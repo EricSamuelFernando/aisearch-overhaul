@@ -1,18 +1,16 @@
-import { toast, ToastContent, Slide, Id, ToastOptions } from 'react-toastify';
-
-export const defaultToastOptions: ToastOptions = {
-  position: 'top-right',
-  autoClose: 4000,
-  hideProgressBar: true,
-  closeOnClick: true,
-  pauseOnHover: true,
-  draggable: true,
-  progress: undefined,
-  theme: 'colored',
-  transition: Slide,
-};
+import type { JSXElementConstructor, ReactElement, ReactNode } from 'react';
+import { toast } from 'sonner';
+import { error, info, success, warning } from '@/components/alert/notify';
 
 type ToastType = 'success' | 'error' | 'info' | 'warning' | 'default';
+
+type ToastOptions = {
+  autoClose?: number;
+} & Record<string, unknown>;
+
+export const defaultToastOptions: ToastOptions = {
+  autoClose: 4000,
+};
 
 // 🚨🚨🚨 THIS IS HOW TO USE THE TOAST
 // showToast("success", <p>Your property has been published!</p>);
@@ -21,29 +19,53 @@ type ToastType = 'success' | 'error' | 'info' | 'warning' | 'default';
  * Display toast
  *
  * @param {ToastType} type
- * @param {ToastContent} content
+ * @param {ReactNode} content
  * @param {ToastOptions} [options=defaultToastOption]
  * @return {Id}
  */
 export const showToast = (
   type: ToastType,
-  content: ToastContent,
+  content: ReactNode,
   options: Partial<ToastOptions> = {},
-): Id => {
+): string | number => {
   const optionsToApply = { ...defaultToastOptions, ...options };
+  const duration =
+    typeof optionsToApply.autoClose === 'number'
+      ? optionsToApply.autoClose
+      : undefined;
+  const toastId =
+    typeof (optionsToApply as Record<string, unknown>).toastId === 'string'
+      ? ((optionsToApply as Record<string, unknown>).toastId as string)
+      : undefined;
+  const id =
+    typeof (optionsToApply as Record<string, unknown>).id === 'string'
+      ? ((optionsToApply as Record<string, unknown>).id as string)
+      : undefined;
+  const baseOptions = {
+    ...(duration ? { duration } : {}),
+    ...(id || toastId ? { id: id || toastId } : {}),
+  };
+  const message =
+    typeof content === 'string' || typeof content === 'number'
+      ? String(content)
+      : '';
 
   switch (type) {
     case 'success':
-      return toast.success(content, optionsToApply);
+      return success({ message, ...baseOptions });
     case 'error':
-      return toast.error(content, optionsToApply);
+      return error({ message, ...baseOptions });
     case 'info':
-      return toast.info(content, optionsToApply);
+      return info({ message, ...baseOptions });
     case 'warning':
-      return toast.warn(content, optionsToApply);
+      return warning({ message, ...baseOptions });
     case 'default':
-      return toast(content, optionsToApply);
+      // Modified by Abhradip Paul giving typescript error
+      // return toast.custom(() => content, baseOptions);
+      return warning({ message, ...baseOptions });
     default:
-      return toast(content, optionsToApply);
+      // Modified by Abhradip Paul giving typescript error
+      // return toast.custom(() => content, baseOptions);
+      return warning({ message, ...baseOptions });
   }
 };

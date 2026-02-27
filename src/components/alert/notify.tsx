@@ -1,21 +1,57 @@
+import type { CSSProperties, ReactNode } from 'react';
 import { toast } from 'sonner';
+
 interface NotifProps {
   message?: string;
   subtitle?: string;
+  duration?: number;
+  id?: string;
 }
 
-// Success notifications trigger
-const success = ({ message, subtitle, ...options }: NotifProps) =>
-  toast.success(message);
-const info = ({ message, subtitle, ...options }: NotifProps) =>
-  toast.info(message);
+type ExtraOptions = Record<string, unknown>;
 
-// Error notifications trigger
-const error = ({ message, subtitle, ...options }: NotifProps) =>
-  toast.error(message);
+const success = ({ message, subtitle, duration, id, ...rest }: NotifProps & ExtraOptions) =>
+  toast.success(message, {
+    description: subtitle,
+    ...(duration ? { duration } : {}),
+    ...(id ? { id } : {}),
+    ...rest,
+  });
 
-// Dismiss all notifications
+const successNoIcon = ({ message, subtitle, duration, id, ...rest }: NotifProps & ExtraOptions) =>
+  toast.success(message, {
+    description: subtitle,
+    icon: null,
+    ...(duration ? { duration } : {}),
+    ...(id ? { id } : {}),
+    ...rest,
+  });
+
+const error = ({ message, subtitle, duration, id, ...rest }: NotifProps & ExtraOptions) =>
+  toast.error(message, {
+    description: subtitle,
+    ...(duration ? { duration } : {}),
+    ...(id ? { id } : {}),
+    ...rest,
+  });
+
+const warning = ({ message, subtitle, duration, id, ...rest }: NotifProps & ExtraOptions) =>
+  toast.warning(message, {
+    description: subtitle,
+    ...(duration ? { duration } : {}),
+    ...(id ? { id } : {}),
+    ...rest,
+  });
+
+const info = ({ message, subtitle, duration, id, ...rest }: NotifProps & ExtraOptions) =>
+  toast.info(message, {
+    description: subtitle,
+    ...(duration ? { duration } : {}),
+    ...(id ? { id } : {}),
+    ...rest,
+  });
+
 const dismissAll = (toastId?: string) =>
   toastId ? toast.dismiss(toastId) : toast.dismiss();
 
-export { success, error, dismissAll, info };
+export { success, successNoIcon, error, warning, info, dismissAll };

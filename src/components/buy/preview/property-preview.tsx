@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { useDeferredValue } from 'react';
@@ -18,6 +18,7 @@ import { BuyTab } from '../buy-tab';
 import BuyTable from '../buy-table';
 import ItemNav from './ItemNav';
 import { useGetSingleProperty } from '@/hooks/api/property/usePropertyApi';
+import { useAskAIApi } from '@/hooks/api/ask-ai/useAskAIApi';
 import { useAppSelector } from '@/lib/hook';
 import {
   HeroCollege,
@@ -28,20 +29,22 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { NewFeatureCard } from './multi-feature-card';
 import { PROPERTY_DETAIL_SEARCH_AI_URL } from "@/shared/constants/env"
+import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 
 import { useSelector } from 'react-redux';
 import CategorizedPhotosModal from '../CategorizedPhotosModal'; // Import the new modal
 import PropertyDetailsCard from '../propertyDetailsCard';
-import { BookmarkCheck, ChevronDown, ChevronUp, Info, Mail, Search, Loader2, X, Star, ArrowRight } from 'lucide-react';
+import { BookmarkCheck, ChevronDown, ChevronUp, Info, Search, Loader2, X, Star, ArrowRight } from 'lucide-react';
 import { EstimatedMarketValue } from '../preview-hero/EstimatedMarketValue';
 import HomeHighlights from '../preview-hero/HomeHighlights';
 import SchoolsNearAddress from '../preview-hero/SchoolsNearAddress';
 import TopCollegesSection from '../preview-hero/PropertySummaryBar';
 import InteriorOffersSection from '../preview-hero/InteriorOffersSection';
 import PropertyHistorySection from '../preview-hero/PropertyHistorySection';
-import InterestRatePredictor from '../preview-hero/InterestRatePredictor';
-import PaymentCalculator from '../preview-hero/PaymentCalculator';
+import InterestRateForecast from '../preview-hero/InterestRateForecast';
+import MonthlyMortgageCalculator from '../preview-hero/MonthlyMortgageCalculator';
 import NearbyHomesSection from '../preview-hero/NearbyHomesSection';
+import PropertyTakeawaysAI from '../preview-hero/PropertyTakeawaysAI';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAgentConversationApi } from '@/hooks/api/auth/useConversationApi';
@@ -70,6 +73,7 @@ import { SocketContext } from '@/providers/socket.context';
 import { success } from '@/components/alert/notify';
 import type { WebSocketClient } from '@/lib/websocket-client';
 import { AgentDirectoryWrapper } from './agent-directory-wrapper';
+import { useRecordPropertyView } from '@/hooks/api/auth/useViewHistory';
 const defaultEstimatedData: any = {
   houseValue: "$450,460",
   houseValueDescription: "Overall readiness assessment",
@@ -78,6 +82,63 @@ const defaultEstimatedData: any = {
   rentDescription: "Valued in Rent and lost in Mortgage",
   projectedGain: "22.6%",
   projectedGainDescription: "Post-graduation enrolment rates",
+};
+
+const normalizeAuthServiceRestBaseUrl = (raw?: string | null) => {
+  const trimmed = (raw || '').trim().replace(/\/+$/, '');
+  if (!trimmed) return '';
+  return /\/auth$/i.test(trimmed) ? trimmed : `${trimmed}/auth`;
+};
+
+const firstFiniteNumber = (...values: any[]): number | null => {
+  for (const value of values) {
+    if (value === null || value === undefined || value === '') continue;
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+};
+
+const clampNumber = (value: number, min: number, max: number) => {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(Math.max(value, min), max);
+};
+
+const toPositiveIntegerOrNull = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  const intValue = Math.trunc(parsed);
+  if (intValue === 0) return null;
+  return Math.abs(intValue);
+};
+
+const hasUsablePropertyData = (response: any): boolean => {
+  if (typeof response?.statusCode === 'number' && response.statusCode >= 400) {
+    return false;
+  }
+
+  const data = response?.data;
+  if (!data || typeof data !== 'object') return false;
+
+  const hasAddress = Boolean(
+    data?.address?.unparsedAddress ||
+    data?.address?.city ||
+    data?.address?.zipCode
+  );
+  const hasPropertyNode = Boolean(
+    data?.property &&
+    typeof data.property === 'object' &&
+    Object.keys(data.property).length > 0
+  );
+  const hasMedia = Boolean(
+    data?.media?.primaryListingImageUrl ||
+    (Array.isArray(data?.media?.photosList) && data.media.photosList.length > 0)
+  );
+  const hasPrice = Boolean(
+    data?.listPrice !== undefined && data?.listPrice !== null && data?.listPrice !== ''
+  );
+  return hasAddress || hasPropertyNode || hasMedia || hasPrice;
 };
 
 
@@ -96,21 +157,71 @@ interface HomeHighlightsProps {
 
 // 2. Create the Data Object
 
+interface ProprtyData {
+  property: {
+    bathroomsHalf: number
+    bathroomsTotal: number
+    bedroomsTotal: number
+    hasBasement: boolean
+    propertyType?: string | null
+    livingArea?: number | string | null
+    livingSquareFeet?: number | string | null
+    yearBuilt?: number | string | null
+    description?: string | null
+    associationFee?: number | string | null
+    [key: string]: any
+  }
+  homedetails: {
+    flooring: string
+    fireplaceYn: boolean
+    [key: string]: any
+  }
+  publicRemarks: string
+  tags: string[]
+  listingContractDate: string
+  listingId?: string | null
+  address?: {
+    unparsedAddress?: string | null
+    city?: string | null
+    stateOrProvince?: string | null
+    zipCode?: string | null
+    countyOrParish?: string | null
+    [key: string]: any
+  }
+  media?: {
+    primaryListingImageUrl?: string | null
+  }
+  listPrice?: string | null
+  daysOnMarket?: string | null
+  propertyId?: string | null
+  zpid?: string | null
+}
 
+function getDayCountFromUTC(dateStr: string) {
+  // "2026-01-29 00:00:00 UTC" -> valid ISO UTC
+  const iso = dateStr.replace(" UTC", "Z").replace(" ", "T");
+  const inputDate = new Date(iso);
+  const now = new Date();
+
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const diffMs = Number(now) - Number(inputDate); // positive = past, negative = future
+
+  return Math.floor(diffMs / msPerDay);
+}
 
 const PropertyPreview: React.FC = () => {
   const leftSection = React.useRef<HTMLDivElement>(null);
   const cardRef = React.useRef<HTMLDivElement>(null);
-  const [proprtyData, setPropertyData] = React.useState([]);
+  const [proprtyData, setPropertyData] = React.useState<ProprtyData | undefined>();
   const [propertyDatas, setpropertyDatas] = React.useState<any>(null);
   interface PropertyDetails {
     data: {
       schools: any[];
       propertyInfo?: any;
-
     };
   }
-  const [open, setOpen] = React.useState<number | null>(null);
+
+
   const [propertyDetails, setPropertyDetails] = React.useState<PropertyDetails | null>(null);
   const property: any = useAppSelector((state: any) => state.property.property);
   const [tags, setTags] = React.useState<any>([])
@@ -141,9 +252,58 @@ const PropertyPreview: React.FC = () => {
   const [isInviteAgentModalOpen, setIsInviteAgentModalOpen] = React.useState(false);
   const [engagementIdForModal, setEngagementIdForModal] = React.useState<string | null>(null);
   const [isProcessingInvitation, setIsProcessingInvitation] = React.useState(false);
+  const [contactActionInProgress, setContactActionInProgress] = React.useState<"search" | "invite" | null>(null);
   const [inviteAgentEmail, setInviteAgentEmail] = React.useState('');
   const [inviteEmailError, setInviteEmailError] = React.useState('');
+  const [isAskAIModalOpen, setIsAskAIModalOpen] = React.useState(false);
+  const [askAIQuestion, setAskAIQuestion] = React.useState('');
+  const [isStreetViewOpen, setIsStreetViewOpen] = React.useState(false);
+  const [streetViewError, setStreetViewError] = React.useState<string | null>(null);
+  const streetViewRef = React.useRef<HTMLDivElement>(null);
   const { externalAgentIvitationMutation } = useUserAuthApi();
+  const { recordPropertyView } = useRecordPropertyView();
+  const hasRecordedViewRef = React.useRef(false);
+  const [rentEstimate, setRentEstimate] = React.useState<number | null>(null);
+  const [rentDelta, setRentDelta] = React.useState<number | null>(null);
+  const [projectedGainPct, setProjectedGainPct] = React.useState<number | null>(null);
+  const [totalViewsCount, setTotalViewsCount] = React.useState<number | null>(null);
+  const [totalSavesCount, setTotalSavesCount] = React.useState<number | null>(null);
+  const authRestBaseUrl = React.useMemo(
+    () => normalizeAuthServiceRestBaseUrl(process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL),
+    []
+  );
+
+  // Neo4j schools API integration
+  const [nearbySchools, setNearbySchools] = React.useState<any[]>([]);
+  const [schoolsLoading, setSchoolsLoading] = React.useState(false);
+  const [schoolsError, setSchoolsError] = React.useState<string | null>(null);
+
+  // Ask AI Integration
+  const { askAIMutation } = useAskAIApi();
+  const [aiAnswer, setAiAnswer] = React.useState<string | null>(null);
+  const [userQuestionDisplay, setUserQuestionDisplay] = React.useState<string | null>(null);
+  const [aiSuggestions, setAiSuggestions] = React.useState<string[]>([
+    "What should I look out for?",
+    "Will I like my neighbors?",
+    "Can I raise a family here?"
+  ]);
+
+  const handleAskAIQuery = (query: string) => {
+    if (!query.trim()) return;
+
+    setUserQuestionDisplay(query);
+    setAskAIQuestion(query); // Keep input synced if needed, or clear it
+
+    askAIMutation.mutate({ question: query }, {
+      onSuccess: (data) => {
+        setAiAnswer(data.answer);
+        if (data.suggestions && data.suggestions.length > 0) {
+          setAiSuggestions(data.suggestions);
+        }
+        setAskAIQuestion(''); // Clear input after successful send
+      }
+    });
+  };
 
   React.useEffect(() => {
     if (id) {
@@ -151,7 +311,63 @@ const PropertyPreview: React.FC = () => {
     }
   }, [id])
 
-  console.log("DEBUG PREVIEW:", { id, engagedProperty, propertyData });
+  React.useEffect(() => {
+    if (!currentUser?.id) return;
+    if (hasRecordedViewRef.current) return;
+    const listingIdToRecord =
+      proprtyData?.listingId ||
+      propertyDatas?.data?.listingId ||
+      propertyData?.listingId ||
+      property?.listingId ||
+      id;
+    if (!listingIdToRecord) return;
+
+    recordPropertyView.mutate({
+      listingId: String(listingIdToRecord),
+      propertyId: String(propertyDatas?.data?.propertyId || propertyData?.propertyId || ''),
+      propertyAddress:
+        proprtyData?.address?.unparsedAddress ||
+        propertyDatas?.data?.address?.unparsedAddress ||
+        propertyData?.listing?.address?.unparsedAddress ||
+        propertyData?.public?.address?.label ||
+        '',
+      city:
+        proprtyData?.address?.city ||
+        propertyDatas?.data?.address?.city ||
+        propertyData?.listing?.address?.city ||
+        propertyData?.public?.address?.city ||
+        '',
+      state:
+        proprtyData?.address?.stateOrProvince ||
+        propertyDatas?.data?.address?.stateOrProvince ||
+        propertyData?.listing?.address?.stateOrProvince ||
+        propertyData?.public?.address?.state ||
+        '',
+      price: String(
+        proprtyData?.listPrice ||
+        propertyDatas?.data?.listPrice ||
+        propertyData?.listing?.listPriceLow ||
+        propertyData?.listPrice ||
+        ''
+      ),
+      propertyType:
+        proprtyData?.property?.propertyType ||
+        propertyDatas?.data?.property?.propertyType ||
+        propertyData?.listing?.property?.propertyType ||
+        propertyData?.property?.propertyType ||
+        '',
+      propertyImage:
+        proprtyData?.media?.primaryListingImageUrl ||
+        propertyDatas?.data?.media?.primaryListingImageUrl ||
+        propertyData?.listing?.media?.primaryListingImageUrl ||
+        propertyData?.media?.primaryListingImageUrl ||
+        '',
+    });
+
+    hasRecordedViewRef.current = true;
+  }, [currentUser?.id, proprtyData, propertyDatas, propertyData, property?.listingId, id, recordPropertyView]);
+
+  // console.log("DEBUG PREVIEW:", { id, engagedProperty, propertyData });
 
   const createEngagementAndNavigate = (meanType?: string) => {
     if (!currentUser?.id) {
@@ -185,7 +401,7 @@ const PropertyPreview: React.FC = () => {
           console.log("Engagement created:", response);
           const engagementId = response?.data?.createEngagement?.id;
           if (engagementId) {
-            const url = meanType 
+            const url = meanType
               ? `/dashboard/buyer/property/${propertyData?.id || id}/add-agent?engagementId=${engagementId}&mean_type=${meanType}`
               : `/dashboard/buyer/property/${propertyData?.id || id}/add-agent?engagementId=${engagementId}`;
             router.push(url);
@@ -226,6 +442,7 @@ const PropertyPreview: React.FC = () => {
     }
 
     setIsProcessingInvitation(true);
+    setContactActionInProgress("search");
 
     // Check if engagement already exists
     if (engagedProperty?.id) {
@@ -233,6 +450,7 @@ const PropertyPreview: React.FC = () => {
       setIsContactAgentDialogOpen(false);
       setIsSearchAgentModalOpen(true);
       setIsProcessingInvitation(false);
+      setContactActionInProgress(null);
       return;
     }
 
@@ -264,11 +482,13 @@ const PropertyPreview: React.FC = () => {
             error({ message: "Failed to create engagement" });
           }
           setIsProcessingInvitation(false);
+          setContactActionInProgress(null);
         },
         onError: (err: any) => {
           console.error("Error creating engagement:", err);
           error({ message: "Failed to create engagement. Please try again." });
           setIsProcessingInvitation(false);
+          setContactActionInProgress(null);
         }
       }
     );
@@ -295,6 +515,7 @@ const PropertyPreview: React.FC = () => {
     }
 
     setIsProcessingInvitation(true);
+    setContactActionInProgress("invite");
 
     // Check if engagement already exists
     if (engagedProperty?.id) {
@@ -302,6 +523,7 @@ const PropertyPreview: React.FC = () => {
       setIsContactAgentDialogOpen(false);
       setIsInviteAgentModalOpen(true);
       setIsProcessingInvitation(false);
+      setContactActionInProgress(null);
       return;
     }
 
@@ -332,10 +554,14 @@ const PropertyPreview: React.FC = () => {
           } else {
             error({ message: "Failed to create engagement" });
           }
+          setIsProcessingInvitation(false);
+          setContactActionInProgress(null);
         },
         onError: (err: any) => {
           console.error("Error creating engagement:", err);
           error({ message: "Failed to create engagement. Please try again." });
+          setIsProcessingInvitation(false);
+          setContactActionInProgress(null);
         }
       }
     );
@@ -346,11 +572,22 @@ const PropertyPreview: React.FC = () => {
     setInviteAgentEmail(value);
 
     if (!validateEmail(value)) {
-      setInviteEmailError('✨ Almost there! Please enter a valid email address');
+      setInviteEmailError('âœ¨ Almost there! Please enter a valid email address');
       return;
     } else {
       setInviteEmailError('');
     }
+  };
+
+  const handleAskAI = () => {
+    if (!askAIQuestion.trim()) return;
+
+    handleAskAIQuery(askAIQuestion);
+    setIsAskAIModalOpen(false);
+    // setAskAIQuestion(''); // Cleared in onSuccess
+
+    // You can add success message or handle AI response here
+    // success({ message: "Your question has been sent to AI assistant!" });
   };
 
   const sendInviteByEmail = () => {
@@ -366,6 +603,18 @@ const PropertyPreview: React.FC = () => {
 
     if (!currentUser?.id) {
       error({ message: "Please login to send invitation" });
+      return;
+    }
+
+    const hasExistingInvite = engagedProperty?.participants?.some((participant: any) => {
+      const participantEngagementId = participant?.engagementId;
+      const engagementMatches = !participantEngagementId || participantEngagementId === engagementIdForModal;
+      const status = participant?.is_accepted || "pending";
+      return engagementMatches && ["pending", "accepted"].includes(status);
+    });
+
+    if (hasExistingInvite) {
+      error({ message: "This property already has an invited agent." });
       return;
     }
 
@@ -410,7 +659,11 @@ const PropertyPreview: React.FC = () => {
             }));
           }
 
-          success({ message: message || 'Invitation sent successfully!' });
+          success({
+            message: 'Agent Invite Sent Successfully',
+            subtitle:
+              'Keep browsing. We will notify you when they accept or decline.',
+          });
           setInviteAgentEmail('');
           setInviteEmailError('');
           setIsInviteAgentModalOpen(false);
@@ -433,6 +686,40 @@ const PropertyPreview: React.FC = () => {
   // }, [])
 
 
+  const daysOnMarketValue =
+    proprtyData?.daysOnMarket ??
+    propertyDatas?.data?.daysOnMarket ??
+    propertyData?.daysOnMarket ??
+    getDayCountFromUTC(
+      proprtyData?.listingContractDate ||
+      propertyDatas?.data?.listingContractDate ||
+      propertyData?.listingContractDate ||
+      propertyDatas?.data?.modificationTimestamp ||
+      propertyData?.modificationTimestamp ||
+      propertyDatas?.data?.createdAt ||
+      propertyData?.createdAt ||
+      Date.now().toString()
+    );
+
+  const viewsValue = firstFiniteNumber(
+    totalViewsCount,
+    propertyDatas?.data?.viewsCounter,
+    propertyDatas?.data?.viewsCount,
+    propertyDatas?.data?.viewCount,
+    propertyData?.viewsCounter,
+    propertyData?.viewsCount,
+    propertyData?.viewCount,
+    propertyData?.listing?.viewsCounter,
+    propertyData?.listing?.viewsCount,
+    propertyData?.listing?.viewCount,
+  );
+
+  const savesValue = firstFiniteNumber(
+    totalSavesCount,
+    propertyDatas?.data?.savesCount,
+    propertyData?.savesCount,
+  );
+
   const HomeHighlightsData: HomeHighlightsProps = {
     highlights: [
       "VAULTED CEILINGS",
@@ -444,14 +731,89 @@ const PropertyPreview: React.FC = () => {
       "An enchanting tree-lined walkway leads to the front door. Enter to find a bright, open entryway. The light-filled primary suite awaits on this level of the home, complete with beautiful open beam ceilings, updated bath, walk-in closet/laundry and fireplace. " +
       "The open stairwell ascends to the spacious living room featuring gorgeous cathedral ceilings and tons of natural light. The formal dining room and updated kitchen open to a spacious wrap-around deck shaded by majestic oak trees, perfect for entertaining or dining al fresco. This level also features two additional bedrooms and a full bath...",
     stats: {
-      daysOnMarket: "3 days",
-      views: "721",
-      saves: "18",
+      daysOnMarket: String(daysOnMarketValue ?? 0),
+      views: viewsValue !== null ? String(viewsValue) : 'â€”',
+      saves: savesValue !== null ? String(savesValue) : 'â€”',
       sellLikelihood: "98%",
     },
     floorPlanSrc: '/assets/images/floor.png',
     threeDHomeSrc: '/assets/images/building.png',
   };
+
+  const projectionSignals = React.useMemo(() => {
+    const toNumber = (value: any) => {
+      if (value === null || value === undefined || value === '') return 0;
+      if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+      if (typeof value === 'string') {
+        const normalized = value.replace(/[^0-9.-]/g, '');
+        const parsed = Number(normalized);
+        return Number.isFinite(parsed) ? parsed : 0;
+      }
+      return 0;
+    };
+
+    const subjectPrice = toNumber(
+      proprtyData?.listPrice ??
+      propertyDatas?.data?.listPrice ??
+      propertyDatas?.property_detail?.data?.propertyInfo?.listPrice ??
+      propertyDatas?.property_detail?.data?.propertyInfo?.listPriceLow ??
+      propertyData?.listing?.listPriceLow ??
+      propertyData?.listing?.listPrice ??
+      propertyData?.listPrice ??
+      propertyData?.listing?.price
+    );
+
+    const subjectSqft = toNumber(
+      proprtyData?.property?.livingArea ??
+      propertyDatas?.data?.property?.livingArea ??
+      propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet ??
+      propertyData?.property?.livingArea ??
+      propertyData?.property?.livingSquareFeet
+    );
+
+    const subjectPpsf = toNumber(
+      propertyDatas?.data?.pricePerSqFt ??
+      propertyDatas?.property_detail?.data?.propertyInfo?.pricePerSqFt ??
+      propertyData?.pricePerSqFt ??
+      (subjectPrice && subjectSqft ? subjectPrice / subjectSqft : 0)
+    );
+
+    const nearbyHomes = propertyDatas?.nearbyHomes || [];
+    const compPpsfValues = nearbyHomes
+      .map((home: any) => {
+        const listing = home?.listing || home;
+        const compPrice = toNumber(
+          listing?.listPriceLow ?? listing?.listPrice ?? listing?.listPriceHigh
+        );
+        const compSqft = toNumber(
+          listing?.property?.livingArea ??
+          listing?.property?.livingSquareFeet ??
+          listing?.property?.sqft ??
+          listing?.livingArea
+        );
+        if (!compPrice || !compSqft) return null;
+        const ppsf = compPrice / compSqft;
+        return Number.isFinite(ppsf) && ppsf > 0 ? ppsf : null;
+      })
+      .filter(Boolean) as number[];
+
+    const compPpsfAvg = (() => {
+      if (compPpsfValues.length === 0) return 0;
+      const sorted = [...compPpsfValues].sort((a, b) => a - b);
+      const trimCount = sorted.length >= 5 ? Math.floor(sorted.length * 0.2) : 0;
+      const trimmed = trimCount > 0 ? sorted.slice(trimCount, sorted.length - trimCount) : sorted;
+      if (trimmed.length === 0) return 0;
+      return trimmed.reduce((sum, val) => sum + val, 0) / trimmed.length;
+    })();
+
+    const dom = Number(daysOnMarketValue);
+
+    return {
+      subjectPpsf: subjectPpsf > 0 ? subjectPpsf : 0,
+      compPpsfAvg: compPpsfAvg > 0 ? compPpsfAvg : 0,
+      daysOnMarket: Number.isFinite(dom) && dom >= 0 ? dom : null,
+    };
+  }, [proprtyData, propertyDatas, propertyData, daysOnMarketValue]);
 
 
   const schoolPropsData: any = {
@@ -497,48 +859,222 @@ const PropertyPreview: React.FC = () => {
   };
 
 
+  const readPreviewFallbackListing = (candidateIds: Array<string | number | null | undefined>) => {
+    if (typeof window === 'undefined') return null;
+
+    for (const rawId of candidateIds) {
+      if (rawId === null || rawId === undefined || String(rawId).trim() === '') continue;
+      const fallbackKey = `snaphomz_preview_fallback_${String(rawId)}`;
+      const fallbackRaw = localStorage.getItem(fallbackKey);
+      if (!fallbackRaw) continue;
+      try {
+        const fallback = JSON.parse(fallbackRaw);
+        return fallback?.listing || fallback || null;
+      } catch (parseError) {
+        console.log("Failed to parse fallback listing", parseError);
+      }
+    }
+    return null;
+  };
+
+  const persistPreviewContext = (sourceListing: any, sourceResponse: any) => {
+    if (typeof window === 'undefined' || !sourceListing) return;
+    const address = sourceListing?.address || {};
+    const propertyNode = sourceListing?.property || {};
+    localStorage.setItem('stateOrProvince', address?.stateOrProvince || '');
+    localStorage.setItem('listingId', String(sourceListing?.listingId || ''));
+    localStorage.setItem('propertyType', propertyNode?.propertyType || '');
+    localStorage.setItem(
+      'propertyId',
+      String(
+        sourceResponse?.property_id ||
+        sourceListing?.propertyId ||
+        sourceResponse?.data?.property_detail?.property_id ||
+        ''
+      )
+    );
+    localStorage.setItem('propertyAddress', address?.unparsedAddress || '');
+    localStorage.setItem('propertyAddress1', address?.countyOrParish || '');
+    localStorage.setItem('propertyAddress2', address?.zipCode || '');
+    localStorage.setItem('listPrice', String(sourceListing?.listPrice || ''));
+  };
+
   const getPropertyDetails = async (id: string) => {
     try {
       setLoading(true);
-      setPropertyData([]);
-      const payload = {
-        listingId: +id || listingId,
-        propertyId: parseInt(propertyData?.id) || parseInt(propertyId)
-      };
-      const response = await fetch(PROPERTY_DETAIL_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search/preference', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
+      setPropertyData(undefined);
+      const bypassMls = isMlsBypassModeEnabled();
+      const endpoint = bypassMls
+        ? '/api/mls/detail'
+        : (PROPERTY_DETAIL_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search/preference');
 
-      // debugger
-      const data = await response.json();
-      setpropertyDatas(data)
-      localStorage.setItem('stateOrProvince', data.data.address.stateOrProvince || '')
-      localStorage.setItem('listingId', String(data.data.listingId))
-      localStorage.setItem('propertyType', data.data.property.propertyType || '')
-      localStorage.setItem('propertyId', String(data.property_id || data.data.property_detail?.property_id))
-      // just the raw (unparsed) street address
-      localStorage.setItem('propertyAddress', data.data.address.unparsedAddress || '');
-      localStorage.setItem('propertyAddress1', data.data.address.countyOrParish || '');
-      localStorage.setItem('propertyAddress2', data.data.address.zipCode || '');
-      localStorage.setItem('listPrice', data.data.listPrice || '');
+      const listingIdFromPath = toPositiveIntegerOrNull(id);
+      const listingIdFromQuery = toPositiveIntegerOrNull(listingId);
+      const propertyIdFromQuery = toPositiveIntegerOrNull(propertyId);
+      const propertyIdFromStore = toPositiveIntegerOrNull(propertyData?.id);
 
+      const primaryListingId =
+        listingIdFromQuery ??
+        listingIdFromPath ??
+        propertyIdFromQuery ??
+        propertyIdFromStore;
+      const alternateListingId =
+        propertyIdFromQuery ??
+        propertyIdFromStore ??
+        listingIdFromPath ??
+        listingIdFromQuery;
+      const requestPropertyId =
+        propertyIdFromQuery ??
+        propertyIdFromStore ??
+        listingIdFromPath ??
+        listingIdFromQuery;
 
+      const requestPayloads: Array<Record<string, any>> = [];
 
-      setPropertyData(data?.data)
-      setTags(data?.data?.tags)
-      setPropertyDetails(data?.property_detail)
+      if (bypassMls) {
+        requestPayloads.push({
+          listingId: primaryListingId || listingId || id,
+          propertyId: requestPropertyId || undefined,
+          city: city || propertyData?.address?.city || undefined,
+          province: province || propertyData?.address?.stateOrProvince || undefined,
+          state: province || propertyData?.address?.stateOrProvince || undefined,
+          zip: propertyData?.address?.zipCode || undefined,
+          address: propertyData?.address?.unparsedAddress || undefined,
+        });
+      } else {
+        if (primaryListingId) {
+          requestPayloads.push({
+            listingId: primaryListingId,
+            propertyId: requestPropertyId || undefined,
+          });
+        }
+        if (alternateListingId && alternateListingId !== primaryListingId) {
+          requestPayloads.push({
+            listingId: alternateListingId,
+            propertyId: requestPropertyId || undefined,
+          });
+        }
+        if (!requestPayloads.length && requestPropertyId) {
+          requestPayloads.push({
+            listingId: requestPropertyId,
+            propertyId: requestPropertyId,
+          });
+        }
+      }
+
+      let data: any = null;
+      let hasResolvedPrimaryData = false;
+      for (const payload of requestPayloads) {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+        const responseData = await response.json().catch(() => ({}));
+        data = responseData;
+        if (hasUsablePropertyData(responseData)) {
+          hasResolvedPrimaryData = true;
+          break;
+        }
+      }
+
+      if (!hasResolvedPrimaryData && !bypassMls) {
+        const mlsFallbackPayloads: Array<Record<string, any>> = [];
+        const baseFallbackPayload = {
+          city: city || propertyData?.address?.city || undefined,
+          province: province || propertyData?.address?.stateOrProvince || undefined,
+          state: province || propertyData?.address?.stateOrProvince || undefined,
+          zip: propertyData?.address?.zipCode || undefined,
+          address: propertyData?.address?.unparsedAddress || undefined,
+        };
+
+        if (requestPropertyId) {
+          mlsFallbackPayloads.push({
+            ...baseFallbackPayload,
+            propertyId: requestPropertyId,
+          });
+        }
+        if (primaryListingId) {
+          mlsFallbackPayloads.push({
+            ...baseFallbackPayload,
+            listingId: primaryListingId,
+            propertyId: requestPropertyId || undefined,
+          });
+        }
+        if (alternateListingId && alternateListingId !== primaryListingId) {
+          mlsFallbackPayloads.push({
+            ...baseFallbackPayload,
+            listingId: alternateListingId,
+            propertyId: requestPropertyId || undefined,
+          });
+        }
+
+        for (const fallbackPayload of mlsFallbackPayloads) {
+          const mlsResponse = await fetch('/api/mls/detail', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(fallbackPayload),
+          });
+          const mlsData = await mlsResponse.json().catch(() => ({}));
+          if (hasUsablePropertyData(mlsData)) {
+            data = mlsData;
+            hasResolvedPrimaryData = true;
+            break;
+          }
+        }
+      }
+
+      console.log("AI backend response data ", data)
+      console.log("Similar homes payload:", data?.nearbyHomes)
+
+      const hasPrimaryData = hasUsablePropertyData(data);
+      if (hasPrimaryData) {
+        setpropertyDatas(data)
+        setPropertyData(data?.data);
+        setTags(data?.data?.tags);
+        setPropertyDetails(data?.property_detail);
+        persistPreviewContext(data?.data, data);
+      } else {
+        const fallbackListing = readPreviewFallbackListing([
+          id,
+          listingId,
+          propertyId,
+          listingIdFromPath,
+          listingIdFromQuery,
+          propertyIdFromQuery,
+        ]);
+        if (fallbackListing) {
+          setpropertyDatas({
+            data: fallbackListing,
+            property_detail: data?.property_detail ?? null,
+            nearbyHomes: data?.nearbyHomes ?? [],
+          });
+          setPropertyData(fallbackListing);
+          setTags(fallbackListing?.tags || []);
+          setPropertyDetails(data?.property_detail ?? null);
+          persistPreviewContext(fallbackListing, data);
+        } else {
+          setpropertyDatas(data);
+          setPropertyDetails(data?.property_detail ?? null);
+        }
+      }
     } catch (error) {
       console.log("error : ", error);
+      const fallbackListing = readPreviewFallbackListing([id, listingId, propertyId]);
+      if (fallbackListing) {
+        setpropertyDatas({ data: fallbackListing, property_detail: null, nearbyHomes: [] });
+        setPropertyData(fallbackListing);
+        setTags(fallbackListing?.tags || []);
+        setPropertyDetails(null);
+        persistPreviewContext(fallbackListing, null);
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
 
   }
-
-
   React.useEffect(() => {
     const handleIntersect: IntersectionObserverCallback = (entries) => {
       entries.forEach((entry) => {
@@ -575,16 +1111,452 @@ const PropertyPreview: React.FC = () => {
 
 
   React.useEffect(() => {
-    if (property?.listingId) {
-      getPropertyDetails(property?.listingId)
+    const targetListingId =
+      listingId ||
+      id ||
+      propertyId ||
+      property?.listingId;
+    if (targetListingId) {
+      getPropertyDetails(String(targetListingId));
     }
-  }, [property]);
+  }, [id, listingId, propertyId, property?.listingId]);
+
+  const rentAddress = React.useMemo(() => {
+    const address =
+      proprtyData?.address?.unparsedAddress ||
+      propertyDatas?.data?.address?.unparsedAddress ||
+      propertyDatas?.property_detail?.data?.propertyInfo?.address?.address ||
+      propertyData?.listing?.address?.unparsedAddress ||
+      propertyData?.address?.unparsedAddress ||
+      propertyData?.public?.address?.label ||
+      "";
+    const city =
+      proprtyData?.address?.city ||
+      propertyDatas?.data?.address?.city ||
+      propertyDatas?.property_detail?.data?.propertyInfo?.address?.city ||
+      propertyData?.listing?.address?.city ||
+      propertyData?.address?.city ||
+      propertyData?.public?.address?.city ||
+      "";
+    const state =
+      proprtyData?.address?.stateOrProvince ||
+      propertyDatas?.data?.address?.stateOrProvince ||
+      propertyDatas?.property_detail?.data?.propertyInfo?.address?.stateOrProvince ||
+      propertyData?.listing?.address?.stateOrProvince ||
+      propertyData?.address?.stateOrProvince ||
+      propertyData?.public?.address?.state ||
+      "";
+    const zip =
+      proprtyData?.address?.zipCode ||
+      propertyDatas?.data?.address?.zipCode ||
+      propertyDatas?.property_detail?.data?.propertyInfo?.address?.zip ||
+      propertyData?.listing?.address?.zipCode ||
+      propertyData?.address?.zipCode ||
+      propertyData?.public?.address?.zip ||
+      "";
+
+    if (!address && !city && !state && !zip) return "";
+    const stateZip = [state, zip].filter(Boolean).join(" ");
+    if (address && city && stateZip) {
+      return `${address}, ${city}, ${stateZip}`;
+    }
+    const parts = [address, city, stateZip].filter(Boolean);
+    return parts.length ? parts.join(", ") : "";
+  }, [proprtyData, propertyDatas, propertyData]);
+
+  const rentZpid = React.useMemo(() => {
+    return (
+      proprtyData?.zpid ||
+      propertyDatas?.data?.zpid ||
+      propertyData?.listing?.zpid ||
+      propertyData?.zpid ||
+      ""
+    );
+  }, [proprtyData, propertyDatas, propertyData]);
+
+  const rentCountyOrParish = React.useMemo(() => {
+    return (
+      proprtyData?.address?.countyOrParish ||
+      propertyDatas?.data?.address?.countyOrParish ||
+      propertyDatas?.property_detail?.data?.propertyInfo?.address?.countyOrParish ||
+      propertyData?.listing?.address?.countyOrParish ||
+      propertyData?.address?.countyOrParish ||
+      propertyData?.public?.address?.county ||
+      ""
+    );
+  }, [proprtyData, propertyDatas, propertyData]);
+
+  const appreciationZip = React.useMemo(() => {
+    const zip =
+      proprtyData?.address?.zipCode ||
+      propertyDatas?.data?.address?.zipCode ||
+      propertyDatas?.property_detail?.data?.propertyInfo?.address?.zip ||
+      propertyData?.listing?.address?.zipCode ||
+      propertyData?.address?.zipCode ||
+      propertyData?.public?.address?.zip ||
+      "";
+    return zip ? String(zip) : "";
+  }, [proprtyData, propertyDatas, propertyData]);
+
+  const listingIdForViews = React.useMemo(() => {
+    return (
+      proprtyData?.listingId ||
+      propertyDatas?.data?.listingId ||
+      propertyData?.listingId ||
+      property?.listingId ||
+      id ||
+      ""
+    );
+  }, [proprtyData, propertyDatas, propertyData, property?.listingId, id]);
+
+  const propertyIdForSaves = React.useMemo(() => {
+    return (
+      proprtyData?.propertyId ||
+      propertyDatas?.data?.propertyId ||
+      propertyData?.propertyId ||
+      propertyData?.id ||
+      propertyId ||
+      ""
+    );
+  }, [proprtyData, propertyDatas, propertyData, propertyId]);
 
   React.useEffect(() => {
-    if (listingId || propertyId) {
-      getPropertyDetails(listingId)
+    if (!rentAddress && !rentZpid) return;
+    let didCancel = false;
+
+    const loadRentEstimate = async () => {
+      try {
+        const params = new URLSearchParams();
+        if (rentAddress) params.set("address", rentAddress);
+        if (rentZpid) params.set("zpid", String(rentZpid));
+        if (rentCountyOrParish) params.set("county", String(rentCountyOrParish));
+        const response = await fetch(`/api/zillow-rent?${params.toString()}`);
+        if (!response.ok) {
+          console.warn('Rent estimate API returned non-OK status:', response.status);
+          return;
+        }
+        const json = await response.json();
+        const value = Number(json?.currentRent);
+        const deltaValue = Number(json?.delta);
+        if (!didCancel && Number.isFinite(value)) {
+          setRentEstimate(value);
+          setRentDelta(Number.isFinite(deltaValue) ? deltaValue : null);
+        }
+      } catch (error) {
+        console.log("Failed to load rent estimate", error);
+      }
+    };
+
+    loadRentEstimate();
+    return () => {
+      didCancel = true;
+    };
+  }, [rentAddress, rentZpid, rentCountyOrParish]);
+
+  React.useEffect(() => {
+    if (!appreciationZip) {
+      setProjectedGainPct(null);
+      return;
     }
-  }, [property]);
+    if (!authRestBaseUrl) {
+      setProjectedGainPct(null);
+      return;
+    }
+    let didCancel = false;
+    setProjectedGainPct(null);
+
+    const loadAppreciation = async () => {
+      try {
+        const response = await fetch(`${authRestBaseUrl}/market/appreciation?zip=${encodeURIComponent(appreciationZip)}`);
+        if (!response.ok) {
+          console.warn('Appreciation API returned non-OK status:', response.status);
+          if (!didCancel) setProjectedGainPct(null);
+          return;
+        }
+        const json = await response.json();
+        const annualRatePct = Number(json?.annualRatePct);
+        if (!Number.isFinite(annualRatePct)) {
+          if (!didCancel) setProjectedGainPct(null);
+          return;
+        }
+        const regionalAnnual = annualRatePct / 100;
+
+        // Lightweight property-specific projection:
+        // - Start with regional (state-level) annual appreciation
+        // - Adjust by local comp PPSF gap (subject undervalued vs comps => slightly higher)
+        // - Add a small liquidity adjustment from DOM
+        const subjectPpsf = projectionSignals.subjectPpsf;
+        const compPpsfAvg = projectionSignals.compPpsfAvg;
+        const dom = projectionSignals.daysOnMarket;
+
+        const compGap =
+          subjectPpsf > 0 && compPpsfAvg > 0
+            ? clampNumber((compPpsfAvg - subjectPpsf) / subjectPpsf, -0.15, 0.15)
+            : 0;
+        const compAdjustment = compGap * 0.35; // bounded to +/- 5.25% annual before final clamp
+
+        const liquidityAdjustment =
+          dom !== null
+            ? clampNumber((45 - dom) / 3650, -0.02, 0.02)
+            : 0;
+
+        const blendedAnnual = clampNumber(
+          regionalAnnual + compAdjustment + liquidityAdjustment,
+          -0.03,
+          0.12
+        );
+
+        const gain5y = (Math.pow(1 + blendedAnnual, 5) - 1) * 100;
+        if (!didCancel && Number.isFinite(gain5y)) {
+          setProjectedGainPct(gain5y);
+        } else if (!didCancel) {
+          setProjectedGainPct(null);
+        }
+      } catch (error) {
+        console.log("Failed to load appreciation rate", error);
+        if (!didCancel) setProjectedGainPct(null);
+      }
+    };
+
+    loadAppreciation();
+    return () => {
+      didCancel = true;
+    };
+  }, [appreciationZip, authRestBaseUrl, projectionSignals]);
+
+  React.useEffect(() => {
+    if (!authRestBaseUrl || !listingIdForViews) return;
+    let didCancel = false;
+
+    const loadViewCount = async () => {
+      try {
+        const response = await fetch(
+          `${authRestBaseUrl}/view-history/count?listingId=${encodeURIComponent(String(listingIdForViews))}&unique=true`
+        );
+        if (!response.ok) {
+          console.warn('View count API returned non-OK status:', response.status);
+          return;
+        }
+        const json = await response.json();
+        const countValue = Number(json?.count);
+        if (!didCancel && Number.isFinite(countValue)) {
+          setTotalViewsCount(countValue);
+        }
+      } catch (error) {
+        console.log("Failed to load view count", error);
+      }
+    };
+
+    loadViewCount();
+    return () => {
+      didCancel = true;
+    };
+  }, [listingIdForViews, authRestBaseUrl]);
+
+  React.useEffect(() => {
+    if (!authRestBaseUrl || (!listingIdForViews && !propertyIdForSaves)) return;
+    let didCancel = false;
+
+    const loadSavesCount = async () => {
+      try {
+        const params = new URLSearchParams();
+        if (listingIdForViews) {
+          params.set('listingId', String(listingIdForViews));
+        }
+        if (propertyIdForSaves) {
+          params.set('propertyId', String(propertyIdForSaves));
+        }
+        params.set('unique', 'true');
+        const response = await fetch(`${authRestBaseUrl}/favourites/count?${params.toString()}`);
+        if (!response.ok) {
+          console.warn('Saves count API returned non-OK status:', response.status);
+          return;
+        }
+        const json = await response.json();
+        const countValue = Number(json?.count);
+        if (!didCancel && Number.isFinite(countValue)) {
+          setTotalSavesCount(countValue);
+        }
+      } catch (error) {
+        console.log('Failed to load saves count', error);
+      }
+    };
+
+    loadSavesCount();
+    return () => {
+      didCancel = true;
+    };
+  }, [listingIdForViews, propertyIdForSaves, authRestBaseUrl]);
+
+  const getPropertyLatLng = React.useCallback(() => {
+    let lat = null;
+    let lon = null;
+
+    if (propertyDatas?.data) {
+      lat = (propertyDatas.data as any).latitude || (propertyDatas.data as any).Latitude;
+      lon = (propertyDatas.data as any).longitude || (propertyDatas.data as any).Longitude;
+
+      if (!lat || !lon) {
+        lat = (propertyDatas.data as any).property?.latitude || (propertyDatas.data as any).property?.Latitude;
+        lon = (propertyDatas.data as any).property?.longitude || (propertyDatas.data as any).property?.Longitude;
+      }
+    }
+
+    if (!lat || !lon) {
+      lat = (proprtyData as any)?.latitude || (proprtyData as any)?.Latitude;
+      lon = (proprtyData as any)?.longitude || (proprtyData as any)?.Longitude;
+    }
+
+    if (!lat || !lon) {
+      lat = (proprtyData as any)?.property?.latitude || (proprtyData as any)?.property?.Latitude;
+      lon = (proprtyData as any)?.property?.longitude || (proprtyData as any)?.property?.Longitude;
+    }
+
+    if (!lat || !lon || isNaN(lat) || isNaN(lon)) {
+      return null;
+    }
+
+    return { lat: Number(lat), lng: Number(lon) };
+  }, [propertyDatas, proprtyData]);
+
+  // Fetch nearby schools from Neo4j API when property coordinates are available
+  React.useEffect(() => {
+    const fetchNearbySchools = async () => {
+      // Check multiple possible locations for coordinates
+      let lat = null;
+      let lon = null;
+
+      // Try different possible coordinate locations in the data structure
+      if (propertyDatas?.data) {
+        // Option 1: Direct latitude/longitude fields (PRIORITY - works for most properties)
+        lat = (propertyDatas.data as any).latitude || (propertyDatas.data as any).Latitude;
+        lon = (propertyDatas.data as any).longitude || (propertyDatas.data as any).Longitude;
+
+        // Option 2: Inside property object (fallback for some properties)
+        if (!lat || !lon) {
+          lat = (propertyDatas.data as any).property?.latitude || (propertyDatas.data as any).property?.Latitude;
+          lon = (propertyDatas.data as any).property?.longitude || (propertyDatas.data as any).property?.Longitude;
+        }
+      }
+
+      // Option 3: Check proprtyData (transformed data)
+      if (!lat || !lon) {
+        lat = (proprtyData as any)?.latitude || (proprtyData as any)?.Latitude;
+        lon = (proprtyData as any)?.longitude || (proprtyData as any)?.Longitude;
+      }
+
+      // Option 4: Check proprtyData.property
+      if (!lat || !lon) {
+        lat = (proprtyData as any)?.property?.latitude || (proprtyData as any)?.property?.Latitude;
+        lon = (proprtyData as any)?.property?.longitude || (proprtyData as any)?.property?.Longitude;
+      }
+
+      console.log('ðŸ« Schools API Debug:', {
+        hasPropertyDatas: !!propertyDatas,
+        lat,
+        lon,
+        propertyDatasKeys: propertyDatas?.data ? Object.keys(propertyDatas.data) : [],
+        propertyKeys: propertyDatas?.data?.property ? Object.keys(propertyDatas.data.property) : []
+      });
+
+      if (!lat || !lon) {
+        console.log('âŒ No coordinates available for schools API');
+        return;
+      }
+
+      if (!authRestBaseUrl) {
+        setSchoolsError('Auth service URL is not configured');
+        return;
+      }
+
+      console.log(`ðŸ” Fetching schools from: ${authRestBaseUrl}/schools/nearby?lat=${lat}&lon=${lon}`);
+      setSchoolsLoading(true);
+      setSchoolsError(null);
+
+      try {
+        const response = await fetch(
+          `${authRestBaseUrl}/schools/nearby?lat=${lat}&lon=${lon}`
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch schools: ${response.statusText}`);
+        }
+
+        const schools = await response.json();
+        console.log('âœ… Schools API response:', schools);
+
+        // Transform Neo4j response to match the expected format
+        const transformedSchools = schools.map((school: any) => ({
+          rating: school.rating && school.rating > 0 ? `${school.rating} / 10` : 'N/A',
+          name: school.name,
+          type: 'Public - Serves this home', // Default type
+          grades: 'K to 12', // Default grades
+          distance: `${school.distanceMiles.toFixed(1)} mi`
+        }));
+
+        console.log('ðŸ“š Transformed schools:', transformedSchools);
+        setNearbySchools(transformedSchools);
+      } catch (err) {
+        console.error('âŒ Error fetching nearby schools:', err);
+        setSchoolsError(err instanceof Error ? err.message : 'Failed to load schools');
+      } finally {
+        setSchoolsLoading(false);
+      }
+    };
+
+    fetchNearbySchools();
+  }, [propertyDatas, proprtyData, authRestBaseUrl]);
+
+  React.useEffect(() => {
+    if (!isStreetViewOpen) return;
+
+    const coords = getPropertyLatLng();
+    if (!coords) {
+      setStreetViewError('Street View imagery is not available for this property.');
+      return;
+    }
+
+    const tryInit = () => {
+      const container = streetViewRef.current;
+      if (!container) return;
+
+      const hasGoogle = typeof window !== 'undefined' && !!window.google?.maps;
+      if (!hasGoogle) {
+        setStreetViewError('Failed to load Google Maps.');
+        return;
+      }
+
+      if (container.clientHeight === 0 || container.clientWidth === 0) {
+        // Dialog layout can settle after open; retry once.
+        setTimeout(tryInit, 50);
+        return;
+      }
+
+      container.innerHTML = '';
+      setStreetViewError(null);
+
+      const panorama = new google.maps.StreetViewPanorama(container, {
+        position: coords,
+        pov: { heading: 0, pitch: 0 },
+        zoom: 1,
+        fullscreenControl: false,
+      });
+
+      const sv = new google.maps.StreetViewService();
+      sv.getPanorama({ location: coords, radius: 50 }, (data, status) => {
+        if (status === google.maps.StreetViewStatus.OK && data?.location?.pano) {
+          panorama.setPano(data.location.pano);
+          panorama.setVisible(true);
+        } else {
+          setStreetViewError('Street View imagery is not available for this location.');
+        }
+      });
+    };
+
+    // Allow the dialog to mount before initializing the panorama.
+    requestAnimationFrame(tryInit);
+  }, [getPropertyLatLng, isStreetViewOpen]);
+
 
   const transformData = React.useMemo(() => {
     const prop: any = proprtyData
@@ -594,16 +1566,209 @@ const PropertyPreview: React.FC = () => {
     };
   }, [proprtyData, id]);
 
-  console.log(transformData, "propertyDatas")
+  // console.log(transformData, "propertyDatas")
   const [showAllSchools, setShowAllSchools] = React.useState(false);
   const [sortedSchools, setSortedSchools] = React.useState<any[]>([]);
 
+  const listPriceCandidate =
+    transformData.prop?.listPrice ??
+    propertyDatas?.data?.listPrice ??
+    propertyData?.listing?.listPriceLow ??
+    propertyData?.listPrice;
+  const listPriceValue = Number(listPriceCandidate);
+  const homePriceValue = Number.isFinite(listPriceValue) ? listPriceValue : undefined;
+
+  const hoaCandidate =
+    propertyDatas?.data?.property?.associationFee ??
+    propertyData?.property?.associationFee;
+  const hoaMonthlyValue = Number(hoaCandidate);
+  const hoaMonthly =
+    Number.isFinite(hoaMonthlyValue) && hoaMonthlyValue > 0 ? hoaMonthlyValue : undefined;
+
+  const taxAmountCandidate =
+    propertyDatas?.data?.homedetails?.taxAmount ??
+    propertyData?.homedetails?.taxAmount;
+  const taxAmountValue = Number(taxAmountCandidate);
+  const taxPercentValue =
+    Number.isFinite(listPriceValue) &&
+      listPriceValue > 0 &&
+      Number.isFinite(taxAmountValue) &&
+      taxAmountValue > 0
+      ? (taxAmountValue / listPriceValue) * 100
+      : undefined;
+  const currentListingId =
+    propertyDatas?.data?.listingId ||
+    propertyData?.listingId ||
+    property?.listingId ||
+    id;
+  const currentCompareProperty =
+    propertyDatas?.data ||
+    propertyData?.listing ||
+    propertyData ||
+    transformData.prop;
+
+  const estimatedHouseValue = React.useMemo(() => {
+    const toNumber = (value: any) => {
+      if (value === null || value === undefined) return 0;
+      if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+      if (typeof value === 'string') {
+        const normalized = value.replace(/[^0-9.-]/g, '');
+        const parsed = Number(normalized);
+        return Number.isFinite(parsed) ? parsed : 0;
+      }
+      return 0;
+    };
+
+    const price = toNumber(
+      transformData.prop?.listPrice ??
+      propertyDatas?.data?.listPrice ??
+      propertyDatas?.property_detail?.data?.propertyInfo?.listPrice ??
+      propertyDatas?.property_detail?.data?.propertyInfo?.listPriceLow ??
+      propertyData?.listing?.listPriceLow ??
+      propertyData?.listing?.listPrice ??
+      propertyData?.listPrice ??
+      propertyData?.listing?.price ??
+      0
+    );
+
+    const sqft = toNumber(
+      transformData.prop?.property?.livingArea ??
+      propertyDatas?.data?.property?.livingArea ??
+      propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet ??
+      propertyData?.property?.livingArea ??
+      propertyData?.property?.livingSquareFeet ??
+      0
+    );
+
+    const localPricePerSqft = toNumber(
+      propertyDatas?.data?.pricePerSqFt ??
+      propertyDatas?.property_detail?.data?.propertyInfo?.pricePerSqFt ??
+      propertyData?.pricePerSqFt ??
+      (price && sqft ? price / sqft : 0)
+    );
+
+    const nearbyHomes = propertyDatas?.nearbyHomes || [];
+    const compPpsfValues = nearbyHomes
+      .map((home: any) => {
+        const listing = home?.listing || home;
+        const compPrice = toNumber(listing?.listPriceLow ?? listing?.listPrice ?? listing?.listPriceHigh);
+        const compSqft = toNumber(
+          listing?.property?.livingArea ??
+          listing?.property?.livingSquareFeet ??
+          listing?.property?.sqft ??
+          listing?.livingArea
+        );
+        if (!compPrice || !compSqft) return null;
+        const value = compPrice / compSqft;
+        return Number.isFinite(value) && value > 0 ? value : null;
+      })
+      .filter(Boolean) as number[];
+
+    const compPpsfAvg = (() => {
+      if (compPpsfValues.length === 0) return 0;
+      const sorted = [...compPpsfValues].sort((a, b) => a - b);
+      const trimCount = sorted.length >= 5 ? Math.floor(sorted.length * 0.2) : 0;
+      const trimmed = trimCount > 0 ? sorted.slice(trimCount, sorted.length - trimCount) : sorted;
+      if (trimmed.length === 0) return 0;
+      return trimmed.reduce((sum, val) => sum + val, 0) / trimmed.length;
+    })();
+
+    const estimateParts: { value: number; weight: number }[] = [];
+    if (price > 0) estimateParts.push({ value: price, weight: 0.6 });
+    if (sqft > 0 && localPricePerSqft > 0) estimateParts.push({ value: localPricePerSqft * sqft, weight: 0.25 });
+    if (sqft > 0 && compPpsfAvg > 0) estimateParts.push({ value: compPpsfAvg * sqft, weight: 0.15 });
+
+    if (estimateParts.length === 0) return price || null;
+
+    const totalWeight = estimateParts.reduce((sum, part) => sum + part.weight, 0);
+    const weightedAvg =
+      totalWeight > 0
+        ? estimateParts.reduce((sum, part) => sum + part.value * part.weight, 0) / totalWeight
+        : estimateParts.reduce((sum, part) => sum + part.value, 0) / estimateParts.length;
+
+    let result = Math.round(weightedAvg);
+
+    if (price > 0) {
+      const lower = price * 0.85;
+      const upper = price * 1.15;
+      result = Math.min(Math.max(result, Math.round(lower)), Math.round(upper));
+    }
+
+    return result;
+  }, [transformData.prop, propertyDatas, propertyData]);
+
+  const estimatedMarketData = React.useMemo(() => {
+    const rentFormatted =
+      rentEstimate && Number.isFinite(rentEstimate)
+        ? rentEstimate.toLocaleString('en-US', {
+          style: 'currency',
+          currency: 'USD',
+          maximumFractionDigits: 0,
+        })
+        : null;
+    const rentDeltaFormatted =
+      rentDelta !== null && Number.isFinite(rentDelta)
+        ? `${rentDelta > 0 ? '+' : rentDelta < 0 ? '-' : ''}${Math.abs(rentDelta).toLocaleString('en-US', {
+          style: 'currency',
+          currency: 'USD',
+          maximumFractionDigits: 0,
+        })}`
+        : '';
+    const projectedGainFormatted =
+      projectedGainPct !== null && Number.isFinite(projectedGainPct)
+        ? `${projectedGainPct.toFixed(1)}%`
+        : 'Unavailable';
+    const formatted = estimatedHouseValue
+      ? estimatedHouseValue.toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 0,
+      })
+      : 'Unavailable';
+    return {
+      ...defaultEstimatedData,
+      houseValue: formatted,
+      projectedGain: projectedGainFormatted,
+      estimatedRent: rentFormatted || 'Unavailable',
+      rentChange: rentFormatted ? rentDeltaFormatted : '',
+    };
+  }, [estimatedHouseValue, rentEstimate, rentDelta, projectedGainPct]);
+
 
   const [openSection, setOpenSection] = React.useState<string | null>(null);
+  const [topEstimatedMonthlyPayment, setTopEstimatedMonthlyPayment] = React.useState<number | null>(null);
 
   const toggleSection = (section: string) => {
     setOpenSection(openSection === section ? null : section);
   };
+
+  const propertyTags = Array.isArray((proprtyData as any)?.tags) ? (proprtyData as any).tags : [];
+
+  const openSectionForHash = React.useCallback((hash: string) => {
+    const target =
+      hash === '#home-highlights' || hash === '#home'
+        ? { section: 'home', scrollId: 'home-highlights' }
+        : hash === '#property'
+          ? { section: 'offers', scrollId: 'property' }
+          : hash === '#schools'
+            ? { section: 'schools', scrollId: 'schools' }
+            : hash === '#forecast'
+              ? { section: 'interest', scrollId: 'forecast' }
+              : null;
+
+    if (!target) return;
+
+    setOpenSection(target.section);
+
+    // After the accordion opens, scroll to the content area for that section.
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        const el = document.getElementById(target.scrollId);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 150);
+    });
+  }, []);
 
   const sections = [
     {
@@ -611,8 +1776,8 @@ const PropertyPreview: React.FC = () => {
       title: "Home highlights",
       content: (
         <HomeHighlights
-          highlights={HomeHighlightsData.highlights}
-          description={HomeHighlightsData.description}
+          highlights={propertyTags.length ? propertyTags : HomeHighlightsData.highlights}
+          description={proprtyData?.publicRemarks || ""}
           stats={HomeHighlightsData.stats}
           floorPlanSrc={HomeHighlightsData.floorPlanSrc}
           threeDHomeSrc={HomeHighlightsData.threeDHomeSrc}
@@ -622,13 +1787,22 @@ const PropertyPreview: React.FC = () => {
     {
       id: "schools",
       title: "Schools Nearby",
-      content: (
-        <SchoolsNearAddress
-          address={schoolPropsData.address}
-          district={schoolPropsData.district}
-          schools={schoolPropsData.schools}
-        />
-      ),
+      content: (() => {
+        const schoolsToDisplay = schoolsLoading ? schoolPropsData.schools : (nearbySchools.length > 0 ? nearbySchools : schoolPropsData.schools);
+        // console.log('ðŸŽ“ Schools being displayed:', {
+        //   schoolsLoading,
+        //   nearbySchoolsCount: nearbySchools.length,
+        //   nearbySchools,
+        //   schoolsToDisplay
+        // });
+        return (
+          <SchoolsNearAddress
+            address={(proprtyData as any)?.address?.unparsedAddress || schoolPropsData.address}
+            district={schoolPropsData.district}
+            schools={schoolsToDisplay}
+          />
+        );
+      })(),
     },
     {
       id: "college",
@@ -638,27 +1812,59 @@ const PropertyPreview: React.FC = () => {
     {
       id: "offers",
       title: "What this place offers",
-      content: <InteriorOffersSection />,
+      content: <InteriorOffersSection BathRoomAndBedRoom={proprtyData?.property} features={{
+        flooring: proprtyData?.homedetails?.flooring || "",
+        hasBasement: proprtyData?.property?.hasBasement || false,
+        hasFireplace: proprtyData?.homedetails?.fireplaceYn || false,
+
+      }} featureList={propertyTags.join(", ")} />,
     },
     {
       id: "interest",
-      title: "Interest rate predictor",
-      content: <InterestRatePredictor />,
+      title: "Interest Rate Forecast",
+      content: (
+        <div className="space-y-3">
+          <p className="text-xs text-gray-500">
+            For more in-depth calculations please visit{' '}
+            <a
+              href="https://snapinterest.snaphomz.com"
+              target="_blank"
+              rel="noreferrer"
+              className="text-orange-600 hover:underline"
+            >
+              SnapInterest
+            </a>
+            .
+          </p>
+          <InterestRateForecast />
+        </div>
+      ),
     },
     {
       id: "payment",
-      title: "Payment calculator",
-      content: <PaymentCalculator />,
-    },
-    {
-      id: "history",
-      title: "Price history",
-      content: <PropertyHistorySection />,
-    },
-    {
-      id: "tax",
-      title: "Tax history",
-      content: <div>Tax history content here</div>,
+      title: "Monthly mortgage",
+      content: (
+        <div className="space-y-3">
+          <p className="text-xs text-gray-500">
+            For more in-depth calculations please visit{' '}
+            <a
+              href="https://snapinterest.snaphomz.com"
+              target="_blank"
+              rel="noreferrer"
+              className="text-orange-600 hover:underline"
+            >
+              SnapInterest
+            </a>
+            .
+          </p>
+          <MonthlyMortgageCalculator
+            homePrice={homePriceValue}
+            hoaMonthly={hoaMonthly}
+            taxPercent={taxPercentValue}
+            onEstimatedMonthlyPaymentChange={setTopEstimatedMonthlyPayment}
+          />
+        </div>
+      ),
     },
   ];
 
@@ -694,7 +1900,7 @@ const PropertyPreview: React.FC = () => {
     }];
   }, [transformData.prop?.media]);
 
-  console.log(transformData)
+  // console.log(transformData)
   const handleImageClick = (index: number) => {
     setCurrentImageIndex(index);
     setIsOpen(true);
@@ -703,15 +1909,29 @@ const PropertyPreview: React.FC = () => {
 
 
 
-  const toggle = (i: number) => {
-    setOpen(open === i ? null : i);
-  };
 
-  const items = [
-    "What should I look out for?",
-    "Will I like my neighbors?",
-    "Can I raise a family here?"
-  ];
+
+
+
+  React.useEffect(() => {
+    const handleHashChange = () => {
+      openSectionForHash(window.location.hash);
+    };
+
+    handleHashChange();
+    window.addEventListener('hashchange', handleHashChange);
+    const handlePreviewNav = (event: Event) => {
+      const customEvent = event as CustomEvent<string>;
+      if (typeof customEvent.detail === 'string') {
+        openSectionForHash(customEvent.detail);
+      }
+    };
+    window.addEventListener('preview-nav', handlePreviewNav);
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('preview-nav', handlePreviewNav);
+    };
+  }, [openSectionForHash]);
 
   // Generate unique IDs for SVG gradients and masks
   const svgId = React.useId();
@@ -719,11 +1939,16 @@ const PropertyPreview: React.FC = () => {
   const mask1Id = `path-2-inside-1_${svgId.replace(/:/g, '_')}`;
   const mask2Id = `path-3-inside-2_${svgId.replace(/:/g, '_')}`;
 
+  const isAnyContactActionPending = isProcessingInvitation || propertyEngagementMutation.isPending;
+  const isSearchActionPending = contactActionInProgress === "search" && isAnyContactActionPending;
+  const isInviteActionPending = contactActionInProgress === "invite" && isAnyContactActionPending;
+
   return (
     <div>
       <ItemNav cardRef={cardRef} />
-      <div className='mt-12 sm:mt-16 md:mt-24' />
-      
+      <div className='mt-14 sm:mt-12 md:mt-12 lg:mt-14' />
+      <div id="overview" className="scroll-mt-28" />
+
       {/* Contact Agent Dialog */}
       <Dialog open={isContactAgentDialogOpen} onOpenChange={setIsContactAgentDialogOpen}>
         <DialogContent className="sm:max-w-md">
@@ -743,10 +1968,10 @@ const PropertyPreview: React.FC = () => {
                   handleSearchAgent();
                 }
               }}
-              disabled={propertyEngagementMutation.isPending || isProcessingInvitation}
+              disabled={isAnyContactActionPending}
               className="w-full bg-black text-white px-6 py-3 rounded-full text-base font-normal hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {propertyEngagementMutation.isPending || isProcessingInvitation ? "Creating..." : "Search Agent"}
+              {isSearchActionPending ? "Creating..." : "Search Agent"}
             </button>
             <button
               type="button"
@@ -757,10 +1982,10 @@ const PropertyPreview: React.FC = () => {
                   handleInviteAgent();
                 }
               }}
-              disabled={propertyEngagementMutation.isPending || isProcessingInvitation}
+              disabled={isAnyContactActionPending}
               className="w-full bg-white text-black border-2 border-black px-6 py-3 rounded-full text-base font-normal hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {propertyEngagementMutation.isPending || isProcessingInvitation ? "Creating..." : "Invite Agent"}
+              {isInviteActionPending ? "Creating..." : "Invite Agent"}
             </button>
           </div>
         </DialogContent>
@@ -768,17 +1993,17 @@ const PropertyPreview: React.FC = () => {
 
       {/* Search Agent Modal - Large modal with agent directory */}
       <Dialog open={isSearchAgentModalOpen} onOpenChange={setIsSearchAgentModalOpen}>
-        <DialogContent className="max-w-6xl w-[95vw] h-[90vh] max-h-[90vh] overflow-hidden flex flex-col p-0">
-          <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
-            <DialogTitle className="text-2xl font-semibold">Search Agents</DialogTitle>
+        <DialogContent className="max-w-6xl w-[96vw] sm:w-[95vw] h-[90vh] max-h-[90vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="flex-shrink-0 px-3 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b">
+            <DialogTitle className="text-xl sm:text-2xl font-semibold">Search Agents</DialogTitle>
             <DialogDescription>
               Browse and search for agents to invite to this property.
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-hidden flex flex-col min-h-0">
             {engagementIdForModal ? (
-              <div className="flex-1 overflow-y-auto px-6 pb-6 min-h-0">
-                <AgentDirectoryWrapper 
+              <div className="flex-1 overflow-y-auto px-3 sm:px-6 pb-3 sm:pb-6 min-h-0">
+                <AgentDirectoryWrapper
                   engagementId={engagementIdForModal}
                   propertyId={propertyData?.id || id}
                   onClose={() => setIsSearchAgentModalOpen(false)}
@@ -849,149 +2074,140 @@ const PropertyPreview: React.FC = () => {
         </DialogContent>
       </Dialog>
       {loading ? (
-        <div className='grid grid-flow-row place-items-center gap-3 sm:gap-4 md:gap-6 md:h-[28rem] md:grid-cols-12 md:gap-7 animate-pulse px-4 sm:px-6 md:px-0'>
-          <SkeletonLoader className='h-[200px] sm:h-[250px] md:h-[392px] w-full bg-gray-200 md:col-span-9 rounded-lg' />
-          <div className='h-[200px] sm:h-[250px] md:h-[392px] w-full md:col-span-3'>
-            <PropCardLoader className='h-full w-full rounded-lg shadow-lg' />
+        <div className='grid w-full max-w-7xl mx-auto min-h-[calc(100vh-12rem)] content-start grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-12 lg:gap-7 animate-pulse bg-white px-2 pb-8 sm:px-4 md:px-6 lg:px-0'>
+          <SkeletonLoader className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[392px] w-full bg-gray-200 lg:col-span-8 rounded-lg' />
+          <div className='w-full lg:col-span-4'>
+            <PropCardLoader className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[392px] w-full rounded-lg shadow-lg' />
           </div>
         </div>
       ) : transformData.display ? (
+        <>
+          <div className='grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-12 lg:gap-7 h-auto transition-all duration-300 ease-in-out px-2 sm:px-4 md:px-6 lg:px-0 max-w-7xl mx-auto'>
 
-        <div className='grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-12 md:gap-7 h-auto md:h-[28rem] transition-all duration-300 ease-in-out px-4 sm:px-6 md:px-0'>
+            <div className="col-span-12 lg:col-span-8 flex flex-col" ref={leftSection}>
+              <HeroCollege
+                className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[28rem] w-full rounded-lg shadow-lg overflow-hidden'
+                imageURLs={
+                  transformData.prop?.media?.photosList?.length ?
+                    transformData.prop?.media?.photosList?.map((img: any) => img) || [] :
+                    (transformData.prop?.media?.primaryListingImageUrl ? [{ highRes: transformData.prop?.media?.primaryListingImageUrl }] : [])
+                }
+                onImageClick={handleImageClick}
+                onShowAllPhotos={() => setIsCategorizedModalOpen(true)}
+              />
 
-          <div className='md:col-span-9 col-span-12 flex flex-col' ref={leftSection}>
-            <HeroCollege
-              className='h-[200px] sm:h-[250px] md:h-[28rem] w-full rounded-lg shadow-lg overflow-hidden'
-              imageURLs={
-                transformData.prop?.media?.photosList?.length ?
-                  transformData.prop?.media?.photosList?.map((img: any) => img) || [''] :
-                  [{ highRes: transformData.prop?.media?.primaryListingImageUrl }]
-              }
-              onImageClick={handleImageClick}
-              onShowAllPhotos={() => setIsCategorizedModalOpen(true)}
-            />
-
-            <CategorizedPhotosModal
-              isOpen={isCategorizedModalOpen}
-              onClose={() => setIsCategorizedModalOpen(false)}
-              listingId={String(propertyDatas?.data?.listingId || listingId || property?.listingId || '')}
-              propertyId={String(propertyDatas?.data?.propertyId || property?.propertyId || '')}
-              fallbackPhotos={transformData.prop?.media?.photosList?.map((img: any) => img.highRes) || []}
-              address={transformData.prop?.address?.unparsedAddress || propertyDatas?.data?.address?.unparsedAddress}
-              city={transformData.prop?.address?.city || propertyDatas?.data?.address?.city}
-              state={transformData.prop?.address?.stateOrProvince || propertyDatas?.data?.address?.stateOrProvince}
-              zip={transformData.prop?.address?.zipCode || propertyDatas?.data?.address?.zipCode}
-              price={transformData.prop?.listPrice || propertyDatas?.data?.listPrice}
-              beds={Number(transformData.prop?.property?.bedroomsTotal || propertyDatas?.data?.property?.bedroomsTotal || 0)}
-              baths={Number(transformData.prop?.property?.bathroomsTotal || propertyDatas?.data?.property?.bathroomsTotal || 0)}
-              sqft={Number(transformData.prop?.property?.livingArea || propertyDatas?.data?.property?.livingArea || 0)}
-              description={transformData.prop?.remarks || propertyDatas?.data?.property?.description || ""}
-            />
-            {/* Top Section: Price/Address and Agent Card */}
-            <div className='mt-3 flex flex-col sm:flex-row w-full justify-between items-start sm:items-center gap-4 mb-4'>
-              {/* Left: Price and Address */}
-              <div className="space-y-1 w-full sm:w-auto flex-1">
-                <div className='inline-flex items-baseline gap-1'>
-                  <span className='text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900'>$</span>
-                  <h2 className='text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 relative inline-block'>
-                    {transformData.prop?.listPrice ? transformData.prop.listPrice.toLocaleString('en-US') : '0'}
-                    <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#60A5FA]"></span>
-                  </h2>
+              <CategorizedPhotosModal
+                isOpen={isCategorizedModalOpen}
+                onClose={() => setIsCategorizedModalOpen(false)}
+                listingId={String(propertyDatas?.data?.listingId || listingId || property?.listingId || '')}
+                propertyId={String(propertyDatas?.data?.propertyId || property?.propertyId || '')}
+                fallbackPhotos={transformData.prop?.media?.photosList?.map((img: any) => img.highRes) || []}
+                address={transformData.prop?.address?.unparsedAddress || propertyDatas?.data?.address?.unparsedAddress}
+                city={transformData.prop?.address?.city || propertyDatas?.data?.address?.city}
+                state={transformData.prop?.address?.stateOrProvince || propertyDatas?.data?.address?.stateOrProvince}
+                zip={transformData.prop?.address?.zipCode || propertyDatas?.data?.address?.zipCode}
+                price={transformData.prop?.listPrice || propertyDatas?.data?.listPrice}
+                beds={Number(transformData.prop?.property?.bedroomsTotal || propertyDatas?.data?.property?.bedroomsTotal || 0)}
+                baths={Number(transformData.prop?.property?.bathroomsTotal || propertyDatas?.data?.property?.bathroomsTotal || 0)}
+                sqft={Number(transformData.prop?.property?.livingArea || propertyDatas?.data?.property?.livingArea || 0)}
+                description={transformData.prop?.remarks || propertyDatas?.data?.property?.description || ""}
+                preloadedData={propertyDatas} // Pass existing data to prevent re-fetch
+              />
+              {/* Top Section: Price/Address and Agent Card */}
+              <div className="mt-3 w-full flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6 mb-4">
+                {/* Left: Price and Address */}
+                <div className="space-y-1 w-full lg:flex-1">
+                  <div className='inline-flex items-baseline gap-1'>
+                    <span className='text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-gray-900'>$</span>
+                    <h2 className='text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-gray-900 relative inline-block'>
+                      {transformData.prop?.listPrice ? transformData.prop.listPrice.toLocaleString('en-US') : '0'}
+                      <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#60A5FA]"></span>
+                    </h2>
+                  </div>
+                  <p className='text-sm sm:text-base text-gray-600 leading-6 break-words' style={{ fontFamily: "Satoshi" }}>
+                    {`${transformData.prop?.address?.unparsedAddress || propertyDatas?.property_detail?.data?.propertyInfo?.address?.address || "N/A"}, ${transformData.prop?.address?.city || propertyDatas?.property_detail?.data?.propertyInfo?.address?.city || "N/A"}, ${transformData.prop?.address?.stateOrProvince || propertyDatas?.property_detail?.data?.propertyInfo?.address?.stateOrProvince || "N/A"} ${transformData.prop?.address?.zipCode || propertyDatas?.property_detail?.data?.propertyInfo?.address?.zip || "N/A"}`}
+                  </p>
                 </div>
-                <p className='truncate text-clip text-base text-gray-600 leading-6' style={{ fontFamily: "Satoshi" }}>
-                  {`${transformData.prop?.address?.unparsedAddress || propertyDatas?.property_detail?.data?.propertyInfo?.address?.address || "N/A"}, ${transformData.prop?.address?.city || propertyDatas?.property_detail?.data?.propertyInfo?.address?.city || "N/A"}, ${transformData.prop?.address?.stateOrProvince || propertyDatas?.property_detail?.data?.propertyInfo?.address?.stateOrProvince || "N/A"} ${transformData.prop?.address?.zipCode || propertyDatas?.property_detail?.data?.propertyInfo?.address?.zip || "N/A"}`}
-                </p>
+
+                {/* Right: Agent Card */}
+                <div className="w-full">
+                  <div className="rounded-xl bg-[#F5E6D3] shadow-sm px-3 sm:px-4 py-3 flex items-center justify-between gap-2 sm:gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                      <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden shrink-0">
+                        {transformData?.prop?.listingAgent?.photo && transformData?.prop?.listingAgent?.photo !== "" ? (
+                          <Image
+                            src={transformData.prop.listingAgent.photo}
+                            alt={transformData?.prop?.listingAgent?.fullName || "Agent"}
+                            width={48}
+                            height={48}
+                            className="rounded-full object-cover w-full h-full"
+                          />
+                        ) : (
+                          <span className="text-sm sm:text-base font-medium text-gray-600">
+                            {transformData?.prop?.listingAgent?.fullName?.charAt(0) || "A"}
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs sm:text-sm font-bold text-gray-900 truncate">
+                          {transformData?.prop?.listingAgent?.fullName || "Snaphomz Agent"}
+                        </p>
+                        <p className="text-xs text-gray-500">Listing Agent</p>
+                      </div>
+                    </div>
+                    {/* Email button hidden per updated design */}
+                  </div>
+                </div>
               </div>
 
-              {/* Right: Agent Card */}
-              <div className="w-full sm:w-auto sm:min-w-[280px]">
-                <div className="rounded-xl bg-[#F5E6D3] shadow-sm px-4 py-3 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden shrink-0">
-                      {transformData?.prop?.listingAgent?.photo ? (
-                        <Image
-                          src={transformData.prop.listingAgent.photo}
-                          alt={transformData?.prop?.listingAgent?.fullName || "Agent"}
-                          width={48}
-                          height={48}
-                          className="rounded-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-base font-medium text-gray-600">
-                          {transformData?.prop?.listingAgent?.fullName?.charAt(0) || "A"}
-                        </span>
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-gray-900 truncate">
-                        {transformData?.prop?.listingAgent?.fullName || "Snaphomz Agent"}
-                      </p>
-                      <p className="text-xs text-gray-500">Listing Agent</p>
-                    </div>
+              {/* Bottom Section: Estimated Payment and Schedule A Tour Button */}
+              <div className="flex flex-col w-full gap-3 sm:gap-4 mb-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center lg:gap-6">
+                {/* Left: Estimated Payment Section */}
+                <div className="rounded-xl bg-[#FAE6DB] shadow-sm px-3 sm:px-4 py-2 sm:py-2.5 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-2.5 w-full lg:max-w-[460px]">
+                  <div className="flex items-center gap-2 flex-1">
+                    <span className="text-xs sm:text-sm text-gray-600">Est. payment:</span>
+                    <span className="text-xs sm:text-sm font-bold text-gray-900">
+                      ${(() => {
+                        const fallbackPrice = Number(transformData.prop?.listPrice || 0);
+                        const fallbackMonthly = Number.isFinite(fallbackPrice)
+                          ? Math.round(fallbackPrice * 0.0065)
+                          : 0;
+                        const monthlyPayment = topEstimatedMonthlyPayment !== null
+                          ? Math.round(topEstimatedMonthlyPayment)
+                          : fallbackMonthly;
+                        return monthlyPayment.toLocaleString('en-US');
+                      })()}/mo
+                    </span>
                   </div>
-                  <button className="shrink-0 ml-2">
-                    <Mail className="h-5 w-5 text-[#E8804C]" strokeWidth={1.5} />
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-[#E8804C]-300 flex items-center justify-center shrink-0">
+                      <Info className="h-2 w-2 sm:h-3 sm:w-3 text-[#E8804C]-600" />
+                    </div>
+                    <a
+                      href="https://preapproval.snaphomz.com/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs sm:text-sm text-[#E8804C] hover:underline whitespace-nowrap"
+                    >
+                      Get pre-qualified
+                    </a>
+                  </div>
+                </div>
+
+                {/* Right: Schedule A Tour Button */}
+                <div className="w-full flex flex-col gap-2">
+                  <button
+                    className="w-full bg-black text-white px-4 sm:px-6 lg:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-normal border border-black hover:bg-gray-900 transition-colors"
+                    onClick={handleContactAgent}
+                    disabled={propertyEngagementMutation.isPending}
+                  >
+                    {propertyEngagementMutation.isPending ? "Creating..." : "Schedule a Tour"}
                   </button>
                 </div>
               </div>
-            </div>
 
-            {/* Bottom Section: Estimated Payment and Start The Process Button */}
-            <div className='flex flex-col sm:flex-row w-full justify-between items-center gap-4 mb-4'>
-              {/* Left: Estimated Payment Section */}
-              <div className="rounded-xl bg-[#FAE6DB] shadow-sm px-4 py-3 flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">Est. payment:</span>
-                  <span className="text-sm font-bold text-gray-900">
-                    ${(() => {
-                      const price = transformData.prop?.listPrice || 0;
-                      const monthlyPayment = Math.round(price * 0.0065); // Approximate calculation
-                      return monthlyPayment.toLocaleString('en-US');
-                    })()}/mo
-                  </span>
-                </div>
-                <div className="h-5 w-5 rounded-full bg-[#E8804C]-300 flex items-center justify-center shrink-0">
-                  <Info className="h-3 w-3 text-[#E8804C]-600" />
-                </div>
-                <button className="text-sm text-[#E8804C] hover:underline whitespace-nowrap">
-                  Get pre-qualified
-                </button>
-              </div>
-
-              {/* Right: Start The Process Button */}
-              {/* Right: Buttons Section */}
-              <div className="flex flex-col gap-3 w-full sm:w-auto">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="w-full sm:w-auto" style={{ width: "270px" }}>
-                        <button
-                          disabled
-                          className="w-full bg-gray-400 text-white px-8 py-3 rounded-full text-base font-normal cursor-not-allowed transition-colors whitespace-nowrap"
-                        >
-                          Start The Process
-                        </button>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Coming Soon</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-
-                <button 
-                  className="w-full sm:w-auto bg-black text-white px-8 py-3 rounded-full text-base font-normal hover:bg-gray-800 transition-colors whitespace-nowrap" 
-                  style={{ width: "270px" }}
-                  onClick={handleContactAgent}
-                  disabled={propertyEngagementMutation.isPending}
-                >
-                  {propertyEngagementMutation.isPending ? "Creating..." : "Contact Agent"}
-                </button>
-              </div>
-            </div>
-
-            {/* Hero Highlights - moved below */}
-            {/* <div className="w-full">
+              {/* Hero Highlights - moved below */}
+              {/* <div className="w-full">
               <HeroHighlights
                 className="h-[210px] sm:h-[260px] md:h-[25.4rem] w-full shadow-lg hover:shadow-xl transition-shadow duration-300"
                 id={id}
@@ -1001,267 +2217,480 @@ const PropertyPreview: React.FC = () => {
             </div> */}
 
 
-            {/* Estimated Market Value (image_60fd3b.png) */}
-            <div className='flex flex-wrap items-center justify-between gap-2 sm:gap-3 py-2 sm:py-2'>
-              <EstimatedMarketValue defaultEstimatedData={defaultEstimatedData} />
-            </div>
-          </div>
-
-
-          <div className="relative right-0  mr-0 md:mr-4 transition-all duration-300 ease-in-out w-[325px] md:w-auto">
-            {/* <ListingAgentCard
-              agentName={`${transformData?.prop?.listingAgent?.fullName || "Snaphomz Agent"}`}
-              email={transformData?.prop?.listingAgent?.email}
-              className="h-fit w-full md:w-[23rem] shadow-lg hover:shadow-xl transition-shadow duration-300"
-            />
-            <br />
-            <HeroHighlights
-              className="h-[210px] sm:h-[260px] md:h-[25.4rem] w-full md:w-[23rem] shadow-lg hover:shadow-xl transition-shadow duration-300"
-              id={id}
-              propertyId={propertyData?.id}
-              listingId={propertyData?.listingId}
-            /> */}
-            <div className="w-[380px] rounded-2xl bg-[#FCFCFB] shadow-sm border border-[#EDEDED] p-6">
-              {(() => {
-                // Calculate dynamic values
-                const beds = transformData.prop?.property?.bedroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bedroomsTotal || 0;
-                const baths = transformData.prop?.property?.bathroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bathroomsTotal || 0;
-                const sqft = transformData.prop?.property?.livingArea || propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet || 0;
-                const yearBuilt = transformData.prop?.property?.yearBuilt || propertyDatas?.property_detail?.data?.propertyInfo?.yearBuilt || "N/A";
-                const propertyType = transformData.prop?.property?.propertyType || propertyDatas?.property_detail?.data?.propertyInfo?.propertyType || "N/A";
-                const sqftArea = transformData.prop?.property?.livingArea || propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet || 0;
-                const listPrice = transformData.prop?.listPrice || propertyDatas?.data?.listPrice || 0;
-                const pricePerSqft = sqft && listPrice ? Math.round(listPrice / sqft) : 0;
-                const status = mostRecentStatus || transformData.prop?.mostRecentStatus || "For sale";
-                const propertyTypeShort = propertyType?.split(' ')[0] || "Single";
-
-                return (
-                  <>
-                    {/* Status Badge */}
-                    <div className="inline-flex items-center gap-2 bg-[#F7F7F7] px-3 py-1 rounded-xl text-[13px] font-medium mb-4">
-                      <span className="h-[8px] w-[8px] rounded-full bg-red-500"></span>
-                      {status}
-                    </div>
-
-                    {/* Top stats */}
-                    <div className="flex items-end gap-8 mb-4">
-                      <div>
-                        <p className="text-[34px] font-semibold leading-none">{beds}</p>
-                        <p className="text-[13px] text-gray-500 mt-1">beds</p>
-                      </div>
-
-                      <div>
-                        <p className="text-[34px] font-semibold leading-none">{baths}</p>
-                        <p className="text-[13px] text-gray-500 mt-1">baths</p>
-                      </div>
-
-                      <div>
-                        <p className="text-[34px] font-semibold leading-none tracking-tight">
-                          {sqft ? sqft.toLocaleString('en-US') : "0"}
-                        </p>
-                        <p className="text-[13px] text-gray-500 mt-1">sqft</p>
-                      </div>
-                    </div>
-
-                    {/* Open house - optional, can be made dynamic if data is available */}
-                    {transformData.prop?.openHouse && (
-                      <p className="text-[13px] text-gray-600 mb-4">
-                        Open : {transformData.prop.openHouse}
-                      </p>
-                    )}
-
-                    <div className="border-t border-gray-200 mb-4"></div>
-
-                    {/* Middle grid info with SVG icons */}
-                    <div className="grid grid-cols-2 gap-y-4 text-[13px]">
-                      <div>
-                        <Image
-                          src="/assets/images/residental.png"
-                          alt="Year Built"
-                          width={18}
-                          height={18}
-                          className="h-4 w-4 mb-1"
-                        />
-                        <p className="text-[15px] font-semibold">{yearBuilt}</p>
-                        <p className="text-gray-500 mt-1">Year Built</p>
-                      </div>
-
-                      <div>
-                        <Image
-                          src="/assets/images/resd.png"
-                          alt="Property Type"
-                          width={18}
-                          height={18}
-                          className="h-4 w-4 mb-1"
-                        />
-                        <p className="text-[15px] font-semibold">{propertyTypeShort}</p>
-                        <p className="text-gray-500 mt-1">Family Residence</p>
-                      </div>
-
-                      <div>
-                        <Image
-                          src="/assets/images/area-black.svg"
-                          alt="Sqft Area"
-                          width={18}
-                          height={18}
-                          className="h-4 w-4 mb-1"
-                        />
-                        <p className="text-[15px] font-semibold">
-                          {sqftArea ? sqftArea.toLocaleString('en-US') : "N/A"}
-                        </p>
-                        <p className="text-gray-500 mt-1">Sqft Area</p>
-                      </div>
-
-                      <div>
-                        <div className="text-[15px] font-bold text-gray-800 leading-none mb-1">$</div>
-                        <p className="text-[15px] font-semibold">
-                          {pricePerSqft ? `$${pricePerSqft}` : "N/A"}
-                        </p>
-                        <p className="text-gray-500 mt-1">Price/sqft</p>
-                      </div>
-                    </div>
-
-                    {/* Footer */}
-                    <div className="flex justify-between items-center mt-6">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button className="flex items-center gap-2 text-[14px] border px-4 py-2 rounded-full">
-                              <span>📍</span>
-                              Street view
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Coming soon</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button className="text-[14px] underline">
-                              Schedule a tour
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Coming soon</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
-
-            <div className="w-[380px] rounded-2xl bg-white shadow-lg border border-[#EDEDED] p-6 mt-5">
-              {/* Header */}
-              <div className="flex items-center gap-2 mb-2">
-                <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M15.0645 1C22.8233 0.998533 29.122 7.31736 29.1221 15.1211V25.0967C29.1221 26.201 28.6985 27.1986 28.0068 27.9336L28.0049 27.9355C27.2517 28.7409 26.1847 29.2393 25.001 29.2393H5.12109C2.85069 29.2393 1 27.3893 1 25.0986V15.123C1 7.31903 7.30043 1 15.0645 1Z" fill="black" stroke={`url(#${gradientId})`} strokeWidth="2" />
-                  <mask id={mask1Id} fill="white">
-                    <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" />
-                  </mask>
-                  <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" fill="white" stroke="white" strokeWidth="4" mask={`url(#${mask1Id})`} />
-                  <mask id={mask2Id} fill="white">
-                    <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" />
-                  </mask>
-                  <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" fill="white" stroke="white" strokeWidth="4" mask={`url(#${mask2Id})`} />
-                  <defs>
-                    <linearGradient id={gradientId} x1="15.061" y1="0" x2="15.061" y2="30.2391" gradientUnits="userSpaceOnUse">
-                      <stop stopColor="#E8804C" stopOpacity="1" />
-                      <stop offset="0.5" stopColor="#E84C85" stopOpacity="1" />
-                      <stop offset="0.75" stopColor="#A64EBA" stopOpacity="1" />
-                      <stop offset="1" stopColor="#654FEF" stopOpacity="1" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-                <h3 className="text-[20px] font-semibold">Ask AI</h3>
+              {/* Takeaways */}
+              <div className="py-2 sm:py-3">
+                <PropertyTakeawaysAI
+                  property={
+                    propertyDatas?.data ||
+                    propertyData?.listing ||
+                    propertyData?.public ||
+                    propertyData ||
+                    transformData.prop
+                  }
+                  nearbySchools={nearbySchools}
+                />
               </div>
 
-              <p className="text-[14px] text-gray-600 leading-relaxed mb-5">
-                Your AI real estate assistant. We'll answer pretty much any question about this home.
-              </p>
+              {/* Estimated Market Value (image_60fd3b.png) */}
+              <div className='flex flex-wrap items-center justify-between gap-2 sm:gap-3 py-2 sm:py-3 px-2 sm:px-0'>
+                <EstimatedMarketValue estimatedData={estimatedMarketData} />
+              </div>
 
-              {/* Accordion */}
-              <div className="space-y-3 mb-6">
-                {items.map((label: any, index: any) => (
-                  <div
-                    key={index}
-                    onClick={() => toggle(index)}
-                    className="w-full rounded-xl bg-[#F6F6F6] px-4 py-3 cursor-pointer flex items-center justify-between text-[14px] hover:bg-[#F0F0F0] transition-colors"
-                  >
-                    <span>{label}</span>
-                    {open === index ? (
-                      <ChevronUp className="h-4 w-4 text-gray-600" />
+            </div>
+
+
+            <div className="col-span-12 lg:col-span-4 lg:row-span-2 mt-4 lg:mt-0">
+              <div className="w-full rounded-2xl bg-[#F9F6EF] shadow-sm border border-[#EFE7DC] p-4 sm:p-5 md:p-6">
+                {(() => {
+                  // Calculate dynamic values
+                  const beds = transformData.prop?.property?.bedroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bedroomsTotal || 0;
+                  const baths = transformData.prop?.property?.bathroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bathroomsTotal || 0;
+                  const sqft = transformData.prop?.property?.livingArea || propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet || 0;
+                  const yearBuilt = transformData.prop?.property?.yearBuilt || propertyDatas?.property_detail?.data?.propertyInfo?.yearBuilt || "N/A";
+                  const propertyType = transformData.prop?.property?.propertyType || propertyDatas?.property_detail?.data?.propertyInfo?.propertyType || "N/A";
+                  const sqftArea = transformData.prop?.property?.livingArea || propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet || 0;
+                  const listPrice = transformData.prop?.listPrice || propertyDatas?.data?.listPrice || 0;
+                  const pricePerSqft = sqft && listPrice ? Math.round(listPrice / sqft) : 0;
+                  const status = mostRecentStatus || transformData.prop?.mostRecentStatus || "For sale";
+                  const propertyTypeShort = propertyType?.split(' ')[0] || "Single";
+
+                  return (
+                    <>
+                      {/* Status Badge */}
+                      <div className="inline-flex items-center gap-2 bg-white/70 px-3 py-1 rounded-full text-xs sm:text-[13px] font-medium text-gray-800">
+                        <span className="h-[6px] w-[6px] rounded-full bg-red-500"></span>
+                        {status}
+                      </div>
+
+                      {/* Top stats */}
+                      <div className="mt-4 grid grid-cols-3 gap-5">
+                        <div>
+                          <p className="text-2xl sm:text-[30px] font-semibold leading-none">{beds}</p>
+                          <p className="text-xs sm:text-[13px] text-gray-600 mt-1">beds</p>
+                        </div>
+
+                        <div>
+                          <p className="text-2xl sm:text-[30px] font-semibold leading-none">{baths}</p>
+                          <p className="text-xs sm:text-[13px] text-gray-600 mt-1">baths</p>
+                        </div>
+
+                        <div>
+                          <p className="text-2xl sm:text-[30px] font-semibold leading-none tracking-tight">
+                            {sqft ? sqft.toLocaleString('en-US') : "0"}
+                          </p>
+                          <p className="text-xs sm:text-[13px] text-gray-600 mt-1">sqft</p>
+                        </div>
+                      </div>
+
+                      {/* Open house - optional, can be made dynamic if data is available */}
+                      {transformData.prop?.openHouse && (
+                        <p className="text-[13px] text-gray-700 mt-4">
+                          Open : {transformData.prop.openHouse}
+                        </p>
+                      )}
+
+                      <div className="h-px bg-[#E3DCD2] my-4"></div>
+
+                      {/* Middle grid info with SVG icons */}
+                      <div className="grid grid-cols-2 gap-y-4 text-xs sm:text-[13px]">
+                        <div className="flex items-start gap-3">
+                          <Image
+                            src="/assets/images/residental.png"
+                            alt="Year Built"
+                            width={18}
+                            height={18}
+                            className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4"
+                          />
+                          <div>
+                            <p className="text-sm sm:text-[15px] font-semibold">{yearBuilt}</p>
+                            <p className="text-gray-600 mt-1">Year Built</p>
+                          </div>
+                        </div>
+
+                        <div className="border-l border-[#E3DCD2] pl-4 flex items-start gap-3">
+                          <Image
+                            src="/assets/images/residential-icon.svg"
+                            alt="Property Type"
+                            width={18}
+                            height={18}
+                            className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4"
+                          />
+                          <div>
+                            <p className="text-sm sm:text-[15px] font-semibold">{propertyTypeShort}</p>
+                            <p className="text-gray-600 mt-1">Family Residence</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-3">
+                          <Image
+                            src="/assets/images/sqft-area-icon.svg"
+                            alt="Sqft Area"
+                            width={18}
+                            height={18}
+                            className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4"
+                          />
+                          <div>
+                            <p className="text-sm sm:text-[15px] font-semibold">
+                              {sqftArea ? sqftArea.toLocaleString('en-US') : "N/A"}
+                            </p>
+                            <p className="text-gray-600 mt-1">Sqft Area</p>
+                          </div>
+                        </div>
+
+                        <div className="border-l border-[#E3DCD2] pl-4 flex items-start gap-3">
+                          <div className="mt-0.5 text-[15px] font-bold text-gray-800 leading-none">$</div>
+                          <div>
+                            <p className="text-[15px] font-semibold">
+                              {pricePerSqft ? `$${pricePerSqft}` : "N/A"}
+                            </p>
+                            <p className="text-gray-600 mt-1">Price/sqft</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Footer */}
+                      <div className="flex items-center justify-between gap-3 mt-5">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                className="flex items-center gap-3 text-sm sm:text-[15px] font-semibold text-gray-900 bg-[#F2F2F2] px-5 py-3 rounded-full border border-gray-300"
+                                onClick={() => setIsStreetViewOpen(true)}
+                              >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-gray-900">
+                                  <path
+                                    d="M12 22s7-5.686 7-12A7 7 0 1 0 5 10c0 6.314 7 12 7 12Z"
+                                    stroke="currentColor"
+                                    strokeWidth="1.8"
+                                  />
+                                  <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.8" />
+                                </svg>
+                                Street view
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Open Street View</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+
+                        {/* Schedule a tour link hidden per updated design */}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+
+              <div className="hidden lg:block mt-4 lg:sticky lg:top-36 lg:self-start">
+                <div className="w-full rounded-2xl bg-white shadow-lg border border-[#EDEDED] p-4 sm:p-5 md:p-6">
+                  {/* Header */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M15.0645 1C22.8233 0.998533 29.122 7.31736 29.1221 15.1211V25.0967C29.1221 26.201 28.6985 27.1986 28.0068 27.9336L28.0049 27.9355C27.2517 28.7409 26.1847 29.2393 25.001 29.2393H5.12109C2.85069 29.2393 1 27.3893 1 25.0986V15.123C1 7.31903 7.30043 1 15.0645 1Z" fill="black" stroke={`url(#${gradientId})`} strokeWidth="2" />
+                      <mask id={mask1Id} fill="white">
+                        <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" />
+                      </mask>
+                      <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" fill="white" stroke="white" strokeWidth="4" mask={`url(#${mask1Id})`} />
+                      <mask id={mask2Id} fill="white">
+                        <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" />
+                      </mask>
+                      <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" fill="white" stroke="white" strokeWidth="4" mask={`url(#${mask2Id})`} />
+                      <defs>
+                        <linearGradient id={gradientId} x1="15.061" y1="0" x2="15.061" y2="30.2391" gradientUnits="userSpaceOnUse">
+                          <stop stopColor="#E8804C" stopOpacity="1" />
+                          <stop offset="0.5" stopColor="#E84C85" stopOpacity="1" />
+                          <stop offset="0.75" stopColor="#A64EBA" stopOpacity="1" />
+                          <stop offset="1" stopColor="#654FEF" stopOpacity="1" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                    <h3 className="text-[20px] font-semibold">Ask AI</h3>
+                  </div>
+
+                  <div className="text-[14px] text-gray-600 leading-relaxed mb-5">
+                    {aiAnswer ? (
+                      <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                        <p className="font-semibold text-blue-800 mb-1">AI Answer:</p>
+                        <p>{aiAnswer}</p>
+                      </div>
                     ) : (
-                      <ChevronDown className="h-4 w-4 text-gray-600" />
+                      <p>Your AI real estate assistant. We'll answer pretty much any question about this home.</p>
                     )}
                   </div>
-                ))}
+
+                  {/* Suggestions */}
+                  <div className="space-y-3 mb-6">
+                    {(aiSuggestions || []).map((label: string, index: number) => (
+                      <button
+                        key={index}
+                        onClick={() => handleAskAIQuery(label)}
+                        className="w-full text-left rounded-xl bg-[#F6F6F6] px-4 py-3 cursor-pointer flex items-center justify-between text-[14px] hover:bg-[#F0F0F0] transition-colors"
+                        disabled={askAIMutation.isPending}>
+                        <span>{label}</span>
+                        <ChevronDown className="h-4 w-4 text-gray-600" />
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Input */}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Ask me anything about this home..."
+                      className="w-full border border-[#D9D9D9] rounded-xl px-4 py-3 text-[14px] mb-5 outline-none focus:ring-0 focus:border-gray-400 transition-colors pr-12"
+                      value={askAIQuestion}
+                      onChange={(e) => setAskAIQuestion(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !askAIMutation.isPending) {
+                          handleAskAIQuery(askAIQuestion);
+                        }
+                      }}
+                      disabled={askAIMutation.isPending}
+                    />
+                    {askAIMutation.isPending && (
+                      <div className="absolute right-4 top-3">
+                        <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Button */}
+                  <button
+                    onClick={() => handleAskAIQuery(askAIQuestion)}
+                    disabled={askAIMutation.isPending || !askAIQuestion.trim()}
+                    className="w-full bg-black text-white py-3 rounded-full text-[16px] font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {askAIMutation.isPending ? 'Thinking...' : 'Send'}
+                  </button>
+                </div>
               </div>
-
-              {/* Input */}
-              <input
-                type="text"
-                placeholder="Ask me anything about this home..."
-                className="w-full border border-[#D9D9D9] rounded-xl px-4 py-3 text-[14px] mb-5 outline-none focus:ring-0 focus:border-gray-400 transition-colors"
-              />
-
-              {/* Button */}
-              <button className="w-full bg-black text-white py-3 rounded-full text-[16px] font-medium hover:bg-gray-800 transition-colors">
-                Send
-              </button>
             </div>
-          </div>
 
-          <div className="md:col-span-9 col-span-12  divide-y divide-gray-200 border-t border-gray-200 mt-6">
-            {/* Accordion List (Home Highlights, Schools, Offers, History, etc.) */}
-            {sections.map((section) => (
-              <div key={section.id} className="border-b border-gray-200">
-                <button
-                  onClick={() => toggleSection(section.id)}
-                  className="w-full flex items-center justify-between py-4 text-left focus:outline-none transition-all"
-                >
-                  <span className="font-semibold text-[16px] text-gray-900">
-                    {section.title}
-                  </span>
-                  {openSection === section.id ? (
-                    <ChevronUp className="text-gray-600 transition-transform duration-200" />
+            <div className="col-span-12 lg:col-span-8">
+              <div className="divide-y divide-gray-200 border-t border-gray-200 mt-4 sm:mt-6">
+                {/* Accordion List (Home Highlights, Schools, Offers, History, etc.) */}
+                {sections.map((section) => {
+                  const anchorId =
+                    section.id === 'home'
+                      ? 'home-highlights'
+                      : section.id === 'offers'
+                        ? 'property'
+                        : section.id === 'schools'
+                          ? 'schools'
+                          : section.id === 'interest'
+                            ? 'forecast'
+                            : undefined;
+                  const poweredBy =
+                    section.id === 'schools' || section.id === 'college'
+                      ? 'SnapGrad'
+                      : section.id === 'payment' || section.id === 'interest'
+                        ? 'SnapInterest'
+                        : null;
+                  const poweredByLogoSrc =
+                    poweredBy === 'SnapGrad'
+                      ? '/assets/icons/SnapGrad-Logo-01.svg'
+                      : poweredBy === 'SnapInterest'
+                        ? '/assets/icons/SnapInterest-Logo-01.svg'
+                        : null;
+
+                  return (
+                    <div
+                      key={section.id}
+                      id={anchorId}
+                      className="border-b border-gray-200 scroll-mt-28"
+                    >
+                      <button
+                        onClick={() => toggleSection(section.id)}
+                        className="w-full flex items-center justify-between py-3 sm:py-4 text-left focus:outline-none transition-all"
+                      >
+                        <span className="font-semibold text-sm sm:text-[16px] text-gray-900">
+                          {section.title}
+                        </span>
+                        <span className="ml-3 shrink-0 inline-flex items-center gap-2 sm:gap-3">
+                          {poweredBy && (
+                            <span className="inline-flex items-center gap-1 sm:gap-1.5">
+                              <span className="text-[10px] sm:text-[11px] font-normal text-gray-500 whitespace-nowrap">
+                                Powered by
+                              </span>
+                              {poweredByLogoSrc ? (
+                                <Image
+                                  src={poweredByLogoSrc}
+                                  alt={`Powered by ${poweredBy}`}
+                                  width={poweredBy === 'SnapInterest' ? 106 : 84}
+                                  height={30}
+                                  className="h-5 sm:h-6 w-auto object-contain"
+                                />
+                              ) : (
+                                <span className="text-[11px] font-normal text-gray-500">
+                                  {poweredBy}
+                                </span>
+                              )}
+                            </span>
+                          )}
+                          {openSection === section.id ? (
+                            <ChevronUp className="text-gray-600 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5" />
+                          ) : (
+                            <ChevronDown className="text-gray-600 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5" />
+                          )}
+                        </span>
+                      </button>
+
+                      {/* Accordion Content */}
+                      <div
+                        className={`overflow-hidden transition-all duration-300 ${openSection === section.id ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0"
+                          }`}
+                      >
+                        <div
+                          id={
+                            section.id === 'offers'
+                              ? 'property-content'
+                              : section.id === 'schools'
+                                ? 'schools-content'
+                                : section.id === 'interest'
+                                  ? 'forecast-content'
+                                  : undefined
+                          }
+                          className="pb-3 sm:pb-4"
+                        >
+                          {section.content}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Nearby Homes Section (Similar Homes) */}
+                <div id="comparables" className="pb-6 sm:pb-8 md:pb-12 mb-12 sm:mb-16 md:mb-20 scroll-mt-28">
+                  {/* <h2 className='text-xl font-bold mt-8 mb-4'>Similar homes</h2> */}
+                  {(propertyDatas?.nearbyHomes?.length || propertyDatas?.offtheMarket?.length || propertyDatas?.offTheMarket?.length) ? (
+                    <NearbyHomesSection
+                      nearbyHomes={propertyDatas.nearbyHomes}
+                      soldHomes={propertyDatas?.offtheMarket || propertyDatas?.offTheMarket || []}
+                      currentProperty={currentCompareProperty}
+                      currentListingId={currentListingId}
+                    />
                   ) : (
-                    <ChevronDown className="text-gray-600 transition-transform duration-200" />
+                    <div className="flex items-center justify-center py-8 sm:py-12 px-4">
+                      <p className="text-gray-500 text-sm sm:text-base">Similar homes not available</p>
+                    </div>
                   )}
-                </button>
-
-                {/* Accordion Content */}
-                <div
-                  className={`overflow-hidden transition-all duration-300 ${openSection === section.id ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0"
-                    }`}
-                >
-                  <div className="pb-4">{section.content}</div>
                 </div>
+
               </div>
-            ))}
-
-            {/* Nearby Homes Section (Similar Homes) */}
-            <div className="pb-8 md:pb-12 mb-16 md:mb-20">
-              {/* <h2 className='text-xl font-bold mt-8 mb-4'>Similar homes</h2> */}
-              {propertyDatas?.nearbyHomes?.data && propertyDatas.nearbyHomes.data.length > 0 ? (
-                <NearbyHomesSection nearbyHomes={propertyDatas.nearbyHomes.data} />
-              ) : (
-                <div className="flex items-center justify-center py-12 px-4">
-                  <p className="text-gray-500 text-base">Similar homes not available</p>
-                </div>
-              )}
             </div>
+
+
+
+
           </div>
 
-        </div>
-
+        </>
       ) : (
         <div className='h-full w-full'>{notFound()}</div>
       )}
+
+      {/* Floating Ask AI Button - Mobile and Tablet Only */}
+      <div className="fixed bottom-4 sm:bottom-6 right-4 sm:right-6 z-50 lg:hidden">
+        <button
+          onClick={() => setIsAskAIModalOpen(true)}
+          className="w-12 h-12 sm:w-14 sm:h-14 bg-black rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow duration-300"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="text-white sm:w-6 sm:h-6"
+          >
+            <path
+              d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H5C3.89 1 3 1.89 3 3V21C3 22.11 3.89 23 5 23H19C20.11 23 21 22.11 21 21V9M19 9H14V4H19V9Z"
+              fill="currentColor"
+            />
+          </svg>
+        </button>
+      </div>
+
+      {/* Ask AI Modal */}
+      <Dialog open={isAskAIModalOpen} onOpenChange={setIsAskAIModalOpen}>
+        <DialogContent className="sm:max-w-md w-[95vw] max-h-[80vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
+            <DialogTitle className="text-xl font-semibold flex items-center gap-2">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H5C3.89 1 3 1.89 3 3V21C3 22.11 3.89 23 5 23H19C20.11 23 21 22.11 21 21V9M19 9H14V4H19V9Z"
+                  fill="currentColor"
+                />
+              </svg>
+              Ask AI
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-600">
+              Your AI real estate assistant. We&apos;ll answer quickly much any question about this home.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
+            <div className="space-y-4">
+              {/* Predefined Questions */}
+              <div className="space-y-2">
+                <button className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+                  <span className="text-sm">What should I look out for?</span>
+                </button>
+                <button className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+                  <span className="text-sm">Will I like my neighbors?</span>
+                </button>
+                <button className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+                  <span className="text-sm">Can I raise a family here?</span>
+                </button>
+              </div>
+
+              {/* Custom Question Input */}
+              <div className="mt-6">
+                <textarea
+                  placeholder="Ask me anything about this home..."
+                  className="w-full p-3 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows={3}
+                  value={askAIQuestion}
+                  onChange={(e) => setAskAIQuestion(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-shrink-0 px-6 pb-6">
+            <button
+              onClick={handleAskAI}
+              disabled={!askAIQuestion.trim()}
+              className="w-full bg-black text-white py-3 rounded-lg font-medium disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-gray-800 transition-colors"
+            >
+              Send
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isStreetViewOpen} onOpenChange={setIsStreetViewOpen}>
+        <DialogContent className="max-w-5xl w-[95vw] h-[80vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
+            <DialogTitle className="text-xl font-semibold">Street View</DialogTitle>
+            <DialogDescription className="text-sm text-gray-600">
+              Preview the area around this property.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 p-4">
+            {streetViewError && (
+              <div className="text-sm text-gray-600 mb-2">{streetViewError}</div>
+            )}
+            <div ref={streetViewRef} className="w-full h-full rounded-lg overflow-hidden" />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -27,7 +27,7 @@ const initialState: NavDialogState = {
   isMobileDrawer: false,
 };
 
-function MainNavPages({ theme }: { theme?: string }) {
+function MainNavPages() {
   const { isLoggedIn, user } = useAuth();
   const pathname = usePathname();
   const [headerHeight, setHeaderHeight] = React.useState(0);
@@ -43,7 +43,7 @@ function MainNavPages({ theme }: { theme?: string }) {
       return 'text-white';
     } else if (pathname === '/sell') {
       return 'text-black';
-    } else if (pathname === '/agents') {
+    } else if (pathname?.startsWith('/agents')) {
       return 'text-black';
     } else if (pathname === '/company') {
       return 'text-white';
@@ -58,7 +58,7 @@ function MainNavPages({ theme }: { theme?: string }) {
       return 'bg-black';
     } else if (pathname === '/sell') {
       return 'bg-white';
-    } else if (pathname === '/agents') {
+    } else if (pathname?.startsWith('/agents')) {
       return 'bg-white';
     } else if (pathname === '/company') {
       return 'bg-black';
@@ -71,12 +71,12 @@ function MainNavPages({ theme }: { theme?: string }) {
 
   // When scrolled, use appropriate text color based on background
   const finalTextColorClass = isScrolled
-    ? (pathname === '/sell' || pathname === '/agents' ? 'text-black' : 'text-white')
+    ? (pathname === '/sell' || pathname?.startsWith('/agents') ? 'text-black' : 'text-white')
     : textColorClass;
 
   // Determine logo based on text color
   const logoSrc = finalTextColorClass === 'text-black'
-    ? '/assets/images/logo-black-main.png'
+    ? '/assets/Logos/Snaphomz-Logo-Black (4).png'
     : '/assets/images/logo-main.png';
 
   // Determine background class for scrolled state - recalculate based on current pathname
@@ -88,7 +88,7 @@ function MainNavPages({ theme }: { theme?: string }) {
       return 'bg-black';
     } else if (pathname === '/sell') {
       return 'bg-white';
-    } else if (pathname === '/agents') {
+    } else if (pathname?.startsWith('/agents')) {
       return 'bg-white';
     } else if (pathname === '/company') {
       return 'bg-black';
@@ -172,7 +172,7 @@ function MainNavPages({ theme }: { theme?: string }) {
     const baseClasses = 'fixed left-0 right-0 top-0 z-50 flex w-full items-center justify-between px-4 md:px-8 transition-all duration-300';
     const backgroundClasses = isScrolled
       ? `${scrollBackgroundClass} shadow-lg py-2`
-      : 'bg-transparent py-4';
+      : (pathname === '/do-not-sell-or-share' ? 'bg-black py-4' : 'bg-transparent py-4');
 
     return `${baseClasses} ${finalTextColorClass} ${backgroundClasses}`;
   }, [finalTextColorClass, isScrolled, scrollBackgroundClass]);
@@ -192,7 +192,7 @@ function MainNavPages({ theme }: { theme?: string }) {
         {/* Logo - Left side on mobile, center on desktop */}
         <Link
           href="/home"
-          className="md:absolute md:inset-y-0 md:left-1/2 md:transform md:-translate-x-1/2 flex items-center justify-center"
+          className="flex items-center justify-center md:absolute md:inset-y-0 md:left-1/2 md:transform md:-translate-x-1/2"
         >
           <Image
             src={logoSrc}
@@ -201,8 +201,8 @@ function MainNavPages({ theme }: { theme?: string }) {
             unoptimized
             alt="logo"
             className={`transition-all duration-300 object-contain ${isScrolled
-              ? 'h-8 w-24 md:h-10 md:w-32'
-              : 'h-9 w-28 md:h-12 md:w-36'
+              ? 'h-9 w-28 md:h-10 md:w-32'
+              : 'h-10 w-32 md:h-12 md:w-36'
               }`}
           />
         </Link>
@@ -233,10 +233,10 @@ function MainNavPages({ theme }: { theme?: string }) {
                 initialStage={1}
                 variant={"ghost"}
                 className={`w-full ${finalTextColorClass} bg-transparent border ${isScrolled
-                  ? (pathname === '/sell' || pathname === '/agents'
+                  ? (pathname === '/sell' || pathname?.startsWith('/agents')
                     ? 'border-black hover:bg-black hover:text-white'
                     : 'border-white hover:bg-white hover:text-black')
-                  : (pathname === '/sell' || pathname === '/agents'
+                  : (pathname === '/sell' || pathname?.startsWith('/agents')
                     ? 'border-black hover:bg-black hover:text-white'
                     : 'border-white hover:bg-white hover:text-black')
                   } rounded-full transition-all duration-300`}
@@ -265,7 +265,7 @@ function MainNavPages({ theme }: { theme?: string }) {
       <MobileSideDrawer
         closeDrawer={toggleClose}
         isDrawerOpen={openDialogs.isMobileDrawer}
-        handleMouseLeave={handleMouseLeave}
+      // handleMouseLeave={handleMouseLeave}
       />
     </>
   );

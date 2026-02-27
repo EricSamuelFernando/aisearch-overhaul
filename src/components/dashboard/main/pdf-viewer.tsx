@@ -39,6 +39,11 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
         return documentUrl;
       }
 
+      // Video formats
+      if (['mp4', 'webm', 'ogg', 'mov'].includes(extension)) {
+        return documentUrl;
+      }
+
       // Office formats (Word, Excel, PowerPoint)
       if (
         ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(extension)
@@ -54,6 +59,7 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
   };
 
   const viewerUrl = getViewerUrl();
+  const isVideo = viewerUrl && ['mp4', 'webm', 'ogg', 'mov'].includes(viewerUrl.split('.').pop()?.toLowerCase() || "");
 
   return (
     <Modal
@@ -62,14 +68,22 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({
       title='Document Viewer'
       className='w-3/4'
     >
-      <div className='pdf-viewer-container h-[80vh] w-full'>
+      <div className='pdf-viewer-container h-[80vh] w-full flex items-center justify-center bg-black/5'>
         {viewerUrl ? (
-          <iframe
-            src={viewerUrl}
-            width='100%'
-            height='100%'
-            style={{ border: 'none' }}
-          />
+          isVideo ? (
+            <video controls className="max-h-full max-w-full" style={{ maxHeight: '80vh' }}>
+              <source src={viewerUrl} />
+              Your browser does not support the video tag.
+            </video>
+          ) : (
+            <iframe
+              src={viewerUrl}
+              width='100%'
+              height='100%'
+              style={{ border: 'none' }}
+              title="Document Viewer"
+            />
+          )
         ) : (
           <p className='text-center text-red-500 mt-10'>
             Unsupported file format or invalid document URL.

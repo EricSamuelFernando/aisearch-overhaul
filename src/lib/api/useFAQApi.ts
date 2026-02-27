@@ -88,7 +88,7 @@ export const useFAQApi = (handleCb?: () => void) => {
       if (response.status !== 200 || response.data.errors) {
         throw new Error(
           response.data?.errors?.[0]?.message ||
-            'Failed to create multiple FAQs',
+          'Failed to create multiple FAQs',
         );
       }
 
@@ -356,3 +356,4 @@ export const useIsFaqFilled = (
     enabled,
   });
 };
+

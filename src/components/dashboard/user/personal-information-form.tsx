@@ -1,17 +1,18 @@
 'use client';
 import { useForm } from '@mantine/form';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { ButtonLoader } from '@/components/loader';
 import { PasswordInput2 } from '@/components/password-input-2';
 
 import CustomTextInput from '@/components/text-input';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn, getProfileImageUrl } from '@/lib/utils';
 import { useAuth, useAuthActions } from '@/shared/hooks/useAuth';
 import { useUploadprofile, useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
 import { CustomFileInput } from './CustomFileInput';
 import Image from "next/image"
+import CognitoAuth from '@/lib/cognito';
 
 type Props = {
   cb?: () => void;
@@ -89,6 +90,8 @@ export function ProfileForm({ cb }: Props) {
   const { login } = useAuthActions();
   const { updateUserMutation } = useUserAuthApi();
   const { isUploading, error, data, uploadprofileFile } = useUploadprofile();
+  const [selectedDimension, setSelectedDimension] = useState<string>('');
+  const [dimensionError, setDimensionError] = useState<string>('');
 
   useEffect(() => {
     if (data?.url) {
@@ -111,10 +114,15 @@ export function ProfileForm({ cb }: Props) {
   }, [updateUserMutation.isSuccess]);
 
   const handleFileChange = (files: File[]) => {
-    if (files.length > 0) {
-      uploadprofileFile(files[0]);
+    if (!selectedDimension) {
+      setDimensionError('Please choose desired dimensions before uploading.');
+      return;
     }
+    setDimensionError('');
+    if (files.length > 0) uploadprofileFile(files[0]);
   };
+
+
 
   return (
     <div className="mt-6 space-y-4">
@@ -130,7 +138,7 @@ export function ProfileForm({ cb }: Props) {
         {user?.profile ? (
           <div className="relative group w-32 h-32 rounded-full overflow-hidden border-2 border-gray-300 shadow-md cursor-pointer">
             <img
-              src={user.profile}
+              src={getProfileImageUrl(user.profile)}
               alt="Profile"
               className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
             />
@@ -145,6 +153,25 @@ export function ProfileForm({ cb }: Props) {
         )}
 
         <div>
+          <label className="mb-2 block text-sm font-semibold text-gray-700">
+            Select desired dimensions/aspect
+          </label>
+          <select
+            value={selectedDimension}
+            onChange={(e) => {
+              setSelectedDimension(e.target.value);
+              setDimensionError('');
+            }}
+            className="mb-3 w-48 rounded-md border border-gray-300 p-2 text-sm focus:border-black focus:outline-none"
+          >
+            <option value="">Choose one</option>
+            <option value="1:1|400x400">Square (1:1, e.g., 400x400)</option>
+            <option value="3:4|600x800">Portrait (3:4, e.g., 600x800)</option>
+            <option value="16:9|1280x720">Landscape (16:9, e.g., 1280x720)</option>
+          </select>
+          {dimensionError && (
+            <p className="mb-2 text-xs text-red-600">{dimensionError}</p>
+          )}
           <CustomFileInput handleFile={handleFileChange} />
           {isUploading && <p className="mt-2 text-sm text-gray-600">Uploading...</p>}
           {error && <p className="mt-2 text-sm text-red-600">Error: {error}</p>}
@@ -221,7 +248,8 @@ export function PersonalInfoForm({ cb }: Props) {
 
 export function EditEmailForm({ cb }: Props) {
   const { user } = useAuth();
-  const { updateUserProfileMutation } = useUserAuthApi();
+  const { updateUserMutation } = useUserAuthApi();
+  const { login } = useAuthActions();
 
   const form = useForm({
     initialValues: {
@@ -230,16 +258,24 @@ export function EditEmailForm({ cb }: Props) {
   });
 
   useEffect(() => {
-    if (updateUserProfileMutation.isSuccess) {
+    if (updateUserMutation.isSuccess) {
+      const updateUser = {
+        ...user,
+        email: form.values.email,
+        id: user?.id || '',
+        firstname: user?.firstname || '',
+        lastname: user?.lastname || '',
+      };
+      login(updateUser);
       cb?.();
     }
-  }, [updateUserProfileMutation.isSuccess]);
+  }, [updateUserMutation.isSuccess]);
 
   return (
     <form
       className='mt-4'
       onSubmit={form.onSubmit((values) => {
-        updateUserProfileMutation.mutate({ email: values?.email });
+        updateUserMutation.mutate({ email: values?.email });
       })}
     >
       <h2 className='text-2xl font-bold'>Personal Information</h2>
@@ -253,13 +289,10 @@ export function EditEmailForm({ cb }: Props) {
         <Button
           size='lg'
           className={cn('w-full font-semibold')}
-          disabled={
-            form.values.email === user?.email ||
-            updateUserProfileMutation.isPending
-          }
+          disabled={form.values.email === user?.email || updateUserMutation.isPending}
         >
-          {updateUserProfileMutation.isPending ? <ButtonLoader /> : null}
-          {updateUserProfileMutation.isPending ? 'Saving...' : 'Save'}
+          {updateUserMutation.isPending ? <ButtonLoader /> : null}
+          {updateUserMutation.isPending ? 'Saving...' : 'Save'}
         </Button>
       </aside>
     </form>
@@ -267,7 +300,10 @@ export function EditEmailForm({ cb }: Props) {
 }
 
 export function EditPasswordForm({ cb }: Props) {
+  const { user } = useAuth();
   const { updateUserMutation } = useUserAuthApi();
+  const [cognitoError, setCognitoError] = useState<string | null>(null);
+  const [isCognitoUpdating, setIsCognitoUpdating] = useState(false);
 
   const form = useForm({
     initialValues: {
@@ -300,15 +336,43 @@ export function EditPasswordForm({ cb }: Props) {
   return (
     <form
       className='mt-4'
-      onSubmit={form.onSubmit((values) => {
-        updateUserMutation.mutate({
+      onSubmit={form.onSubmit(async (values) => {
+        setCognitoError(null);
+        const hasCognitoUser = !!CognitoAuth.getCurrentUser();
+
+        if (hasCognitoUser) {
+          try {
+            setIsCognitoUpdating(true);
+            await CognitoAuth.changePassword(
+              values.currentPassword,
+              values.newPassword
+            );
+          } catch (err: any) {
+            setIsCognitoUpdating(false);
+            const message =
+              err?.message || 'Failed to change password in Cognito';
+            setCognitoError(message);
+            return;
+          } finally {
+            setIsCognitoUpdating(false);
+          }
+        }
+
+        const payload: Record<string, string> = {
           currentPassword: values.currentPassword,
           newPassword: values.newPassword,
-        });
+        };
+        if (user?.email) {
+          payload.email = user.email;
+        }
+        updateUserMutation.mutate(payload);
       })}
     >
       <h2 className='text-2xl font-bold'>Change Password</h2>
       <aside className='my-3 space-y-2'>
+        {cognitoError && (
+          <p className="text-sm text-red-600">{cognitoError}</p>
+        )}
         <div>
           <label className='mb-2 block font-medium text-gray-700'>
             Current Password
@@ -346,10 +410,12 @@ export function EditPasswordForm({ cb }: Props) {
           type='submit'
           size='lg'
           className={cn('w-full font-semibold')}
-          disabled={!isValid || updateUserMutation.isPending}
+          disabled={!isValid || updateUserMutation.isPending || isCognitoUpdating}
         >
-          {updateUserMutation.isPending ? <ButtonLoader /> : null}
-          {updateUserMutation.isPending ? 'Saving...' : 'Change Password'}
+          {updateUserMutation.isPending || isCognitoUpdating ? <ButtonLoader /> : null}
+          {updateUserMutation.isPending || isCognitoUpdating
+            ? 'Saving...'
+            : 'Change Password'}
         </Button>
       </aside>
     </form>

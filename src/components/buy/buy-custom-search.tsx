@@ -368,20 +368,30 @@ import { RootState } from '@/lib/store';
 import { success, error } from '../alert/notify';
 import { usePropertyStore } from '@/store/use-property-store';
 import { PROPERTY_SEARCH_AI_URL } from '@/shared/constants/env';
+import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { setPropertyQuery } from '@/slices/property/property-slice';
 import { Input } from '../ui/input';
 import { cn } from '@/lib/utils';
+import { useProperty } from '@/shared/hooks/useProperty';
+
+let globalLastAutoSearch: string | null = null;
 
 type Props = {};
+
+const StarIcon = () => (
+  <img
+    src="/assets/icons/stars.svg"
+    width={22}
+    height={22}
+    alt="search icon"
+    className="inline-block"
+  />
+);
 
 const breadcrumbList = [
   {
     name: 'Home',
     path: '/',
-  },
-  {
-    name: 'Buy a home',
-    path: '/buy',
   },
   {
     name: 'Search listing',
@@ -390,8 +400,14 @@ const breadcrumbList = [
 ];
 
 const BuyBreadCrumb = ({ }: Props) => {
+  const { currentView } = useProperty();
   return (
-    <div className='sticky z-10 w-full px-4 pb-4 pt-10 md:px-8'>
+    <div
+      className={cn(
+        'sticky w-full px-4 pb-4 pt-10 md:px-6',
+        currentView === 'grid' ? 'max-w-[1600px] mx-auto' : '',
+      )}
+    >
       <div className='flex items-center gap-x-2 font-medium'>
         {breadcrumbList.map((item, idx) => (
           <React.Fragment key={item.name}>
@@ -452,7 +468,7 @@ const useScrollPosition = () => {
   return { scrollPosition, scrollDirection, isScrolling };
 };
 
-const BuyCustomSearch = () => {
+const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
   const searchParams = useSearchParams();
   const searchTerm = searchParams.get('q');
   const router = useRouter();
@@ -461,7 +477,13 @@ const BuyCustomSearch = () => {
   const { scrollDirection, isScrolling } = useScrollPosition();
   const [isVisible, setIsVisible] = React.useState(true);
   const [filterData, setFilterData] = React.useState({});
-const [showInputBox, setShowInputBox] = React.useState(false);
+  const [showInputBox, setShowInputBox] = React.useState(false);
+  const { currentView } = useProperty();
+  const isHiddenInMapMode = hideInMap && currentView === 'map';
+  const popupRef = React.useRef<HTMLDivElement>(null);
+  const toggleButtonRef = React.useRef<HTMLButtonElement>(null);
+  const [isFooterVisible, setIsFooterVisible] = React.useState(false);
+  const lastAutoSearchRef = React.useRef<string | null>(null);
 
   const { user } = useAuth()
   const { email } = useRegister()
@@ -482,6 +504,7 @@ const [showInputBox, setShowInputBox] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [placeholderText, setPlaceholderText] = React.useState('Start a new search');
   React.useEffect(() => {
+    if (isHiddenInMapMode) return;
     const data: Record<string, string | undefined> = {
       bedRooms: searchParams.get("bedRooms") || undefined,
       bathRooms: searchParams.get("bathRooms") || undefined,
@@ -518,41 +541,96 @@ const [showInputBox, setShowInputBox] = React.useState(false);
       query = `${searchTerm} of property sub-type ${data?.category} having ${data?.subCategories}`
     }
     let naturalQuery = ""
+    const normalizedQuery = (query || '').trim();
+    if (!normalizedQuery) return;
 
-    router.push(`/buy/browse?q=${query}`)
-  }, [searchParams, searchTerm]);
+    setSearchString(normalizedQuery);
+    if (globalLastAutoSearch === normalizedQuery) return;
+    globalLastAutoSearch = normalizedQuery;
+    sendSearchRequest(normalizedQuery);
+  }, [searchParams, searchTerm, isHiddenInMapMode]);
 
 
   React.useEffect(() => {
+    if (isHiddenInMapMode) return;
     if (scrollDirection === 'down' && isScrolling) {
       setIsVisible(false);
     } else if (!isScrolling || scrollDirection === 'up') {
       setIsVisible(true);
     }
-  }, [scrollDirection, isScrolling]);
+  }, [scrollDirection, isScrolling, isHiddenInMapMode]);
 
-  const sendSearchRequest = async () => {
+  React.useEffect(() => {
+    if (isHiddenInMapMode || !showInputBox) return;
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        popupRef.current &&
+        !popupRef.current.contains(target) &&
+        toggleButtonRef.current &&
+        !toggleButtonRef.current.contains(target)
+      ) {
+        setShowInputBox(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [showInputBox, isHiddenInMapMode]);
+
+  // Hide the floating button when the footer enters view.
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (isHiddenInMapMode) return;
+    const footer = document.querySelector('footer');
+    if (!footer) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsFooterVisible(entry.isIntersecting),
+      { threshold: 0.01 },
+    );
+
+    observer.observe(footer);
+    return () => observer.disconnect();
+  }, [isHiddenInMapMode]);
+
+  const sendSearchRequest = async (queryToUse?: string) => {
+    if (isHiddenInMapMode) return;
+    const resolvedQuery = (queryToUse ?? searchString ?? '').trim();
+    if (!resolvedQuery) return;
+    if (searchCount + 1 >= 6 && !user?.email) {
+      error({
+        message:
+          'You have reached the search limit for non-logged-in users. Please create an account to continue.',
+      });
+      router.replace("/login")
+      return
+    } else {
+      console.log(`Searching for: ${searchCount}`);
+    }
     setIsSearching(true)
     setIsLoading(true)
     setSearchedQuery("");
     try {
+      const searchUrl = isMlsBypassModeEnabled()
+        ? '/api/mls/search'
+        : (PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search');
+
       const response = await axios.post(
-        PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search',
+        searchUrl,
         {
           user: userId,
-          query: searchString,
+          query: resolvedQuery,
         }
       );
       clearProperties();
       dispatch(incrementSearchCount());
-      dispatch(setPropertyQuery(response.data?.result.search_query));
-      setSearchedQuery(response.data?.result.records);
-      addProperties(response.data?.result.records);
-      if (searchCount + 1 >= 6 && !user?.email) {
-        success({ message: 'You have reached the search limit for non-logged-in users. Please create an account to continue.' });
-      } else {
-        console.log(`Searching for: ${searchCount}`);
-      }
+      dispatch(setPropertyQuery(response.data?.result?.search_query ?? response.data?.search_query ?? resolvedQuery));
+      const records = response.data?.result?.records ?? response.data?.records ?? [];
+      setSearchedQuery(records);
+      addProperties(records);
+
     } catch (err: any) {
 
       console.error(err?.response?.data?.error || "An unexpected error occurred.");
@@ -573,37 +651,57 @@ const [showInputBox, setShowInputBox] = React.useState(false);
   const handleSubmit = React.useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      router.push(`/buy/browse?q=${encodeURIComponent(searchString)}`);
-      await sendSearchRequest()
+      const normalizedQuery = (searchString || '').trim();
+      if (!normalizedQuery) return;
+      // Prevent the searchParams effect from firing the same search again after router.push.
+      lastAutoSearchRef.current = normalizedQuery;
+      router.push(`/buy/browse?q=${encodeURIComponent(normalizedQuery)}`);
+      await sendSearchRequest(normalizedQuery)
     },
     [router, filterData, searchString, searchTerm],
   );
 
 
+  if (isHiddenInMapMode) {
+    return null;
+  }
+
   return (
     <>
-<div style={{ position: 'fixed', bottom: '16px', right: '16px', zIndex: 50 }}>
+      <div
+        className="buy-floating-search"
+        style={{
+          position: 'fixed',
+          left: '50%',
+          bottom: '24px',
+          transform: 'translateX(-50%)',
+          zIndex: 9999,
+          display: isFooterVisible ? 'none' : 'block',
+        }}
+      >
         <button
-onClick={() => setShowInputBox(o => !o)}
-style={{
-  height: '48px',
-  width: '48px',
-  borderRadius: '9999px',
-  backgroundColor: '#ff6600', // Replace with your actual ocOrange hex
-  color: '#fff',
-  boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-  fontSize: '1.5rem',
-  lineHeight: '1',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-}}
-          // className="h-12 w-12 rounded-full bg-ocOrange text-white shadow-lg text-2xl leading-none"
+          onClick={() => setShowInputBox(o => !o)}
+          ref={toggleButtonRef}
+          style={{
+            height: '48px',
+            padding: '0 18px',
+            borderRadius: '9999px',
+            backgroundColor: '#ff6600',
+            color: '#fff',
+            boxShadow: '0 6px 14px rgba(0,0,0,0.18)',
+            fontSize: '0.95rem',
+            fontWeight: 600,
+            lineHeight: '1',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            whiteSpace: 'nowrap',
+          }}
         >
-          +
+          Continue Search
         </button>
       </div>
-<style jsx global>{`
+      <style jsx global>{`
   @keyframes advancedSlideIn {
     0% {
       opacity: 0;
@@ -627,85 +725,135 @@ style={{
     animation: advancedSlideIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
     will-change: transform, opacity;
   }
+
+  body[data-mobile-drawer-open='true'] .buy-floating-search,
+  body[data-mobile-drawer-open='true'] .buy-floating-search-popup {
+    display: none !important;
+  }
 `}</style>
 
 
-{showInputBox && (
-  <div
-      className="animate-advanced"
-
-   style={{
-    position: 'fixed',
-    bottom: '80px',
-    right: '16px',
-    width: '90vw',
-    maxWidth: '28rem',
-    borderRadius: '0.75rem',
-    backgroundColor: '#fff',
-    boxShadow: '0 10px 15px rgba(0,0,0,0.1)',
-    zIndex: 40,
-    padding: '1.5rem',
-  }}
-  >
-    <form
-      id="buyer-search-hero-form"
-      className="flex flex-col space-y-4"
-      onSubmit={handleSubmit}
-    >
-      <div className="flex h-12 w-full items-center rounded-lg bg-gray-100 pl-4 transition-colors duration-300 hover:bg-white focus-within:bg-white">
-        <SpeechInput
-          value={searchString}
-          setValue={setSearchString}
-          inputClassName="w-full bg-transparent border-none outline-none"
-          className="w-full"
-        />
-      </div>
-      <Button
-        type="submit"
-        size="lg"
-        className="w-full rounded-lg bg-ocOrange font-bold hover:bg-ocOrange-dark"
-      >
-        <div className="flex w-full items-center justify-center gap-2">
-          {isSearching && (
-            <div
-              className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-e-transparent"
-              role="status"
+      {showInputBox && (
+        <div
+          className="buy-floating-search-popup"
+          ref={popupRef}
+          style={{
+            position: 'fixed',
+            bottom: '88px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 40,
+          }}
+        >
+          <div
+            className="animate-advanced"
+            style={{
+              width: '90vw',
+              maxWidth: '28rem',
+              borderRadius: '0.75rem',
+              backgroundColor: '#fff',
+              boxShadow: '0 10px 15px rgba(0,0,0,0.1)',
+              padding: '1.5rem',
+            }}
+          >
+            <form
+              id="buyer-search-hero-form"
+              className="flex w-full items-center gap-2 rounded-xl bg-white p-2 border border-gray-200"
+              onSubmit={handleSubmit}
             >
-              <span className="sr-only">Loading...</span>
-            </div>
-          )}
-          <span>New search</span>
+              <div className="relative flex min-w-0 flex-1 items-center gap-2">
+                {searchString === '' && <StarIcon />}
+                <SpeechInput
+                  value={searchString}
+                  setValue={setSearchString}
+                  inputClassName="w-full border-none outline-none bg-transparent"
+                  className="w-full min-w-0"
+                />
+              </div>
+              <Button
+                type="submit"
+                size="lg"
+                className="shrink-0 rounded-xl bg-[#F07639] font-bold hover:bg-orange-700 px-4"
+              >
+                <div className="flex items-center gap-2">
+                  {isSearching && (
+                    <div
+                      className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-e-transparent"
+                      role="status"
+                    >
+                      <span className="sr-only">Loading...</span>
+                    </div>
+                  )}
+                  <span className="whitespace-nowrap">New search</span>
+                </div>
+              </Button>
+            </form>
+          </div>
         </div>
-      </Button>
-    </form>
-  </div>
-)}
+      )}
 
 
-        <div className="px-6 pt-16 pb-2 border-b border-gray-200">
+      <div id="map-unpin-sentinel" className="h-px" />
+      <div id="buy-custom-search" className={cn(currentView === 'grid' ? 'max-w-[1440px] mx-auto w-full' : 'w-full hidden')}>
+        <div
+          className={cn(
+            'pt-16 pb-2 border-b border-gray-200',
+            currentView === 'map' ? 'px-0' : 'px-6',
+            currentView === 'grid' ? 'text-center' : '',
+          )}
+        >
           <h2 className="text-xl font-semibold text-gray-800">Start a New Search</h2>
           <p>Snaphomz Conversational Search is Powered By A Custom AI Model</p>
         </div>
 
         <form
           id='buyer-search-hero-form'
-          className="flex flex-col space-y-4 border-t border-gray-100 bg-gray-50 px-6 py-6"
+          className={cn(
+            'border-t border-gray-100 py-6',
+            currentView === 'map'
+              ? 'relative top-2 z-20 flex items-center gap-2 rounded-xl bg-white p-2 shadow-md mb-[2px] mr-auto ml-0'
+              : 'flex items-center gap-2 rounded-xl bg-white p-2 shadow-md mx-auto',
+          )}
           onSubmit={handleSubmit}
-          style={{width:'50%'}}
+          style={{
+            width: currentView === 'map' ? '100%' : 'calc(100% - 3rem)',
+          }}
         >
-          <div className="flex h-12 w-full items-center rounded-lg bg-gray-100 pl-4 transition-colors duration-300 hover:bg-white focus-within:bg-white">
+          <div
+            className={cn(
+              'flex h-12 w-full items-center transition-colors duration-300',
+              currentView === 'map' || currentView === 'grid'
+                ? 'min-w-0 flex-1 gap-2 bg-transparent h-12'
+                : 'rounded-lg bg-gray-100 pl-4 hover:bg-white focus-within:bg-white',
+            )}
+          >
+            {(currentView === 'map' || currentView === 'grid') && searchString === '' ? (
+              <StarIcon />
+            ) : null}
             <SpeechInput
               value={searchString}
               setValue={setSearchString}
-              inputClassName='w-full rounded-none border-none outline-none hover:border-none hover:outline-none hover:ring-0 focus:border-none focus:outline-none focus:ring-0 bg-transparent group-hover:bg-white'
-              className='w-full'
+              inputClassName={cn(
+                'w-full border-none outline-none hover:border-none hover:outline-none hover:ring-0 focus:border-none focus:outline-none focus:ring-0',
+                currentView === 'map' || currentView === 'grid'
+                  ? 'bg-transparent'
+                  : 'bg-transparent group-hover:bg-white',
+              )}
+              className={cn('w-full', currentView === 'map' ? 'min-w-0' : '')}
             />
           </div>
 
           <Button
             type='submit'
             size='lg'
-            className='w-full md:w-auto rounded-lg bg-ocOrange font-bold hover:bg-ocOrange-dark text-center'
+            className={cn(
+              'font-bold text-center',
+              currentView === 'map'
+                ? 'shrink-0 rounded-xl bg-[#F07639] hover:bg-orange-700 px-4 h-10'
+                : currentView === 'grid'
+                  ? 'shrink-0 rounded-xl bg-[#F07639] hover:bg-orange-700 px-4 h-10'
+                  : 'w-full md:w-auto rounded-lg bg-ocOrange hover:bg-ocOrange-dark',
+            )}
           >
             <div className='flex w-full items-center justify-between gap-2 text-center'>
               {isSearching ? (
@@ -716,10 +864,11 @@ style={{
                   <span className='sr-only'>Loading...</span>
                 </div>
               ) : null}
-              <span>New search</span>
+              <span>{currentView === 'map' || currentView === 'grid' ? 'Enter' : 'New search'}</span>
             </div>
           </Button>
         </form>
+      </div>
 
     </>
 

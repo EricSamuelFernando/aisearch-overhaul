@@ -89,6 +89,11 @@ function normalizeLocationQuery(rawQuery: string): string | null {
   return null;
 }
 
+function normalizeNameForSearch(raw: string): string {
+  if (!raw) return '';
+  return String(raw).replace(/^[^a-z0-9]+/i, '').trim().toLowerCase();
+}
+
 function buildLocationSuggestions(
   rawQuery: string,
   agents: any[],
@@ -176,9 +181,17 @@ interface AgentDirectoryWrapperProps {
   engagementId: string;
   propertyId: string;
   onClose: () => void;
+  mode?: 'invite' | 'chat';
+  onAgentSelected?: (agent: any) => void;
 }
 
-export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ engagementId, propertyId, onClose }) => {
+export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
+  engagementId,
+  propertyId,
+  onClose,
+  mode = 'invite',
+  onAgentSelected,
+}) => {
   const router = useRouter();
   const dispatch = useDispatch();
   const { agentIvitationMutation, externalAgentIvitationMutation } = useUserAuthApi();
@@ -193,12 +206,85 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
   const [searchMode, setSearchMode] = React.useState<'location' | 'name'>('name');
   const [locationSuggestions, setLocationSuggestions] = React.useState<any[]>([]);
   const [locationAgents, setLocationAgents] = React.useState<any[]>([]);
+  const [totalAgents, setTotalAgents] = React.useState(0);
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const pageSize = 100;
+  const isFetchingMoreRef = React.useRef(false);
   const searchContainerRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const agentsPreservedRef = React.useRef<any[]>([]);
   const searchQueryPreservedRef = React.useRef<string>('');
   const userClearedRef = React.useRef(false);
-  
+
+  const GRAPHQL_URI =
+    process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
+    'http://localhost:4000/auth/graphql';
+
+  const fetchExternalAgents = React.useCallback(
+    async ({
+      limit,
+      offset,
+      search,
+      signal,
+    }: {
+      limit: number;
+      offset?: number;
+      search?: string;
+      signal: AbortSignal;
+    }): Promise<{ data: any[]; total: number }> => {
+      const response = await fetch(GRAPHQL_URI, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apollo-require-preflight': 'true',
+        },
+        body: JSON.stringify({
+          query: `
+            query ExternalAgents($limit: Int, $offset: Int, $search: String) {
+              externalAgents(limit: $limit, offset: $offset, search: $search) {
+                total
+                data {
+                  id
+                  full_name
+                  email
+                  phone
+                  brokerage
+                  locationRaw
+                  profile_image_url
+                }
+              }
+            }
+          `,
+          variables: {
+            limit,
+            offset: offset ?? 0,
+            search,
+          },
+        }),
+        signal,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch agents');
+      }
+
+      const json = await response.json();
+      const payload = json?.data?.externalAgents || { data: [], total: 0 };
+      const data = payload?.data || [];
+      return {
+        total: Number(payload?.total || 0),
+        data: data.map((agent: any) => ({
+          ...agent,
+          Name: agent.full_name || '',
+          agentEmail: agent.email || undefined,
+          Location: agent.locationRaw || undefined,
+          Brokerage: agent.brokerage || undefined,
+        })),
+      };
+    },
+    [GRAPHQL_URI],
+  );
+
   const engagedProperty = useSelector((state: any) => state.property.engagedProperty);
   const wrapperCurrentUser = useSelector(userData);
   const wrapperPropertyData = useSelector((state: any) => state.property.property);
@@ -206,14 +292,15 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
   // Use deferred value exactly like agents-hero.tsx
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const query = deferredSearchQuery.toLowerCase().trim();
-  
+  const immediateQuery = searchQuery.toLowerCase().trim();
+
   // Always preserve searchQuery in ref - this is the source of truth
   React.useEffect(() => {
     if (searchQuery) {
       searchQueryPreservedRef.current = searchQuery;
     }
   }, [searchQuery]);
-  
+
   // Restore searchQuery from ref if it gets cleared accidentally
   React.useLayoutEffect(() => {
     if (!searchQuery && searchQueryPreservedRef.current && !userClearedRef.current && searchMode === 'name') {
@@ -227,36 +314,48 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
   // Load all agents on mount when in name mode
   React.useEffect(() => {
     const controller = new AbortController();
-    
-    const loadAllAgents = async () => {
+
+    const loadAgentsPage = async () => {
       if (searchMode !== 'name') {
         return;
       }
 
       setLoading(true);
       try {
-        const res = await fetch('/api/agents', { signal: controller.signal });
-        if (!res.ok) {
-          setLoading(false);
-          return;
-        }
-        const data = await res.json();
-        const agents = Array.isArray(data) ? data : [];
-        agentsPreservedRef.current = agents;
-        setAllAgents(agents);
+        const { data, total } = await fetchExternalAgents({
+          limit: pageSize,
+          offset: (currentPage - 1) * pageSize,
+          search: immediateQuery || undefined,
+          signal: controller.signal,
+        });
+        setAllAgents((prev) => {
+          const base = currentPage === 1 ? [] : prev;
+          const merged = [...base, ...data];
+          const deduped = merged.filter(
+            (agent, index, arr) =>
+              arr.findIndex(
+                (a) => (a.id || a._id || a.email) === (agent.id || agent._id || agent.email)
+              ) === index
+          );
+          agentsPreservedRef.current = deduped;
+          return deduped;
+        });
+        setTotalAgents(total);
         setLoading(false);
+        isFetchingMoreRef.current = false;
       } catch (err: any) {
         if (err.name !== 'AbortError') {
           console.error('Error loading agents:', err);
         }
         setLoading(false);
+        isFetchingMoreRef.current = false;
       }
     };
-    
-    loadAllAgents();
-    
+
+    loadAgentsPage();
+
     return () => controller.abort();
-  }, [searchMode]);
+  }, [searchMode, currentPage, immediateQuery, fetchExternalAgents]);
 
   // Restore agents from ref if they were lost
   React.useEffect(() => {
@@ -264,6 +363,15 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
       setAllAgents(agentsPreservedRef.current);
     }
   }, [searchMode, allAgents.length]);
+
+  // Reset pagination when search changes
+  React.useEffect(() => {
+    if (searchMode === 'name') {
+      setCurrentPage(1);
+      setAllAgents([]);
+      setTotalAgents(0);
+    }
+  }, [immediateQuery, searchMode]);
 
   // Filter agents client-side exactly like agents-hero.tsx
   const agentsToFilter = React.useMemo(() => {
@@ -273,24 +381,26 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
     }
     return agents;
   }, [allAgents]);
-  
+
   const filteredAgents = React.useMemo(() => {
     if (searchMode !== 'name') return [];
-    
-    const searchTerm = query || searchQuery.toLowerCase().trim();
+    const searchTerm = immediateQuery;
     if (!searchTerm) return agentsToFilter;
 
-    if (!agentsToFilter || agentsToFilter.length === 0) {
-      return [];
-    }
-
     return agentsToFilter.filter((agent: any) => {
-      const name = (agent.Name || agent.full_name || agent.firstName || agent.firstname || '').toLowerCase();
-      const email = (agent.agentEmail || agent.email || '').toLowerCase();
-      return name.includes(searchTerm) || email.includes(searchTerm);
+      const name = normalizeNameForSearch(
+        agent.Name || agent.full_name || agent.firstName || agent.firstname || ''
+      );
+      return name.startsWith(searchTerm);
     });
-  }, [agentsToFilter, query, searchQuery, searchMode]);
-  
+  }, [agentsToFilter, searchMode, immediateQuery]);
+
+  const hasMoreAgents = React.useMemo(() => {
+    if (searchMode !== 'name') return false;
+    if (!totalAgents) return false;
+    return allAgents.length < totalAgents;
+  }, [searchMode, totalAgents, allAgents.length]);
+
   // Focus input when component mounts
   React.useEffect(() => {
     const timer = setTimeout(() => {
@@ -314,7 +424,7 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
   // Load agents for location suggestions
   React.useEffect(() => {
     const controller = new AbortController();
-    
+
     const loadAgentsForLocation = async () => {
       if (searchMode !== 'location') {
         setLocationSuggestions([]);
@@ -323,14 +433,11 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
       }
 
       try {
-        const res = await fetch('/api/agents', { signal: controller.signal });
-        if (!res.ok) {
-          setLocationAgents([]);
-          return;
-        }
-        const data = await res.json();
-        const limitedAgents = Array.isArray(data) ? data.slice(0, 1000) : [];
-        setLocationAgents(limitedAgents);
+        const { data } = await fetchExternalAgents({
+          limit: 1000,
+          signal: controller.signal,
+        });
+        setLocationAgents(data);
       } catch (err: any) {
         if (err.name !== 'AbortError') {
           console.error('Error loading agents for location:', err);
@@ -338,9 +445,9 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
         }
       }
     };
-    
+
     loadAgentsForLocation();
-    
+
     return () => controller.abort();
   }, [searchMode]);
 
@@ -362,7 +469,7 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
   // Highlight match function
   const highlightMatch = React.useCallback(
     (text: string) => {
-      const searchTerm = query || searchQuery.toLowerCase().trim();
+      const searchTerm = immediateQuery || query;
       if (!searchTerm || !text) return text;
       const parts = text.split(new RegExp(`(${searchTerm})`, 'gi'));
       return parts.map((part, i) =>
@@ -383,9 +490,21 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
     const agentId = agent.id || agent._id || '';
     const agentEmail = agent.agentEmail || agent.email || '';
     const identifier = agentId || agentEmail || `agent-${Math.random()}`;
-    
+
+    const hasExistingInvite = engagedProperty?.participants?.some((participant: any) => {
+      const participantEngagementId = participant?.engagementId;
+      const engagementMatches = !participantEngagementId || participantEngagementId === engagementId;
+      const status = participant?.is_accepted || "pending";
+      return engagementMatches && ["pending", "accepted"].includes(status);
+    });
+
+    if (hasExistingInvite) {
+      error({ message: "This property already has an invited agent." });
+      return;
+    }
+
     setLoadingAgentId(identifier);
-    
+
     // Use email-based invitation for MLS data (which has email but may not have valid agentId in our DB)
     // Use agentId-based invitation only if we have a valid agentId and no email
     const useEmailInvitation = !!agentEmail;
@@ -405,7 +524,7 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
         onSuccess: (response: any) => {
           setLoadingAgentId(null);
           const { message, success: successStatus, agentId: returnedAgentId, participantId } = response || {};
-          
+
           if (successStatus) {
             // Send socket notification
             if (wrapperSocket && returnedAgentId && participantId) {
@@ -434,7 +553,11 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
               }));
             }
 
-            success({ message: message || 'Invitation sent!' });
+            success({
+              message: 'Agent Invite Sent Successfully',
+              subtitle:
+                'Keep browsing. We will notify you when they accept or decline.',
+            });
             setSelectedAgent(null);
             setIsSearchFocused(false);
             // Close modal and navigate to dashboard
@@ -464,6 +587,8 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
         engagementId: engagementId || undefined,
       };
 
+      console.log("Agent payload", payload)
+
       agentIvitationMutation.mutateAsync(payload, {
         onSuccess: (response: any) => {
           setLoadingAgentId(null);
@@ -492,7 +617,11 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
               participants: participent
             }));
           }
-          success({ message: 'Invitation sent!' });
+          success({
+            message: 'Agent Invite Sent Successfully',
+            subtitle:
+              'Keep browsing. We will notify you when they accept or decline.',
+          });
           setSelectedAgent(null);
           setIsSearchFocused(false);
           if (onClose) {
@@ -517,19 +646,19 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
       const agentName = agent.Name || agent.full_name || `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || 'Agent';
       const agentId = agent.id || agent._id || '';
       const agentEmail = agent.agentEmail || agent.email || '';
-      
+
       return (
         <div
           key={agentId || `agent-${Math.random()}`}
-          className="flex items-center p-4 bg-[#FAF9F6] border border-transparent rounded-xl hover:border-orange-300 hover:bg-[#FDF4EB] transition-all group"
+          className="flex flex-col gap-3 p-3 sm:p-4 bg-[#FAF9F6] border border-transparent rounded-xl hover:border-orange-300 hover:bg-[#FDF4EB] transition-all group"
         >
-          <div className="flex-grow">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex-grow min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
               <div>
-                <h4 className="font-bold text-black text-lg group-hover:text-orange-900">
+                <h4 className="font-bold text-black text-base sm:text-lg group-hover:text-orange-900 break-words">
                   {highlightMatch(agentName)}
                 </h4>
-                <p className="text-sm text-gray-500">
+                <p className="text-xs sm:text-sm text-gray-500 break-words">
                   {agent.Brokerage || 'Real Estate Agent'}
                   {' - '}
                   {agent.Location || 'CA'}
@@ -537,7 +666,7 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2 ml-4">
+          <div className="flex items-center gap-2 sm:ml-4 w-full sm:w-auto">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -545,28 +674,38 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
                   router.push(`/agents/${agentId}`);
                 }
               }}
-              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-black rounded-full text-sm font-medium transition-colors"
+              className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-gray-200 hover:bg-gray-300 text-black rounded-full text-xs sm:text-sm font-medium transition-colors whitespace-nowrap"
             >
               View Profile
             </button>
             <button
               onClick={(e) => {
                 e.stopPropagation();
+                if (mode === 'chat') {
+                  if (onAgentSelected) {
+                    onAgentSelected(agent);
+                  }
+                  return;
+                }
                 setSelectedAgent(agent);
                 if (agentId) {
                   sendAgentInvitation(agentId);
                 }
               }}
-              disabled={loadingAgentId === agentId || !agentId}
-              className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-full text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              disabled={!agentId || (mode !== 'chat' && loadingAgentId === agentId)}
+              className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-full text-xs sm:text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
             >
-              {loadingAgentId === agentId ? 'Inviting...' : 'Invite'}
+              {mode === 'chat'
+                ? 'Start Chat'
+                : loadingAgentId === agentId
+                  ? 'Inviting...'
+                  : 'Invite'}
             </button>
           </div>
         </div>
       );
     });
-  }, [filteredAgents, highlightMatch, loadingAgentId, sendAgentInvitation, router]);
+  }, [filteredAgents, highlightMatch, loadingAgentId, sendAgentInvitation, router, mode, onAgentSelected]);
 
   const placeholderText =
     searchMode === 'location'
@@ -587,13 +726,12 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
   };
 
   return (
-    <div className="w-full rounded-3xl bg-transparent py-6">
+    <div className="w-full rounded-3xl bg-transparent py-3 sm:py-6">
       {/* Search Bar */}
       <div className="w-full max-w-3xl mx-auto relative" ref={searchContainerRef}>
         <div
-          className={`relative flex items-center w-full h-16 bg-white border-4 border-[#C08C73] shadow-xl overflow-hidden pl-4 pr-1 z-50 transition-all duration-300 ${
-            isSearchFocused ? 'rounded-t-2xl rounded-b-none border-b-0' : 'rounded-full'
-          }`}
+          className={`relative flex items-center w-full h-14 sm:h-16 bg-white border-2 sm:border-4 border-[#C08C73] shadow-xl overflow-hidden pl-2 sm:pl-4 pr-1 z-50 transition-all duration-300 ${isSearchFocused ? 'rounded-t-2xl rounded-b-none border-b-0' : 'rounded-full'
+            }`}
         >
           <button
             type="button"
@@ -601,16 +739,16 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
               e.preventDefault();
               inputRef.current?.focus();
             }}
-            className="flex-shrink-0 text-gray-400 mr-3 hover:text-black"
+            className="flex-shrink-0 text-gray-400 mr-2 sm:mr-3 hover:text-black"
           >
-            <Search className="w-6 h-6" />
+            <Search className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
 
           <input
             ref={inputRef}
             type="text"
             placeholder={placeholderText}
-            className="flex-grow w-full h-full border-none outline-none text-gray-700 placeholder-gray-400 bg-transparent text-base"
+            className="flex-grow w-full h-full min-w-0 border-none outline-none text-gray-700 placeholder-gray-400 bg-transparent text-sm sm:text-base"
             onFocus={() => setIsSearchFocused(true)}
             value={searchQuery || searchQueryPreservedRef.current || ''}
             onChange={(e) => {
@@ -643,13 +781,13 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
                 setSearchQuery('');
                 searchQueryPreservedRef.current = '';
               }}
-              className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors ml-2 mr-1"
+              className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors ml-1 sm:ml-2 mr-1"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           )}
 
-          <div className="flex items-center ml-2 flex-shrink-0 h-full py-1.5">
+          <div className="flex items-center ml-1 sm:ml-2 flex-shrink-0 h-full py-1.5">
             <div className="flex bg-gray-100 rounded-full p-1 h-full items-center">
               <button
                 type="button"
@@ -659,11 +797,10 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
                     inputRef.current?.focus();
                   }, 0);
                 }}
-                className={`h-full flex items-center px-4 rounded-full transition-colors text-sm font-medium ${
-                  searchMode === 'location'
-                    ? 'bg-black text-white shadow-sm'
-                    : 'text-gray-600 hover:text-black'
-                }`}
+                className={`h-full flex items-center px-2.5 sm:px-4 rounded-full transition-colors text-[11px] sm:text-sm font-medium whitespace-nowrap ${searchMode === 'location'
+                  ? 'bg-black text-white shadow-sm'
+                  : 'text-gray-600 hover:text-black'
+                  }`}
               >
                 Location
               </button>
@@ -675,11 +812,10 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
                     inputRef.current?.focus();
                   }, 0);
                 }}
-                className={`h-full flex items-center px-4 rounded-full transition-colors text-sm font-medium ${
-                  searchMode === 'name'
-                    ? 'bg-black text-white shadow-sm'
-                    : 'text-gray-600 hover:text-black'
-                }`}
+                className={`h-full flex items-center px-2.5 sm:px-4 rounded-full transition-colors text-[11px] sm:text-sm font-medium whitespace-nowrap ${searchMode === 'name'
+                  ? 'bg-black text-white shadow-sm'
+                  : 'text-gray-600 hover:text-black'
+                  }`}
               >
                 Agent name
               </button>
@@ -688,7 +824,19 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
         </div>
 
         {/* Dropdown Results */}
-        <div className="absolute top-16 left-0 w-full bg-white rounded-b-2xl border-4 border-t-0 border-[#C08C73] shadow-2xl z-40 overflow-hidden min-h-[500px] max-h-[calc(95vh-320px)] overflow-y-auto">
+        <div
+          className="absolute top-14 sm:top-16 left-0 w-full bg-white rounded-b-2xl border-2 sm:border-4 border-t-0 border-[#C08C73] shadow-2xl z-40 overflow-hidden min-h-[320px] sm:min-h-[500px] max-h-[calc(100vh-270px)] sm:max-h-[calc(95vh-320px)] overflow-y-auto"
+          onScroll={(e) => {
+            if (searchMode !== 'name') return;
+            if (loading || isFetchingMoreRef.current || !hasMoreAgents) return;
+            const target = e.currentTarget;
+            const threshold = 120;
+            if (target.scrollHeight - target.scrollTop - target.clientHeight < threshold) {
+              isFetchingMoreRef.current = true;
+              setCurrentPage((p) => p + 1);
+            }
+          }}
+        >
           {searchMode === 'location' ? (
             <div className="p-4 bg-white h-full flex flex-col">
               <p className="text-gray-500 text-sm mb-3 pl-2">
@@ -719,16 +867,6 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
                 </div>
               ) : null}
             </div>
-          ) : !searchQuery.trim() ? (
-            <div className="p-10 flex flex-col items-center text-center h-full">
-              <div className="w-16 h-16 bg-[#F9F9F9] rounded-full flex items-center justify-center mb-4">
-                <Search className="w-6 h-6 text-[#1A2B49]" />
-              </div>
-              <h3 className="text-lg font-semibold text-black mb-2">Begin your agent search</h3>
-              <p className="text-gray-500 text-sm max-w-md">
-                Type a name or email to find an agent.
-              </p>
-            </div>
           ) : (
             <div className="p-4 bg-white min-h-[500px] flex flex-col">
               {loading ? (
@@ -742,6 +880,14 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
                     {filteredAgents.length} agents found
                   </p>
                   <div className="flex flex-col gap-3 pb-4">{agentCards}</div>
+                  {hasMoreAgents && (
+                    <div className="flex items-center justify-center border-t pt-4 mt-2">
+                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <Loader2 className="animate-spin" size={16} />
+                        Loading more agents...
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="flex flex-col items-center justify-center h-full py-10 text-center">
@@ -759,3 +905,4 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({ en
     </div>
   );
 };
+

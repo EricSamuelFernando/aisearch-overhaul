@@ -1,5 +1,7 @@
 import { IFooterItems, MainNavItem } from '../interfaces/footer.interface';
-import { Facebook, Instagram, Linkedin, Rss, TwitterIcon } from 'lucide-react';
+import { Facebook, Instagram, Linkedin } from 'lucide-react';
+import TikTokIcon from '@/components/icons/tiktok-icon';
+import XIcon from '@/components/icons/x-icon';
 
 export const footerLinks: Record<string, IFooterItems> = {
   company: {
@@ -7,7 +9,7 @@ export const footerLinks: Record<string, IFooterItems> = {
     links: [
       {
         title: 'About us',
-        href: '/about',
+        href: '/company',
       },
       {
         title: 'Career',
@@ -36,7 +38,11 @@ export const footerLinks: Record<string, IFooterItems> = {
       },
       {
         title: 'Email',
-        href: '/email',
+        href: 'mailto:support@snaphomz.com',
+      },
+      {
+        title: 'Do Not Sell or Share Information',
+        href: '/do-not-sell-or-share',
       },
     ],
   },
@@ -71,32 +77,32 @@ export const socialLinks: MainNavItem[] = [
   {
     title: 'facebook',
     external: true,
-    href: 'https://facebook.com',
+    href: 'https://www.facebook.com/profile.php?id=61575808817165',
     icon: Facebook,
   },
   {
     title: 'linkedin',
     external: true,
-    href: 'https://linkedin.com',
+    href: 'https://www.linkedin.com/company/snaphomz/posts/?feedView=all',
     icon: Linkedin,
   },
   {
     title: 'instagram',
     external: true,
-    href: 'https://instagram.com',
+    href: 'https://www.instagram.com/snaphomz?igsh=MTQ1dnNmZHZlZGs3bA==',
     icon: Instagram,
   },
   {
     title: 'rss',
     external: true,
-    href: 'https://rss.com',
-    icon: Rss,
+    href: 'https://www.tiktok.com/@snaphomz_usa',
+    icon: TikTokIcon,
   },
   {
-    title: 'twitter',
+    title: 'x',
     external: true,
-    href: 'https://twitter.com',
-    icon: TwitterIcon,
+    href: 'https://x.com/snaphomz?s=20',
+    icon: XIcon,
   },
 ];
 

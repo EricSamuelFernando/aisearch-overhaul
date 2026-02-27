@@ -234,15 +234,83 @@ export default function HeroLayout({
   agents = [],
 }: HeroLayoutProps) {
   const router = useRouter();
+  const GRAPHQL_URI =
+    process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
+    'http://localhost:4000/auth/graphql';
 
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMode, setSearchMode] = useState<SearchMode>('location');
   const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
+  const [nameAgents, setNameAgents] = useState<any[]>(agents);
+  const [locationAgents, setLocationAgents] = useState<any[]>(agents);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const query = deferredSearchQuery.toLowerCase().trim();
+
+  const immediateQuery = searchQuery.toLowerCase().trim();
+
+  const fetchExternalAgents = useCallback(
+    async ({
+      limit,
+      search,
+      signal,
+    }: {
+      limit: number;
+      search?: string;
+      signal: AbortSignal;
+    }) => {
+      const response = await fetch(GRAPHQL_URI, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apollo-require-preflight': 'true',
+        },
+        body: JSON.stringify({
+          query: `
+            query ExternalAgents($limit: Int, $offset: Int, $search: String) {
+              externalAgents(limit: $limit, offset: $offset, search: $search) {
+                data {
+                  id
+                  full_name
+                  email
+                  phone
+                  brokerage
+                  locationRaw
+                  profile_image_url
+                  avgRating
+                  avgRatingForCustomerDisplay
+                  homesSoldLastYear
+                }
+              }
+            }
+          `,
+          variables: {
+            limit,
+            offset: 0,
+            search,
+          },
+        }),
+        signal,
+      });
+
+      if (!response.ok) {
+        return [];
+      }
+
+      const json = await response.json();
+      const data = json?.data?.externalAgents?.data || [];
+      return data.map((agent: any) => ({
+        ...agent,
+        Name: agent.full_name || '',
+        agentEmail: agent.email || undefined,
+        Location: agent.locationRaw || undefined,
+        Brokerage: agent.brokerage || undefined,
+      }));
+    },
+    [GRAPHQL_URI]
+  );
 
   const goToSearchPage = () => {
     setIsSearchFocused(false);
@@ -298,22 +366,67 @@ export default function HeroLayout({
     const showAllWhenEmpty = !query;
     const suggestions = buildLocationSuggestions(
       deferredSearchQuery,
-      agents,
+      locationAgents,
       showAllWhenEmpty
     );
     setLocationSuggestions(suggestions);
-  }, [deferredSearchQuery, searchMode, agents, query]);
+  }, [deferredSearchQuery, searchMode, locationAgents, query]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadNameAgents() {
+      if (searchMode !== 'name') return;
+      try {
+        const data = await fetchExternalAgents({
+          limit: 100,
+          search: immediateQuery || undefined,
+          signal: controller.signal,
+        });
+        setNameAgents(data);
+      } catch (err: any) {
+        if (err?.name !== 'AbortError') {
+          console.error('Error loading agents:', err);
+        }
+      }
+    }
+
+    loadNameAgents();
+    return () => controller.abort();
+  }, [searchMode, immediateQuery, fetchExternalAgents]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadLocationAgents() {
+      if (searchMode !== 'location') return;
+      try {
+        const data = await fetchExternalAgents({
+          limit: 1000,
+          signal: controller.signal,
+        });
+        setLocationAgents(data);
+      } catch (err: any) {
+        if (err?.name !== 'AbortError') {
+          console.error('Error loading agents for location:', err);
+        }
+      }
+    }
+
+    loadLocationAgents();
+    return () => controller.abort();
+  }, [searchMode, fetchExternalAgents]);
 
   const filteredAgents = useMemo(() => {
     if (searchMode !== 'name') return [];
-    if (!query) return agents;
+    if (!query) return nameAgents;
 
-    return agents.filter((agent) => {
+    return nameAgents.filter((agent) => {
       const name = (agent.Name || '').toLowerCase();
       const email = (agent.agentEmail || '').toLowerCase();
       return name.includes(query) || email.includes(query);
     });
-  }, [agents, query, searchMode]);
+  }, [nameAgents, query, searchMode]);
 
   const highlightMatch = useCallback(
     (text: string) => {
@@ -398,66 +511,66 @@ export default function HeroLayout({
       </div>
 
       <div className={`text-black min-h-screen relative pt-28 -mt-28 overflow-visible ${className}`}>
-        <div className="relative min-h-[100vh] w-full overflow-visible">
-          <div className="absolute inset-0 z-0">
+        <div className="relative min-h-[100svh] w-full overflow-visible">
+          <div className="absolute inset-0 z-0 min-h-full">
             <Image
               src="/assets/images/agents-hero.jpg"
               alt="Agents Hero"
               fill
-              className="object-cover"
+              className="object-cover object-[50%_95%]"
               priority
             />
-            <div className="absolute inset-0 bg-black/40 z-10" />
           </div>
 
-          <div className="absolute inset-0 flex flex-col items-center px-4 sm:px-6 md:px-12 lg:px-20 z-20">
-            <div className="pt-20 md:pt-24 lg:pt-32" />
-
-            <h1 className="text-center text-3xl sm:text-4xl lg:text-5xl font-semibold text-white drop-shadow-lg mb-10">
+          <div className="relative inset-0 min-h-[100svh] flex flex-col items-center justify-center px-4 sm:px-6 md:px-12 lg:px-20 z-20 pt-20 sm:pt-24 pb-10 sm:pb-12">
+            <h1 className="max-w-4xl text-center text-3xl sm:text-4xl lg:text-5xl leading-tight font-semibold text-black drop-shadow-lg mb-6 sm:mb-8">
               Discover Agent Possibilities
               <br />
-              With <span className="italic">Snaphomz</span>
+              <span className=''>With</span>
+              <span className="italic font-light">Snaphomz</span>
             </h1>
 
-            <div className="w-full max-w-2xl relative" ref={searchContainerRef}>
+            <div className="w-full max-w-3xl relative mx-auto" ref={searchContainerRef}>
               <div
-                className={`relative flex items-center w-full h-14 bg-white border-4 border-[#C08C73] shadow-xl overflow-hidden pl-4 pr-1 z-30 transition-all duration-300 ${isSearchFocused ? 'rounded-t-2xl rounded-b-none border-b-0' : 'rounded-full'
+                className={`relative flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0 w-full min-h-14 sm:h-14 bg-white border-4 border-[#C08C73] shadow-xl overflow-hidden px-2 sm:pl-4 sm:pr-1 py-2 sm:py-0 z-30 transition-all duration-300 ${isSearchFocused ? 'rounded-2xl sm:rounded-t-2xl sm:rounded-b-none sm:border-b-0' : 'rounded-2xl sm:rounded-full'
                   }`}
               >
-                <button
-                  onClick={goToSearchPage}
-                  className="flex-shrink-0 text-gray-400 mr-3 hover:text-black"
-                >
-                  <Search className="w-6 h-6" />
-                </button>
-
-                <input
-                  type="text"
-                  placeholder={placeholderText}
-                  className="flex-grow w-full h-full border-none outline-none text-gray-700 placeholder-gray-400 bg-transparent text-base"
-                  onFocus={() => setIsSearchFocused(true)}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                />
-
-                {searchQuery && (
+                <div className="flex items-center w-full min-w-0">
                   <button
-                    onClick={() => setSearchQuery('')}
-                    className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors ml-2 mr-1"
+                    onClick={goToSearchPage}
+                    className="flex-shrink-0 text-gray-400 mr-2 sm:mr-3 hover:text-black"
                   >
-                    <X className="w-5 h-5" />
+                    <Search className="w-5 h-5 sm:w-6 sm:h-6" />
                   </button>
-                )}
 
-                <div className="flex items-center ml-2 flex-shrink-0 h-full py-1.5">
-                  <div className="flex bg-gray-100 rounded-full p-1 h-full items-center">
+                  <input
+                    type="text"
+                    placeholder={placeholderText}
+                    className="flex-grow w-full min-w-0 h-full border-none outline-none text-gray-700 placeholder-gray-400 bg-transparent text-sm sm:text-base"
+                    onFocus={() => setIsSearchFocused(true)}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                  />
+
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors ml-2 mr-1"
+                    >
+                      <X className="w-4 h-4 sm:w-5 sm:h-5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="w-full sm:w-auto flex items-center sm:ml-2 flex-shrink-0 sm:h-full py-0 sm:py-1.5">
+                  <div className="grid grid-cols-2 sm:flex bg-gray-100 rounded-full p-1 w-full sm:w-auto h-10 sm:h-full items-center">
                     <button
                       type="button"
                       onClick={() => setSearchMode('location')}
-                      className={`h-full flex items-center px-4 rounded-full transition-colors text-sm font-medium ${searchMode === 'location'
-                          ? 'bg-black text-white shadow-sm'
-                          : 'text-gray-600 hover:text-black'
+                      className={`h-full flex items-center justify-center px-3 sm:px-4 rounded-full transition-colors text-xs sm:text-sm font-medium ${searchMode === 'location'
+                        ? 'bg-black text-white shadow-sm'
+                        : 'text-gray-600 hover:text-black'
                         }`}
                     >
                       Location
@@ -465,9 +578,9 @@ export default function HeroLayout({
                     <button
                       type="button"
                       onClick={() => setSearchMode('name')}
-                      className={`h-full flex items-center px-4 rounded-full transition-colors text-sm font-medium ${searchMode === 'name'
-                          ? 'bg-black text-white shadow-sm'
-                          : 'text-gray-600 hover:text-black'
+                      className={`h-full flex items-center justify-center px-3 sm:px-4 rounded-full transition-colors text-xs sm:text-sm font-medium ${searchMode === 'name'
+                        ? 'bg-black text-white shadow-sm'
+                        : 'text-gray-600 hover:text-black'
                         }`}
                     >
                       Agent name
@@ -477,7 +590,7 @@ export default function HeroLayout({
               </div>
 
               {isSearchFocused && (
-                <div className="absolute top-14 left-0 w-full bg-white rounded-b-2xl border-4 border-t-0 border-[#C08C73] shadow-2xl z-20 overflow-hidden min-h-[300px] max-h-[400px] overflow-y-auto">
+                <div className="absolute top-full mt-2 sm:mt-0 left-0 w-full bg-white rounded-2xl sm:rounded-b-2xl sm:rounded-t-none border-4 sm:border-t-0 border-[#C08C73] shadow-2xl z-20 overflow-hidden min-h-[300px] max-h-[400px] overflow-y-auto">
                   {searchMode === 'location' ? (
                     <div className="p-4 bg-white h-full flex flex-col">
                       <p className="text-gray-500 text-sm mb-3 pl-2">
@@ -550,42 +663,7 @@ export default function HeroLayout({
               )}
             </div>
 
-            <div className="mt-12 w-full max-w-3xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 z-10">
-              <div className="relative rounded-2xl overflow-hidden bg-white/40 backdrop-blur-md p-6 flex items-center space-x-4 shadow-lg">
-                <div className="w-12 h-12 rounded-full overflow-hidden border border-gray-300 relative">
-                  <Image
-                    src="/assets/images/agetn-hero-deop.jpg"
-                    alt="Racheal"
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                <div>
-                  <p className="font-semibold text-black">Racheal Wyatt</p>
-                  <p className="text-sm text-orange-900 font-medium">Buyer</p>
-                </div>
-              </div>
-
-              <div className="relative rounded-2xl overflow-hidden bg-white/40 backdrop-blur-md p-6 flex items-center space-x-4 shadow-lg">
-                <div className="w-12 h-12 rounded-full bg-blue-200 flex items-center justify-center">
-                  <span className="font-semibold text-blue-800">JS</span>
-                </div>
-                <div>
-                  <p className="font-semibold text-black">John Smith</p>
-                  <p className="text-sm text-orange-900 font-medium">Agent</p>
-                </div>
-              </div>
-
-              <div className="relative rounded-2xl overflow-hidden bg-white/40 backdrop-blur-md p-6 flex items-center space-x-4 shadow-lg">
-                <div className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center">
-                  <span className="font-semibold text-gray-800">KW</span>
-                </div>
-                <div>
-                  <p className="font-semibold text-black">Kevin Winston</p>
-                  <p className="text-sm text-orange-900 font-medium">Broker</p>
-                </div>
-              </div>
-            </div>
+            {/* Removed the three hero cards below the search bar per request */}
 
           </div>
         </div>

@@ -558,20 +558,23 @@ const Accordion: React.FC<AccordionProps> = ({
   onClick,
 }) => {
   return (
-    <div>
+    <div className='border-b border-gray-100 last:border-b-0 lg:border-b-0'>
       <div
-        className='flex cursor-pointer items-center justify-between'
+        className='flex cursor-pointer items-center justify-between py-2 sm:py-3 lg:py-4 px-2 sm:px-3 lg:px-0 hover:bg-gray-50 lg:hover:bg-transparent rounded-lg lg:rounded-none transition-colors'
         onClick={onClick}
       >
         <h2
-          className={`py-4 text-lg  font-semibold ${
+          className={`text-sm sm:text-base lg:text-lg font-semibold ${
             isOpen ? 'text-orange-500' : 'text-black'
           }`}
         >
           {title}
         </h2>
+        <span className={`transform transition-transform text-xs sm:text-sm lg:hidden ${isOpen ? 'rotate-180' : ''}`}>
+          ▼
+        </span>
       </div>
-      {isOpen && <div className='space-y-4'>{children}</div>}
+      {isOpen && <div className='space-y-2 sm:space-y-3 lg:space-y-4 pb-3 sm:pb-4 lg:pb-0 px-2 sm:px-3 lg:px-0'>{children}</div>}
     </div>
   );
 };
@@ -697,49 +700,86 @@ const ManagePropertyContent: React.FC = () => {
   }> = ({ label, subTitle, onClick, sectionKey }) => {
     return (
       <div
-        className='cursor-pointer rounded-md bg-[#F7F2EB] p-4'
+        className='cursor-pointer rounded-md bg-[#F7F2EB] p-2 sm:p-3 lg:p-4 hover:bg-[#F0E6D6] transition-colors border border-transparent hover:border-orange-200'
         onClick={onClick}
       >
-        <h2 className='py-1 font-semibold text-black'>{label}</h2>
-        <p className='font-light text-[#747474]'>{subTitle}</p>
+        <h2 className='py-0.5 sm:py-1 font-semibold text-black text-xs sm:text-sm lg:text-base leading-tight'>{label}</h2>
+        <p className='font-light text-[#747474] text-xs sm:text-xs lg:text-sm leading-tight'>{subTitle}</p>
 
         {/* Render Progress or Loading State */}
         {loading.allDocuments ? (
-          <CustomProgressBar progress={progress[sectionKey]} size={100} />
+          <div className='mt-2'>
+            <CustomProgressBar progress={progress[sectionKey]} size={80} />
+          </div>
         ) : (
-          <span>Documents Loaded</span> // Replace with actual document content
+          <span className='text-xs text-green-600 mt-1 block'>Documents Loaded</span>
         )}
       </div>
     );
   };
 
   return (
-    <div className='grid grid-cols-3 gap-x-8'>
-      <div className='col-span-1 py-10'>
-        {accordionData.map((accordion, index) => (
-          <Accordion
-            key={index}
-            title={accordion.title}
-            isOpen={accordion.key === tabKey}
-            onClick={() => {
-              setTabKey(accordion.key);
-              handleAccordionClick(index);
-            }}
-          >
-            {accordion.items.map((item, idx) => (
-              <ListItemComponent
-                key={idx}
-                label={item.label}
-                subTitle={item.subTitle}
-                onClick={() => handleAccordionItemClick(item?.content)}
-                sectionKey={accordion.key} // Pass the section key to handle progress updates
-              />
-            ))}
-          </Accordion>
-        ))}
+    <div className='w-full'>
+      {/* Mobile-first accordion layout */}
+      <div className='block lg:hidden'>
+        <div className='space-y-2'>
+          {accordionData.map((accordion, index) => (
+            <Accordion
+              key={index}
+              title={accordion.title}
+              isOpen={accordion.key === tabKey}
+              onClick={() => {
+                setTabKey(accordion.key);
+                handleAccordionClick(index);
+              }}
+            >
+              {accordion.items.map((item, idx) => (
+                <ListItemComponent
+                  key={idx}
+                  label={item.label}
+                  subTitle={item.subTitle}
+                  onClick={() => handleAccordionItemClick(item?.content)}
+                  sectionKey={accordion.key}
+                />
+              ))}
+            </Accordion>
+          ))}
+        </div>
+        
+        {/* Mobile content area */}
+        <div className='mt-4 p-3 bg-white rounded-lg border'>
+          <div>{activeTabContent}</div>
+        </div>
       </div>
-      <div className='col-span-2 px-4'>
-        <div>{activeTabContent}</div>
+
+      {/* Desktop layout */}
+      <div className='hidden lg:flex lg:gap-6 xl:gap-8'>
+        <div className='lg:w-1/3 xl:w-1/4 py-4'>
+          {accordionData.map((accordion, index) => (
+            <Accordion
+              key={index}
+              title={accordion.title}
+              isOpen={accordion.key === tabKey}
+              onClick={() => {
+                setTabKey(accordion.key);
+                handleAccordionClick(index);
+              }}
+            >
+              {accordion.items.map((item, idx) => (
+                <ListItemComponent
+                  key={idx}
+                  label={item.label}
+                  subTitle={item.subTitle}
+                  onClick={() => handleAccordionItemClick(item?.content)}
+                  sectionKey={accordion.key}
+                />
+              ))}
+            </Accordion>
+          ))}
+        </div>
+        <div className='lg:w-2/3 xl:w-3/4 px-4'>
+          <div>{activeTabContent}</div>
+        </div>
       </div>
     </div>
   );

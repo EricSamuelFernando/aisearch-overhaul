@@ -34,6 +34,9 @@ export interface SendMessageData {
   threadId: string;
   message: string;
   userId: string;
+  receiverId?: string;
+  recipient?: string;
+  reciepent?: string;
   messageType?: string;
   fileType?: string;
   parentMessageId?: string;
@@ -59,49 +62,64 @@ export class WebSocketClientImpl implements WebSocketClient {
   private messageQueue: MessagePacket[] = [];
   public id: string | null = null;
   public connected = false;
-  private isLambda: boolean = false; // Detect if using Lambda/API Gateway
 
   constructor(url: string) {
-    // Convert http:// to ws:// and https:// to wss://
-    // Detect if this is Lambda/API Gateway (contains execute-api.amazonaws.com or API Gateway patterns)
-    // API Gateway WebSocket URLs typically look like: wss://{api-id}.execute-api.{region}.amazonaws.com/{stage}
-    // Also check for common API Gateway patterns
-    const isApiGatewayPattern = url.includes('execute-api.amazonaws.com') || 
-                                 url.includes('execute-api.') || 
-                                 /execute-api\.[a-z0-9-]+\.amazonaws\.com/i.test(url);
-    
-    // Force Lambda mode if URL contains execute-api (API Gateway WebSocket)
-    // OR if environment variable explicitly indicates API Gateway
-    this.isLambda = isApiGatewayPattern || 
-                    process.env.NEXT_PUBLIC_USE_LAMBDA_WEBSOCKET === 'true' ||
-                    url.includes('amazonaws.com');
-    
-    console.log('[WebSocket] URL detection:', { 
-      originalUrl: url, 
-      isLambda: this.isLambda,
-      containsExecuteApi: url.includes('execute-api'),
-      isApiGatewayPattern,
-      envFlag: process.env.NEXT_PUBLIC_USE_LAMBDA_WEBSOCKET
-    });
-    
-    if (this.isLambda) {
-      // API Gateway WebSocket format: wss://{api-id}.execute-api.{region}.amazonaws.com/{stage}
-      // Convert http/https to ws/wss
-      // IMPORTANT: Keep the stage path (e.g., /ws, /prod, /dev) as it's part of the API Gateway route
-      // Example: https://ge7k22aqak.execute-api.us-west-1.amazonaws.com/ws
-      //          becomes: wss://ge7k22aqak.execute-api.us-west-1.amazonaws.com/ws
-      this.url = url.startsWith('ws') ? url : url.replace(/^http/, 'ws');
-      // Do NOT remove /ws or any stage path - it's required for API Gateway routing
-    } else {
-      // Local NestJS backend uses /ws path
-      this.url = url.replace(/^http/, 'ws');
-      if (!this.url.endsWith('/ws')) {
-        this.url = this.url + '/ws';
-      }
-    }
-    
-    console.log('[WebSocket] Final URL:', this.url, 'isLambda:', this.isLambda);
-    
+    // // Convert http:// to ws:// and https:// to wss://
+    // // Detect if this is Lambda/API Gateway (contains execute-api.amazonaws.com or API Gateway patterns)
+    // // API Gateway WebSocket URLs typically look like: wss://{api-id}.execute-api.{region}.amazonaws.com/{stage}
+    // // Also check for common API Gateway patterns
+    // const isApiGatewayPattern = url.includes('execute-api.amazonaws.com') ||
+    //   url.includes('execute-api.') ||
+    //   /execute-api\.[a-z0-9-]+\.amazonaws\.com/i.test(url);
+
+    // // Force Lambda mode if URL contains execute-api (API Gateway WebSocket)
+    // // OR if environment variable explicitly indicates API Gateway
+    // this.isLambda = isApiGatewayPattern ||
+    //   process.env.NEXT_PUBLIC_USE_LAMBDA_WEBSOCKET === 'true' ||
+    //   url.includes('amazonaws.com');
+
+    // console.log('[WebSocket] URL detection:', {
+    //   originalUrl: url,
+    //   isLambda: this.isLambda,
+    //   containsExecuteApi: url.includes('execute-api'),
+    //   isApiGatewayPattern,
+    //   envFlag: process.env.NEXT_PUBLIC_USE_LAMBDA_WEBSOCKET
+    // });
+
+    // if (this.isLambda) {
+    //   // API Gateway WebSocket format: wss://{api-id}.execute-api.{region}.amazonaws.com/{stage}
+    //   // Convert http/https to ws/wss
+    //   // IMPORTANT: Keep the stage path (e.g., /ws, /prod, /dev) as it's part of the API Gateway route
+    //   // Example: https://ge7k22aqak.execute-api.us-west-1.amazonaws.com/ws
+    //   //          becomes: wss://ge7k22aqak.execute-api.us-west-1.amazonaws.com/ws
+    //   this.url = url.startsWith('ws') ? url : url.replace(/^http/, 'ws');
+    //   // Do NOT remove /ws or any stage path - it's required for API Gateway routing
+    // } else {
+    //   // Local NestJS backend uses /ws path
+    //   this.url = url.replace(/^http/, 'ws');
+    //   if (!this.url.endsWith('/ws')) {
+    //     this.url = this.url + '/ws';
+    //   }
+    // }
+
+    // const isApiGatewayPattern =
+    //   url.includes('execute-api.amazonaws.com') ||
+    //   url.includes('execute-api.') ||
+    //   /execute-api\.[a-z0-9-]+\.amazonaws\.com/i.test(url);
+
+    // this.url = url.startsWith('ws') ? url : url.replace(/^http/, 'ws');
+    this.url = url
+
+    // console.log('[WebSocket] URL detection:', {
+    //   originalUrl: url,
+    //   containsExecuteApi: url.includes('execute-api'),
+    //   isApiGatewayPattern,
+    // });
+
+    console.log('[WebSocket] Base URL:', url, '-> WebSocket URL:', this.url);
+
+
+
     const token: string | null = getAuthToken() ?? null;
     this.token = token;
   }
@@ -124,26 +142,40 @@ export class WebSocketClientImpl implements WebSocketClient {
     }
 
     try {
-      const wsUrl = this.token 
-        ? `${this.url}?token=Bearer ${this.token}`
+      console.log('[WebSocket] Connect requested', {
+        baseUrl: this.url,
+        hasToken: !!this.token,
+        reconnectAttempts: this.reconnectAttempts,
+      });
+      const wsUrl = this.token
+        ? `${this.url}?token=${encodeURIComponent(`Bearer ${this.token}`)}&authorization=${encodeURIComponent(`Bearer ${this.token}`)}`
         : this.url;
-      
+
+      console.log('[WebSocket] Connecting:', {
+        url: this.url,
+        wsUrl,
+        hasToken: !!this.token,
+        tokenPrefix: this.token ? this.token.slice(0, 6) + '...' : 'none',
+      });
+
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
-        console.log('[WebSocket] Connected');
+        console.log('[WebSocket] Connected', {
+          readyState: this.ws?.readyState || 0,
+          reconnectAttempts: this.reconnectAttempts,
+        });
         this.connected = true;
         this.reconnectAttempts = 0;
         this.startHeartbeat();
-        
+
         // Send queued messages
         while (this.messageQueue.length > 0) {
           const packet = this.messageQueue.shift();
           if (packet && this.ws?.readyState === WebSocket.OPEN) {
             // Validate packet has action/event before sending
-            const hasAction = this.isLambda ? packet.action : packet.event;
-            if (!hasAction) {
-              console.error('[WebSocket] Skipping queued message with undefined action/event:', packet);
+            if (!packet.action && !packet.event) {
+              console.error('[WebSocket] Skipping queued message with undefined event:', packet);
               continue;
             }
             try {
@@ -161,16 +193,16 @@ export class WebSocketClientImpl implements WebSocketClient {
       this.ws.onmessage = (event) => {
         try {
           const packet: MessagePacket = JSON.parse(event.data);
-          
+
           console.log('[WebSocket] Received packet:', packet);
-          
+
           // Handle both event and action fields (Lambda uses event, some backends use action)
           const eventName = packet.event || packet.action;
-          
+
           if (eventName === 'connect' && packet.data?.id) {
             this.id = packet.data.id;
           }
-          
+
           if (eventName) {
             console.log('[WebSocket] Triggering event:', eventName, 'with data:', packet.data);
             this.triggerEvent(eventName, packet.data);
@@ -183,12 +215,20 @@ export class WebSocketClientImpl implements WebSocketClient {
       };
 
       this.ws.onerror = (error) => {
-        console.error('[WebSocket] Error:', error);
+        console.error('[WebSocket] Error event:', {
+          error,
+          readyState: this.ws?.readyState,
+          url: this.url,
+        });
         this.triggerEvent('connect_error', error);
       };
 
       this.ws.onclose = (event) => {
-        console.log('[WebSocket] Disconnected:', event.code, event.reason);
+        console.log('[WebSocket] Disconnected:', {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+        });
         this.connected = false;
         this.id = null;
         this.stopHeartbeat();
@@ -197,7 +237,11 @@ export class WebSocketClientImpl implements WebSocketClient {
         // Attempt to reconnect
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
           this.reconnectAttempts++;
-          console.log(`[WebSocket] Reconnecting in ${this.reconnectDelay}ms (attempt ${this.reconnectAttempts})`);
+          console.log('[WebSocket] Reconnecting', {
+            delayMs: this.reconnectDelay,
+            attempt: this.reconnectAttempts,
+            maxAttempts: this.maxReconnectAttempts,
+          });
           this.reconnectTimer = setTimeout(() => {
             this.connect();
           }, this.reconnectDelay);
@@ -217,7 +261,7 @@ export class WebSocketClientImpl implements WebSocketClient {
       this.reconnectTimer = null;
     }
     this.stopHeartbeat();
-    
+
     if (this.ws) {
       this.ws.close();
       this.ws = null;
@@ -235,7 +279,7 @@ export class WebSocketClientImpl implements WebSocketClient {
 
   off(event: string, callback?: (data: any) => void): void {
     if (!this.eventHandlers.has(event)) return;
-    
+
     if (callback) {
       this.eventHandlers.get(event)!.delete(callback);
     } else {
@@ -249,49 +293,30 @@ export class WebSocketClientImpl implements WebSocketClient {
       console.error('[WebSocket] emit called with invalid event:', { event, data, stack: new Error().stack });
       return;
     }
-    
+
     // Block unsupported events that are not in the backend handler
     const unsupportedEvents = [
       'save_user_agent_messages',
-      'save_messages', 
+      'save_messages',
       'save_file',
-      'sendMessagetoThread',
-      'joinThread',
       'typing',
+      'mark_as_read',
       'userConnected',
       'recievedMessage'
     ];
-    
+
     if (unsupportedEvents.includes(event)) {
       console.error(`[WebSocket] Blocked unsupported event: ${event}. This event is not supported by the backend WebSocket handler.`, {
         event,
-        supportedEvents: ['createOrJoinConversation', 'sendMessage', 'joinRoom', 'leaveRoom', 'ping'],
         stack: new Error().stack
       });
       return;
     }
-    
-    // Lambda/API Gateway expects: { action: string, data: any }
-    // Local NestJS expects: { event: string, data: any }
-    // IMPORTANT: If using AWS API Gateway WebSocket, ALWAYS use Lambda format
-    const packet = this.isLambda 
-      ? { action: event, data: data || {} }
-      : { event, data: data || {} };
 
-    // Double-check action/event is not undefined
-    if (this.isLambda && !packet.action) {
-      console.error('[WebSocket] Packet action is undefined after creation:', { event, data, packet });
-      return;
-    }
-    if (!this.isLambda && !packet.event) {
-      console.error('[WebSocket] Packet event is undefined after creation:', { event, data, packet });
-      return;
-    }
-    
-    console.log('[WebSocket] Emitting:', { 
-      event, 
-      action: this.isLambda ? packet.action : undefined, 
-      isLambda: this.isLambda, 
+    const packet = { action: event, data: data || {} };
+
+    console.log('[WebSocket] Emitting:', {
+      event,
       packet,
       url: this.url
     });
@@ -330,9 +355,7 @@ export class WebSocketClientImpl implements WebSocketClient {
     this.heartbeatInterval = setInterval(() => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
         // Lambda/API Gateway uses 'action', Local NestJS uses 'event'
-        const pingPacket = this.isLambda
-          ? { action: 'ping', data: {} }
-          : { event: 'ping', data: {} };
+        const pingPacket = { action: 'ping', data: {} };
         this.ws.send(JSON.stringify(pingPacket));
       }
     }, 30000); // Every 30 seconds
@@ -377,15 +400,17 @@ export class WebSocketClientImpl implements WebSocketClient {
       console.error('[WebSocket] joinRoom called with invalid roomId:', roomId);
       return;
     }
-    this.emit('joinRoom', { roomId });
+    console.log('[WebSocket] Joining room:', roomId);
+    this.emit('joinRoom', { roomId }); // Send as object with roomId property
   }
 
-  leaveRoom(roomId: string): void {
+  leaveRoom(roomId?: string): void {
     if (!roomId) {
-      console.error('[WebSocket] leaveRoom called with invalid roomId:', roomId);
+      console.log('[WebSocket] leaveRoom called without roomId, skipping');
       return;
     }
-    this.emit('leaveRoom', { roomId });
+    console.log('[WebSocket] Leaving room:', roomId);
+    this.emit('leaveRoom', { roomId }); // Send as object with roomId property
   }
 
   ping(): void {
@@ -407,7 +432,7 @@ export class WebSocketClientImpl implements WebSocketClient {
     comment: string;
     userType?: string;
   }): void {
-    this.emit('send_comment', commentData);
+    this.emit('addComment', commentData);
   }
 
   // Connection status methods

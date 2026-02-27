@@ -4,6 +4,7 @@ import axios from 'axios';
 import { format } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 import { getAuthToken } from '@/lib/storage';
+import { getStateFromZip } from '@/utils/addressParser';
 
 interface Comment {
     id: string;
@@ -13,6 +14,68 @@ interface Comment {
     propertyId?: string; // Add propertyId
     createdAt: string;
 }
+
+const normalizeId = (value: unknown): string => {
+    if (value === null || value === undefined) return '';
+    return String(value).trim();
+};
+
+const normalizeNumericId = (value: unknown): string => {
+    const raw = normalizeId(value).replace(/\.0+$/, '');
+    if (!/^\d+$/.test(raw)) return '';
+    return String(Number(raw));
+};
+
+const idsMatch = (a: unknown, b: unknown): boolean => {
+    const left = normalizeId(a);
+    const right = normalizeId(b);
+    if (!left || !right) return false;
+    if (left === right) return true;
+
+    const leftNum = normalizeNumericId(left);
+    const rightNum = normalizeNumericId(right);
+    return Boolean(leftNum && rightNum && leftNum === rightNum);
+};
+
+const looksLikeAddress = (value: string): boolean => {
+    if (!value) return false;
+    return /\d/.test(value) || /,\s*[A-Za-z]{2}\b/.test(value);
+};
+
+const buildFullAddress = (property: any): string => {
+    const street =
+        property?.address ||
+        property?.propertyAddress ||
+        property?.propertyAddressDetails?.formattedAddress ||
+        property?.public?.address?.unparsedAddress ||
+        property?.public?.address?.label ||
+        property?.listing?.address?.unparsedAddress;
+
+    const city =
+        property?.city ||
+        property?.propertyAddressDetails?.city ||
+        property?.public?.address?.city ||
+        property?.listing?.address?.city;
+
+    const zipCode =
+        property?.zipCode ||
+        property?.postalCode ||
+        property?.propertyAddressDetails?.postalCode ||
+        property?.public?.address?.zipCode ||
+        property?.listing?.address?.zipCode;
+
+    const state =
+        property?.state ||
+        property?.propertyAddressDetails?.state ||
+        property?.propertyAddressDetails?.province ||
+        getStateFromZip(zipCode);
+
+    const cityState = [city, state].filter(Boolean).join(', ');
+    const line2 = [cityState, zipCode].filter(Boolean).join(' ');
+
+    if (street && line2) return `${street}, ${line2}`;
+    return street || line2 || '';
+};
 
 interface RecentCommentsModalProps {
     isOpen: boolean;
@@ -29,7 +92,7 @@ const RecentCommentsModal: React.FC<RecentCommentsModalProps> = ({ isOpen, onClo
         try {
             const token = getAuthToken() || localStorage.getItem('__WEB_APP_Ocreal345####btny_ocreal');
             const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || 'http://localhost:4000/auth/graphql';
-            
+
             const query = `
                 query RecentComments($limit: Int) {
                     recentComments(limit: $limit) {
@@ -70,13 +133,23 @@ const RecentCommentsModal: React.FC<RecentCommentsModalProps> = ({ isOpen, onClo
         }
     };
 
-    const getPropertyName = (comment: Comment) => {
-        if (comment.propertyName) return comment.propertyName;
+    const getPropertyAddress = (comment: Comment) => {
         const found = properties.find((p: any) =>
-            (p.listingId && p.listingId === comment.propertyId) ||
-            (p.id && p.id === comment.propertyId)
+            [p?.propertyId, p?.listingId, p?.id].some((id) => idsMatch(id, comment.propertyId))
         );
-        return found ? found.name : 'Property view';
+
+        if (found) {
+            const fullAddress = buildFullAddress(found);
+            if (fullAddress) return fullAddress;
+        }
+
+        if (properties.length === 1) {
+            const singleAddress = buildFullAddress(properties[0]);
+            if (singleAddress) return singleAddress;
+        }
+
+        const propertyName = (comment.propertyName || '').trim();
+        return looksLikeAddress(propertyName) ? propertyName : 'Property view';
     };
 
     useEffect(() => {
@@ -109,7 +182,7 @@ const RecentCommentsModal: React.FC<RecentCommentsModalProps> = ({ isOpen, onClo
                         <p className="text-center text-gray-500 mt-10">No activity yet.</p>
                     ) : (
                         comments.map((comment) => {
-                            const name = getPropertyName(comment);
+                            const name = getPropertyAddress(comment);
                             const showName = name && name !== 'Property view';
 
                             return (
@@ -150,3 +223,4 @@ const RecentCommentsModal: React.FC<RecentCommentsModalProps> = ({ isOpen, onClo
 };
 
 export default RecentCommentsModal;
+

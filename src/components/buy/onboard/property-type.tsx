@@ -28,7 +28,9 @@ const PropertyType: React.FC = () => {
           onClick={() => handleClick(value)}
           className={cn(
             `w-full rounded-md px-4 py-6 text-black transition-all hover:bg-gray-200`,
-            propertyType === value && ['bg-black text-white'],
+            propertyType === value && [
+              'bg-black text-white hover:bg-black hover:text-white',
+            ],
           )}
         >
           {label}
@@ -55,21 +57,16 @@ export const PropertyTypeData: PropertyTypeDataList = [
   },
   {
     id: 'property-type-data-002',
-    label: 'Condomium',
+    label: 'Condominium',
     value: 'Condomium',
   },
   {
     id: 'property-type-data-003',
-    label: 'Tenancy in Common',
-    value: 'Tenancy in Common',
-  },
-  {
-    id: 'property-type-data-004',
     label: 'Mobile Home',
     value: 'Mobile Home',
   },
   {
-    id: 'property-type-data-005',
+    id: 'property-type-data-004',
     label: 'Land',
     value: 'Land',
   },

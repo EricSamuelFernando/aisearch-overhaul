@@ -10,9 +10,11 @@ type Props = Readonly<{
   className?: string;
   inputClassName?: string;
   value: string;
-  searchType?:string;
+  searchType?: string;
   placeholderText?: string;
   setValue: (val: string) => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
 }>;
 
 function MemoizedSpeechInput({
@@ -22,30 +24,30 @@ function MemoizedSpeechInput({
   searchType,
   inputClassName,
   placeholderText,
+  onFocus,
+  onBlur,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   // Default to 'nlp' if searchType is empty or undefined
   const effectiveSearchType = searchType || 'nlp';
-  const basePlaceholder = effectiveSearchType === "nlp"? 'Show me homes in San Jose California under 3 Million': '260 Rio Del Mar Blvd APT 8, Aptos, CA 95003';
+  const basePlaceholder = effectiveSearchType === "nlp" ? 'Show me homes in San Jose California under 3 Million' : '260 Rio Del Mar Blvd APT 8, Aptos, CA 95003';
   const [animatedPlaceholder, setAnimatedPlaceholder] = useState('');
-  const [isTyping, setIsTyping] = useState(false); // Track if user is typing
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const { transcript } = useSpeechToText();
-  const suggestions = useGooglePlacesAutocomplete(value , effectiveSearchType);
-  
+  const suggestions = useGooglePlacesAutocomplete(value, effectiveSearchType);
+
   // Use provided placeholderText or animated placeholder
   const displayPlaceholder = placeholderText || animatedPlaceholder;
-  
+
   // Scroll animation and typewriter effect (only if no placeholderText prop provided)
   useEffect(() => {
     if (placeholderText) {
       // If placeholderText prop is provided, don't animate
       return;
     }
-    
+
     if (value.length > 0) {
-      setIsTyping(true);
       return; // Stop animation when user types
     }
 
@@ -121,45 +123,45 @@ function MemoizedSpeechInput({
   };
 
   const handleSuggestionClick = (suggestion: string) => {
-    if(effectiveSearchType === "nlp"){
+    if (effectiveSearchType === "nlp") {
       const words = value.trim().split(/\s+/);
       words.pop();
       setValue(`${words.join(' ')} ${suggestion}`);
-    }else{
+    } else {
       setValue(suggestion)
     }
     setShowSuggestions(false);
     inputRef.current?.focus();
   };
-// const handleSuggestionClick = (suggestion: string) => {
-//   if (searchType === "nlp") {
-//     setValue((prevValue) => {
-//       // Regular expression to match all occurrences of the suggestion (case-insensitive)
-//       const regex = new RegExp(`\\b${escapeRegExp(suggestion.split(" ")[0])}\\b`, "gi"); // g for all matches and i for case-insensitive match
+  // const handleSuggestionClick = (suggestion: string) => {
+  //   if (searchType === "nlp") {
+  //     setValue((prevValue) => {
+  //       // Regular expression to match all occurrences of the suggestion (case-insensitive)
+  //       const regex = new RegExp(`\\b${escapeRegExp(suggestion.split(" ")[0])}\\b`, "gi"); // g for all matches and i for case-insensitive match
 
-//       // Replace all occurrences of the location (partial or full) with the full suggestion
-//       return prevValue.replace(regex, suggestion);
-//     });
-//   } else {
-//     // For Address search type, completely replace the input with the suggestion
-//     setValue(suggestion);
-//   }
+  //       // Replace all occurrences of the location (partial or full) with the full suggestion
+  //       return prevValue.replace(regex, suggestion);
+  //     });
+  //   } else {
+  //     // For Address search type, completely replace the input with the suggestion
+  //     setValue(suggestion);
+  //   }
 
-//   setShowSuggestions(false); // Hide suggestions after selection
-//   inputRef.current?.focus(); // Refocus input
-// };
+  //   setShowSuggestions(false); // Hide suggestions after selection
+  //   inputRef.current?.focus(); // Refocus input
+  // };
 
-// Utility function to escape special characters in the suggestion for use in regex
-function escapeRegExp(str: string) {
-  return str.replace(/[.*+?^=!:${}()|\[\]\/\\]/g, '\\$&'); // Escape special regex characters
-}
+  // Utility function to escape special characters in the suggestion for use in regex
+  function escapeRegExp(str: string) {
+    return str.replace(/[.*+?^=!:${}()|\[\]\/\\]/g, '\\$&'); // Escape special regex characters
+  }
 
-  
 
-  
+
+
   return (
     <div className={cn('relative w-full', className)}>
-      <div className="flex h-12 w-full items-center  rounded-md bg-transparent ">
+      <div className="flex h-12 w-full items-center rounded-md bg-transparent">
         <Input
           ref={inputRef}
           placeholder={displayPlaceholder}
@@ -168,24 +170,32 @@ function escapeRegExp(str: string) {
           autoCorrect="on"
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          className={cn('w-full px-2 border-none outline-none',inputClassName)}
+          onFocus={onFocus}
+          onBlur={onBlur}
+          className={cn('w-full px-2 border-none outline-none', inputClassName)}
         />
-      </div> 
+      </div>
 
       {/* Autocomplete Dropdown */}
       {showSuggestions && suggestions.length > 0 && (
-        <ul className="absolute z-[9999] top-full left-0 right-0 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-gray-300 bg-white shadow-xl">
+        <ul className="absolute z-[99999] top-full left-0 right-0 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-2xl ring-1 ring-black/5">
           {suggestions.map((city, index) => (
             <li
               key={index}
               className={cn(
-                'cursor-pointer text-left text-sm px-4 py-2 hover:bg-gray-100 transition-colors',
-                selectedIndex === index && 'bg-blue-100'
+                'cursor-pointer text-left text-sm px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0',
+                selectedIndex === index && 'bg-blue-50 text-blue-700'
               )}
               onClick={() => handleSuggestionClick(city)}
               onMouseEnter={() => setSelectedIndex(index)}
             >
-              {city}
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span className="truncate">{city}</span>
+              </div>
             </li>
           ))}
         </ul>

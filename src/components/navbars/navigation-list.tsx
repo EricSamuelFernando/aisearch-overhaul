@@ -30,12 +30,15 @@ export function NavigationList({ dark = false }: any) {
               <div className='flex flex-col space-y-4 pr-8'>
                 <h4 className={headingClass}>Buy a Home With</h4>
                 <div className='flex flex-col space-y-3'>
-                  <Link href='/login' className='hover:text-primary hover:underline'>
-                    Your Agent
+                  <Link href='/home?q=California' className='hover:text-primary hover:underline'>
+                    Homes in California
                   </Link>
-                  <Link href='/login' className='hover:text-primary hover:underline'>
+                  <Link href='/home?q=Texas' className='hover:text-primary hover:underline'>
+                    Homes in Texas
+                  </Link>
+                 {/* <Link href='/login' className='hover:text-primary hover:underline'>
                     Our Real Estate Agents
-                  </Link>
+                  </Link>*/}
                 </div>
               </div>
               <div className='flex flex-col space-y-4 pl-8'>
@@ -44,12 +47,9 @@ export function NavigationList({ dark = false }: any) {
                   <Link href='/home#how-it-works' className='hover:text-primary hover:underline'>
                     How it Works
                   </Link>
-                  <Link href='/home#strength-analyzer' className='hover:text-primary hover:underline'>
+                  {/*<Link href='/home#strength-analyzer' className='hover:text-primary hover:underline'>
                     Offer Strength Analyzer
-                  </Link>
-                  <Link href='/home#testimonials' className='hover:text-primary hover:underline'>
-                    Testimonials
-                  </Link>
+                  </Link>*/}
                 </div>
               </div>
             </div>
@@ -70,9 +70,9 @@ export function NavigationList({ dark = false }: any) {
                   <Link href='/login' className='hover:text-primary hover:underline'>
                     With an Agent
                   </Link>
-                  <Link href='/login' className='hover:text-primary hover:underline'>
+                 {/* <Link href='/login' className='hover:text-primary hover:underline'>
                     Our Real Estate Agents
-                  </Link>
+                  </Link>*/}
                 </div>
               </div>
               <div className='flex flex-col space-y-4 pl-8'>
@@ -81,9 +81,9 @@ export function NavigationList({ dark = false }: any) {
                   <Link href='/sell#how-it-works' className='hover:text-primary hover:underline'>
                     How it Works
                   </Link>
-                  <Link href='/sell#home-estimator' className='hover:text-primary hover:underline'>
+                 {/* <Link href='/sell#home-estimator' className='hover:text-primary hover:underline'>
                     Home Estimator
-                  </Link>
+                  </Link>*/}
                   <Link href='/sell#testimonials' className='hover:text-primary hover:underline'>
                     Testimonials
                   </Link>

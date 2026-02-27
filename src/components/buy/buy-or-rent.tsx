@@ -2,7 +2,7 @@ import Image from 'next/image';
 
 export default function BuyOrRent() {
   return (
-    <section className='flex w-full flex-col items-center gap-12 bg-[#FFF6EC] px-6 py-20 text-[#1b120d] md:px-12 lg:px-24'>
+    <section className='flex w-full h-full flex-col items-center justify-center gap-12 bg-[#FFF6EC] px-6 text-[#1b120d] md:px-12 lg:px-24'>
       {/* Heading */}
       <div className='max-w-2xl text-center'>
         <h1 className='text-3xl font-semibold leading-tight text-[#2C1F18] sm:text-4xl md:text-5xl'>
@@ -52,7 +52,7 @@ export default function BuyOrRent() {
       {/* Feature Grid */}
       <div className='grid w-full max-w-3xl grid-cols-1 gap-6 sm:grid-cols-2'>
         {/* Card 1 */}
-        <div className='flex items-start gap-4 rounded-xl bg-[#f1dfc8] p-6 shadow'>
+        <div className='flex items-center gap-4 rounded-xl bg-[#f1dfc8] p-6 shadow'>
           <div className='relative h-14 w-14'>
             <Image
               src='/assets/images/buy_or_rent_icons/icon1.svg'
@@ -67,7 +67,7 @@ export default function BuyOrRent() {
         </div>
 
         {/* Card 2 */}
-        <div className='flex items-start gap-4 rounded-xl bg-[#f1dfc8] p-6 shadow'>
+        <div className='flex items-center gap-4 rounded-xl bg-[#f1dfc8] p-6 shadow'>
           <div className='relative h-14 w-14'>
             <Image
               src='/assets/images/buy_or_rent_icons/icon2.svg'
@@ -82,7 +82,7 @@ export default function BuyOrRent() {
         </div>
 
         {/* Card 3 */}
-        <div className='flex items-start gap-4 rounded-xl bg-[#f1dfc8] p-6 shadow'>
+        <div className='flex items-center gap-4 rounded-xl bg-[#f1dfc8] p-6 shadow'>
           <div className='relative h-14 w-14'>
             <Image
               src='/assets/images/buy_or_rent_icons/icon3.svg'
@@ -97,7 +97,7 @@ export default function BuyOrRent() {
         </div>
 
         {/* Card 4 */}
-        <div className='flex items-start gap-4 rounded-xl bg-[#f1dfc8] p-6 shadow'>
+        <div className='flex items-center gap-4 rounded-xl bg-[#f1dfc8] p-6 shadow'>
           <div className='relative h-14 w-14'>
             <Image
               src='/assets/images/buy_or_rent_icons/icon4.svg'

@@ -66,13 +66,13 @@ function usePropertyTour() {
 
 
   const addPropertyTour = useMutation({
-  mutationKey: ['add-property-tour'],
-  mutationFn: async (tourInput: any) => {
-    try {
-      console.log("Sending tourInput:", tourInput);
+    mutationKey: ['add-property-tour'],
+    mutationFn: async (tourInput: any) => {
+      try {
+        console.log("Sending tourInput:", tourInput);
 
-      const response = await axios.post(GRAPHQL_URI, {
-        query: `
+        const response = await axios.post(GRAPHQL_URI, {
+          query: `
           mutation addPropertyTour(
             $tourInput: CreatePropertyTourInput!
             $sellerId: String
@@ -99,86 +99,86 @@ function usePropertyTour() {
             }
           }
         `,
-        variables: {
-          tourInput: {
-            ...tourInput,
+          variables: {
+            tourInput: {
+              ...tourInput,
+            },
+            sellerId: tourInput.sellerId || null,
+            sellerAgentId: tourInput.sellerAgentId || null,
+            buyerId: tourInput.buyerId || null
           },
-          sellerId: tourInput.sellerId || null,        
-          sellerAgentId: tourInput.sellerAgentId || null,
-          buyerId:tourInput.buyerId || null
-        },
-      });
+        });
 
-      if (response.status !== 200) {
-        throw new Error(
-          response?.data?.errors?.[0]?.message ||
+        if (response.status !== 200) {
+          throw new Error(
+            response?.data?.errors?.[0]?.message ||
             'Failed to add property tour'
-        );
+          );
+        }
+
+        console.log("Response:", response.data);
+
+        success({ message: "The tour request has been successfully created" });
+        dispatch(addPropertyTourVisit(tourInput));
+
+        return response.data.data.addPropertyTour;
+      } catch (err: any) {
+        console.error("Error:", err?.message);
+        error({ message: err?.message });
+        throw err;
       }
+    },
+  });
 
-      console.log("Response:", response.data);
+  //   const addPropertyTour = useMutation({
+  //     mutationKey: ['add-property-tour'],
+  //     mutationFn: async (tourInput: any) => {
+  //       try {
+  //         console.log(tourInput)
+  //         const response = await axios.post(
+  //           GRAPHQL_URI,
+  //           {
+  //             query: `
+  //                   mutation addPropertyTour($input: CreatePropertyTourInput!) {
+  //   addPropertyTour(tourInput: $input) {
+  //     id
+  //     fullName
+  //     phoneNumber
+  //     createdAt
+  //     updatedAt
+  //     events {
+  //       id
+  //       eventDate
+  //       tourTime
+  //     }
+  //   }
+  // }
 
-      success({ message: "The tour request has been successfully created" });
-      dispatch(addPropertyTourVisit(tourInput));
+  //                   `,
+  //             variables: {
+  //               input:
+  //               {
+  //                 ...tourInput
+  //               }
+  //             },
+  //           },
+  //         );
+  //         // Check if the response is successful
+  //         if (response.status !== 200) {
+  //           throw new Error(response?.data?.errors?.[0]?.message || 'Failed to add property tour');
+  //         }
+  //         console.log(response)
 
-      return response.data.data.addPropertyTour;
-    } catch (err: any) {
-      console.error("Error:", err?.message);
-      error({ message: err?.message });
-      throw err;
-    }
-  },
-});
-
-//   const addPropertyTour = useMutation({
-//     mutationKey: ['add-property-tour'],
-//     mutationFn: async (tourInput: any) => {
-//       try {
-//         console.log(tourInput)
-//         const response = await axios.post(
-//           GRAPHQL_URI,
-//           {
-//             query: `
-//                   mutation addPropertyTour($input: CreatePropertyTourInput!) {
-//   addPropertyTour(tourInput: $input) {
-//     id
-//     fullName
-//     phoneNumber
-//     createdAt
-//     updatedAt
-//     events {
-//       id
-//       eventDate
-//       tourTime
-//     }
-//   }
-// }
-
-//                   `,
-//             variables: {
-//               input:
-//               {
-//                 ...tourInput
-//               }
-//             },
-//           },
-//         );
-//         // Check if the response is successful
-//         if (response.status !== 200) {
-//           throw new Error(response?.data?.errors?.[0]?.message || 'Failed to add property tour');
-//         }
-//         console.log(response)
-
-//         success({ message: "The tour request has been successfully created" })
-//         dispatch(addPropertyTourVisit(tourInput))
-//         return response.data.data.addPropertyTour;  // Correctly reference the mutation result
-//       } catch (err: any) {
-//         console.log(err?.message)
-//         error({ message: err?.message })
-//         throw err;  // Re-throw error for handling in onError
-//       }
-//     }
-//   });
+  //         success({ message: "The tour request has been successfully created" })
+  //         dispatch(addPropertyTourVisit(tourInput))
+  //         return response.data.data.addPropertyTour;  // Correctly reference the mutation result
+  //       } catch (err: any) {
+  //         console.log(err?.message)
+  //         error({ message: err?.message })
+  //         throw err;  // Re-throw error for handling in onError
+  //       }
+  //     }
+  //   });
 
   const removePropertyTour = useMutation({
     mutationKey: ['remove-property-tour'],
@@ -377,6 +377,7 @@ export const useGetLatestFieldsAnswer = (userId?: string, propertyId?: string) =
 
 
 export default usePropertyTour
+
 
 
 

@@ -84,7 +84,7 @@ const AgentsWeMakeItEasy = () => {
       </div>
 
       {/* Content Section */}
-          <div className='w-full bg-[#FAF9F5] overflow-x-auto px-16 '>
+      <div className='w-full bg-[#FAF9F5] overflow-x-auto px-16 '>
         {sections[activeSection].component}
       </div>
 

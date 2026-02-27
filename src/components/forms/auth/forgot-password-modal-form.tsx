@@ -5,9 +5,10 @@ import CustomInput from '@/components/customs/input';
 import { Button } from '@/components/ui/button';
 import { ButtonLoader } from '@/components/loader';
 import { useMutation } from '@tanstack/react-query';
-import axios from 'axios';
 import { error, success } from '@/components/alert/notify';
 import { cn } from '@/lib/utils';
+import CognitoAuth from '@/lib/cognito';
+import { useRouter } from 'next/navigation';
 
 interface ForgotPasswordModalFormProps {
   onEmailSubmit: (email: string) => void;
@@ -15,6 +16,7 @@ interface ForgotPasswordModalFormProps {
 }
 
 export const ForgotPasswordModalForm = ({ onEmailSubmit, onBack }: ForgotPasswordModalFormProps) => {
+  const router = useRouter();
   const form = useForm({
     initialValues: {
       email: '',
@@ -24,28 +26,17 @@ export const ForgotPasswordModalForm = ({ onEmailSubmit, onBack }: ForgotPasswor
     },
   });
 
-  const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql";
-
   const forgotPasswordMutation = useMutation({
     mutationKey: ['forgot-password'],
     mutationFn: async (email: string) => {
-      const response = await axios.post(GRAPHQL_URI, {
-        query: `
-            mutation ForgotPassword($email: String!) {
-              forgotPassword(email: $email)
-            }
-          `,
-        variables: { email },
-      });
-
-      if (response.data?.errors) {
-        throw new Error(response.data.errors[0]?.message || 'Failed to send password reset code');
-      }
-
-      return { message: response.data?.data?.forgotPassword, email };
+      await CognitoAuth.forgotPassword(email);
+      return { message: 'Password reset code sent to your email.', email };
     },
     onSuccess: (data) => {
-      success({ message: data?.message || 'Password reset code sent to your email.' });
+      success({
+        message: 'Reset password email sent',
+        subtitle: 'Reset email sent. Go catch it before it buries itself.',
+      });
       // Store email in localStorage for the next step
       if (data?.email) {
         localStorage.setItem('forgotPasswordEmail', data.email);
@@ -60,6 +51,11 @@ export const ForgotPasswordModalForm = ({ onEmailSubmit, onBack }: ForgotPasswor
 
   const handleSubmit = (values: { email: string }) => {
     forgotPasswordMutation.mutate(values.email);
+  };
+
+  const handleBackToLogin = () => {
+    onBack();
+    router.push('/home?auth=login');
   };
 
   return (
@@ -94,7 +90,7 @@ export const ForgotPasswordModalForm = ({ onEmailSubmit, onBack }: ForgotPasswor
         <section className='flex w-full items-center justify-between'>
           <button
             type='button'
-            onClick={onBack}
+            onClick={handleBackToLogin}
             className='text-sm font-medium text-primary-main cursor-pointer'
           >
             Back to Login

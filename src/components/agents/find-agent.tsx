@@ -5,9 +5,61 @@ import { Input } from '../ui/input';
 import { FormEventHandler, useEffect, useState } from 'react';
 import { useDebounce } from '@/hooks/utils/useDebounce';
 import { useForm } from 'react-hook-form';
-import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
 import { Loader2 } from 'lucide-react'; // Spinner icon
 import { useRouter } from 'next/navigation';
+
+const GRAPHQL_URI =
+  process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
+  'http://localhost:4000/auth/graphql';
+
+async function fetchAgents() {
+  const response = await fetch(GRAPHQL_URI, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apollo-require-preflight': 'true',
+    },
+    body: JSON.stringify({
+      query: `
+        query ExternalAgents($limit: Int, $offset: Int) {
+          externalAgents(limit: $limit, offset: $offset) {
+            data {
+              id
+              full_name
+              email
+              phone
+              brokerage
+              locationRaw
+              profile_image_url
+              avgRating
+              avgRatingForCustomerDisplay
+              homesSoldLastYear
+            }
+          }
+        }
+      `,
+      variables: {
+        limit: 100,
+        offset: 0,
+      },
+    }),
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const json = await response.json();
+  const data = json?.data?.externalAgents?.data || [];
+  return data.map((agent: any) => ({
+    ...agent,
+    Name: agent.full_name || '',
+    agentEmail: agent.email || undefined,
+    Location: agent.locationRaw || undefined,
+    Brokerage: agent.brokerage || undefined,
+  }));
+}
 
 const FindAgent = () => {
   const { register, watch } = useForm<{ search: string }>();
@@ -15,25 +67,22 @@ const FindAgent = () => {
   const debouncedSearch = useDebounce(searchValue, 500);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<any[]>([]);
-  const { searchAllAgents } = useUserAuthApi();
   const router = useRouter()
   const handleSearch = async (value: string) => {
     try {
       setLoading(true);
       setResults([]);
-      searchAllAgents.mutateAsync(
-        { search: value, offset: 0, limit: 10 },
-        {
-          onSuccess: (response) => {
-            setLoading(false);
-            setResults(response?.data?.searchAllAgents || []);
-          },
-          onError: (err: any) => {
-            setLoading(false);
-            console.error(err);
-          },
-        }
-      );
+      // const res = await fetch(`/api/agents?q=${encodeURIComponent(value)}`);
+      // if (!res.ok) {
+      //   setLoading(false);
+      //   setResults([]);
+      //   return;
+      // }
+      // const data = await res.json();
+      const data = await fetchAgents()
+      console.log(data)
+      setResults(Array.isArray(data) ? data.slice(0, 10) : []);
+      setLoading(false);
     } catch (err) {
       setLoading(false);
       console.error('Search failed:', err);
@@ -50,7 +99,7 @@ const FindAgent = () => {
     <section className="bg-[#FFF6EC] px-4 py-8 sm:py-16 lg:py-20 flex flex-col items-center">
       <p className="max-w-lg text-center text-sm text-gray-700 mb-8">
         Start your journey with the right guide — explore our trusted directory of experienced agents
-        or invite someone you already trust to through walk the process with you.
+        or invite someone you already trust to walk the process with you.
       </p>
 
       <div className="relative max-w-md w-full border border-[#E0D8C7] rounded-2xl p-8">
@@ -78,15 +127,16 @@ const FindAgent = () => {
           ) : results?.length > 0 ? (
             results.map((agent, idx) => (
               <div key={idx} className="border cursor-pointer rounded-md p-3 bg-white shadow-sm"
-                onClick={()=>{
-                  localStorage.setItem('agent',JSON.stringify(agent));
+                onClick={() => {
                   router.push(`/agents/${agent?.id}`)
                 }}
               >
                 <p className="font-medium">
-                  {agent.firstName} {agent.lastName}
+                  {agent.Name || `${agent.firstName || ''} ${agent.lastName || ''}`.trim()}
                 </p>
-                <p className="text-sm text-muted-foreground">{agent.email}</p>
+                <p className="text-sm text-muted-foreground">
+                  {agent.agentEmail || agent.email}
+                </p>
               </div>
             ))
           ) : (

@@ -36,15 +36,21 @@ const schema = z.object({
 
 export default function RegisterModal({
   handleStage,
+  presetUserType,
+  startAt,
 }: {
   handleStage: () => void;
+  presetUserType?: UserType;
+  startAt?: 'account-selection' | 'send-code';
 }) {
   const [view, setView] = useState<'account-selection' | 'send-code'>(
-    'account-selection',
+    startAt ?? 'account-selection',
   );
-  const [activeUserType, setActiveUserType] = useState<UserType | null>(null);
+  const [activeUserType, setActiveUserType] = useState<UserType | null>(
+    presetUserType ?? null,
+  );
   const { selectAccountType } = useRegisterActions();
-  const [isLoading , setLoading] = useState(false)
+  const [isLoading, setLoading] = useState(false)
   const dispatch = useAppDispatch();
   const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql"
   const { sendCodeMutation } = useUserAuthApi();
@@ -61,6 +67,17 @@ export default function RegisterModal({
       sendCodeMutation.reset();
     }
   }, [view, sendCodeMutation]);
+
+  useEffect(() => {
+    if (!presetUserType) return;
+    storeCookie({ key: USER_ROLE, value: presetUserType });
+    setActiveUserType(presetUserType);
+    dispatch(updateUserType({ userType: presetUserType }));
+    selectAccountType(presetUserType);
+    if (startAt) {
+      setView(startAt);
+    }
+  }, [presetUserType, startAt, dispatch, selectAccountType]);
 
   const handleCardClick = useCallback(
     (userType: UserType) => {
@@ -115,7 +132,7 @@ export default function RegisterModal({
       .post(
         GRAPHQL_URI,
         JSON.stringify({
-          query: `mutation { sendVerification(sendVerificationInput: { accountType: ${activeUserType?.toUpperCase()}, email: "${values.email}" }) }`,
+          query: `mutation { sendVerification(sendVerificationInput: { accountType: ${activeUserType?.toUpperCase()}, email: "${values.email}" }) { message isVerified hasPassword } }`,
         }),
         {
           headers: {
@@ -129,19 +146,25 @@ export default function RegisterModal({
         if (res?.data?.errors && res.data.errors.length > 0) {
           const errorMessage = res.data.errors[0]?.message || 'An error occurred';
           // Check if it's a user already exists error
-          if (errorMessage.toLowerCase().includes('already exists') || 
-              errorMessage.toLowerCase().includes('user with email')) {
-            error({ message: 'User already exists. Please login instead.' });
+          if (errorMessage.toLowerCase().includes('already exists') ||
+            errorMessage.toLowerCase().includes('user with email')) {
+            error({
+              message: 'Email Already Exists',
+              subtitle: 'Log in instead or use a different email.',
+            });
           } else {
             error({ message: errorMessage });
           }
           return;
         }
-        
+
         // Check for successful response
-        if (res?.data?.data?.sendVerification === 'Email sent successfully') {
+        if (res?.data?.data?.sendVerification?.message === 'Email sent successfully') {
           setAgentEmail(values.email);
-          success({ message: res?.data?.data?.sendVerification });
+          success({
+            message: 'Otp sent succesfully',
+            subtitle: 'Few More Steps TO Secure Your Home',
+          });
           router.push('/verify-email');
         } else {
           error({ message: 'An unexpected error occurred. Please try again.' });
@@ -150,15 +173,18 @@ export default function RegisterModal({
       .catch((err) => {
         setLoading(false)
         // Handle axios errors
-        const errorMessage = err?.response?.data?.errors?.[0]?.message || 
-                           err?.response?.data?.message || 
-                           err?.message || 
-                           'An error occurred. Please try again.';
-        
+        const errorMessage = err?.response?.data?.errors?.[0]?.message ||
+          err?.response?.data?.message ||
+          err?.message ||
+          'An error occurred. Please try again.';
+
         // Check if it's a user already exists error
-        if (errorMessage.toLowerCase().includes('already exists') || 
-            errorMessage.toLowerCase().includes('user with email')) {
-          error({ message: 'User already exists. Please login instead.' });
+        if (errorMessage.toLowerCase().includes('already exists') ||
+          errorMessage.toLowerCase().includes('user with email')) {
+          error({
+            message: 'Email Already Exists',
+            subtitle: 'Log in instead or use a different email.',
+          });
         } else {
           error({ message: errorMessage });
         }
@@ -277,4 +303,5 @@ export default function RegisterModal({
     </div>
   );
 }
+
 

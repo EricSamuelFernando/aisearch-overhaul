@@ -5,6 +5,7 @@ import axios from 'axios';
 import Link from 'next/link';
 import { Bell, Loader2, Paperclip, X } from 'lucide-react';
 
+
 import { useGetConnectedAgents } from '@/hooks/api/messages/useGetConnectedAgents';
 import { useGetAgentPropertyMessages } from '@/hooks/api/messages/useGetAgentPropertyMessages';
 import client, { pickErrorMessage, pickResult } from '@/lib/client';
@@ -68,6 +69,7 @@ export default function MessageTab() {
     }
   }, [activeAgent, activeProperty, refetchMessages]);
 
+
   // Callbacks
   const handleCreatePropertyAgentMessage = useCallback(() => {
     if (activeAgent?._id && activeProperty?._id) {
@@ -100,6 +102,7 @@ export default function MessageTab() {
     [],
   );
 
+  
   const removeFile = useCallback((index: number) => {
     setSelectedFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
   }, []);

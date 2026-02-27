@@ -10,6 +10,7 @@ export const API_APP_ID = '';
 
 export const IDENTITY_GATEWAY = '/login';
 export const AUTH_TOKEN = '__WEB_APP_Ocreal345####btny_ocreal';
+export const REFRESH_TOKEN = '__WEB_APP_Ocreal345####refresh_token'; // Added
 export const USER_ROLE = '__WEB_APP_Ocreal345####user_role';
 export const AUTH_APP_STATE = ``;
 export const SECURE_LOGIN_KEY = '__WEB_APP_Ocreal345####btny_yut';
@@ -52,6 +53,7 @@ export const MORTGAGE_APPLICATION_URL = process.env.NEXT_PUBLIC_MORTGAGE_FRONTEN
 
 export const AI_BACKEND_BASE_URI = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI
 
+// export const PROPERTY_SEARCH_AI_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/search` || "http://13.60.114.186:9000/api/search";
 export const PROPERTY_SEARCH_AI_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/search` || "http://13.60.114.186:9000/api/search";
 
 export const PROPERTY_DETAIL_SEARCH_AI_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/get_data` || 'http://13.60.114.186:9000/api/get_data'
@@ -76,6 +78,7 @@ export const mlsDeploymentEnv = process.env.NEXT_PUBLIC_MLS_ENVIROMENT_URL || de
 export const publicDomain = process.env.NEXT_PUBLIC_DOMAIN;
 export const googleMapsUrl = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_URL;
 export const googleMapsApiKey = process.env.NEXT_PUBLIC_MAP_KEY || "AIzaSyAD1nloXcpFm5mvgyRdvgwFFpin7dEwwwc";
+export const googleMapsMapId = process.env.NEXT_PUBLIC_GOOGLE_MAP_ID || "7358af43a0d0de0eddbece56";
 
 export const awsAccessKey = process.env.NEXT_PUBLIC_ACCESS_AWS_KEY!;
 export const awsSecretKey = process.env.NEXT_PUBLIC_SECRET_AWS__ACCESS_KEY!;

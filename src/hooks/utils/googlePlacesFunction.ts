@@ -25,12 +25,12 @@ export const fetchPlaceSuggestions = (() => {
           types: ['address'], // changed from ['(cities)'] to 'address'
           componentRestrictions: { country: 'us' },
         },
-        (predictions, status) => {
+        (predictions: any, status: any) => {
           if (
             status === window.google.maps.places.PlacesServiceStatus.OK &&
             predictions
           ) {
-            callback(predictions.map((p) => p.description));
+            callback(predictions.map((p: any) => p.description));
           } else {
             callback([]);
           }

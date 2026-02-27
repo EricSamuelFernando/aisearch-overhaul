@@ -792,6 +792,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
+import { Carousel } from '@mantine/carousel';
+
 import MainTestimonial from '../../../components/main-testimonial';
 import { ChooseYourMeans } from '@/components/buy/choose-your-means';
 import { HeroSearchForm } from '@/components/main/hero-tab';
@@ -849,6 +851,21 @@ const questions = [
     importantNotes: "The current status of the property you are looking for.",
     type: "text",
     answer: "",
+  },
+];
+
+const HOME_PAGE_TESTIMONIALS = [
+  {
+    name: 'MILTON AUSTIN',
+    title: 'First-time Buyer Specialist, San Diego',
+    text: 'Snaphomz cuts the time I spend on offers and disclosures each week. The workflows keep everything organized so I can focus on advising clients instead of chasing paperwork.',
+    img: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=2080&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+  },
+  {
+    name: 'ALEX RICHARD',
+    title: 'Broker Associate, Austin',
+    text: 'The analytics and AI summaries give me clear talking points for every client meeting. I walk in prepared, and my clients feel confident in each decision we make together.',
+    img: 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?q=80&w=2080&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
   },
 ];
 
@@ -1058,8 +1075,13 @@ const questions = [
 export default function Home() {
   const [isOpen, setIsOpen] = useState(false);
   const [searchMethod, setSearchMethod] = useState('');
+  const [isHomeSearchActive, setIsHomeSearchActive] = useState(false);
   const dispatch = useAppDispatch();
   const { email } = useRegister();
+  const [carouselEmbla, setCarouselEmbla] = useState<any>(null);
+  const autoplayRef = useRef<NodeJS.Timeout | null>(null);
+  const resumeRef = useRef<NodeJS.Timeout | null>(null);
+  const AUTOPLAY_DELAY = 4000;
 
   const { tempUserId } = useAppSelector(
     (state: RootState) => state.propertyPreference
@@ -1077,12 +1099,57 @@ export default function Home() {
     dispatch(initializeTempUserId());
   }, [dispatch]);
 
+  useEffect(() => {
+    if (!carouselEmbla) return;
+
+    const startAutoplay = () => {
+      if (autoplayRef.current) clearInterval(autoplayRef.current);
+      autoplayRef.current = setInterval(() => {
+        carouselEmbla.scrollNext();
+      }, AUTOPLAY_DELAY);
+    };
+
+    const stopAutoplay = () => {
+      if (autoplayRef.current) {
+        clearInterval(autoplayRef.current);
+        autoplayRef.current = null;
+      }
+    };
+
+    const scheduleResume = () => {
+      if (resumeRef.current) clearTimeout(resumeRef.current);
+      resumeRef.current = setTimeout(() => {
+        startAutoplay();
+      }, AUTOPLAY_DELAY);
+    };
+
+    const handlePointerDown = () => {
+      stopAutoplay();
+      if (resumeRef.current) clearTimeout(resumeRef.current);
+    };
+
+    const handlePointerUp = () => {
+      scheduleResume();
+    };
+
+    startAutoplay();
+    carouselEmbla.on('pointerDown', handlePointerDown);
+    carouselEmbla.on('pointerUp', handlePointerUp);
+
+    return () => {
+      stopAutoplay();
+      if (resumeRef.current) clearTimeout(resumeRef.current);
+      carouselEmbla.off('pointerDown', handlePointerDown);
+      carouselEmbla.off('pointerUp', handlePointerUp);
+    };
+  }, [carouselEmbla]);
+
   // Individual image rotation function
   const getImageRotation = (angle: number) => {
     return angle > 180 && angle < 360 ? 'rotate(358deg)' : 'rotate(0deg)';
   };
 
-    const cardImages = [
+  const cardImages = [
     '/assets/images/home-landing8.png',
     '/assets/images/home-landing7.png',
     '/assets/images/home-landing6.png',
@@ -1104,10 +1171,10 @@ export default function Home() {
       <MainNavPages />
 
       {/* ================= HERO SECTION ================= */}
-      <section className="relative -mt-24 min-h-[80vh] overflow-hidden bg-[#170800] pt-28 text-white md:h-screen md:pt-24">
- <section className="flex h-full flex-col items-center justify-start px-4 pt-24 pb-16 text-center">
-
+      <section className="relative -mt-24 min-h-[80vh] bg-[#170800] pt-28 text-white md:h-[695px] md:min-h-[695px] md:max-h-[695px] md:pt-24">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {/* ================= DESKTOP ARC ================= */}
+
           <div className="hidden md:flex w-full justify-center items-center overflow-visible">
             <div className="absolute top-32 h-[850px] w-[1200px]">
               {/* Image 1 */}
@@ -1241,114 +1308,127 @@ export default function Home() {
 
               {/* Image 9 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
-                style={{ transform: `rotate(205.71deg) translateX(430px)` }}
+                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
+                style={{ transform: `rotate(205.71deg) translateX(430px)`, }}
               >
                 <Image
                   src="/assets/images/home-landing2.png"
                   alt="home-landing-9"
-                  width={120}
-                  height={120}
+                  fill
+                  sizes="150px"
                   unoptimized
-                  className="rounded-3xl w-full h-full"
-                  style={{ objectFit: 'contain', transform: 'rotate(531deg)' }}
+                  className="object-cover"
+                  style={{ transform: 'rotate(531deg) scale(1.096)', transformOrigin: '50% 50%' }}
                 />
               </div>
 
               {/* Image 10 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
+                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl relative"
                 style={{ transform: `rotate(231.43deg) translateX(430px)` }}
               >
+
                 <Image
+                  src="/assets/images/home-landing3.png"
+                  alt="home-landing-10"
+                  fill
+                  sizes="150px"
+                  unoptimized
+                  className="object-cover"
+                  style={{ transform: 'rotate(480deg) scale(1.25)', transformOrigin: '50% 50%' }}
+                />
+
+                {/* <Image
                   src="/assets/images/home-landing3.png"
                   alt="home-landing-10"
                   width={120}
                   height={120}
                   unoptimized
                   className="rounded-3xl w-full h-full"
-                  style={{ objectFit: 'contain', transform: getImageRotation(231.43) }}
-                />
+                  style={{ objectFit: 'contain', transform: 'rotate(458deg)' }}
+                  
+
+        
+                />*/}
               </div>
 
               {/* Image 11 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
+                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
                 style={{ transform: `rotate(257.14deg) translateX(430px)` }}
               >
                 <Image
                   src="/assets/images/home-landing4.png"
                   alt="home-landing-11"
-                  width={120}
-                  height={120}
+                  fill
+                  sizes="150px"
                   unoptimized
-                  className="rounded-3xl w-full h-full"
-                  style={{ objectFit: 'contain', transform: 'rotate(450deg)' }}
+                  className="object-cover"
+                  style={{ transform: 'rotate(465deg) scale(1.16)', transformOrigin: '50% 50%' }}
                 />
               </div>
 
               {/* Image 12 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
+                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
                 style={{ transform: `rotate(282.86deg) translateX(430px)` }}
               >
                 <Image
                   src="/assets/images/home-landing5.png"
                   alt="home-landing-12"
-                  width={120}
-                  height={120}
+                  fill
+                  sizes="150px"
                   unoptimized
-                  className="rounded-3xl w-full h-full"
-                  style={{ objectFit: 'contain', transform: 'rotate(450deg)' }}
+                  className="object-cover"
+                  style={{ transform: 'rotate(445deg) scale(1.055)', transformOrigin: '50% 50%' }}
                 />
               </div>
 
               {/* Image 13 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
+                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform transform overflow-hidden rounded-3xl"
                 style={{ transform: `rotate(308.57deg) translateX(430px)` }}
               >
                 <Image
                   src="/assets/images/home-landing6.png"
                   alt="home-landing-13"
-                  width={120}
-                  height={120}
+                  fill
+                  sizes="150px"
                   unoptimized
-                  className="rounded-3xl w-full h-full"
-                  style={{ objectFit: 'contain', transform: 'rotate(449deg)' }}
+                  className="object-cover"
+                  style={{ transform: 'rotate(414deg) scale(1.269)', transformOrigin: '50% 50%' }}
                 />
               </div>
 
               {/* Image 14 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
+                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
                 style={{ transform: `rotate(334.29deg) translateX(430px)` }}
               >
                 <Image
                   src="/assets/images/home-landing7.png"
                   alt="home-landing-14"
-                  width={120}
-                  height={120}
+                  fill
+                  sizes="150px"
                   unoptimized
-                  className="rounded-3xl w-full h-full"
-                  style={{ objectFit: 'contain', transform: getImageRotation(334.29) }}
+                  className="object-cover"
+                  style={{ transform: 'rotate(390deg) scale(1.247)', transformOrigin: '50% 50%' }}
                 />
               </div>
 
             </div>
           </div>
-
-                 {/* ================= MOBILE ARC ================= */}
+          {/* ================= MOBILE ARC ================= */}
           <div className="relative w-full md:hidden pointer-events-none">
-            <div className="absolute left-1/2 top-20 h-[220px] w-full max-w-[460px]
+            <div className="absolute left-1/2 top-52 h-[220px] w-full max-w-[460px]
                             -translate-x-1/2 overflow-visible">
               {[
-                { a: 175, r: 180, size: 75, idx: 0, rot: 18 },
-                { a: 211, r: 180, size: 75, idx: 1, rot: -55 },
-                { a: 247, r: 180, size: 75, idx: 2, rot: -20 },
-                { a: 285, r: 180, size: 75, idx: 3, rot: 18 },
-                { a: 324, r: 180, size: 75, idx: 4, rot: 55 },
-                { a: 363, r: 180, size: 75, idx: 5, rot: 85 },
+                { a: 175, r: 180, size: 95, idx: 0, rot: 18 },
+                { a: 211, r: 180, size: 95, idx: 1, rot: -55 },
+                { a: 247, r: 180, size: 95, idx: 2, rot: -20 },
+                { a: 285, r: 180, size: 95, idx: 3, rot: 18 },
+                { a: 324, r: 180, size: 95, idx: 4, rot: 55 },
+                { a: 363, r: 180, size: 95, idx: 5, rot: 85 },
               ].map((p, i) => (
                 <div
                   key={i}
@@ -1377,12 +1457,14 @@ export default function Home() {
               ))}
             </div>
 
-            {/* spacing so text never overlaps */}
-            <div className="h-36" />
           </div>
+        </div>
+
+
+        <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pt-24 pb-16 text-center">
 
           {/* ================= TEXT + SEARCH ================= */}
-          <div className="relative z-30 flex max-w-[900px] flex-col items-center gap-8 mt-24 md:mt-32">
+          <div className="relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-8 mt-24 md:mt-32">
 
             <h1 className="text-[2rem] font-medium leading-snug tracking-tight sm:text-[2.4rem] md:text-[3rem]">
               <span className="block">Buying a home</span>
@@ -1396,10 +1478,14 @@ export default function Home() {
               First end-to-end guided real estate platform
             </p>
 
-            <div className="relative w-full max-w-[600px] text-black">
-              <HeroSearchForm searchType={searchMethod} />
+            <div className="relative w-full flex justify-center text-black">
+              <div className="w-full max-w-[1500px]">
+                <HeroSearchForm
+                  onSearchStateChange={(isActive) => setIsHomeSearchActive(isActive)}
+                />
+              </div>
 
-              <div className="mt-4 flex justify-center gap-4 text-sm text-white">
+              {/* <div className="mt-4 flex justify-center gap-4 text-sm text-white">
                 <Radio
                   value="nlp"
                   label="Search by Location"
@@ -1414,12 +1500,14 @@ export default function Home() {
                   checked={searchMethod === 'address'}
                   onChange={() => setSearchMethod('address')}
                 />
-              </div>
+              </div> */}
             </div>
 
-            <div className="text-white text-[1rem]">
-              <span className="font-medium">Conversational search </span>
-              <span className="font-bold underline">Powered by AI</span>
+            <div
+              className={`text-[1rem] transition-colors ${isHomeSearchActive ? 'text-white md:text-[#2C211A]' : 'text-white'}`}
+            >
+              <span className="font-medium">Conversational search, </span>
+              <span className="font-bold underline">powered by AI.</span>
             </div>
           </div>
         </section>
@@ -1434,17 +1522,71 @@ export default function Home() {
         />
       </section>
 
+
       {/* ================= OTHER SECTIONS ================= */}
-      <ChooseYourMeans />
-      <WeMakeItEasy />
-      <GetReadyForCollege />
-      <FindPerfectMortgage />
-      <HomeDisclosure />
-      <BuyOrRent />
-      <OfferStrengthAnalyzer />
-      <OurClients bgColor='#FFF6EC' />
+      <div className="home-sections">
+        <ChooseYourMeans
+          heading="Choose how you buy"
+          subheading="Take control of your home purchase with guided transactions, approval workflows, and transparent tracking, no matter how you like to work."
+          yourAgentDescription="Bring the agent you already trust and manage everything together on Snaphomz."
+          ourAgentDescription="Match with a vetted local expert and handle your entire transaction in one place."
+          ctaLabel="Get started"
+        />
+        <WeMakeItEasy contentPreset="home" />
+        <section className="relative pt-8 md:pt-10">
+          <Carousel
+            className="home-carousel"
+            slideSize="100%"
+            slideGap="0"
+            align="start"
+            withControls
+            withIndicators={false}
+            loop
+            getEmblaApi={setCarouselEmbla}
+            styles={{
+              root: { width: '100%' },
+              viewport: { overflow: 'hidden' },
+              controls: {
+                top: '50%',
+                transform: 'translateY(-50%)',
+                left: 0,
+                right: 0,
+                padding: '0 12px',
+              },
+              control: { border: 0, background: 'none', boxShadow: 'none' },
+            }}
+          >
+            <Carousel.Slide>
+              <div className="h-[560px] flex items-center">
+                <GetReadyForCollege />
+              </div>
+            </Carousel.Slide>
+            <Carousel.Slide>
+              <div className="h-[560px] flex items-start pt-0">
+                <FindPerfectMortgage />
+              </div>
+            </Carousel.Slide>
+            <Carousel.Slide>
+              <div className="h-[560px] flex items-center">
+                <HomeDisclosure />
+              </div>
+            </Carousel.Slide>
+            <Carousel.Slide>
+              <div className="h-[560px] flex items-center">
+                <BuyOrRent />
+              </div>
+            </Carousel.Slide>
+          </Carousel>
+        </section>
+
+        {/* <OfferStrengthAnalyzer /> */}
+        <OurClients
+          bgColor="#FFF6EC"
+          subtitle="We value our agents' honest feedback on how Snaphomz supports their business."
+          testimonials={HOME_PAGE_TESTIMONIALS}
+        />
+      </div>
     </>
   );
 }
-
 

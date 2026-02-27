@@ -10,9 +10,16 @@ export interface MenuItem {
 interface MenuDropdownProps {
   buttonLabel: React.ReactNode;
   items: MenuItem[];
+  containerClassName?: string;
+  dropdownClassName?: string;
 }
 
-const MenuDropdown: React.FC<MenuDropdownProps> = ({ buttonLabel, items }) => {
+const MenuDropdown: React.FC<MenuDropdownProps> = ({
+  buttonLabel,
+  items,
+  containerClassName,
+  dropdownClassName,
+}) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const toggleMenu = () => {
@@ -24,13 +31,13 @@ const MenuDropdown: React.FC<MenuDropdownProps> = ({ buttonLabel, items }) => {
   });
 
   return (
-    <div className='relative z-50 inline-block text-left'>
+    <div className={`relative z-50 inline-block text-left ${containerClassName || ''}`}>
       <div onClick={toggleMenu}>{buttonLabel}</div>
 
       {isOpen && (
         <div
           ref={ref}
-          className='absolute right-0 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none'
+          className={`absolute right-0 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none ${dropdownClassName || ''}`}
         >
           {items.map((item, index) => (
             <button

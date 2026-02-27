@@ -430,9 +430,9 @@ function MakeOfferContent() {
 
 
   return (
-    <section className='relative  min-h-screen'>
-      <div className='my-8  grid gap-x-10 md:grid-cols-6'>
-        <div className='col-span-4'>
+    <section className='relative min-h-screen mx-0 sm:mx-0 sm:px-4 lg:px-8 max-w-full overflow-x-hidden'>
+      <div className='my-2 sm:my-4 lg:my-8 grid gap-3 sm:gap-4 lg:gap-x-10 lg:grid-cols-6 w-full px-0 sm:px-4 lg:px-0'>
+        <div className='lg:col-span-4 min-w-0 w-full order-2 lg:order-1'>
           <div>
             {/* <h2 className='text-2xl font-bold'>
               Drafting Offer :{' '}
@@ -441,13 +441,14 @@ function MakeOfferContent() {
                 ${property?.price?.amount?.toString()}
               </span>
             </h2> */}
-            <div className='my-8'>
-              <p className='py-4 font-bold'>Cover Letter</p>
-              <Editor
-
-                onChange={(val) => form.setFieldValue('coverLetter', val)}
-                value={form.values.coverLetter || ""}
-              />
+            <div className='my-1 sm:my-4 lg:my-8'>
+              <p className='py-0 sm:py-2 lg:py-4 font-bold text-sm sm:text-base mb-1'>Cover Letter</p>
+              <div className='w-full overflow-hidden'>
+                <Editor
+                  onChange={(val) => form.setFieldValue('coverLetter', val)}
+                  value={form.values.coverLetter || ""}
+                />
+              </div>
               {form.errors.coverLetter && (
                 <p className='mt-1 text-sm text-red-500'>
                   {form.errors.coverLetter}
@@ -458,12 +459,14 @@ function MakeOfferContent() {
 
           <SummarySection />
 
-          <div className='my-8'>
-            <p className='py-4 font-bold'>Special Terms</p>
-            <Editor
-              onChange={(val) => form.setFieldValue('specialTerms', val)}
-              value={form.values.specialTerms || ""}
-            />
+          <div className='my-1 sm:my-4 lg:my-8'>
+            <p className='py-0 sm:py-2 lg:py-4 font-bold text-sm sm:text-base mb-1'>Special Terms</p>
+            <div className='w-full overflow-hidden'>
+              <Editor
+                onChange={(val) => form.setFieldValue('specialTerms', val)}
+                value={form.values.specialTerms || ""}
+              />
+            </div>
             {form.errors.specialTerms && (
               <p className='mt-1 text-sm text-red-500'>
                 {form.errors.specialTerms}
@@ -471,28 +474,24 @@ function MakeOfferContent() {
             )}
           </div>
 
-          <section className='my-10'>
-            <div className='py-8 text-black'>
-              <h2 className='font-bold'>Upload Document</h2>
-              <p className='text-sm text-grey-970'>
+          <section className='my-2 sm:my-6 lg:my-10'>
+            <div className='py-0 sm:py-4 lg:py-8 text-black'>
+              <h2 className='font-bold text-sm sm:text-base mb-0.5'>Upload Document</h2>
+              <p className='text-xs sm:text-sm text-grey-970'>
                 Optional ( As your agent will be required to upload before final
                 submission )
               </p>
             </div>
-
 
             <DocumentsUpload
               documents={documents}
               addFileToDocuments={addFileToDocuments}
             />
           </section>
-
-
-
-
         </div>
-        <div className="col-span-2">
-          <div className=" top-[calc(100vh-100px)] right-12">
+        
+        <div className="lg:col-span-2 order-1 lg:order-2 min-w-0 w-full mb-4 lg:mb-0">
+          <div className="w-full">
             <OfferBuyerCard
               loading={offerPending || isUploading}
               handleSubmit={handleSubmit}
@@ -945,23 +944,23 @@ export default MakeOfferContent;
 
 const MakePropertyLoader = () => {
   return (
-    <section className='grid grid-cols-6 gap-x-10 py-8'>
-      <div className='col-span-4'>
-        <Skeleton className='my-8 h-[125px]  w-full rounded-xl' />
-        <Skeleton className='my-8 h-[125px]  w-full rounded-xl' />
-        <Skeleton className='my-8 h-[125px]  w-full rounded-xl' />
-        <Skeleton className='my-8 h-[125px]  w-full rounded-xl' />
+    <section className='grid lg:grid-cols-6 gap-2 sm:gap-4 lg:gap-x-10 py-2 sm:py-4 lg:py-6 xl:py-8 px-2 sm:px-4 lg:px-6 xl:px-8'>
+      <div className='lg:col-span-4'>
+        <Skeleton className='my-2 sm:my-3 lg:my-4 xl:my-8 h-[60px] sm:h-[80px] lg:h-[100px] xl:h-[125px] w-full rounded-xl' />
+        <Skeleton className='my-2 sm:my-3 lg:my-4 xl:my-8 h-[60px] sm:h-[80px] lg:h-[100px] xl:h-[125px] w-full rounded-xl' />
+        <Skeleton className='my-2 sm:my-3 lg:my-4 xl:my-8 h-[60px] sm:h-[80px] lg:h-[100px] xl:h-[125px] w-full rounded-xl' />
+        <Skeleton className='my-2 sm:my-3 lg:my-4 xl:my-8 h-[60px] sm:h-[80px] lg:h-[100px] xl:h-[125px] w-full rounded-xl' />
       </div>
-      <div className='col-span-2'>
-        <div className='h-max w-[400px] rounded-3xl p-8'>
-          <div className='flex items-center space-x-4'>
-            <Skeleton className='h-20 w-20 rounded-full' />
-            <div className='space-y-2'>
-              <Skeleton className='h-4 w-[250px]' />
-              <Skeleton className='h-4 w-[200px]' />
+      <div className='lg:col-span-2'>
+        <div className='h-max w-full max-w-sm mx-auto lg:max-w-none lg:w-[400px] rounded-lg sm:rounded-xl lg:rounded-2xl xl:rounded-3xl p-2 sm:p-3 lg:p-4 xl:p-6'>
+          <div className='flex items-center space-x-2 sm:space-x-3 lg:space-x-4'>
+            <Skeleton className='h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14 xl:h-16 xl:w-16 rounded-full flex-shrink-0' />
+            <div className='space-y-1 sm:space-y-2 flex-1 min-w-0'>
+              <Skeleton className='h-2 sm:h-3 lg:h-4 w-full max-w-[150px] sm:max-w-[200px] lg:max-w-[250px]' />
+              <Skeleton className='h-2 sm:h-3 lg:h-4 w-full max-w-[120px] sm:max-w-[150px] lg:max-w-[200px]' />
             </div>
           </div>
-          <Skeleton className='my-8 h-[125px] w-[400px] rounded-xl' />
+          <Skeleton className='my-3 sm:my-4 lg:my-6 xl:my-8 h-[60px] sm:h-[80px] lg:h-[100px] xl:h-[125px] w-full rounded-xl' />
         </div>
       </div>
     </section>
@@ -992,20 +991,20 @@ const OfferBuyerCard = ({
   };
 
   return (
-    <aside className='h-max w-[400px] rounded-3xl bg-[#F7F2EB] p-8'>
-      <h3 className='font-bold'>Presented by</h3>
-      <div className='item-start mt-8 flex gap-x-6'>
-        <div className='flex h-[4.5rem] w-[4.5rem] uppercase font-bold items-center justify-center rounded-full bg-black text-2xl text-white'>
+    <aside className='h-max w-full mx-2 sm:mx-auto lg:mx-0 max-w-none sm:max-w-sm lg:max-w-none lg:w-[400px] rounded-lg sm:rounded-xl lg:rounded-2xl bg-[#F7F2EB] p-3 sm:p-4 lg:p-5 xl:p-6'>
+      <h3 className='font-bold text-sm sm:text-base lg:text-lg mb-2'>Presented by</h3>
+      <div className='item-start mt-2 sm:mt-3 lg:mt-4 flex gap-x-2 sm:gap-x-3 lg:gap-x-4'>
+        <div className='flex h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14 xl:h-16 xl:w-16 uppercase font-bold items-center justify-center rounded-full bg-black text-xs sm:text-sm lg:text-base xl:text-lg text-white flex-shrink-0'>
           <h3>{`${agent?.firstName?.charAt(0).toUpperCase()}${agent?.lastName?.charAt(0).toUpperCase()}` || `RS`}</h3>
         </div>
-        <div className='space-y-1'>
-          <p className='text-xl font-[600]'> {`${agent?.firstName?.charAt(0).toUpperCase() + agent?.firstName?.slice(1)} ${agent?.lastName?.charAt(0).toUpperCase() + agent?.lastName?.slice(1)}` || `Daniel Smith`}</p>
-          <p className='text-base font-[400]'>{agent?.email || `Daniel.smith@ocreal.com`}</p>
-          <p className='text-sm font-light'>{agent?.phone || `616 -2342-3245`}</p>
-          <p className='text-sm text-grey-990'>Licence# 2312324</p>
+        <div className='space-y-0.5 sm:space-y-1 min-w-0 flex-1'>
+          <p className='text-sm sm:text-base lg:text-lg font-[600] truncate leading-tight'> {`${agent?.firstName?.charAt(0).toUpperCase() + agent?.firstName?.slice(1)} ${agent?.lastName?.charAt(0).toUpperCase() + agent?.lastName?.slice(1)}` || `Daniel Smith`}</p>
+          <p className='text-xs sm:text-sm lg:text-base font-[400] truncate leading-tight'>{agent?.email || `Daniel.smith@ocreal.com`}</p>
+          <p className='text-xs sm:text-sm font-light leading-tight'>{agent?.phone || `616 -2342-3245`}</p>
+          <p className='text-xs sm:text-sm text-grey-990 leading-tight'>Licence# 2312324</p>
         </div>
       </div>
-      <div className='mt-10'>
+      <div className='mt-4 sm:mt-5 lg:mt-6'>
         {/* <div className='flex items-center space-x-2'>
           <Checkbox
             id='terms'
@@ -1026,9 +1025,9 @@ const OfferBuyerCard = ({
           </label>
         </div> */}
 
-        <div className='flex items-center gap-x-10 pt-8'>
+        <div className='flex flex-col sm:flex-row items-center gap-2 sm:gap-3 lg:gap-4 pt-2 sm:pt-3 lg:pt-4'>
           <Button
-            className='w-full flex-1  border border-black bg-transparent font-semibold hover:no-underline'
+            className='w-full flex-1 border border-black bg-transparent font-semibold hover:no-underline text-xs sm:text-sm h-8 sm:h-9 lg:h-10'
             roundness='full'
             variant={'link'}
           >
@@ -1036,12 +1035,14 @@ const OfferBuyerCard = ({
           </Button>
 
           <Button
-            className={cn('w-full flex-1 font-semibold')}
+            className={cn('w-full flex-1 font-semibold text-xs sm:text-sm h-8 sm:h-9 lg:h-10')}
             roundness='full'
             onClick={handleSubmit}
             disabled={loading || !agent}
           >
-            {loading && <Loader size={20} />}
+            {loading && <Loader size={14} className="sm:hidden" />}
+            {loading && <Loader size={16} className="hidden sm:block lg:hidden" />}
+            {loading && <Loader size={18} className="hidden lg:block" />}
             {label}
           </Button>
         </div>

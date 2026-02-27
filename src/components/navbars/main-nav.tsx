@@ -240,84 +240,85 @@ function MainNav() {
     <>
       <header
         ref={headerRef}
-        className={`fixed inset-x-0 top-0 z-50 flex w-full items-center justify-between px-4 transition-all duration-300
-    ${isScrolled ? "shadow-md py-2" : "py-4"}
-  bg-white flex-wrap md:flex-nowrap`}
+        className={`fixed inset-x-0 top-0 z-50 w-full bg-[#FAF9F5] transition-all duration-300 ${isScrolled ? "shadow-md py-3" : "py-4"}`}
       >
+        {/* Main Navigation Row */}
+        <div className="flex w-full items-center justify-between px-8 md:px-12">
+          {/* Logo + Navigation - Left Side */}
+          <div className="flex items-center gap-x-6">
+            {/* Logo */}
+            <Link href="/home" className="flex items-center">
+              <Image src="/assets/Logos/Snaphomz-Logo-Black (4).png"
+                height={54} width={170} alt="Snaphomz logo" className={`transition-all duration-300 ${isScrolled ? "h-[28px] w-[120px]" : "h-[54px] w-[170px]"}`} /> </Link>
 
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center">
+              <NavigationList />
+            </div>
+          </div>
 
-        <div className="hidden md:flex">
-          <NavigationList />
-        </div>
+          {/* Desktop Auth/User Section - Right Side */}
+          <div className="hidden md:flex items-center gap-x-4">
+            {isLoggedIn ? (
+              <>
+                <Link href='/dashboard' className='text-gray-600 hover:text-black font-normal text-sm'>
+                  Dashboard
+                </Link>
+                <AccountDropdown
+                  username={user?.fullname!}
+                  avatar={user?.profile || null}
+                  firstName={user?.firstname!}
+                  lastName={user?.lastname!}
+                />
+              </>
+            ) : (
+              <>
+                <LoginRegisterModal
+                  label='Login'
+                  initialStage={0}
+                  variant={"ghost"}
+                  className='font-normal text-gray-600 hover:text-black bg-transparent hover:bg-transparent text-sm px-0'
+                />
+                <LoginRegisterModal
+                  label='Get started'
+                  initialStage={1}
+                  variant={"default"}
+                  className='rounded-full px-5 py-2 font-normal bg-black text-white hover:bg-gray-800 transition-all duration-300 text-sm'
+                />
+              </>
+            )}
+          </div>
 
-        <Link
-          href="/home"
-          className="flex-1 flex justify-center md:absolute md:inset-y-0 md:left-1/2 md:transform md:-translate-x-1/2"
-        >
-          <Image
-            src="/assets/images/logo-01.svg"
-            height={59}
-            width={200}
-            alt="logo"
-          />
-        </Link>
-
-        <div className="hidden md:flex items-center gap-x-4">
-          {isLoggedIn ? (
-            <>
-              <Link href='/dashboard' className='text-black'>
+          {/* Mobile Auth/Menu Section - Right Side */}
+          <div className="md:hidden flex items-center gap-x-2">
+            {isLoggedIn ? (
+              <Link href='/dashboard' className='text-black text-sm font-medium hover:text-primary'>
                 Dashboard
               </Link>
-              <AccountDropdown
-                username={user?.fullname!}
-                avatar={user?.profile || null}
-                firstName={user?.firstname!}
-                lastName={user?.lastname!}
-              />
-            </>
-          ) : (
-            <>
-              <LoginRegisterModal
-                label='Login'
-                initialStage={0}
-                variant={"ghost"}
-                className='w-full font-bold'
-              />
-              <LoginRegisterModal
-                label='Get started'
-                initialStage={1}
-                variant={"ghost"}
-                className='w-full text-black bg-transparent border border-black rounded-full hover:bg-black hover:text-black transition-all duration-300'
-              />
-            </>
-          )}
-        </div>
-        <div className="md:hidden flex items-center gap-x-2 ml-auto">
-          {!isLoggedIn && (
-            <Button
-              className='px-3 py-2 font-bold text-sm'
-              type='submit'
-              roundness='full'
+            ) : (
+              <Button
+                className='px-3 py-2 font-bold text-sm'
+                type='submit'
+                roundness='full'
+              >
+                <Link href='/register'>Get Started</Link>
+              </Button>
+            )}
+            <button
+              className='cursor-pointer p-2 rounded-md hover:bg-gray-200 transition-colors'
+              onClick={openMobileMenu}
             >
-              <Link href='/register'>Get Started</Link>
-            </Button>
-          )}
-          <button
-            className='cursor-pointer p-2 rounded-md hover:bg-gray-200'
-            onClick={openMobileMenu}
-          >
-            <Menu className='text-black w-6 h-6' />
-          </button>
+              <Menu className='text-black w-6 h-6' />
+            </button>
+          </div>
         </div>
-
       </header>
 
-      <div style={{ paddingTop: isScrolled ? "60px" : "80px" }}></div>
+      <div className={`${isScrolled ? "pt-[70px] md:pt-[60px]" : "pt-[90px] md:pt-[80px]"}`}></div>
 
       <MobileSideDrawer
         closeDrawer={toggleClose}
         isDrawerOpen={openDialogs.isMobileDrawer}
-        handleMouseLeave={handleMouseLeave}
       />
     </>
   );

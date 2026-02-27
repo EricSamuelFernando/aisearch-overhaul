@@ -1,9 +1,9 @@
 'use client';
 
-import { error, success } from '@/components/alert/notify';
+import { error, info, success } from '@/components/alert/notify';
 import { getActiveUserRole, getAuthToken, storeCookie } from '@/lib/storage';
 
-import { AUTH_TOKEN, USER_ROLE } from '@/shared/constants/env';
+import { AUTH_TOKEN, REFRESH_TOKEN, USER_ROLE } from '@/shared/constants/env';
 import { useAuthActions } from '@/shared/hooks/useAuth';
 import {
   AGENT_LOGIN,
@@ -34,6 +34,7 @@ import {
   VerifyEmail,
 } from '@/intferfaces/form';
 import { handleAsync } from '@/lib/api/handleApiResponse';
+import { resetAuthExpired } from '@/lib/api/axios';
 import client from '@/lib/client';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useAuthModalActions } from '@/shared/hooks/useAuthModal';
@@ -46,7 +47,7 @@ import {
 import { AxiosResponse } from '@/types/axios.types';
 import { useAppDispatch, useAppSelector } from '@/lib/hook';
 import { savedSearchQuery, savedUserType } from '@/slices/onboarding/onboarding-selectors';
-import { updateSavedSearchQuery } from '@/slices/onboarding/onboarding-slice';
+import { resetOnboardingSlice, updateSavedSearchQuery } from '@/slices/onboarding/onboarding-slice';
 import axios from 'axios';
 import { update } from 'lodash';
 import { useCallback, useState } from 'react';
@@ -95,6 +96,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
               profile,
               accountType,
               access_token,
+              refresh_token,
               status,
               messageUnreadCount,
               conversationUnreadCount
@@ -105,13 +107,39 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       return {
         ...response.data,
         isBack: loginData.isBack,
-        isHome: loginData.isHome
+        isHome: loginData.isHome,
+        isFirstLogin: loginData.isFirstLogin,
       };
     },
 
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       if (!data?.data) {
-        error({ message: data?.errors?.[0]?.message });
+        const apiMessage = data?.errors?.[0]?.message || '';
+        // Friendly handling for empty password submissions
+        if (!variables?.password) {
+          error({
+            message: 'Please Enter Your Password',
+            subtitle: 'Password is required to sign in.',
+          });
+          return;
+        }
+        const normalized = apiMessage.toLowerCase();
+        if (normalized.includes('too many') || normalized.includes('rate limit') || normalized.includes('rate-limit') || normalized.includes('try again later') || normalized.includes('attempt')) {
+          error({
+            message: 'Too Many Attempts',
+            subtitle: 'Your keystrokes are faster than our limit. Try again in a bit.',
+          });
+          return;
+        }
+        if (normalized.includes('password')) {
+          error({
+            message: 'Wrong Password',
+            subtitle:
+              'That password does not match this account. Try again or reset your password.',
+          });
+          return;
+        }
+        error({ message: apiMessage });
         return;
       }
       const {
@@ -139,6 +167,10 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       // Save user details and access token in localStorage
       localStorage.setItem('userEmail', email);
       localStorage.setItem('userAccessToken', access_token); // Store access token in localStorage
+      if (data?.data?.userLogin?.refresh_token) {
+        localStorage.setItem('userRefreshToken', data.data.userLogin.refresh_token);
+        storeCookie({ key: REFRESH_TOKEN, value: data.data.userLogin.refresh_token });
+      }
       localStorage.setItem('userDetails', JSON.stringify(user)); // Optionally store entire user details
 
       if (conversationUnreadCount) {
@@ -148,6 +180,8 @@ export const useUserAuthApi = (handleCb?: () => void) => {
         manageConversationUnread(messageUnreadCount)
       }
       success({ message: "You have logged in successfully" });
+      // Reset the auth expired flag so API calls work again after re-login
+      resetAuthExpired();
       setAuthToken(access_token);
       login(user);
       setAuthToken(access_token);
@@ -182,9 +216,34 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       handleCb?.();
 
     },
-    onError: (err: any) => {
+    onError: (err: any, variables) => {
       console.log(err, 'line');
-      error({ message: err?.response?.data?.message });
+      // Friendly handling for missing password
+      if (!variables?.password) {
+        error({
+          message: 'Please Enter Your Password',
+          subtitle: 'Password is required to sign in.',
+        });
+        return;
+      }
+      const apiMessage = err?.response?.data?.message || err?.message || '';
+      const normalized = apiMessage.toLowerCase();
+      if (normalized.includes('too many') || normalized.includes('rate limit') || normalized.includes('rate-limit') || normalized.includes('try again later') || normalized.includes('attempt')) {
+        error({
+          message: 'Too Many Attempts',
+          subtitle: 'Your keystrokes are faster than our limit. Try again in a bit.',
+        });
+        return;
+      }
+      if (normalized.includes('password')) {
+        error({
+          message: 'Wrong Password',
+          subtitle:
+            'That password does not match this account. Try again or reset your password.',
+        });
+        return;
+      }
+      error({ message: apiMessage });
     },
   });
 
@@ -207,7 +266,10 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       return { message: response.data?.data?.forgotPassword, email };
     },
     onSuccess: (data) => {
-      success({ message: data?.message || 'Password reset code sent to your email.' });
+      success({
+        message: 'Reset password email sent',
+        subtitle: 'Reset email sent. Go catch it before it buries itself.',
+      });
       // Store email in localStorage for the next step
       if (data?.email) {
         localStorage.setItem('forgotPasswordEmail', data.email);
@@ -264,7 +326,22 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       router.push('/home');
     },
     onError: (err: any) => {
-      error({ message: err?.response?.data?.errors?.[0]?.message || err?.message || 'Failed to reset password' });
+      const apiMessage = err?.response?.data?.errors?.[0]?.message || err?.message || '';
+      const normalized = apiMessage.toLowerCase();
+      if (
+        normalized.includes('code') &&
+        (normalized.includes('invalid') ||
+          normalized.includes('mismatch') ||
+          normalized.includes('verification') ||
+          normalized.includes('otp'))
+      ) {
+        error({
+          message: 'Invalid code',
+          subtitle: 'Enter the latest code and try again.',
+        });
+        return;
+      }
+      error({ message: apiMessage || 'Failed to reset password' });
     },
   });
 
@@ -272,9 +349,13 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     mutationKey: ['onboarding-mutation'],
     mutationFn: async (data: OnboardingPayload) => {
       console.log(data)
-      const token = getAuthToken()
+      const token =
+        getAuthToken() ||
+        (typeof window !== 'undefined'
+          ? localStorage.getItem('userAccessToken')
+          : undefined);
       //console.log(Role)
-      return await axios.post(
+      const response = await axios.post(
         GRAPHQL_URI,
         {
           query: `mutation {
@@ -295,18 +376,25 @@ export const useUserAuthApi = (handleCb?: () => void) => {
         {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
         }
       );
+      if (response.data?.errors?.length) {
+        throw new Error(response.data.errors[0]?.message || 'Failed to complete signup');
+      }
+      return response;
     },
     onSuccess: (data) => {
-      if ((data as any).status === 200) {
-        success({ message: 'Registration completed successfully' });
+      if ((data as any)?.data?.data?.completeSignUp?.id) {
+        success({
+          message: 'Registration completed successfully',
+          subtitle: 'You’re all set! Let’s get started',
+        });
       }
     },
-    onError: (err) => {
-      error({ message: 'An Error  Occurred' });
+    onError: (err: any) => {
+      error({ message: err?.message || err?.response?.data?.errors?.[0]?.message || 'An error occurred' });
     },
   });
 
@@ -326,6 +414,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       if (data.status === 200) {
         const { user, token } = data?.data?.data;
         success({ message: data?.data?.message });
+        resetAuthExpired();
         setAuthToken(token);
         login(user);
         storeCookie({ key: AUTH_TOKEN, value: token });
@@ -336,7 +425,22 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       }
     },
     onError: (err: any) => {
-      error({ message: err?.response?.data?.message });
+      const apiMessage = err?.response?.data?.message || err?.message || '';
+      const normalized = apiMessage.toLowerCase();
+      if (
+        normalized.includes('code') &&
+        (normalized.includes('invalid') ||
+          normalized.includes('mismatch') ||
+          normalized.includes('verification') ||
+          normalized.includes('otp'))
+      ) {
+        error({
+          message: 'Invalid code',
+          subtitle: 'Enter the latest code and try again.',
+        });
+        return;
+      }
+      error({ message: apiMessage });
     },
   });
 
@@ -373,10 +477,38 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     },
     onSuccess: (data: any) => {
       if (data?.data?.errors?.length) {
-        error({ message: data?.data?.errors?.[0]?.message })
+        const apiMessage = data?.data?.errors?.[0]?.message || '';
+        const normalized = apiMessage.toLowerCase();
+        if (normalized.includes('too many') || normalized.includes('rate limit') || normalized.includes('rate-limit') || normalized.includes('try again later') || normalized.includes('attempt')) {
+          error({
+            message: 'Too Many Attempts',
+            subtitle: 'Your keystrokes are faster than our limit. Try again in a bit.',
+          });
+          return;
+        }
+        if (normalized.includes('expired')) {
+          info({
+            message: 'Otp Expired',
+            subtitle: 'This OTP has expired. Tap Resend to get a new one.',
+          });
+          return;
+        }
+        if (normalized.includes('otp') || normalized.includes('verification code') || normalized.includes('invalid')) {
+          error({
+            message: 'Invalid OTP',
+            subtitle:
+              'The code you entered is not correct. Try again or request a new code.',
+          });
+          return;
+        }
+        error({ message: apiMessage });
+        return;
       }
       if (data?.data?.data?.verifyOtp?.access_token) {
-        success({ message: 'Verification completed successfully' });
+        success({
+          message: 'Verification completed successfully',
+          subtitle: 'Getting started with your journey',
+        });
         localStorage.setItem('userAccessToken', data?.data?.data?.verifyOtp?.access_token);
         setAuthToken((data as any)?.data?.data?.verifyOtp?.access_token);
         storeCookie({
@@ -384,6 +516,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
           value: (data as any)?.data?.data?.verifyOtp?.access_token,
         });
         if (data?.data?.data?.verifyOtp?.accountType === "buyer") {
+          dispatch(resetOnboardingSlice());
           router.push("/property-preference");
         } else {
           router.push("/complete-onboarding");
@@ -391,24 +524,63 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       }
     },
     onError: (err: any) => {
-      error({ message: err?.response?.data?.message });
+      const apiMessage = err?.response?.data?.message || '';
+      const normalized = apiMessage.toLowerCase();
+      if (normalized.includes('too many') || normalized.includes('rate limit') || normalized.includes('rate-limit') || normalized.includes('try again later') || normalized.includes('attempt')) {
+        error({
+          message: 'Too Many Attempts',
+          subtitle: 'Your keystrokes are faster than our limit. Try again in a bit.',
+        });
+        return;
+      }
+      if (normalized.includes('expired')) {
+        info({
+          message: 'Otp Expired',
+          subtitle: 'This OTP has expired. Tap Resend to get a new one.',
+        });
+        return;
+      }
+      if (normalized.includes('otp') || normalized.includes('verification code') || normalized.includes('invalid')) {
+        error({
+          message: 'Invalid OTP',
+          subtitle:
+            'The code you entered is not correct. Try again or request a new code.',
+        });
+        return;
+      }
+      error({ message: apiMessage });
     },
   });
 
   const resendVerificationCodeMutation = useMutation({
     mutationKey: ['resend-verification-mutation'],
     mutationFn: async (data: VerifyEmail) => {
+      if (!data?.email) {
+        throw new Error('Email is required to resend code');
+      }
       return await axios.post(GRAPHQL_URI, {
         query: `mutation { resendOtp(email: "${data.email}") }`,
       });
     },
     onSuccess: (data) => {
-      if ((data as any).status === 200) {
-        success({ message: 'OTP has been successfully sent' });
+      const apiStatus = (data as any)?.status;
+      const message = (data as any)?.data?.data?.resendOtp;
+      if ((apiStatus === 200 || apiStatus === undefined) && message) {
+        success({
+          message: 'OTP sent successfully',
+          subtitle: `Sent to ${message}`,
+        });
+      } else {
+        error({ message: message || 'Failed to send code. Please try again.' });
       }
     },
     onError: (err: any) => {
-      error({ message: err?.response?.data?.message });
+      const msg =
+        err?.response?.data?.errors?.[0]?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Failed to send code. Please try again.';
+      error({ message: msg });
     },
   });
 
@@ -469,6 +641,22 @@ export const useUserAuthApi = (handleCb?: () => void) => {
   const updateUserMutation = useMutation({
     mutationKey: ['update-user-mutation'],
     mutationFn: async (input: any) => {
+      const token = getAuthToken() || localStorage.getItem('userAccessToken') || '';
+      const fallbackEmail =
+        typeof window !== 'undefined'
+          ? localStorage.getItem('userEmail') ||
+          (() => {
+            try {
+              const stored = localStorage.getItem('userDetails');
+              return stored ? JSON.parse(stored)?.email : null;
+            } catch {
+              return null;
+            }
+          })()
+          : null;
+      const finalInput = !input?.email && fallbackEmail
+        ? { ...input, email: fallbackEmail }
+        : input;
       const response = await axios.post(GRAPHQL_URI, {
         query: `
           mutation UpdateUser($input: UpdateUserInput!) {
@@ -480,10 +668,10 @@ export const useUserAuthApi = (handleCb?: () => void) => {
             }
           }
         `,
-        variables: { input },
+        variables: { input: finalInput },
       }, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('userAccessToken') || ''}`,
+          Authorization: `Bearer ${token}`,
         },
       });
       if (response.data.errors) {
@@ -542,7 +730,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
   });
 
   const verifyPasswordResetCodeMutation = useMutation({
-    mutationKey: ['send-verification-code'],
+    mutationKey: ['verify-password-reset-code'],
     mutationFn: async (data: VerifyCode) => {
       return await handleAsync<AxiosResponse<IAuthUser>>(
         client.post,
@@ -554,16 +742,12 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     },
 
     onSuccess: (data: AxiosResponse<any>) => {
-      if ((data as any).status === 200) {
-        success({ message: data?.data?.message });
-        setAuthToken(data?.data?.data?.token);
-        storeCookie({ key: AUTH_TOKEN, value: data?.data?.data?.token });
-        storeCookie({ key: USER_ROLE, value: 'seller' });
-        router.push(`/set-password`);
-      }
+      // Keep this side-effect light; callers decide navigation/next steps
+      const message = data?.data?.message || 'Code verified successfully';
+      success({ message });
     },
     onError: (err: any) => {
-      error({ message: err?.response?.data?.message });
+      error({ message: err?.response?.data?.message || 'Invalid verification code' });
     },
   });
 
@@ -592,6 +776,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
         console.log('Login Success:', data?.data);
 
         success({ message: data?.data?.message });
+        resetAuthExpired();
         setAuthToken(token);
         login(user);
         storeCookie({ key: AUTH_TOKEN, value: token });
@@ -850,29 +1035,118 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     mutationKey: ["invite_an_agent"],
     mutationFn: async (agentData: any) => {
       const token = getAuthToken();
-
-      const response = await axios.post(
-        GRAPHQL_URI,
-        {
-          query: `
-            mutation createExternalParticipant($input: InviteExternalAgentInput!) {
-              createExternalParticipant(input: $input) {
-                success
-                message
-              }
-            }
-          `,
-          variables: { input: agentData },
+      const requestConfig = {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      };
 
-      return response.data?.data?.createExternalParticipant;
+      const enhancedQuery = `
+        mutation createExternalParticipant($input: InviteExternalAgentInput!) {
+          createExternalParticipant(input: $input) {
+            success
+            message
+            participantId
+            agentId
+            code
+            field
+            correlationId
+            emailDeliveryStatus
+            emailFailureReason
+            emailProviderMessageId
+            email_delivery_status
+            email_failure_reason
+          }
+        }
+      `;
+
+      const legacyQuery = `
+        mutation createExternalParticipant($input: InviteExternalAgentInput!) {
+          createExternalParticipant(input: $input) {
+            success
+            message
+            participantId
+            agentId
+          }
+        }
+      `;
+
+      const isSchemaCompatibilityError = (errors: any[] | undefined) =>
+        Array.isArray(errors) &&
+        errors.some((err) => {
+          const message = String(err?.message || "").toLowerCase();
+          return message.includes("cannot query field") || message.includes("unknown argument");
+        });
+
+      try {
+        const response = await axios.post(
+          GRAPHQL_URI,
+          {
+            query: enhancedQuery,
+            variables: { input: agentData },
+          },
+          requestConfig
+        );
+
+        if (response.status === 200 && !response?.data?.errors) {
+          return response.data?.data?.createExternalParticipant;
+        }
+
+        if (isSchemaCompatibilityError(response?.data?.errors)) {
+          const fallbackResponse = await axios.post(
+            GRAPHQL_URI,
+            {
+              query: legacyQuery,
+              variables: { input: agentData },
+            },
+            requestConfig
+          );
+
+          if (fallbackResponse.status !== 200 || fallbackResponse?.data?.errors) {
+            const fallbackGraphQLError =
+              fallbackResponse?.data?.errors?.[0]?.message;
+            throw new Error(fallbackGraphQLError || "Failed to send invitation");
+          }
+
+          return fallbackResponse.data?.data?.createExternalParticipant;
+        }
+
+        const graphQLError = response?.data?.errors?.[0]?.message;
+        throw new Error(graphQLError || "Failed to send invitation");
+      } catch (err: any) {
+        if (isSchemaCompatibilityError(err?.response?.data?.errors)) {
+          try {
+            const fallbackResponse = await axios.post(
+              GRAPHQL_URI,
+              {
+                query: legacyQuery,
+                variables: { input: agentData },
+              },
+              requestConfig
+            );
+            if (fallbackResponse.status !== 200 || fallbackResponse?.data?.errors) {
+              const fallbackGraphQLError =
+                fallbackResponse?.data?.errors?.[0]?.message;
+              throw new Error(fallbackGraphQLError || "Failed to send invitation");
+            }
+            return fallbackResponse.data?.data?.createExternalParticipant;
+          } catch (fallbackErr: any) {
+            const fallbackMessage =
+              fallbackErr?.response?.data?.errors?.[0]?.message ||
+              fallbackErr?.message ||
+              "Failed to send invitation";
+            throw new Error(fallbackMessage);
+          }
+        }
+
+        const message =
+          err?.response?.data?.errors?.[0]?.message ||
+          err?.response?.data?.message ||
+          err?.message ||
+          "Failed to send invitation";
+        throw new Error(message);
+      }
     },
     onSuccess: (data) => {
       console.log("Agent invited:", data);
@@ -941,18 +1215,18 @@ export const useUserAuthApi = (handleCb?: () => void) => {
         GRAPHQL_URI,
         {
           query: `
-            mutation findAllAgents($limit: Float!, $offset: Float!) {
+            mutation FindAllAgents($limit: Float!, $offset: Float!) {
               findAllAgents(limit: $limit, offset: $offset) {
-                id
-                  firstName
-                  lastName
-                  email
-                  licenseNumber
-                  zipCode
-                  phone
-                  profile
-                  address
-                  bio
+                  users{
+                    id
+                    firstName
+                    lastName
+                    email
+                    phone
+                    profile
+                    address
+                    bio
+                  }
               }
             }
           `,
@@ -969,7 +1243,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
         }
       );
 
-      return response.data?.data?.findAllAgents;
+      return response.data?.data?.findAllAgents?.users;
     },
     onSuccess: (data) => {
       console.log('Fetched agents:', data);
@@ -1270,60 +1544,68 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     mutationKey: ['user-logout'],
     mutationFn: async () => {
       const token = getAuthToken() || localStorage.getItem('userAccessToken');
+
+      // If there's no token (session already expired / storage was wiped),
+      // skip the backend call — just return null so onSuccess handles local cleanup.
       if (!token) {
-        throw new Error('No authentication token found');
+        return null;
       }
 
-      const response = await axios.post(
-        GRAPHQL_URI,
-        {
-          query: `
-          mutation {
-            userLogout {
-              id
+      try {
+        const response = await axios.post(
+          GRAPHQL_URI,
+          {
+            query: `
+            mutation {
+              userLogout {
+                id
+              }
             }
-          }
-        `,
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
+          `,
           },
-        }
-      );
-
-      if (response.status !== 200 || response.data.errors) {
-        throw new Error(
-          response.data?.errors?.[0]?.message || 'Failed to log out user'
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
-      }
 
-      return response.data.data.userLogout; // Important: access actual data here
+        if (response.status !== 200 || response.data.errors) {
+          // Backend rejected (e.g. token expired) — that's OK, we still want local logout.
+          console.warn('Backend logout returned errors:', response.data?.errors);
+          return null;
+        }
+
+        return response.data.data.userLogout;
+      } catch (err) {
+        // Network error or backend unreachable — still proceed with local logout.
+        console.warn('Backend logout call failed, proceeding with local cleanup:', err);
+        return null;
+      }
     },
     onSuccess: (data) => {
       if (handleCb) handleCb();
-      console.log("DAta : ", data);
-      if (data?.id) {
-        // Logout from local state first
-        logout();
 
-        // Then logout from Cognito (for OAuth users)
-        // This will redirect to Cognito logout endpoint if user logged in via Google
-        try {
-          cognitoLogout();
-        } catch (error) {
-          console.error('Error during Cognito logout:', error);
-          // If Cognito logout fails, just redirect to home
-          router.push('/home');
-        }
-      }
+      success({
+        message: 'Logged out successfully',
+        subtitle: "Don't be a stranger",
+      });
 
+      // Always perform local logout and redirect, regardless of backend response
+      logout();
+      router.push('/home');
     },
-    onError: (error: any) => {
+    onError: (err: any) => {
+      // Even on unexpected errors, always perform local cleanup so the user isn't stuck
+      console.error('Logout error:', err);
       const errorMessage =
-        error?.response?.data?.errors?.[0]?.message || error.message;
+        err?.response?.data?.errors?.[0]?.message || err?.message || 'Logout failed';
       error({ message: errorMessage });
+
+      // Still clear local state and redirect
+      logout();
+      router.push('/home');
     },
   });
 
@@ -1460,6 +1742,8 @@ export const useTokenLoginMutation = (handleCb?: () => void) => {
       }
 
       success({ message: 'You have logged in successfully' });
+      // Reset the auth expired flag so API calls work again after re-login
+      resetAuthExpired();
       setAuthToken(data.access_token);
       login(user);
       storeCookie({ key: AUTH_TOKEN, value: data.access_token });

@@ -8,8 +8,16 @@ import { useState, useEffect } from 'react';
 import { Carousel, Embla } from '@mantine/carousel';
 import { useMediaQuery } from '@mantine/hooks';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
+import '@mantine/carousel/styles.css';
 
-const testimonials = [
+type Testimonial = {
+  name: string;
+  title: string;
+  text: string;
+  img: string;
+};
+
+const DEFAULT_TESTIMONIALS: Testimonial[] = [
   {
     name: 'MILTON AUSTIN',
     title: 'Sales Manager, San Francisco',
@@ -24,7 +32,17 @@ const testimonials = [
   },
 ];
 
-export default function OurClients({ bgColor = '#FAF0E6' }: { bgColor?: string }) {
+type OurClientsProps = {
+  bgColor?: string;
+  subtitle?: string;
+  testimonials?: Testimonial[];
+};
+
+export default function OurClients({
+  bgColor = '#FAF0E6',
+  subtitle = "We value our customers' authentic opinion on our products.",
+  testimonials = DEFAULT_TESTIMONIALS,
+}: OurClientsProps) {
   const isMobile = useMediaQuery('(max-width: 1023px)');
   const [embla, setEmbla] = useState<Embla | null>(null);
 
@@ -52,7 +70,7 @@ export default function OurClients({ bgColor = '#FAF0E6' }: { bgColor?: string }
     <section
       id="testimonials"
       style={{ backgroundColor: bgColor }}
-      className="pt-24 pb-10 px-4 sm:px-6 lg:px-12 overflow-x-hidden"
+      className="pt-17 pb-10 px-4 sm:px-6 lg:px-12 overflow-x-hidden"
     >
       <div className="max-w-6xl mx-auto text-start pb-6 sm:pb-12">
         <h2 className="satoshi text-3xl sm:text-4xl font-semibold text-left md:text-center">
@@ -60,7 +78,7 @@ export default function OurClients({ bgColor = '#FAF0E6' }: { bgColor?: string }
         </h2>
 
         <p className="satoshi text-xs sm:text-sm text-[#8E8B8A] mb-15 max-w-[600px] mx-auto text-left md:text-center">
-          We value our customers' authentic opinion on our products.
+          {subtitle}
         </p>
       </div>
       <div className="max-w-7xl mx-auto">
@@ -82,7 +100,7 @@ export default function OurClients({ bgColor = '#FAF0E6' }: { bgColor?: string }
               <Carousel.Slide key={idx}>
                 <div className="bg-[#F4E5D0] rounded-2xl p-6 sm:p-8 h-full flex flex-col justify-between shadow">
                   <div className="text-left mb-6">
-                    <h3 className="font-bold text-sm mb-1">{name}</h3>
+                    <h3 className="font-bold font-outfit text-sm mb-1">{name}</h3>
                     <p className="text-xs text-[#606060]">{title}</p>
                     <p className="text-xs mt-4 text-[#595858] leading-relaxed">{text}</p>
                   </div>
@@ -100,7 +118,7 @@ export default function OurClients({ bgColor = '#FAF0E6' }: { bgColor?: string }
             {testimonials.map(({ name, title, text, img }, idx) => (
               <div
                 key={idx}
-                className="bg-[#EEDFC9] rounded-2xl p-16 flex flex-col justify-between "
+                className="bg-[#EEDFC9] rounded-2xl p-11 flex flex-col justify-between "
               >
                 <div className="text-left mb-6">
                   <h3 className="font-bold text-xl mb-1">{name}</h3>

@@ -178,11 +178,11 @@ import { Button, Group, Select, Tabs } from '@mantine/core';
 
 
 export const data = [
-  { name: 'Principal & Interest', value: 400, color: '#F4B400' },  
-  { name: 'Property Tax', value: 300, color: '#FF5722' },        
-  { name: 'HOA Fees', value: 100, color: '#FF9800' },             
-  { name: 'Insurance', value: 200, color: '#795548' },          
-  { name: 'Utilities', value: 100, color: '#9E9E9E' },        
+  { name: 'Principal & Interest', value: 400, color: '#F4B400' },
+  { name: 'Property Tax', value: 300, color: '#FF5722' },
+  { name: 'HOA Fees', value: 100, color: '#FF9800' },
+  { name: 'Insurance', value: 200, color: '#795548' },
+  { name: 'Utilities', value: 100, color: '#9E9E9E' },
 ];
 
 const tablsit = [
@@ -424,7 +424,7 @@ export function PaymentCalculator() {
       return;
     }
 
-      setLoading(true); 
+    setLoading(true);
 
 
     const requestData = {
@@ -464,9 +464,9 @@ export function PaymentCalculator() {
       setCalcResult(res.data?.calc_result || null);
     } catch (err) {
       console.error('API error:', err);
-    }finally {
-    setLoading(false); 
-  }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -482,7 +482,7 @@ export function PaymentCalculator() {
         <CustomInput label="Income Stability (years)" type="number" value={formData.income_stability} onChange={e => handleChange('income_stability', e.target.value)} />
         <Select label="Loan Term (years)" data={[{ value: '15', label: '15' }, { value: '20', label: '20' }, { value: '25', label: '25' }, { value: '30', label: '30' }, { value: '35', label: '35' }]} value={formData.loan_term} onChange={value => handleChange('loan_term', value || '')} />
         <Select label="Loan Type / Program" data={[{ value: 'Conventional', label: 'Conventional' }, { value: 'FHA', label: 'FHA' }, { value: 'VA', label: 'VA' }, { value: 'USDA', label: 'USDA' }, { value: 'Jumbo', label: 'Jumbo' }]} value={formData.loan_type} onChange={value => handleChange('loan_type', value || '')} />
-        <Select label="Employment Type" data={[{ value: 'w2', label: 'W-2 Employee' }, { value: 'self_employed', label: 'Self-Employed / 1099' } ]} value={formData.employment_type} onChange={value => handleChange('employment_type', value || '')} />
+        <Select label="Employment Type" data={[{ value: 'w2', label: 'W-2 Employee' }, { value: 'self_employed', label: 'Self-Employed / 1099' }]} value={formData.employment_type} onChange={value => handleChange('employment_type', value || '')} />
         <Select label="Property Type" data={[{ value: 'Primary Residence', label: 'Primary Residence' }, { value: 'Second Home', label: 'Second Home' }, { value: 'Investment', label: 'Investment' }]} value={formData.property_type} onChange={value => handleChange('property_type', value || '')} />
         <CustomInput label="Property State" value={formData.property_state} onChange={e => handleChange('property_state', e.currentTarget.value)} />
       </div>
@@ -498,10 +498,10 @@ export function PaymentCalculator() {
         </div>
       )}
 
-{loading && <div className="text-center">Loading...</div>}
-<Button fullWidth onClick={handleCalculate} disabled={loading}>
-  {loading ? 'Calculating...' : 'Calculate Rate & See Forecast'}
-</Button>
+      {loading && <div className="text-center">Loading...</div>}
+      <Button fullWidth onClick={handleCalculate} disabled={loading}>
+        {loading ? 'Calculating...' : 'Calculate Rate & See Forecast'}
+      </Button>
 
       {calcResult && (
         <div className="mt-6 border-t pt-4">
@@ -523,182 +523,180 @@ export function PaymentCalculator() {
               <Tabs.Tab value="final">View Market Rates</Tabs.Tab>
             </Tabs.List>
 
-   <Tabs.Panel value="base" pt="xs">
-  {calcResult && (
-    <div className="space-y-3 mt-6">
-      <div className="bg-green-100 text-green-900 px-4 py-3 rounded border border-green-300">
-        <div><strong>Final Rate Today:</strong> {calcResult.final_rate.toFixed(2)} %</div>
-        <div><strong>Base Rate Today:</strong> {calcResult.base_rate.toFixed(2)} % <span className="text-gray-500 text-sm">(as of {calcResult.as_of})</span></div>
-      </div>
-      <div className="bg-blue-100 text-blue-900 px-4 py-3 rounded border border-blue-300">
-        <strong>Estimated Monthly Payment:</strong> ${calcResult.monthly_payment.toFixed(2)}
-      </div>
-    </div>
-  )}
+            <Tabs.Panel value="base" pt="xs">
+              {calcResult && (
+                <div className="space-y-3 mt-6">
+                  <div className="bg-green-100 text-green-900 px-4 py-3 rounded border border-green-300">
+                    <div><strong>Final Rate Today:</strong> {calcResult.final_rate.toFixed(2)} %</div>
+                    <div><strong>Base Rate Today:</strong> {calcResult.base_rate.toFixed(2)} % <span className="text-gray-500 text-sm">(as of {calcResult.as_of})</span></div>
+                  </div>
+                  <div className="bg-blue-100 text-blue-900 px-4 py-3 rounded border border-blue-300">
+                    <strong>Estimated Monthly Payment:</strong> ${calcResult.monthly_payment.toFixed(2)}
+                  </div>
+                </div>
+              )}
 
-  <h4 className="text-md font-semibold mt-4 mb-2">Your Personalized 2-Year Rate Forecast</h4>
-  <p className="text-sm text-gray-600 mb-3">This graph shows your estimated final interest rate over the next two years, based on your profile and the market forecast.</p>
+              <h4 className="text-md font-semibold mt-4 mb-2">Your Personalized 2-Year Rate Forecast</h4>
+              <p className="text-sm text-gray-600 mb-3">This graph shows your estimated final interest rate over the next two years, based on your profile and the market forecast.</p>
 
-  {/* 🧠 Deduplicate and build chart data */}
-  {(() => {
-    const uniqueDates = [
-      ...baseHistoricalDates,
-      ...forecastDates.filter(date => !baseHistoricalDates.includes(date)),
-    ];
+              {/* 🧠 Deduplicate and build chart data */}
+              {(() => {
+                const uniqueDates = [
+                  ...baseHistoricalDates,
+                  ...forecastDates.filter(date => !baseHistoricalDates.includes(date)),
+                ];
 
-    const allRates = [
-      ...baseHistoricalRates,
-      ...forecastRates.slice(baseHistoricalDates.length),
-    ];
+                const allRates = [
+                  ...baseHistoricalRates,
+                  ...forecastRates.slice(baseHistoricalDates.length),
+                ];
 
-    const chartData = uniqueDates.map((date, index) => ({
-      x: new Date(date).toISOString(),
-      rate: allRates[index],
-    })).sort((a, b) => new Date(a.x).getTime() - new Date(b.x).getTime());
+                const chartData = uniqueDates.map((date, index) => ({
+                  x: new Date(date).toISOString(),
+                  rate: allRates[index],
+                })).sort((a, b) => new Date(a.x).getTime() - new Date(b.x).getTime());
 
-    return (
-      <div style={{ overflowX: 'auto' }}>
-        <div style={{ width: '1200px' }}>
-          <LineChart
-            h={300}
-            data={chartData}
-            dataKey="x"
-            series={[{ name: 'rate', color: 'blue', label: 'Base Rate (%)' }]}
-            curveType="linear"
-            withLegend
-            withDots
-            gridAxis="xy"
-            xAxisProps={{
-              interval: 0,
-              tickFormatter: (value) => {
-                const date = new Date(value);
-                return date.toLocaleString('default', { month: 'short', year: '2-digit' });
-              },
-              tick: {
-                fontSize: 12,
-                // angle: -45,
-              },
-            }}
-            yAxisProps={{
-              tickFormatter: (value) => `${value.toFixed(2)} %`,
-              domain: ['dataMin - 0.2', 'dataMax + 0.2'],
-              tick: { fontSize: 12 },
-              label: {
-                value: 'Base Rate (%)',
-                angle: -90,
-                position: 'insideLeft',
-                offset: 10,
-                style: { textAnchor: 'middle', fontSize: 12 },
-              },
-            }}
-            tooltipProps={{
-              formatter: (value: number) => `${value.toFixed(3)} %`,
-            }}
-          />
-        </div>
-      </div>
-    );
-  })()}
-</Tabs.Panel>
+                return (
+                  <div style={{ overflowX: 'auto' }}>
+                    <div style={{ width: '1200px' }}>
+                      <LineChart
+                        h={300}
+                        data={chartData}
+                        dataKey="x"
+                        series={[{ name: 'rate', color: 'blue', label: 'Base Rate (%)' }]}
+                        curveType="linear"
+                        withLegend
+                        withDots
+                        gridAxis="xy"
+                        xAxisProps={{
+                          interval: 0,
+                          tickFormatter: (value) => {
+                            const date = new Date(value);
+                            return date.toLocaleString('default', { month: 'short', year: '2-digit' });
+                          },
+                          tick: {
+                            fontSize: 12,
+                            // angle: -45,
+                          },
+                        }}
+                        yAxisProps={{
+                          tickFormatter: (value) => `${value.toFixed(2)} %`,
+                          domain: ['dataMin - 0.2', 'dataMax + 0.2'],
+                          tick: { fontSize: 12 },
+                          label: {
+                            value: 'Base Rate (%)',
+                            angle: -90,
+                            position: 'insideLeft',
+                            offset: 10,
+                            style: { textAnchor: 'middle', fontSize: 12 },
+                          },
+                        }}
+                        tooltipProps={{
+                          formatter: (value: number) => `${value.toFixed(3)} %`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+            </Tabs.Panel>
 
-<Tabs.Panel value="final" pt="xs">
-  <h4 className="text-md font-semibold mt-4 mb-2">2-Year Base-Rate Market Forecast</h4>
-  <p className="text-sm text-gray-600 mb-3">
-    This graph shows the likely direction of the base interest rate based on macro-economic modelling. Hover for details.
-  </p>
+            <Tabs.Panel value="final" pt="xs">
+              <h4 className="text-md font-semibold mt-4 mb-2">2-Year Base-Rate Market Forecast</h4>
+              <p className="text-sm text-gray-600 mb-3">
+                This graph shows the likely direction of the base interest rate based on macro-economic modelling. Hover for details.
+              </p>
 
-  {(() => {
-    // Deduplicate overlapping date (e.g., "2025-07-01")
-    const filteredForecastDates = forecastDates.filter(
-      (date) => !baseHistoricalDates.includes(date)
-    );
+              {(() => {
+                // Deduplicate overlapping date (e.g., "2025-07-01")
+                const filteredForecastDates = forecastDates.filter(
+                  (date) => !baseHistoricalDates.includes(date)
+                );
 
-    const filteredForecastRates = forecastRates.slice(
-      baseHistoricalDates.includes('2025-07-01') ? 1 : 0
-    );
+                const filteredForecastRates = forecastRates.slice(
+                  baseHistoricalDates.includes('2025-07-01') ? 1 : 0
+                );
 
-    // Historical line
-    const historicalData = baseHistoricalDates.map((date, index) => ({
-      x: new Date(date).toISOString(),
-      Historical: baseHistoricalRates[index],
-    }));
+                // Historical line
+                const historicalData = baseHistoricalDates.map((date, index) => ({
+                  x: new Date(date).toISOString(),
+                  Historical: baseHistoricalRates[index],
+                }));
 
-    // Forecast line
-    const forecastData = filteredForecastDates.map((date, index) => ({
-      x: new Date(date).toISOString(),
-      Forecast: filteredForecastRates[index],
-    }));
+                // Forecast line
+                const forecastData = filteredForecastDates.map((date, index) => ({
+                  x: new Date(date).toISOString(),
+                  Forecast: filteredForecastRates[index],
+                }));
 
-    // Merge both for x-axis alignment
-    const mergedData = [...historicalData, ...forecastData].sort(
-      (a, b) => new Date(a.x).getTime() - new Date(b.x).getTime()
-    );
+                // Merge both for x-axis alignment
+                const mergedData = [...historicalData, ...forecastData].sort(
+                  (a, b) => new Date(a.x).getTime() - new Date(b.x).getTime()
+                );
 
-    return (
-      <div style={{ overflowX: 'auto' }}>
-        <div style={{ width: '1200px' }}>
-          <LineChart
-            h={300}
-            data={mergedData}
-            dataKey="x"
-            series={[
-              {
-                name: 'Historical',
-                color: 'gray',
-                label: 'Historical',
-                strokeDasharray: '',
-              },
-              {
-                name: 'Forecast',
-                color: 'green',
-                label: 'Forecast',
-                strokeDasharray: '4 2',
-              },
-            ]}
-            curveType="linear"
-            withLegend
-            withDots
-            gridAxis="xy"
-            xAxisProps={{
-              interval: 0,
-              tickFormatter: (value) => {
-                const date = new Date(value);
-                return date.toLocaleString('default', {
-                  month: 'short',
-                  year: '2-digit',
-                });
-              },
-              tick: {
-                fontSize: 12,
-                // angle: -45,
-              },
-            }}
-            yAxisProps={{
-              tickFormatter: (value) => `${value.toFixed(2)} %`,
-              domain: [
-                Math.min(...baseHistoricalRates, ...forecastRates) - 0.1,
-                Math.max(...baseHistoricalRates, ...forecastRates) + 0.1,
-              ],
-              tick: { fontSize: 12 },
-              label: {
-                value: 'Base Rate (%)',
-                angle: -90,
-                position: 'insideLeft',
-                offset: 10,
-                style: { textAnchor: 'middle', fontSize: 12 },
-              },
-            }}
-            tooltipProps={{
-              formatter: (value: number) => `${value.toFixed(3)} %`,
-            }}
-          />
-        </div>
-      </div>
-    );
-  })()}
-</Tabs.Panel>
-
-
+                return (
+                  <div style={{ overflowX: 'auto' }}>
+                    <div style={{ width: '1200px' }}>
+                      <LineChart
+                        h={300}
+                        data={mergedData}
+                        dataKey="x"
+                        series={[
+                          {
+                            name: 'Historical',
+                            color: 'gray',
+                            label: 'Historical',
+                            strokeDasharray: '',
+                          },
+                          {
+                            name: 'Forecast',
+                            color: 'green',
+                            label: 'Forecast',
+                            strokeDasharray: '4 2',
+                          },
+                        ]}
+                        curveType="linear"
+                        withLegend
+                        withDots
+                        gridAxis="xy"
+                        xAxisProps={{
+                          interval: 0,
+                          tickFormatter: (value) => {
+                            const date = new Date(value);
+                            return date.toLocaleString('default', {
+                              month: 'short',
+                              year: '2-digit',
+                            });
+                          },
+                          tick: {
+                            fontSize: 12,
+                            // angle: -45,
+                          },
+                        }}
+                        yAxisProps={{
+                          tickFormatter: (value) => `${value.toFixed(2)} %`,
+                          domain: [
+                            Math.min(...baseHistoricalRates, ...forecastRates) - 0.1,
+                            Math.max(...baseHistoricalRates, ...forecastRates) + 0.1,
+                          ],
+                          tick: { fontSize: 12 },
+                          label: {
+                            value: 'Base Rate (%)',
+                            angle: -90,
+                            position: 'insideLeft',
+                            offset: 10,
+                            style: { textAnchor: 'middle', fontSize: 12 },
+                          },
+                        }}
+                        tooltipProps={{
+                          formatter: (value: number) => `${value.toFixed(3)} %`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+            </Tabs.Panel>
           </Tabs>
         </div>
       )}

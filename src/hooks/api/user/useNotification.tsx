@@ -8,6 +8,8 @@ import {
   GET_NOTIFICATIONS,
   MARK_ALL_AS_READ,
   MARK_ONE_NOTIFICATION_AS_READ,
+  MARK_THREAD_NOTIFICATIONS_AS_READ,
+  MARK_LINK_NOTIFICATIONS_AS_READ,
 } from '@/utils/apis';
 import client from '@/lib/client';
 import { ApiNewResponse, ApiResponse } from '@/interfaces/property.interface';
@@ -75,9 +77,43 @@ export const useNotificationApi = () => {
     },
   });
 
+  const markThreadAsReadMutation = useMutation({
+    mutationFn: async (threadId: string) => {
+      const response = await client.put<AxiosResponse<{ result: boolean }>>(
+        `${MARK_THREAD_NOTIFICATIONS_AS_READ}${threadId}`,
+        null,
+        {
+          headers: { role: USER_ROLE },
+        },
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+
+  const markLinkAsReadMutation = useMutation({
+    mutationFn: async (link: string) => {
+      const response = await client.put<AxiosResponse<{ result: boolean }>>(
+        MARK_LINK_NOTIFICATIONS_AS_READ,
+        { link },
+        {
+          headers: { role: USER_ROLE },
+        },
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+
   return {
     notificationsQuery,
     markOneAsReadMutation,
     markAllAsReadMutation,
+    markThreadAsReadMutation,
+    markLinkAsReadMutation,
   };
 };

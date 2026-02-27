@@ -83,7 +83,7 @@ export const useRespondToTourRequest = () =>
       if (response.status !== 200 || response.data.errors) {
         throw new Error(
           response.data?.errors?.[0]?.message ||
-            "Failed to update tour request"
+          "Failed to update tour request"
         );
       }
 
@@ -119,9 +119,9 @@ export const useRescheduleTour = () =>
             }
           `,
           variables: {
-            id: eventId,            
-            eventUpdate: { 
-              eventDate,               
+            id: eventId,
+            eventUpdate: {
+              eventDate,
               tourTime
             },
           },
@@ -141,7 +141,7 @@ export const useRescheduleTour = () =>
   });
 
 
-  export const useBuyerRespondToProposal = () =>
+export const useBuyerRespondToProposal = () =>
   useMutation({
     mutationKey: ['buyer-respond'],
     mutationFn: async (input: { tourId: string; action: 'ACCEPT' | 'REJECT' }) => {
@@ -210,7 +210,8 @@ export const useGetToursByBuyer = (buyerId: string | undefined) =>
 
       return response.data.data.getRequestedToursByBuyer;
     },
-    enabled: !!buyerId, 
+    enabled: !!buyerId,
   });
+
 
 

@@ -498,7 +498,7 @@ function Profile() {
         <UserPropfilePreference />
       </section>
 
-      <section className='py-8'>
+      <section className='py-8 hidden'>
         <h3 className='border-b-[1px] border-b-grey-590 pb-4 font-bold'>
           App Connection
         </h3>

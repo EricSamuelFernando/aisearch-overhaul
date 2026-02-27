@@ -2335,6 +2335,7 @@ import {
   ZoomOut,
   Eye,
   Maximize,
+  ArrowLeft,
   ArrowDown,
 } from "lucide-react"
 import "swiper/css"
@@ -5414,12 +5415,12 @@ export default function ChatBoxComponent(props: any) {
                 <button
                   type="button"
                   onClick={() => router.push('/dashboard/buyer?tab=my-snapz')}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-700 hover:bg-gray-100"
+                  className="flex items-center gap-2 text-gray-700 hover:text-gray-900"
                   aria-label="Back to dashboard"
                 >
-                  &lt;-
+                  <ArrowLeft className="h-4 w-4" />
+                  <h2 className="font-semibold text-lg text-gray-800">Messages</h2>
                 </button>
-                <h2 className="font-semibold text-lg text-gray-800">Messages</h2>
               </div>
               <TooltipProvider delayDuration={120}>
                 <Tooltip>
@@ -5541,7 +5542,7 @@ export default function ChatBoxComponent(props: any) {
                     const entryKey = entry.entryKey;
                     const isExpanded = expandedEntryKey === entryKey;
                     const isActiveThread = selectedThreadDetail?.id === thread?.id;
-                    const entryUnread = unreadCountByThreadId.get(normalizeThreadKey(thread?.id)) || 0;
+                    const entryUnread = entry.totalUnread || 0;
                     const hasUnread = entryUnread > 0;
                     const threadCardClasses = `relative flex flex-col w-full mt-3 gap-3 rounded-2xl border p-5 transition-colors shadow-sm cursor-pointer ${isActiveThread
                       ? 'bg-[#FFF7EF] border-[#F6D4B3]'
@@ -5572,12 +5573,6 @@ export default function ChatBoxComponent(props: any) {
                             {formatDistanceToNow(new Date(lastMessage?.createdAt), { addSuffix: true })}
                           </span>
                         ) : null}
-                        {hasUnread && (
-                          <Badge className="absolute top-4 left-4 bg-red-600 text-white text-[10px] px-2 py-1 rounded-full">
-                            {entryUnread}
-                          </Badge>
-                        )}
-
                         <div
                           className="flex items-start gap-4 w-full"
                           onClick={(event) => {
@@ -5587,21 +5582,28 @@ export default function ChatBoxComponent(props: any) {
                             );
                           }}
                         >
-                          {agentImage || thread?.image ? (
-                            <Image
-                              src={agentImage || thread.image}
-                              alt="Agent Avatar"
-                              width={50}
-                              height={50}
-                              className="rounded-full object-cover w-[40px] h-[40px] sm:w-[50px] sm:h-[50px]"
-                              priority
-                              unoptimized
-                            />
-                          ) : (
-                            <div className="rounded-full flex items-center justify-center font-semibold w-[40px] h-[40px] sm:w-[50px] sm:h-[50px] bg-gray-800 text-white">
-                              {getInitials(agentName)}
-                            </div>
-                          )}
+                          <div className="relative">
+                            {agentImage || thread?.image ? (
+                              <Image
+                                src={agentImage || thread.image}
+                                alt="Agent Avatar"
+                                width={50}
+                                height={50}
+                                className="rounded-full object-cover w-[40px] h-[40px] sm:w-[50px] sm:h-[50px]"
+                                priority
+                                unoptimized
+                              />
+                            ) : (
+                              <div className="rounded-full flex items-center justify-center font-semibold w-[40px] h-[40px] sm:w-[50px] sm:h-[50px] bg-gray-800 text-white">
+                                {getInitials(agentName)}
+                              </div>
+                            )}
+                            {hasUnread && (
+                              <Badge className="absolute -left-2 -top-2 bg-red-600 text-white text-[10px] px-2 py-1 rounded-full">
+                                {entryUnread}
+                              </Badge>
+                            )}
+                          </div>
 
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-sm sm:text-base text-gray-900 truncate">
@@ -5646,12 +5648,12 @@ export default function ChatBoxComponent(props: any) {
                                     setExpandedEntryKey(entryKey);
                                   }}
                                 >
-                                  {hasPropertyUnread && (
-                                    <Badge className="absolute top-3 right-3 bg-red-600 text-white text-[10px] px-2 py-1 rounded-full">
-                                      {propertyUnread}
-                                    </Badge>
-                                  )}
-                                  <div>
+                                  <div className="flex items-center gap-2">
+                                    {hasPropertyUnread && (
+                                      <Badge className="bg-red-600 text-white text-[10px] px-2 py-1 rounded-full">
+                                        {propertyUnread}
+                                      </Badge>
+                                    )}
                                     <p className="font-semibold text-sm sm:text-base truncate">
                                       {displayTitle}
                                     </p>

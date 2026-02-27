@@ -20,20 +20,36 @@ type Props = {
   selectedProperty: string;
   propertiesOverride?: any[] | null;
   overlayMode?: boolean;
+  onOpenCompareModal?: () => void;
 };
 
 const MAP_ITEMS_PER_PAGE = 10;
 const GRID_ITEMS_PER_PAGE = 12;
+
+const resolveListingId = (item: any): string | undefined => {
+  const raw =
+    item?.id ??
+    item?.listingId ??
+    item?.listing_id ??
+    item?.listing?.id ??
+    item?.listing?.listingId ??
+    item?.mlsId ??
+    item?.mls_id ??
+    item?.propertyId;
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  return String(raw);
+};
 
 function BuyPropertyCards({
   forwardedRef,
   selectedProperty,
   propertiesOverride,
   overlayMode = false,
+  onOpenCompareModal,
 }: Props) {
   const { currentView } = useProperty();
   const { ref } = useInView();
-  const { allProperties, isLoading } = usePropertyStore();
+  const { allProperties, isLoading, isCompareMode, selectedCompareProperties } = usePropertyStore();
   const sourceProperties = Array.isArray(propertiesOverride)
     ? propertiesOverride
     : allProperties;
@@ -100,8 +116,10 @@ function BuyPropertyCards({
   }, [totalPages, currentPage]);
 
   useEffect(() => {
-    if (!selectedProperty || !Array.isArray(normalizedProperties)) return;
-    const idx = normalizedProperties.findIndex((p: any) => String(p?.id) === String(selectedProperty));
+    if (!selectedProperty || !normalizedProperties.length) return;
+    const idx = normalizedProperties.findIndex(
+      (p: any) => resolveListingId(p) === String(selectedProperty),
+    );
     if (idx === -1) return;
     const targetPage = Math.floor(idx / itemsPerPage) + 1;
     if (targetPage !== currentPage) {
@@ -126,7 +144,7 @@ function BuyPropertyCards({
         overlayMode ? 'min-h-0' : '',
       )}
     >
-      <div className={cn('flex-auto', overlayMode ? 'min-h-0 overflow-y-auto overscroll-contain pr-1' : '')}>
+      <div className={cn('flex-auto', overlayMode ? 'min-h-0 overflow-y-auto overscroll-contain pr-1 pb-3' : '')}>
         <div
           className={cn(
             'w-full',
@@ -152,13 +170,14 @@ function BuyPropertyCards({
             ) : (
               <>
                 {normalizedProperties.length > 0
-                  ? paginatedProperties.map((prop: any) => {
-                      const isSelected = String(prop?.id) === String(selectedProperty);
+                  ? paginatedProperties.map((prop: any, index: number) => {
+                      const listingId = resolveListingId(prop) ?? `listing-${currentPage}-${index}`;
+                      const isSelected = String(listingId) === String(selectedProperty);
                       return (
                         <div
                           ref={ref}
-                          key={prop.id}
-                          id={String(prop.id)}
+                          key={listingId}
+                          id={String(listingId)}
                           className={cn(
                             isSelected
                               ? overlayMode
@@ -187,12 +206,36 @@ function BuyPropertyCards({
       {totalPages > 1 ? (
         <div
           className={cn(
-            'flex flex-col items-center gap-3',
+            'relative flex flex-col items-center gap-3',
             overlayMode
-              ? 'mt-1 shrink-0 border-t border-gray-200 bg-white px-2 pt-2 pb-2'
+              ? 'mt-1 shrink-0 border-t border-gray-200 bg-white px-2 pt-14 pb-2'
               : 'mt-6',
           )}
         >
+          {overlayMode && isCompareMode ? (
+            <button
+              type="button"
+              onClick={onOpenCompareModal}
+              disabled={selectedCompareProperties.length < 2}
+              className={cn(
+                'absolute left-1/2 top-2 z-[80] -translate-x-1/2 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-lg transition',
+                selectedCompareProperties.length >= 2
+                  ? 'bg-ocOrange text-white hover:brightness-95'
+                  : 'cursor-not-allowed bg-white text-gray-400 ring-1 ring-gray-200'
+              )}
+            >
+              Compare
+              <span className={cn(
+                'rounded-full px-2 py-0.5 text-[11px] font-semibold',
+                selectedCompareProperties.length >= 2
+                  ? 'bg-white/20 text-white'
+                  : 'bg-gray-100 text-gray-500'
+              )}>
+                {selectedCompareProperties.length}
+              </span>
+            </button>
+          ) : null}
+
           <div className="flex items-center gap-3">
             <button
               className={cn(

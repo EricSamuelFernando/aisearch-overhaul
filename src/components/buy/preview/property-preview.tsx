@@ -29,7 +29,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { NewFeatureCard } from './multi-feature-card';
 import { PROPERTY_DETAIL_SEARCH_AI_URL } from "@/shared/constants/env"
-import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
+import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 
 import { useSelector } from 'react-redux';
 import CategorizedPhotosModal from '../CategorizedPhotosModal'; // Import the new modal
@@ -238,6 +238,7 @@ const PropertyPreview: React.FC = () => {
   const propertyId = searchParams.get('propertyId') || "";
   const listingId = searchParams.get('listingId') || "";
   const mostRecentStatus = searchParams.get('mostRecentStatus') || ""
+  const initialPreviewQuery = searchParams.get('q') || [city, province].filter(Boolean).join(', ');
   const { getSingleProperty: { isFetching } } = useGetSingleProperty(id!);
   const propertyData = useSelector((state: any) => state.property.property)
   const engagedProperty = useSelector((state: any) => state.property.engagedProperty);
@@ -272,6 +273,8 @@ const PropertyPreview: React.FC = () => {
     () => normalizeAuthServiceRestBaseUrl(process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL),
     []
   );
+  const [previewSearchValue, setPreviewSearchValue] = React.useState(initialPreviewQuery);
+  const [previewIsMlsMode, setPreviewIsMlsMode] = React.useState(false);
 
   // Neo4j schools API integration
   const [nearbySchools, setNearbySchools] = React.useState<any[]>([]);
@@ -304,6 +307,41 @@ const PropertyPreview: React.FC = () => {
       }
     });
   };
+
+  React.useEffect(() => {
+    setPreviewIsMlsMode(isMlsBypassModeEnabled());
+
+    const handleBypassChange = (event: Event) => {
+      const customEvent = event as CustomEvent<boolean>;
+      if (typeof customEvent.detail === 'boolean') {
+        setPreviewIsMlsMode(customEvent.detail);
+        return;
+      }
+      setPreviewIsMlsMode(isMlsBypassModeEnabled());
+    };
+
+    window.addEventListener('snaphomz:mls-bypass-changed', handleBypassChange as EventListener);
+    return () => {
+      window.removeEventListener('snaphomz:mls-bypass-changed', handleBypassChange as EventListener);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    setPreviewSearchValue(initialPreviewQuery);
+  }, [initialPreviewQuery]);
+
+  const togglePreviewSearchMode = React.useCallback(() => {
+    const next = !previewIsMlsMode;
+    setMlsBypassModeEnabled(next);
+    setPreviewIsMlsMode(next);
+  }, [previewIsMlsMode]);
+
+  const handlePreviewSearchSubmit = React.useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    const nextQuery = previewSearchValue.trim();
+    if (!nextQuery) return;
+    router.push(`/buy/browse?q=${encodeURIComponent(nextQuery)}`);
+  }, [previewSearchValue, router]);
 
   React.useEffect(() => {
     if (id) {
@@ -1946,6 +1984,47 @@ const PropertyPreview: React.FC = () => {
   return (
     <div>
       <ItemNav cardRef={cardRef} />
+      <div className='mt-14 sm:mt-12 md:mt-12 lg:mt-14' />
+      <div className="mx-auto mb-4 w-full max-w-7xl px-2 sm:px-4 md:px-6 lg:px-0">
+        <form onSubmit={handlePreviewSearchSubmit} className="flex items-center gap-2">
+          <div className="relative min-w-0 flex-1 rounded-2xl border border-gray-300 bg-white shadow-sm ring-1 ring-black/5">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              value={previewSearchValue}
+              onChange={(e) => setPreviewSearchValue(e.target.value)}
+              placeholder={previewIsMlsMode ? 'Enter address, city, neighborhood, or ZIP' : 'Ask anything about homes, neighborhoods, schools'}
+              className="h-11 w-full rounded-2xl border-0 bg-transparent pl-10 pr-28 text-sm text-gray-900 shadow-none outline-none ring-0 placeholder:text-gray-400 focus-visible:ring-0"
+            />
+            <button
+              type="button"
+              onClick={togglePreviewSearchMode}
+              title={previewIsMlsMode ? 'MLS search active. Click to switch to AI search.' : 'AI search active. Click to switch to MLS search.'}
+              className={`absolute right-10 top-1/2 -translate-y-1/2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition ${previewIsMlsMode
+                ? 'bg-gray-100 text-gray-600 ring-1 ring-gray-200 hover:bg-gray-200'
+                : 'bg-orange-50 text-orange-700 ring-1 ring-orange-200 hover:bg-orange-100'
+                }`}
+            >
+              {previewIsMlsMode ? 'AI OFF' : 'AI ON'}
+            </button>
+            {previewSearchValue ? (
+              <button
+                type="button"
+                onClick={() => setPreviewSearchValue('')}
+                className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                aria-label="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
+          </div>
+          <button
+            type="submit"
+            className="h-11 shrink-0 rounded-2xl bg-ocOrange px-4 text-sm font-semibold text-white shadow-sm hover:brightness-95"
+          >
+            Search
+          </button>
+        </form>
+      </div>
       <div id="overview" className="scroll-mt-28" />
 
       {/* Contact Agent Dialog */}

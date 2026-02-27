@@ -72,6 +72,36 @@ type SearchPlaceDetails = PlaceDetailsState & {
   categoryKey?: string;
 };
 
+type ListingMarker = {
+  id?: string;
+  markerKey: string;
+  lat: number;
+  lng: number;
+  price: string;
+  originalData: any;
+};
+
+const toMarkerKey = (
+  id: string | number | undefined,
+  lat: number,
+  lng: number,
+  index: number,
+) => `${id ?? 'no-id'}:${lat.toFixed(6)}:${lng.toFixed(6)}:${index}`;
+
+const resolveListingId = (item: any): string | undefined => {
+  const raw =
+    item?.id ??
+    item?.listingId ??
+    item?.listing_id ??
+    item?.listing?.id ??
+    item?.listing?.listingId ??
+    item?.mlsId ??
+    item?.mls_id ??
+    item?.propertyId;
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  return String(raw);
+};
+
 const CustomMap: React.FC<Props> = ({
   properties = [],
   coord = [],
@@ -202,6 +232,8 @@ const CustomMap: React.FC<Props> = ({
     setMeasureError(null);
   }, []);
 
+  const hasActiveDrawPolygon = !!drawPolygon || !!drawPolygonRef.current;
+
   const applyMeasurePointFromMarker = useCallback(
     (
       point: google.maps.LatLngLiteral,
@@ -248,17 +280,25 @@ const CustomMap: React.FC<Props> = ({
   );
 
 
-  const markers = useMemo(() => {
-    const raw = properties.length > 0
-      ? properties.map((prop) => ({
-        id: prop.id,
+  const markers = useMemo<ListingMarker[]>(() => {
+    const usePropertiesSource = useOverlayResultsRail ? true : properties.length > 0;
+    const raw: ListingMarker[] = usePropertiesSource
+      ? properties.map((prop, index) => ({
+        id: resolveListingId(prop),
+        markerKey: toMarkerKey(
+          resolveListingId(prop),
+          Number(prop.public?.latitude),
+          Number(prop.public?.longitude),
+          index,
+        ),
         lat: prop.public?.latitude,
         lng: prop.public?.longitude,
         price: prop?.listing?.listPriceLow?.toString() ?? '',
         originalData: prop,
       }))
-      : coord.map((c) => ({
-        id: c.id ?? '',
+      : coord.map((c, index) => ({
+        id: c?.id !== undefined && c?.id !== null ? String(c.id) : undefined,
+        markerKey: toMarkerKey(c?.id, Number(c.lat), Number(c.lng), index),
         lat: c.lat,
         lng: c.lng,
         price: c.price ?? '',
@@ -279,14 +319,14 @@ const CustomMap: React.FC<Props> = ({
     (polygon: google.maps.Polygon | null) => {
       if (!polygon || !window.google?.maps?.geometry?.poly) return null;
 
-      const ids: string[] = [];
+      const propertyIds = new Set<string>();
       for (const marker of markers) {
         const point = new google.maps.LatLng(marker.lat, marker.lng);
         if (google.maps.geometry.poly.containsLocation(point, polygon)) {
-          if (marker.id) ids.push(String(marker.id));
+          if (marker.id) propertyIds.add(String(marker.id));
         }
       }
-      return ids;
+      return { propertyIds: Array.from(propertyIds) };
     },
     [markers],
   );
@@ -299,7 +339,8 @@ const CustomMap: React.FC<Props> = ({
         return;
       }
 
-      const ids = computeMarkersInsideDrawPolygon(polygon) ?? [];
+      const filtered = computeMarkersInsideDrawPolygon(polygon);
+      const ids = filtered?.propertyIds ?? [];
       setDrawFilteredMarkerIds(ids);
       onDrawFilterChange?.(ids);
     },
@@ -506,18 +547,29 @@ const CustomMap: React.FC<Props> = ({
     clearDrawPolygon();
   }, [clearDrawSignal, clearDrawPolygon]);
 
-  const visibleMarkers = useMemo(() => {
-    if (!drawFilteredMarkerIds) return markers;
-    const allowed = new Set(drawFilteredMarkerIds.map(String));
-    return markers.filter((m) => m.id && allowed.has(String(m.id)));
-  }, [markers, drawFilteredMarkerIds]);
+  const markerVisibilityMap = useMemo(() => {
+    const activePolygon = drawPolygonRef.current ?? drawPolygon;
+    if (!activePolygon || !window.google?.maps?.geometry?.poly) return null;
+    const visibility = new Map<string, boolean>();
+    for (const marker of markers) {
+      const point = new google.maps.LatLng(marker.lat, marker.lng);
+      visibility.set(
+        marker.markerKey,
+        google.maps.geometry.poly.containsLocation(point, activePolygon),
+      );
+    }
+    return visibility;
+  }, [markers, drawPolygon]);
 
   useEffect(() => {
-    if (!selectedMarker || !drawFilteredMarkerIds) return;
-    if (!drawFilteredMarkerIds.includes(String(selectedMarker.id))) {
+    const activePolygon = drawPolygonRef.current ?? drawPolygon;
+    if (!selectedMarker || !activePolygon || !window.google?.maps?.geometry?.poly) return;
+    const point = new google.maps.LatLng(selectedMarker.lat, selectedMarker.lng);
+    const stillInside = google.maps.geometry.poly.containsLocation(point, activePolygon);
+    if (!stillInside) {
       setSelectedMarker(null);
     }
-  }, [drawFilteredMarkerIds, selectedMarker]);
+  }, [drawPolygon, selectedMarker]);
 
   useEffect(() => {
     return () => {
@@ -1513,6 +1565,8 @@ const CustomMap: React.FC<Props> = ({
     if (!recentDataClickRef.current) {
       setClickedDistrictName(null);
     }
+    setSelectedMarker(null);
+    onMarkerClick?.('');
     setSelectedSchool(null);
     setSelectedSearchPlace(null);
 
@@ -1530,7 +1584,7 @@ const CustomMap: React.FC<Props> = ({
     }
 
     setMeasureEnd(point);
-  }, [measureMode, measureStart, measureEnd]);
+  }, [measureMode, measureStart, measureEnd, onMarkerClick]);
 
   useEffect(() => {
     if (!isLoaded || !mapInstance) return;
@@ -1584,7 +1638,7 @@ const CustomMap: React.FC<Props> = ({
   useEffect(() => {
     // If we've already drawn a polygon or are in the middle of a search, 
     // don't auto-adjust the map as it might trigger an infinite idle loop.
-    if (Array.isArray(drawFilteredMarkerIds) || recentDataClickRef.current) {
+    if (drawMode || hasActiveDrawPolygon || recentDataClickRef.current) {
       return;
     }
     if (mapInstance && markers.length > 0) {
@@ -1603,7 +1657,7 @@ const CustomMap: React.FC<Props> = ({
       }
       lastAutoFitQueryRef.current = currentQueryKey;
     }
-  }, [mapInstance, markers, zoom, drawFilteredMarkerIds, searchQuery]);
+  }, [mapInstance, markers, zoom, drawMode, hasActiveDrawPolygon, searchQuery]);
 
   const submitExploreSearch = useCallback(() => {
     const query = exploreSearchInput.trim();
@@ -2005,7 +2059,7 @@ const CustomMap: React.FC<Props> = ({
         onUnmount={onUnmount}
         onClick={handleMapClick}
         onIdle={() => {
-          if (drawMode || Array.isArray(drawFilteredMarkerIds)) return;
+          if (drawMode || hasActiveDrawPolygon) return;
           if (suppressNextOnIdleRef.current) {
             suppressNextOnIdleRef.current = false;
             return;
@@ -2022,9 +2076,11 @@ const CustomMap: React.FC<Props> = ({
           }
         }}
         options={{
+          cameraControl: false,
           fullscreenControl: false,
           streetViewControl: false,
           mapTypeControl: false,
+          rotateControl: false,
           clickableIcons: false,
           zoomControl: true,
           draggable: !drawMode,
@@ -2068,14 +2124,18 @@ const CustomMap: React.FC<Props> = ({
         }}
       >
         {districtsLoadingError ? null : null}
-        {visibleMarkers.map((marker) => (
+        {markers.map((marker) => {
+          const isMarkerVisible = markerVisibilityMap
+            ? markerVisibilityMap.get(marker.markerKey) === true
+            : true;
+          return (
           <Marker
-            key={marker.id}
+            key={marker.markerKey}
             position={{ lat: marker.lat, lng: marker.lng }}
-            icon={createCustomMarker(marker.price, marker.id === selectedMarker?.id)}
-            options={{ clickable: !drawMode }}
+            icon={createCustomMarker(marker.price, marker.markerKey === selectedMarker?.markerKey)}
+            options={{ clickable: !drawMode && isMarkerVisible, visible: isMarkerVisible }}
             onClick={() => {
-              if (drawMode) return;
+              if (drawMode || !isMarkerVisible) return;
               const markerPos = { lat: marker.lat, lng: marker.lng };
               if (measureModeRef.current) {
                 applyMeasurePointFromMarker(markerPos, 'listing');
@@ -2084,10 +2144,12 @@ const CustomMap: React.FC<Props> = ({
               }
               const sameSelected =
                 !!selectedMarker &&
-                ((marker.id && selectedMarker.id && String(marker.id) === String(selectedMarker.id)) ||
+                (String(marker.markerKey) === String(selectedMarker.markerKey) ||
+                  (marker.id && selectedMarker.id && String(marker.id) === String(selectedMarker.id)) ||
                   (selectedMarker.lat === marker.lat && selectedMarker.lng === marker.lng));
               if (sameSelected) {
                 setSelectedMarker(null);
+                onMarkerClick?.('');
                 return;
               }
               setSelectedMarker(marker);
@@ -2096,7 +2158,8 @@ const CustomMap: React.FC<Props> = ({
               if (marker.id && onMarkerClick) onMarkerClick(marker.id);
             }}
           />
-        ))}
+          );
+        })}
 
         {measureRoute && (
           <DirectionsRenderer

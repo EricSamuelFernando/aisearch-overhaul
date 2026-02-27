@@ -17,7 +17,7 @@ import { PROPERTY_SEARCH_AI_URL } from '@/shared/constants/env';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import debounce from 'lodash.debounce';
-import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
+import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { Grid2X2, Map, MapPinned, Search, X } from 'lucide-react';
 import PropertyComparisonModal from '../property-comparison-model';
 
@@ -137,6 +137,20 @@ const parseQueryFilters = (query: string): ParsedQueryFilters => {
   return { ...base, priceMax: singleValue };
 };
 
+const resolveListingId = (item: any): string | undefined => {
+  const raw =
+    item?.id ??
+    item?.listingId ??
+    item?.listing_id ??
+    item?.listing?.id ??
+    item?.listing?.listingId ??
+    item?.mlsId ??
+    item?.mls_id ??
+    item?.propertyId;
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  return String(raw);
+};
+
 function PropertyBrowseView({ }: Props) {
   const { currentView } = useProperty();
   const { savePropertyView } = usePropertyActions();
@@ -165,7 +179,7 @@ function PropertyBrowseView({ }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const query = searchParams.get('q');
-  const isMlsMode = isMlsBypassModeEnabled();
+  const [isMlsMode, setIsMlsMode] = useState(false);
   const activeSearchFilters = useMemo(() => ({
     bedrooms: Number(searchParams.get('bedRooms') || '') || undefined,
     bathrooms: Number(searchParams.get('bathRooms') || '') || undefined,
@@ -197,12 +211,15 @@ function PropertyBrowseView({ }: Props) {
 
   const displayedProperties = Array.isArray(drawFilteredPropertyIds)
     ? (Array.isArray(allProperties)
-      ? allProperties.filter((p: any) => drawFilteredPropertyIds.includes(String(p?.id)))
+      ? allProperties.filter((p: any) => {
+        const listingId = resolveListingId(p);
+        return !!listingId && drawFilteredPropertyIds.includes(listingId);
+      })
       : [])
     : allProperties;
 
   const coordinates = allProperties?.map((property: any) => ({
-    id: property.id,
+    id: resolveListingId(property),
     price: property?.listing?.listPriceLow,
     lat: property?.public?.latitude,
     lng: property?.public?.longitude,
@@ -278,6 +295,30 @@ function PropertyBrowseView({ }: Props) {
       setDivHeight(divRef.current.clientHeight);
     }
   }, []);
+
+  useEffect(() => {
+    setIsMlsMode(isMlsBypassModeEnabled());
+
+    const handleBypassChange = (event: Event) => {
+      const customEvent = event as CustomEvent<boolean>;
+      if (typeof customEvent.detail === 'boolean') {
+        setIsMlsMode(customEvent.detail);
+        return;
+      }
+      setIsMlsMode(isMlsBypassModeEnabled());
+    };
+
+    window.addEventListener('snaphomz:mls-bypass-changed', handleBypassChange as EventListener);
+    return () => {
+      window.removeEventListener('snaphomz:mls-bypass-changed', handleBypassChange as EventListener);
+    };
+  }, []);
+
+  const toggleSearchMode = useCallback(() => {
+    const next = !isMlsMode;
+    setMlsBypassModeEnabled(next);
+    setIsMlsMode(next);
+  }, [isMlsMode]);
 
   const pushBrowseParams = useCallback((mutator: (params: URLSearchParams) => void) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -395,7 +436,7 @@ function PropertyBrowseView({ }: Props) {
         setIsLoading(false);
       }
     }, 1000),
-    [query, activeSearchFiltersKey, clearProperties, addProperties, setSearchedQuery, setIsLoading, dispatch],
+    [query, activeSearchFiltersKey, clearProperties, addProperties, setSearchedQuery, setIsLoading, dispatch, isMlsMode],
   );
 
   useEffect(() => {
@@ -461,16 +502,19 @@ function PropertyBrowseView({ }: Props) {
                       className="w-full"
                       inputClassName="h-11 w-full rounded-2xl border-0 bg-transparent pl-10 pr-28 text-sm text-gray-900 shadow-none outline-none ring-0 placeholder:text-gray-400 focus-visible:ring-0"
                     />
-                    <span
+                    <button
+                      type="button"
+                      onClick={toggleSearchMode}
+                      title={isMlsMode ? 'MLS mode active. Click to switch to AI search.' : 'AI search active. Click to switch to MLS search.'}
                       className={cn(
-                        'pointer-events-none absolute right-10 top-1/2 -translate-y-1/2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                        'absolute right-10 top-1/2 -translate-y-1/2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition',
                         isMlsMode
-                          ? 'bg-gray-100 text-gray-600 ring-1 ring-gray-200'
-                          : 'bg-orange-50 text-orange-700 ring-1 ring-orange-200'
+                          ? 'bg-gray-100 text-gray-600 ring-1 ring-gray-200 hover:bg-gray-200'
+                          : 'bg-orange-50 text-orange-700 ring-1 ring-orange-200 hover:bg-orange-100'
                       )}
                     >
-                      {isMlsMode ? 'AI Off' : 'AI On'}
-                    </span>
+                      {isMlsMode ? 'AI OFF' : 'AI ON'}
+                    </button>
                     {topSearchValue ? (
                       <button
                         type="button"
@@ -659,34 +703,9 @@ function PropertyBrowseView({ }: Props) {
                   selectedProperty={selectedProperty}
                   propertiesOverride={displayedProperties}
                   overlayMode
+                  onOpenCompareModal={() => setShowCompareModal(true)}
                 />
               </div>
-
-              {isCompareMode ? (
-                <div className="pointer-events-none absolute bottom-52 left-1/2 z-40 -translate-x-1/2">
-                  <button
-                    type="button"
-                    onClick={() => setShowCompareModal(true)}
-                    disabled={selectedCompareProperties.length < 2}
-                    className={cn(
-                      'pointer-events-auto inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-lg transition',
-                      selectedCompareProperties.length >= 2
-                        ? 'bg-ocOrange text-white hover:brightness-95'
-                        : 'cursor-not-allowed bg-white/95 text-gray-400 ring-1 ring-gray-200'
-                    )}
-                  >
-                    Compare
-                    <span className={cn(
-                      'rounded-full px-2 py-0.5 text-[11px] font-semibold',
-                      selectedCompareProperties.length >= 2
-                        ? 'bg-white/20 text-white'
-                        : 'bg-gray-100 text-gray-500'
-                    )}>
-                      {selectedCompareProperties.length}
-                    </span>
-                  </button>
-                </div>
-              ) : null}
             </div>
           </div>
         </div>
@@ -706,6 +725,7 @@ function PropertyBrowseView({ }: Props) {
               selectedProperty={selectedProperty}
               propertiesOverride={displayedProperties}
               overlayMode
+              onOpenCompareModal={() => setShowCompareModal(true)}
             />
           </div>
           </div>
@@ -721,12 +741,7 @@ function PropertyBrowseView({ }: Props) {
   return (
     <>
       <section
-        className={cn(
-          'relative mb-20 mx-auto w-full',
-          currentView === 'map'
-            ? 'md:grid grid-cols-2 gap-x-0'
-            : 'md:grid grid-cols-5 w-full gap-x-8 max-w-[1600px] mx-auto pl-12 pr-8 md:pl-16 md:pr-12',
-        )}
+        className="relative mb-20 mx-auto w-full md:grid grid-cols-5 max-w-[1600px] gap-x-8 pl-12 pr-8 md:pl-16 md:pr-12"
       >
       {/* Property Cards */}
       <div
@@ -737,9 +752,7 @@ function PropertyBrowseView({ }: Props) {
         // )}
         className={cn(
           currentView === 'grid' ? 'px-0' : 'px-4 md:px-6',
-          currentView === 'map'
-            ? 'flex flex-col gap-y-4 md:col-span-1 md:px-6'
-            : 'col-span-5',
+          'col-span-5',
         )}
       >
         <BuyPropertyCards selectedProperty={selectedProperty} propertiesOverride={displayedProperties} />

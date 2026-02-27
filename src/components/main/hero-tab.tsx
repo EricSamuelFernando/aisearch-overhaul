@@ -2309,7 +2309,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                       }`}
                   >
-                    {mlsBypassMode ? 'MLS Direct' : 'AI Search'}
+                    {mlsBypassMode ? 'AI OFF' : 'AI Search'}
                   </button>
                   <div className="relative">
                     <div

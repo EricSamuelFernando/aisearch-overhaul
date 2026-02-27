@@ -374,6 +374,8 @@ import { Input } from '../ui/input';
 import { cn } from '@/lib/utils';
 import { useProperty } from '@/shared/hooks/useProperty';
 
+let globalLastAutoSearch: string | null = null;
+
 type Props = {};
 
 const StarIcon = () => (
@@ -543,8 +545,8 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
     if (!normalizedQuery) return;
 
     setSearchString(normalizedQuery);
-    if (lastAutoSearchRef.current === normalizedQuery) return;
-    lastAutoSearchRef.current = normalizedQuery;
+    if (globalLastAutoSearch === normalizedQuery) return;
+    globalLastAutoSearch = normalizedQuery;
     sendSearchRequest(normalizedQuery);
   }, [searchParams, searchTerm, isHiddenInMapMode]);
 

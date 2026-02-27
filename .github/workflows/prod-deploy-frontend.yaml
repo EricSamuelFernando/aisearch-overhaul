@@ -3,7 +3,7 @@ name: Deploying microservices frontend PROD ENV using lambda in AWS
 on:
   push:
     branches:
-      - prod-deploy
+      - main
 
     paths-ignore:
       - "terraform/**"

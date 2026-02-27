@@ -356,6 +356,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
   const [showQuickCreateInput, setShowQuickCreateInput] = useState(false);
   const [quickSnapName, setQuickSnapName] = useState('');
   const quickInputRef = useRef<HTMLInputElement>(null);
+  const lastCreatedSnapIdRef = useRef<string | null>(null);
 
   const propertyData = useSelector((state: any) => state.property.property);
   const {
@@ -506,6 +507,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
         onSuccess: (data) => {
           const createdId = data?.data?.createSnap?.id;
           if (createdId) {
+            lastCreatedSnapIdRef.current = createdId;
             handleToggleFavourite(createdId);
             getAllSnapsByUserId();
           }
@@ -520,12 +522,27 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
     );
   };
 
+  const setSnapsWithNewFirst = (data: any[]) => {
+    const pinId = lastCreatedSnapIdRef.current;
+    if (pinId) {
+      const idx = data.findIndex((s: any) => s.id === pinId);
+      if (idx > 0) {
+        const reordered = [...data];
+        const [snap] = reordered.splice(idx, 1);
+        reordered.unshift(snap);
+        setSnaps(reordered);
+        return;
+      }
+    }
+    setSnaps(data);
+  };
+
   const getAllSnapsByUserId = (skipReclaim = false) => {
     if (userData?.id) {
       getAllSnaps.mutate(userData.id, {
         onSuccess: (data) => {
           if (data && data.length > 0) {
-            setSnaps(data);
+            setSnapsWithNewFirst(data);
           } else if (!skipReclaim) {
             // No snaps returned — may be due to orphaned snaps from the old OAuth
             // flow (randomId userId mismatch). Run a one-time migration and re-fetch.
@@ -541,7 +558,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
               onError: () => setSnaps([]),
             });
           } else {
-            setSnaps(data ?? []);
+            setSnapsWithNewFirst(data ?? []);
           }
         },
         onError: (err) => {
@@ -614,7 +631,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
 
   const myFavSnap = snaps.find((s: any) => s.name === 'My Favourite');
   const isInMyFav = myFavSnap ? isPropertyInFavourite(myFavSnap) : false;
-  const customSnaps = snaps.filter((s: any) => s.name !== 'My Favourite').slice().reverse();
+  const customSnaps = snaps.filter((s: any) => s.name !== 'My Favourite');
 
   return (
     <CustomModal

@@ -10,7 +10,7 @@ import { storeCookie } from "@/lib/storage"
 import ReactPlayer from "react-player"
 import 'odometer/themes/odometer-theme-default.css';
 import dynamic from "next/dynamic";
-const Odometer = dynamic(() => import('react-odometerjs'), {ssr: false,});
+const Odometer = dynamic(() => import('react-odometerjs'), { ssr: false, });
 
 const WaitlistPage = () => {
   const [activeTab, setActiveTab] = useState("Default")
@@ -38,6 +38,7 @@ const WaitlistPage = () => {
   useEffect(() => {
     // Ensures it renders only after hydration
     setIsClient(true);
+    console.log(data)
   }, []);
   const { data, isLoading, error } = getWaitlistQuery;
 
@@ -401,10 +402,10 @@ const WaitlistPage = () => {
 
             {/* Right Section - Image Carousel */}
             <div className="w-full lg:w-1/2 mt-8 lg:mt-0 space-y-6 flex flex-col items-center">
-              {isClient?<div className="text-white text-4xl sm:text-5xl font-bold tracking-tight animate-fadeInUp">
-                <Odometer value={128+parseInt(data?.total)} format="(,ddd)" duration={2000} />+
+              {isClient ? <div className="text-white text-4xl sm:text-5xl font-bold tracking-tight animate-fadeInUp">
+                <Odometer value={128 + parseInt("3000")} format="(,ddd)" duration={2000} />+
                 <p className="text-lg text-gray-400 mt-1">early adopters are already experiencing radical transparency with Snaphomz</p>
-              </div>:null}
+              </div> : null}
               <div className="w-full">{tabContent[activeTab as keyof typeof tabContent]}</div>
 
               {/* Tab Navigation */}

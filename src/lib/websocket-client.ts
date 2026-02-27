@@ -102,18 +102,19 @@ export class WebSocketClientImpl implements WebSocketClient {
     //   }
     // }
 
-    const isApiGatewayPattern =
-      url.includes('execute-api.amazonaws.com') ||
-      url.includes('execute-api.') ||
-      /execute-api\.[a-z0-9-]+\.amazonaws\.com/i.test(url);
+    // const isApiGatewayPattern =
+    //   url.includes('execute-api.amazonaws.com') ||
+    //   url.includes('execute-api.') ||
+    //   /execute-api\.[a-z0-9-]+\.amazonaws\.com/i.test(url);
 
-    this.url = url.startsWith('ws') ? url : url.replace(/^http/, 'ws');
+    // this.url = url.startsWith('ws') ? url : url.replace(/^http/, 'ws');
+    this.url = url
 
-    console.log('[WebSocket] URL detection:', {
-      originalUrl: url,
-      containsExecuteApi: url.includes('execute-api'),
-      isApiGatewayPattern,
-    });
+    // console.log('[WebSocket] URL detection:', {
+    //   originalUrl: url,
+    //   containsExecuteApi: url.includes('execute-api'),
+    //   isApiGatewayPattern,
+    // });
 
     console.log('[WebSocket] Base URL:', url, '-> WebSocket URL:', this.url);
 
@@ -161,7 +162,7 @@ export class WebSocketClientImpl implements WebSocketClient {
 
       this.ws.onopen = () => {
         console.log('[WebSocket] Connected', {
-          readyState: this.ws?.readyState,
+          readyState: this.ws?.readyState || 0,
           reconnectAttempts: this.reconnectAttempts,
         });
         this.connected = true;

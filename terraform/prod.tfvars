@@ -48,6 +48,9 @@ lambda_env_variables = {
   NEXT_PUBLIC_GOOGLE_COGNITO_CLIENT_ID         = "972804820356-urh3bju8aopsuq2qkte96819rj3vnoko.apps.googleusercontent.com",
   NEXT_PUBLIC_GOOGLE_SECRET_COGNITO_SECRECT_ID = "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"
 
+  MLS_SNAPHOMZ_API = "SNAPHOMZMLSPRODUCTION-48b1-7fdf-af3e-e28c3199c5b4"
+  REALESTATE_API_BASE_URL = "https://api.realestateapi.com"
+
 
   NEXT_PUBLIC_COGNITO_DOMAIN = "https://us-east-1xp9jpi8by.auth.us-east-1.amazoncognito.com"
 

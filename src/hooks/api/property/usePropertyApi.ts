@@ -356,6 +356,7 @@ export const useUpdatePropertyPreference = (email?: string) => {
       priceMax?: number;
       province?: string;
       city?: string;
+      onboardingCompleted?: boolean
     }) => {
       if (!email) {
         throw new Error('User email is required to update preferences.');

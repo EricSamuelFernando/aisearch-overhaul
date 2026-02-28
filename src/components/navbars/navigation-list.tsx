@@ -59,7 +59,7 @@ export function NavigationList({ dark = false }: any) {
           </NavigationMenuContent>
         </NavigationMenuItem>
 
-        <NavigationMenuItem>
+        {/* <NavigationMenuItem>
           <NavigationMenuTrigger className={`bg-transparent px-4 hover:bg-transparent hover:underline focus:bg-transparent ${textClass}`}>
             <Link href='/sell' className={`${textClass} hover:text-primary`}>
               Sell
@@ -75,7 +75,7 @@ export function NavigationList({ dark = false }: any) {
                   </Link>
                   {/* <Link href='/login' className='hover:text-primary hover:underline'>
                     Our Real Estate Agents
-                  </Link>*/}
+                  </Link>* /}
                 </div>
               </div>
               <div className='flex flex-col space-y-4 pl-8'>
@@ -86,7 +86,7 @@ export function NavigationList({ dark = false }: any) {
                   </Link>
                   {/* <Link href='/sell#home-estimator' className='hover:text-primary hover:underline'>
                     Home Estimator
-                  </Link>*/}
+                  </Link>* /}
                   <Link href='/sell#testimonials' className='hover:text-primary hover:underline'>
                     Testimonials
                   </Link>
@@ -94,7 +94,7 @@ export function NavigationList({ dark = false }: any) {
               </div>
             </div>
           </NavigationMenuContent>
-        </NavigationMenuItem>
+        </NavigationMenuItem> */}
 
         <NavigationMenuItem>
           <Link href='/agents' legacyBehavior passHref>
@@ -104,7 +104,7 @@ export function NavigationList({ dark = false }: any) {
           </Link>
         </NavigationMenuItem>
 
-        <NavigationMenuItem>
+        {/* <NavigationMenuItem>
           <Link href='/company' legacyBehavior passHref>
             <NavigationMenuLink className={`bg-transparent px-4 font-medium hover:bg-transparent hover:text-primary hover:underline ${textClass}`}>
               Company
@@ -118,7 +118,7 @@ export function NavigationList({ dark = false }: any) {
               Blog
             </NavigationMenuLink>
           </Link>
-        </NavigationMenuItem>
+        </NavigationMenuItem> */}
       </NavigationMenuList>
     </NavigationMenu>
   );

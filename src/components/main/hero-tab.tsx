@@ -7,7 +7,7 @@ import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypas
 import { detectIntent } from '@/lib/chatRouting';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
-import { Sparkles, Paperclip, X, ArrowUp, Mic, Search as SearchIcon, FileText, Image as ImageIcon, ChevronDown, ChevronUp, MapPin, School, Shield, Footprints, Thermometer, CloudSun, BedDouble, Bath, Square, Scaling, Calendar, Clock, TrendingUp, GraduationCap, Trees, Plus, Lightbulb, Droplets } from 'lucide-react';
+import { Sparkles, Paperclip, X, ArrowUp, Mic, Search as SearchIcon, FileText, Image as ImageIcon, ChevronDown, ChevronUp, MapPin, School, Shield, Footprints, Thermometer, CloudSun, BedDouble, Bath, Square, Scaling, Calendar, Clock, TrendingUp, GraduationCap, Trees, Plus, Lightbulb, Droplets, Home } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, ReferenceDot } from 'recharts';
 import SchoolMapPanel from '@/components/SchoolMapPanel';
@@ -2929,8 +2929,43 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
                         {/* Properties Carousel */}
                         {msg.relatedProperties && msg.relatedProperties.length > 0 && (
-                          <div className={`w-full max-w-full ${msg.relatedProperties?.length ? 'order-2' : ''}`}>
-                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center overflow-visible sm:overflow-x-auto gap-2 sm:gap-4 md:gap-6 px-0 sm:px-4 md:px-6 py-3 sm:py-5 md:py-6 sm:snap-x sm:snap-mandatory no-scrollbar" style={{ scrollBehavior: 'smooth' }}>
+                          <div className={`w-full max-w-full ${msg.relatedProperties?.length ? 'order-2' : ''} relative group`}>
+
+                            {/* Left Scroll Arrow */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const container = document.getElementById(`carousel-${msg.id}`);
+                                if (container) {
+                                  container.scrollBy({ left: -360, behavior: 'smooth' });
+                                }
+                              }}
+                              className="absolute left-1 sm:left-4 top-[50%] -translate-y-1/2 z-30 hidden sm:flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#F58634] to-[#FF9E5E] shadow-[0_4px_12px_rgba(245,134,52,0.4)] text-white hover:scale-[1.1] hover:shadow-[0_8px_24px_rgba(245,134,52,0.6)] transition-all duration-300 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto active:scale-95 group/btn"
+                              aria-label="Scroll Left"
+                            >
+                              <ChevronDown className="w-5 h-5 sm:w-6 sm:h-6 rotate-90 stroke-[3] transition-transform duration-300 group-hover/btn:-translate-y-0.5 group-hover/btn:-translate-x-0.5" />
+                            </button>
+
+                            {/* Right Scroll Arrow */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const container = document.getElementById(`carousel-${msg.id}`);
+                                if (container) {
+                                  container.scrollBy({ left: 360, behavior: 'smooth' });
+                                }
+                              }}
+                              className="absolute right-1 sm:right-4 top-[50%] -translate-y-1/2 z-30 hidden sm:flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#F58634] to-[#FF9E5E] shadow-[0_4px_12px_rgba(245,134,52,0.4)] text-white hover:scale-[1.1] hover:shadow-[0_8px_24px_rgba(245,134,52,0.6)] transition-all duration-300 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto active:scale-95 group/btn"
+                              aria-label="Scroll Right"
+                            >
+                              <ChevronDown className="w-5 h-5 sm:w-6 sm:h-6 -rotate-90 stroke-[3] transition-transform duration-300 group-hover/btn:-translate-y-0.5 group-hover/btn:translate-x-0.5" />
+                            </button>
+
+                            <div
+                              id={`carousel-${msg.id}`}
+                              className="flex flex-col sm:flex-row items-stretch sm:items-center overflow-visible sm:overflow-x-auto gap-4 sm:gap-5 md:gap-6 px-4 sm:px-8 md:px-10 py-4 sm:py-6 md:py-8 sm:snap-x sm:snap-mandatory no-scrollbar"
+                              style={{ scrollBehavior: 'smooth' }}
+                            >
                               {msg.relatedProperties.map((property: any) => {
                                 const isActive = selectedPropertyId === property.id;
                                 const isExpandedCard = expandedPropertyId === property.id;
@@ -2968,18 +3003,26 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                   >
                                     {/* White Overlay for Inactive Effect */}
                                     {isAnySelected && !isActive && (
-                                      <div className="absolute inset-0 bg-white/60 backdrop-blur-[0.5px] z-20 pointer-events-none transition-opacity duration-300" />
+                                      <div className="absolute inset-0 bg-white/60 backdrop-blur-[0.5px] z-30 pointer-events-none transition-opacity duration-300" />
                                     )}
 
-                                    <div className="h-44 sm:h-48 md:h-56 lg:h-52 w-full relative overflow-hidden bg-gray-100 flex-shrink-0">
-                                      <Image
-                                        src={property.image}
-                                        alt="Property"
-                                        fill
-                                        unoptimized={true}
-                                        className="object-cover transition-transform duration-700 group-hover:scale-105"
-                                      />
-                                      <div className="absolute top-3 left-3 bg-black/60 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg backdrop-blur-md">
+                                    <div className="h-44 sm:h-48 md:h-56 lg:h-52 w-full relative overflow-hidden bg-[#F8F9FA] flex-shrink-0 flex items-center justify-center">
+                                      <Home className="w-10 h-10 text-gray-300 absolute z-0" />
+                                      {property.image && property.image.trim() !== '' && (
+                                        <Image
+                                          src={property.image}
+                                          alt="Property"
+                                          fill
+                                          unoptimized={true}
+                                          className="object-cover transition-transform duration-700 group-hover:scale-105 z-10"
+                                          onError={(e) => {
+                                            if (e.currentTarget) {
+                                              e.currentTarget.style.display = 'none';
+                                            }
+                                          }}
+                                        />
+                                      )}
+                                      <div className="absolute top-3 left-3 z-20 bg-black/60 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg backdrop-blur-md">
                                         {property.type}
                                       </div>
                                     </div>

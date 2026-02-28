@@ -27,9 +27,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     useEffect(() => {
         const isPublicRoute = (pathname: string) => {
             return APP_PUBLIC_ROUTE.some((route) =>
-              typeof route === 'string' ? route === pathname : route.test(pathname)
+                typeof route === 'string' ? route === pathname : route.test(pathname)
             );
-          };
+        };
         console.log("currentUser: ", currentUser, pathname);
         // if(!isLoggedIn && APP_PUBLIC_ROUTE.includes(pathname)){
         //     router.push('/home');
@@ -37,10 +37,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         //     setUserRole(null);
         //     return;
         // }
-        if(!isLoggedIn && !isPublicRoute){
+        if (!isLoggedIn && !isPublicRoute) {
             console.log("Authentication : 01");
             setIsAuthenticated(true);
-            router.push('/home');
+            router.push('/');
             return;
         }
         // if (!currentUser?.access_token) {

@@ -5,7 +5,7 @@ export const protectedRoutes = [
     '/agents'
 ];
 export const publicRoutes = [
-    '/home',
+    '/',
     '/login',
 ];
 

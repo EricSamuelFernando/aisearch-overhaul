@@ -14,6 +14,7 @@ on:
       - ".gitignore"
       - ".env.development"
       - ".env.production"
+      - ".env.demo"
       - "docker-compose.yml"
 
 env:
@@ -60,7 +61,7 @@ jobs:
         run: |
           export NODE_OPTIONS="--max-old-space-size=4096"
           npx next telemetry disable
-          yarn build --no-lint
+          yarn build:demo --no-lint
           echo "NextJS app built successfully"
 
       - name: Configure AWS credentials

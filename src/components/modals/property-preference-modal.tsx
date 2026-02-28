@@ -38,12 +38,14 @@ const progressMapping: Record<BuyerOnboardingProgress, ProgressMappingType> = {
 type PropertyPreferenceModalProps = {
   isOpen: boolean;
   onClose: () => void;
+  onSkip?: () => void;
   onComplete?: () => void;
 };
 
 const PropertyPreferenceModal: React.FC<PropertyPreferenceModalProps> = ({
   isOpen,
   onClose,
+  onSkip,
   onComplete,
 }) => {
   const progress = useAppSelector(buyerOnboardProgress);
@@ -61,7 +63,7 @@ const PropertyPreferenceModal: React.FC<PropertyPreferenceModalProps> = ({
           variant='ghost'
           roundness='full'
           className='border border-black px-6 py-2 text-ocOrange'
-          onClick={onClose}
+          onClick={onSkip || onClose}
         >
           Skip
         </Button>
@@ -83,8 +85,9 @@ const PropertyPreferenceModal: React.FC<PropertyPreferenceModalProps> = ({
       <div className='mt-8'>
         <BuyerProgressButton
           onComplete={onComplete}
-          onSkip={onClose}
+          onSkip={onSkip || onClose}
           cancelLabel='Skip'
+          hideCancel
         />
       </div>
     </CustomModal>

@@ -146,6 +146,48 @@ const SCHOOL_KEYWORDS = [
     "campus",
 ];
 
+const ADDRESS_SECOND_TOKEN_DISALLOWED = new Set([
+    "bed",
+    "beds",
+    "bedroom",
+    "bedrooms",
+    "bath",
+    "baths",
+    "bathroom",
+    "bathrooms",
+    "market",
+    "forecast",
+    "trend",
+    "trends",
+    "mortgage",
+    "loan",
+    "rate",
+    "rates",
+    "tax",
+    "taxes",
+    "price",
+    "prices",
+    "cost",
+    "costs",
+    "rent",
+    "buy",
+    "sell",
+    "home",
+    "homes",
+    "house",
+    "houses",
+    "property",
+    "properties",
+]);
+
+const ADDRESS_SUFFIX_RE =
+    /\b(street|st|road|rd|avenue|ave|boulevard|blvd|drive|dr|lane|ln|court|ct|place|pl|way|circle|cir|parkway|pkwy|trail|trl|highway|hwy|terrace|ter)\b/i;
+const ADDRESS_DIRECTION_RE = /\b(n|s|e|w|ne|nw|se|sw)\b/i;
+const STATE_CODE_RE =
+    /\b(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)\b/i;
+const STATE_NAME_RE =
+    /\b(alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new hampshire|new jersey|new mexico|new york|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|rhode island|south carolina|south dakota|tennessee|texas|utah|vermont|virginia|washington|west virginia|wisconsin|wyoming|district of columbia)\b/i;
+
 const normalize = (query: string) => query.toLowerCase();
 
 export const hasGeneralInfoCue = (query: string) => {
@@ -269,6 +311,28 @@ const isLocationListingRequest = (query: string) => {
     return hasZip || hasCityState || hasLocationPhrase || shortLocation;
 };
 
+const isLikelyStreetAddress = (query: string) => {
+    const trimmed = query.trim();
+    if (!trimmed) return false;
+
+    const tokens = trimmed.toLowerCase().match(/[a-z0-9]+/g) || [];
+    const firstToken = tokens[0];
+    const secondToken = tokens[1];
+    if (!firstToken || !secondToken) return false;
+    if (!/^\d{1,6}$/.test(firstToken)) return false;
+    if (ADDRESS_SECOND_TOKEN_DISALLOWED.has(secondToken)) return false;
+
+    const hasZip = /\b\d{5}(?:-\d{4})?\b/.test(trimmed);
+    const hasComma = trimmed.includes(",");
+    const hasSuffix = ADDRESS_SUFFIX_RE.test(trimmed);
+    const hasDirection = ADDRESS_DIRECTION_RE.test(tokens.slice(1, 3).join(" "));
+    const hasState = STATE_CODE_RE.test(trimmed) || STATE_NAME_RE.test(trimmed.toLowerCase());
+
+    // Permit typo/partial address input (e.g. "837 w 103rd stree los angeles california")
+    // while still requiring a numeric street-number start.
+    return hasSuffix || hasDirection || hasZip || hasState || hasComma || tokens.length >= 3;
+};
+
 export const detectIntent = (
     query: string,
     options: RoutingOptions = {}
@@ -313,6 +377,7 @@ export const detectIntent = (
 
     if (schoolLocationQuery) return "property";
     if (hasGeneralInfoCue(normalized)) return "general";
+    if (isLikelyStreetAddress(trimmed)) return "property";
     if (hasPropertyKeyword(normalized)) return "property";
     if (hasSchoolCue(normalized)) return "property";
     if (isLocationListingRequest(trimmed)) return "property";

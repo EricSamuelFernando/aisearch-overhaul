@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - demo-deploy
+      - release
 
     paths-ignore:
       - "terraform/**"
@@ -14,7 +15,7 @@ on:
       - ".gitignore"
       - ".env.development"
       - ".env.production"
-      - ".env.demo"
+      - ".env.prod"
       - "docker-compose.yml"
 
 env:

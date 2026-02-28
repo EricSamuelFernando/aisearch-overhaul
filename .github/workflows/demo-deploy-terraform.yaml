@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - demo-deploy
+      - release
 
     paths: ['terraform/**', '.github/workflows/demo-deploy-terraform.yaml']
 

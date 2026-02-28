@@ -180,6 +180,7 @@ function PropertyBrowseView({ }: Props) {
   const pathname = usePathname();
   const query = searchParams.get('q');
   const [isMlsMode, setIsMlsMode] = useState(false);
+  const [isSearchModeReady, setIsSearchModeReady] = useState(false);
   const activeSearchFilters = useMemo(() => ({
     bedrooms: Number(searchParams.get('bedRooms') || '') || undefined,
     bathrooms: Number(searchParams.get('bathRooms') || '') || undefined,
@@ -298,6 +299,7 @@ function PropertyBrowseView({ }: Props) {
 
   useEffect(() => {
     setIsMlsMode(isMlsBypassModeEnabled());
+    setIsSearchModeReady(true);
 
     const handleBypassChange = (event: Event) => {
       const customEvent = event as CustomEvent<boolean>;
@@ -440,6 +442,12 @@ function PropertyBrowseView({ }: Props) {
   );
 
   useEffect(() => {
+    return () => {
+      (sendSearchRequest as unknown as { cancel?: () => void }).cancel?.();
+    };
+  }, [sendSearchRequest]);
+
+  useEffect(() => {
     const handlePinState = () => setIsMapPinned(true);
     handlePinState();
     window.addEventListener('resize', handlePinState);
@@ -450,10 +458,11 @@ function PropertyBrowseView({ }: Props) {
 
   useEffect(() => {
     if (currentView !== 'map') return;
+    if (!isSearchModeReady) return;
     if (!query?.trim()) return;
 
     sendSearchRequest({});
-  }, [currentView, query, activeSearchFiltersKey, sendSearchRequest]);
+  }, [currentView, isSearchModeReady, query, activeSearchFiltersKey, sendSearchRequest]);
 
   if (currentView === 'map') {
     return (

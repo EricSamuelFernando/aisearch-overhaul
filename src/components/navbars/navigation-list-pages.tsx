@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { NavigationMenu, NavigationMenuContent, NavigationMenuItem, NavigationMenuLink, NavigationMenuList, NavigationMenuTrigger } from '@/components/ui/navigation-menu';
 import { AGENT_APPLICATIONS } from '@/shared/constants/env';
+import { setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 
 export function NavigationListPages({ isScrolled = false }: { isScrolled?: boolean }) {
   const pathname = usePathname();
@@ -46,6 +47,10 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
     ? 'w-full min-w-[600px] bg-[#FAF9F5] text-black company-dropdown-content'
     : 'w-full min-w-[600px] bg-[#FAF9F5] text-black';
 
+  const handleStateMlsQuickSearch = React.useCallback(() => {
+    setMlsBypassModeEnabled(true);
+  }, []);
+
   return (
     <NavigationMenu>
       <NavigationMenuList>
@@ -60,10 +65,18 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
               <div className='flex flex-col space-y-4 pr-8'>
                 {/* <h4 className='text-lg font-medium'>Buy a Home With</h4> */}
                 <div className='flex flex-col space-y-3'>
-                  <Link href='/home?q=California' className='text-black hover:text-primary hover:underline'>
+                  <Link
+                    href='/buy/browse?q=California'
+                    className='text-black hover:text-primary hover:underline'
+                    onClick={handleStateMlsQuickSearch}
+                  >
                     Homes in California
                   </Link>
-                  <Link href='/home?q=Texas' className='text-black hover:text-primary hover:underline'>
+                  <Link
+                    href='/buy/browse?q=Texas'
+                    className='text-black hover:text-primary hover:underline'
+                    onClick={handleStateMlsQuickSearch}
+                  >
                     Homes in Texas
                   </Link>
                   {/*<Link href={AGENT_APPLICATIONS || ""} className='text-black hover:text-primary hover:underline'>

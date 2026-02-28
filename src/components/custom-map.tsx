@@ -234,6 +234,31 @@ const CustomMap: React.FC<Props> = ({
 
   const hasActiveDrawPolygon = !!drawPolygon || !!drawPolygonRef.current;
 
+  const isPointInsideActiveDrawPolygon = useCallback(
+    (
+      point:
+        | google.maps.LatLng
+        | google.maps.LatLngLiteral
+        | null
+        | undefined,
+    ) => {
+      const activePolygon = drawPolygonRef.current ?? drawPolygon;
+      if (!activePolygon || !window.google?.maps?.geometry?.poly) return true;
+      if (!point) return false;
+
+      const latLng =
+        typeof (point as google.maps.LatLng).lat === 'function'
+          ? (point as google.maps.LatLng)
+          : new google.maps.LatLng(
+              (point as google.maps.LatLngLiteral).lat,
+              (point as google.maps.LatLngLiteral).lng,
+            );
+
+      return google.maps.geometry.poly.containsLocation(latLng, activePolygon);
+    },
+    [drawPolygon],
+  );
+
   const applyMeasurePointFromMarker = useCallback(
     (
       point: google.maps.LatLngLiteral,
@@ -267,10 +292,12 @@ const CustomMap: React.FC<Props> = ({
     mapInstance.panTo(position);
   }, [mapInstance]);
 
+  const schoolCategoryColor = '#B22148';
+
   const quickCategories = useMemo(
     () => ({
-      restaurants: { label: 'Restaurants', color: '#14b8a6', query: 'restaurants' },
-      gyms: { label: 'Gyms', color: '#6366f1', query: 'gyms' },
+      restaurants: { label: 'Restaurants', color: '#00A96E', query: 'restaurants' },
+      gyms: { label: 'Gyms', color: '#FF383C', query: 'gyms' },
       // Google Places text search is more reliable with singular "hospital"
       // than plural "hospitals" in some viewports.
       hospitals: { label: 'Hospitals', color: '#2563eb', query: 'hospital' },
@@ -434,6 +461,18 @@ const CustomMap: React.FC<Props> = ({
 
     const minPointDistanceMeters = 10;
 
+    const startFreehand = (point: google.maps.LatLngLiteral) => {
+      freehandDrawingActiveRef.current = true;
+      freehandPathRef.current = [];
+
+      if (freehandPreviewLineRef.current) {
+        freehandPreviewLineRef.current.setMap(null);
+        freehandPreviewLineRef.current = null;
+      }
+
+      pushPoint(point);
+    };
+
     const pushPoint = (point: google.maps.LatLngLiteral) => {
       const path = freehandPathRef.current;
       const last = path[path.length - 1];
@@ -488,26 +527,26 @@ const CustomMap: React.FC<Props> = ({
     };
 
     listeners.push(
+      mapInstance.addListener('mousedown', (event: google.maps.MapMouseEvent) => {
+        if (!drawMode || !event?.latLng) return;
+        startFreehand(event.latLng.toJSON());
+      }),
+    );
+
+    listeners.push(
       mapInstance.addListener('mousemove', (event: google.maps.MapMouseEvent) => {
         if (!drawMode || !event?.latLng) return;
-
-        const domEvent = event.domEvent as MouseEvent | undefined;
-        const leftButtonHeld =
-          !!domEvent &&
-          (typeof domEvent.buttons === 'number'
-            ? (domEvent.buttons & 1) === 1
-            : domEvent.button === 0);
-
-        if (!leftButtonHeld) return;
-
         if (!freehandDrawingActiveRef.current) {
-          freehandDrawingActiveRef.current = true;
-          freehandPathRef.current = [];
+          const domEvent = event.domEvent as MouseEvent | undefined;
+          const leftButtonHeld =
+            !!domEvent &&
+            (typeof domEvent.buttons === 'number'
+              ? (domEvent.buttons & 1) === 1
+              : domEvent.button === 0);
 
-          if (freehandPreviewLineRef.current) {
-            freehandPreviewLineRef.current.setMap(null);
-            freehandPreviewLineRef.current = null;
-          }
+          if (!leftButtonHeld) return;
+          startFreehand(event.latLng.toJSON());
+          return;
         }
 
         pushPoint(event.latLng.toJSON());
@@ -838,7 +877,27 @@ const CustomMap: React.FC<Props> = ({
     };
   };
 
-  const createCategoryPinIcon = (color: string) => {
+  const CATEGORY_SVG_MARKER_SIZE = 38;
+
+  const createCategoryPinIcon = (color: string, categoryKey?: string) => {
+    const assetByCategory: Record<string, string> = {
+      restaurants: '/assets/icons/Restaurants.svg',
+      gyms: '/assets/icons/Gym.svg',
+      schools: '/assets/icons/Education.svg',
+    };
+
+    const assetUrl = categoryKey ? assetByCategory[categoryKey] : undefined;
+    if (assetUrl) {
+      return {
+        url: assetUrl,
+        scaledSize: new google.maps.Size(CATEGORY_SVG_MARKER_SIZE, CATEGORY_SVG_MARKER_SIZE),
+        anchor: new google.maps.Point(
+          Math.round(CATEGORY_SVG_MARKER_SIZE / 2),
+          Math.round(CATEGORY_SVG_MARKER_SIZE / 2),
+        ),
+      };
+    }
+
     const svg = `
 <svg width="32" height="42" viewBox="0 0 32 42" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -1073,7 +1132,7 @@ const CustomMap: React.FC<Props> = ({
           clearSearchMarkers();
         }
 
-        const icon = createCategoryPinIcon(opts?.iconColor ?? '#ef4444');
+        const icon = createCategoryPinIcon(opts?.iconColor ?? '#ef4444', opts?.categoryKey);
         const filteredByViewport = results.filter((place) => {
           const location = place.geometry?.location;
           if (!location) return false;
@@ -1096,6 +1155,7 @@ const CustomMap: React.FC<Props> = ({
             position: loc,
             title: place.name ?? 'Place',
             icon,
+            visible: isPointInsideActiveDrawPolygon(loc),
           });
           marker.addListener('click', () => {
             const position = { lat: loc.lat(), lng: loc.lng() };
@@ -1138,7 +1198,15 @@ const CustomMap: React.FC<Props> = ({
 
       service.textSearch({ query: trimmed, bounds: viewportBounds }, handlePage);
     },
-    [applyMeasurePointFromMarker, attachPlaceMarkerClick, centerOnMeasurePoint, clearCategoryMarkers, clearSearchMarkers, mapInstance],
+    [
+      applyMeasurePointFromMarker,
+      attachPlaceMarkerClick,
+      centerOnMeasurePoint,
+      clearCategoryMarkers,
+      clearSearchMarkers,
+      isPointInsideActiveDrawPolygon,
+      mapInstance,
+    ],
   );
 
 
@@ -1396,29 +1464,7 @@ const CustomMap: React.FC<Props> = ({
         : uniquePlaces;
       const placesToRender = filtered.length > 0 ? filtered : uniquePlaces;
 
-      const bookIconSvg = `
-<svg width="62" height="80" viewBox="0 0 52 66" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <filter id="s1" x="-25%" y="-15%" width="150%" height="145%">
-      <feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="#000" flood-opacity="0.45"/>
-    </filter>
-  </defs>
-  <path d="M26 64 C26 64 4 44 4 25 C4 13 14 3 26 3 C38 3 48 13 48 25 C48 44 26 64 26 64 Z" fill="#1e1e2e" filter="url(#s1)"/>
-  <path d="M10 33 L10 16 C14 14.5 19 13.5 24.5 13 L24.5 30 C19 30.5 14 31.5 10 33 Z" fill="white"/>
-  <path d="M42 33 L42 16 C38 14.5 33 13.5 27.5 13 L27.5 30 C33 30.5 38 31.5 42 33 Z" fill="white"/>
-  <rect x="24" y="13" width="4" height="18" rx="1.2" fill="white"/>
-  <line x1="26" y1="13" x2="26" y2="31" stroke="#1e1e2e" stroke-width="1.2" opacity="0.22"/>
-  <line x1="12.5" y1="19.5" x2="22.5" y2="18.5" stroke="#9ca3af" stroke-width="1.1" stroke-linecap="round"/>
-  <line x1="12.5" y1="22.5" x2="22.5" y2="21.5" stroke="#9ca3af" stroke-width="1.1" stroke-linecap="round"/>
-  <line x1="12.5" y1="25.5" x2="22.5" y2="24.5" stroke="#9ca3af" stroke-width="1.1" stroke-linecap="round"/>
-  <line x1="12.5" y1="28.5" x2="22.5" y2="27.5" stroke="#9ca3af" stroke-width="1.1" stroke-linecap="round"/>
-  <line x1="29.5" y1="18.5" x2="39.5" y2="19.5" stroke="#9ca3af" stroke-width="1.1" stroke-linecap="round"/>
-  <line x1="29.5" y1="21.5" x2="39.5" y2="22.5" stroke="#9ca3af" stroke-width="1.1" stroke-linecap="round"/>
-  <line x1="29.5" y1="24.5" x2="39.5" y2="25.5" stroke="#9ca3af" stroke-width="1.1" stroke-linecap="round"/>
-  <line x1="29.5" y1="27.5" x2="39.5" y2="28.5" stroke="#9ca3af" stroke-width="1.1" stroke-linecap="round"/>
-</svg>`;
-
-      const bookIconUrl = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(bookIconSvg.trim());
+      const schoolIconUrl = '/assets/icons/Education.svg';
 
       const markers = placesToRender.map((place) => {
         const location = place.geometry!.location;
@@ -1429,10 +1475,14 @@ const CustomMap: React.FC<Props> = ({
           map: mapInstance,
           position,
           title: place.name ?? 'School',
+          visible: isPointInsideActiveDrawPolygon(position),
           icon: {
-            url: bookIconUrl,
-            scaledSize: new google.maps.Size(32, 41),
-            anchor: new google.maps.Point(16, 41),
+            url: schoolIconUrl,
+            scaledSize: new google.maps.Size(CATEGORY_SVG_MARKER_SIZE, CATEGORY_SVG_MARKER_SIZE),
+            anchor: new google.maps.Point(
+              Math.round(CATEGORY_SVG_MARKER_SIZE / 2),
+              Math.round(CATEGORY_SVG_MARKER_SIZE / 2),
+            ),
           },
         });
 
@@ -1488,7 +1538,37 @@ const CustomMap: React.FC<Props> = ({
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, mapInstance, matchedDistricts, showDistricts, getDistrictId, fetchPlaceDetails, applyMeasurePointFromMarker, centerOnMeasurePoint]);
+  }, [
+    isLoaded,
+    mapInstance,
+    matchedDistricts,
+    showDistricts,
+    getDistrictId,
+    fetchPlaceDetails,
+    applyMeasurePointFromMarker,
+    centerOnMeasurePoint,
+    isPointInsideActiveDrawPolygon,
+  ]);
+
+  useEffect(() => {
+    const applyVisibility = (marker: google.maps.Marker) => {
+      marker.setVisible(isPointInsideActiveDrawPolygon(marker.getPosition() as google.maps.LatLng | null));
+    };
+
+    schoolMarkersRef.current.forEach(applyVisibility);
+    searchMarkersRef.current.forEach(applyVisibility);
+    Object.values(categoryMarkersRef.current).forEach((group) => group.forEach(applyVisibility));
+
+    const selectedPoi = selectedSearchPlaceRef.current;
+    if (selectedPoi && !isPointInsideActiveDrawPolygon(selectedPoi.position)) {
+      setSelectedSearchPlace(null);
+    }
+
+    const selectedSchoolPoint = selectedSchoolRef.current;
+    if (selectedSchoolPoint && !isPointInsideActiveDrawPolygon(selectedSchoolPoint.position)) {
+      setSelectedSchool(null);
+    }
+  }, [drawPolygon, isPointInsideActiveDrawPolygon]);
 
   useEffect(() => {
     if (!showDistricts) {
@@ -1877,8 +1957,8 @@ const CustomMap: React.FC<Props> = ({
                     onClick={() => onOverlayChange(overlayValue === 'schools' ? 'none' : 'schools')}
                     className="rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
                     style={{
-                      borderColor: overlayValue === 'schools' ? '#1d4ed8' : '#e5e7eb',
-                      background: overlayValue === 'schools' ? '#1d4ed8' : '#fff',
+                      borderColor: overlayValue === 'schools' ? schoolCategoryColor : '#e5e7eb',
+                      background: overlayValue === 'schools' ? schoolCategoryColor : '#fff',
                       color: overlayValue === 'schools' ? '#fff' : '#111827',
                     }}
                   >

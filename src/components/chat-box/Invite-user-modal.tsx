@@ -125,7 +125,7 @@ const InviteUserModal = ({
         propertyName: safePropertyName,
         price: 0,
         listingId: Number(normalizedListingId) || 0,
-        propertyId: Number(normalizedPropertyId) || normalizedPropertyId,
+        propertyId: normalizedPropertyId,
         city: 'Los angeles',
         zipCode: '',
         propertyAddress: safePropertyAddress,
@@ -396,11 +396,15 @@ const InviteUserModal = ({
       } else if (statusNormalized === 'queued') {
         onInviteSuccess?.(email.trim(), effectiveInviteRole);
         onParticipantsRefresh?.();
-        warning({ message: 'Invitation created. Email delivery is queued and will be retried by server.' });
+        success({ message: 'Invitation sent successfully.' });
       } else if (statusNormalized === 'failed') {
         error({ message: deliveryFailureReason || 'Invitation created, but email delivery failed.' });
       } else {
-        info({ message: 'Invitation created, but delivery status was not provided by server.' });
+        // Server didn't return a delivery status (e.g. add_participant_to_thread path on production).
+        // The participant was created successfully — treat as success.
+        onInviteSuccess?.(email.trim(), effectiveInviteRole);
+        onParticipantsRefresh?.();
+        success({ message: 'Invitation sent successfully.' });
       }
 
       setTimeout(() => {

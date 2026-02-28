@@ -2977,36 +2977,36 @@ export default function ChatBoxComponent(props: any) {
 
       const unreadCountFromMessages = Array.isArray(thread?.messages)
         ? thread.messages.filter((message: Message) => {
-            const isUnread =
-              message?.isRead === false ||
-              message?.read === false ||
-              message?.seen === false;
-            if (!isUnread) return false;
-            const senderId =
-              message?.senderId ||
-              (message as any)?.sender_id ||
-              (message as any)?.sender?.id;
-            return !senderId || senderId !== userData?.id;
-          }).length
+          const isUnread =
+            message?.isRead === false ||
+            message?.read === false ||
+            message?.seen === false;
+          if (!isUnread) return false;
+          const senderId =
+            message?.senderId ||
+            (message as any)?.sender_id ||
+            (message as any)?.sender?.id;
+          return !senderId || senderId !== userData?.id;
+        }).length
         : 0;
 
       const socketUnreadCount = Array.isArray(state?.conversationUnreadCount)
         ? state.conversationUnreadCount.find((entry: any) => {
-            const entryId = normalizeId(entry?.threadId);
-            if (!entryId) return false;
-            const candidates = [
-              thread?.id,
-              (thread as any)?.threadId,
-              (thread as any)?.thread_id,
-              (thread as any)?.roomId,
-              (thread as any)?.room_id,
-              (thread as any)?.conversationId,
-              (thread as any)?.conversation_id,
-            ];
-            return candidates.some(
-              (candidate) => normalizeId(candidate as any) === entryId,
-            );
-          })?.count || 0
+          const entryId = normalizeId(entry?.threadId);
+          if (!entryId) return false;
+          const candidates = [
+            thread?.id,
+            (thread as any)?.threadId,
+            (thread as any)?.thread_id,
+            (thread as any)?.roomId,
+            (thread as any)?.room_id,
+            (thread as any)?.conversationId,
+            (thread as any)?.conversation_id,
+          ];
+          return candidates.some(
+            (candidate) => normalizeId(candidate as any) === entryId,
+          );
+        })?.count || 0
         : 0;
 
       const normalizedThreadId = normalizeId(thread?.id);
@@ -3118,21 +3118,21 @@ export default function ChatBoxComponent(props: any) {
 
       const socketUnreadCount = Array.isArray(state?.conversationUnreadCount)
         ? state.conversationUnreadCount.find((entry: any) => {
-            const entryId = normalizeThreadId(entry?.threadId);
-            if (!entryId) return false;
-            const candidates = [
-              thread?.id,
-              (thread as any)?.threadId,
-              (thread as any)?.thread_id,
-              (thread as any)?.roomId,
-              (thread as any)?.room_id,
-              (thread as any)?.conversationId,
-              (thread as any)?.conversation_id,
-            ];
-            return candidates.some(
-              (candidate) => normalizeThreadId(candidate as any) === entryId,
-            );
-          })?.count || 0
+          const entryId = normalizeThreadId(entry?.threadId);
+          if (!entryId) return false;
+          const candidates = [
+            thread?.id,
+            (thread as any)?.threadId,
+            (thread as any)?.thread_id,
+            (thread as any)?.roomId,
+            (thread as any)?.room_id,
+            (thread as any)?.conversationId,
+            (thread as any)?.conversation_id,
+          ];
+          return candidates.some(
+            (candidate) => normalizeThreadId(candidate as any) === entryId,
+          );
+        })?.count || 0
         : 0;
       const normalizedThreadId = normalizeThreadId(thread?.id);
       const lastMessageTime = updatedAt || 0;
@@ -3672,8 +3672,8 @@ export default function ChatBoxComponent(props: any) {
       ) || null;
     const participantName = participant
       ? `${participant?.firstName || ""} ${participant?.lastName || ""}`.trim() ||
-        participant?.email ||
-        participant?.id
+      participant?.email ||
+      participant?.id
       : "";
     const actor =
       (!isCurrentUser && metaActorName ? metaActorName : "") ||
@@ -3855,14 +3855,14 @@ export default function ChatBoxComponent(props: any) {
 
   const existingSystemFileEvents = useMemo(() => {
     const keys = new Set<string>()
-    ;(messages || []).forEach((message: Message) => {
-      if (message?.messageType !== "system") return
-      const fileName =
-        message?.meta?.file?.name ||
-        (typeof message?.message === "string" ? getFileNameFromUrl(message.message) : "")
-      const key = buildFileEventKey(message?.senderId, fileName)
-      if (key) keys.add(key)
-    })
+      ; (messages || []).forEach((message: Message) => {
+        if (message?.messageType !== "system") return
+        const fileName =
+          message?.meta?.file?.name ||
+          (typeof message?.message === "string" ? getFileNameFromUrl(message.message) : "")
+        const key = buildFileEventKey(message?.senderId, fileName)
+        if (key) keys.add(key)
+      })
     return keys
   }, [buildFileEventKey, getFileNameFromUrl, messages])
 
@@ -4099,9 +4099,9 @@ export default function ChatBoxComponent(props: any) {
   }
 
   const selectThreadById = (targetThreadId?: string) => {
-    if (!targetThreadId || !Array.isArray(threads)) return
+    if (!targetThreadId || !Array.isArray(threadsForDisplay)) return
 
-    const targetThread = threads.find((thread: Thread) => threadMatchesRouteId(thread, targetThreadId))
+    const targetThread = threadsForDisplay.find((thread: Thread) => threadMatchesRouteId(thread, targetThreadId))
     if (!targetThread) return
 
     const participants = [
@@ -4973,8 +4973,8 @@ export default function ChatBoxComponent(props: any) {
           ...prev,
           conversationUnreadCount: Array.isArray(prev.conversationUnreadCount)
             ? prev.conversationUnreadCount.filter(
-                (entry: { threadId?: string | null }) => entry?.threadId !== resolvedThreadId,
-              )
+              (entry: { threadId?: string | null }) => entry?.threadId !== resolvedThreadId,
+            )
             : prev.conversationUnreadCount,
         }));
       });
@@ -6016,174 +6016,174 @@ export default function ChatBoxComponent(props: any) {
                                                     className={`flex gap-3 mt-4 items-start ${isSender ? 'justify-end' : ''}`}
                                                   >
                                                     {!isSender && receiver && (
-                                                    <div className="w-7 h-7 sm:w-10 sm:h-10 mt-4 rounded-full border border-white/70 bg-[#FBB785] overflow-hidden flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0 text-white">
-                                                      {receiverImage ? (
-                                                        <Image
-                                                          src={receiverImage}
-                                                          alt="Participant"
-                                                          width={40}
-                                                          height={40}
-                                                          className="h-full w-full object-cover"
-                                                          unoptimized
-                                                        />
-                                                      ) : (
-                                                        getInitials(receiverFallbackName) || 'NA'
-                                                      )}
-                                                    </div>
+                                                      <div className="w-7 h-7 sm:w-10 sm:h-10 mt-4 rounded-full border border-white/70 bg-[#FBB785] overflow-hidden flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0 text-white">
+                                                        {receiverImage ? (
+                                                          <Image
+                                                            src={receiverImage}
+                                                            alt="Participant"
+                                                            width={40}
+                                                            height={40}
+                                                            className="h-full w-full object-cover"
+                                                            unoptimized
+                                                          />
+                                                        ) : (
+                                                          getInitials(receiverFallbackName) || 'NA'
+                                                        )}
+                                                      </div>
                                                     )}
 
-                                                  <div className="w-full flex flex-col gap-1">
-                                                    {/* Time aligned to sender/receiver side */}
-                                                    <div className={`text-xs text-gray-400 px-2 ${isSender ? "text-right" : "text-left"}`}>
-                                                      {formattedTime}
-                                                    </div>
+                                                    <div className="w-full flex flex-col gap-1">
+                                                      {/* Time aligned to sender/receiver side */}
+                                                      <div className={`text-xs text-gray-400 px-2 ${isSender ? "text-right" : "text-left"}`}>
+                                                        {formattedTime}
+                                                      </div>
 
-                                                  {/* Message container taking full width */}
-                                                  <div className={`w-full flex ${isSender ? "justify-end" : "justify-start"}`}>
-                                                    <div
-                                                      className={`p-3 sm:p-4 font-medium rounded-2xl shadow-md text-xs sm:text-sm max-w-full sm:max-w-[90%] ${isSender ? "bg-black text-white" : "bg-white text-black"}`}
-                                                    >
-                                                      {/* Text message */}
-                                                      {message?.messageType !== "file" && message.message && (
-                                                        <p className="whitespace-pre-wrap break-words">{message.message}</p>
-                                                      )}
+                                                      {/* Message container taking full width */}
+                                                      <div className={`w-full flex ${isSender ? "justify-end" : "justify-start"}`}>
+                                                        <div
+                                                          className={`p-3 sm:p-4 font-medium rounded-2xl shadow-md text-xs sm:text-sm max-w-full sm:max-w-[90%] ${isSender ? "bg-black text-white" : "bg-white text-black"}`}
+                                                        >
+                                                          {/* Text message */}
+                                                          {message?.messageType !== "file" && message.message && (
+                                                            <p className="whitespace-pre-wrap break-words">{message.message}</p>
+                                                          )}
 
-                                                      {/* File message */}
-                                                      {message?.messageType === "file" && (
-                                                        <div className="rounded-lg flex items-center gap-3 p-2">
-                                                          {(() => {
-                                                            // Get the file URL - ensure it's not encrypted
-                                                            let fileUrl = message.message || "";
+                                                          {/* File message */}
+                                                          {message?.messageType === "file" && (
+                                                            <div className="rounded-lg flex items-center gap-3 p-2">
+                                                              {(() => {
+                                                                // Get the file URL - ensure it's not encrypted
+                                                                let fileUrl = message.message || "";
 
-                                                            // Handle CL:: prefix (legacy encryption artifact)
-                                                            if (fileUrl.startsWith('CL::')) {
-                                                              fileUrl = fileUrl.substring(4);
-                                                            }
-
-                                                            // If the URL looks encrypted (starts with common encryption patterns), try to decrypt
-                                                            // But file URLs from S3 should not be encrypted, so only decrypt if it looks like encrypted text
-                                                            if (fileUrl && !fileUrl.startsWith('http') && !fileUrl.startsWith('data:')) {
-                                                              try {
-                                                                const decrypted = decryptMessage(fileUrl);
-                                                                // Only use decrypted if it looks like a URL
-                                                                if (decrypted.startsWith('http') || decrypted.startsWith('data:')) {
-                                                                  fileUrl = decrypted;
+                                                                // Handle CL:: prefix (legacy encryption artifact)
+                                                                if (fileUrl.startsWith('CL::')) {
+                                                                  fileUrl = fileUrl.substring(4);
                                                                 }
-                                                              } catch (error) {
-                                                                console.log("[ChatBox] File URL might not be encrypted:", error);
-                                                              }
-                                                            }
 
-                                                            // Helper to extract filename
-                                                            const getFileNameFromUrl = (url: string) => {
-                                                              try {
-                                                                if (!url) return "File";
-                                                                const cleanUrl = url.split('?')[0]; // Remove query params
-                                                                const fileName = cleanUrl.split('/').pop() || "File";
-                                                                const decodedFileName = decodeURIComponent(fileName);
+                                                                // If the URL looks encrypted (starts with common encryption patterns), try to decrypt
+                                                                // But file URLs from S3 should not be encrypted, so only decrypt if it looks like encrypted text
+                                                                if (fileUrl && !fileUrl.startsWith('http') && !fileUrl.startsWith('data:')) {
+                                                                  try {
+                                                                    const decrypted = decryptMessage(fileUrl);
+                                                                    // Only use decrypted if it looks like a URL
+                                                                    if (decrypted.startsWith('http') || decrypted.startsWith('data:')) {
+                                                                      fileUrl = decrypted;
+                                                                    }
+                                                                  } catch (error) {
+                                                                    console.log("[ChatBox] File URL might not be encrypted:", error);
+                                                                  }
+                                                                }
 
-                                                                // Regex to match UUID at the beginning of the filename (8-4-4-4-12 hex chars followed by a hyphen)
-                                                                const uuidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}-?/;
-                                                                return decodedFileName.replace(uuidPattern, "");
-                                                              } catch (e) {
-                                                                console.error("Error parsing filename:", e);
-                                                                return "File";
-                                                              }
-                                                            };
+                                                                // Helper to extract filename
+                                                                const getFileNameFromUrl = (url: string) => {
+                                                                  try {
+                                                                    if (!url) return "File";
+                                                                    const cleanUrl = url.split('?')[0]; // Remove query params
+                                                                    const fileName = cleanUrl.split('/').pop() || "File";
+                                                                    const decodedFileName = decodeURIComponent(fileName);
 
-                                                            if (message.fileType && imageMimeType.includes(message.fileType)) {
-                                                              return (
-                                                                <div
-                                                                  className="relative cursor-pointer group"
-                                                                  onClick={() => openMediaPreview(fileUrl, message.fileType ?? "")}
-                                                                >
-                                                                  <Image
-                                                                    src={fileUrl || "/placeholder.svg"}
-                                                                    alt="Uploaded Image"
-                                                                    width={140}
-                                                                    height={140}
-                                                                    unoptimized={true}
-                                                                    priority
-                                                                    className="rounded-lg max-w-[120px] hover:opacity-90 transition-opacity"
-                                                                    onError={(e) => {
-                                                                      console.error("[ChatBox] Failed to load image:", fileUrl);
-                                                                      // Fallback to placeholder
-                                                                      e.currentTarget.src = "/placeholder.svg";
-                                                                    }}
-                                                                  />
-                                                                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-lg transition-opacity">
-                                                                    <Maximize className="w-4 h-4 text-white" />
-                                                                  </div>
-                                                                </div>
-                                                              );
-                                                            } else if (message.fileType && videoMimeType?.includes(message.fileType)) {
-                                                              return (
-                                                                <video
-                                                                  controls
-                                                                  className="rounded-lg max-w-[120px]"
-                                                                  onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    openMediaPreview(fileUrl, message.fileType || "");
-                                                                  }}
-                                                                >
-                                                                  <source src={fileUrl} type={message.fileType} />
-                                                                  Your browser does not support the video tag.
-                                                                </video>
-                                                              );
-                                                            } else {
-                                                              return (
-                                                                <div className="flex items-center gap-2 text-xs sm:text-sm">
-                                                                  <FileText className="w-5 h-5 text-gray-600" />
-                                                                  {/* Display Filename instead of truncated URL */}
-                                                                  <span className="truncate max-w-[100px] sm:max-w-full" title={getFileNameFromUrl(fileUrl)}>
-                                                                    {getFileNameFromUrl(fileUrl)}
-                                                                  </span>
-                                                                  <a
-                                                                    href={fileUrl}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="text-blue-500 hover:underline"
-                                                                  >
-                                                                    <Eye className="w-4 h-4 text-orange-500" />
-                                                                  </a>
-                                                                </div>
-                                                              );
-                                                            }
-                                                          })()}
+                                                                    // Regex to match UUID at the beginning of the filename (8-4-4-4-12 hex chars followed by a hyphen)
+                                                                    const uuidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}-?/;
+                                                                    return decodedFileName.replace(uuidPattern, "");
+                                                                  } catch (e) {
+                                                                    console.error("Error parsing filename:", e);
+                                                                    return "File";
+                                                                  }
+                                                                };
+
+                                                                if (message.fileType && imageMimeType.includes(message.fileType)) {
+                                                                  return (
+                                                                    <div
+                                                                      className="relative cursor-pointer group"
+                                                                      onClick={() => openMediaPreview(fileUrl, message.fileType ?? "")}
+                                                                    >
+                                                                      <Image
+                                                                        src={fileUrl || "/placeholder.svg"}
+                                                                        alt="Uploaded Image"
+                                                                        width={140}
+                                                                        height={140}
+                                                                        unoptimized={true}
+                                                                        priority
+                                                                        className="rounded-lg max-w-[120px] hover:opacity-90 transition-opacity"
+                                                                        onError={(e) => {
+                                                                          console.error("[ChatBox] Failed to load image:", fileUrl);
+                                                                          // Fallback to placeholder
+                                                                          e.currentTarget.src = "/placeholder.svg";
+                                                                        }}
+                                                                      />
+                                                                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-lg transition-opacity">
+                                                                        <Maximize className="w-4 h-4 text-white" />
+                                                                      </div>
+                                                                    </div>
+                                                                  );
+                                                                } else if (message.fileType && videoMimeType?.includes(message.fileType)) {
+                                                                  return (
+                                                                    <video
+                                                                      controls
+                                                                      className="rounded-lg max-w-[120px]"
+                                                                      onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        openMediaPreview(fileUrl, message.fileType || "");
+                                                                      }}
+                                                                    >
+                                                                      <source src={fileUrl} type={message.fileType} />
+                                                                      Your browser does not support the video tag.
+                                                                    </video>
+                                                                  );
+                                                                } else {
+                                                                  return (
+                                                                    <div className="flex items-center gap-2 text-xs sm:text-sm">
+                                                                      <FileText className="w-5 h-5 text-gray-600" />
+                                                                      {/* Display Filename instead of truncated URL */}
+                                                                      <span className="truncate max-w-[100px] sm:max-w-full" title={getFileNameFromUrl(fileUrl)}>
+                                                                        {getFileNameFromUrl(fileUrl)}
+                                                                      </span>
+                                                                      <a
+                                                                        href={fileUrl}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="text-blue-500 hover:underline"
+                                                                      >
+                                                                        <Eye className="w-4 h-4 text-orange-500" />
+                                                                      </a>
+                                                                    </div>
+                                                                  );
+                                                                }
+                                                              })()}
+                                                            </div>
+                                                          )}
+
+                                                          {/* Reply Preview */}
+                                                          {message.parentMessageId && (
+                                                            <div className="mt-2 p-2 border-l-4 border-gray-300 text-sm italic">
+                                                              Replying to: <span className="font-medium">{message.parentMessageId}</span>
+                                                            </div>
+                                                          )}
+
+                                                          {/* Seen indicator */}
+                                                          {isSender && isLastMessage && message.seen && (
+                                                            <div className="text-xs text-blue-500 mt-1 text-right">Seen</div>
+                                                          )}
                                                         </div>
-                                                      )}
-
-                                                      {/* Reply Preview */}
-                                                      {message.parentMessageId && (
-                                                        <div className="mt-2 p-2 border-l-4 border-gray-300 text-sm italic">
-                                                          Replying to: <span className="font-medium">{message.parentMessageId}</span>
-                                                        </div>
-                                                      )}
-
-                                                      {/* Seen indicator */}
-                                                      {isSender && isLastMessage && message.seen && (
-                                                        <div className="text-xs text-blue-500 mt-1 text-right">Seen</div>
-                                                      )}
+                                                      </div>
                                                     </div>
-                                                  </div>
-                                                  </div>
 
-                                                  {isSender && (
-                                                    <div className="w-7 h-7 mt-4 sm:w-10 sm:h-10 rounded-full border border-white/70 bg-[#FBB785] overflow-hidden flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0 text-white">
-                                                      {senderImage ? (
-                                                        <Image
-                                                          src={senderImage}
-                                                          alt="You"
-                                                          width={40}
-                                                          height={40}
-                                                          className="h-full w-full object-cover"
-                                                          unoptimized
-                                                        />
-                                                      ) : (
-                                                        getInitials(senderFallbackName) || 'NA'
-                                                      )}
-                                                    </div>
-                                                  )}
+                                                    {isSender && (
+                                                      <div className="w-7 h-7 mt-4 sm:w-10 sm:h-10 rounded-full border border-white/70 bg-[#FBB785] overflow-hidden flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0 text-white">
+                                                        {senderImage ? (
+                                                          <Image
+                                                            src={senderImage}
+                                                            alt="You"
+                                                            width={40}
+                                                            height={40}
+                                                            className="h-full w-full object-cover"
+                                                            unoptimized
+                                                          />
+                                                        ) : (
+                                                          getInitials(senderFallbackName) || 'NA'
+                                                        )}
+                                                      </div>
+                                                    )}
                                                   </div>
 
                                                   {shouldShowInlineFileEvent && (

@@ -29,7 +29,7 @@ const ThankYouPage = () => {
         <div className="flex flex-col items-center justify-center min-h-screen bg-white text-black px-4 md:px-6">
             {/* Header */}
             <header className="w-full max-w-5xl flex items-center justify-between py-4 md:py-6 px-4 md:px-6">
-                <Link href='/home'>
+                <Link href='/'>
                     <Image src={SnapHomz} alt='logo' className="w-36 md:w-48 lg:w-56 h-auto" />
                 </Link>
             </header>
@@ -64,7 +64,7 @@ const ThankYouPage = () => {
                         {copied ? "Copied!" : "Copy Link"}
                     </button>
                 </div>
-            </section> 
+            </section>
 
             {/* Follow Us Section */}
             {/* <section className="mt-6 md:mt-8 text-center">

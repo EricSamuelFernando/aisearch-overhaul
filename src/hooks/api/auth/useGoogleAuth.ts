@@ -62,7 +62,7 @@ function useGoogleAuth(handleCb?: () => void) {
         login(user);
         storeCookie({ key: AUTH_TOKEN, value: access_token });
         storeCookie({ key: USER_ROLE, value: accountType });
-        router.push(`/home`);
+        router.push(`/`);
         handleCb?.();
       }
     } catch (err) {

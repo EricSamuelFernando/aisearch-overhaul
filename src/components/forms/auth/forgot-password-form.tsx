@@ -21,7 +21,7 @@ export const ForgotPasswordForm = () => {
     <form
       className='h-max min-w-[400px]'
       onSubmit={form.onSubmit((values) => {
-        forgotPasswordMutation.mutate(values?.email );
+        forgotPasswordMutation.mutate(values?.email);
       })}
     >
       <section>
@@ -41,7 +41,7 @@ export const ForgotPasswordForm = () => {
             !form.isValid()
               ? 'cursor-not-allowed bg-primary-main/20'
               : 'bg-primary-main',
-              forgotPasswordMutation.isPending
+            forgotPasswordMutation.isPending
               ? 'bg-primary-main/20'
               : 'bg-primary-main',
           )}
@@ -51,7 +51,7 @@ export const ForgotPasswordForm = () => {
           {forgotPasswordMutation.isPending ? 'Loading...' : 'Continue'}
         </button>
         <section className='cursor-pointer py-4 text-right text-sm text-black'>
-          <Link href='/home' className='font-semibold text-primary-main'>
+          <Link href='/' className='font-semibold text-primary-main'>
             Login
           </Link>
         </section>

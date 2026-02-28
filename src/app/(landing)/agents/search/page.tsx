@@ -396,7 +396,6 @@ export default function AgentSearchPage() {
   const router = useRouter();
 
 
-  const [query, setQuery] = useState('');
   const [mode, setMode] = useState<SearchMode>('name');
   const [agents, setAgents] = useState<Agent[] | null>(null);
   const [searchInput, setSearchInput] = useState('');
@@ -530,74 +529,45 @@ export default function AgentSearchPage() {
   useEffect(() => {
     const queryParam = searchParams.get('query') || '';
     const modeParam = (searchParams.get('mode') as SearchMode | null) ?? 'name';
-    const controller = new AbortController();
-
 
     setMode(modeParam);
-    setSearchInput(modeParam === 'name' ? queryParam : '');
 
+    if (modeParam === 'name') {
+      setSearchInput(queryParam);
+      setSelectedLocation('');
+    } else {
+      setSearchInput('');
 
-    const fetchData = async () => {
-      try {
-        const data: Agent[] = await fetchExternalAgents({
-          limit: 1000,
-          offset: 0,
-          signal: controller.signal,  // Pass the signal to fetchExternalAgents
-          search: queryParam
-        });
+      if (queryParam) {
+        // Map token/short token to display string
+        const t = queryParam.toLowerCase().trim();
+        let displayLoc = '';
+        if (['la', 'los angeles'].includes(t)) displayLoc = 'Los Angeles';
+        else if (['sf', 'san francisco'].includes(t)) displayLoc = 'San Francisco';
+        else if (['sd', 'san diego'].includes(t)) displayLoc = 'San Diego';
+        else if (['sj', 'san jose'].includes(t)) displayLoc = 'San Jose';
+        else if (['aus', 'austin'].includes(t)) displayLoc = 'Austin';
+        else if (['hou', 'houston'].includes(t)) displayLoc = 'Houston';
+        else displayLoc = queryParam.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
-
-        let final = data;
-
-
-        if (modeParam === 'location' && queryParam.trim()) {
-          final = data.filter((agent) =>
-            agentMatchesLocation(agent, queryParam)
-          );
-        }
-
-
-        setAgents(final);
-      } catch (err: any) {
-        if (err.name !== 'AbortError') {
-          console.error('Fetch error:', err);
-          setAgents([]);  // Optionally, handle the error state
-        }
+        setSelectedLocation(displayLoc);
+      } else {
+        setSelectedLocation('');
       }
-    };
-
-
-    fetchData();
-
-
-    // Cleanup function to abort the fetch when the effect is cleaned up
-    return () => {
-      controller.abort();
-    };
+    }
   }, [searchParams]);
-
 
 
 
   useEffect(() => {
     const controller = new AbortController();
 
-
     (async () => {
       setAgents(null);
-
 
       try {
         if (mode === 'name') {
           const typed = deferredSearchInput.trim();
-
-
-          // const data = await fetchExternalAgents({
-          //   limit: 1000,
-          //   offset: 0,
-          //   search: typed ? typed : undefined,
-          //   signal: controller.signal,
-          // });
 
           const data = await fetchExternalAgents({
             limit: 1000,
@@ -607,33 +577,22 @@ export default function AgentSearchPage() {
           });
 
           setAgents(data);
-
         } else {
-          const typed = query.trim();
-
-
-          // const data = await fetchExternalAgents({
-          //   limit: 1000,
-          //   offset: 0,
-          //   signal: controller.signal,
-          // });
           const data = await fetchExternalAgents({
             limit: 1000,
             offset: 0,
             signal: controller.signal,
           });
 
-          const final = typed ? data.filter((a) => agentMatchesLocation(a, typed)) : data;
-          setAgents(final);
+          setAgents(data);
         }
       } catch (err: any) {
         if (err?.name !== 'AbortError') setAgents([]);
       }
     })();
 
-
     return () => controller.abort();
-  }, [mode, deferredSearchInput, query]); // only one fetch path
+  }, [mode, deferredSearchInput]); // only one fetch path
 
 
   useEffect(() => {

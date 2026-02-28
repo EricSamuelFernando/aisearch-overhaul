@@ -13,7 +13,7 @@ export default function NotFoundPage() {
   return (
     <div className='flex h-screen w-full flex-col bg-primary-100 px-4 md:px-8'>
       <div className='py-2.5'>
-        <Link href='/home'>
+        <Link href='/'>
           <Image src={SnapHomz} alt='logo' className='h-[3.75rem] w-44' />
         </Link>
       </div>
@@ -32,7 +32,7 @@ export default function NotFoundPage() {
         <div className='mt-20'>
           <Link
             className='flex-grow text-center text-lg font-bold text-black'
-            href='/home'
+            href='/'
           >
             Go to HOME
           </Link>

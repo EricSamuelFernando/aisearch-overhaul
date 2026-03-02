@@ -362,6 +362,24 @@ const PropertyPreview: React.FC = () => {
         propertyData?.listing?.media?.primaryListingImageUrl ||
         propertyData?.media?.primaryListingImageUrl ||
         '',
+      bedroomsTotal:
+        proprtyData?.property?.bedroomsTotal ||
+        propertyDatas?.data?.property?.bedroomsTotal ||
+        propertyData?.listing?.property?.bedroomsTotal ||
+        propertyData?.property?.bedroomsTotal ||
+        0,
+      bathroomsTotal:
+        proprtyData?.property?.bathroomsTotal ||
+        propertyDatas?.data?.property?.bathroomsTotal ||
+        propertyData?.listing?.property?.bathroomsTotal ||
+        propertyData?.property?.bathroomsTotal ||
+        0,
+      livingArea:
+        proprtyData?.property?.livingArea ||
+        propertyDatas?.data?.property?.livingArea ||
+        propertyData?.listing?.property?.livingArea ||
+        propertyData?.property?.livingArea ||
+        0,
     });
 
     hasRecordedViewRef.current = true;

@@ -1743,10 +1743,6 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     }
 
     if (isAddressLike) {
-      setLocationSuggestions([]);
-      setShowLocationSuggestions(false);
-      setIsLoadingLocationSuggestions(false);
-
       addressSuggestDebounceRef.current = setTimeout(async () => {
         try {
           setIsLoadingAddressSuggestions(true);
@@ -1760,12 +1756,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
           setIsLoadingAddressSuggestions(false);
         }
       }, 300);
-      return;
+    } else {
+      setAddressSuggestions([]);
+      setShowAddressSuggestions(false);
+      setIsLoadingAddressSuggestions(false);
     }
-
-    setAddressSuggestions([]);
-    setShowAddressSuggestions(false);
-    setIsLoadingAddressSuggestions(false);
 
     locationSuggestDebounceRef.current = setTimeout(() => {
       if (typeof window === 'undefined' || !window.google?.maps?.places) {
@@ -1802,6 +1797,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
               'sublocality',
               'neighborhood',
               'postal_town',
+              'street_address',
+              'route',
+              'premise',
+              'subpremise',
+              'intersection'
             ]);
 
             const filtered = predictions.filter((prediction: any) => {
@@ -2291,15 +2291,15 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                   <button
                     type="button"
                     onClick={toggleMlsBypass}
-                    title={mlsBypassMode ? 'Direct MLS mode is ON (AI search bypassed)' : 'Use Direct MLS mode'}
-                    className={`h-8 rounded-full px-3 text-[11px] font-semibold transition-colors border ${mlsBypassMode
-                      ? 'bg-amber-50 text-amber-700 border-amber-200'
-                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                    title={!mlsBypassMode ? 'AI Search is ON' : 'AI Search is OFF'}
+                    className={`h-9 md:h-10 rounded-full px-4 text-sm font-semibold transition-colors border ${!mlsBypassMode
+                      ? 'bg-orange-50 text-[#F58634] border-orange-200'
+                      : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
                       }`}
                   >
-                    {mlsBypassMode ? 'MLS Direct' : 'AI Search'}
+                    Ai Search
                   </button>
-                  <div className="relative">
+                  <div className="relative hidden md:block">
                     <div
                       className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
                       onClick={() => setShowAttachMenu(!showAttachMenu)}
@@ -2339,10 +2339,20 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       )}
                     </AnimatePresence>
                   </div>
+                  {/* Mobile Compact Search Button */}
                   <Button
                     type='submit'
                     disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
-                    className="bg-[#F58634] hover:bg-[#E07224] text-white rounded-xl px-8 py-3 font-semibold text-sm md:text-base flex items-center transition-all shadow-md hover:shadow-lg h-full disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634]"
+                    className="md:hidden bg-[#F58634] hover:bg-[#E07224] text-white rounded-xl w-10 h-9 flex items-center justify-center transition-all shadow-md hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634] p-0"
+                  >
+                    <SearchIcon className="w-5 h-5" />
+                  </Button>
+
+                  {/* Desktop Begin Journey Button */}
+                  <Button
+                    type='submit'
+                    disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
+                    className="hidden md:flex bg-[#F58634] hover:bg-[#E07224] text-white rounded-xl px-8 py-3 font-semibold text-sm md:text-base items-center transition-all shadow-md hover:shadow-lg h-full disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634]"
                   >
                     Begin Journey
                   </Button>
@@ -3109,8 +3119,10 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
                               {msg.query && (
                                 <a
-                                  href={`/buy/browse?q=${encodeURIComponent(msg.query || '')}`}
-                                  className="group flex-shrink-0 snap-start self-stretch sm:self-center relative flex h-40 sm:h-48 w-[220px] min-w-[220px] sm:w-48 flex-col items-center justify-center gap-2 sm:gap-0 rounded-2xl sm:rounded-full border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-orange-100 shadow-lg transition-all duration-300 hover:scale-[1.01] sm:hover:scale-105 hover:border-orange-500 hover:shadow-xl hover:shadow-orange-200/60 cursor-pointer"
+                                  href={`${getMainSiteBaseUrl()}/buy/browse?q=${encodeURIComponent(msg.query || '')}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="group flex-shrink-0 sm:snap-start self-stretch sm:self-center relative flex h-14 sm:h-48 w-full sm:w-48 flex-row sm:flex-col items-center justify-center gap-2 sm:gap-0 rounded-2xl sm:rounded-full border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-orange-100 shadow-lg transition-all duration-300 hover:scale-[1.01] sm:hover:scale-105 hover:border-orange-500 hover:shadow-xl hover:shadow-orange-200/60 cursor-pointer"
                                 >
                                   {/* Outer ring on hover */}
                                   <div className="pointer-events-none absolute inset-[-6px] rounded-2xl sm:rounded-full border-2 border-orange-200 opacity-0 transition-all duration-500 group-hover:opacity-100" />
@@ -3355,6 +3367,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                   <div className="flex justify-center pb-4">
                                     <a
                                       href={propertyDetailsUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
                                       onClick={() => storePreviewFallback(selectedProp)}
                                       className="inline-flex w-full sm:w-auto justify-center items-center gap-2 rounded-full bg-orange-500 px-5 sm:px-8 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white shadow-md hover:bg-orange-600 transition-colors"
                                     >
@@ -3504,10 +3518,18 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       ref={searchInputRef}
                       value={searchTerm}
                       onChange={(e) => {
-                        setSearchTerm(e.target.value);
+                        const val = e.target.value;
+                        setSearchTerm(val);
+                        fetchAddressSuggestions(val);
                         e.target.style.height = 'auto';
                         e.target.style.height = e.target.scrollHeight + 'px';
                       }}
+                      onFocus={() => setShowSuggestions(true)}
+                      onBlur={() => setTimeout(() => {
+                        setShowSuggestions(false);
+                        setShowAddressSuggestions(false);
+                        setShowLocationSuggestions(false);
+                      }, 200)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault();
@@ -3594,6 +3616,132 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     {mlsBypassMode ? 'MLS Mode' : 'AI Mode'}
                   </button>
                 </div>
+
+                {/* Integrated Suggestions Dropdown for Expanded State */}
+                <AnimatePresence>
+                  {!searchTerm && showSuggestions && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="w-full border-t border-gray-100/50"
+                    >
+                      <div className="p-4 pt-4 text-left">
+                        <p className="text-[10px] font-bold text-gray-400 mb-3 uppercase tracking-wider pl-2">
+                          Try Asking
+                        </p>
+                        <div className="space-y-1">
+                          {suggestions.map((suggestion) => (
+                            <div
+                              key={suggestion.id}
+                              onMouseDown={() => handleSuggestionClick(suggestion.text)}
+                              className="flex items-center gap-3 p-3 hover:bg-orange-50/50 rounded-xl cursor-pointer group transition-all"
+                            >
+                              <SearchIcon className="w-4 h-4 text-gray-300 group-hover:text-[#F58634] transition-colors" />
+                              <span className="text-gray-600 group-hover:text-gray-900 font-medium text-sm transition-colors leading-snug">
+                                {suggestion.text}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* ── Address Autocomplete Suggestions ── */}
+                  {searchTerm && (showAddressSuggestions || isLoadingAddressSuggestions) && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="w-full border-t border-gray-100/50"
+                    >
+                      <div className="p-2 pt-3 text-left">
+                        <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-wider pl-3">
+                          Properties
+                        </p>
+                        <div className="space-y-0.5">
+                          {isLoadingAddressSuggestions ? (
+                            <div className="flex items-center gap-3 p-3 text-sm text-gray-400">
+                              <div className="w-4 h-4 border-2 border-orange-300 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                              Searching addresses…
+                            </div>
+                          ) : (
+                            addressSuggestions.map((suggestion, idx) => {
+                              // Split "123 Main St, City, State ZIP" into street vs city-state
+                              const commaIdx = suggestion.address.indexOf(',');
+                              const streetPart = commaIdx !== -1
+                                ? suggestion.address.slice(0, commaIdx).trim()
+                                : suggestion.address;
+                              const cityStatePart = commaIdx !== -1
+                                ? suggestion.address.slice(commaIdx + 1).trim()
+                                : '';
+                              return (
+                                <div
+                                  key={suggestion.id || String(idx)}
+                                  onMouseDown={() => handleAddressSuggestionClick(suggestion)}
+                                  className="flex items-start gap-3 p-3 hover:bg-orange-50/50 rounded-xl cursor-pointer group transition-all"
+                                >
+                                  <MapPin className="w-4 h-4 text-gray-300 group-hover:text-[#F58634] flex-shrink-0 mt-0.5 transition-colors" />
+                                  <span className="flex flex-col min-w-0">
+                                    <span className="text-gray-800 font-semibold text-sm leading-snug truncate">
+                                      {streetPart}
+                                    </span>
+                                    {cityStatePart && (
+                                      <span className="text-gray-400 text-xs leading-snug truncate">
+                                        {cityStatePart}
+                                      </span>
+                                    )}
+                                  </span>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* ── Location (City/State) Autocomplete Suggestions ── */}
+                  {searchTerm && (showLocationSuggestions || isLoadingLocationSuggestions) && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="w-full border-t border-gray-100/50"
+                    >
+                      <div className="p-2 pt-3 text-left">
+                        <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-wider pl-3">
+                          Locations
+                        </p>
+                        <div className="space-y-0.5">
+                          {isLoadingLocationSuggestions ? (
+                            <div className="flex items-center gap-3 p-3 text-sm text-gray-400">
+                              <div className="w-4 h-4 border-2 border-orange-300 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                              Searching locations...
+                            </div>
+                          ) : (
+                            locationSuggestions.map((suggestion, idx) => (
+                              <div
+                                key={suggestion.placeId || String(idx)}
+                                onMouseDown={() => handleLocationSuggestionClick(suggestion)}
+                                className="flex items-start gap-3 p-3 hover:bg-orange-50/50 rounded-xl cursor-pointer group transition-all"
+                              >
+                                <MapPin className="w-4 h-4 text-gray-300 group-hover:text-[#F58634] flex-shrink-0 mt-0.5 transition-colors" />
+                                <span className="text-gray-800 font-medium text-sm leading-snug truncate">
+                                  {suggestion.description}
+                                </span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* 3. Disclaimer */}
                 <div className="px-2 text-center">

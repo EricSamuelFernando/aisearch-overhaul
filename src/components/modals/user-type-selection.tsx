@@ -43,7 +43,7 @@ export const UserTypeSelection = ({
       e.stopPropagation();
       e.preventDefault();
       if (activeUserType === 'agent' && typeof window !== 'undefined') {
-        window.location.href = 'https://agents.ocreal.online';
+        window.location.href = 'https://agents.snaphomz.com/signUp';
       } else {
         selectAccountType(activeUserType as UserType);
         onSetView?.('send-code');

@@ -379,7 +379,7 @@ export function EditPasswordForm({ cb }: Props) {
           </label>
           <PasswordInput2
             placeholder='Current Password'
-            className='h-12'
+            className='h-12 text-xs sm:text-sm'
             {...form.getInputProps('currentPassword')}
           />
         </div>
@@ -390,7 +390,7 @@ export function EditPasswordForm({ cb }: Props) {
           </label>
           <PasswordInput2
             placeholder='New Password'
-            className='h-12'
+            className='h-12 text-xs sm:text-sm'
             {...form.getInputProps('newPassword')}
           />
         </div>
@@ -401,7 +401,7 @@ export function EditPasswordForm({ cb }: Props) {
           </label>
           <PasswordInput2
             placeholder='Confirm New Password'
-            className='h-12'
+            className='h-12 text-xs sm:text-sm'
             {...form.getInputProps('confirmPassword')}
           />
         </div>

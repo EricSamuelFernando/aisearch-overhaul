@@ -142,8 +142,8 @@ export const LoginModal = ({
           />
         </div>
 
-        <section className='flex w-full items-center justify-between'>
-          <div>
+        <section className='flex w-full flex-col items-center gap-1 sm:flex-row sm:items-center sm:justify-between'>
+          <div className='order-2 sm:order-1'>
             {!magicLogin && (
               <button
                 type='button'
@@ -154,15 +154,15 @@ export const LoginModal = ({
                     setIsOpen(false);
                   }
                 }}
-                className='text-sm cursor-pointer font-medium text-primary-main'
+                className='cursor-pointer text-sm font-medium text-primary-main'
               >
                 Forgot Password
               </button>
             )}
           </div>
 
-          <div>
-            <p className='text-sm font-medium'>
+          <div className='order-1 sm:order-2'>
+            <p className='text-center text-sm font-medium sm:text-left'>
               Don&apos;t have an account? &nbsp;
               <span
                 className='cursor-pointer font-medium text-primary-main'

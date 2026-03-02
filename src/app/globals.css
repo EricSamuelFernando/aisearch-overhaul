@@ -1433,11 +1433,17 @@ input:-webkit-autofill {
 }
 
 .home-sections>*+* {
-  margin-top: 8rem;
+  margin-top: 2.5rem;
 }
 
 .home-sections {
   background-color: #FFF6EC;
+}
+
+@media (min-width: 768px) {
+  .home-sections>*+* {
+    margin-top: 3.5rem;
+  }
 }
 
 

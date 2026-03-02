@@ -235,6 +235,12 @@ const CustomMap: React.FC<Props> = ({
     mapInstance.panTo(position);
   }, [mapInstance]);
 
+  const closeLocationTooltips = useCallback(() => {
+    setClickedDistrictName(null);
+    setSelectedSchool(null);
+    setSelectedSearchPlace(null);
+  }, []);
+
   const quickCategories = useMemo(
     () => ({
       restaurants: { label: 'Restaurants', color: '#14b8a6', query: 'restaurants' },
@@ -447,28 +453,23 @@ const CustomMap: React.FC<Props> = ({
     };
 
     listeners.push(
-      mapInstance.addListener('mousemove', (event: google.maps.MapMouseEvent) => {
+      mapInstance.addListener('mousedown', (event: google.maps.MapMouseEvent) => {
         if (!drawMode || !event?.latLng) return;
+        freehandDrawingActiveRef.current = true;
+        freehandPathRef.current = [];
 
-        const domEvent = event.domEvent as MouseEvent | undefined;
-        const leftButtonHeld =
-          !!domEvent &&
-          (typeof domEvent.buttons === 'number'
-            ? (domEvent.buttons & 1) === 1
-            : domEvent.button === 0);
-
-        if (!leftButtonHeld) return;
-
-        if (!freehandDrawingActiveRef.current) {
-          freehandDrawingActiveRef.current = true;
-          freehandPathRef.current = [];
-
-          if (freehandPreviewLineRef.current) {
-            freehandPreviewLineRef.current.setMap(null);
-            freehandPreviewLineRef.current = null;
-          }
+        if (freehandPreviewLineRef.current) {
+          freehandPreviewLineRef.current.setMap(null);
+          freehandPreviewLineRef.current = null;
         }
 
+        pushPoint(event.latLng.toJSON());
+      }),
+    );
+
+    listeners.push(
+      mapInstance.addListener('mousemove', (event: google.maps.MapMouseEvent) => {
+        if (!drawMode || !freehandDrawingActiveRef.current || !event?.latLng) return;
         pushPoint(event.latLng.toJSON());
       }),
     );
@@ -1046,6 +1047,8 @@ const CustomMap: React.FC<Props> = ({
             icon,
           });
           marker.addListener('click', () => {
+            setClickedDistrictName(null);
+            setSelectedSchool(null);
             const position = { lat: loc.lat(), lng: loc.lng() };
             const current = selectedSearchPlaceRef.current;
             const sameSelected =
@@ -1385,6 +1388,8 @@ const CustomMap: React.FC<Props> = ({
         });
 
         marker.addListener('click', () => {
+          setClickedDistrictName(null);
+          setSelectedSearchPlace(null);
           if (!measureModeRef.current) {
             centerOnMeasurePoint(position);
           }
@@ -1515,6 +1520,7 @@ const CustomMap: React.FC<Props> = ({
     }
     setSelectedSchool(null);
     setSelectedSearchPlace(null);
+    setSelectedMarker(null);
 
     if (!measureMode || !event?.latLng) return;
 
@@ -2076,6 +2082,7 @@ const CustomMap: React.FC<Props> = ({
             options={{ clickable: !drawMode }}
             onClick={() => {
               if (drawMode) return;
+              closeLocationTooltips();
               const markerPos = { lat: marker.lat, lng: marker.lng };
               if (measureModeRef.current) {
                 applyMeasurePointFromMarker(markerPos, 'listing');

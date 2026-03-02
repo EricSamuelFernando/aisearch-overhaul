@@ -84,6 +84,20 @@ const nextConfig = {
   transpilePackages: ['lucide-react'],
   reactStrictMode: true,
   swcMinify: true,
+  async redirects() {
+    return [
+      {
+        source: '/home',
+        destination: '/',
+        permanent: true,
+      },
+      {
+        source: '/buy',
+        destination: '/',
+        permanent: true,
+      },
+    ];
+  },
   webpack: (config) => {
     config.plugins.push(
       new CopyPlugin({

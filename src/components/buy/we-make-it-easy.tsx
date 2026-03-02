@@ -277,7 +277,7 @@ const WeMakeItEasy = ({
   );
 
   return (
-    <section className="bg-[#FFF6EC] pt-20 px-4 sm:px-6 lg:px-24 overflow-x-hidden">
+    <section className="bg-[#FFF6EC] pt-8 md:pt-4 px-4 sm:px-6 lg:px-24 overflow-x-hidden">
       <div className=" mx-auto text-center">
         {/* Heading */}
         <h2 className=" satoshi text-3xl sm:text-4xl font-semibold ">
@@ -288,7 +288,7 @@ const WeMakeItEasy = ({
         </p>
 
         {/* SegmentedControl (three tabs styled like the first screenshot) */}
-        <Container size="sm" className='mb-20' px={0} >
+        <Container size="sm" className='mb-8 md:mb-10' px={0} >
           <SegmentedControl
             value={activeCategory}
             onChange={setActiveCategory}

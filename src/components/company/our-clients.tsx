@@ -70,14 +70,14 @@ export default function OurClients({
     <section
       id="testimonials"
       style={{ backgroundColor: bgColor }}
-      className="pt-17 pb-10 px-4 sm:px-6 lg:px-12 overflow-x-hidden"
+      className="pt-12 md:pt-16 pb-10 px-4 sm:px-6 lg:px-12 overflow-x-hidden"
     >
       <div className="max-w-6xl mx-auto text-start pb-6 sm:pb-12">
         <h2 className="satoshi text-3xl sm:text-4xl font-semibold text-left md:text-center">
           What Our Clients <span className="font-light">Say</span>
         </h2>
 
-        <p className="satoshi text-xs sm:text-sm text-[#8E8B8A] mb-15 max-w-[600px] mx-auto text-left md:text-center">
+        <p className="satoshi text-xs sm:text-sm text-[#8E8B8A] mb-10 md:mb-12 max-w-[600px] mx-auto text-left md:text-center">
           {subtitle}
         </p>
       </div>

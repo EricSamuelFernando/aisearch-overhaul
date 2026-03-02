@@ -121,7 +121,7 @@ const InviteUserModal = ({
         propertyName: safePropertyName,
         price: 0,
         listingId: Number(normalizedListingId) || 0,
-        propertyId: Number(normalizedPropertyId) || normalizedPropertyId,
+        propertyId: normalizedPropertyId,
         city: 'Los angeles',
         zipCode: '',
         propertyAddress: safePropertyAddress,
@@ -202,18 +202,22 @@ const InviteUserModal = ({
           throw new Error(response?.message || 'Failed to send invitation');
         }
 
-        if (socket && response?.agentId && response?.participantId) {
-          socket.emit('send_property_invitation', {
-            reciepent: response.agentId,
-            userName: `${actor?.firstname || ''} ${actor?.lastname || ''}`.trim(),
-            userEmail: actor?.email,
-            propertyImage: safePropertyImage,
-            propertyAddress: safePropertyAddress,
-            id: response.participantId,
-          });
-        }
+      if (statusNormalized === 'sent') {
+        onInviteSuccess?.(email.trim(), effectiveInviteRole);
+        onParticipantsRefresh?.();
+        success({ message: 'Invitation sent successfully.' });
+      } else if (statusNormalized === 'queued') {
+        onInviteSuccess?.(email.trim(), effectiveInviteRole);
+        onParticipantsRefresh?.();
+        success({ message: 'Invitation sent successfully.' });
+      } else if (statusNormalized === 'failed') {
+        error({ message: deliveryFailureReason || 'Invitation created, but email delivery failed.' });
       } else {
-        await sendThreadInviteByEmail(email.trim());
+        // Server didn't return a delivery status (e.g. add_participant_to_thread path on production).
+        // The participant was created successfully — treat as success.
+        onInviteSuccess?.(email.trim(), effectiveInviteRole);
+        onParticipantsRefresh?.();
+        success({ message: 'Invitation sent successfully.' });
       }
 
       onInviteSuccess?.(email.trim(), inviteRole);

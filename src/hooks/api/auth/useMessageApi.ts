@@ -3,6 +3,32 @@ import { getAuthToken } from "@/lib/storage";
 import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
 
+const ADD_PARTICIPANT_TO_THREAD = `
+  mutation addParticipantsToThread(
+    $threadId: String!,
+    $email: String!,
+    $role: InviteRole,
+    $invitedByUserId: String
+  ) {
+    add_participant_to_thread(
+      threadId: $threadId,
+      email: $email,
+      role: $role,
+      invitedByUserId: $invitedByUserId
+    ) {
+      id
+      threadId
+      userId
+      email
+      role
+      approvalStatus
+      joinDate
+    }
+  }
+`;
+
+let hasLoggedInviteConfig = false;
+
 export const useUserAgentMessageApi = (handleCb?: () => void) => {
   const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql";
 
@@ -263,8 +289,25 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
   const addParticipantsToThread = useMutation({
     mutationKey: ['addUserAgentToThread'],
     mutationFn: async (data: any) => {
-      try {
-        const response = await axios.post(
+      const token = getAuthToken() || localStorage.getItem('userAccessToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      const requestConfig = {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        validateStatus: () => true,
+      };
+      const baseVariables = {
+        threadId: data?.threadId,
+        email: data?.email,
+        role: data?.role ? String(data.role).toUpperCase() : undefined,
+        invitedByUserId: data?.invitedByUserId,
+      };
+      const runInviteMutation = async (queryBody: string) =>
+        axios.post(
           GRAPHQL_URI,
           {
             query: `

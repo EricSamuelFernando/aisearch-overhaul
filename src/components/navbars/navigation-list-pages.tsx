@@ -11,7 +11,7 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
 
   // Determine text color based on route
   const getTextColor = (route: string) => {
-    if (pathname?.startsWith('/home') || pathname === '/home' || pathname === '/home/buy') {
+    if (pathname === '/' || pathname?.startsWith('/home') || pathname === '/home' || pathname === '/home/buy') {
       return 'text-white';
     } else if (pathname === '/sell') {
       return 'text-black';
@@ -26,8 +26,8 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
 
   // Check if a route is active
   const isActive = (route: string) => {
-    if (route === '/home') {
-      return pathname === '/home' || pathname === '/home/buy' || pathname?.startsWith('/home/buy');
+    if (route === '/' || route === '/home') {
+      return pathname === '/' || pathname === '/home' || pathname === '/home/buy' || pathname?.startsWith('/home/buy');
     }
     return pathname === route || pathname?.startsWith(route + '/');
   };
@@ -48,7 +48,7 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
       <NavigationMenuList>
         <NavigationMenuItem>
           <NavigationMenuTrigger className='bg-transparent px-4 hover:bg-transparent hover:underline focus:bg-transparent'>
-            <Link href='/home' className={isActive('/home') ? (isScrolled ? 'text-white' : 'text-white') : textColorClass}>
+            <Link href='/' className={isActive('/') ? (isScrolled ? 'text-white' : 'text-white') : textColorClass}>
               Buy
             </Link>
           </NavigationMenuTrigger>
@@ -82,7 +82,7 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
           </NavigationMenuContent>
         </NavigationMenuItem>
 
-        <NavigationMenuItem>
+        {/* <NavigationMenuItem className={hiddenTopNavItems.has('/sell') ? 'hidden' : undefined}>
           <NavigationMenuTrigger className='bg-transparent px-4 hover:bg-transparent hover:underline focus:bg-transparent'>
             <Link href='/sell' className={isActive('/sell') ? (isScrolled ? 'text-black' : 'text-black') : textColorClass}>
               Sell
@@ -91,14 +91,13 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
           <NavigationMenuContent className={dropdownContentClass}>
             <div className='flex w-full flex-row divide-x divide-white p-6 font-medium text-black'>
               <div className='flex flex-col space-y-4 pr-8'>
-                {/* <h4 className='text-lg font-medium'>Buy a Home With</h4> */}
                 <div className='flex flex-col space-y-3'>
                   <Link href='/agents' className='text-black hover:text-primary hover:underline'>
                     With an agents
                   </Link>
                   {/*<Link href={AGENT_APPLICATIONS || ""} className='text-black hover:text-primary hover:underline'>
                     Our Real Estate Agents
-                  </Link>*/}
+                  </Link>* /}
                   <Link href='/home/seller-how-it-works' className='text-black hover:text-primary hover:underline'>
                     How it Works
                   </Link>
@@ -106,9 +105,9 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
               </div>
               <div className='flex flex-col space-y-4 pl-8'>
                 <div className='flex flex-col space-y-3'>
-                {/*  <Link href='#home-estimator' className='text-black hover:text-primary hover:underline'>
+                  {/*  <Link href='#home-estimator' className='text-black hover:text-primary hover:underline'>
                     Home Estimator
-                  </Link>*/}
+                  </Link>* /}
                   <Link href="#testimonials" className='text-black hover:text-primary hover:underline'>
                     Testimonials
                   </Link>
@@ -116,7 +115,7 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
               </div>
             </div>
           </NavigationMenuContent>
-        </NavigationMenuItem>
+        </NavigationMenuItem> */}
 
         <NavigationMenuItem>
           <NavigationMenuTrigger className={`bg-transparent px-4 font-medium hover:bg-transparent hover:underline focus:bg-transparent ${isActive('/agents') ? (isScrolled ? 'text-black' : 'text-black') : textColorClass}`}>
@@ -138,13 +137,13 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
           </NavigationMenuContent>
         </NavigationMenuItem>
 
-        <NavigationMenuItem>
+        {/* <NavigationMenuItem className={hiddenTopNavItems.has('/company') ? 'hidden' : undefined}>
           <Link href='/company' legacyBehavior passHref>
             <NavigationMenuLink className={`bg-transparent px-4 font-medium ${isActive('/company') ? (isScrolled ? 'text-white' : 'text-white') : textColorClass}`}>
               Company
             </NavigationMenuLink>
           </Link>
-        </NavigationMenuItem>
+        </NavigationMenuItem> */}
       </NavigationMenuList>
     </NavigationMenu>
   );

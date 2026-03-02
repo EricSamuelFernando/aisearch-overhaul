@@ -101,6 +101,103 @@ const CustomMap: React.FC<Props> = ({
     // removed minWidth to avoid forcing horizontal overflow / layout jumps
   };
 
+  const resetMeasure = useCallback(() => {
+    setMeasureStart(null);
+    setMeasureEnd(null);
+    setMeasureRoute(null);
+    setMeasureDuration(null);
+    setMeasureDistance(null);
+    setMeasureError(null);
+  }, []);
+
+  useEffect(() => {
+    measureModeRef.current = measureMode;
+  }, [measureMode]);
+
+  useEffect(() => {
+    measureStartRef.current = measureStart;
+  }, [measureStart]);
+
+  useEffect(() => {
+    selectedSearchPlaceRef.current = selectedSearchPlace;
+  }, [selectedSearchPlace]);
+
+  useEffect(() => {
+    selectedSchoolRef.current = selectedSchool;
+  }, [selectedSchool]);
+
+  useEffect(() => {
+    const applyClickable = (marker: google.maps.Marker) => {
+      try {
+        marker.setOptions({ clickable: !drawMode });
+      } catch {
+        // no-op for marker instances that are being torn down
+      }
+    };
+
+    schoolMarkersRef.current.forEach(applyClickable);
+    searchMarkersRef.current.forEach(applyClickable);
+    Object.values(categoryMarkersRef.current).forEach((group) => group.forEach(applyClickable));
+  }, [drawMode]);
+
+  const clearMeasureRouteState = useCallback(() => {
+    setMeasureRoute(null);
+    setMeasureDuration(null);
+    setMeasureDistance(null);
+    setMeasureError(null);
+  }, []);
+
+  const applyMeasurePointFromMarker = useCallback(
+    (
+      point: google.maps.LatLngLiteral,
+      source: 'listing' | 'poi',
+    ) => {
+      if (!measureModeRef.current) return;
+
+      if (source === 'listing') {
+        setMeasureStart(point);
+        setMeasureEnd(null);
+        clearMeasureRouteState();
+        return;
+      }
+
+      if (!measureStartRef.current) {
+        clearMeasureRouteState();
+        setMeasureStart(point);
+        setMeasureEnd(null);
+        setMeasureError('Select a listing marker first, then a school/place marker.');
+        return;
+      }
+
+      setMeasureEnd(point);
+      setMeasureError(null);
+    },
+    [clearMeasureRouteState],
+  );
+
+  const centerOnMeasurePoint = useCallback((position: google.maps.LatLngLiteral) => {
+    if (!mapInstance) return;
+    mapInstance.panTo(position);
+  }, [mapInstance]);
+
+  const closeLocationTooltips = useCallback(() => {
+    setClickedDistrictName(null);
+    setSelectedSchool(null);
+    setSelectedSearchPlace(null);
+  }, []);
+
+  const quickCategories = useMemo(
+    () => ({
+      restaurants: { label: 'Restaurants', color: '#14b8a6', query: 'restaurants' },
+      gyms: { label: 'Gyms', color: '#6366f1', query: 'gyms' },
+      // Google Places text search is more reliable with singular "hospital"
+      // than plural "hospitals" in some viewports.
+      hospitals: { label: 'Hospitals', color: '#2563eb', query: 'hospital' },
+      parks: { label: 'Parks', color: '#16a34a', query: 'parks' },
+    }),
+    [],
+  );
+
 
   const markers = useMemo(() => {
     const raw = properties.length > 0
@@ -128,6 +225,256 @@ const CustomMap: React.FC<Props> = ({
         !isNaN(m.lng)
     );
   }, [properties, coord]);
+
+  const computeMarkersInsideDrawPolygon = useCallback(
+    (polygon: google.maps.Polygon | null) => {
+      if (!polygon || !window.google?.maps?.geometry?.poly) return null;
+
+      const ids: string[] = [];
+      for (const marker of markers) {
+        const point = new google.maps.LatLng(marker.lat, marker.lng);
+        if (google.maps.geometry.poly.containsLocation(point, polygon)) {
+          if (marker.id) ids.push(String(marker.id));
+        }
+      }
+      return ids;
+    },
+    [markers],
+  );
+
+  const applyDrawFilterFromPolygon = useCallback(
+    (polygon: google.maps.Polygon | null) => {
+      if (!polygon) {
+        setDrawFilteredMarkerIds(null);
+        onDrawFilterChange?.(null);
+        return;
+      }
+
+      const ids = computeMarkersInsideDrawPolygon(polygon) ?? [];
+      setDrawFilteredMarkerIds(ids);
+      onDrawFilterChange?.(ids);
+    },
+    [computeMarkersInsideDrawPolygon, onDrawFilterChange],
+  );
+
+  const clearDrawPolygon = useCallback(() => {
+    freehandDrawingActiveRef.current = false;
+    freehandPathRef.current = [];
+    if (freehandPreviewLineRef.current) {
+      freehandPreviewLineRef.current.setMap(null);
+      freehandPreviewLineRef.current = null;
+    }
+    if (drawPolygonRef.current) {
+      drawPolygonRef.current.setMap(null);
+    }
+    drawPolygonRef.current = null;
+    setDrawPolygon(null);
+    setDrawFilteredMarkerIds(null);
+    onDrawFilterChange?.(null);
+    setDrawMode(false);
+  }, [onDrawFilterChange]);
+
+  const handlePolygonComplete = useCallback((polygon: google.maps.Polygon) => {
+    freehandDrawingActiveRef.current = false;
+    freehandPathRef.current = [];
+    if (freehandPreviewLineRef.current) {
+      freehandPreviewLineRef.current.setMap(null);
+      freehandPreviewLineRef.current = null;
+    }
+
+    if (drawPolygonRef.current) {
+      drawPolygonRef.current.setMap(null);
+    }
+
+    polygon.setOptions({
+      editable: false,
+      draggable: false,
+      clickable: false,
+      fillColor: '#F57F2E',
+      fillOpacity: 0.16,
+      strokeColor: '#F57F2E',
+      strokeOpacity: 0.95,
+      strokeWeight: 2,
+      zIndex: 50,
+    });
+
+    drawPolygonRef.current = polygon;
+    setDrawPolygon(polygon);
+    setDrawMode(false);
+    applyDrawFilterFromPolygon(polygon);
+  }, [applyDrawFilterFromPolygon]);
+
+  useEffect(() => {
+    if (drawMode) return;
+    freehandDrawingActiveRef.current = false;
+    freehandPathRef.current = [];
+    if (freehandPreviewLineRef.current) {
+      freehandPreviewLineRef.current.setMap(null);
+      freehandPreviewLineRef.current = null;
+    }
+
+    // Google Maps sometimes keeps the crosshair cursor after drawing finishes.
+    // Reset cursors explicitly so the UI does not look like draw mode is still active.
+    try {
+      mapInstance?.setOptions({
+        draggableCursor: 'grab',
+        draggingCursor: 'grabbing',
+      });
+    } catch {
+      // no-op
+    }
+  }, [drawMode, mapInstance]);
+
+  useEffect(() => {
+    if (!mapInstance) return;
+    try {
+      mapInstance.setOptions({
+        draggableCursor: drawMode ? 'crosshair' : 'grab',
+        draggingCursor: drawMode ? 'crosshair' : 'grabbing',
+      });
+    } catch {
+      // no-op
+    }
+  }, [drawMode, mapInstance]);
+
+  useEffect(() => {
+    if (!isLoaded || !mapInstance || !drawMode) return;
+
+    const listeners: google.maps.MapsEventListener[] = [];
+
+    const minPointDistanceMeters = 10;
+
+    const pushPoint = (point: google.maps.LatLngLiteral) => {
+      const path = freehandPathRef.current;
+      const last = path[path.length - 1];
+      if (last && google?.maps?.geometry?.spherical) {
+        const dist = google.maps.geometry.spherical.computeDistanceBetween(
+          new google.maps.LatLng(last.lat, last.lng),
+          new google.maps.LatLng(point.lat, point.lng),
+        );
+        if (dist < minPointDistanceMeters) return;
+      }
+
+      path.push(point);
+
+      if (!freehandPreviewLineRef.current) {
+        freehandPreviewLineRef.current = new google.maps.Polyline({
+          map: mapInstance,
+          path,
+          clickable: false,
+          strokeColor: '#F57F2E',
+          strokeOpacity: 0.95,
+          strokeWeight: 2,
+          zIndex: 50,
+        });
+        return;
+      }
+
+      freehandPreviewLineRef.current.setPath(path);
+    };
+
+    const finalizeFreehandPolygon = () => {
+      if (!freehandDrawingActiveRef.current) return;
+      freehandDrawingActiveRef.current = false;
+
+      const path = [...freehandPathRef.current];
+      freehandPathRef.current = [];
+
+      if (freehandPreviewLineRef.current) {
+        freehandPreviewLineRef.current.setMap(null);
+        freehandPreviewLineRef.current = null;
+      }
+
+      if (path.length < 3) {
+        return;
+      }
+
+      const polygon = new google.maps.Polygon({
+        paths: path,
+        map: mapInstance,
+      });
+
+      handlePolygonComplete(polygon);
+    };
+
+    listeners.push(
+      mapInstance.addListener('mousedown', (event: google.maps.MapMouseEvent) => {
+        if (!drawMode || !event?.latLng) return;
+        freehandDrawingActiveRef.current = true;
+        freehandPathRef.current = [];
+
+        if (freehandPreviewLineRef.current) {
+          freehandPreviewLineRef.current.setMap(null);
+          freehandPreviewLineRef.current = null;
+        }
+
+        pushPoint(event.latLng.toJSON());
+      }),
+    );
+
+    listeners.push(
+      mapInstance.addListener('mousemove', (event: google.maps.MapMouseEvent) => {
+        if (!drawMode || !freehandDrawingActiveRef.current || !event?.latLng) return;
+        pushPoint(event.latLng.toJSON());
+      }),
+    );
+
+    listeners.push(
+      mapInstance.addListener('mouseup', () => {
+        finalizeFreehandPolygon();
+      }),
+    );
+
+    const handleWindowMouseUp = () => {
+      finalizeFreehandPolygon();
+    };
+    window.addEventListener('mouseup', handleWindowMouseUp);
+
+    return () => {
+      listeners.forEach((listener) => google.maps.event.removeListener(listener));
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+      freehandDrawingActiveRef.current = false;
+      freehandPathRef.current = [];
+      if (freehandPreviewLineRef.current) {
+        freehandPreviewLineRef.current.setMap(null);
+        freehandPreviewLineRef.current = null;
+      }
+    };
+  }, [isLoaded, mapInstance, drawMode, handlePolygonComplete]);
+
+  useEffect(() => {
+    if (!drawPolygonRef.current) return;
+    applyDrawFilterFromPolygon(drawPolygonRef.current);
+  }, [markers, applyDrawFilterFromPolygon]);
+
+  useEffect(() => {
+    if (!clearDrawSignal) return;
+    clearDrawPolygon();
+  }, [clearDrawSignal, clearDrawPolygon]);
+
+  const visibleMarkers = useMemo(() => {
+    if (!drawFilteredMarkerIds) return markers;
+    const allowed = new Set(drawFilteredMarkerIds.map(String));
+    return markers.filter((m) => m.id && allowed.has(String(m.id)));
+  }, [markers, drawFilteredMarkerIds]);
+
+  useEffect(() => {
+    if (!selectedMarker || !drawFilteredMarkerIds) return;
+    if (!drawFilteredMarkerIds.includes(String(selectedMarker.id))) {
+      setSelectedMarker(null);
+    }
+  }, [drawFilteredMarkerIds, selectedMarker]);
+
+  useEffect(() => {
+    return () => {
+      if (freehandPreviewLineRef.current) {
+        freehandPreviewLineRef.current.setMap(null);
+      }
+      if (drawPolygonRef.current) {
+        drawPolygonRef.current.setMap(null);
+      }
+    };
+  }, []);
 
   const recentDataClickRef = React.useRef(false);
 
@@ -314,6 +661,241 @@ const CustomMap: React.FC<Props> = ({
       anchor: new google.maps.Point(40, 64),
     };
   };
+
+  const fetchPlaceDetails = useCallback(
+    (
+      placeId: string,
+      position: google.maps.LatLngLiteral,
+      fallback: { name: string; rating?: number; total?: number },
+      setState: React.Dispatch<React.SetStateAction<PlaceDetailsState | null>>,
+      requestRef: React.MutableRefObject<number>,
+    ) => {
+      if (!mapInstance) return;
+      const currentRequest = ++requestRef.current;
+      setState({ ...fallback, position, isLoading: true });
+
+      const service = new google.maps.places.PlacesService(mapInstance);
+      service.getDetails(
+        {
+          placeId,
+          fields: [
+            'name',
+            'rating',
+            'user_ratings_total',
+            'formatted_phone_number',
+            'formatted_address',
+            'photos',
+            'editorial_summary',
+            'opening_hours',
+            'website',
+          ],
+        },
+        (place, status) => {
+          if (currentRequest !== requestRef.current) return;
+          if (status !== google.maps.places.PlacesServiceStatus.OK || !place) {
+            setState({ ...fallback, placeId, position });
+            return;
+          }
+
+          const placeAny = place as any;
+          setState({
+            placeId,
+            name: place.name ?? fallback.name,
+            rating: place.rating ?? fallback.rating,
+            total: place.user_ratings_total ?? fallback.total,
+            phone: place.formatted_phone_number ?? undefined,
+            website: place.website ?? undefined,
+            address: place.formatted_address ?? undefined,
+            summary: placeAny?.editorial_summary?.overview ?? undefined,
+            photoUrl: place.photos?.[0]?.getUrl({ maxWidth: 480, maxHeight: 300 }),
+            openNow: place.opening_hours?.open_now ?? undefined,
+            weeklyHours: formatWeeklyHours(place.opening_hours?.weekday_text),
+            position,
+          });
+        },
+      );
+    },
+    [mapInstance],
+  );
+
+  useEffect(() => {
+    activeCategoryKeysRef.current = new Set(activeCategoryKeys);
+  }, [activeCategoryKeys]);
+
+  const clearSearchMarkers = useCallback(() => {
+    searchMarkersRef.current.forEach((marker) => marker.setMap(null));
+    searchMarkersRef.current = [];
+    setSelectedSearchPlace((prev) => (prev?.categoryKey ? prev : null));
+  }, []);
+
+  const clearCategoryMarkers = useCallback((categoryKey: string) => {
+    const existing = categoryMarkersRef.current[categoryKey] ?? [];
+    existing.forEach((marker) => marker.setMap(null));
+    categoryMarkersRef.current[categoryKey] = [];
+    setSelectedSearchPlace((prev) => (prev?.categoryKey === categoryKey ? null : prev));
+  }, []);
+
+  const clearAllCategoryMarkers = useCallback(() => {
+    Object.keys(categoryMarkersRef.current).forEach((key) => clearCategoryMarkers(key));
+  }, [clearCategoryMarkers]);
+
+  const clearAllExploreMarkers = useCallback(() => {
+    clearSearchMarkers();
+    clearAllCategoryMarkers();
+  }, [clearSearchMarkers, clearAllCategoryMarkers]);
+
+  const attachPlaceMarkerClick = useCallback(
+    (
+      place: google.maps.places.PlaceResult,
+      position: google.maps.LatLngLiteral,
+      setState: React.Dispatch<React.SetStateAction<SearchPlaceDetails | null>>,
+      categoryKey?: string,
+    ) => {
+      if (place.place_id) {
+        const wrappedSetter = ((value: PlaceDetailsState | null) => {
+          setState(value ? { ...value, categoryKey } : value);
+        }) as unknown as React.Dispatch<React.SetStateAction<PlaceDetailsState | null>>;
+        fetchPlaceDetails(
+          place.place_id,
+          position,
+          {
+            name: place.name ?? 'Place',
+            rating: place.rating ?? undefined,
+            total: place.user_ratings_total ?? undefined,
+          },
+          wrappedSetter,
+          searchDetailsRequestRef,
+        );
+      } else {
+        setState({
+          name: place.name ?? 'Place',
+          rating: place.rating ?? undefined,
+          total: place.user_ratings_total ?? undefined,
+          position,
+          categoryKey,
+        });
+      }
+    },
+    [fetchPlaceDetails],
+  );
+
+  const runTextSearch = useCallback(
+    (
+      query: string,
+      opts?: {
+        categoryKey?: string;
+        iconColor?: string;
+        onStoreMarkers?: (markers: google.maps.Marker[]) => void;
+        viewportOverride?: google.maps.LatLngBounds | null;
+      },
+    ) => {
+      if (!mapInstance) return;
+      const trimmed = query.trim();
+      if (!trimmed) return;
+      const viewportBounds = opts?.viewportOverride ?? mapInstance.getBounds();
+      if (!viewportBounds) return;
+
+      const locationBounds = searchPlaceBoundsRef.current;
+      const service = new google.maps.places.PlacesService(mapInstance);
+      const results: google.maps.places.PlaceResult[] = [];
+      const requestId = opts?.categoryKey
+        ? ((categoryRequestIdRef.current[opts.categoryKey] ?? 0) + 1)
+        : ++searchRequestIdRef.current;
+      if (opts?.categoryKey) categoryRequestIdRef.current[opts.categoryKey] = requestId;
+
+      const handlePage = (
+        pageResults: google.maps.places.PlaceResult[] | null,
+        status: google.maps.places.PlacesServiceStatus,
+        pagination: google.maps.places.PlaceSearchPagination | null,
+      ) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && pageResults) {
+          results.push(...pageResults);
+        }
+
+        if (pagination?.hasNextPage) {
+          setTimeout(() => pagination.nextPage(), 1500);
+          return;
+        }
+
+        if (opts?.categoryKey) {
+          if (requestId !== categoryRequestIdRef.current[opts.categoryKey]) return;
+          if (!activeCategoryKeysRef.current.has(opts.categoryKey)) return;
+          clearCategoryMarkers(opts.categoryKey);
+        } else if (requestId !== searchRequestIdRef.current) {
+          return;
+        } else {
+          clearSearchMarkers();
+        }
+
+        const icon = createCategoryPinIcon(opts?.iconColor ?? '#ef4444');
+        const filteredByViewport = results.filter((place) => {
+          const location = place.geometry?.location;
+          if (!location) return false;
+          if (!viewportBounds.contains(location)) return false;
+          return true;
+        });
+        const filtered = filteredByViewport.filter((place) => {
+          const location = place.geometry?.location;
+          if (!location) return false;
+          if (locationBounds && !locationBounds.contains(location)) return false;
+          return true;
+        });
+        const finalFiltered = filtered.length > 0 ? filtered : filteredByViewport;
+
+        const builtMarkers = finalFiltered.map((place) => {
+          const loc = place.geometry?.location;
+          if (!loc) return null;
+          const marker = new google.maps.Marker({
+            map: mapInstance,
+            position: loc,
+            title: place.name ?? 'Place',
+            icon,
+          });
+          marker.addListener('click', () => {
+            setClickedDistrictName(null);
+            setSelectedSchool(null);
+            const position = { lat: loc.lat(), lng: loc.lng() };
+            const current = selectedSearchPlaceRef.current;
+            const sameSelected =
+              !!current &&
+              ((place.place_id && current.placeId && current.placeId === place.place_id) ||
+                (current.categoryKey === opts?.categoryKey &&
+                  current.position?.lat === position.lat &&
+                  current.position?.lng === position.lng));
+
+            if (sameSelected) {
+              searchDetailsRequestRef.current += 1;
+              setSelectedSearchPlace(null);
+              return;
+            }
+
+            if (!measureModeRef.current) {
+              centerOnMeasurePoint(position);
+            }
+            applyMeasurePointFromMarker(position, 'poi');
+            attachPlaceMarkerClick(place, position, setSelectedSearchPlace, opts?.categoryKey);
+          });
+          return marker;
+        }).filter(Boolean) as google.maps.Marker[];
+
+        if (opts?.categoryKey) categoryMarkersRef.current[opts.categoryKey] = builtMarkers;
+        else searchMarkersRef.current = builtMarkers;
+
+        if (!opts?.categoryKey) {
+          setExploreFeedback(
+            builtMarkers.length === 0
+              ? 'No places found in the current map view. Try a POI term like coffee, grocery, or park.'
+              : null,
+          );
+        }
+
+        opts?.onStoreMarkers?.(builtMarkers);
+      };
+
+      service.textSearch({ query: trimmed, bounds: viewportBounds }, handlePage);
+    },
+    [applyMeasurePointFromMarker, attachPlaceMarkerClick, centerOnMeasurePoint, clearCategoryMarkers, clearSearchMarkers, mapInstance],
+  );
 
 
   const extractPlaceQuery = useCallback((rawQuery: string) => {
@@ -615,12 +1197,46 @@ const CustomMap: React.FC<Props> = ({
         });
 
         marker.addListener('click', () => {
-          setSelectedSchool({
-            name: place.name ?? 'School',
-            rating: place.rating ?? undefined,
-            total: place.user_ratings_total ?? undefined,
-            position,
-          });
+          setClickedDistrictName(null);
+          setSelectedSearchPlace(null);
+          if (!measureModeRef.current) {
+            centerOnMeasurePoint(position);
+          }
+          const currentSchool = selectedSchoolRef.current;
+          const sameSchoolSelected =
+            !!currentSchool &&
+            ((place.place_id && currentSchool.placeId && currentSchool.placeId === place.place_id) ||
+              (currentSchool.position?.lat === position.lat &&
+                currentSchool.position?.lng === position.lng));
+
+          if (sameSchoolSelected) {
+            schoolDetailsRequestRef.current += 1;
+            setSelectedSchool(null);
+            return;
+          }
+
+          applyMeasurePointFromMarker(position, 'poi');
+          if (place.place_id) {
+            fetchPlaceDetails(
+              place.place_id,
+              position,
+              {
+                name: place.name ?? 'School',
+                rating: place.rating ?? undefined,
+                total: place.user_ratings_total ?? undefined,
+              },
+              setSelectedSchool,
+              schoolDetailsRequestRef,
+            );
+          } else {
+            setSelectedSchool({
+              placeId: place.place_id ?? undefined,
+              name: place.name ?? 'School',
+              rating: place.rating ?? undefined,
+              total: place.user_ratings_total ?? undefined,
+              position,
+            });
+          }
         });
 
         return marker;
@@ -668,10 +1284,29 @@ const CustomMap: React.FC<Props> = ({
   // Fires only for map background clicks (outside any Data feature).
   // The recentDataClickRef guard prevents it from clearing a name that was
   // just set by the Data layer click above.
-  const handleMapClick = useCallback(() => {
-    if (recentDataClickRef.current) return;
-    setClickedDistrictName(null);
-  }, []);
+  const handleMapClick = useCallback((event?: google.maps.MapMouseEvent) => {
+    if (!recentDataClickRef.current) {
+      setClickedDistrictName(null);
+    }
+    setSelectedSchool(null);
+    setSelectedSearchPlace(null);
+    setSelectedMarker(null);
+
+    if (!measureMode || !event?.latLng) return;
+
+    const point = event.latLng.toJSON();
+    if (!measureStart || measureEnd) {
+      setMeasureStart(point);
+      setMeasureEnd(null);
+      setMeasureRoute(null);
+      setMeasureDuration(null);
+      setMeasureDistance(null);
+      setMeasureError(null);
+      return;
+    }
+
+    setMeasureEnd(point);
+  }, [measureMode, measureStart, measureEnd]);
 
   useEffect(() => {
     if (!isLoaded || !mapInstance) return;
@@ -771,6 +1406,22 @@ const CustomMap: React.FC<Props> = ({
             position={{ lat: marker.lat, lng: marker.lng }}
             icon={createCustomMarker(marker.price, marker.id === selectedMarker?.id)}
             onClick={() => {
+              if (drawMode) return;
+              closeLocationTooltips();
+              const markerPos = { lat: marker.lat, lng: marker.lng };
+              if (measureModeRef.current) {
+                applyMeasurePointFromMarker(markerPos, 'listing');
+                if (marker.id && onMarkerClick) onMarkerClick(marker.id);
+                return;
+              }
+              const sameSelected =
+                !!selectedMarker &&
+                ((marker.id && selectedMarker.id && String(marker.id) === String(selectedMarker.id)) ||
+                  (selectedMarker.lat === marker.lat && selectedMarker.lng === marker.lng));
+              if (sameSelected) {
+                setSelectedMarker(null);
+                return;
+              }
               setSelectedMarker(marker);
               centerOnMarker({ lat: marker.lat, lng: marker.lng });
               if (marker.id && onMarkerClick) onMarkerClick(marker.id);

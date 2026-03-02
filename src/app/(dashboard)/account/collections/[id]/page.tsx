@@ -93,9 +93,9 @@ export default function SnapDetailsPage() {
                             image: favourites[0]?.image || undefined
                         });
                         // Determine user's role in this snap from participants
-                        const participant = snapData.participants?.find((p: any) => p.userId === userData?.id || p.email === userData?.email);
-                        if (participant?.accountType) {
-                            setUserSnapRole(participant.accountType);
+                        const participant = snapData.participants?.find((p: any) => p.participant?.id === userData?.id || p.participant?.email === userData?.email);
+                        if (participant?.participant?.accountType) {
+                            setUserSnapRole(participant.participant.accountType);
                         }
                     }
                 },
@@ -296,8 +296,36 @@ export default function SnapDetailsPage() {
         setCompareMode(false);
     };
 
-    const selectedProperties = favourites.filter(p =>
-        selectedForCompare.includes(p.listingId || p.id)
+    useEffect(() => {
+        return () => {
+            if (fillAnimationTimeoutRef.current) {
+                clearTimeout(fillAnimationTimeoutRef.current);
+            }
+        };
+    }, []);
+
+    const handleRecommendationsReady = useCallback((props: any[]) => {
+        setAiRecommendations(props);
+    }, []);
+
+    // Auto-scroll to reel section when recommendations first arrive
+    useEffect(() => {
+        if (aiRecommendations.length > 0 && reelSectionRef.current) {
+            const timer = setTimeout(() => {
+                smoothScrollToTarget(reelSectionRef.current, 80);
+            }, 150);
+            return () => clearTimeout(timer);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [aiRecommendations.length]);
+
+    const compareSlotProperties = useMemo(
+        () =>
+            compareSlots.map(slotId => {
+                if (!slotId) return null;
+                return favourites.find(property => getPropertyKey(property) === slotId) || null;
+            }),
+        [compareSlots, favourites]
     );
 
     if (!snap) return <div className="p-10">Loading Snap Details...</div>;
@@ -355,7 +383,7 @@ export default function SnapDetailsPage() {
                                 <UserPlus className="mr-2 h-4 w-4" />
                                 <span>Invite to collaborate</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => router.push('/home')}>
+                            <DropdownMenuItem onClick={() => router.push('/')}>
                                 <PlusCircle className="mr-2 h-4 w-4" />
                                 <span>Add to this Snapz</span>
                             </DropdownMenuItem>

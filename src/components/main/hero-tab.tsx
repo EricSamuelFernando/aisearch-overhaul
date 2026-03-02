@@ -6,7 +6,7 @@ import type { QuestionPayload } from '@/lib/api';
 import { detectIntent } from '@/lib/chatRouting';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
-import { Sparkles, Paperclip, X, ArrowUp, Mic, Search as SearchIcon, FileText, Image as ImageIcon, ChevronDown, ChevronUp, MapPin, School, Shield, Footprints, Thermometer, CloudSun, BedDouble, Bath, Square, Scaling, Calendar, Clock, TrendingUp, GraduationCap, Trees, Plus, Lightbulb, Droplets } from 'lucide-react';
+import { Sparkles, Paperclip, X, ArrowUp, Mic, Search as SearchIcon, FileText, Image as ImageIcon, ChevronDown, ChevronUp, MapPin, School, Shield, Footprints, Thermometer, CloudSun, BedDouble, Bath, Square, Scaling, Calendar, Clock, TrendingUp, GraduationCap, Trees, Plus, Lightbulb, Droplets, Home } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, ReferenceDot } from 'recharts';
 import SchoolMapPanel from '@/components/SchoolMapPanel';
@@ -59,13 +59,28 @@ type ForecastPoint = { date: string; rate: number };
 
 // Helper to bold text
 const renderTextWithBold = (text: string) => {
-  const parts = text.split(/(\*\*.*?\*\*)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={i} className="font-bold text-gray-900">{part.slice(2, -2)}</strong>;
-    }
-    return part;
-  });
+  const parseInlineBold = (value: string, keyPrefix: string) => {
+    const parts = value.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={`${keyPrefix}-${i}`} className="font-bold text-gray-900">{part.slice(2, -2)}</strong>;
+      }
+      return part;
+    });
+  };
+
+  const numberedPrefixMatch = text.match(/^(\d+\.)\s+(.*)$/);
+  if (numberedPrefixMatch) {
+    const [, prefix, rest] = numberedPrefixMatch;
+    return (
+      <>
+        <strong className="font-bold text-gray-900">{prefix}</strong>{' '}
+        {parseInlineBold(rest, 'num')}
+      </>
+    );
+  }
+
+  return parseInlineBold(text, 'inline');
 };
 
 // Helper to render table
@@ -143,11 +158,13 @@ const SNAP_YES_KEYWORDS = [
   'yes please'
 ];
 
-const DEFAULT_MAIN_SITE_URL = 'https://demo.snaphomz.com';
-
 const getMainSiteBaseUrl = () => {
-  const raw = process.env.NEXT_PUBLIC_MAIN_SITE_URL || DEFAULT_MAIN_SITE_URL;
-  return raw.replace(/\/+$/, '');
+  // If we are in the browser, dynamically get the current domain
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  // Fallback for Server-Side Rendering (SSR)
+  return '';
 };
 
 const resolveListingId = (property: any) =>
@@ -610,7 +627,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   const [snapConfirmationMessageId, setSnapConfirmationMessageId] = useState<string | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchInputRef = useRef<HTMLTextAreaElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastIntentRef = useRef<string | null>(null);
   const [expandedSchoolLists, setExpandedSchoolLists] = useState<Record<string, boolean>>({});
@@ -1033,6 +1050,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     // 2. Set Loading & Reset Input
     setIsSearching(true);
     setSearchTerm('');
+    if (searchInputRef.current) searchInputRef.current.style.height = 'auto'; // Reset textarea height
     setSelectedPropertyId(null);
     setExpandedPropertyId(null);
 
@@ -1491,6 +1509,162 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     setShowSuggestions(false);
   };
 
+  // ─── Address autocomplete helpers ──────────────────────────────────────────
+
+  /**
+   * Debounced fetch of address suggestions from the MLS API.
+   * Only fires when the input looks like a street address (starts with digits).
+   */
+  const fetchAddressSuggestions = (value: string) => {
+    // Cancel any pending debounce
+    if (addressSuggestDebounceRef.current) {
+      clearTimeout(addressSuggestDebounceRef.current);
+    }
+    if (locationSuggestDebounceRef.current) {
+      clearTimeout(locationSuggestDebounceRef.current);
+    }
+
+    const trimmed = value.trim();
+    // Address-like heuristics
+    const hasHouseNumber = /\b\d{1,6}\b/.test(trimmed);
+    const hasStreetKeyword = /\b(st|street|ave|avenue|rd|road|blvd|boulevard|dr|drive|ln|lane|ct|court|way|pl|place|cir|circle|pkwy|parkway|ter|terrace|hwy|highway)\b/i.test(trimmed);
+    const hasCommaAddressShape = /,/.test(trimmed) && /[a-z]/i.test(trimmed);
+    const isAddressLike = trimmed.length >= 3 && (hasHouseNumber || hasStreetKeyword || hasCommaAddressShape);
+
+    if (trimmed.length < 3) {
+      setAddressSuggestions([]);
+      setShowAddressSuggestions(false);
+      setLocationSuggestions([]);
+      setShowLocationSuggestions(false);
+      return;
+    }
+
+    if (isAddressLike) {
+      addressSuggestDebounceRef.current = setTimeout(async () => {
+        try {
+          setIsLoadingAddressSuggestions(true);
+          const results = await suggestAddresses(trimmed);
+          setAddressSuggestions(results);
+          setShowAddressSuggestions(results.length > 0);
+        } catch {
+          setAddressSuggestions([]);
+          setShowAddressSuggestions(false);
+        } finally {
+          setIsLoadingAddressSuggestions(false);
+        }
+      }, 300);
+    } else {
+      setAddressSuggestions([]);
+      setShowAddressSuggestions(false);
+      setIsLoadingAddressSuggestions(false);
+    }
+
+    locationSuggestDebounceRef.current = setTimeout(() => {
+      if (typeof window === 'undefined' || !window.google?.maps?.places) {
+        setLocationSuggestions([]);
+        setShowLocationSuggestions(false);
+        setIsLoadingLocationSuggestions(false);
+        return;
+      }
+
+      try {
+        setIsLoadingLocationSuggestions(true);
+        const autocompleteService = new window.google.maps.places.AutocompleteService();
+        autocompleteService.getPlacePredictions(
+          {
+            input: trimmed,
+            componentRestrictions: { country: 'us' },
+          },
+          (predictions: any, status: any) => {
+            const isOk =
+              status === window.google.maps.places.PlacesServiceStatus.OK &&
+              Array.isArray(predictions);
+
+            if (!isOk) {
+              setLocationSuggestions([]);
+              setShowLocationSuggestions(false);
+              setIsLoadingLocationSuggestions(false);
+              return;
+            }
+
+            const locationTypeHints = new Set([
+              'locality',
+              'administrative_area_level_1',
+              'administrative_area_level_2',
+              'sublocality',
+              'neighborhood',
+              'postal_town',
+              'street_address',
+              'route',
+              'premise',
+              'subpremise',
+              'intersection'
+            ]);
+
+            const filtered = predictions.filter((prediction: any) => {
+              const types = Array.isArray(prediction?.types) ? prediction.types : [];
+              return types.some((t: string) => locationTypeHints.has(t));
+            });
+            const source = filtered.length > 0 ? filtered : predictions;
+            const mapped: LocationSuggestion[] = source.slice(0, 8).map((prediction: any) => ({
+              placeId: String(prediction?.place_id || prediction?.id || prediction?.description || ''),
+              description: String(
+                prediction?.description ||
+                [
+                  prediction?.structured_formatting?.main_text,
+                  prediction?.structured_formatting?.secondary_text,
+                ].filter(Boolean).join(', ')
+              ),
+            })).filter((item: LocationSuggestion) => item.description.trim().length > 0);
+
+            setLocationSuggestions(mapped);
+            setShowLocationSuggestions(mapped.length > 0);
+            setIsLoadingLocationSuggestions(false);
+          }
+        );
+      } catch {
+        setLocationSuggestions([]);
+        setShowLocationSuggestions(false);
+        setIsLoadingLocationSuggestions(false);
+      }
+    }, 300);
+  };
+
+  /**
+   * Navigate directly to the property detail page when a suggestion is clicked.
+   * Bypasses the AI search pipeline entirely.
+   */
+  const handleAddressSuggestionClick = (suggestion: AddressSuggestion) => {
+    setShowAddressSuggestions(false);
+    setAddressSuggestions([]);
+    setShowLocationSuggestions(false);
+    setLocationSuggestions([]);
+    setSearchTerm(suggestion.address || '');
+
+    const url = toMainSitePropertyPreviewUrl({
+      listingId: suggestion.listingId,
+      id: suggestion.id,
+      city: suggestion.city,
+      state: suggestion.state,
+      zip_code: suggestion.zip_code,
+      address: suggestion.address,
+    });
+    window.location.href = url;
+  };
+
+  const handleLocationSuggestionClick = (suggestion: LocationSuggestion) => {
+    setShowLocationSuggestions(false);
+    setLocationSuggestions([]);
+    setShowAddressSuggestions(false);
+    setAddressSuggestions([]);
+
+    const locationQuery = suggestion.description.trim();
+    setSearchTerm(locationQuery);
+
+    const mainSiteBase = getMainSiteBaseUrl();
+    window.location.href = `${mainSiteBase}/buy/browse?q=${encodeURIComponent(locationQuery)}`;
+  };
+
   const performSnapImageSearch = async (file: File, locationInput?: string) => {
     clearSnapSession();
     console.log('[Snap-Search] Beginning backend search for file:', file.name, file.type);
@@ -1644,6 +1818,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     setChatHistory(prev => [...prev, userMessage]);
 
     setSearchTerm('');
+    if (searchInputRef.current) searchInputRef.current.style.height = 'auto'; // Reset textarea height
     setPendingImage(null);
     pendingImageRef.current = null;
     setPendingImagePreview(null);
@@ -1902,7 +2077,18 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
                 {/* Right Actions */}
                 <div className="flex items-center gap-2 flex-shrink-0 pr-1">
-                  <div className="relative">
+                  <button
+                    type="button"
+                    onClick={toggleMlsBypass}
+                    title={!mlsBypassMode ? 'AI Search is ON' : 'AI Search is OFF'}
+                    className={`h-9 md:h-10 rounded-full px-4 text-sm font-semibold transition-colors border ${!mlsBypassMode
+                      ? 'bg-orange-50 text-[#F58634] border-orange-200'
+                      : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                      }`}
+                  >
+                    Ai Search
+                  </button>
+                  <div className="relative hidden md:block">
                     <div
                       className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
                       onClick={() => setShowAttachMenu(!showAttachMenu)}
@@ -1942,10 +2128,20 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       )}
                     </AnimatePresence>
                   </div>
+                  {/* Mobile Compact Search Button */}
                   <Button
                     type='submit'
                     disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
-                    className="bg-[#F58634] hover:bg-[#E07224] text-white rounded-xl px-8 py-3 font-semibold text-sm md:text-base flex items-center transition-all shadow-md hover:shadow-lg h-full disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634]"
+                    className="md:hidden bg-[#F58634] hover:bg-[#E07224] text-white rounded-xl w-10 h-9 flex items-center justify-center transition-all shadow-md hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634] p-0"
+                  >
+                    <SearchIcon className="w-5 h-5" />
+                  </Button>
+
+                  {/* Desktop Begin Journey Button */}
+                  <Button
+                    type='submit'
+                    disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
+                    className="hidden md:flex bg-[#F58634] hover:bg-[#E07224] text-white rounded-xl px-8 py-3 font-semibold text-sm md:text-base items-center transition-all shadow-md hover:shadow-lg h-full disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634]"
                   >
                     Begin Journey
                   </Button>
@@ -1999,18 +2195,31 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 <div className="relative">
                   <div
                     onClick={() => setIsMenuOpen(!isMenuOpen)}
-                    className="bg-black text-white pl-1 pr-4 py-1 rounded-full flex items-center gap-3 shadow-md hover:bg-gray-800 transition-colors cursor-pointer group active:scale-95 duration-200 select-none"
+                    className="bg-black text-white pl-4 pr-4 py-2 rounded-full flex items-center gap-3 shadow-md hover:bg-gray-800 transition-colors cursor-pointer group active:scale-95 duration-200 select-none"
                   >
-                    <div className="relative w-8 h-8 flex-shrink-0">
-                      <Image
-                        src="/assets/images/snaphomz-icon-thick.png"
-                        alt="SnapHomz AI"
-                        fill
-                        className="object-contain"
-                      />
+                    <div className="relative flex-shrink-0 flex items-center justify-center">
+                      <svg width="24" height="24" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M15.0645 1C22.8233 0.998533 29.122 7.31736 29.1221 15.1211V25.0967C29.1221 26.201 28.6985 27.1986 28.0068 27.9336L28.0049 27.9355C27.2517 28.7409 26.1847 29.2393 25.001 29.2393H5.12109C2.85069 29.2393 1 27.3893 1 25.0986V15.123C1 7.31903 7.30043 1 15.0645 1Z" fill="black" stroke="url(#paint0_linear_1389_231_small)" style={{ fill: 'black', fillOpacity: 1 }} strokeWidth="2" />
+                        <mask id="path-2-inside-1_1389_231_small" fill="white">
+                          <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" />
+                        </mask>
+                        <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" fill="white" stroke="white" style={{ fill: 'white', fillOpacity: 1, stroke: 'white', strokeOpacity: 1 }} strokeWidth="4" mask="url(#path-2-inside-1_1389_231_small)" />
+                        <mask id="path-3-inside-2_1389_231_small" fill="white">
+                          <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" />
+                        </mask>
+                        <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" fill="white" stroke="white" style={{ fill: 'white', fillOpacity: 1, stroke: 'white', strokeOpacity: 1 }} strokeWidth="4" mask="url(#path-3-inside-2_1389_231_small)" />
+                        <defs>
+                          <linearGradient id="paint0_linear_1389_231_small" x1="15.061" y1="0" x2="15.061" y2="30.2391" gradientUnits="userSpaceOnUse">
+                            <stop stopColor="#E8804C" style={{ stopColor: 'color(display-p3 0.9098 0.5020 0.2980)' }} stopOpacity="1" />
+                            <stop offset="0.5" stopColor="#E84C85" style={{ stopColor: 'color(display-p3 0.9098 0.2980 0.5224)' }} stopOpacity="1" />
+                            <stop offset="0.75" stopColor="#A64EBA" style={{ stopColor: 'color(display-p3 0.6521 0.3044 0.7303)' }} stopOpacity="1" />
+                            <stop offset="1" stopColor="#654FEF" style={{ stopColor: 'color(display-p3 0.3944 0.3107 0.9382)' }} stopOpacity="1" />
+                          </linearGradient>
+                        </defs>
+                      </svg>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm tracking-wide">SnapHomz AI</span>
+                      <span className="font-semibold text-[15px] tracking-wide">Snaphomz AI</span>
                       <ChevronDown className={`w-4 h-4 text-gray-400 group-hover:text-white transition-transform duration-300 ${isMenuOpen ? 'rotate-180' : ''}`} />
                     </div>
                   </div>
@@ -2458,8 +2667,43 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
                         {/* Properties Carousel */}
                         {msg.relatedProperties && msg.relatedProperties.length > 0 && (
-                          <div className={`w-full max-w-full ${msg.relatedProperties?.length ? 'order-2' : ''}`}>
-                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center overflow-visible sm:overflow-x-auto gap-2 sm:gap-4 md:gap-6 px-0 sm:px-4 md:px-6 py-3 sm:py-5 md:py-6 sm:snap-x sm:snap-mandatory no-scrollbar" style={{ scrollBehavior: 'smooth' }}>
+                          <div className={`w-full max-w-full ${msg.relatedProperties?.length ? 'order-2' : ''} relative group`}>
+
+                            {/* Left Scroll Arrow */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const container = document.getElementById(`carousel-${msg.id}`);
+                                if (container) {
+                                  container.scrollBy({ left: -360, behavior: 'smooth' });
+                                }
+                              }}
+                              className="absolute left-1 sm:left-4 top-[50%] -translate-y-1/2 z-30 hidden sm:flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#F58634] to-[#FF9E5E] shadow-[0_4px_12px_rgba(245,134,52,0.4)] text-white hover:scale-[1.1] hover:shadow-[0_8px_24px_rgba(245,134,52,0.6)] transition-all duration-300 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto active:scale-95 group/btn"
+                              aria-label="Scroll Left"
+                            >
+                              <ChevronDown className="w-5 h-5 sm:w-6 sm:h-6 rotate-90 stroke-[3] transition-transform duration-300 group-hover/btn:-translate-y-0.5 group-hover/btn:-translate-x-0.5" />
+                            </button>
+
+                            {/* Right Scroll Arrow */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const container = document.getElementById(`carousel-${msg.id}`);
+                                if (container) {
+                                  container.scrollBy({ left: 360, behavior: 'smooth' });
+                                }
+                              }}
+                              className="absolute right-1 sm:right-4 top-[50%] -translate-y-1/2 z-30 hidden sm:flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#F58634] to-[#FF9E5E] shadow-[0_4px_12px_rgba(245,134,52,0.4)] text-white hover:scale-[1.1] hover:shadow-[0_8px_24px_rgba(245,134,52,0.6)] transition-all duration-300 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto active:scale-95 group/btn"
+                              aria-label="Scroll Right"
+                            >
+                              <ChevronDown className="w-5 h-5 sm:w-6 sm:h-6 -rotate-90 stroke-[3] transition-transform duration-300 group-hover/btn:-translate-y-0.5 group-hover/btn:translate-x-0.5" />
+                            </button>
+
+                            <div
+                              id={`carousel-${msg.id}`}
+                              className="flex flex-row items-stretch sm:items-center overflow-x-auto gap-4 sm:gap-5 md:gap-6 px-4 sm:px-8 md:px-10 py-4 sm:py-6 md:py-8 snap-x snap-mandatory no-scrollbar"
+                              style={{ scrollBehavior: 'smooth' }}
+                            >
                               {msg.relatedProperties.map((property: any) => {
                                 const isActive = selectedPropertyId === property.id;
                                 const isExpandedCard = expandedPropertyId === property.id;
@@ -2483,8 +2727,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                     onClick={() => handlePropertyClick(property.id)}
                                     className={`
                                                                 group relative flex flex-col
-                                                                w-full min-w-0 max-w-full sm:min-w-[300px] sm:w-[300px] md:min-w-[360px] md:w-[360px] md:max-w-[360px] lg:min-w-[320px] lg:w-[320px] lg:max-w-[320px]
-                                                                flex-shrink-0 rounded-2xl cursor-pointer sm:snap-center
+                                                                w-[300px] min-w-[300px] max-w-[300px] sm:min-w-[300px] sm:w-[300px] md:min-w-[360px] md:w-[360px] md:max-w-[360px] lg:min-w-[320px] lg:w-[320px] lg:max-w-[320px]
+                                                                flex-shrink-0 rounded-2xl cursor-pointer snap-start sm:snap-center
                                                                 transition-all duration-300 ease-out border bg-white overflow-hidden
                                                                 ${isAnySelected
                                         ? isActive
@@ -2497,18 +2741,26 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                   >
                                     {/* White Overlay for Inactive Effect */}
                                     {isAnySelected && !isActive && (
-                                      <div className="absolute inset-0 bg-white/60 backdrop-blur-[0.5px] z-20 pointer-events-none transition-opacity duration-300" />
+                                      <div className="absolute inset-0 bg-white/60 backdrop-blur-[0.5px] z-30 pointer-events-none transition-opacity duration-300" />
                                     )}
 
-                                    <div className="h-44 sm:h-48 md:h-56 lg:h-52 w-full relative overflow-hidden bg-gray-100 flex-shrink-0">
-                                      <Image
-                                        src={property.image}
-                                        alt="Property"
-                                        fill
-                                        unoptimized={true}
-                                        className="object-cover transition-transform duration-700 group-hover:scale-105"
-                                      />
-                                      <div className="absolute top-3 left-3 bg-black/60 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg backdrop-blur-md">
+                                    <div className="h-44 sm:h-48 md:h-56 lg:h-52 w-full relative overflow-hidden bg-[#F8F9FA] flex-shrink-0 flex items-center justify-center">
+                                      <Home className="w-10 h-10 text-gray-300 absolute z-0" />
+                                      {property.image && property.image.trim() !== '' && (
+                                        <Image
+                                          src={property.image}
+                                          alt="Property"
+                                          fill
+                                          unoptimized={true}
+                                          className="object-cover transition-transform duration-700 group-hover:scale-105 z-10"
+                                          onError={(e) => {
+                                            if (e.currentTarget) {
+                                              e.currentTarget.style.display = 'none';
+                                            }
+                                          }}
+                                        />
+                                      )}
+                                      <div className="absolute top-3 left-3 z-20 bg-black/60 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg backdrop-blur-md">
                                         {property.type}
                                       </div>
                                     </div>
@@ -2563,7 +2815,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
                               {msg.query && (
                                 <a
-                                  href={`${process.env.NEXT_PUBLIC_MAIN_SITE_URL || 'https://demo.snaphomz.com'}/buy/browse?q=${encodeURIComponent(msg.query_history_formatted || msg.query || '')}`}
+                                  href={`${getMainSiteBaseUrl()}/buy/browse?q=${encodeURIComponent(msg.query || '')}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="group flex-shrink-0 sm:snap-start self-stretch sm:self-center relative flex h-14 sm:h-48 w-full sm:w-48 flex-row sm:flex-col items-center justify-center gap-2 sm:gap-0 rounded-2xl sm:rounded-full border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-orange-100 shadow-lg transition-all duration-300 hover:scale-[1.01] sm:hover:scale-105 hover:border-orange-500 hover:shadow-xl hover:shadow-orange-200/60 cursor-pointer"
@@ -2724,19 +2976,6 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                       );
                                     })()}
                                   </div>
-
-                                  {/* 3. FEATURES */}
-                                  <div className="flex flex-col items-start w-full">
-                                    <h3 className="text-base sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4 text-left">Features</h3>
-                                    <div className="flex flex-wrap justify-start gap-2 sm:gap-3 w-full">
-                                      {selectedProp.features?.map((feature: string, i: number) => (
-                                        <span key={i} className="px-3 sm:px-5 py-1.5 sm:py-2 bg-white border border-gray-100 rounded-full text-xs sm:text-sm font-medium text-gray-700 hover:border-gray-300 transition-colors cursor-default whitespace-normal">
-                                          {feature}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </div>
-
                                   {/* 4. INSIGHTS */}
                                   <div className="bg-[#FFF9F5] border border-[#FFD8B4] rounded-[16px] sm:rounded-[20px] p-4 sm:p-8">
                                     <div className="flex items-center justify-between mb-4 sm:mb-6">
@@ -2819,6 +3058,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                       </button>
                                     </div>
                                   </div>
+
                                   {/* 5. VIEW FULL PROPERTY */}
                                   <div className="flex justify-center pb-4">
                                     <a
@@ -2877,11 +3117,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
               </div>
 
               {/* Footer / Related Questions & Search */}
-              <div className="mt-2 pt-2 border-t border-gray-100/50 sticky bottom-0 bg-white/95 backdrop-blur-md z-30 pb-2 sm:pb-4">
+              <div className="mt-2 border-t border-gray-100/70 sticky bottom-0 bg-white/95 backdrop-blur-md z-30 px-3 pt-3 pb-[max(env(safe-area-inset-bottom),0.9rem)] sm:px-0 sm:pt-2 sm:pb-4">
                 {/* 1. Related Questions (Removed - now dynamic per message) */}
 
                 {/* 2. New Large Search Bar + Controls */}
-                <div ref={searchContainerRef} className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                <div ref={searchContainerRef} className="mb-2 flex items-center gap-2 sm:mb-4 sm:gap-3">
                   {/* Contextual Actions */}
                   <button
                     onClick={() => {
@@ -2908,9 +3148,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       }, 100);
                     }}
                     title="New Chat"
-                    className="flex-shrink-0 w-11 h-12 sm:w-[60px] sm:h-[68px] bg-white border border-gray-200 rounded-2xl sm:rounded-[28px] flex items-center justify-center text-gray-400 hover:text-[#F58634] hover:border-orange-200 hover:bg-orange-50 transition-all shadow-sm group"
+                    className="hidden sm:flex flex-shrink-0 w-10 h-10 sm:w-[60px] sm:h-[68px] bg-white border border-gray-200 rounded-xl sm:rounded-[28px] items-center justify-center text-gray-400 hover:text-[#F58634] hover:border-orange-200 hover:bg-orange-50 transition-all shadow-sm group"
                   >
-                    <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />
+                    <Sparkles className="w-4 h-4 sm:w-6 sm:h-6" />
                   </button>
                   <button
                     onClick={() => {
@@ -2918,14 +3158,14 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll up to see the menu
                     }}
                     title="History"
-                    className="flex-shrink-0 w-11 h-12 sm:w-[60px] sm:h-[68px] bg-white border border-gray-200 rounded-2xl sm:rounded-[28px] flex items-center justify-center text-gray-400 hover:text-gray-900 hover:border-gray-300 hover:bg-gray-50 transition-all shadow-sm"
+                    className="hidden sm:flex flex-shrink-0 w-10 h-10 sm:w-[60px] sm:h-[68px] bg-white border border-gray-200 rounded-xl sm:rounded-[28px] items-center justify-center text-gray-400 hover:text-gray-900 hover:border-gray-300 hover:bg-gray-50 transition-all shadow-sm"
                   >
-                    <Clock className="w-5 h-5 sm:w-6 sm:h-6" />
+                    <Clock className="w-4 h-4 sm:w-6 sm:h-6" />
                   </button>
 
                   {/* Search Input */}
-                  <div className="relative flex-1">
-                    <div className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-20">
+                  <div className={`relative min-w-0 ${pendingImage || pendingImagePreview ? 'w-full sm:flex-1' : 'flex-1'}`}>
+                    <div className="absolute left-3.5 sm:left-6 top-1/2 -translate-y-1/2 z-20">
                       <button
                         type="button"
                         onClick={() => setShowAttachMenu(!showAttachMenu)}
@@ -2969,11 +3209,22 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                         {renderPendingImageChip('expanded')}
                       </div>
                     )}
-                    <input
+                    <textarea
                       ref={searchInputRef}
-                      type="text"
                       value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSearchTerm(val);
+                        fetchAddressSuggestions(val);
+                        e.target.style.height = 'auto';
+                        e.target.style.height = e.target.scrollHeight + 'px';
+                      }}
+                      onFocus={() => setShowSuggestions(true)}
+                      onBlur={() => setTimeout(() => {
+                        setShowSuggestions(false);
+                        setShowAddressSuggestions(false);
+                        setShowLocationSuggestions(false);
+                      }, 200)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault();
@@ -2984,29 +3235,212 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                           } else {
                             handleSearchSubmit(searchTerm);
                           }
+                          // Reset height on submit
+                          if (searchInputRef.current) {
+                            searchInputRef.current.style.height = 'auto';
+                          }
                         }
                       }}
                       placeholder={pendingImage ? "Type city, ZIP, or coordinates for this image" : "Ask anything about homes, neighborhoods, schools"}
-                      className={`w-full bg-white text-gray-900 rounded-full h-12 sm:h-[68px] ${pendingImage || pendingImagePreview ? 'pl-56 sm:pl-[19rem]' : 'pl-11 sm:pl-14'} pr-20 sm:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-sm sm:text-base placeholder:text-gray-400 font-normal`}
+                      rows={1}
+                      className={`w-full bg-white text-gray-900 rounded-2xl sm:rounded-3xl min-h-[64px] sm:min-h-[68px] max-h-32 sm:max-h-40 overflow-y-hidden resize-none py-4 sm:py-[22px] ${pendingImage || pendingImagePreview ? 'pl-40 sm:pl-[19rem]' : 'pl-12 sm:pl-14'} pr-16 sm:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-[14px] sm:text-base placeholder:text-gray-400 font-normal leading-relaxed`}
                     />
-                    <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 sm:gap-4">
-                      <button className="text-gray-500 hover:text-gray-900 transition-colors">
-                        <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 sm:gap-4">
+                      <button
+                        type="button"
+                        onClick={toggleMlsBypass}
+                        title={mlsBypassMode ? 'Direct MLS mode is ON (AI search bypassed)' : 'Use Direct MLS mode'}
+                        className={`hidden sm:inline-flex h-7 sm:h-8 rounded-full px-2.5 sm:px-3 text-[10px] sm:text-[11px] font-semibold border transition-colors ${mlsBypassMode
+                          ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                          }`}
+                      >
+                        {mlsBypassMode ? 'MLS' : 'AI'}
                       </button>
+
                       <button
                         onClick={() => pendingImage ? submitPendingImage() : handleSearchSubmit(searchTerm)}
                         disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
-                        className={`bg-black text-white w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shadow-md ${pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim()) ? 'opacity-50 cursor-not-allowed hover:scale-100' : 'hover:bg-gray-800'}`}
+                        className={`bg-black text-white w-10 h-10 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shadow-md ${pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim()) ? 'opacity-50 cursor-not-allowed hover:scale-100' : 'hover:bg-gray-800'}`}
                       >
-                        {isSearching ? <Square className="w-4 h-4 fill-white" /> : <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />}
+                        {isSearching ? <Square className="w-4.5 h-4.5 fill-white" /> : <ArrowUp className="w-4.5 h-4.5 sm:w-5 sm:h-5" />}
                       </button>
                     </div>
                   </div>
                 </div>
+                <div className="mb-2 mt-1 flex items-center justify-between sm:hidden">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setSearchTerm('');
+                        setChatHistory([]);
+                        setSessionId(null);
+                        setIsSearching(false);
+                        setIsMenuOpen(false);
+                        setSelectedPropertyId(null);
+                        setExpandedPropertyId(null);
+                        setNearbySchoolsById({});
+                        if (onSearchStateChange) onSearchStateChange(true, '');
+                        setTimeout(() => searchInputRef.current?.focus(), 100);
+                      }}
+                      title="New Chat"
+                      className="h-10 w-10 rounded-full border border-gray-200 bg-white text-gray-600 flex items-center justify-center shadow-sm"
+                    >
+                      <Sparkles className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsMenuOpen(true);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      title="History"
+                      className="h-10 w-10 rounded-full border border-gray-200 bg-white text-gray-600 flex items-center justify-center shadow-sm"
+                    >
+                      <Clock className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={toggleMlsBypass}
+                    title={mlsBypassMode ? 'Direct MLS mode is ON (AI search bypassed)' : 'Use Direct MLS mode'}
+                    className={`h-10 rounded-full px-4 text-[12px] font-semibold border transition-colors ${mlsBypassMode
+                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                      : 'bg-white text-gray-600 border-gray-200'
+                      }`}
+                  >
+                    {mlsBypassMode ? 'MLS Mode' : 'AI Mode'}
+                  </button>
+                </div>
+
+                {/* Integrated Suggestions Dropdown for Expanded State */}
+                <AnimatePresence>
+                  {!searchTerm && showSuggestions && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="w-full border-t border-gray-100/50"
+                    >
+                      <div className="p-4 pt-4 text-left">
+                        <p className="text-[10px] font-bold text-gray-400 mb-3 uppercase tracking-wider pl-2">
+                          Try Asking
+                        </p>
+                        <div className="space-y-1">
+                          {suggestions.map((suggestion) => (
+                            <div
+                              key={suggestion.id}
+                              onMouseDown={() => handleSuggestionClick(suggestion.text)}
+                              className="flex items-center gap-3 p-3 hover:bg-orange-50/50 rounded-xl cursor-pointer group transition-all"
+                            >
+                              <SearchIcon className="w-4 h-4 text-gray-300 group-hover:text-[#F58634] transition-colors" />
+                              <span className="text-gray-600 group-hover:text-gray-900 font-medium text-sm transition-colors leading-snug">
+                                {suggestion.text}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* ── Address Autocomplete Suggestions ── */}
+                  {searchTerm && (showAddressSuggestions || isLoadingAddressSuggestions) && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="w-full border-t border-gray-100/50"
+                    >
+                      <div className="p-2 pt-3 text-left">
+                        <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-wider pl-3">
+                          Properties
+                        </p>
+                        <div className="space-y-0.5">
+                          {isLoadingAddressSuggestions ? (
+                            <div className="flex items-center gap-3 p-3 text-sm text-gray-400">
+                              <div className="w-4 h-4 border-2 border-orange-300 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                              Searching addresses…
+                            </div>
+                          ) : (
+                            addressSuggestions.map((suggestion, idx) => {
+                              // Split "123 Main St, City, State ZIP" into street vs city-state
+                              const commaIdx = suggestion.address.indexOf(',');
+                              const streetPart = commaIdx !== -1
+                                ? suggestion.address.slice(0, commaIdx).trim()
+                                : suggestion.address;
+                              const cityStatePart = commaIdx !== -1
+                                ? suggestion.address.slice(commaIdx + 1).trim()
+                                : '';
+                              return (
+                                <div
+                                  key={suggestion.id || String(idx)}
+                                  onMouseDown={() => handleAddressSuggestionClick(suggestion)}
+                                  className="flex items-start gap-3 p-3 hover:bg-orange-50/50 rounded-xl cursor-pointer group transition-all"
+                                >
+                                  <MapPin className="w-4 h-4 text-gray-300 group-hover:text-[#F58634] flex-shrink-0 mt-0.5 transition-colors" />
+                                  <span className="flex flex-col min-w-0">
+                                    <span className="text-gray-800 font-semibold text-sm leading-snug truncate">
+                                      {streetPart}
+                                    </span>
+                                    {cityStatePart && (
+                                      <span className="text-gray-400 text-xs leading-snug truncate">
+                                        {cityStatePart}
+                                      </span>
+                                    )}
+                                  </span>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* ── Location (City/State) Autocomplete Suggestions ── */}
+                  {searchTerm && (showLocationSuggestions || isLoadingLocationSuggestions) && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="w-full border-t border-gray-100/50"
+                    >
+                      <div className="p-2 pt-3 text-left">
+                        <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-wider pl-3">
+                          Locations
+                        </p>
+                        <div className="space-y-0.5">
+                          {isLoadingLocationSuggestions ? (
+                            <div className="flex items-center gap-3 p-3 text-sm text-gray-400">
+                              <div className="w-4 h-4 border-2 border-orange-300 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                              Searching locations...
+                            </div>
+                          ) : (
+                            locationSuggestions.map((suggestion, idx) => (
+                              <div
+                                key={suggestion.placeId || String(idx)}
+                                onMouseDown={() => handleLocationSuggestionClick(suggestion)}
+                                className="flex items-start gap-3 p-3 hover:bg-orange-50/50 rounded-xl cursor-pointer group transition-all"
+                              >
+                                <MapPin className="w-4 h-4 text-gray-300 group-hover:text-[#F58634] flex-shrink-0 mt-0.5 transition-colors" />
+                                <span className="text-gray-800 font-medium text-sm leading-snug truncate">
+                                  {suggestion.description}
+                                </span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* 3. Disclaimer */}
-                <div className="text-center">
-                  <p className="text-xs text-gray-400">
+                <div className="px-2 text-center">
+                  <p className="text-[11px] sm:text-xs text-gray-400">
                     Snapz AI can make mistakes. Consider checking important information.
                   </p>
                 </div>

@@ -107,10 +107,11 @@ export default function NotificationDropdown() {
     markLinkAsReadMutation,
   } = useNotificationApi();
   const router = useRouter();
-  const { state } = useContext(SocketContext);
-  const [socketNotifications, setSocketNotifications] = useState<UINotification[]>([]);
-  const apiNotifications =
-    notificationsQuery.data?.data.data.result.result || [];
+  const { state, setState } = useContext(SocketContext);
+  const rawApiData = notificationsQuery.data?.data as any;
+  const apiNotifications = Array.isArray(rawApiData)
+    ? rawApiData
+    : rawApiData?.data?.result?.result || rawApiData?.result || [];
 
   const notifications = useMemo(() => {
     const normalized: UINotification[] = apiNotifications.map((item) => ({
@@ -122,10 +123,30 @@ export default function NotificationDropdown() {
       kind: normalizeKind((item as { type?: string }).type) || deriveKind(item.title, item.body),
       link: (item as { link?: string }).link,
     }));
-    return [...socketNotifications, ...normalized].reduce<UINotification[]>((acc, next) => {
-      if (!acc.find((existing) => existing.id === next.id)) {
-        acc.push(next);
-      }
+
+    const normalizedApi: UINotification[] = apiNotifications.map((item: any) => {
+      const threadId = (item as { threadId?: string }).threadId;
+      const snapId = (item as { snapId?: string }).snapId;
+      const link =
+        (item as { link?: string }).link ||
+        (snapId ? `/account/collections/${snapId}` : undefined) ||
+        (threadId ? `/dashboard/buyer?tab=messages&threadId=${threadId}` : undefined);
+      return {
+        id: item._id,
+        title: item.title,
+        body: item.body,
+        createdAt: item.createdAt,
+        read: item.read,
+        kind: normalizeKind((item as { type?: string }).type) || deriveKind(item.title, item.body),
+        link,
+        threadId,
+        snapId,
+        source: 'api',
+      };
+    });
+
+    const merged = [...normalizedSocket, ...normalizedApi].reduce((acc: UINotification[], next) => {
+      if (!acc.find((n) => n.id === next.id)) acc.push(next);
       return acc;
     }, []);
   }, [apiNotifications, socketNotifications]);

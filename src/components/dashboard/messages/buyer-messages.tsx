@@ -41,8 +41,57 @@ function BuyerMessagesPanel() {
       getAllThreadsByUserAgentMutation.mutate(data, {
         onSuccess: (response) => {
           const nextThreads = response?.data?.get_user_and_agent_threads || [];
-          setThreads(nextThreads);
-          setMessageThreads(nextThreads);
+          const socketUnread = Array.isArray(state?.conversationUnreadCount)
+            ? state.conversationUnreadCount
+            : [];
+          const normalizeId = (value?: string | null) =>
+            String(value ?? '').trim().toLowerCase();
+          const mergedThreads = nextThreads.map((thread: any) => {
+            const entry = socketUnread.find((item: any) => {
+              const entryId = normalizeId(item?.threadId);
+              const candidates = [
+                thread?.id,
+                thread?.threadId,
+                thread?.thread_id,
+                thread?.roomId,
+                thread?.room_id,
+                thread?.conversationId,
+                thread?.conversation_id,
+              ];
+              return candidates.some((candidate) => normalizeId(candidate) === entryId);
+            });
+            if (!entry) return thread;
+            return {
+              ...thread,
+              unreadCount: Math.max(thread?.unreadCount || 0, entry?.count || 0),
+            };
+          });
+          setThreads(mergedThreads);
+          setMessageThreads(mergedThreads);
+
+          // Seed socket state with authoritative unread counts from REST API
+          // so badges show correctly on initial page load (no socket event needed)
+          setState((prev: any) => {
+            const existing: { threadId: string; count: number }[] = Array.isArray(prev.conversationUnreadCount)
+              ? prev.conversationUnreadCount
+              : [];
+            const threadsWithCount = mergedThreads.filter((t: any) => (t.unreadCount || 0) > 0);
+            if (threadsWithCount.length === 0) return prev;
+
+            const updated = [...existing];
+            threadsWithCount.forEach((thread: any) => {
+              const idx = updated.findIndex((e) => e.threadId === thread.id);
+              const apiCount = thread.unreadCount || 0;
+              if (idx >= 0) {
+                // Keep the higher value between socket and REST
+                updated[idx] = { ...updated[idx], count: Math.max(updated[idx].count, apiCount) };
+              } else {
+                updated.push({ threadId: thread.id, count: apiCount });
+              }
+            });
+            return { ...prev, conversationUnreadCount: updated };
+          });
+
           setLoading(false);
         },
         onError: (error) => {

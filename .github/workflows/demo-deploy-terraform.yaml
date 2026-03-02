@@ -3,7 +3,8 @@ name: Deploying DEMO ENV Terraform Resources in AWS
 on:
   push:
     branches:
-      - release-y
+      # - demo-deploy
+      - release
 
     paths: ['terraform/**', '.github/workflows/demo-deploy-terraform.yaml']
 

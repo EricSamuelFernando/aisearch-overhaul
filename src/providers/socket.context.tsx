@@ -390,6 +390,189 @@ function SocketProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLogin, effectiveToken]); // Only depend on login status and token, not socket (to prevent loops)
 
+  // Auth WS connection for bell notifications (notification_created)
+  useEffect(() => {
+    const commWsUrl = process.env.NEXT_PUBLIC_COMMUNICATION_SOCKET_URI;
+    const baseAuthWsUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_SOCKET_URL;
+    const authServiceBaseUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_SOCKET_URL;
+    if (!isLogin || !effectiveToken) return;
+
+    let resolvedAuthWsUrl = baseAuthWsUrl || authServiceBaseUrl;
+    if (!resolvedAuthWsUrl) return;
+
+    if (commWsUrl && resolvedAuthWsUrl === commWsUrl && authServiceBaseUrl && authServiceBaseUrl !== commWsUrl) {
+      resolvedAuthWsUrl = authServiceBaseUrl;
+    }
+
+    // const trimmedBase = resolvedAuthWsUrl.replace(/\/$/, '');
+    // const wsBase = trimmedBase.endsWith('/ws') ? trimmedBase : `${trimmedBase}/ws`;
+    // const wsUrl = wsBase.startsWith('ws') ? wsBase : wsBase.replace(/^http/, 'ws');
+    const encodedToken = encodeURIComponent(`Bearer ${effectiveToken}`);
+    const authWsUrl = `${resolvedAuthWsUrl}?token=${encodedToken}&authorization=${encodedToken}`;
+    console.log("Websocket url is ", authWsUrl)
+    const connectAuthWs = () => {
+      if (authNotificationWsRef.current) return;
+
+      const authWs = new WebSocket(authWsUrl);
+      authNotificationWsRef.current = authWs;
+
+      authWs.onopen = () => {
+        console.log('[AuthWS] Connected for notifications');
+      };
+
+      authWs.onmessage = (event) => {
+        try {
+          const packet = JSON.parse(event.data);
+          const eventName = packet?.event || packet?.action;
+          if (eventName !== 'notification_created') return;
+
+          const data = packet?.data || packet;
+          const title = getStringValue(data?.title, data?.heading);
+          const body = getStringValue(data?.body, data?.message, data?.text);
+          const kind = getStringValue(data?.type, data?.kind) || 'general';
+          const threadId = resolveNotificationThreadId(data);
+          const snapId = getStringValue(data?.snapId, data?.snap_id);
+          const link =
+            getStringValue(data?.link) ||
+            (snapId ? `/account/collections/${snapId}` : '') ||
+            (threadId ? `/dashboard/buyer?tab=messages&threadId=${threadId}` : '');
+
+          console.log('[AuthWS] notification_created received:', data);
+
+          setState((prev: any) => ({
+            ...prev,
+            notification: {
+              user: prev.notification?.user,
+              property: prev.notification?.property,
+              message: body || title || 'New notification',
+              title: title || 'New notification',
+              body: body || '',
+              kind,
+              channelId: threadId,
+              action: 'navigate',
+              isVisible: true,
+              link,
+            },
+            notifications: [
+              {
+                id: data?.id || `socket-notification-${Date.now()}`,
+                title: title || 'New notification',
+                body: body || '',
+                createdAt: data?.createdAt || new Date().toISOString(),
+                read: false,
+                kind: kind || 'general',
+                link: link || undefined,
+                threadId: threadId || undefined,
+                snapId: snapId || undefined,
+                source: 'socket',
+              },
+              ...(Array.isArray(prev.notifications) ? prev.notifications : []),
+            ].slice(0, 50),
+          }));
+
+          console.log('[AuthWS] Notification added to state');
+          queryClient.invalidateQueries({ queryKey: ['notifications'] });
+        } catch (error) {
+          console.error('[AuthWS] Error parsing notification payload:', error);
+        }
+      };
+
+      authWs.onerror = (error) => {
+        console.error('[AuthWS] Error event:', error);
+      };
+
+      authWs.onclose = () => {
+        authNotificationWsRef.current = null;
+        if (authNotificationReconnectRef.current) {
+          clearTimeout(authNotificationReconnectRef.current);
+        }
+        authNotificationReconnectRef.current = setTimeout(() => {
+          connectAuthWs();
+        }, 2000);
+      };
+    };
+
+    connectAuthWs();
+
+    return () => {
+      if (authNotificationReconnectRef.current) {
+        clearTimeout(authNotificationReconnectRef.current);
+        authNotificationReconnectRef.current = null;
+      }
+      if (authNotificationWsRef.current) {
+        authNotificationWsRef.current.close();
+        authNotificationWsRef.current = null;
+      }
+    };
+  }, [isLogin, effectiveToken, queryClient]);
+
+  // Hydrate bell notifications from API on load and refresh
+  useEffect(() => {
+    const rawApiData = notificationsQuery.data?.data as any;
+    const apiNotifications = Array.isArray(rawApiData)
+      ? rawApiData
+      : rawApiData?.data?.result?.result || rawApiData?.result || [];
+    if (!Array.isArray(apiNotifications) || apiNotifications.length === 0) return;
+
+    setState((prev: any) => {
+      const existing = Array.isArray(prev.notifications) ? prev.notifications : [];
+      const normalized = apiNotifications.map((item: any) => ({
+        id: item._id,
+        title: item.title,
+        body: item.body,
+        createdAt: item.createdAt,
+        read: item.read,
+        kind: item.type || "general",
+        link:
+          item.link ||
+          (item.snapId ? `/account/collections/${item.snapId}` : undefined) ||
+          (item.threadId ? `/dashboard/buyer?tab=messages&threadId=${item.threadId}` : undefined),
+        threadId: item.threadId,
+        snapId: item.snapId,
+        source: "api",
+      }));
+
+      const merged = [...normalized, ...existing].reduce((acc: any[], next: any) => {
+        if (!acc.find((n) => n.id === next.id)) acc.push(next);
+        return acc;
+      }, []);
+
+      return {
+        ...prev,
+        notifications: merged,
+      };
+    });
+  }, [notificationsQuery.data]);
+
+  // Sync notifications on route change to ensure hydration from API
+  useEffect(() => {
+    if (!isLogin) return;
+    notificationsQuery.refetch();
+  }, [pathname, isLogin, notificationsQuery]);
+
+  useEffect(() => {
+    if (!isLogin) return;
+    notificationsQuery.refetch();
+  }, [isLogin, effectiveToken, notificationsQuery]);
+
+  useEffect(() => {
+    const tab = searchParams?.get('tab');
+    const isMessagingRoute =
+      tab === 'messages' ||
+      pathname.includes('/dashboard/chat') ||
+      pathname.includes('/dashboard/conversation');
+
+    if (!isMessagingRoute) {
+      setState((prev: any) => ({
+        ...prev,
+        selectedChannel: {
+          id: null,
+          propertyName: '',
+        },
+      }));
+    }
+  }, [pathname, searchParams]);
+
   // Removed userConnected event - not supported by backend WebSocket handler
 
   // Handle incoming messages - only using backend-supported events
@@ -474,8 +657,26 @@ function SocketProvider({ children }: { children: ReactNode }) {
       const handleNewMessage = (messageData: any) => handleIncomingMessage(messageData, "newMessage");
       const handleRecievedMessage = (messageData: any) => handleIncomingMessage(messageData, "recievedMessage");
 
+      // Handle authoritative unread count pushed from backend
+      const handleUnreadCountUpdated = (data: any) => {
+        const threadId = data?.threadId;
+        const count = typeof data?.count === 'number' ? data.count : 0;
+        if (!threadId) return;
+        console.log(`[SocketContext] unread_count_updated: threadId=${threadId}, count=${count}`);
+        setState((prev: any) => ({
+          ...prev,
+          conversationUnreadCount: [
+            ...(Array.isArray(prev.conversationUnreadCount)
+              ? prev.conversationUnreadCount.filter((c: any) => c.threadId !== threadId)
+              : []),
+            { threadId, count },
+          ],
+        }));
+      };
+
       socket.on("newMessage", handleNewMessage);
       socket.on("recievedMessage", handleRecievedMessage);
+      socket.on("unread_count_updated", handleUnreadCountUpdated);
       socket.on("notification_created", (payload: any) => {
         console.log("[SocketContext] notification_created:", payload);
         queryClient.invalidateQueries({ queryKey: ["notifications"] });
@@ -504,6 +705,7 @@ function SocketProvider({ children }: { children: ReactNode }) {
         socket.off("new_offer_recieved");
         socket.off("newMessage", handleNewMessage);
         socket.off("recievedMessage", handleRecievedMessage);
+        socket.off("unread_count_updated", handleUnreadCountUpdated);
         socket.off("notification_created");
         socket.off("createOrJoinConversation_response");
         socket.off("sendMessage_response");

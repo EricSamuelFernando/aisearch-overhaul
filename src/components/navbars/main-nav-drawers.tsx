@@ -88,13 +88,13 @@ const MobileSideDrawer: React.FC<MobileSideDrawerProps> = ({
             >
               Home
             </Link>
-            <Link
+            {/* <Link
               href="/sell"
               className={`block text-lg font-normal text-gray-900 hover:text-primary transition-colors ${hiddenMobileNavItems.has('/sell') ? 'hidden' : ''}`}
               onClick={closeDrawer}
             >
               Sell
-            </Link>
+            </Link> */}
             <Link
               href="/agents"
               className="block text-lg font-normal text-gray-900 hover:text-primary transition-colors"
@@ -102,13 +102,13 @@ const MobileSideDrawer: React.FC<MobileSideDrawerProps> = ({
             >
               Agents
             </Link>
-            <Link
+            {/* <Link
               href="/company"
               className={`block text-lg font-normal text-gray-900 hover:text-primary transition-colors ${hiddenMobileNavItems.has('/company') ? 'hidden' : ''}`}
               onClick={closeDrawer}
             >
               Company
-            </Link>
+            </Link> */}
           </div>
         </div>
 

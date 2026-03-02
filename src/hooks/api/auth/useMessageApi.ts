@@ -6,15 +6,21 @@ import axios from "axios";
 const ADD_PARTICIPANT_TO_THREAD = `
   mutation addParticipantsToThread(
     $threadId: String!,
-    $email: String!
+    $email: String!,
+    $role: InviteRole,
+    $invitedByUserId: String
   ) {
     add_participant_to_thread(
       threadId: $threadId,
-      email: $email
+      email: $email,
+      role: $role,
+      invitedByUserId: $invitedByUserId
     ) {
       id
       threadId
       userId
+      email
+      role
       approvalStatus
       joinDate
     }
@@ -298,6 +304,8 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
       const baseVariables = {
         threadId: data?.threadId,
         email: data?.email,
+        role: data?.role ? String(data.role).toUpperCase() : undefined,
+        invitedByUserId: data?.invitedByUserId,
       };
       const runInviteMutation = async (queryBody: string) =>
         axios.post(

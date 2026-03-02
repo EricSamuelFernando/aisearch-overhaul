@@ -2330,7 +2330,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
                     className="md:hidden bg-[#F58634] hover:bg-[#E07224] text-white rounded-xl w-10 h-9 flex items-center justify-center transition-all shadow-md hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634] p-0"
                   >
-                    <Search className="w-5 h-5" />
+                    <SearchIcon className="w-5 h-5" />
                   </Button>
 
                   {/* Desktop Begin Journey Button */}

@@ -3,7 +3,7 @@ name: Deploying microservices frontend DEMO ENV using lambda in AWS
 on:
   push:
     branches:
-      - demo-deploy
+      # - demo-deploy
       - release
 
     paths-ignore:

@@ -110,8 +110,10 @@ export default function NotificationDropdown() {
   } = useNotificationApi();
   const router = useRouter();
   const { state, setState } = useContext(SocketContext);
-  const apiNotifications =
-    notificationsQuery.data?.data.data.result.result || [];
+  const rawApiData = notificationsQuery.data?.data as any;
+  const apiNotifications = Array.isArray(rawApiData)
+    ? rawApiData
+    : rawApiData?.data?.result?.result || rawApiData?.result || [];
 
   const notifications = useMemo(() => {
     const socketNotifications = Array.isArray(state?.notifications) ? state.notifications : [];

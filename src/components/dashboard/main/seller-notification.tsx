@@ -23,8 +23,10 @@ interface Notification {
 const SellerNotifications: FC = () => {
   const { notificationsQuery, markOneAsReadMutation, markAllAsReadMutation } =
     useNotificationApi();
-  const notificationList =
-    notificationsQuery.data?.data.data.result.result || [];
+  const rawApiData = notificationsQuery.data?.data as any;
+  const notificationList = Array.isArray(rawApiData)
+    ? rawApiData
+    : rawApiData?.data?.result?.result || rawApiData?.result || [];
   const [currentTab, setCurrentTab] = React.useState<'unread' | 'read'>(
     'unread',
   );

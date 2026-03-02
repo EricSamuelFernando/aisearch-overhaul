@@ -68,6 +68,30 @@ function BuyerMessagesPanel() {
           });
           setThreads(mergedThreads);
           setMessageThreads(mergedThreads);
+
+          // Seed socket state with authoritative unread counts from REST API
+          // so badges show correctly on initial page load (no socket event needed)
+          setState((prev: any) => {
+            const existing: { threadId: string; count: number }[] = Array.isArray(prev.conversationUnreadCount)
+              ? prev.conversationUnreadCount
+              : [];
+            const threadsWithCount = mergedThreads.filter((t: any) => (t.unreadCount || 0) > 0);
+            if (threadsWithCount.length === 0) return prev;
+
+            const updated = [...existing];
+            threadsWithCount.forEach((thread: any) => {
+              const idx = updated.findIndex((e) => e.threadId === thread.id);
+              const apiCount = thread.unreadCount || 0;
+              if (idx >= 0) {
+                // Keep the higher value between socket and REST
+                updated[idx] = { ...updated[idx], count: Math.max(updated[idx].count, apiCount) };
+              } else {
+                updated.push({ threadId: thread.id, count: apiCount });
+              }
+            });
+            return { ...prev, conversationUnreadCount: updated };
+          });
+
           setLoading(false);
         },
         onError: (error) => {

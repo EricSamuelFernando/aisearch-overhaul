@@ -123,7 +123,7 @@ export default function NotificationDropdown() {
       source: item.source || 'socket',
     }));
 
-    const normalizedApi: UINotification[] = apiNotifications.map((item) => {
+    const normalizedApi: UINotification[] = apiNotifications.map((item: any) => {
       const threadId = (item as { threadId?: string }).threadId;
       const snapId = (item as { snapId?: string }).snapId;
       const link =

@@ -32,9 +32,7 @@ function getUserRoleFromCookie(request: NextRequest): string | null {
 export function middleware(request: NextRequest) {
   const { cookies, nextUrl, url } = request;
 
-  if (nextUrl.pathname === '/') {
-    return NextResponse.redirect(new URL('/waitlist', request.url));
-  }
+
   const isPublicRoute = APP_PUBLIC_ROUTE.includes(nextUrl.pathname);
   const isPrivateRoute = APP_PRIVATE_ROUTE.includes(nextUrl.pathname);
   const waitlistRoutes = ['/waitlist/subscriber'];

@@ -205,10 +205,6 @@ export default function CategorizedPhotosModal({
         if (!cats) return [];
         const entries = Object.entries(cats);
         entries.sort((a, b) => {
-            const aCount = Array.isArray(a[1]) ? a[1].length : 0;
-            const bCount = Array.isArray(b[1]) ? b[1].length : 0;
-            if (aCount !== bCount) return bCount - aCount;
-
             const aIdx = ROOM_ORDER_LOOKUP.get(a[0]);
             const bIdx = ROOM_ORDER_LOOKUP.get(b[0]);
             const safeA = aIdx ?? ROOM_ORDER.length;

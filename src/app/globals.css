@@ -21,7 +21,6 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap');
-@import '@mantine/charts/styles.css';
 
 
 /* Mobile Navigation Enhancements */
@@ -126,6 +125,7 @@
   }
 }
 
+@import '@mantine/charts/styles.css';
 
 @font-face {
   font-family: 'Satoshi';

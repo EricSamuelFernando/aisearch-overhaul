@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import * as React from 'react';
 import { useDeferredValue } from 'react';
@@ -29,7 +29,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { NewFeatureCard } from './multi-feature-card';
 import { PROPERTY_DETAIL_SEARCH_AI_URL } from "@/shared/constants/env"
-import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 
 import { useSelector } from 'react-redux';
 import CategorizedPhotosModal from '../CategorizedPhotosModal'; // Import the new modal
@@ -84,63 +83,6 @@ const defaultEstimatedData: any = {
   projectedGainDescription: "Post-graduation enrolment rates",
 };
 
-const normalizeAuthServiceRestBaseUrl = (raw?: string | null) => {
-  const trimmed = (raw || '').trim().replace(/\/+$/, '');
-  if (!trimmed) return '';
-  return /\/auth$/i.test(trimmed) ? trimmed : `${trimmed}/auth`;
-};
-
-const firstFiniteNumber = (...values: any[]): number | null => {
-  for (const value of values) {
-    if (value === null || value === undefined || value === '') continue;
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return null;
-};
-
-const clampNumber = (value: number, min: number, max: number) => {
-  if (!Number.isFinite(value)) return min;
-  return Math.min(Math.max(value, min), max);
-};
-
-const toPositiveIntegerOrNull = (value: unknown): number | null => {
-  if (value === null || value === undefined || value === '') return null;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return null;
-  const intValue = Math.trunc(parsed);
-  if (intValue === 0) return null;
-  return Math.abs(intValue);
-};
-
-const hasUsablePropertyData = (response: any): boolean => {
-  if (typeof response?.statusCode === 'number' && response.statusCode >= 400) {
-    return false;
-  }
-
-  const data = response?.data;
-  if (!data || typeof data !== 'object') return false;
-
-  const hasAddress = Boolean(
-    data?.address?.unparsedAddress ||
-    data?.address?.city ||
-    data?.address?.zipCode
-  );
-  const hasPropertyNode = Boolean(
-    data?.property &&
-    typeof data.property === 'object' &&
-    Object.keys(data.property).length > 0
-  );
-  const hasMedia = Boolean(
-    data?.media?.primaryListingImageUrl ||
-    (Array.isArray(data?.media?.photosList) && data.media.photosList.length > 0)
-  );
-  const hasPrice = Boolean(
-    data?.listPrice !== undefined && data?.listPrice !== null && data?.listPrice !== ''
-  );
-  return hasAddress || hasPropertyNode || hasMedia || hasPrice;
-};
-
 
 interface HomeHighlightsProps {
   highlights: string[];
@@ -164,17 +106,10 @@ interface ProprtyData {
     bedroomsTotal: number
     hasBasement: boolean
     propertyType?: string | null
-    livingArea?: number | string | null
-    livingSquareFeet?: number | string | null
-    yearBuilt?: number | string | null
-    description?: string | null
-    associationFee?: number | string | null
-    [key: string]: any
   }
   homedetails: {
     flooring: string
     fireplaceYn: boolean
-    [key: string]: any
   }
   publicRemarks: string
   tags: string[]
@@ -185,8 +120,6 @@ interface ProprtyData {
     city?: string | null
     stateOrProvince?: string | null
     zipCode?: string | null
-    countyOrParish?: string | null
-    [key: string]: any
   }
   media?: {
     primaryListingImageUrl?: string | null
@@ -268,10 +201,6 @@ const PropertyPreview: React.FC = () => {
   const [projectedGainPct, setProjectedGainPct] = React.useState<number | null>(null);
   const [totalViewsCount, setTotalViewsCount] = React.useState<number | null>(null);
   const [totalSavesCount, setTotalSavesCount] = React.useState<number | null>(null);
-  const authRestBaseUrl = React.useMemo(
-    () => normalizeAuthServiceRestBaseUrl(process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL),
-    []
-  );
 
   // Neo4j schools API integration
   const [nearbySchools, setNearbySchools] = React.useState<any[]>([]);
@@ -590,7 +519,7 @@ const PropertyPreview: React.FC = () => {
     setInviteAgentEmail(value);
 
     if (!validateEmail(value)) {
-      setInviteEmailError('âœ¨ Almost there! Please enter a valid email address');
+      setInviteEmailError('✨ Almost there! Please enter a valid email address');
       return;
     } else {
       setInviteEmailError('');
@@ -719,24 +648,24 @@ const PropertyPreview: React.FC = () => {
       Date.now().toString()
     );
 
-  const viewsValue = firstFiniteNumber(
-    totalViewsCount,
-    propertyDatas?.data?.viewsCounter,
-    propertyDatas?.data?.viewsCount,
-    propertyDatas?.data?.viewCount,
-    propertyData?.viewsCounter,
-    propertyData?.viewsCount,
-    propertyData?.viewCount,
-    propertyData?.listing?.viewsCounter,
-    propertyData?.listing?.viewsCount,
-    propertyData?.listing?.viewCount,
-  );
+  const viewsValue =
+    totalViewsCount ??
+    propertyDatas?.data?.viewsCounter ??
+    propertyDatas?.data?.viewsCount ??
+    propertyDatas?.data?.viewCount ??
+    propertyData?.viewsCounter ??
+    propertyData?.viewsCount ??
+    propertyData?.viewCount ??
+    propertyData?.listing?.viewsCounter ??
+    propertyData?.listing?.viewsCount ??
+    propertyData?.listing?.viewCount ??
+    0;
 
-  const savesValue = firstFiniteNumber(
-    totalSavesCount,
-    propertyDatas?.data?.savesCount,
-    propertyData?.savesCount,
-  );
+  const savesValue =
+    totalSavesCount ??
+    propertyDatas?.data?.savesCount ??
+    propertyData?.savesCount ??
+    0;
 
   const HomeHighlightsData: HomeHighlightsProps = {
     highlights: [
@@ -750,88 +679,13 @@ const PropertyPreview: React.FC = () => {
       "The open stairwell ascends to the spacious living room featuring gorgeous cathedral ceilings and tons of natural light. The formal dining room and updated kitchen open to a spacious wrap-around deck shaded by majestic oak trees, perfect for entertaining or dining al fresco. This level also features two additional bedrooms and a full bath...",
     stats: {
       daysOnMarket: String(daysOnMarketValue ?? 0),
-      views: viewsValue !== null ? String(viewsValue) : 'â€”',
-      saves: savesValue !== null ? String(savesValue) : 'â€”',
+      views: String(viewsValue ?? 0),
+      saves: String(savesValue ?? 0),
       sellLikelihood: "98%",
     },
     floorPlanSrc: '/assets/images/floor.png',
     threeDHomeSrc: '/assets/images/building.png',
   };
-
-  const projectionSignals = React.useMemo(() => {
-    const toNumber = (value: any) => {
-      if (value === null || value === undefined || value === '') return 0;
-      if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
-      if (typeof value === 'string') {
-        const normalized = value.replace(/[^0-9.-]/g, '');
-        const parsed = Number(normalized);
-        return Number.isFinite(parsed) ? parsed : 0;
-      }
-      return 0;
-    };
-
-    const subjectPrice = toNumber(
-      proprtyData?.listPrice ??
-      propertyDatas?.data?.listPrice ??
-      propertyDatas?.property_detail?.data?.propertyInfo?.listPrice ??
-      propertyDatas?.property_detail?.data?.propertyInfo?.listPriceLow ??
-      propertyData?.listing?.listPriceLow ??
-      propertyData?.listing?.listPrice ??
-      propertyData?.listPrice ??
-      propertyData?.listing?.price
-    );
-
-    const subjectSqft = toNumber(
-      proprtyData?.property?.livingArea ??
-      propertyDatas?.data?.property?.livingArea ??
-      propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet ??
-      propertyData?.property?.livingArea ??
-      propertyData?.property?.livingSquareFeet
-    );
-
-    const subjectPpsf = toNumber(
-      propertyDatas?.data?.pricePerSqFt ??
-      propertyDatas?.property_detail?.data?.propertyInfo?.pricePerSqFt ??
-      propertyData?.pricePerSqFt ??
-      (subjectPrice && subjectSqft ? subjectPrice / subjectSqft : 0)
-    );
-
-    const nearbyHomes = propertyDatas?.nearbyHomes || [];
-    const compPpsfValues = nearbyHomes
-      .map((home: any) => {
-        const listing = home?.listing || home;
-        const compPrice = toNumber(
-          listing?.listPriceLow ?? listing?.listPrice ?? listing?.listPriceHigh
-        );
-        const compSqft = toNumber(
-          listing?.property?.livingArea ??
-          listing?.property?.livingSquareFeet ??
-          listing?.property?.sqft ??
-          listing?.livingArea
-        );
-        if (!compPrice || !compSqft) return null;
-        const ppsf = compPrice / compSqft;
-        return Number.isFinite(ppsf) && ppsf > 0 ? ppsf : null;
-      })
-      .filter(Boolean) as number[];
-
-    const compPpsfAvg = (() => {
-      if (compPpsfValues.length === 0) return 0;
-      const sorted = [...compPpsfValues].sort((a, b) => a - b);
-      const trimCount = sorted.length >= 5 ? Math.floor(sorted.length * 0.2) : 0;
-      const trimmed = trimCount > 0 ? sorted.slice(trimCount, sorted.length - trimCount) : sorted;
-      if (trimmed.length === 0) return 0;
-      return trimmed.reduce((sum, val) => sum + val, 0) / trimmed.length;
-    })();
-
-    const dom = Number(daysOnMarketValue);
-
-    return {
-      subjectPpsf: subjectPpsf > 0 ? subjectPpsf : 0,
-      compPpsfAvg: compPpsfAvg > 0 ? compPpsfAvg : 0,
-      daysOnMarket: Number.isFinite(dom) && dom >= 0 ? dom : null,
-    };
-  }, [proprtyData, propertyDatas, propertyData, daysOnMarketValue]);
 
 
   const schoolPropsData: any = {
@@ -877,222 +731,80 @@ const PropertyPreview: React.FC = () => {
   };
 
 
-  const readPreviewFallbackListing = (candidateIds: Array<string | number | null | undefined>) => {
-    if (typeof window === 'undefined') return null;
-
-    for (const rawId of candidateIds) {
-      if (rawId === null || rawId === undefined || String(rawId).trim() === '') continue;
-      const fallbackKey = `snaphomz_preview_fallback_${String(rawId)}`;
-      const fallbackRaw = localStorage.getItem(fallbackKey);
-      if (!fallbackRaw) continue;
-      try {
-        const fallback = JSON.parse(fallbackRaw);
-        return fallback?.listing || fallback || null;
-      } catch (parseError) {
-        console.log("Failed to parse fallback listing", parseError);
-      }
-    }
-    return null;
-  };
-
-  const persistPreviewContext = (sourceListing: any, sourceResponse: any) => {
-    if (typeof window === 'undefined' || !sourceListing) return;
-    const address = sourceListing?.address || {};
-    const propertyNode = sourceListing?.property || {};
-    localStorage.setItem('stateOrProvince', address?.stateOrProvince || '');
-    localStorage.setItem('listingId', String(sourceListing?.listingId || ''));
-    localStorage.setItem('propertyType', propertyNode?.propertyType || '');
-    localStorage.setItem(
-      'propertyId',
-      String(
-        sourceResponse?.property_id ||
-        sourceListing?.propertyId ||
-        sourceResponse?.data?.property_detail?.property_id ||
-        ''
-      )
-    );
-    localStorage.setItem('propertyAddress', address?.unparsedAddress || '');
-    localStorage.setItem('propertyAddress1', address?.countyOrParish || '');
-    localStorage.setItem('propertyAddress2', address?.zipCode || '');
-    localStorage.setItem('listPrice', String(sourceListing?.listPrice || ''));
-  };
-
   const getPropertyDetails = async (id: string) => {
     try {
       setLoading(true);
       setPropertyData(undefined);
-      const bypassMls = isMlsBypassModeEnabled();
-      const endpoint = bypassMls
-        ? '/api/mls/detail'
-        : (PROPERTY_DETAIL_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search/preference');
+      const payload = {
+        listingId: +id || listingId,
+        propertyId: parseInt(propertyData?.id) || parseInt(propertyId)
+      };
+      const response = await fetch(PROPERTY_DETAIL_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search/preference', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
 
-      const listingIdFromPath = toPositiveIntegerOrNull(id);
-      const listingIdFromQuery = toPositiveIntegerOrNull(listingId);
-      const propertyIdFromQuery = toPositiveIntegerOrNull(propertyId);
-      const propertyIdFromStore = toPositiveIntegerOrNull(propertyData?.id);
-
-      const primaryListingId =
-        listingIdFromQuery ??
-        listingIdFromPath ??
-        propertyIdFromQuery ??
-        propertyIdFromStore;
-      const alternateListingId =
-        propertyIdFromQuery ??
-        propertyIdFromStore ??
-        listingIdFromPath ??
-        listingIdFromQuery;
-      const requestPropertyId =
-        propertyIdFromQuery ??
-        propertyIdFromStore ??
-        listingIdFromPath ??
-        listingIdFromQuery;
-
-      const requestPayloads: Array<Record<string, any>> = [];
-
-      if (bypassMls) {
-        requestPayloads.push({
-          listingId: primaryListingId || listingId || id,
-          propertyId: requestPropertyId || undefined,
-          city: city || propertyData?.address?.city || undefined,
-          province: province || propertyData?.address?.stateOrProvince || undefined,
-          state: province || propertyData?.address?.stateOrProvince || undefined,
-          zip: propertyData?.address?.zipCode || undefined,
-          address: propertyData?.address?.unparsedAddress || undefined,
-        });
-      } else {
-        if (primaryListingId) {
-          requestPayloads.push({
-            listingId: primaryListingId,
-            propertyId: requestPropertyId || undefined,
-          });
-        }
-        if (alternateListingId && alternateListingId !== primaryListingId) {
-          requestPayloads.push({
-            listingId: alternateListingId,
-            propertyId: requestPropertyId || undefined,
-          });
-        }
-        if (!requestPayloads.length && requestPropertyId) {
-          requestPayloads.push({
-            listingId: requestPropertyId,
-            propertyId: requestPropertyId,
-          });
-        }
-      }
-
-      let data: any = null;
-      let hasResolvedPrimaryData = false;
-      for (const payload of requestPayloads) {
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        });
-        const responseData = await response.json().catch(() => ({}));
-        data = responseData;
-        if (hasUsablePropertyData(responseData)) {
-          hasResolvedPrimaryData = true;
-          break;
-        }
-      }
-
-      if (!hasResolvedPrimaryData && !bypassMls) {
-        const mlsFallbackPayloads: Array<Record<string, any>> = [];
-        const baseFallbackPayload = {
-          city: city || propertyData?.address?.city || undefined,
-          province: province || propertyData?.address?.stateOrProvince || undefined,
-          state: province || propertyData?.address?.stateOrProvince || undefined,
-          zip: propertyData?.address?.zipCode || undefined,
-          address: propertyData?.address?.unparsedAddress || undefined,
-        };
-
-        if (requestPropertyId) {
-          mlsFallbackPayloads.push({
-            ...baseFallbackPayload,
-            propertyId: requestPropertyId,
-          });
-        }
-        if (primaryListingId) {
-          mlsFallbackPayloads.push({
-            ...baseFallbackPayload,
-            listingId: primaryListingId,
-            propertyId: requestPropertyId || undefined,
-          });
-        }
-        if (alternateListingId && alternateListingId !== primaryListingId) {
-          mlsFallbackPayloads.push({
-            ...baseFallbackPayload,
-            listingId: alternateListingId,
-            propertyId: requestPropertyId || undefined,
-          });
-        }
-
-        for (const fallbackPayload of mlsFallbackPayloads) {
-          const mlsResponse = await fetch('/api/mls/detail', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(fallbackPayload),
-          });
-          const mlsData = await mlsResponse.json().catch(() => ({}));
-          if (hasUsablePropertyData(mlsData)) {
-            data = mlsData;
-            hasResolvedPrimaryData = true;
-            break;
-          }
-        }
-      }
-
+      // debugger
+      const data = await response.json();
+      setpropertyDatas(data)
       console.log("AI backend response data ", data)
       console.log("Similar homes payload:", data?.nearbyHomes)
+      console.log("🗺️ Coordinate check:", {
+        'data.data.latitude': data?.data?.latitude,
+        'data.data.longitude': data?.data?.longitude,
+        'data.data.Latitude': data?.data?.Latitude,
+        'data.data.Longitude': data?.data?.Longitude,
+        'data.data.property.latitude': data?.data?.property?.latitude,
+        'data.data.property.longitude': data?.data?.property?.longitude,
+        'data.data.location.latitude': data?.data?.location?.latitude,
+        'data.data.location.longitude': data?.data?.location?.longitude,
+        'data.latitude': data?.latitude,
+        'data.longitude': data?.longitude,
+        'data.property_detail': data?.property_detail
+      });
+      localStorage.setItem('stateOrProvince', data.data.address.stateOrProvince || '')
+      localStorage.setItem('listingId', String(data.data.listingId))
+      localStorage.setItem('propertyType', data.data.property.propertyType || '')
+      localStorage.setItem('propertyId', String(data.property_id || data.data.property_detail?.property_id))
+      // just the raw (unparsed) street address
+      localStorage.setItem('propertyAddress', data.data.address.unparsedAddress || '');
+      localStorage.setItem('propertyAddress1', data.data.address.countyOrParish || '');
+      localStorage.setItem('propertyAddress2', data.data.address.zipCode || '');
+      localStorage.setItem('listPrice', data.data.listPrice || '');
 
-      const hasPrimaryData = hasUsablePropertyData(data);
+
+
+      const hasPrimaryData = Boolean(data?.data && Object.keys(data.data).length);
       if (hasPrimaryData) {
-        setpropertyDatas(data)
         setPropertyData(data?.data);
         setTags(data?.data?.tags);
         setPropertyDetails(data?.property_detail);
-        persistPreviewContext(data?.data, data);
-      } else {
-        const fallbackListing = readPreviewFallbackListing([
-          id,
-          listingId,
-          propertyId,
-          listingIdFromPath,
-          listingIdFromQuery,
-          propertyIdFromQuery,
-        ]);
-        if (fallbackListing) {
-          setpropertyDatas({
-            data: fallbackListing,
-            property_detail: data?.property_detail ?? null,
-            nearbyHomes: data?.nearbyHomes ?? [],
-          });
-          setPropertyData(fallbackListing);
-          setTags(fallbackListing?.tags || []);
-          setPropertyDetails(data?.property_detail ?? null);
-          persistPreviewContext(fallbackListing, data);
-        } else {
-          setpropertyDatas(data);
-          setPropertyDetails(data?.property_detail ?? null);
+      } else if (typeof window !== "undefined") {
+        const fallbackKey = `snaphomz_preview_fallback_${String(id)}`;
+        const fallbackRaw = localStorage.getItem(fallbackKey);
+        if (fallbackRaw) {
+          try {
+            const fallback = JSON.parse(fallbackRaw);
+            const fallbackListing = fallback?.listing || fallback;
+            setpropertyDatas({ data: fallbackListing });
+            setPropertyData(fallbackListing);
+            setTags(fallbackListing?.tags || []);
+          } catch (parseError) {
+            console.log("Failed to parse fallback listing", parseError);
+          }
         }
       }
     } catch (error) {
       console.log("error : ", error);
-      const fallbackListing = readPreviewFallbackListing([id, listingId, propertyId]);
-      if (fallbackListing) {
-        setpropertyDatas({ data: fallbackListing, property_detail: null, nearbyHomes: [] });
-        setPropertyData(fallbackListing);
-        setTags(fallbackListing?.tags || []);
-        setPropertyDetails(null);
-        persistPreviewContext(fallbackListing, null);
-      }
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
 
   }
+
+
   React.useEffect(() => {
     const handleIntersect: IntersectionObserverCallback = (entries) => {
       entries.forEach((entry) => {
@@ -1130,14 +842,13 @@ const PropertyPreview: React.FC = () => {
 
   React.useEffect(() => {
     const targetListingId =
-      listingId ||
       id ||
-      propertyId ||
+      listingId ||
       property?.listingId;
     if (targetListingId) {
       getPropertyDetails(String(targetListingId));
     }
-  }, [id, listingId, propertyId, property?.listingId]);
+  }, [id, listingId, property?.listingId]);
 
   const rentAddress = React.useMemo(() => {
     const address =
@@ -1192,18 +903,6 @@ const PropertyPreview: React.FC = () => {
     );
   }, [proprtyData, propertyDatas, propertyData]);
 
-  const rentCountyOrParish = React.useMemo(() => {
-    return (
-      proprtyData?.address?.countyOrParish ||
-      propertyDatas?.data?.address?.countyOrParish ||
-      propertyDatas?.property_detail?.data?.propertyInfo?.address?.countyOrParish ||
-      propertyData?.listing?.address?.countyOrParish ||
-      propertyData?.address?.countyOrParish ||
-      propertyData?.public?.address?.county ||
-      ""
-    );
-  }, [proprtyData, propertyDatas, propertyData]);
-
   const appreciationZip = React.useMemo(() => {
     const zip =
       proprtyData?.address?.zipCode ||
@@ -1247,12 +946,8 @@ const PropertyPreview: React.FC = () => {
         const params = new URLSearchParams();
         if (rentAddress) params.set("address", rentAddress);
         if (rentZpid) params.set("zpid", String(rentZpid));
-        if (rentCountyOrParish) params.set("county", String(rentCountyOrParish));
         const response = await fetch(`/api/zillow-rent?${params.toString()}`);
-        if (!response.ok) {
-          console.warn('Rent estimate API returned non-OK status:', response.status);
-          return;
-        }
+        if (!response.ok) return;
         const json = await response.json();
         const value = Number(json?.currentRent);
         const deltaValue = Number(json?.delta);
@@ -1269,70 +964,27 @@ const PropertyPreview: React.FC = () => {
     return () => {
       didCancel = true;
     };
-  }, [rentAddress, rentZpid, rentCountyOrParish]);
+  }, [rentAddress, rentZpid]);
 
   React.useEffect(() => {
-    if (!appreciationZip) {
-      setProjectedGainPct(null);
-      return;
-    }
-    if (!authRestBaseUrl) {
-      setProjectedGainPct(null);
-      return;
-    }
+    if (!appreciationZip) return;
+    const baseUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL;
+    if (!baseUrl) return;
     let didCancel = false;
-    setProjectedGainPct(null);
 
     const loadAppreciation = async () => {
       try {
-        const response = await fetch(`${authRestBaseUrl}/market/appreciation?zip=${encodeURIComponent(appreciationZip)}`);
-        if (!response.ok) {
-          console.warn('Appreciation API returned non-OK status:', response.status);
-          if (!didCancel) setProjectedGainPct(null);
-          return;
-        }
+        const response = await fetch(`${baseUrl}/market/appreciation?zip=${encodeURIComponent(appreciationZip)}`);
+        if (!response.ok) return;
         const json = await response.json();
         const annualRatePct = Number(json?.annualRatePct);
-        if (!Number.isFinite(annualRatePct)) {
-          if (!didCancel) setProjectedGainPct(null);
-          return;
-        }
-        const regionalAnnual = annualRatePct / 100;
-
-        // Lightweight property-specific projection:
-        // - Start with regional (state-level) annual appreciation
-        // - Adjust by local comp PPSF gap (subject undervalued vs comps => slightly higher)
-        // - Add a small liquidity adjustment from DOM
-        const subjectPpsf = projectionSignals.subjectPpsf;
-        const compPpsfAvg = projectionSignals.compPpsfAvg;
-        const dom = projectionSignals.daysOnMarket;
-
-        const compGap =
-          subjectPpsf > 0 && compPpsfAvg > 0
-            ? clampNumber((compPpsfAvg - subjectPpsf) / subjectPpsf, -0.15, 0.15)
-            : 0;
-        const compAdjustment = compGap * 0.35; // bounded to +/- 5.25% annual before final clamp
-
-        const liquidityAdjustment =
-          dom !== null
-            ? clampNumber((45 - dom) / 3650, -0.02, 0.02)
-            : 0;
-
-        const blendedAnnual = clampNumber(
-          regionalAnnual + compAdjustment + liquidityAdjustment,
-          -0.03,
-          0.12
-        );
-
-        const gain5y = (Math.pow(1 + blendedAnnual, 5) - 1) * 100;
+        if (!Number.isFinite(annualRatePct)) return;
+        const gain5y = (Math.pow(1 + annualRatePct / 100, 5) - 1) * 100;
         if (!didCancel && Number.isFinite(gain5y)) {
           setProjectedGainPct(gain5y);
-        } else if (!didCancel) {
-          setProjectedGainPct(null);
         }
       } catch (error) {
         console.log("Failed to load appreciation rate", error);
-        if (!didCancel) setProjectedGainPct(null);
       }
     };
 
@@ -1340,21 +992,19 @@ const PropertyPreview: React.FC = () => {
     return () => {
       didCancel = true;
     };
-  }, [appreciationZip, authRestBaseUrl, projectionSignals]);
+  }, [appreciationZip]);
 
   React.useEffect(() => {
-    if (!authRestBaseUrl || !listingIdForViews) return;
+    const baseUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL;
+    if (!baseUrl || !listingIdForViews) return;
     let didCancel = false;
 
     const loadViewCount = async () => {
       try {
         const response = await fetch(
-          `${authRestBaseUrl}/view-history/count?listingId=${encodeURIComponent(String(listingIdForViews))}&unique=true`
+          `${baseUrl}/view-history/count?listingId=${encodeURIComponent(String(listingIdForViews))}`
         );
-        if (!response.ok) {
-          console.warn('View count API returned non-OK status:', response.status);
-          return;
-        }
+        if (!response.ok) return;
         const json = await response.json();
         const countValue = Number(json?.count);
         if (!didCancel && Number.isFinite(countValue)) {
@@ -1369,10 +1019,11 @@ const PropertyPreview: React.FC = () => {
     return () => {
       didCancel = true;
     };
-  }, [listingIdForViews, authRestBaseUrl]);
+  }, [listingIdForViews]);
 
   React.useEffect(() => {
-    if (!authRestBaseUrl || (!listingIdForViews && !propertyIdForSaves)) return;
+    const baseUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL;
+    if (!baseUrl || (!listingIdForViews && !propertyIdForSaves)) return;
     let didCancel = false;
 
     const loadSavesCount = async () => {
@@ -1384,12 +1035,8 @@ const PropertyPreview: React.FC = () => {
         if (propertyIdForSaves) {
           params.set('propertyId', String(propertyIdForSaves));
         }
-        params.set('unique', 'true');
-        const response = await fetch(`${authRestBaseUrl}/favourites/count?${params.toString()}`);
-        if (!response.ok) {
-          console.warn('Saves count API returned non-OK status:', response.status);
-          return;
-        }
+        const response = await fetch(`${baseUrl}/favourites/count?${params.toString()}`);
+        if (!response.ok) return;
         const json = await response.json();
         const countValue = Number(json?.count);
         if (!didCancel && Number.isFinite(countValue)) {
@@ -1404,7 +1051,7 @@ const PropertyPreview: React.FC = () => {
     return () => {
       didCancel = true;
     };
-  }, [listingIdForViews, propertyIdForSaves, authRestBaseUrl]);
+  }, [listingIdForViews, propertyIdForSaves]);
 
   const getPropertyLatLng = React.useCallback(() => {
     let lat = null;
@@ -1469,7 +1116,7 @@ const PropertyPreview: React.FC = () => {
         lon = (proprtyData as any)?.property?.longitude || (proprtyData as any)?.property?.Longitude;
       }
 
-      console.log('ðŸ« Schools API Debug:', {
+      console.log('🏫 Schools API Debug:', {
         hasPropertyDatas: !!propertyDatas,
         lat,
         lon,
@@ -1478,22 +1125,17 @@ const PropertyPreview: React.FC = () => {
       });
 
       if (!lat || !lon) {
-        console.log('âŒ No coordinates available for schools API');
+        console.log('❌ No coordinates available for schools API');
         return;
       }
 
-      if (!authRestBaseUrl) {
-        setSchoolsError('Auth service URL is not configured');
-        return;
-      }
-
-      console.log(`ðŸ” Fetching schools from: ${authRestBaseUrl}/schools/nearby?lat=${lat}&lon=${lon}`);
+      console.log(`🔍 Fetching schools from: ${process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL}/schools/nearby?lat=${lat}&lon=${lon}`);
       setSchoolsLoading(true);
       setSchoolsError(null);
 
       try {
         const response = await fetch(
-          `${authRestBaseUrl}/schools/nearby?lat=${lat}&lon=${lon}`
+          `${process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL}/schools/nearby?lat=${lat}&lon=${lon}`
         );
 
         if (!response.ok) {
@@ -1501,7 +1143,7 @@ const PropertyPreview: React.FC = () => {
         }
 
         const schools = await response.json();
-        console.log('âœ… Schools API response:', schools);
+        console.log('✅ Schools API response:', schools);
 
         // Transform Neo4j response to match the expected format
         const transformedSchools = schools.map((school: any) => ({
@@ -1512,10 +1154,10 @@ const PropertyPreview: React.FC = () => {
           distance: `${school.distanceMiles.toFixed(1)} mi`
         }));
 
-        console.log('ðŸ“š Transformed schools:', transformedSchools);
+        console.log('📚 Transformed schools:', transformedSchools);
         setNearbySchools(transformedSchools);
       } catch (err) {
-        console.error('âŒ Error fetching nearby schools:', err);
+        console.error('❌ Error fetching nearby schools:', err);
         setSchoolsError(err instanceof Error ? err.message : 'Failed to load schools');
       } finally {
         setSchoolsLoading(false);
@@ -1523,7 +1165,7 @@ const PropertyPreview: React.FC = () => {
     };
 
     fetchNearbySchools();
-  }, [propertyDatas, proprtyData, authRestBaseUrl]);
+  }, [propertyDatas, proprtyData]);
 
   React.useEffect(() => {
     if (!isStreetViewOpen) return;
@@ -1735,20 +1377,21 @@ const PropertyPreview: React.FC = () => {
     const projectedGainFormatted =
       projectedGainPct !== null && Number.isFinite(projectedGainPct)
         ? `${projectedGainPct.toFixed(1)}%`
-        : 'Unavailable';
+        : defaultEstimatedData.projectedGain;
+
+    if (!estimatedHouseValue && !rentFormatted) return defaultEstimatedData;
     const formatted = estimatedHouseValue
       ? estimatedHouseValue.toLocaleString('en-US', {
         style: 'currency',
         currency: 'USD',
         maximumFractionDigits: 0,
       })
-      : 'Unavailable';
+      : defaultEstimatedData.houseValue;
     return {
       ...defaultEstimatedData,
       houseValue: formatted,
       projectedGain: projectedGainFormatted,
-      estimatedRent: rentFormatted || 'Unavailable',
-      rentChange: rentFormatted ? rentDeltaFormatted : '',
+      ...(rentFormatted ? { estimatedRent: rentFormatted, rentChange: rentDeltaFormatted } : {}),
     };
   }, [estimatedHouseValue, rentEstimate, rentDelta, projectedGainPct]);
 
@@ -1759,8 +1402,6 @@ const PropertyPreview: React.FC = () => {
   const toggleSection = (section: string) => {
     setOpenSection(openSection === section ? null : section);
   };
-
-  const propertyTags = Array.isArray((proprtyData as any)?.tags) ? (proprtyData as any).tags : [];
 
   const openSectionForHash = React.useCallback((hash: string) => {
     const target =
@@ -1794,7 +1435,7 @@ const PropertyPreview: React.FC = () => {
       title: "Home highlights",
       content: (
         <HomeHighlights
-          highlights={propertyTags.length ? propertyTags : HomeHighlightsData.highlights}
+          highlights={proprtyData?.tags.length ? proprtyData?.tags : HomeHighlightsData.highlights}
           description={proprtyData?.publicRemarks || ""}
           stats={HomeHighlightsData.stats}
           floorPlanSrc={HomeHighlightsData.floorPlanSrc}
@@ -1807,7 +1448,7 @@ const PropertyPreview: React.FC = () => {
       title: "Schools Nearby",
       content: (() => {
         const schoolsToDisplay = schoolsLoading ? schoolPropsData.schools : (nearbySchools.length > 0 ? nearbySchools : schoolPropsData.schools);
-        // console.log('ðŸŽ“ Schools being displayed:', {
+        // console.log('🎓 Schools being displayed:', {
         //   schoolsLoading,
         //   nearbySchoolsCount: nearbySchools.length,
         //   nearbySchools,
@@ -1831,11 +1472,11 @@ const PropertyPreview: React.FC = () => {
       id: "offers",
       title: "What this place offers",
       content: <InteriorOffersSection BathRoomAndBedRoom={proprtyData?.property} features={{
-        flooring: proprtyData?.homedetails?.flooring || "",
-        hasBasement: proprtyData?.property?.hasBasement || false,
-        hasFireplace: proprtyData?.homedetails?.fireplaceYn || false,
+        flooring: proprtyData?.homedetails.flooring || "",
+        hasBasement: proprtyData?.property.hasBasement || false,
+        hasFireplace: proprtyData?.homedetails.fireplaceYn || false,
 
-      }} featureList={propertyTags.join(", ")} />,
+      }} featureList={proprtyData?.tags.join(", ")} />,
     },
     {
       id: "interest",
@@ -2251,7 +1892,7 @@ const PropertyPreview: React.FC = () => {
 
               {/* Estimated Market Value (image_60fd3b.png) */}
               <div className='flex flex-wrap items-center justify-between gap-2 sm:gap-3 py-2 sm:py-3 px-2 sm:px-0'>
-                <EstimatedMarketValue estimatedData={estimatedMarketData} />
+                <EstimatedMarketValue defaultEstimatedData={defaultEstimatedData} />
               </div>
 
             </div>
@@ -2714,3 +2355,5 @@ const PropertyPreview: React.FC = () => {
 };
 
 export { PropertyPreview };
+
+

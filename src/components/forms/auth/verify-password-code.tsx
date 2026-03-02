@@ -1,10 +1,11 @@
 'use client';
 
+import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
 import { useForm } from '@mantine/form';
 import { useRouter } from 'next/navigation';
+import { ButtonLoader } from '@/components/loader';
 import { Button } from '@/components/ui/button';
 import CustomTextInput from '@/components/text-input';
-import { success } from '@/components/alert/notify';
 
 export const VerifyForgotPasswordCodeForm = () => {
   const router = useRouter();
@@ -15,11 +16,11 @@ export const VerifyForgotPasswordCodeForm = () => {
   });
 
   const handleSubmit = (values: { code: string }) => {
-    // Persist the code so the next step can submit it with the new password
+    // Store the code in localStorage
     if (values?.code) {
       localStorage.setItem('forgotPasswordCode', values.code);
     }
-    success({ message: 'OTP verified successfully' });
+    // Redirect to set-password page
     router.push('/set-password');
   };
 

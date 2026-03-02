@@ -627,7 +627,6 @@ import { Group, Menu, MenuDropdown, MenuItem, MenuTarget, MultiSelect, Select, U
 import Dropdown from '../ui/custom-select-dropdown';
 import axios from 'axios';
 import { PROPERTY_SEARCH_AI_URL } from '@/shared/constants/env';
-import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { incrementSearchCount } from '@/slices/onboarding/property-preference';
 import { setPropertyQuery, setSearchFilters } from '@/slices/property/property-slice';
 import { useDispatch, useSelector } from 'react-redux';
@@ -763,13 +762,7 @@ function PropertyFilter() {
   const [selectedSort, setSelectedSort] = useState(sortOptions[0]);
   const [selectedPropertyType, setSelectedPropertyType] = useState(propertyTypes[0]);
 
-  const isInitialSortMount = useRef(true);
-
   useEffect(() => {
-    if (isInitialSortMount.current) {
-      isInitialSortMount.current = false;
-      return;
-    }
     if (selectedSort.value || selectedPropertyType.value)
       sendSearchRequest()
   }, [selectedSort, selectedPropertyType]);
@@ -930,12 +923,8 @@ function PropertyFilter() {
         });
       }
 
-      const searchUrl = isMlsBypassModeEnabled()
-        ? '/api/mls/search'
-        : (PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search');
-
       const response = await axios.post(
-        searchUrl,
+        PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search',
         requestBody
       );
 
@@ -991,22 +980,7 @@ function PropertyFilter() {
     }
   };
 
-  const isInitialFilterMount = useRef(true);
-  const initializedFiltersRef = useRef(false);
-
   useEffect(() => {
-    // If it's the very first render, skip it
-    if (isInitialFilterMount.current) {
-      isInitialFilterMount.current = false;
-      return;
-    }
-
-    // We also want to skip the "initial" state synchronization if no categories were actually clicked
-    if (!initializedFiltersRef.current && selectedCategories.length === 0 && selectedSubCategories.length === 0) {
-      initializedFiltersRef.current = true;
-      return;
-    }
-
     sendSearchRequest();
   }, [selectedCategories, selectedSubCategories]);
 
@@ -1058,22 +1032,15 @@ function PropertyFilter() {
         isOpen={showModal}
         onOpenChange={setShowModal}
       />
-      <div className={cn(
-        'flex w-full flex-col gap-4 md:flex-row md:items-center',
-        currentView === 'map' ? 'hidden md:justify-between' : '',
-      )}>
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between w-full">
         {/* Left Side: Title & Filter Drawer */}
-        <div className="flex min-w-0 select-none flex-col md:flex-row md:items-center gap-4 md:gap-6">
-          {currentView !== 'map' ? (
-            <h2 className="min-w-0 text-lg font-bold leading-6 text-black md:text-xl">
-              {allProperties.length > 0
-                ? 'Showing homes matched from our AI'
-                : 'Explore homes only within the California region'}
-            </h2>
-          ) : null}
-
+        <div className="flex select-none flex-col md:flex-row md:items-center gap-4 md:gap-6">
+          <h2 className="text-lg font-bold leading-6 text-black md:text-xl whitespace-nowrap">
+            {allProperties.length > 0
+              ? 'Showing homes matched from our AI'
+              : 'Explore homes only within the California region'}
+          </h2>
           <FilterDrawer
-
             FeatureSelectorComponent={FeatureSelector}
             FeatureBathroomSelector={FeatureBathroomSelector}
             selectedSubCategories={selectedSubCategories}
@@ -1090,21 +1057,19 @@ function PropertyFilter() {
             <ViewSelection />
           </div>
         ) : null}
-
-        {currentView === 'map' ? null : null}
       </div>
+      <p className="text-lg font-medium leading-9 text-grey-370">
+        You have searched: {searchTerm}
+      </p>
 
-      <div className={cn(
-        'flex flex-col gap-4 md:flex-row md:items-center md:justify-between',
-        currentView === 'map' ? 'hidden' : '',
-      )}>
-        {currentView !== 'map' ? (
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        {
           allProperties?.length ? <p className="text-lg select-none font-medium leading-9 text-grey-370">
             {allProperties.length} Results Found
           </p> : <p className="text-lg select-none font-medium leading-9 text-grey-370">
             Snaphomz AI in action
           </p>
-        ) : <div />}
+        }
 
         {/* Comparison Mode Toggle */}
         <div className="flex flex-wrap items-center gap-2">
@@ -1141,23 +1106,15 @@ function PropertyFilter() {
         </div>
       </div>
 
-      {currentView !== 'map' ? (
-        <>
-          <p className="text-lg font-medium leading-9 text-grey-370">
-            You have searched: {searchTerm}
-          </p>
-
-          {selectedSubCategories.length > 0 && (
-            <p className="text-lg font-medium leading-9 text-grey-370">
-              Features selected: {selectedSubCategories.join(', ')}
-            </p>
-          )}
-        </>
-      ) : null}
+      {selectedSubCategories.length > 0 && (
+        <p className="text-lg font-medium leading-9 text-grey-370">
+          Features selected: {selectedSubCategories.join(', ')}
+        </p>
+      )}
 
       {/* Render Filters and Property Results */}
       {/* Dropdown Filters */}
-      {currentView !== 'map' ? <br /> : null}
+      <br />
       {/* <div className="flex flex-wrap gap-4 mt-4">
       
         <Listbox value={selectedSort} onChange={setSelectedSort}>
@@ -1221,7 +1178,6 @@ function PropertyFilter() {
         </Listbox>
       </div> */}
 
-      {currentView !== 'map' ? (
       <div className="space-y-4">
         {/* Always show filters */}
         <div className="flex flex-wrap gap-2">
@@ -1251,7 +1207,6 @@ function PropertyFilter() {
           })}
         </div>
       </div>
-      ) : null}
 
       {/* Property Results or Suggested Locations */}
       {allProperties.length > 0 ? (
@@ -1406,4 +1361,4 @@ const FeatureBathroomSelector: React.FC<{
   );
 };
 
-export { PropertyFilter, FeatureSelector, FeatureBathroomSelector };
+export { PropertyFilter };

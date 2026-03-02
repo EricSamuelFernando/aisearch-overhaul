@@ -36,7 +36,6 @@ import axios from 'axios';
 import { GET_PROPERTY_SEARCH_PREFERENCE_AI_URL, PROPERTY_DETAIL_SEARCH_AI_URL } from '@/shared/constants/env';
 import { getAuthToken } from '@/lib/storage';
 import { getIsAuthExpired } from '@/lib/api/axios';
-import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 
 interface SharePropertyRequestBody {
   role: string;

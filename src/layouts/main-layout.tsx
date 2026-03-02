@@ -77,7 +77,6 @@ function MainLayout({ children }: Readonly<Props>) {
   const { getPropertyPreferenceFromAI } = useGetPropertyPreference(user?.email);
   const [showPreferenceModal, setShowPreferenceModal] = useState(false);
   const hasPromptedRef = useRef(false);
-  const dismissedSessionRef = useRef(false);
   const lastUserIdRef = useRef<string | undefined>(undefined);
   const [location, setLocation] = useState({
     latitude: 0,
@@ -96,7 +95,6 @@ function MainLayout({ children }: Readonly<Props>) {
     if (lastUserIdRef.current !== user?.id) {
       console.log('[MainLayout] User changed, resetting prompt flag');
       hasPromptedRef.current = false;
-      dismissedSessionRef.current = false;
       lastUserIdRef.current = user?.id;
 
       if (isLoggedIn && user?.account_type?.toLowerCase() === 'buyer' && user?.email) {
@@ -111,16 +109,6 @@ function MainLayout({ children }: Readonly<Props>) {
     if (hasPromptedRef.current) return;
     if (!isLoggedIn) return;
     if (user?.account_type?.toLowerCase() !== 'buyer') return;
-    if (typeof window !== 'undefined' && user?.id) {
-      const dismissedThisSession =
-        sessionStorage.getItem(`buyerPreferenceDismissed:${user.id}`) === 'true';
-      if (dismissedThisSession) {
-        console.log('[MainLayout] Preference modal dismissed this session — skipping');
-        hasPromptedRef.current = true;
-        dismissedSessionRef.current = true;
-        return;
-      }
-    }
 
     // Wait for AI query to finish loading
     if (getPropertyPreferenceFromAI.isLoading) return;
@@ -167,14 +155,6 @@ function MainLayout({ children }: Readonly<Props>) {
         onComplete={() => {
           setShowPreferenceModal(false);
           getPropertyPreferenceFromAI.refetch?.();
-        }}
-        onSkip={() => {
-          if (typeof window !== 'undefined' && user?.id) {
-            sessionStorage.setItem(`buyerPreferenceDismissed:${user.id}`, 'true');
-          }
-          hasPromptedRef.current = true;
-          dismissedSessionRef.current = true;
-          setShowPreferenceModal(false);
         }}
       />
       {/* Conditionally render MainNav (Header) based on the route */}

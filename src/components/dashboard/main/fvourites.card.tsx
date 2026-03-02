@@ -97,27 +97,27 @@ const FavouritePropertyCards = (props: any) => {
   return (
     <div
       onClick={handleClick}
-      className={`flex w-full min-h-[380px] sm:min-h-[420px] max-h-[420px] cursor-pointer flex-col overflow-hidden rounded-xl shadow-lg hover:shadow-xl bg-black border group relative transform-gpu transition-all duration-300
+      className={`flex w-full min-h-[380px] sm:min-h-[420px] max-h-[420px] cursor-pointer flex-col overflow-hidden rounded-xl shadow-lg hover:shadow-xl bg-black border group relative transition-all duration-200
         ${compareMode
           ? isSelected
-            ? 'border-[#FF8700] border-2 shadow-[0_0_0_3px_rgba(255,135,0,0.25)] -translate-y-0.5 scale-[1.01]'
+            ? 'border-[#FF8700] border-2 shadow-[0_0_0_3px_rgba(255,135,0,0.25)]'
             : isDisabled
               ? 'border-gray-800 opacity-40 cursor-not-allowed'
-              : 'border-gray-800 hover:-translate-y-0.5 hover:border-[#FF8700]'
-          : 'border-gray-800 hover:-translate-y-0.5 hover:border-ocOrange'
+              : 'border-gray-800 hover:border-[#FF8700]'
+          : 'border-gray-800 hover:border-ocOrange'
         }`}
     >
       {/* Compare Mode Selection Overlay */}
       {compareMode && (
         <div className="absolute top-3 right-12 z-30 pointer-events-none">
-          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200
+          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all
             ${isSelected
-              ? 'bg-[#FF8700] border-[#FF8700] scale-110 shadow-[0_4px_14px_rgba(255,135,0,0.45)]'
+              ? 'bg-[#FF8700] border-[#FF8700]'
               : 'bg-white/80 border-gray-300'
             }`}
           >
             {isSelected && (
-              <svg className="scale-100 transition-transform duration-150" width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                 <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             )}

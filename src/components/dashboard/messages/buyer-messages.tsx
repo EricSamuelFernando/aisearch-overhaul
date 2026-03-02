@@ -24,7 +24,7 @@ function BuyerMessagesPanel() {
   const [isRead, setIsRead] = useState(false);
   const [search, setSearch] = useState('');
   const [, setMessageThreads] = useAtom(messageThreadsAtom);
-  const { setState, state } = useContext(SocketContext);
+  const { setState } = useContext(SocketContext);
   const { getAllThreadsByUserAgentMutation } = useUserAgentMessageApi();
 
   const userData = useSelector((state: { auth: { user: any } }) => state.auth.user);

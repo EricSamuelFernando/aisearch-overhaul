@@ -3,8 +3,8 @@
 import { useForm } from '@mantine/form';
 import { Button } from '@/components/ui/button';
 import CustomInput from '@/components/customs/input';
+import { ButtonLoader } from '@/components/loader';
 import { cn } from '@/lib/utils';
-import { success } from '@/components/alert/notify';
 
 interface VerifyPasswordCodeModalFormProps {
   email: string;
@@ -20,10 +20,11 @@ export const VerifyPasswordCodeModalForm = ({ email, onCodeVerify, onBack }: Ver
   });
 
   const handleSubmit = (values: { code: string }) => {
+    // Store the code in localStorage
     if (values?.code) {
       localStorage.setItem('forgotPasswordCode', values.code);
     }
-    success({ message: 'OTP verified successfully' });
+    // Move to next step
     onCodeVerify();
   };
 

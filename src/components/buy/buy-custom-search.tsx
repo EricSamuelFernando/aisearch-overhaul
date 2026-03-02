@@ -368,13 +368,10 @@ import { RootState } from '@/lib/store';
 import { success, error } from '../alert/notify';
 import { usePropertyStore } from '@/store/use-property-store';
 import { PROPERTY_SEARCH_AI_URL } from '@/shared/constants/env';
-import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { setPropertyQuery } from '@/slices/property/property-slice';
 import { Input } from '../ui/input';
 import { cn } from '@/lib/utils';
 import { useProperty } from '@/shared/hooks/useProperty';
-
-let globalLastAutoSearch: string | null = null;
 
 type Props = {};
 
@@ -392,6 +389,10 @@ const breadcrumbList = [
   {
     name: 'Home',
     path: '/',
+  },
+  {
+    name: 'Buy a home',
+    path: '/buy',
   },
   {
     name: 'Search listing',
@@ -479,11 +480,10 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
   const [filterData, setFilterData] = React.useState({});
   const [showInputBox, setShowInputBox] = React.useState(false);
   const { currentView } = useProperty();
-  const isHiddenInMapMode = hideInMap && currentView === 'map';
   const popupRef = React.useRef<HTMLDivElement>(null);
   const toggleButtonRef = React.useRef<HTMLButtonElement>(null);
   const [isFooterVisible, setIsFooterVisible] = React.useState(false);
-  const lastAutoSearchRef = React.useRef<string | null>(null);
+  const lastAutoSearchRef = React.useRef<null | string>(null)
 
   const { user } = useAuth()
   const { email } = useRegister()
@@ -504,7 +504,6 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [placeholderText, setPlaceholderText] = React.useState('Start a new search');
   React.useEffect(() => {
-    if (isHiddenInMapMode) return;
     const data: Record<string, string | undefined> = {
       bedRooms: searchParams.get("bedRooms") || undefined,
       bathRooms: searchParams.get("bathRooms") || undefined,
@@ -545,23 +544,22 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
     if (!normalizedQuery) return;
 
     setSearchString(normalizedQuery);
-    if (globalLastAutoSearch === normalizedQuery) return;
-    globalLastAutoSearch = normalizedQuery;
+    if (lastAutoSearchRef.current === normalizedQuery) return;
+    lastAutoSearchRef.current = normalizedQuery;
     sendSearchRequest(normalizedQuery);
-  }, [searchParams, searchTerm, isHiddenInMapMode]);
+  }, [searchParams, searchTerm]);
 
 
   React.useEffect(() => {
-    if (isHiddenInMapMode) return;
     if (scrollDirection === 'down' && isScrolling) {
       setIsVisible(false);
     } else if (!isScrolling || scrollDirection === 'up') {
       setIsVisible(true);
     }
-  }, [scrollDirection, isScrolling, isHiddenInMapMode]);
+  }, [scrollDirection, isScrolling]);
 
   React.useEffect(() => {
-    if (isHiddenInMapMode || !showInputBox) return;
+    if (!showInputBox) return;
 
     const handleOutsideClick = (event: MouseEvent) => {
       const target = event.target as Node;
@@ -577,12 +575,11 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
 
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [showInputBox, isHiddenInMapMode]);
+  }, [showInputBox]);
 
   // Hide the floating button when the footer enters view.
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (isHiddenInMapMode) return;
     const footer = document.querySelector('footer');
     if (!footer) return;
 
@@ -593,12 +590,9 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
 
     observer.observe(footer);
     return () => observer.disconnect();
-  }, [isHiddenInMapMode]);
+  }, []);
 
   const sendSearchRequest = async (queryToUse?: string) => {
-    if (isHiddenInMapMode) return;
-    const resolvedQuery = (queryToUse ?? searchString ?? '').trim();
-    if (!resolvedQuery) return;
     if (searchCount + 1 >= 6 && !user?.email) {
       error({
         message:
@@ -613,23 +607,18 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
     setIsLoading(true)
     setSearchedQuery("");
     try {
-      const searchUrl = isMlsBypassModeEnabled()
-        ? '/api/mls/search'
-        : (PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search');
-
       const response = await axios.post(
-        searchUrl,
+        PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search',
         {
           user: userId,
-          query: resolvedQuery,
+          query: queryToUse,
         }
       );
       clearProperties();
       dispatch(incrementSearchCount());
-      dispatch(setPropertyQuery(response.data?.result?.search_query ?? response.data?.search_query ?? resolvedQuery));
-      const records = response.data?.result?.records ?? response.data?.records ?? [];
-      setSearchedQuery(records);
-      addProperties(records);
+      dispatch(setPropertyQuery(response.data?.result.search_query));
+      setSearchedQuery(response.data?.result.records);
+      addProperties(response.data?.result.records);
 
     } catch (err: any) {
 
@@ -651,18 +640,14 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
   const handleSubmit = React.useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      const normalizedQuery = (searchString || '').trim();
-      if (!normalizedQuery) return;
-      // Prevent the searchParams effect from firing the same search again after router.push.
-      lastAutoSearchRef.current = normalizedQuery;
-      router.push(`/buy/browse?q=${encodeURIComponent(normalizedQuery)}`);
-      await sendSearchRequest(normalizedQuery)
+      router.push(`/buy/browse?q=${encodeURIComponent(searchString)}`);
+      await sendSearchRequest()
     },
     [router, filterData, searchString, searchTerm],
   );
 
 
-  if (isHiddenInMapMode) {
+  if (hideInMap && currentView === 'map') {
     return null;
   }
 
@@ -816,7 +801,10 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
           )}
           onSubmit={handleSubmit}
           style={{
-            width: currentView === 'map' ? '100%' : 'calc(100% - 3rem)',
+            width:
+              currentView === 'map'
+                ? '100%'
+                : 'calc(100% - 3rem)',
           }}
         >
           <div

@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, type ComponentType } from 'react';
+import { useContext, useEffect, useMemo, useState, type ComponentType } from 'react';
 import {
   Menu,
   UnstyledButton,
@@ -47,8 +47,6 @@ type UINotification = {
   kind: NotificationKind;
   link?: string;
   threadId?: string;
-  snapId?: string;
-  source?: 'socket' | 'api';
 };
 
 type IconComponent = ComponentType<{ size?: string | number }>;
@@ -116,11 +114,14 @@ export default function NotificationDropdown() {
     : rawApiData?.data?.result?.result || rawApiData?.result || [];
 
   const notifications = useMemo(() => {
-    const socketNotifications = Array.isArray(state?.notifications) ? state.notifications : [];
-    const normalizedSocket: UINotification[] = socketNotifications.map((item: UINotification) => ({
-      ...item,
-      kind: normalizeKind(item.kind) || deriveKind(item.title, item.body),
-      source: item.source || 'socket',
+    const normalized: UINotification[] = apiNotifications.map((item) => ({
+      id: item._id,
+      title: item.title,
+      body: item.body,
+      createdAt: item.createdAt,
+      read: item.read,
+      kind: normalizeKind((item as { type?: string }).type) || deriveKind(item.title, item.body),
+      link: (item as { link?: string }).link,
     }));
 
     const normalizedApi: UINotification[] = apiNotifications.map((item: any) => {
@@ -148,13 +149,7 @@ export default function NotificationDropdown() {
       if (!acc.find((n) => n.id === next.id)) acc.push(next);
       return acc;
     }, []);
-
-    return merged.sort((a, b) => {
-      const aTime = new Date(a.createdAt).getTime();
-      const bTime = new Date(b.createdAt).getTime();
-      return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime);
-    });
-  }, [apiNotifications, state?.notifications]);
+  }, [apiNotifications, socketNotifications]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -164,35 +159,51 @@ export default function NotificationDropdown() {
   }, [notificationsQuery, state?.notification?.isVisible, state?.newMessage]);
 
   useEffect(() => {
+    if (!state?.notification?.isVisible) return;
+    const message = state.notification.message || 'New message';
+    const sender = state.notification.user || 'Someone';
+    const channelId = state.notification.channelId;
+    const idSuffix = channelId || Date.now().toString();
+    const link = channelId ? `/dashboard/buyer?tab=messages&threadId=${channelId}` : '/dashboard/buyer?tab=messages';
+
+    setSocketNotifications((prev) => {
+      const id = `socket-${idSuffix}-${Date.now()}`;
+      const next: UINotification = {
+        id,
+        title: 'New message in property chat',
+        body: `${sender}: ${message}`,
+        createdAt: new Date().toISOString(),
+        read: false,
+        kind: 'message',
+        link,
+        threadId: channelId || undefined,
+      };
+      return [next, ...prev].slice(0, 20);
+    });
+  }, [state?.notification]);
+
+  useEffect(() => {
     const activeThreadId = state?.selectedChannel?.id;
     if (!activeThreadId) return;
-    setState((prev: any) => ({
-      ...prev,
-      notifications: Array.isArray(prev.notifications)
-        ? prev.notifications.map((item: UINotification) =>
-            item.threadId === activeThreadId ? { ...item, read: true } : item,
-          )
-        : prev.notifications,
-    }));
+    setSocketNotifications((prev) =>
+      prev.map((item) =>
+        item.threadId === activeThreadId ? { ...item, read: true } : item,
+      ),
+    );
   }, [state?.selectedChannel?.id]);
   const handleOpenNotification = (notification: UINotification) => {
     if (!notification.read) {
-      if (notification.source === 'api') {
+      if (!notification.id.startsWith('socket-')) {
         markOneAsReadMutation.mutate(notification.id);
         if (notification.link) {
           markLinkAsReadMutation.mutate(notification.link);
         }
       }
-      if (notification.source === 'socket') {
-        setState((prev: any) => ({
-          ...prev,
-          notifications: Array.isArray(prev.notifications)
-            ? prev.notifications.map((item: UINotification) =>
-                item.id === notification.id ? { ...item, read: true } : item,
-              )
-            : prev.notifications,
-        }));
-      }
+      setSocketNotifications((prev) =>
+        prev.map((item) =>
+          item.id === notification.id ? { ...item, read: true } : item,
+        ),
+      );
     }
     if (notification.link) {
       router.push(notification.link);
@@ -203,12 +214,7 @@ export default function NotificationDropdown() {
     if (unreadCount > 0) {
       markAllAsReadMutation.mutate(undefined);
     }
-    setState((prev: any) => ({
-      ...prev,
-      notifications: Array.isArray(prev.notifications)
-        ? prev.notifications.map((item: UINotification) => ({ ...item, read: true }))
-        : prev.notifications,
-    }));
+    setSocketNotifications((prev) => prev.map((item) => ({ ...item, read: true })));
   };
 
   return (

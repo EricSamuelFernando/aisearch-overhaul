@@ -30,15 +30,7 @@ const ADD_PARTICIPANT_TO_THREAD = `
 let hasLoggedInviteConfig = false;
 
 export const useUserAgentMessageApi = (handleCb?: () => void) => {
-  const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/auth/graphql";
-  if (!hasLoggedInviteConfig) {
-    console.info('[InviteConfig][Boot]', {
-      graphqlUrl: GRAPHQL_URI,
-      authServiceUrl: process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL || null,
-      nodeEnv: process.env.NODE_ENV,
-    });
-    hasLoggedInviteConfig = true;
-  }
+  const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql";
 
   const createUserAgentThreadMutation = useMutation({
     mutationKey: ['create-user-agent-thread'],
@@ -156,47 +148,54 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
         throw new Error('No authentication token found');
       }
 
-      const query = `
-        query GetThreadsByUser($userId: String!) {
-          get_user_and_agent_threads(userId: $userId) {
-            id
-            threadName
-            propertyId
-            roomId
-            propertyName
-            listingId
-            propertyAddress
-            messages {
-              id
-              isRead
-              message
-              fileType
-              messageType
-              senderId
-              createdAt
-            }
-            unreadCount
-            user {
-              id
-              firstName
-              lastName
-              email
-            }
-            parentMessage
-            buyerAgent {
-              id
-              firstName
-              lastName
-              email
-            }
-          }
-        }`;
-
       try {
         const response = await axios.post(
           GRAPHQL_URI,
           {
-            query,
+            query: `
+              query GetThreadsByUser($userId: String!) {
+               get_user_and_agent_threads(userId: $userId) {
+                  id
+                  threadName
+                  propertyId
+                  roomId
+                  propertyName
+                  listingId
+                  propertyAddress
+                  messages{
+                    id
+                    isRead
+                    message
+                    fileType
+                    messageType
+                    senderId
+                    createdAt
+                  }
+                  unreadCount
+                  participants{
+                    user 
+                    { 
+                     id
+                    firstName
+                    lastName
+                    email
+                    }
+                  }
+                  user{
+                    id
+                    firstName
+                    lastName
+                    email
+                  }
+                  parentMessage
+                  buyerAgent {
+                    id
+                    firstName
+                    lastName
+                    email
+                  }
+                }
+              }`,
             variables: {
               userId: data.userId,
               threadName: data.threadName,
@@ -211,7 +210,7 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
           }
         );
 
-        if (response.status !== 200 || response?.data?.errors) {
+        if (response.status !== 200) {
           throw new Error(response?.data?.errors?.[0]?.message || 'Failed to fetch threads');
         }
 
@@ -311,49 +310,44 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
         axios.post(
           GRAPHQL_URI,
           {
-            query: queryBody,
-            variables: baseVariables,
-          },
-          requestConfig,
+            query: `
+              mutation addParticipantsToThread($threadId: String!, $email: String!) {
+                add_participant_to_thread(threadId: $threadId, email: $email) {
+                  id
+                  threadId
+                  userId
+                  approvalStatus
+                  joinDate
+                }
+              }`,
+            variables: { ...data }, // Spread the data to get threadId and email
+          }
         );
 
-      try {
-        console.info('[InviteMutation][Request]', {
-          graphqlUrl: GRAPHQL_URI,
-          mutationBody: ADD_PARTICIPANT_TO_THREAD,
-          variables: baseVariables,
-        });
-
-        const finalResponse = await runInviteMutation(ADD_PARTICIPANT_TO_THREAD);
-
-        console.info('[InviteMutation][RawResult]', JSON.stringify(finalResponse?.data ?? {}, null, 2));
-        console.info('[InviteMutation][DataNode]', finalResponse?.data?.data?.add_participant_to_thread ?? null);
-
-        if (finalResponse.status === 200) {
-          const graphQLErrors = finalResponse?.data?.errors || [];
-          const mutationData = finalResponse?.data?.data?.add_participant_to_thread;
-
-          return {
-            data: mutationData,
-            graphQLErrors: graphQLErrors,
-            rawResponse: finalResponse?.data,
-            mutationBody: ADD_PARTICIPANT_TO_THREAD,
-          };
+        // Check for errors in the response
+        if (response?.data?.errors || response.status !== 200) {
+          const errorMessage =
+            response?.data?.errors?.[0]?.message || 'Failed to add participant to thread';
+          throw new Error(errorMessage); // Throw error if response contains errors or status is not 200
         }
 
-        const errorMessage = finalResponse?.data?.errors?.[0]?.message || 'Failed to add participant to thread';
-        throw new Error(errorMessage);
+        return response.data; // Return the successful response data
       } catch (error) {
         console.error('Error adding participant to thread:', error);
         throw error; // Re-throw error to be caught by onError callback
       }
     },
-    onSuccess: () => {
-      if (handleCb) handleCb();
+    onSuccess: (data) => {
+      // Handle success response
+      success({ message: 'Invitation to the user was sent successfully' });
+      if (handleCb) handleCb(); // Optional callback after success
     },
     onError: (err: any) => {
       console.error('Error adding participant to thread:', err);
-      // Error toast is handled by caller to avoid duplicate toasts.
+
+      // Ensure error message is properly extracted from the error object
+      const errorMessage = err?.message || 'An error occurred while adding participant.';
+      error({ message: errorMessage });
     },
   });
 

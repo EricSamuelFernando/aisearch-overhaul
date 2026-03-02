@@ -177,4 +177,4 @@ jobs:
             --query 'Invalidation.Id' \
             --output text)
           echo "Invalidation ID: $INVALIDATION_ID"
-          echo "CloudFront cache invalidated"
+          echo "CloudFront cache invalidated done"

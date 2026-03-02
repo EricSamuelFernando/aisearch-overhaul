@@ -258,12 +258,12 @@ export const useGetSingleProperty = (propertyId: string) => {
         const numericId = Number(propertyId);
         const response = await axios.post(detailUrl, bypass
           ? {
-              listingId: Number.isFinite(numericId) ? numericId : propertyId,
-              propertyId: Number.isFinite(numericId) ? numericId : propertyId,
-            }
+            listingId: Number.isFinite(numericId) ? numericId : propertyId,
+            propertyId: Number.isFinite(numericId) ? numericId : propertyId,
+          }
           : {
-              listingId: Number(propertyId)
-            });
+            listingId: Number(propertyId)
+          });
 
         // Map the response to match expected structure
         // dashboard layout expects data.property to be the property object
@@ -317,74 +317,20 @@ export const useGetPropertyByAddress = (address: string) => {
 };
 
 export const useGetPropertyPreference = (email?: string) => {
-  const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql";
-
-  // NOTE: token is read INSIDE queryFn so we always get the latest token
-  // (the old code read it once at hook init, causing stale-token failures after refresh)
-
-  // GraphQL query to fetch from DB
-  const getPropertyPreferenceFromDB = useQuery({
-    queryKey: ['property-preference-db'],
-    queryFn: async () => {
-      if (getIsAuthExpired()) {
-        throw new Error('Session expired. Please login again.');
-      }
-      // Read fresh token each time the query runs
-      const freshToken = getAuthToken() || localStorage.getItem('userAccessToken');
-      if (!freshToken) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await axios.post(
-        GRAPHQL_URI,
-        {
-          query: `
-            query {
-              getPropertyPreference {
-                id
-                propertyType
-                preferredPropertyAddress
-                spendAmount {
-                  min
-                  max
-                }
-                onboardingCompleted
-                financialProcess
-                preApprovalAffiliates
-                workWithLender
-                createdAt
-                updatedAt
-              }
-            }
-          `,
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${freshToken}`,
-          },
-        }
-      );
-
-      if (response.data?.errors) {
-        throw new Error(response.data.errors[0]?.message || 'Failed to fetch property preference');
-      }
-
-      return response.data?.data?.getPropertyPreference || null;
-    },
-    enabled: !!(getAuthToken() || (typeof window !== 'undefined' && localStorage.getItem('userAccessToken'))),
-    refetchOnMount: true,
-    refetchOnWindowFocus: false,
-    staleTime: 0,
-  });
-
   // AI API query - returns raw response structure
   const getPropertyPreferenceFromAI = useQuery({
     queryKey: ['property-preference-ai', email],
     queryFn: async () => {
       if (!email) return null;
-      const response = await axios.get(`${GET_PROPERTY_SEARCH_PREFERENCE_AI_URL}/${email}`);
-      return response.data || null;
+      try {
+        const response = await axios.get(`${GET_PROPERTY_SEARCH_PREFERENCE_AI_URL}/${email}`);
+        return response.data || null;
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          return null; // Handle 404 as not created yet
+        }
+        throw err;
+      }
     },
     enabled: !!email,
     refetchOnMount: true,
@@ -392,14 +338,13 @@ export const useGetPropertyPreference = (email?: string) => {
   });
 
   return {
-    getPropertyPreferenceFromDB,
     getPropertyPreferenceFromAI
   };
 }
 
 export const useUpdatePropertyPreference = (email?: string) => {
-  const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql";
   const PROPERTY_SEARCH_PREFERENCE_AI_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/search/preference` || 'http://13.60.114.186:9000/api/search/preference';
+  const GET_PROPERTY_SEARCH_PREFERENCE_AI_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/preference` || 'http://13.60.114.186:9000/api/preference';
   const queryClientHook = useQueryClient();
 
   const updatePropertyPreference = useMutation({
@@ -409,115 +354,63 @@ export const useUpdatePropertyPreference = (email?: string) => {
       preferredPropertyAddress?: string;
       priceMin?: number;
       priceMax?: number;
+      province?: string;
       city?: string;
-      onboardingCompleted?: boolean;
+      onboardingCompleted?: boolean
     }) => {
-      if (getIsAuthExpired()) {
-        throw new Error('Session expired. Please login again.');
-      }
-      // Read fresh token each time the mutation runs
-      const freshToken = getAuthToken() || localStorage.getItem('userAccessToken');
-      if (!freshToken) {
-        throw new Error('No authentication token found');
+      if (!email) {
+        throw new Error('User email is required to update preferences.');
       }
 
-      // Prepare GraphQL mutation data according to PropertyPreferenceInput schema
-      const propertyData: any = {
-        onboardingCompleted: data.onboardingCompleted ?? false,
-        preApprovalAffiliates: false,
-      };
-
-      if (data.propertyType) {
-        propertyData.propertyType = data.propertyType;
-      }
-
-      if (data.preferredPropertyAddress || data.city) {
-        propertyData.preferredPropertyAddress = data.preferredPropertyAddress || data.city;
-      }
-
-      // spendAmount is required in the schema, so always include it
-      propertyData.spendAmount = {
-        min: data.priceMin !== undefined ? data.priceMin : 0,
-        max: data.priceMax !== undefined ? data.priceMax : 0,
-      };
-
-      // Update via GraphQL (DB)
-      const graphqlResponse = await axios.post(
-        GRAPHQL_URI,
-        {
-          query: `
-            mutation AddOrUpdatePropertyPreference($propertyData: PropertyPreferenceInput!) {
-              addOrUpdatePropertyPreference(propertyData: $propertyData) {
-                id
-                propertyType
-                preferredPropertyAddress
-                spendAmount {
-                  min
-                  max
-                }
-                onboardingCompleted
-                createdAt
-                updatedAt
-              }
-            }
-          `,
-          variables: {
-            propertyData,
-          },
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${freshToken}`,
-          },
+      let exists = false;
+      try {
+        const getResponse = await axios.get(`${GET_PROPERTY_SEARCH_PREFERENCE_AI_URL}/${email}`);
+        if (getResponse.status === 200 && getResponse.data) {
+          exists = true;
         }
-      );
-
-      if (graphqlResponse.data?.errors) {
-        throw new Error(graphqlResponse.data.errors[0]?.message || 'Failed to update property preference');
-      }
-
-      const dbResult = graphqlResponse.data?.data?.addOrUpdatePropertyPreference;
-
-      // Also sync with AI API if email is provided
-      if (email) {
-        try {
-          const preferenceText = `Looking for a ${data.propertyType || ''} in ${data.preferredPropertyAddress || data.city || ''}. Budget is between ${data.priceMin || 0} and ${data.priceMax || 0} USD`;
-
-          await axios.post(
-            PROPERTY_SEARCH_PREFERENCE_AI_URL,
-            {
-              user: email,
-              preference: preferenceText,
-            },
-            {
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            }
-          );
-        } catch (aiError) {
-          console.warn('Failed to sync with AI API:', aiError);
-          // Don't throw - DB update succeeded, AI sync is secondary
+      } catch (err: any) {
+        if (err.response?.status !== 404) {
+          console.warn('Error checking existing preference', err);
         }
       }
 
-      return dbResult;
+      if (exists) {
+        // PUT request to update whole preference
+        const payload = {
+          city: data.city || data.preferredPropertyAddress || '',
+          province: data.province || '',
+          mls_type: data.propertyType || '',
+          mostRecentStatus: 'Active',
+          listing_price_min: data.priceMin || 0,
+          listing_price_max: data.priceMax || 0,
+        };
+        const response = await axios.put(`${GET_PROPERTY_SEARCH_PREFERENCE_AI_URL}/${email}`, { preference: payload }, {
+          headers: { 'Content-Type': 'application/json' },
+        });
+        return response.data;
+      } else {
+        // POST to create
+        const preferenceText = `Looking for a ${data.propertyType || 'property'} in ${data.preferredPropertyAddress || data.city || ''}. Budget is between ${data.priceMin || 0} and ${data.priceMax || 0} USD`;
+        const response = await axios.post(
+          PROPERTY_SEARCH_PREFERENCE_AI_URL,
+          {
+            user: email,
+            preference: preferenceText,
+          },
+          {
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
+        return response.data;
+      }
     },
     onSuccess: async (data: any) => {
       console.log('Preference updated:', data);
-      // NOTE: Toast is NOT shown here to prevent auto-sync from layouts triggering it on every page load.
-      // The calling component should show its own toast in the mutate onSuccess callback when user explicitly saves.
-      // Invalidate queries to refetch
-      queryClientHook.invalidateQueries({ queryKey: ['property-preference-db'] });
       queryClientHook.invalidateQueries({ queryKey: ['property-preference-ai'] });
     },
     onError: (err: any) => {
-      // Don't show toast for auth/session errors – the global AuthSessionSync handler
-      // will show a single "session expired" toast and redirect to login.
       const msg = err?.message || '';
-      if (msg.includes('Unauthorized') || msg.includes('Session expired')) return;
-      error({ message: err?.response?.data?.errors?.[0]?.message || msg || 'Failed to update preference' });
+      error({ message: err?.response?.data?.message || err?.response?.data?.errors?.[0]?.message || msg || 'Failed to update preference' });
     },
   });
 

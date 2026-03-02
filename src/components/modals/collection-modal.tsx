@@ -102,7 +102,7 @@
 //         onSuccess: (data) => {
 //           console.log("Data : ",data);
 //           success({
-//             message: "All set! It’s now in your favorites"
+//             message: "All set! It's now in your favorites"
 //           })
 //           onClose()
 //         },
@@ -312,7 +312,7 @@
 
 // export default CollectionModal;
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Heart, PlusIcon, Users, X } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';
@@ -345,54 +345,53 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
   const router = useRouter();
   const [snaps, setSnaps] = useState<any[]>([]);
   const [newCollectionName, setNewCollectionName] = useState("");
+  // showInput is only used for the collaborative snapz creation flow
   const [showInput, setShowInput] = useState(false);
   const [step, setStep] = useState(1);
   const [createdSnapId, setCreatedSnapId] = useState(null);
   const [inviteType, setInviteType] = useState<'co-buyer' | 'agent' | 'other'>('co-buyer');
   const [partnerEmail, setPartnerEmail] = useState('');
+  const [savingToMyFav, setSavingToMyFav] = useState(false);
+  // New: controls the inline quick-create input triggered by +
+  const [showQuickCreateInput, setShowQuickCreateInput] = useState(false);
+  const [quickSnapName, setQuickSnapName] = useState('');
+  const quickInputRef = useRef<HTMLInputElement>(null);
+
   const propertyData = useSelector((state: any) => state.property.property);
   const {
     createNewSnap,
     getAllSnaps,
     createFavourite,
     createParticipents,
-    toggleFavourite
+    toggleFavourite,
+    reclaimMySnaps,
   } = useUserSnapAPIs();
   const { notificationsQuery } = useNotificationApi();
   const userData = useSelector((state: any) => state.auth.user);
   const snapId = uuidv4();
   const randomLink = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/snaps/${snapId}`;
 
-  const handleCreateCollection = () => {
-    if (!newCollectionName.trim()) return;
-
-    const newSnap = {
-      id: Date.now().toString(),
-      name: newCollectionName,
-    };
-    setSnaps((prev) => [...prev, newSnap]);
-    setNewCollectionName("");
-  };
-
   const handleCreateCollaborative = () => {
     setShowInput(true);
   };
 
   const handleInvite = () => {
-    const accountType = inviteType === 'agent' ? 'agent' : inviteType === 'other' ? 'other' : 'buyer';
     const data = {
       snapId: createdSnapId,
       email: partnerEmail,
       status: "pending",
-      accountType
+      accountType: inviteType === 'agent' ? 'agent' : inviteType === 'other' ? 'other' : 'buyer'
     };
     createParticipents.mutateAsync(data, {
       onSuccess: (response: any) => {
         if (response?.data?.createSnapsParticipant?.success === "true") {
           setStep(1);
+          // handleCreateFavourite(createdSnapId || "");
           handleToggleFavourite(createdSnapId || "");
           setPartnerEmail('');
-          success({ message: `Great! Your invite is on its way` });
+          success({
+            message: `Great! Your ${inviteType === 'agent' ? 'agent' : inviteType === 'other' ? 'collaboration' : 'co-buyer'} invite is on its way`,
+          });
           onClose();
         } else {
           error({ message: response?.data?.createSnapsParticipant?.message || "Failed to send invite" });
@@ -404,7 +403,6 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
       }
     });
   };
-
 
   const handleToggleFavourite = (snapId: string) => {
     if (!snapId || toggleFavourite.isPending) return;
@@ -442,7 +440,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
         onSuccess: (wasAdded) => {
           if (wasAdded) {
             success({
-              message: 'All Set! It’s Now In Your Favorites',
+              message: "All Set! It's Now In Your Favorites",
               subtitle: 'One tap to save. One place to collaborate.',
             });
           } else {
@@ -463,63 +461,12 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
     );
   };
 
-  // const handleCreateFavourite = (snapId: string) => {
-  //   if (snapId) {
-  //     const data = {
-  //       snapId,
-  //       name: propertyData?.listing?.courtesyOf,
-  //       address: propertyData?.listing?.address?.unparsedAddress,
-  //       city: propertyData?.listing?.address?.city,
-  //       zipCode: propertyData?.listing?.address?.zipCode,
-  //       price: +propertyData?.listing?.listPriceLow,
-  //       image: propertyData?.public?.imageUrl,
-  //       bedRooms: +propertyData?.listing?.property?.bedroomsTotal || +propertyData?.property?.bedroomsTotal || 0,
-  //       bathRooms: "" + propertyData?.listing.property?.bathroomsTotal || "" + propertyData?.property?.bathroomsTotal,
-  //       sqft: "" + propertyData?.listing?.property?.livingArea,
-  //       listingId: propertyData?.listingId,
-  //       propertyId: propertyData?.id || ""
-  //     };
-
-
-
-  //     createFavourite.mutate(data, {
-  //       onSuccess: async(data) => {
-  //         const selectedSnap: any = await snaps.filter((item) => item?.id === snapId);
-  //         selectedSnap[0].favourites = [
-  //           {
-  //             id: data?.data?.createFavourite?.id,
-  //             listingId: propertyData?.listingId,
-  //             propertyId: propertyData?.id || ""
-  //           },
-  //           ...selectedSnap?.[0].favourites
-  //         ]
-  //         const finalSnaps = snaps.filter((item) => item?.id !== snapId)
-  //         setSnaps((prev) => ([
-  //           ...finalSnaps,
-  //           ...selectedSnap
-  //         ]))
-
-  //         success({
-  //           message: "All set! It’s now in your favorites"
-  //         });
-  //         onClose();
-  //       },
-  //       onError: (error) => {
-  //         console.log("Error creating favourite:", error);
-  //       }
-  //     });
-  //   }
-  // };
-
+  // Used by collaborative flow (step 1: name the snap, step 2: invite)
   const createSnap = () => {
-    const resolvedUserId = userData?.id;
     const trimmedName = newCollectionName.trim();
+    if (!trimmedName) return;
 
-    if (!trimmedName) {
-      return;
-    }
-
-    if (!resolvedUserId) {
+    if (!userData?.id) {
       error({ message: "Your session is unavailable. Please refresh and try again." });
       return;
     }
@@ -527,7 +474,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
     createNewSnap.mutate({
       name: trimmedName,
       link: randomLink,
-      userId: resolvedUserId
+      userId: userData?.id
     }, {
       onSuccess: (data) => {
         setSnaps((prev) => [...prev, data?.data?.createSnap]);
@@ -545,25 +492,60 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
     });
   };
 
-  const isAvialable = (snapId: string): Boolean => {
-    const selectedSnap: any = snaps.filter((item: any) => item?.id === snapId);
+  // Used by the + quick-create flow: creates a named snapz and immediately saves the property to it
+  const createQuickSnap = () => {
+    const trimmedName = quickSnapName.trim();
+    if (!trimmedName || !userData?.id) return;
 
-    if (selectedSnap?.length) {
-      const isAvialable = selectedSnap?.favourites?.some((item: any) => item?.listingId === propertyData?.listingId && item?.propertyId === propertyData?.id)
-      return isAvialable;
-    } else {
-      return false;
-    }
-  }
+    const newId = uuidv4();
+    const link = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/snaps/${newId}`;
 
-  const getAllSnapsByUserId = () => {
+    createNewSnap.mutate(
+      { name: trimmedName, link, userId: userData?.id },
+      {
+        onSuccess: (data) => {
+          const createdId = data?.data?.createSnap?.id;
+          if (createdId) {
+            handleToggleFavourite(createdId);
+            getAllSnapsByUserId();
+          }
+          setQuickSnapName('');
+          setShowQuickCreateInput(false);
+          notificationsQuery.refetch();
+        },
+        onError: (err: any) => {
+          error({ message: err?.message || 'Failed to create snapz' });
+        }
+      }
+    );
+  };
+
+  const getAllSnapsByUserId = (skipReclaim = false) => {
     if (userData?.id) {
       getAllSnaps.mutate(userData.id, {
         onSuccess: (data) => {
-          setSnaps(data);
+          if (data && data.length > 0) {
+            setSnaps(data);
+          } else if (!skipReclaim) {
+            // No snaps returned — may be due to orphaned snaps from the old OAuth
+            // flow (randomId userId mismatch). Run a one-time migration and re-fetch.
+            reclaimMySnaps.mutate(undefined, {
+              onSuccess: (count) => {
+                if (count > 0) {
+                  // Orphaned snaps were reclaimed — re-fetch to show them
+                  getAllSnapsByUserId(true);
+                } else {
+                  setSnaps([]);
+                }
+              },
+              onError: () => setSnaps([]),
+            });
+          } else {
+            setSnaps(data ?? []);
+          }
         },
-        onError: (error) => {
-          console.error("Error fetching snaps:", error);
+        onError: (err) => {
+          console.error("Error fetching snaps:", err);
         }
       });
     }
@@ -572,28 +554,67 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       getAllSnapsByUserId();
+      // Reset quick-create state when modal opens
+      setShowQuickCreateInput(false);
+      setQuickSnapName('');
     }
   }, [userData, isOpen]);
 
-  const isPropertyInFavourite = (snap: any) => {
-    if (!Array.isArray(snap?.favourites)) {
-      return false;
+  // Auto-focus the quick create input when it appears
+  useEffect(() => {
+    if (showQuickCreateInput && quickInputRef.current) {
+      quickInputRef.current.focus();
     }
-    const isAvailable = snap?.favourites?.some((favourite: any) => {
-      if (!favourite) return false;
+  }, [showQuickCreateInput]);
 
+  const handleSaveToMyFavourites = () => {
+    if (savingToMyFav || toggleFavourite.isPending) return;
+
+    const myFavSnap = snaps.find((s: any) => s.name === 'My Favourite');
+
+    if (myFavSnap) {
+      handleToggleFavourite(myFavSnap.id);
+    } else {
+      setSavingToMyFav(true);
+      const newId = uuidv4();
+      const link = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/snaps/${newId}`;
+
+      createNewSnap.mutate(
+        { name: 'My Favourite', link, userId: userData?.id },
+        {
+          onSuccess: (data) => {
+            const createdId = data?.data?.createSnap?.id;
+            if (createdId) {
+              handleToggleFavourite(createdId);
+              getAllSnapsByUserId();
+            }
+            setSavingToMyFav(false);
+          },
+          onError: (err: any) => {
+            error({ message: err?.message || 'Failed to save to My Favourite' });
+            setSavingToMyFav(false);
+          },
+        }
+      );
+    }
+  };
+
+  const isPropertyInFavourite = (snap: any) => {
+    if (!Array.isArray(snap?.favourites)) return false;
+
+    return snap.favourites.some((favourite: any) => {
+      if (!favourite) return false;
       const currentPropertyId = propertyData?.propertyId || propertyData?.id;
       const currentListingId = propertyData?.listingId;
-
-      // Use loose equality for ID comparisons to handle string/number differences
       const propertyIdMatch = !!currentPropertyId && favourite?.propertyId == currentPropertyId;
       const listingIdMatch = !!currentListingId && favourite?.listingId == currentListingId;
-
       return propertyIdMatch || listingIdMatch;
     });
-
-    return isAvailable;
   };
+
+  const myFavSnap = snaps.find((s: any) => s.name === 'My Favourite');
+  const isInMyFav = myFavSnap ? isPropertyInFavourite(myFavSnap) : false;
+  const customSnaps = snaps.filter((s: any) => s.name !== 'My Favourite').slice().reverse();
 
   return (
     <CustomModal
@@ -625,88 +646,92 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
             </div>
           )}
           <div>
-            <h3 className="text-lg font-semibold">Saved to favorites</h3>
-            <p className="text-gray-500 text-sm">Private</p>
+            <h3 className="text-lg font-semibold">Save to favorites</h3>
           </div>
           <div className="ml-auto">
-            <Heart className={`h-6 w-6 ${snaps?.some(snap => isPropertyInFavourite(snap)) ? 'fill-orange-500 text-orange-500' : 'text-gray-400'}`} />
+            <Heart className="h-6 w-6 fill-orange-500 text-orange-500" />
           </div>
         </div>
 
-        <div className="flex items-center justify-between mb-4">
+        {/* Snapz title row */}
+        <div className="flex items-center justify-between mt-4 mb-3">
           <h2 className="text-xl font-bold">Snapz</h2>
-          {showInput ? (
-            <button
-              onClick={() => {
-                setShowInput(false);
-                setStep(1);
-              }}
-              className="text-sm text-orange-500"
-            >
-              Back
-            </button>
-          ) : null}
+          <div className="flex items-center gap-2">
+            {!showInput && (
+              <div className="relative group">
+                <button
+                  onClick={() => setShowQuickCreateInput((prev) => !prev)}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-900 text-white text-lg font-bold hover:bg-black transition-colors leading-none"
+                  aria-label={showQuickCreateInput ? 'Cancel' : 'Create new snapz'}
+                >
+                  {showQuickCreateInput ? '✕' : '+'}
+                </button>
+                <div className="pointer-events-none absolute bottom-full right-0 mb-2 hidden group-hover:block whitespace-nowrap rounded-md bg-gray-800 px-2 py-1 text-xs text-white z-10">
+                  {showQuickCreateInput ? 'Cancel' : 'Create new snapz'}
+                </div>
+              </div>
+            )}
+            {showInput && (
+              <button
+                onClick={() => { setShowInput(false); setStep(1); setNewCollectionName(''); }}
+                className="text-sm text-orange-500"
+              >
+                Back
+              </button>
+            )}
+          </div>
         </div>
 
+        {/* ── Collaborative flow (shown when "Create a collaborative snapz" is clicked) ── */}
         {showInput ? (
-          <div className="">
+          <div className="mb-6">
             {step === 1 ? (
               <form
-                className="flex flex-col gap-4 mb-6"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  createSnap();
-                }}
+                className="flex flex-col gap-4"
+                onSubmit={(e) => { e.preventDefault(); createSnap(); }}
               >
                 <input
                   type="text"
                   value={newCollectionName}
                   onChange={(e) => setNewCollectionName(e.target.value)}
                   placeholder="Enter new snapz name"
-                  className="border px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="border border-gray-300 px-4 py-2 rounded-md focus:outline-none focus:border-gray-500 transition-colors"
                 />
                 <button
                   type="submit"
                   disabled={!newCollectionName.trim()}
-                  className="bg-orange-400 hover:bg-orange-500 text-white font-semibold px-4 py-2 rounded-md transition"
+                  className="bg-gray-900 hover:bg-black text-white font-semibold px-4 py-2 rounded-md transition disabled:opacity-40"
                 >
                   Create Snapz
                 </button>
               </form>
             ) : (
               <form
-                className="flex flex-col gap-4 mb-6"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleInvite();
-                }}
+                className="flex flex-col gap-4"
+                onSubmit={(e) => { e.preventDefault(); handleInvite(); }}
               >
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Invite Type
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Invite Type</label>
                     <select
                       value={inviteType}
                       onChange={(e) => setInviteType(e.target.value as 'agent' | 'co-buyer' | 'other')}
-                      className="w-full rounded-lg border border-gray-300 p-3 focus:border-orange-500 focus:ring-orange-500 bg-white"
+                      className="w-full rounded-lg border border-gray-300 p-3 focus:outline-none focus:border-gray-500 transition-colors bg-white"
                     >
                       <option value="co-buyer">Invite Co-buyer</option>
                       <option value="agent">Invite Agent</option>
                       <option value="other">Invite Family/Friends</option>
                     </select>
                   </div>
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {/* {inviteType === 'co-buyer' ? 'Co-buyer Email' : 'Agent Email'} */}
                       {inviteType === 'co-buyer' ? 'Co-buyer Email' : inviteType === 'agent' ? 'Agent Email' : 'Email'}
                     </label>
                     <input
                       type="email"
                       value={partnerEmail}
                       onChange={(e) => setPartnerEmail(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 p-3 focus:border-orange-500 focus:ring-orange-500"
+                      className="w-full rounded-lg border border-gray-300 p-3 focus:outline-none focus:border-gray-500 transition-colors"
                       placeholder="example@email.com"
                     />
                   </div>
@@ -714,7 +739,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
                 <button
                   type="submit"
                   disabled={!partnerEmail.trim()}
-                  className="bg-orange-400 hover:bg-orange-500 text-white font-semibold px-4 py-2 rounded-md transition mt-2"
+                  className="bg-gray-900 hover:bg-black text-white font-semibold px-4 py-2 rounded-md transition mt-2 disabled:opacity-40"
                 >
                   Send Invite
                 </button>
@@ -722,48 +747,102 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
             )}
           </div>
         ) : (
-          <div className="flex h-48 flex-col gap-3 mb-6 overflow-y-auto">
-            {snaps?.slice().reverse().map((collection) => {
+          <>
+            {/* ── My Favourite — pinned default row ── */}
+            <div
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition mb-1",
+                isInMyFav
+                  ? "bg-orange-50 hover:bg-orange-100"
+                  : "bg-gray-50 hover:bg-gray-100"
+              )}
+              onClick={() => handleSaveToMyFavourites()}
+            >
+              {/* Orange icon (matches My Snapz page) */}
+              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-orange-500">
+                <Heart className="h-5 w-5 fill-white text-white" />
+              </div>
+              <span className="flex-1 font-semibold text-gray-800">My Favourite</span>
+              <SnapzHeartButton
+                isActive={isInMyFav}
+                size={18}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSaveToMyFavourites();
+                }}
+                className={isInMyFav ? "text-orange-500" : "text-gray-300"}
+              />
+            </div>
 
-              return (
-                <div
-                  key={collection.id}
-                  className="flex cursor-pointer items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleToggleFavourite(collection.id);
-                  }}
+            {/* Divider */}
+            <div className="border-t border-gray-100 my-3" />
+
+            {/* ── Inline quick-create input (shown when + is clicked) ── */}
+            {showQuickCreateInput && (
+              <form
+                className="flex items-center gap-2 mb-3"
+                onSubmit={(e) => { e.preventDefault(); createQuickSnap(); }}
+              >
+                <input
+                  ref={quickInputRef}
+                  type="text"
+                  value={quickSnapName}
+                  onChange={(e) => setQuickSnapName(e.target.value)}
+                  placeholder="Name your snapz…"
+                  className="flex-1 border border-gray-300 px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-gray-500 transition-colors"
+                  onKeyDown={(e) => { if (e.key === 'Escape') { setShowQuickCreateInput(false); setQuickSnapName(''); } }}
+                />
+                <button
+                  type="submit"
+                  disabled={!quickSnapName.trim() || createNewSnap.isPending}
+                  className="bg-gray-900 hover:bg-black disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-lg transition"
                 >
-                  <span className="font-medium text-gray-800">{collection.name}</span>
-                  {
+                  Save
+                </button>
+              </form>
+            )}
 
-                  }
-                  <SnapzHeartButton
-                    isActive={isPropertyInFavourite(collection)}
-                    size={18}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      handleToggleFavourite(collection.id);
-                    }}
-                    className="text-orange-500"
-                  />
-                </div>
-              );
-            })}
-          </div>
+            {/* ── Custom snapz list (excludes My Favourite) ── */}
+            <div className="flex flex-col gap-2 mb-4 max-h-40 overflow-y-auto scrollbar-hide">
+              {customSnaps.length === 0 && !showQuickCreateInput && (
+                <p className="text-sm text-gray-400 text-center py-4">
+                  No snapz yet. Hit <span className="font-semibold text-orange-500">+</span> to create one.
+                </p>
+              )}
+              {customSnaps.map((collection) => {
+                const isSaved = isPropertyInFavourite(collection);
+                return (
+                  <div
+                    key={collection.id}
+                    className="flex cursor-pointer items-center justify-between px-3 py-2.5 rounded-lg hover:bg-gray-100 transition"
+                    onClick={() => handleToggleFavourite(collection.id)}
+                  >
+                    <span className="font-medium text-gray-800">{collection.name}</span>
+                    <SnapzHeartButton
+                      isActive={isSaved}
+                      size={18}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleFavourite(collection.id);
+                      }}
+                      className={isSaved ? "text-orange-500" : "text-gray-300"}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* View All Snapz */}
+            <button
+              onClick={() => { onClose(); router.push("/account"); }}
+              className="text-sm mb-4 text-right text-orange-500 w-full"
+            >
+              View All Snapz
+            </button>
+          </>
         )}
-        <button
-          onClick={() => {
-            setShowInput(false);
-            onClose();
-            router.push("/account");
-          }}
-          className="text-sm mb-4 text-right text-orange-500"
-        >
-          View All Snapz
-        </button>
-        {/* Collaborative Button */}
+
+        {/* ── Collaborative Button — always visible ── */}
         <button
           onClick={handleCreateCollaborative}
           className={cn(
@@ -790,4 +869,3 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
 };
 
 export default CollectionModal;
-

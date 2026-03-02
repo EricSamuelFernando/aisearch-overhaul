@@ -77,7 +77,7 @@ const buildFullAddress = (property: any): string => {
     return street || line2 || '';
 };
 
-const RecentCommentsSidebar = ({ properties = [], refreshTrigger = 0, onNewComment }: { properties?: any[], refreshTrigger?: number, onNewComment?: () => void }) => {
+const RecentCommentsSidebar = ({ properties = [], snapId, refreshTrigger = 0, onNewComment }: { properties?: any[], snapId?: string, refreshTrigger?: number, onNewComment?: () => void }) => {
     const [comments, setComments] = useState<Comment[]>([]);
     const [loading, setLoading] = useState(false);
     const [isAppModalOpen, setAppModalOpen] = useState(false);
@@ -106,7 +106,7 @@ const RecentCommentsSidebar = ({ properties = [], refreshTrigger = 0, onNewComme
                 GRAPHQL_URI,
                 {
                     query,
-                    variables: { limit: 5 },
+                    variables: { limit: 50 },
                 },
                 {
                     headers: {
@@ -119,7 +119,11 @@ const RecentCommentsSidebar = ({ properties = [], refreshTrigger = 0, onNewComme
                 throw new Error(response.data.errors[0]?.message || 'Failed to fetch recent comments');
             }
 
-            setComments(response.data.data.recentComments || []);
+            const allComments: Comment[] = response.data.data.recentComments || [];
+            const filtered = snapId
+                ? allComments.filter((c: any) => c.snapId === snapId)
+                : allComments;
+            setComments(filtered.slice(0, 5));
         } catch (error) {
             console.error('Failed to fetch recent comments:', error);
         } finally {
@@ -151,8 +155,14 @@ const RecentCommentsSidebar = ({ properties = [], refreshTrigger = 0, onNewComme
         fetchRecentComments(); // Initial fetch
 
         if (socket) {
-            const handleNewActivity = (comment: Comment) => {
+            const handleNewActivity = (comment: any) => {
                 console.log('[RecentComments] New activity received via socket:', comment);
+
+                // Ignore comments that belong to a different snapz
+                if (snapId && comment.snapId && comment.snapId !== snapId) {
+                    console.log('[RecentComments] Comment belongs to different snap, skipping');
+                    return;
+                }
 
                 // Notify parent to refresh unread counts
                 if (typeof onNewComment === 'function') {
@@ -185,8 +195,8 @@ const RecentCommentsSidebar = ({ properties = [], refreshTrigger = 0, onNewComme
     }, [refreshTrigger, socket]);
 
     return (
-        <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-            <div className="flex justify-between items-center mb-4">
+        <div className="w-full h-full bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex flex-col">
+            <div className="flex justify-between items-center mb-4 flex-shrink-0">
                 <h3 className="font-bold text-lg text-gray-800">Recent Activity</h3>
                 <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">{comments.length} new</span>
@@ -200,7 +210,7 @@ const RecentCommentsSidebar = ({ properties = [], refreshTrigger = 0, onNewComme
                 </div>
             </div>
 
-            <div className="space-y-4 max-h-[55vh] overflow-y-auto pr-1 custom-scrollbar">
+            <div className="space-y-4 flex-1 min-h-0 overflow-y-auto pr-1 custom-scrollbar">
                 {loading && comments.length === 0 ? (
                     <div className="flex justify-center p-4">
                         <Loader2 className="w-5 h-5 animate-spin text-ocOrange" />

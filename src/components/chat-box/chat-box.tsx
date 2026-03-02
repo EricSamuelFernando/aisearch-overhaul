@@ -2390,6 +2390,7 @@ import { useUserSnapAPIs } from "@/hooks/api/auth/snaps.API"
 import { SnapzHeartButton } from "@/components/ui/snapz-heart"
 import { usePropertyActions } from "@/shared/hooks/useProperty"
 import { v4 as uuidv4 } from "uuid"
+import { getAuthToken } from "@/lib/storage"
 
 
 interface User {
@@ -2554,6 +2555,19 @@ export default function ChatBoxComponent(props: any) {
   const [showChat, setShowChat] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
   const [propertyData, setPropertyData] = useState<any>(null)
+  const [shortOverviewByProperty, setShortOverviewByProperty] = useState<
+    Record<
+      string,
+      {
+        overview_short?: string
+        overview_short_updated_at?: string
+        overview_short_model?: string
+        overview_short_source_hash?: string
+      }
+    >
+  >({})
+  const [shortOverviewLoadingByProperty, setShortOverviewLoadingByProperty] = useState<Record<string, boolean>>({})
+  const shortOverviewInFlightRef = useRef<Set<string>>(new Set())
   const [messages, setMessages] = useState<Message[]>([])
   const [mediaPreview, setMediaPreview] = useState<MediaPreview | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -2669,6 +2683,262 @@ export default function ChatBoxComponent(props: any) {
 
   const isFavored = isPropertyInFavourite(snaps)
 
+  const shortOverviewApiBase = useMemo(() => {
+    if (process.env.NODE_ENV !== "production") {
+      return "http://localhost:4000"
+    }
+    const raw =
+      process.env.NEXT_PUBLIC_SHORT_OVERVIEW_API_BASE_URL ||
+      process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL ||
+      ""
+    return String(raw || "").replace(/\/$/, "")
+  }, [])
+
+  const extractOverviewMeta = useCallback((data: any) => {
+    return {
+      overview: String(
+        data?.overview ??
+        data?.publicRemarks ??
+        data?.property?.descriptions?.[0]?.value ??
+        "",
+      ).trim(),
+      overview_short: String(
+        data?.overview_short ??
+        data?.overviewShort ??
+        data?.public?.overview_short ??
+        "",
+      ).trim(),
+      overview_short_updated_at:
+        data?.overview_short_updated_at ??
+        data?.overviewShortUpdatedAt ??
+        undefined,
+      overview_short_model:
+        data?.overview_short_model ??
+        data?.overviewShortModel ??
+        undefined,
+      overview_short_source_hash:
+        data?.overview_short_source_hash ??
+        data?.overviewShortSourceHash ??
+        undefined,
+    }
+  }, [])
+
+  const activeOverviewPropertyId = useMemo(
+    () =>
+      String(
+        snapzPropertyId ||
+        propertyData?.propertyId ||
+        propertyData?.id ||
+        selectedThreadDetail?.propertyId ||
+        "",
+      ).trim(),
+    [propertyData?.id, propertyData?.propertyId, selectedThreadDetail?.propertyId, snapzPropertyId],
+  )
+
+  const activeOverviewMeta = useMemo(
+    () => extractOverviewMeta(propertyData),
+    [extractOverviewMeta, propertyData],
+  )
+
+  const displayOverviewText = useMemo(() => {
+    const cachedShort = shortOverviewByProperty[activeOverviewPropertyId]?.overview_short || ""
+    const latestShort = activeOverviewMeta.overview_short || cachedShort
+    return latestShort.trim() ? latestShort : activeOverviewMeta.overview
+  }, [activeOverviewMeta.overview, activeOverviewMeta.overview_short, activeOverviewPropertyId, shortOverviewByProperty])
+
+  const isOverviewSummaryLoading = useMemo(
+    () => !!shortOverviewLoadingByProperty[activeOverviewPropertyId],
+    [activeOverviewPropertyId, shortOverviewLoadingByProperty],
+  )
+
+  useEffect(() => {
+    if (!showDetails) return
+    const cachedShort = shortOverviewByProperty[activeOverviewPropertyId]?.overview_short || ""
+    const latestShort = activeOverviewMeta.overview_short || cachedShort
+    const mode = latestShort.trim() ? "summary" : "fallback"
+    console.info("[ChatBox][OverviewDisplay]", {
+      propertyId: activeOverviewPropertyId || null,
+      mode,
+      shortLength: latestShort?.length || 0,
+      fallbackLength: activeOverviewMeta.overview?.length || 0,
+    })
+  }, [
+    activeOverviewMeta.overview,
+    activeOverviewMeta.overview_short,
+    activeOverviewPropertyId,
+    shortOverviewByProperty,
+    showDetails,
+  ])
+
+  useEffect(() => {
+    if (!activeOverviewPropertyId) return
+    if (!activeOverviewMeta.overview_short) return
+
+    setShortOverviewByProperty((prev) => ({
+      ...prev,
+      [activeOverviewPropertyId]: {
+        overview_short: activeOverviewMeta.overview_short,
+        overview_short_updated_at: activeOverviewMeta.overview_short_updated_at,
+        overview_short_model: activeOverviewMeta.overview_short_model,
+        overview_short_source_hash: activeOverviewMeta.overview_short_source_hash,
+      },
+    }))
+  }, [
+    activeOverviewMeta.overview_short,
+    activeOverviewMeta.overview_short_model,
+    activeOverviewMeta.overview_short_source_hash,
+    activeOverviewMeta.overview_short_updated_at,
+    activeOverviewPropertyId,
+  ])
+
+  useEffect(() => {
+    if (!showDetails) return
+    if (!shortOverviewApiBase) return
+    if (!activeOverviewPropertyId) return
+    if (!activeOverviewMeta.overview) return
+    if (shortOverviewInFlightRef.current.has(activeOverviewPropertyId)) return
+
+    const controller = new AbortController()
+    shortOverviewInFlightRef.current.add(activeOverviewPropertyId)
+    setShortOverviewLoadingByProperty((prev) => ({ ...prev, [activeOverviewPropertyId]: true }))
+
+    const upsertSummary = (payload: any) => {
+      const summary = String(
+        payload?.summary ??
+        payload?.overview_short ??
+        payload?.data?.overview_short ??
+        payload?.data?.summary ??
+        "",
+      ).trim()
+      if (!summary) return
+
+      const nextMeta = {
+        overview_short: summary,
+        overview_short_updated_at:
+          payload?.overview_short_updated_at ??
+          payload?.data?.overview_short_updated_at ??
+          new Date().toISOString(),
+        overview_short_model:
+          payload?.overview_short_model ??
+          payload?.data?.overview_short_model ??
+          undefined,
+        overview_short_source_hash:
+          payload?.overview_short_source_hash ??
+          payload?.data?.overview_short_source_hash ??
+          undefined,
+      }
+
+      setShortOverviewByProperty((prev) => ({
+        ...prev,
+        [activeOverviewPropertyId]: {
+          ...(prev[activeOverviewPropertyId] || {}),
+          ...nextMeta,
+        },
+      }))
+
+      setPropertyData((prev: any) =>
+        prev
+          ? {
+            ...prev,
+            ...nextMeta,
+          }
+          : prev,
+      )
+    }
+
+    const run = async () => {
+      try {
+        const token =
+          getAuthToken() ||
+          (typeof window !== "undefined" ? localStorage.getItem("userAccessToken") : null)
+        const basePayload = {
+          propertyId: activeOverviewPropertyId,
+          overview: activeOverviewMeta.overview,
+          force: false,
+        }
+        const trimmedBase = shortOverviewApiBase.replace(/\/$/, "")
+        const rootBase = trimmedBase.endsWith("/auth")
+          ? trimmedBase.slice(0, -"/auth".length)
+          : trimmedBase
+        const endpointCandidates = Array.from(
+          new Set(
+            [
+              `${trimmedBase}/api/overview-short`,
+              `${trimmedBase}/properties/${activeOverviewPropertyId}/overview-short`,
+              `${rootBase}/api/overview-short`,
+              `${rootBase}/properties/${activeOverviewPropertyId}/overview-short`,
+            ].filter(Boolean),
+          ),
+        )
+
+        let lastErrorMessage = "No summary endpoint candidates configured"
+        for (const endpoint of endpointCandidates) {
+          try {
+            const response = await fetch(endpoint, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+              body: JSON.stringify(basePayload),
+              signal: controller.signal,
+              credentials: "include",
+            })
+
+            let responseBody: any = null
+            try {
+              responseBody = await response.json()
+            } catch (_) {
+              responseBody = null
+            }
+
+            if (!response.ok) {
+              lastErrorMessage = String(
+                responseBody?.message ||
+                responseBody?.error ||
+                `Short overview request failed (${response.status})`,
+              )
+              console.info("[ChatBox][OverviewShort] Endpoint attempt failed", {
+                endpoint,
+                status: response.status,
+                message: lastErrorMessage,
+              })
+              continue
+            }
+
+            upsertSummary(responseBody)
+            return
+          } catch (attemptErr: any) {
+            lastErrorMessage = String(attemptErr?.message || "Unknown summary request error")
+            console.info("[ChatBox][OverviewShort] Endpoint attempt error", {
+              endpoint,
+              message: lastErrorMessage,
+            })
+          }
+        }
+
+        throw new Error(lastErrorMessage)
+      } catch (err) {
+        // Non-blocking fallback: keep showing full overview.
+        console.warn("[ChatBox][OverviewShort] Unable to generate short overview", err)
+      } finally {
+        shortOverviewInFlightRef.current.delete(activeOverviewPropertyId)
+        setShortOverviewLoadingByProperty((prev) => ({ ...prev, [activeOverviewPropertyId]: false }))
+      }
+    }
+
+    run()
+
+    return () => {
+      controller.abort()
+    }
+  }, [
+    activeOverviewMeta.overview,
+    activeOverviewPropertyId,
+    shortOverviewApiBase,
+    showDetails,
+  ])
+
   interface AggregatedAgentThread {
     entryKey: string;
     agentId?: string;
@@ -2773,7 +3043,7 @@ export default function ChatBoxComponent(props: any) {
   }, [threadsForDisplay, locallyReadThreadIds, state?.conversationUnreadCount, userData?.id]);
 
   const aggregatedThreads = useMemo<AggregatedAgentThread[]>(() => {
-    if (!Array.isArray(threads)) {
+    if (!Array.isArray(threadsForDisplay)) {
       return [];
     }
 
@@ -2810,7 +3080,7 @@ export default function ChatBoxComponent(props: any) {
       ).getTime();
     };
 
-    threads.forEach((thread: Thread) => {
+    threadsForDisplay.forEach((thread: Thread) => {
       const agentCandidate = resolveAgentCandidate(thread);
       const agentId = agentCandidate?.id;
       const propertyIdentifier = resolvePropertyIdentifier(thread);
@@ -2826,6 +3096,11 @@ export default function ChatBoxComponent(props: any) {
         : undefined;
 
       const updatedAt = resolveLastUpdated(thread);
+      const lastMessage =
+        Array.isArray(thread?.messages) && thread.messages.length
+          ? thread.messages[thread.messages.length - 1]
+          : null;
+
       const unreadCountFromMessages = Array.isArray(thread?.messages)
         ? thread.messages.filter((message: Message) => {
           const isUnread =
@@ -2840,6 +3115,7 @@ export default function ChatBoxComponent(props: any) {
           return !senderId || senderId !== userData?.id;
         }).length
         : 0;
+
       const socketUnreadCount = Array.isArray(state?.conversationUnreadCount)
         ? state.conversationUnreadCount.find((entry: any) => {
           const entryId = normalizeThreadId(entry?.threadId);
@@ -2870,6 +3146,8 @@ export default function ChatBoxComponent(props: any) {
       } else {
         unreadCount = thread?.unreadCount ?? unreadCountFromMessages;
       }
+
+      // Do not infer unread from last message alone; rely on backend counts or socket updates.
 
       if (agentId) {
         let entry = groupMap.get(agentId);
@@ -2927,7 +3205,7 @@ export default function ChatBoxComponent(props: any) {
     );
 
     return aggregated;
-  }, [threads, userData?.id, locallyReadThreadIds, state?.conversationUnreadCount]);
+  }, [threadsForDisplay, userData?.id, locallyReadThreadIds, state?.conversationUnreadCount]);
 
   const displayedThreads = useMemo<AggregatedAgentThread[]>(() => {
     if (showUnreadOnly) {
@@ -2937,6 +3215,18 @@ export default function ChatBoxComponent(props: any) {
     }
     return aggregatedThreads;
   }, [aggregatedThreads, showUnreadOnly]);
+
+  useEffect(() => {
+    const threadIds = displayedThreads
+      .map((entry) => entry?.baseThread?.id)
+      .filter((id): id is string => Boolean(id));
+    const duplicateThreadIds = threadIds.filter(
+      (id, index) => threadIds.indexOf(id) !== index,
+    );
+    if (duplicateThreadIds.length) {
+      console.warn("[ChatBox] Duplicate thread ids:", duplicateThreadIds);
+    }
+  }, [displayedThreads]);
 
   const unreadMessageCount = useMemo(() => {
     return aggregatedThreads.reduce(
@@ -3071,8 +3361,12 @@ export default function ChatBoxComponent(props: any) {
       const firstName = userDetails?.firstName || ""
       const lastName = userDetails?.lastName || ""
       const combinedName = `${firstName} ${lastName}`.trim()
-      const email = userDetails?.email || participant?.email || ""
-      const name = combinedName || email?.split("@")?.[0] || "Invited User"
+      const email =
+        userDetails?.email ||
+        participant?.invitedEmail ||
+        participant?.email ||
+        ""
+      const name = combinedName || email || "Invited User"
       const role = getRoleLabel(
         participant?.inviteRole ||
         participant?.role ||
@@ -3083,8 +3377,8 @@ export default function ChatBoxComponent(props: any) {
       const id = String(userDetails?.id || participant?.id || `${email}-${index}`)
       const dedupeKey = email
         ? `email-${String(email).toLowerCase()}`
-        : userDetails?.id || participant?.id
-          ? `id-${String(userDetails?.id || participant?.id).toLowerCase()}`
+        : userDetails?.id || participant?.invitedUserId || participant?.id
+          ? `id-${String(userDetails?.id || participant?.invitedUserId || participant?.id).toLowerCase()}`
           : `fallback-${index}`
 
       if (seenKeys.has(dedupeKey)) {
@@ -3174,7 +3468,53 @@ export default function ChatBoxComponent(props: any) {
       label: "Declined",
     },
   }
-  const totalParticipantsCount = Array.isArray(threadParticipants) ? threadParticipants.length : 0
+  const acceptedParticipantsCount = useMemo(() => {
+    const baseParticipants = [
+      selectedThreadDetail?.user,
+      selectedThreadDetail?.buyerAgent,
+      selectedThreadDetail?.sellerAgent,
+    ].filter(Boolean)
+
+    const invitedAcceptedParticipants = Array.isArray(selectedThreadDetail?.participants)
+      ? selectedThreadDetail.participants.filter((participant: any) => {
+        const rawStatus = String(
+          participant?.approvalStatus ??
+          participant?.status ??
+          participant?.inviteStatus ??
+          participant?.invitationStatus ??
+          "",
+        ).toLowerCase()
+        return (
+          participant?.is_accepted === true ||
+          participant?.isAccepted === true ||
+          rawStatus.includes("accept") ||
+          rawStatus.includes("approv") ||
+          rawStatus.includes("join")
+        )
+      })
+      : []
+
+    const uniqueIds = new Set<string>()
+    const addByIdOrEmail = (value: any) => {
+      const id = String(value?.id || value?.user?.id || "").trim().toLowerCase()
+      const email = String(value?.email || value?.user?.email || "").trim().toLowerCase()
+      const key = id ? `id-${id}` : email ? `email-${email}` : ""
+      if (!key) return
+      uniqueIds.add(key)
+    }
+
+    baseParticipants.forEach(addByIdOrEmail)
+    invitedAcceptedParticipants.forEach((participant: any) => addByIdOrEmail(participant?.user || participant))
+
+    return uniqueIds.size
+  }, [
+    selectedThreadDetail?.buyerAgent,
+    selectedThreadDetail?.participants,
+    selectedThreadDetail?.sellerAgent,
+    selectedThreadDetail?.user,
+  ])
+
+  const totalParticipantsCount = acceptedParticipantsCount
   const isInviteLimitReached = totalParticipantsCount >= MAX_INVITES_PER_CHAT
   const inviteLimitMessage = `No more than ${MAX_INVITES_PER_CHAT} participants can be in this chat.`
   const blockedInviteEmails = useMemo(() => {
@@ -3284,10 +3624,20 @@ export default function ChatBoxComponent(props: any) {
   const normalizeMessage = (message: Message) => {
     const rawMessage = message.message ?? message.content ?? ''
     const decryptedMessage = decryptMessageSafely(rawMessage)
-    const normalizedMessageType =
+    const resolvedMessageType =
       message.messageType ||
       message.message_type ||
+      (message as any)?.type ||
       (message.fileType || message.file_type ? 'file' : 'text')
+    const resolvedEventType =
+      message?.eventType ||
+      (message as any)?.event_type ||
+      (message as any)?.data?.eventType ||
+      (message as any)?.data?.event_type;
+    const resolvedMeta =
+      message?.meta ||
+      (message as any)?.metadata ||
+      (message as any)?.data?.meta;
     const fileUrlCandidate =
       message.file?.url ||
       (isProbablyUrl(decryptedMessage) ? decryptedMessage : '') ||
@@ -3297,14 +3647,16 @@ export default function ChatBoxComponent(props: any) {
     const derivedFileType =
       message.fileType || message.file_type || getMimeTypeFromUrl(fileUrlCandidate)
     const finalMessageType =
-      normalizedMessageType === 'system'
+      resolvedMessageType === 'system'
         ? 'system'
-        : normalizedMessageType === 'text' && (fileUrlCandidate || derivedFileType)
+        : resolvedMessageType === 'text' && (fileUrlCandidate || derivedFileType)
           ? 'file'
-          : normalizedMessageType
+          : resolvedMessageType
     return {
       ...message,
       message: decryptedMessage,
+      eventType: resolvedEventType,
+      meta: resolvedMeta,
       messageType: finalMessageType,
       fileType: derivedFileType,
       fileUrl: fileUrlCandidate || message.fileUrl
@@ -3330,18 +3682,25 @@ export default function ChatBoxComponent(props: any) {
       participantName ||
       "Someone";
     const target = message?.meta?.target?.name || "someone";
+    const fileName =
+      message?.meta?.file?.name ||
+      (typeof message?.message === "string" ? getFileNameFromUrl(message.message) : "") ||
+      "";
     const eventType = message?.eventType;
 
     if (eventType === "user_added") {
       return `${actor} added ${target}`;
     }
-    if (eventType === "document_shared") {
-      return `${actor} shared a document`;
+    if (eventType === "document_shared" && fileName) {
+      return `${actor} shared ${fileName}`;
     }
-    if (eventType === "media_shared") {
-      return `${actor} shared media`;
+    if (eventType === "media_shared" && fileName) {
+      return `${actor} shared ${fileName}`;
     }
-    return message?.message || "System update";
+    if (message?.messageType === "system" && fileName) {
+      return `${actor} shared ${fileName}`;
+    }
+    return "";
   };
   const getFileNameFromUrl = useCallback((url: string) => {
     try {
@@ -3521,49 +3880,17 @@ export default function ChatBoxComponent(props: any) {
     const activeThreadId = String(selectedThreadDetail?.id || selectedThread || "")
     if (!activeThreadId) return
 
-    const inferredName = invitedEmail.split("@")[0] || "Invited"
     const optimisticParticipant = {
       id: `pending-${Date.now()}-${normalizedEmail}`,
       approvalStatus: "pending",
       inviteRole: selectedRole,
       createdAt: new Date().toISOString(),
       user: {
-        firstName: inferredName,
+        firstName: "",
         lastName: "",
         email: invitedEmail,
       },
     }
-
-    setSelectedThreadDetail((prev: any) => {
-      if (!prev) return prev
-      const existingParticipants = Array.isArray(prev?.participants) ? prev.participants : []
-      const alreadyExists = existingParticipants.some(
-        (participant: any) =>
-          String(participant?.user?.email || participant?.email || "").toLowerCase() === normalizedEmail,
-      )
-      if (alreadyExists) return prev
-      return {
-        ...prev,
-        participants: [...existingParticipants, optimisticParticipant],
-      }
-    })
-
-    setThreadParticipant((prev: any) => {
-      const existingParticipants = Array.isArray(prev) ? prev : []
-      const alreadyExists = existingParticipants.some(
-        (participant: any) =>
-          String(participant?.email || "").toLowerCase() === normalizedEmail,
-      )
-      if (alreadyExists) return existingParticipants
-      return [
-        ...existingParticipants,
-        {
-          firstName: inferredName,
-          lastName: "",
-          email: invitedEmail,
-        },
-      ]
-    })
 
     setPersistedInvitesByThread((prev) => {
       const threadInvites = Array.isArray(prev[activeThreadId]) ? prev[activeThreadId] : []
@@ -3587,7 +3914,7 @@ export default function ChatBoxComponent(props: any) {
             ...(data?.buyerAgent ? [data.buyerAgent] : []),
             ...(data?.sellerAgent ? [data.sellerAgent] : []),
             ...(data?.user ? [data.user] : []),
-            ...(Array.isArray(data?.participants) ? data.participants.map((p: any) => p.user) : []),
+            ...(Array.isArray(data?.participants) ? data.participants.map((p: any) => p?.user || p).filter(Boolean) : []),
           ];
           handleThreadSelection(data, participants)
         },
@@ -3781,7 +4108,7 @@ export default function ChatBoxComponent(props: any) {
       ...(targetThread?.buyerAgent ? [targetThread.buyerAgent] : []),
       ...(targetThread?.sellerAgent ? [targetThread.sellerAgent] : []),
       ...(targetThread?.user ? [targetThread.user] : []),
-      ...(Array.isArray(targetThread?.participants) ? targetThread.participants.map((p: any) => p.user) : []),
+      ...(Array.isArray(targetThread?.participants) ? targetThread.participants.map((p: any) => p?.user || p).filter(Boolean) : []),
     ]
 
     handleThreadSelection(targetThread, participants)
@@ -3796,6 +4123,14 @@ export default function ChatBoxComponent(props: any) {
     setSelectedChannel(null)
     setSelectedThread('')
     setExpandedEntryKey(null)
+    setSelectedThreadDetail(null)
+    setState((prev: any) => ({
+      ...prev,
+      selectedChannel: {
+        id: null,
+        propertyName: ""
+      }
+    }))
   }
 
   useEffect(() => {
@@ -3840,6 +4175,8 @@ export default function ChatBoxComponent(props: any) {
           setPendingNewMessageCount(0);
           setMessages(decryptedMessages || []);
           if (focusLatestFromNotification) {
+            scrollToLatestMessagesWithRetry();
+          } else {
             scrollToLatestMessagesWithRetry();
           }
         },
@@ -4228,7 +4565,6 @@ export default function ChatBoxComponent(props: any) {
 
       if (!socket.connected) {
         socket.connect();
-        return;
       }
 
       // Resolve thread ID
@@ -4238,7 +4574,7 @@ export default function ChatBoxComponent(props: any) {
         selectedThread ||
         threadId;
 
-      if (!currentThreadId || !userData?.id || !receiverId) {
+      if (!currentThreadId || !userData?.id) {
         console.error("[handleSendMessage] Missing required data");
         return;
       }
@@ -4252,6 +4588,13 @@ export default function ChatBoxComponent(props: any) {
       }
 
       let fileUrl: string | '' = '';
+      const resolvedReceiverId =
+        receiverId ||
+        threadParticipants?.find((participant: any) => participant?.id && participant.id !== userData?.id)?.id ||
+        selectedThreadDetail?.participants
+          ?.map((participant: any) => participant?.user || participant)
+          .find((participant: any) => participant?.id && participant.id !== userData?.id)?.id ||
+        "";
 
       // 1️⃣ Upload file first (REST)
       if (hasFile && selectedFile) {
@@ -4267,6 +4610,7 @@ export default function ChatBoxComponent(props: any) {
       socket.sendMessage({
         threadId: currentThreadId,
         userId: userData.id,
+        receiverId: resolvedReceiverId || undefined,
         messageType: hasFile ? "file" : "text",
         message: hasFile ? fileUrl : message,
         fileType: hasFile ? selectedFile?.type : undefined, // ✅ FIX
@@ -4279,7 +4623,7 @@ export default function ChatBoxComponent(props: any) {
         {
           threadId: currentThreadId,
           senderId: userData.id,
-          receiverId,
+          receiverId: resolvedReceiverId,
           messageType: hasFile ? "file" : "text",
           message: hasFile ? fileUrl : message,
           fileType: hasFile ? selectedFile?.type : undefined, // ✅ FIX
@@ -4317,12 +4661,18 @@ export default function ChatBoxComponent(props: any) {
     </>
   }
 
-  const groupedMessages: { [date: string]: Message[] } = messages.reduce((acc: { [date: string]: Message[] }, message) => {
-    const date = format(new Date(message?.createdAt ?? 0), "yyyy-MM-dd");
-    if (!acc[date]) acc[date] = [];
-    acc[date].push(message);
-    return acc;
-  }, {});
+  const groupedMessages: { [date: string]: Message[] } = [...messages]
+    .sort(
+      (a, b) =>
+        new Date(a?.createdAt ?? 0).getTime() -
+        new Date(b?.createdAt ?? 0).getTime(),
+    )
+    .reduce((acc: { [date: string]: Message[] }, message) => {
+      const date = format(new Date(message?.createdAt ?? 0), "yyyy-MM-dd");
+      if (!acc[date]) acc[date] = [];
+      acc[date].push(message);
+      return acc;
+    }, {});
 
   // const groupedMessages: { [date: string]: Message[] } = (() => {
   //   const thread = messageThreads.find((thread) => thread.id === selectedThread);
@@ -4383,6 +4733,70 @@ export default function ChatBoxComponent(props: any) {
       return [processedMessage, ...prevMessages];
     });
   }, [userData?.id]);
+
+  const syncThreadMessage = useCallback(
+    (processedMessage: Message) => {
+      const threadId = processedMessage?.threadId;
+      if (!threadId) return;
+
+      setMessageThreads((prevThreads) => {
+        const threadsList = Array.isArray(prevThreads) ? [...prevThreads] : [];
+        const threadIndex = threadsList.findIndex((thread: Thread) =>
+          threadMatchesRouteId(thread, threadId),
+        );
+        if (threadIndex === -1) return prevThreads;
+
+        const targetThread: any = threadsList[threadIndex];
+        const existingMessages = Array.isArray(targetThread?.messages)
+          ? targetThread.messages
+          : [];
+
+        const hasDuplicate = existingMessages.some((msg: any) => {
+          if (processedMessage.id && msg?.id === processedMessage.id) return true;
+          if (
+            processedMessage.createdAt &&
+            msg?.createdAt === processedMessage.createdAt &&
+            msg?.senderId === processedMessage.senderId &&
+            msg?.message === processedMessage.message
+          ) {
+            return true;
+          }
+          return false;
+        });
+
+        if (hasDuplicate) return prevThreads;
+
+        const normalizedMessage: any = {
+          ...processedMessage,
+          createdAt: processedMessage.createdAt || new Date().toISOString(),
+          isRead:
+            typeof processedMessage.isRead === "boolean"
+              ? processedMessage.isRead
+              : processedMessage.senderId === userData?.id,
+          read:
+            typeof processedMessage.read === "boolean"
+              ? processedMessage.read
+              : processedMessage.senderId === userData?.id,
+        };
+
+        const nextMessages = [...existingMessages, normalizedMessage];
+        threadsList[threadIndex] = {
+          ...targetThread,
+          messages: nextMessages,
+          lastMessage: normalizedMessage.message || targetThread.lastMessage,
+          lastMessageAt: normalizedMessage.createdAt || targetThread.lastMessageAt,
+          updatedAt: normalizedMessage.createdAt || targetThread.updatedAt,
+          unreadCount:
+            normalizedMessage.senderId && normalizedMessage.senderId !== userData?.id
+              ? (targetThread?.unreadCount || 0) + 1
+              : targetThread?.unreadCount || 0,
+        };
+
+        return threadsList;
+      });
+    },
+    [setMessageThreads, threadMatchesRouteId, userData?.id],
+  );
 
 
   useEffect(() => {
@@ -4472,42 +4886,66 @@ export default function ChatBoxComponent(props: any) {
         setIsTyping(typing);
       });
 
-      // Handle newMessage event from websocket backend (Lambda/API Gateway)
-      const handleNewMessage = (messageData: any) => {
-        console.log('[ChatBox] Received newMessage from websocket:', messageData);
+      // Handle incoming message events from websocket backend
+      const processIncomingMessage = (
+        messageData: any,
+        sourceEvent: 'newMessage' | 'recievedMessage',
+      ) => {
+        console.log(`[ChatBox] Received ${sourceEvent} from websocket:`, messageData);
         console.log('[ChatBox] Current thread ID:', currentThreadId, 'Selected thread detail:', selectedThreadDetail?.id);
 
         const threadId = messageData.threadId || messageData.thread_id;
+        const inboundMessageType =
+          messageData.messageType ||
+          messageData.message_type ||
+          messageData.type ||
+          'text';
+        const inboundEventType =
+          messageData.eventType ||
+          messageData.event_type;
+        const inboundMeta =
+          messageData.meta ||
+          messageData.metadata ||
+          messageData.data?.meta;
         console.log('[ChatBox] Message thread ID:', threadId);
 
-        // Only process messages for the current thread
+        let processedMessage = normalizeMessage({
+          ...messageData,
+          threadId: threadId,
+          message: messageData.message || messageData.content,
+          senderId:
+            messageData.senderId ||
+            messageData.sender_id ||
+            messageData.userId ||
+            messageData.user_id ||
+            messageData.createdBy ||
+            inboundMeta?.actor?.id,
+          receiverId: messageData.receiverId || messageData.receiver_id,
+          createdAt: messageData.createdAt || messageData.created_at,
+          messageType: inboundMessageType,
+          fileType: messageData.fileType || messageData.file_type,
+          eventType: inboundEventType,
+          meta: inboundMeta,
+        });
+
+        // Only append to the active thread UI, but always sync thread state for unread counts
         if (threadId === currentThreadId || threadId === selectedThreadDetail?.id) {
           console.log('[ChatBox] Message matches current thread, processing...');
-          let processedMessage = normalizeMessage({
-            ...messageData,
-            threadId: threadId,
-            message: messageData.message || messageData.content,
-            senderId:
-              messageData.senderId ||
-              messageData.sender_id ||
-              messageData.userId ||
-              messageData.user_id ||
-              messageData.createdBy,
-            receiverId: messageData.receiverId || messageData.receiver_id,
-            createdAt: messageData.createdAt || messageData.created_at,
-            messageType: messageData.messageType || messageData.message_type || 'text',
-            fileType: messageData.fileType || messageData.file_type,
-          });
-
           console.log("[ChatBox] Adding newMessage to state:", processedMessage);
           appendIncomingMessage(processedMessage);
         } else {
-          console.log("[ChatBox] newMessage is for different thread, ignoring:", {
+          console.log("[ChatBox] newMessage is for different thread, updating unread counts:", {
             receivedThreadId: threadId,
             currentThreadId: currentThreadId
           });
         }
+        syncThreadMessage(processedMessage);
       };
+
+      const handleNewMessage = (messageData: any) =>
+        processIncomingMessage(messageData, 'newMessage');
+      const handleRecievedMessage = (messageData: any) =>
+        processIncomingMessage(messageData, 'recievedMessage');
 
       socket.on('newMessage', handleNewMessage);
       socket.on('recievedMessage', handleRecievedMessage);
@@ -4579,6 +5017,8 @@ export default function ChatBoxComponent(props: any) {
       return () => {
         console.log("[ChatBox] Cleaning up real-time listeners");
         socket.off("newMessage", handleNewMessage);
+        socket.off("recievedMessage", handleRecievedMessage);
+        socket.off("thread_marked_as_read");
         socket.off("typingStatus");
         socket.off("error");
         socket.off("connect");
@@ -4638,6 +5078,7 @@ export default function ChatBoxComponent(props: any) {
       if (!handledByActiveSocketListener) {
         appendIncomingMessage(normalized);
       }
+      syncThreadMessage(normalized);
       setState((prev: any) => ({
         ...prev,
         newMessage: null
@@ -4662,7 +5103,7 @@ export default function ChatBoxComponent(props: any) {
       ...(matchedThread?.buyerAgent ? [matchedThread.buyerAgent] : []),
       ...(matchedThread?.sellerAgent ? [matchedThread.sellerAgent] : []),
       ...(matchedThread?.user ? [matchedThread.user] : []),
-      ...(Array.isArray(matchedThread?.participants) ? matchedThread.participants.map((p: any) => p.user) : []),
+      ...(Array.isArray(matchedThread?.participants) ? matchedThread.participants.map((p: any) => p?.user || p).filter(Boolean) : []),
     ];
     handleThreadSelection(matchedThread, participants);
   }, [threadId, threads, selectedThreadDetail?.id]);
@@ -4675,6 +5116,16 @@ export default function ChatBoxComponent(props: any) {
     scrollToLatestMessagesWithRetry(24);
     hasHandledNotificationFocusRef.current = true;
   }, [focusLatestFromNotification, messages.length, scrollToLatestMessagesWithRetry, selectedThreadDetail?.id]);
+
+  useEffect(() => {
+    if (focusLatestFromNotification) return;
+    if (!messages.length) return;
+    const activeThreadId =
+      state?.selectedChannel?.id || selectedThreadDetail?.id || selectedThread || threadId;
+    if (!activeThreadId) return;
+
+    scrollToLatestMessagesWithRetry(16);
+  }, [focusLatestFromNotification, messages.length, scrollToLatestMessagesWithRetry, selectedThread, selectedThreadDetail?.id, state?.selectedChannel?.id, threadId]);
 
   useEffect(() => {
     hasHandledNotificationFocusRef.current = false;
@@ -4908,6 +5359,9 @@ export default function ChatBoxComponent(props: any) {
           </DialogHeader>
           <div className="mt-4 space-y-3">
             <input
+              id="invite-agent-email"
+              name="invite-agent-email"
+              type="email"
               value={inviteAgentEmail}
               onChange={(e) => setInviteAgentEmail(e.target.value)}
               placeholder="Agent email"
@@ -5007,11 +5461,26 @@ export default function ChatBoxComponent(props: any) {
                   variant="ghost"
                   onClick={() => {
                     setShowUnreadOnly(true)
-                    setIsRead(true)
+                    setIsRead(false)
                   }}
-                  className={`h-10 w-full text-gray-600 rounded-full px-4 py-2 ${showUnreadOnly ? "bg-white shadow text-gray-800" : ""}`}
+                  className={`h-10 w-full rounded-full px-4 py-2 ${showUnreadOnly
+                    ? "bg-red-50 shadow text-red-700"
+                    : unreadMessageCount > 0
+                      ? "text-red-600"
+                      : "text-gray-600"
+                    }`}
                 >
-                  Unread {unreadMessageCount > 0 ? `(${unreadMessageCount})` : "(0)"}
+                  <span className="flex items-center justify-center gap-2">
+                    <span>Unread</span>
+                    <span
+                      className={`min-w-[24px] rounded-full px-2 py-0.5 text-[11px] font-semibold ${unreadMessageCount > 0
+                        ? "bg-red-600 text-white"
+                        : "bg-gray-200 text-gray-600"
+                        }`}
+                    >
+                      {unreadMessageCount}
+                    </span>
+                  </span>
                 </Button>
               </div>
             </div>
@@ -5096,7 +5565,7 @@ export default function ChatBoxComponent(props: any) {
 
                     return (
                       <div
-                        key={thread.id}
+                        key={`${entry.entryKey}-${thread.id}`}
                         className={threadCardClasses}
                         onClick={() => handleThreadSelection(thread, participants)}
                       >
@@ -5153,6 +5622,9 @@ export default function ChatBoxComponent(props: any) {
                           <div className="mt-4 space-y-3 w-full">
                             {engagedProperties.map((property: AgentPropertySummary) => {
                               const isActiveProperty = selectedThreadDetail?.id === property.threadId;
+                              const propertyUnread =
+                                unreadCountByThreadId.get(normalizeThreadKey(property.threadId)) || 0;
+                              const hasPropertyUnread = propertyUnread > 0;
                               const displayTitle =
                                 property.propertyAddress || property.propertyName || 'Property';
                               const participantUsers = (property.participants ?? [])
@@ -5168,7 +5640,9 @@ export default function ChatBoxComponent(props: any) {
                                   key={property.propertyId}
                                   className={`relative w-full min-h-[86px] rounded-3xl border px-6 py-4 text-sm transition-all duration-200 cursor-pointer flex flex-col justify-between ${isActiveProperty
                                     ? 'bg-[#1B1B1B] text-white border-[#1B1B1B]'
-                                    : 'bg-[#FFF4EC] text-[#352416] border-[#F5D4B7]'
+                                    : hasPropertyUnread
+                                      ? 'bg-green-50 text-[#12451F] border-green-200'
+                                      : 'bg-[#FFF4EC] text-[#352416] border-[#F5D4B7]'
                                     }`}
                                   onClick={(event) => {
                                     event.stopPropagation();
@@ -5340,7 +5814,7 @@ export default function ChatBoxComponent(props: any) {
                                 <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                   <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
                                 </svg>
-                                <span className="font-medium">{threadParticipants?.length || 0} participants</span>
+                                <span className="font-medium">{acceptedParticipantsCount} participants</span>
                               </div>
                             </div>
                           </div>
@@ -5492,20 +5966,31 @@ export default function ChatBoxComponent(props: any) {
 
                                           const notificationMessage = message?.messageType === "notification";
                                           const systemMessage = message?.messageType === "system";
+                                          const systemText = systemMessage ? getSystemMessageText(message) : "";
+                                          const isFileMessage = message?.messageType === "file";
+                                          const fileEventUrl = isFileMessage ? resolveAttachmentUrlFromMessage(message) : "";
+                                          const fileEventName = isFileMessage
+                                            ? getFileNameFromUrl(fileEventUrl || message?.message || "")
+                                            : "";
+                                          const fileEventKey = isFileMessage
+                                            ? buildFileEventKey(message?.senderId, fileEventName)
+                                            : "";
+                                          const shouldShowInlineFileEvent =
+                                            isFileMessage &&
+                                            !notificationMessage &&
+                                            !systemMessage &&
+                                            !!fileEventKey &&
+                                            !existingSystemFileEvents.has(fileEventKey);
 
                                           return (
-                                            <div
-                                              key={index}
-                                              className={`flex gap-3 mt-4 items-start ${isSender ? 'justify-end' : ''}`}
-                                            // ref={isLastMessage ? messagesEndRef : null}
-                                            >
-                                              {systemMessage && (
+                                            <div key={index} className="w-full">
+                                              {systemMessage && !!systemText && (
                                                 <div className="flex justify-center rounded-xl text-center w-full pt-4 p-3">
                                                   <div className="bg-white shadow-md rounded-full w-fit px-8 py-3">
                                                     <div className="flex gap-2 items-center justify-center">
                                                       <MdNotificationAdd size={20} />
                                                       <p className="whitespace-pre-wrap break-words text-sm">
-                                                        {getSystemMessageText(message)}
+                                                        {systemText}
                                                       </p>
                                                     </div>
                                                     <div className="text-xs text-gray-400 px-2 mt-1 text-right">
@@ -5514,35 +5999,18 @@ export default function ChatBoxComponent(props: any) {
                                                   </div>
                                                 </div>
                                               )}
-                                              {notificationMessage &&
 
-                                                <div className="flex justify-center  rounded-xl text-center w-full  pt-6 p-3">
+                                              {notificationMessage && (
+                                                <div className="flex justify-center rounded-xl text-center w-full pt-6 p-3">
                                                   <div className="bg-white shadow-md rounded-full w-fit px-8 py-4 pt-6">
                                                     <div className="flex gap-2 items-center">
                                                       <MdNotificationAdd size={24} />
-                                                      <p className="whitespace-pre-wrap break-words  text- text-sm">{message.message}</p>
+                                                      <p className="whitespace-pre-wrap break-words text- text-sm">{message.message}</p>
                                                     </div>
-                                                    <div className={`text-xs text-gray-400 px-2 mt-2 text-right`}>
+                                                    <div className="text-xs text-gray-400 px-2 mt-2 text-right">
                                                       {formattedTime}
                                                     </div>
                                                   </div>
-
-                                                </div>
-                                              }
-                                              {!isSender && receiver && !notificationMessage && !systemMessage && (
-                                                <div className="w-7 h-7 sm:w-10 sm:h-10 mt-4 rounded-full border border-white/70 bg-[#FBB785] overflow-hidden flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0 text-white">
-                                                  {receiverImage ? (
-                                                    <Image
-                                                      src={receiverImage}
-                                                      alt="Participant"
-                                                      width={40}
-                                                      height={40}
-                                                      className="h-full w-full object-cover"
-                                                      unoptimized
-                                                    />
-                                                  ) : (
-                                                    getInitials(receiverFallbackName) || 'NA'
-                                                  )}
                                                 </div>
                                               )}
 
@@ -5739,7 +6207,7 @@ export default function ChatBoxComponent(props: any) {
                                                       </div>
                                                     </div>
                                                   )}
-                                                </div>
+                                                </>
                                               )}
                                             </div>
                                           );
@@ -5872,6 +6340,8 @@ export default function ChatBoxComponent(props: any) {
                                       <Paperclip className="h-4 w-4 text-blue-500" />
                                       <span>Image</span>
                                       <input
+                                        id="chat-upload-image"
+                                        name="chat-upload-image"
                                         type="file"
                                         className="hidden"
                                         onChange={handleFileChange}
@@ -5882,6 +6352,8 @@ export default function ChatBoxComponent(props: any) {
                                       <Play className="h-4 w-4 text-red-500" />
                                       <span>Video</span>
                                       <input
+                                        id="chat-upload-video"
+                                        name="chat-upload-video"
                                         type="file"
                                         className="hidden"
                                         onChange={handleFileChange}
@@ -5892,6 +6364,8 @@ export default function ChatBoxComponent(props: any) {
                                       <FileText className="h-4 w-4 text-gray-500" />
                                       <span>Document</span>
                                       <input
+                                        id="chat-upload-document"
+                                        name="chat-upload-document"
                                         type="file"
                                         className="hidden"
                                         onChange={handleFileChange}
@@ -5937,6 +6411,8 @@ export default function ChatBoxComponent(props: any) {
                             }}
                           >
                             <Input
+                              id="chat-message-input"
+                              name="chat-message-input"
                               className="flex-1 py-1 sm:py-2 px-2 sm:px-4 text-xs sm:text-sm border rounded-lg focus:outline-none"
                               placeholder="Type a message..."
                               value={message}
@@ -5994,7 +6470,7 @@ export default function ChatBoxComponent(props: any) {
                         <div className="pb-2">
                           <div className="relative">
                             <Image
-                              src={propertyData?.media?.photosList?.[0]?.lowRes || ""}
+                              src={propertyData?.media?.photosList?.[0]?.lowRes || "/placeholder.svg"}
                               alt={`Property Image `}
                               width={400}
                               height={100}
@@ -6109,13 +6585,25 @@ export default function ChatBoxComponent(props: any) {
                           </div>
                           <div className="mt-4">
                             <h4 className="font-semibold text-lg">Overview</h4>
-                            <span>{propertyData?.publicRemarks}</span>
+                            {isOverviewSummaryLoading && (
+                              <div className="my-2 space-y-2">
+                                <div className="h-3 w-full animate-pulse rounded bg-gray-200" />
+                                <div className="h-3 w-5/6 animate-pulse rounded bg-gray-200" />
+                              </div>
+                            )}
+                            <span>{displayOverviewText}</span>
 
                             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                               <DialogContent>
                                 <DialogHeader>
                                   <DialogTitle>Property Overview</DialogTitle>
-                                  <DialogDescription>{propertyData?.property?.descriptions?.[0]?.value}</DialogDescription>
+                                  {isOverviewSummaryLoading && (
+                                    <div className="my-2 space-y-2">
+                                      <div className="h-3 w-full animate-pulse rounded bg-gray-200" />
+                                      <div className="h-3 w-5/6 animate-pulse rounded bg-gray-200" />
+                                    </div>
+                                  )}
+                                  <DialogDescription>{displayOverviewText}</DialogDescription>
                                 </DialogHeader>
                                 <DialogClose asChild>
                                   <Button className="bg-orange-500 hover:bg-orange-600">Close</Button>
@@ -6178,12 +6666,12 @@ export default function ChatBoxComponent(props: any) {
                               </div>
                             ) : (
                               <div className="divide-y divide-gray-100">
-                                {invitedUsers.map((invitedUser) => {
+                                {invitedUsers.map((invitedUser, index) => {
                                   const styles = invitedUserStyles[invitedUser.status]
                                   const isExistingInviteDisabled = isInviteLimitReached
                                   return (
                                     <div
-                                      key={invitedUser.id}
+                                      key={`${invitedUser.id}-${invitedUser.email || "unknown"}-${index}`}
                                       className={`flex items-center justify-between gap-3 px-3 py-3 transition-colors ${isExistingInviteDisabled ? "opacity-60 bg-gray-50 cursor-not-allowed" : "hover:bg-gray-50"}`}
                                     >
                                       <div className="flex items-center gap-3 min-w-0">
@@ -6263,7 +6751,7 @@ export default function ChatBoxComponent(props: any) {
                                       ) : (
                                         mediaDocuments
                                           .filter((item) => item.kind === "image" || item.kind === "video")
-                                          .map((item) => {
+                                          .map((item, index) => {
                                             const createdDate = item.createdAt ? new Date(item.createdAt) : null
                                             const hasValidDate = createdDate instanceof Date && !Number.isNaN(createdDate.getTime())
                                             const timeLabel = hasValidDate
@@ -6271,7 +6759,7 @@ export default function ChatBoxComponent(props: any) {
                                               : "Unknown time"
                                             return (
                                               <button
-                                                key={item.id}
+                                                key={`${item.id}-${item.url}-${item.createdAt ?? ""}-${index}`}
                                                 type="button"
                                                 onClick={() => openMediaPreview(item.url, item.fileType)}
                                                 className="w-full text-left px-3 py-3 hover:bg-gray-50 transition-colors"
@@ -6324,7 +6812,7 @@ export default function ChatBoxComponent(props: any) {
                                       ) : (
                                         mediaDocuments
                                           .filter((item) => item.kind === "document")
-                                          .map((item) => {
+                                          .map((item, index) => {
                                             const createdDate = item.createdAt ? new Date(item.createdAt) : null
                                             const hasValidDate = createdDate instanceof Date && !Number.isNaN(createdDate.getTime())
                                             const timeLabel = hasValidDate
@@ -6332,7 +6820,7 @@ export default function ChatBoxComponent(props: any) {
                                               : "Unknown time"
                                             return (
                                               <button
-                                                key={item.id}
+                                                key={`${item.id}-${item.url}-${item.createdAt ?? ""}-${index}`}
                                                 type="button"
                                                 onClick={() => window.open(item.url, "_blank", "noopener,noreferrer")}
                                                 className="w-full text-left px-3 py-3 hover:bg-gray-50 transition-colors"

@@ -725,7 +725,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
   });
 
   const verifyPasswordResetCodeMutation = useMutation({
-    mutationKey: ['send-verification-code'],
+    mutationKey: ['verify-password-reset-code'],
     mutationFn: async (data: VerifyCode) => {
       return await handleAsync<AxiosResponse<IAuthUser>>(
         client.post,
@@ -737,16 +737,12 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     },
 
     onSuccess: (data: AxiosResponse<any>) => {
-      if ((data as any).status === 200) {
-        success({ message: data?.data?.message });
-        setAuthToken(data?.data?.data?.token);
-        storeCookie({ key: AUTH_TOKEN, value: data?.data?.data?.token });
-        storeCookie({ key: USER_ROLE, value: 'seller' });
-        router.push(`/set-password`);
-      }
+      // Keep this side-effect light; callers decide navigation/next steps
+      const message = data?.data?.message || 'Code verified successfully';
+      success({ message });
     },
     onError: (err: any) => {
-      error({ message: err?.response?.data?.message });
+      error({ message: err?.response?.data?.message || 'Invalid verification code' });
     },
   });
 
@@ -1034,29 +1030,118 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     mutationKey: ["invite_an_agent"],
     mutationFn: async (agentData: any) => {
       const token = getAuthToken();
-
-      const response = await axios.post(
-        GRAPHQL_URI,
-        {
-          query: `
-            mutation createExternalParticipant($input: InviteExternalAgentInput!) {
-              createExternalParticipant(input: $input) {
-                success
-                message
-              }
-            }
-          `,
-          variables: { input: agentData },
+      const requestConfig = {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      };
 
-      return response.data?.data?.createExternalParticipant;
+      const enhancedQuery = `
+        mutation createExternalParticipant($input: InviteExternalAgentInput!) {
+          createExternalParticipant(input: $input) {
+            success
+            message
+            participantId
+            agentId
+            code
+            field
+            correlationId
+            emailDeliveryStatus
+            emailFailureReason
+            emailProviderMessageId
+            email_delivery_status
+            email_failure_reason
+          }
+        }
+      `;
+
+      const legacyQuery = `
+        mutation createExternalParticipant($input: InviteExternalAgentInput!) {
+          createExternalParticipant(input: $input) {
+            success
+            message
+            participantId
+            agentId
+          }
+        }
+      `;
+
+      const isSchemaCompatibilityError = (errors: any[] | undefined) =>
+        Array.isArray(errors) &&
+        errors.some((err) => {
+          const message = String(err?.message || "").toLowerCase();
+          return message.includes("cannot query field") || message.includes("unknown argument");
+        });
+
+      try {
+        const response = await axios.post(
+          GRAPHQL_URI,
+          {
+            query: enhancedQuery,
+            variables: { input: agentData },
+          },
+          requestConfig
+        );
+
+        if (response.status === 200 && !response?.data?.errors) {
+          return response.data?.data?.createExternalParticipant;
+        }
+
+        if (isSchemaCompatibilityError(response?.data?.errors)) {
+          const fallbackResponse = await axios.post(
+            GRAPHQL_URI,
+            {
+              query: legacyQuery,
+              variables: { input: agentData },
+            },
+            requestConfig
+          );
+
+          if (fallbackResponse.status !== 200 || fallbackResponse?.data?.errors) {
+            const fallbackGraphQLError =
+              fallbackResponse?.data?.errors?.[0]?.message;
+            throw new Error(fallbackGraphQLError || "Failed to send invitation");
+          }
+
+          return fallbackResponse.data?.data?.createExternalParticipant;
+        }
+
+        const graphQLError = response?.data?.errors?.[0]?.message;
+        throw new Error(graphQLError || "Failed to send invitation");
+      } catch (err: any) {
+        if (isSchemaCompatibilityError(err?.response?.data?.errors)) {
+          try {
+            const fallbackResponse = await axios.post(
+              GRAPHQL_URI,
+              {
+                query: legacyQuery,
+                variables: { input: agentData },
+              },
+              requestConfig
+            );
+            if (fallbackResponse.status !== 200 || fallbackResponse?.data?.errors) {
+              const fallbackGraphQLError =
+                fallbackResponse?.data?.errors?.[0]?.message;
+              throw new Error(fallbackGraphQLError || "Failed to send invitation");
+            }
+            return fallbackResponse.data?.data?.createExternalParticipant;
+          } catch (fallbackErr: any) {
+            const fallbackMessage =
+              fallbackErr?.response?.data?.errors?.[0]?.message ||
+              fallbackErr?.message ||
+              "Failed to send invitation";
+            throw new Error(fallbackMessage);
+          }
+        }
+
+        const message =
+          err?.response?.data?.errors?.[0]?.message ||
+          err?.response?.data?.message ||
+          err?.message ||
+          "Failed to send invitation";
+        throw new Error(message);
+      }
     },
     onSuccess: (data) => {
       console.log("Agent invited:", data);

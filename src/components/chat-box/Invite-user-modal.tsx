@@ -4,11 +4,12 @@ import CustomModal from '../shared/custom-modal';
 import { useDisclosure } from '@mantine/hooks';
 import { Button } from '../ui/button';
 import { useUserAgentMessageApi } from '@/hooks/api/auth/useMessageApi';
-import { error, success } from '../alert/notify';
+import { error, info, success, warning } from '../alert/notify';
 import { usePropertyAPI } from '@/hooks/api/auth/engagementAPI';
 import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
 import { useAgentConversationApi } from '@/hooks/api/auth/useConversationApi';
 import { SocketContext } from '@/providers/socket.context';
+import { showLogger } from '@/shared/constants/env';
 
 interface InviteUserModalProps {
   threadId: string
@@ -55,6 +56,9 @@ const InviteUserModal = ({
   const [isEmailValid, setIsEmailValid] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [engagementId, setEngagementId] = useState<string | null>(null);
+  const effectiveInviteRole: InviteRole = inviteRole;
+  const shouldLogInviteDeliveryDebug =
+    showLogger || process.env.NEXT_PUBLIC_INVITE_DELIVERY_DEBUG === 'true';
 
   const actor = currentUserData || {};
   const normalizedPropertyId = String(propertyId || '').trim();
@@ -147,8 +151,114 @@ const InviteUserModal = ({
     return addParticipantsToThread.mutateAsync({
       threadId,
       email: targetEmail,
-      role: inviteRole,
+      role: effectiveInviteRole,
+      invitedByUserId: actor?.id,
+      engagementId: engagementId || undefined,
     });
+  };
+
+  const extractErrorMessage = (err: any): string => {
+    const graphQLError = err?.response?.data?.errors?.[0] || {};
+    const extensionCode = graphQLError?.extensions?.code || graphQLError?.code;
+    const correlationId =
+      graphQLError?.extensions?.correlationId ||
+      graphQLError?.correlationId;
+    if (extensionCode === 'EMAIL_SEND_FAILED') {
+      return correlationId
+        ? `Email delivery failed (ref: ${correlationId}).`
+        : 'Email delivery failed.';
+    }
+
+    const fallbackMessage = (
+      graphQLError?.message ||
+      err?.response?.data?.message ||
+      err?.message ||
+      'Failed to send invitation.'
+    );
+
+    const normalizedFallbackMessage = String(fallbackMessage).toLowerCase();
+    if (
+      normalizedFallbackMessage.includes('column user.passwordset does not exist') ||
+      normalizedFallbackMessage.includes('passwordset does not exist')
+    ) {
+      return 'Invitation failed due to a server configuration issue. Please try again later.';
+    }
+    if (
+      normalizedFallbackMessage.includes('status raw not found') ||
+      normalizedFallbackMessage.includes('statusraw not found')
+    ) {
+      return 'Invitation created, but delivery status was not provided by server.';
+    }
+
+    return fallbackMessage;
+  };
+
+  const mapInviteServerMessage = (message: string): string => {
+    const normalizedMessage = String(message || '').toLowerCase();
+    if (
+      normalizedMessage.includes('column user.passwordset does not exist') ||
+      normalizedMessage.includes('passwordset does not exist')
+    ) {
+      return 'Invitation failed due to a server configuration issue. Please try again later.';
+    }
+    if (
+      normalizedMessage.includes('status raw not found') ||
+      normalizedMessage.includes('statusraw not found')
+    ) {
+      return 'Invitation created, but delivery status was not provided by server.';
+    }
+    return message;
+  };
+
+  const logInviteDeliveryDebug = (payload: {
+    path: 'createExternalParticipant' | 'add_participant_to_thread'
+    targetEmail: string
+    role: InviteRole
+    statusRaw?: string
+    statusNormalized?: 'sent' | 'queued' | 'failed' | 'unknown'
+    emailFailureReason?: string
+    response: any
+  }) => {
+    if (!shouldLogInviteDeliveryDebug) return;
+    console.info('[InviteUserModal][DeliveryDebug]', {
+      timestamp: new Date().toISOString(),
+      threadId,
+      ...payload,
+    });
+  };
+
+  const normalizeDeliveryStatus = (inviteResponse: any): {
+    statusRaw: string
+    statusNormalized: 'sent' | 'queued' | 'failed' | 'unknown'
+  } => {
+    const rawStatus = String(
+      inviteResponse?.emailDeliveryStatus ??
+      inviteResponse?.email_delivery_status ??
+      inviteResponse?.deliveryStatus ??
+      inviteResponse?.delivery_status ??
+      inviteResponse?.invite?.emailDeliveryStatus ??
+      inviteResponse?.invite?.email_delivery_status ??
+      inviteResponse?.invite?.deliveryStatus ??
+      inviteResponse?.invite?.delivery_status ??
+      inviteResponse?.data?.emailDeliveryStatus ??
+      inviteResponse?.data?.email_delivery_status ??
+      inviteResponse?.data?.invite?.emailDeliveryStatus ??
+      inviteResponse?.data?.invite?.email_delivery_status ??
+      '',
+    )
+      .trim()
+      .toLowerCase();
+
+    if (rawStatus === 'sent' || rawStatus === 'queued' || rawStatus === 'failed') {
+      return {
+        statusRaw: rawStatus,
+        statusNormalized: rawStatus,
+      };
+    }
+    return {
+      statusRaw: rawStatus,
+      statusNormalized: 'unknown',
+    };
   };
 
   const handleInviteSubmit = async () => {
@@ -177,7 +287,9 @@ const InviteUserModal = ({
     setIsSubmitting(true);
 
     try {
-      if (inviteRole === 'buyer_agent') {
+      let inviteResponse: any = null;
+      let graphQLErrors: any[] = [];
+      if (effectiveInviteRole === 'buyer_agent') {
         if (!actor?.id) {
           error({ message: 'Please login to send invitation.' });
           setIsSubmitting(false);
@@ -189,18 +301,93 @@ const InviteUserModal = ({
           return;
         }
 
-        const response: any = await externalAgentIvitationMutation.mutateAsync({
-          agentType: actor?.account_type,
-          userId: actor?.id,
-          email: email.trim(),
-          is_accepted: 'pending',
-          engagementId: safeEngagementId,
-          threadId,
-        });
+        try {
+          const response: any = await externalAgentIvitationMutation.mutateAsync({
+            agentType: actor?.account_type,
+            userId: actor?.id,
+            email: email.trim(),
+            is_accepted: 'pending',
+            engagementId: safeEngagementId,
+            threadId,
+          });
 
-        if (!response?.success) {
-          throw new Error(response?.message || 'Failed to send invitation');
+          if (!response?.success) {
+            throw new Error(response?.message || 'Failed to send invitation');
+          }
+          inviteResponse = response;
+          logInviteDeliveryDebug({
+            path: 'createExternalParticipant',
+            targetEmail: email.trim(),
+            role: effectiveInviteRole,
+            response: inviteResponse,
+          });
+
+          if (socket && response?.agentId && response?.participantId) {
+            socket.emit('send_property_invitation', {
+              reciepent: response.agentId,
+              userName: `${actor?.firstname || ''} ${actor?.lastname || ''}`.trim(),
+              userEmail: actor?.email,
+              propertyImage: safePropertyImage,
+              propertyAddress: safePropertyAddress,
+              id: response.participantId,
+            });
+          }
+        } catch (externalInviteErr: any) {
+          console.error('[InviteUserModal][DeliveryDebug][Error]', {
+            path: 'createExternalParticipant',
+            threadId,
+            targetEmail: email.trim(),
+            role: effectiveInviteRole,
+            error: externalInviteErr?.response?.data || externalInviteErr,
+          });
+          throw externalInviteErr;
         }
+      } else {
+        const threadInviteResult: any = await sendThreadInviteByEmail(email.trim());
+        if (shouldLogInviteDeliveryDebug) {
+          console.info('[InviteUserModal][RuntimeProof][HookResult]', JSON.stringify(threadInviteResult ?? {}, null, 2));
+          console.info('[InviteUserModal][RuntimeProof][DataNode]', threadInviteResult?.data ?? null);
+          console.info('[InviteUserModal][RuntimeProof][MutationBody]', threadInviteResult?.mutationBody ?? '');
+        }
+        inviteResponse = threadInviteResult?.data ?? threadInviteResult;
+        graphQLErrors = Array.isArray(threadInviteResult?.graphQLErrors)
+          ? threadInviteResult.graphQLErrors
+          : [];
+        logInviteDeliveryDebug({
+          path: 'add_participant_to_thread',
+          targetEmail: email.trim(),
+          role: effectiveInviteRole,
+          response: inviteResponse,
+        });
+      }
+
+      const { statusRaw, statusNormalized } = normalizeDeliveryStatus(inviteResponse);
+      const deliveryFailureReason =
+        inviteResponse?.emailFailureReason ??
+        inviteResponse?.email_failure_reason ??
+        inviteResponse?.invite?.emailFailureReason ??
+        inviteResponse?.invite?.email_failure_reason;
+      logInviteDeliveryDebug({
+        path: effectiveInviteRole === 'buyer_agent' ? 'createExternalParticipant' : 'add_participant_to_thread',
+        targetEmail: email.trim(),
+        role: effectiveInviteRole,
+        statusRaw,
+        statusNormalized,
+        emailFailureReason: deliveryFailureReason,
+        response: inviteResponse,
+      });
+
+      if (graphQLErrors.length > 0 && statusNormalized !== 'sent' && statusNormalized !== 'queued') {
+        const graphQLErrorMessage = mapInviteServerMessage(
+          graphQLErrors?.[0]?.message || 'Invitation created, but server returned errors.',
+        );
+        if (graphQLErrorMessage === 'Invitation created, but delivery status was not provided by server.') {
+          info({ message: graphQLErrorMessage });
+        } else {
+          error({ message: graphQLErrorMessage });
+        }
+        return;
+      }
 
       if (statusNormalized === 'sent') {
         onInviteSuccess?.(email.trim(), effectiveInviteRole);
@@ -220,9 +407,6 @@ const InviteUserModal = ({
         success({ message: 'Invitation sent successfully.' });
       }
 
-      onInviteSuccess?.(email.trim(), inviteRole);
-      onParticipantsRefresh?.();
-      success({ message: 'Invitation sent successfully.' });
       setTimeout(() => {
         setEmail('');
         setInviteRole('buyer_agent');
@@ -230,7 +414,26 @@ const InviteUserModal = ({
         close();
       }, 120);
     } catch (err: any) {
-      error({ message: err?.message || 'Failed to send invitation.' });
+      console.error('[InviteUserModal][DeliveryDebug][Error]', {
+        path: effectiveInviteRole === 'buyer_agent' ? 'createExternalParticipant' : 'add_participant_to_thread',
+        threadId,
+        targetEmail: email.trim(),
+        role: effectiveInviteRole,
+        error: err?.response?.data || err,
+      });
+      const extractedMessage = extractErrorMessage(err);
+      const normalizedMessage = extractedMessage.toLowerCase();
+      if (
+        normalizedMessage.includes('duplicate') ||
+        normalizedMessage.includes('already invited') ||
+        normalizedMessage.includes('already exists')
+      ) {
+        error({ message: 'This user is already invited to this chat.' });
+      } else if (normalizedMessage.includes('expired')) {
+        error({ message: 'This invite has expired. Please send a new invite.' });
+      } else {
+        error({ message: extractedMessage });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -295,11 +498,6 @@ const InviteUserModal = ({
               <option value="co_buyer">Co-buyer</option>
               <option value="family_friends">Family/Friends</option>
             </select>
-            {inviteRole === 'family_friends' && (
-              <Text size="sm" c="orange">
-                Family/Friends invitees will have view-only (read-only) access.
-              </Text>
-            )}
           </div>
 
           <div className='flex gap-4 '>

@@ -30,8 +30,11 @@ export function NavigationList({ dark = false }: any) {
               <div className='flex flex-col space-y-4 pr-8'>
                 <h4 className={headingClass}>Buy a Home With</h4>
                 <div className='flex flex-col space-y-3'>
-                  <Link href='/login' className='hover:text-primary hover:underline'>
-                    Your Agent
+                  <Link href='/home?q=California' className='hover:text-primary hover:underline'>
+                    Homes in California
+                  </Link>
+                  <Link href='/home?q=Texas' className='hover:text-primary hover:underline'>
+                    Homes in Texas
                   </Link>
                   {/* <Link href='/login' className='hover:text-primary hover:underline'>
                     Our Real Estate Agents

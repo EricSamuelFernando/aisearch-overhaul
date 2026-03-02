@@ -627,50 +627,43 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
   const getThreadById = useMutation({
     mutationKey: ['thread'],
     mutationFn: async (id: string) => {
+      const query = `
+        query GetUserThreadById($id: String!) {
+          getUserThreadById(id: $id) {
+            id
+            threadName
+            propertyId
+            roomId
+            propertyName
+            listingId
+            propertyAddress
+            messages {
+              threadId
+              isRead
+              message
+            }
+            unreadCount
+            user {
+              id
+              firstName
+              lastName
+              email
+            }
+            parentMessage
+            buyerAgent {
+              id
+              firstName
+              lastName
+              email
+            }
+          }
+        }`;
+
       try {
         const response = await API.post(
           GRAPHQL_URI,
           {
-            query: `
-            query GetUserThreadById($id: String!) {
-              getUserThreadById(id: $id) {
-                id
-                  threadName
-                  propertyId
-                  roomId
-                  propertyName
-                  listingId
-                  propertyAddress
-                  messages{
-                    threadId
-                    isRead
-                    message
-                  }
-                  unreadCount
-                  participants{
-                    user 
-                    { 
-                     id
-                    firstName
-                    lastName
-                    email
-                    }
-                  }
-                  user{
-                    id
-                    firstName
-                    lastName
-                    email
-                  }
-                  parentMessage
-                  buyerAgent {
-                    id
-                    firstName
-                    lastName
-                    email
-                  }
-                }
-        }`,
+            query,
             variables: { id },
           }
         );
@@ -680,7 +673,6 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
             response.data?.errors?.[0]?.message || 'Failed to fetch thread',
           );
         }
-
         return response.data.data.getUserThreadById;
       } catch (error) {
         console.error('Error fetching thread:', error);

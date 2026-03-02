@@ -172,7 +172,7 @@ function MainNavPages() {
     const baseClasses = 'fixed left-0 right-0 top-0 z-50 flex w-full items-center justify-between px-4 md:px-8 transition-all duration-300';
     const backgroundClasses = isScrolled
       ? `${scrollBackgroundClass} shadow-lg py-2`
-      : 'bg-transparent py-4';
+      : (pathname === '/do-not-sell-or-share' ? 'bg-black py-4' : 'bg-transparent py-4');
 
     return `${baseClasses} ${finalTextColorClass} ${backgroundClasses}`;
   }, [finalTextColorClass, isScrolled, scrollBackgroundClass]);

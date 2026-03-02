@@ -118,6 +118,8 @@ export default function ConversationTab() {
     }
     
     if (conversationId && newMessage.trim() && user?.id) {
+      const receiverId =
+        activeAgent?.id || activeAgent?._id || undefined;
       console.log("[message-tab] Sending message via websocket:", { conversationId, message: newMessage, userId: user.id });
       
       const handleSendMessageResponse = (response: any) => {
@@ -142,6 +144,7 @@ export default function ConversationTab() {
             threadId: conversationId,
             message: newMessage,
             userId: user.id,
+            receiverId,
             messageType: 'text'
           });
         } else {

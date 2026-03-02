@@ -1,4 +1,5 @@
-import { ReactNode, useState, createContext, useEffect } from "react";
+import { ReactNode, useState, createContext, useEffect, useRef } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { isUserLoggedIn, accessToken, userData } from "@/slices/auth/auth.slice";
 import { useSelector } from "react-redux";
 import { WebSocketClient, createWebSocketClient } from "@/lib/websocket-client";
@@ -10,6 +11,7 @@ import { getAuthToken } from "@/lib/storage";
 import { useAtom } from "jotai";
 import { messageThreadsAtom } from "@/hooks/atoms";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNotificationApi } from "@/hooks/api/user/useNotification";
 
 type SocketContextType = {
   socket: WebSocketClient | null;
@@ -23,10 +25,14 @@ export const initialState: any = {
     user: null,
     property: null,
     message: "",
+    title: "",
+    body: "",
+    kind: "message",
     channelId: null,
     action: "navigate",
     isVisible: false,
   },
+  notifications: [],
   newMessage: null,
   isCurrentChatAtBottom: false,
   scrollToLatestRequest: null,
@@ -141,9 +147,9 @@ const resolveSenderName = (messageData: any): string => {
     const firstName = getStringValue(...firstNameKeys.map((key) => container?.[key]));
     const lastName = getStringValue(...lastNameKeys.map((key) => container?.[key]));
     const fullName = `${firstName} ${lastName}`.trim();
-    if (fullName) return fullName;
-    if (firstName) return firstName;
-    if (lastName) return lastName;
+    if (fullName && !isUuidLike(fullName)) return fullName;
+    if (firstName && !isUuidLike(firstName)) return firstName;
+    if (lastName && !isUuidLike(lastName)) return lastName;
 
     const senderObject = container?.sender;
     const senderFirst = getStringValue(
@@ -159,9 +165,9 @@ const resolveSenderName = (messageData: any): string => {
       senderObject?.sender_last_name,
     );
     const senderFull = `${senderFirst} ${senderLast}`.trim();
-    if (senderFull) return senderFull;
-    if (senderFirst) return senderFirst;
-    if (senderLast) return senderLast;
+    if (senderFull && !isUuidLike(senderFull)) return senderFull;
+    if (senderFirst && !isUuidLike(senderFirst)) return senderFirst;
+    if (senderLast && !isUuidLike(senderLast)) return senderLast;
 
     const explicitName = getStringValue(
       ...explicitNameKeys.map((key) => container?.[key]),
@@ -171,7 +177,7 @@ const resolveSenderName = (messageData: any): string => {
       container?.user?.first_name,
       container?.sender,
     );
-    if (explicitName) return explicitName;
+    if (explicitName && !isUuidLike(explicitName)) return explicitName;
   }
 
   const deepFirstName = findStringByKeysDeep(messageData, [
@@ -187,9 +193,9 @@ const resolveSenderName = (messageData: any): string => {
     "last_name",
   ]);
   const deepFullName = `${deepFirstName} ${deepLastName}`.trim();
-  if (deepFullName) return deepFullName;
-  if (deepFirstName) return deepFirstName;
-  if (deepLastName) return deepLastName;
+  if (deepFullName && !isUuidLike(deepFullName)) return deepFullName;
+  if (deepFirstName && !isUuidLike(deepFirstName)) return deepFirstName;
+  if (deepLastName && !isUuidLike(deepLastName)) return deepLastName;
 
   const deepExplicitName = findStringByKeysDeep(messageData, [
     "senderName",
@@ -198,7 +204,7 @@ const resolveSenderName = (messageData: any): string => {
     "sender_full_name",
     "name",
   ]);
-  if (deepExplicitName) return deepExplicitName;
+  if (deepExplicitName && !isUuidLike(deepExplicitName)) return deepExplicitName;
 
   const senderId = getStringValue(
     messageData?.senderId,
@@ -223,6 +229,27 @@ const resolveNotificationMessage = (messageData: any): string =>
     messageData?.content,
     messageData?.text,
   );
+
+const resolveNotificationThreadId = (payload: any): string =>
+  getStringValue(
+    payload?.threadId,
+    payload?.thread_id,
+    payload?.channelId,
+    payload?.channel_id,
+    payload?.data?.threadId,
+    payload?.data?.thread_id,
+  );
+
+const getFileNameFromUrl = (url?: string): string => {
+  if (!url) return "";
+  try {
+    const cleanUrl = url.split("?")[0];
+    const fileName = cleanUrl.split("/").pop() || "";
+    return decodeURIComponent(fileName);
+  } catch {
+    return "";
+  }
+};
 
 const normalizeId = (value: any): string => String(value ?? "").trim().toLowerCase();
 
@@ -325,7 +352,8 @@ const resolveSenderNameFromThreads = (
 };
 
 function SocketProvider({ children }: { children: ReactNode }) {
-  const SOCKET_URL = process.env.NEXT_PUBLIC_AUTH_SERIVCE_SOCKET_URL || "http://localhost:4000";
+  const SOCKET_URL =
+    process.env.NEXT_PUBLIC_COMMUNICATION_SOCKET_URI || "http://localhost:4002";
   const isLogin = useSelector(isUserLoggedIn);
   const token = useSelector(accessToken);
   const user = useSelector(userData);
@@ -337,6 +365,11 @@ function SocketProvider({ children }: { children: ReactNode }) {
   const [offerData, setOfferData] = useState(null);
   const [messageThreads] = useAtom(messageThreadsAtom);
   const queryClient = useQueryClient();
+  const { notificationsQuery } = useNotificationApi();
+  const authNotificationWsRef = useRef<WebSocket | null>(null);
+  const authNotificationReconnectRef = useRef<NodeJS.Timeout | null>(null);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   // Get token from Redux OR Cookie
   const cookieToken = getAuthToken();
@@ -587,7 +620,25 @@ function SocketProvider({ children }: { children: ReactNode }) {
         const senderId = resolveSenderId(messageData);
         const socketResolvedSenderName = resolveSenderName(messageData);
         const threadResolvedSenderName = resolveSenderNameFromThreads(threadId, senderId, messageThreads);
-        const notificationSenderName = getStringValue(socketResolvedSenderName, threadResolvedSenderName, "Someone");
+        const notificationSenderName = getStringValue(socketResolvedSenderName, threadResolvedSenderName, "Agent");
+        const resolvedMessageType = getStringValue(
+          messageData?.messageType,
+          messageData?.message_type,
+          messageData?.type,
+        );
+        const resolvedEventType = getStringValue(
+          messageData?.eventType,
+          messageData?.event_type,
+          messageData?.data?.eventType,
+          messageData?.data?.event_type,
+        );
+        const fileName =
+          getStringValue(messageData?.meta?.file?.name, messageData?.file?.name) ||
+          getFileNameFromUrl(resolveNotificationMessage(messageData));
+        const isDocumentEvent =
+          resolvedEventType === "document_shared" ||
+          resolvedEventType === "media_shared" ||
+          resolvedMessageType === "file";
 
         console.log(`[SocketContext] Received ${sourceEvent}:`, messageData);
         console.log('[SocketContext] newMessage sender debug:', {
@@ -626,7 +677,33 @@ function SocketProvider({ children }: { children: ReactNode }) {
             ];
 
           const shouldShowNotification =
-            !isSelfMessage && !isCurrentThreadOpen;
+            (!isSelfMessage && !isCurrentThreadOpen) ||
+            (isDocumentEvent && !isCurrentThreadOpen);
+
+          const nextNotifications = Array.isArray(prevState.notifications)
+            ? [...prevState.notifications]
+            : [];
+
+          if (shouldShowNotification) {
+            const notificationId = `socket-${threadId || 'thread'}-${Date.now()}`;
+            nextNotifications.unshift({
+              id: notificationId,
+              title: isDocumentEvent
+                ? "Document shared in property chat"
+                : "New message in property chat",
+              body: isDocumentEvent
+                ? `${notificationSenderName} shared ${fileName || "a document"}`
+                : `${notificationSenderName}: ${resolveNotificationMessage(messageData)}`,
+              createdAt: new Date().toISOString(),
+              read: false,
+              kind: isDocumentEvent ? "document" : "message",
+              link: threadId
+                ? `/dashboard/buyer?tab=messages&threadId=${threadId}`
+                : "/dashboard/buyer?tab=messages",
+              threadId: threadId || undefined,
+              source: "socket",
+            });
+          }
 
           return {
             ...prevState,
@@ -641,6 +718,13 @@ function SocketProvider({ children }: { children: ReactNode }) {
                 isVisible: true,
                 channelId: threadId,
                 action: "navigate",
+                kind: isDocumentEvent ? "document" : "message",
+                title: isDocumentEvent
+                  ? "Document shared in property chat"
+                  : "New message in property chat",
+                body: isDocumentEvent
+                  ? `${notificationSenderName} shared ${fileName || "a document"}`
+                  : "",
                 message: resolveNotificationMessage(messageData),
               }
               : prevState.notification,
@@ -650,6 +734,7 @@ function SocketProvider({ children }: { children: ReactNode }) {
                 threadId: threadId,
               }
               : prevState.newMessage,
+            notifications: nextNotifications.slice(0, 50),
           };
         });
       };
@@ -680,7 +765,104 @@ function SocketProvider({ children }: { children: ReactNode }) {
       socket.on("notification_created", (payload: any) => {
         console.log("[SocketContext] notification_created:", payload);
         queryClient.invalidateQueries({ queryKey: ["notifications"] });
+        const data = payload?.data || payload;
+        const threadId = resolveNotificationThreadId(data);
+        const snapId = getStringValue(data?.snapId, data?.snap_id);
+        const title = getStringValue(data?.title, data?.heading);
+        const body = getStringValue(data?.body, data?.message, data?.text);
+        const kind = getStringValue(data?.type, data?.kind) || "general";
+        const link =
+          getStringValue(data?.link) ||
+          (snapId ? `/account/collections/${snapId}` : '') ||
+          (threadId ? `/dashboard/buyer?tab=messages&threadId=${threadId}` : '');
+
+        console.log("[SocketContext] notification_created received:", data);
+
+        setState((prev: any) => ({
+          ...prev,
+          notification: {
+            user: prev.notification?.user,
+            property: prev.notification?.property,
+            message: body || title || "New notification",
+            title: title || "New notification",
+            body: body || "",
+            kind,
+            channelId: threadId,
+            action: "navigate",
+            isVisible: true,
+            link,
+          },
+          notifications: [
+            {
+              id: data?.id || `socket-notification-${Date.now()}`,
+              title: title || "New notification",
+              body: body || "",
+              createdAt: data?.createdAt || new Date().toISOString(),
+              read: false,
+              kind: kind || "general",
+              link: link || undefined,
+              threadId: threadId || undefined,
+              snapId: snapId || undefined,
+              source: "socket",
+            },
+            ...(Array.isArray(prev.notifications) ? prev.notifications : []),
+          ].slice(0, 50),
+        }));
+
+        console.log("[SocketContext] Notification added to state");
       });
+
+      const handleRecentActivityUpdate = (payload: any) => {
+        const data = payload?.data || payload;
+        const snapId = getStringValue(data?.snapId, data?.snap_id);
+        if (!snapId) return;
+
+        const title =
+          getStringValue(data?.title, data?.heading) ||
+          "New comment in Snapz";
+        const body =
+          getStringValue(data?.body, data?.message, data?.text) ||
+          getStringValue(data?.comment, data?.content) ||
+          "";
+        const link = `/account/collections/${snapId}`;
+
+        console.log("[SocketContext] recent_activity_update received:", data);
+
+        setState((prev: any) => ({
+          ...prev,
+          notification: {
+            user: prev.notification?.user,
+            property: prev.notification?.property,
+            message: body || title,
+            title,
+            body,
+            kind: "comment",
+            channelId: null,
+            action: "navigate",
+            isVisible: true,
+            link,
+          },
+          notifications: [
+            {
+              id: data?.id || `socket-comment-${Date.now()}`,
+              title,
+              body,
+              createdAt: data?.createdAt || new Date().toISOString(),
+              read: false,
+              kind: "comment",
+              link,
+              snapId,
+              source: "socket",
+            },
+            ...(Array.isArray(prev.notifications) ? prev.notifications : []),
+          ].slice(0, 50),
+        }));
+
+        console.log("[SocketContext] Comment notification added to state");
+        queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      };
+
+      socket.on("recent_activity_update", handleRecentActivityUpdate);
 
       // Handle websocket response events
       socket.on("createOrJoinConversation_response", (response: any) => {
@@ -707,6 +889,7 @@ function SocketProvider({ children }: { children: ReactNode }) {
         socket.off("recievedMessage", handleRecievedMessage);
         socket.off("unread_count_updated", handleUnreadCountUpdated);
         socket.off("notification_created");
+        socket.off("recent_activity_update", handleRecentActivityUpdate);
         socket.off("createOrJoinConversation_response");
         socket.off("sendMessage_response");
         socket.off("joinRoom_response");

@@ -475,6 +475,29 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
 
 
 
+  const reclaimMySnaps = useMutation({
+    mutationKey: ["reclaimMySnaps"],
+    mutationFn: async () => {
+      const data = await API.graphql({
+        query: `
+          mutation ReclaimMySnaps {
+            reclaimMySnaps
+          }
+        `,
+      });
+      return data.reclaimMySnaps as number;
+    },
+    onSuccess: (count) => {
+      if (count > 0) {
+        console.log(`reclaimMySnaps: reclaimed ${count} orphaned snap(s)`);
+      }
+    },
+    onError: (error: any) => {
+      // Non-critical — log but don't surface to the user
+      console.warn("reclaimMySnaps failed:", error?.message);
+    },
+  });
+
   return {
     createNewSnap,
     getAllSnaps,
@@ -487,7 +510,8 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
     sendPartnerInvitation,
     toggleFavourite,
     getSnapById,
-    markPropertyAsRead
+    markPropertyAsRead,
+    reclaimMySnaps,
   };
 };
 

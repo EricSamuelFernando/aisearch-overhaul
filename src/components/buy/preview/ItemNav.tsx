@@ -298,7 +298,7 @@ function ItemNav({ cardRef }: Props) {
         <div className='flex items-center justify-between w-full md:w-auto'>
           {/* Back */}
           <button
-            onClick={() => router.back()}
+            onClick={() => router.push('/')}
             className='flex items-center gap-1 text-sm font-medium text-black hover:opacity-80'
           >
             <ChevronLeft className='h-4 w-4' />

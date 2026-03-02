@@ -8,8 +8,8 @@ export default function HeroLayout() {
 
       <section className="
         relative bg-[#000000] text-white
-        min-h-[85vh] sm:min-h-[90vh]
-        pt-20 sm:pt-24 pb-20 sm:pb-24
+        min-h-[36rem] md:min-h-[42rem] lg:min-h-[48rem]
+        pt-16 sm:pt-20 pb-12 sm:pb-16
         flex items-center justify-center
         overflow-hidden
       ">
@@ -50,6 +50,9 @@ export default function HeroLayout() {
                 alt="Nature"
                 fill
                 className="object-cover"
+                sizes="(min-width: 768px) 6rem, 5rem"
+                quality={100}
+                unoptimized
               />
               <div className="absolute inset-0 bg-black/20" />
             </div>
@@ -83,6 +86,9 @@ export default function HeroLayout() {
                 alt="House"
                 fill
                 className="object-cover object-top"
+                sizes="(min-width: 768px) 7rem, 6rem"
+                quality={100}
+                unoptimized
               />
               <div className="absolute inset-0 bg-[#908884] opacity-40" />
             </div>

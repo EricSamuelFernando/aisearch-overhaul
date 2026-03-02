@@ -510,29 +510,19 @@ export default function HeroLayout({
         <MainNavPages />
       </div>
 
-      <div className={`text-black min-h-screen relative pt-28 -mt-28 overflow-visible ${className}`}>
-        <div className="relative min-h-[100svh] w-full overflow-visible">
-          <div className="absolute inset-0 z-0 min-h-full">
-            <Image
-              src="/assets/images/agents-hero.jpg"
-              alt="Agents Hero"
-              fill
-              className="object-cover object-[50%_95%]"
-              priority
-            />
-          </div>
-
-          <div className="relative inset-0 min-h-[100svh] flex flex-col items-center justify-center px-4 sm:px-6 md:px-12 lg:px-20 z-20 pt-20 sm:pt-24 pb-10 sm:pb-12">
-            <h1 className="max-w-4xl text-center text-3xl sm:text-4xl lg:text-5xl leading-tight font-semibold text-black drop-shadow-lg mb-6 sm:mb-8">
+      <div className={`text-black relative pt-28 -mt-28 ${className}`}>
+        <div className="relative w-full min-h-[32rem] sm:min-h-[36rem] md:min-h-[42rem] lg:min-h-[48rem] overflow-visible bg-[url('/assets/images/agents-hero.jpg')] bg-[length:100%_100%] bg-center bg-no-repeat">
+          <div className="relative inset-0 h-full flex flex-col items-center justify-center px-4 sm:px-6 md:px-12 lg:px-20 z-20 pt-56 pb-0">
+            <h1 className="max-w-4xl text-center text-[clamp(2.1rem,3.3vw,3.75rem)] leading-tight font-semibold text-black drop-shadow-lg mb-6 sm:mb-8">
               Discover Agent Possibilities
               <br />
               <span className=''>With</span>
               <span className="italic font-light">Snaphomz</span>
             </h1>
 
-            <div className="w-full max-w-3xl relative mx-auto" ref={searchContainerRef}>
+            <div className="w-full max-w-3xl relative mx-auto mt-12" ref={searchContainerRef}>
               <div
-                className={`relative flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0 w-full min-h-14 sm:h-14 bg-white border-4 border-[#C08C73] shadow-xl overflow-hidden px-2 sm:pl-4 sm:pr-1 py-2 sm:py-0 z-30 transition-all duration-300 ${isSearchFocused ? 'rounded-2xl sm:rounded-t-2xl sm:rounded-b-none sm:border-b-0' : 'rounded-2xl sm:rounded-full'
+                className={`relative flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0 w-full min-h-[clamp(52px,4.8vw,60px)] sm:h-[clamp(52px,4.8vw,60px)] bg-white border-4 border-[#C08C73] shadow-xl overflow-hidden px-2 sm:pl-4 sm:pr-1 py-2 sm:py-0 z-30 transition-all duration-300 ${isSearchFocused ? 'rounded-2xl sm:rounded-t-2xl sm:rounded-b-none sm:border-b-0' : 'rounded-2xl sm:rounded-full'
                   }`}
               >
                 <div className="flex items-center w-full min-w-0">
@@ -540,13 +530,13 @@ export default function HeroLayout({
                     onClick={goToSearchPage}
                     className="flex-shrink-0 text-gray-400 mr-2 sm:mr-3 hover:text-black"
                   >
-                    <Search className="w-5 h-5 sm:w-6 sm:h-6" />
+                    <Search className="w-[clamp(18px,2vw,24px)] h-[clamp(18px,2vw,24px)]" />
                   </button>
 
                   <input
                     type="text"
                     placeholder={placeholderText}
-                    className="flex-grow w-full min-w-0 h-full border-none outline-none text-gray-700 placeholder-gray-400 bg-transparent text-sm sm:text-base"
+                    className="flex-grow w-full min-w-0 h-full border-none outline-none text-gray-700 placeholder-gray-400 bg-transparent text-[clamp(0.9rem,1.05vw,1rem)]"
                     onFocus={() => setIsSearchFocused(true)}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -558,17 +548,17 @@ export default function HeroLayout({
                       onClick={() => setSearchQuery('')}
                       className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors ml-2 mr-1"
                     >
-                      <X className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <X className="w-[clamp(14px,1.5vw,20px)] h-[clamp(14px,1.5vw,20px)]" />
                     </button>
                   )}
                 </div>
 
                 <div className="w-full sm:w-auto flex items-center sm:ml-2 flex-shrink-0 sm:h-full py-0 sm:py-1.5">
-                  <div className="grid grid-cols-2 sm:flex bg-gray-100 rounded-full p-1 w-full sm:w-auto h-10 sm:h-full items-center">
+                  <div className="grid grid-cols-2 sm:flex bg-gray-100 rounded-full p-1 w-full sm:w-auto h-[clamp(36px,3.6vw,40px)] sm:h-full items-center">
                     <button
                       type="button"
                       onClick={() => setSearchMode('location')}
-                      className={`h-full flex items-center justify-center px-3 sm:px-4 rounded-full transition-colors text-xs sm:text-sm font-medium ${searchMode === 'location'
+                      className={`h-full flex items-center justify-center px-3 sm:px-4 rounded-full transition-colors text-[clamp(0.7rem,0.9vw,0.875rem)] font-medium ${searchMode === 'location'
                         ? 'bg-black text-white shadow-sm'
                         : 'text-gray-600 hover:text-black'
                         }`}
@@ -578,7 +568,7 @@ export default function HeroLayout({
                     <button
                       type="button"
                       onClick={() => setSearchMode('name')}
-                      className={`h-full flex items-center justify-center px-3 sm:px-4 rounded-full transition-colors text-xs sm:text-sm font-medium ${searchMode === 'name'
+                      className={`h-full flex items-center justify-center px-3 sm:px-4 rounded-full transition-colors text-[clamp(0.7rem,0.9vw,0.875rem)] font-medium ${searchMode === 'name'
                         ? 'bg-black text-white shadow-sm'
                         : 'text-gray-600 hover:text-black'
                         }`}

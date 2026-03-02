@@ -41,9 +41,9 @@ const WhoWeCompany = () => {
         className="relative flex w-full justify-center px-4 pb-20 pt-16 sm:px-6 lg:px-6 lg:pb-56 lg:pt-20"
         style={{
           backgroundImage: `url('/assets/images/company-whowe.jpg')`,
-          backgroundSize: 'cover',
+          backgroundSize: '100% 100%',
           backgroundRepeat: 'no-repeat',
-          backgroundPosition: 'top center',
+          backgroundPosition: 'center',
         }}
       >
         <div className="absolute inset-0 bg-black/10" />

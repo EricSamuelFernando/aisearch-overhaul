@@ -65,13 +65,28 @@ type ForecastPoint = { date: string; rate: number };
 
 // Helper to bold text
 const renderTextWithBold = (text: string) => {
-  const parts = text.split(/(\*\*.*?\*\*)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={i} className="font-bold text-gray-900">{part.slice(2, -2)}</strong>;
-    }
-    return part;
-  });
+  const parseInlineBold = (value: string, keyPrefix: string) => {
+    const parts = value.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={`${keyPrefix}-${i}`} className="font-bold text-gray-900">{part.slice(2, -2)}</strong>;
+      }
+      return part;
+    });
+  };
+
+  const numberedPrefixMatch = text.match(/^(\d+\.)\s+(.*)$/);
+  if (numberedPrefixMatch) {
+    const [, prefix, rest] = numberedPrefixMatch;
+    return (
+      <>
+        <strong className="font-bold text-gray-900">{prefix}</strong>{' '}
+        {parseInlineBold(rest, 'num')}
+      </>
+    );
+  }
+
+  return parseInlineBold(text, 'inline');
 };
 
 // Helper to render table
@@ -2980,7 +2995,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
                             <div
                               id={`carousel-${msg.id}`}
-                              className="flex flex-col sm:flex-row items-stretch sm:items-center overflow-visible sm:overflow-x-auto gap-4 sm:gap-5 md:gap-6 px-4 sm:px-8 md:px-10 py-4 sm:py-6 md:py-8 sm:snap-x sm:snap-mandatory no-scrollbar"
+                              className="flex flex-row items-stretch sm:items-center overflow-x-auto gap-4 sm:gap-5 md:gap-6 px-4 sm:px-8 md:px-10 py-4 sm:py-6 md:py-8 snap-x snap-mandatory no-scrollbar"
                               style={{ scrollBehavior: 'smooth' }}
                             >
                               {msg.relatedProperties.map((property: any) => {
@@ -3006,8 +3021,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                     onClick={() => handlePropertyClick(property.id)}
                                     className={`
                                                                 group relative flex flex-col
-                                                                w-full min-w-0 max-w-full sm:min-w-[300px] sm:w-[300px] md:min-w-[360px] md:w-[360px] md:max-w-[360px] lg:min-w-[320px] lg:w-[320px] lg:max-w-[320px]
-                                                                flex-shrink-0 rounded-2xl cursor-pointer sm:snap-center
+                                                                w-[300px] min-w-[300px] max-w-[300px] sm:min-w-[300px] sm:w-[300px] md:min-w-[360px] md:w-[360px] md:max-w-[360px] lg:min-w-[320px] lg:w-[320px] lg:max-w-[320px]
+                                                                flex-shrink-0 rounded-2xl cursor-pointer snap-start sm:snap-center
                                                                 transition-all duration-300 ease-out border bg-white overflow-hidden
                                                                 ${isAnySelected
                                         ? isActive
@@ -3095,7 +3110,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                               {msg.query && (
                                 <a
                                   href={`/buy/browse?q=${encodeURIComponent(msg.query || '')}`}
-                                  className="group flex-shrink-0 sm:snap-start self-stretch sm:self-center relative flex h-14 sm:h-48 w-full sm:w-48 flex-row sm:flex-col items-center justify-center gap-2 sm:gap-0 rounded-2xl sm:rounded-full border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-orange-100 shadow-lg transition-all duration-300 hover:scale-[1.01] sm:hover:scale-105 hover:border-orange-500 hover:shadow-xl hover:shadow-orange-200/60 cursor-pointer"
+                                  className="group flex-shrink-0 snap-start self-stretch sm:self-center relative flex h-40 sm:h-48 w-[220px] min-w-[220px] sm:w-48 flex-col items-center justify-center gap-2 sm:gap-0 rounded-2xl sm:rounded-full border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-orange-100 shadow-lg transition-all duration-300 hover:scale-[1.01] sm:hover:scale-105 hover:border-orange-500 hover:shadow-xl hover:shadow-orange-200/60 cursor-pointer"
                                 >
                                   {/* Outer ring on hover */}
                                   <div className="pointer-events-none absolute inset-[-6px] rounded-2xl sm:rounded-full border-2 border-orange-200 opacity-0 transition-all duration-500 group-hover:opacity-100" />
@@ -3253,9 +3268,6 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                       );
                                     })()}
                                   </div>
-
-
-
                                   {/* 4. INSIGHTS */}
                                   <div className="bg-[#FFF9F5] border border-[#FFD8B4] rounded-[16px] sm:rounded-[20px] p-4 sm:p-8">
                                     <div className="flex items-center justify-between mb-4 sm:mb-6">
@@ -3338,6 +3350,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                       </button>
                                     </div>
                                   </div>
+
                                   {/* 5. VIEW FULL PROPERTY */}
                                   <div className="flex justify-center pb-4">
                                     <a
@@ -3395,11 +3408,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
               </div>
 
               {/* Footer / Related Questions & Search */}
-              <div className="mt-2 pt-2 border-t border-gray-100/50 sticky bottom-0 bg-white/95 backdrop-blur-md z-30 pb-2 sm:pb-4">
+              <div className="mt-2 border-t border-gray-100/70 sticky bottom-0 bg-white/95 backdrop-blur-md z-30 px-3 pt-3 pb-[max(env(safe-area-inset-bottom),0.9rem)] sm:px-0 sm:pt-2 sm:pb-4">
                 {/* 1. Related Questions (Removed - now dynamic per message) */}
 
                 {/* 2. New Large Search Bar + Controls */}
-                <div ref={searchContainerRef} className="mb-3 flex flex-wrap items-center gap-2 sm:mb-4 sm:flex-nowrap sm:gap-3">
+                <div ref={searchContainerRef} className="mb-2 flex items-center gap-2 sm:mb-4 sm:gap-3">
                   {/* Contextual Actions */}
                   <button
                     onClick={() => {
@@ -3426,9 +3439,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       }, 100);
                     }}
                     title="New Chat"
-                    className="flex-shrink-0 w-11 h-12 sm:w-[60px] sm:h-[68px] bg-white border border-gray-200 rounded-2xl sm:rounded-[28px] flex items-center justify-center text-gray-400 hover:text-[#F58634] hover:border-orange-200 hover:bg-orange-50 transition-all shadow-sm group"
+                    className="hidden sm:flex flex-shrink-0 w-10 h-10 sm:w-[60px] sm:h-[68px] bg-white border border-gray-200 rounded-xl sm:rounded-[28px] items-center justify-center text-gray-400 hover:text-[#F58634] hover:border-orange-200 hover:bg-orange-50 transition-all shadow-sm group"
                   >
-                    <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />
+                    <Sparkles className="w-4 h-4 sm:w-6 sm:h-6" />
                   </button>
                   <button
                     onClick={() => {
@@ -3436,14 +3449,14 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll up to see the menu
                     }}
                     title="History"
-                    className="flex-shrink-0 w-11 h-12 sm:w-[60px] sm:h-[68px] bg-white border border-gray-200 rounded-2xl sm:rounded-[28px] flex items-center justify-center text-gray-400 hover:text-gray-900 hover:border-gray-300 hover:bg-gray-50 transition-all shadow-sm"
+                    className="hidden sm:flex flex-shrink-0 w-10 h-10 sm:w-[60px] sm:h-[68px] bg-white border border-gray-200 rounded-xl sm:rounded-[28px] items-center justify-center text-gray-400 hover:text-gray-900 hover:border-gray-300 hover:bg-gray-50 transition-all shadow-sm"
                   >
-                    <Clock className="w-5 h-5 sm:w-6 sm:h-6" />
+                    <Clock className="w-4 h-4 sm:w-6 sm:h-6" />
                   </button>
 
                   {/* Search Input */}
                   <div className={`relative min-w-0 ${pendingImage || pendingImagePreview ? 'w-full sm:flex-1' : 'flex-1'}`}>
-                    <div className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-20">
+                    <div className="absolute left-3.5 sm:left-6 top-1/2 -translate-y-1/2 z-20">
                       <button
                         type="button"
                         onClick={() => setShowAttachMenu(!showAttachMenu)}
@@ -3513,14 +3526,14 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       }}
                       placeholder={pendingImage ? "Type city, ZIP, or coordinates for this image" : "Ask anything about homes, neighborhoods, schools"}
                       rows={1}
-                      className={`w-full bg-white text-gray-900 rounded-3xl min-h-[48px] sm:min-h-[68px] max-h-32 sm:max-h-40 overflow-y-auto resize-none py-3 sm:py-[22px] ${pendingImage || pendingImagePreview ? 'pl-40 sm:pl-[19rem]' : 'pl-11 sm:pl-14'} pr-16 sm:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-sm sm:text-base placeholder:text-gray-400 font-normal leading-relaxed`}
+                      className={`w-full bg-white text-gray-900 rounded-2xl sm:rounded-3xl min-h-[64px] sm:min-h-[68px] max-h-32 sm:max-h-40 overflow-y-hidden resize-none py-4 sm:py-[22px] ${pendingImage || pendingImagePreview ? 'pl-40 sm:pl-[19rem]' : 'pl-12 sm:pl-14'} pr-16 sm:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-[14px] sm:text-base placeholder:text-gray-400 font-normal leading-relaxed`}
                     />
-                    <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 sm:gap-4">
+                    <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 sm:gap-4">
                       <button
                         type="button"
                         onClick={toggleMlsBypass}
                         title={mlsBypassMode ? 'Direct MLS mode is ON (AI search bypassed)' : 'Use Direct MLS mode'}
-                        className={`h-7 sm:h-8 rounded-full px-2.5 sm:px-3 text-[10px] sm:text-[11px] font-semibold border transition-colors ${mlsBypassMode
+                        className={`hidden sm:inline-flex h-7 sm:h-8 rounded-full px-2.5 sm:px-3 text-[10px] sm:text-[11px] font-semibold border transition-colors ${mlsBypassMode
                           ? 'bg-amber-50 text-amber-700 border-amber-200'
                           : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                           }`}
@@ -3531,17 +3544,60 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       <button
                         onClick={() => pendingImage ? submitPendingImage() : handleSearchSubmit(searchTerm)}
                         disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
-                        className={`bg-black text-white w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shadow-md ${pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim()) ? 'opacity-50 cursor-not-allowed hover:scale-100' : 'hover:bg-gray-800'}`}
+                        className={`bg-black text-white w-10 h-10 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shadow-md ${pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim()) ? 'opacity-50 cursor-not-allowed hover:scale-100' : 'hover:bg-gray-800'}`}
                       >
-                        {isSearching ? <Square className="w-4 h-4 fill-white" /> : <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />}
+                        {isSearching ? <Square className="w-4.5 h-4.5 fill-white" /> : <ArrowUp className="w-4.5 h-4.5 sm:w-5 sm:h-5" />}
                       </button>
                     </div>
                   </div>
                 </div>
+                <div className="mb-2 mt-1 flex items-center justify-between sm:hidden">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setSearchTerm('');
+                        setChatHistory([]);
+                        setSessionId(null);
+                        setIsSearching(false);
+                        setIsMenuOpen(false);
+                        setSelectedPropertyId(null);
+                        setExpandedPropertyId(null);
+                        setNearbySchoolsById({});
+                        if (onSearchStateChange) onSearchStateChange(true, '');
+                        setTimeout(() => searchInputRef.current?.focus(), 100);
+                      }}
+                      title="New Chat"
+                      className="h-10 w-10 rounded-full border border-gray-200 bg-white text-gray-600 flex items-center justify-center shadow-sm"
+                    >
+                      <Sparkles className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsMenuOpen(true);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      title="History"
+                      className="h-10 w-10 rounded-full border border-gray-200 bg-white text-gray-600 flex items-center justify-center shadow-sm"
+                    >
+                      <Clock className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={toggleMlsBypass}
+                    title={mlsBypassMode ? 'Direct MLS mode is ON (AI search bypassed)' : 'Use Direct MLS mode'}
+                    className={`h-10 rounded-full px-4 text-[12px] font-semibold border transition-colors ${mlsBypassMode
+                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                      : 'bg-white text-gray-600 border-gray-200'
+                      }`}
+                  >
+                    {mlsBypassMode ? 'MLS Mode' : 'AI Mode'}
+                  </button>
+                </div>
 
                 {/* 3. Disclaimer */}
-                <div className="text-center">
-                  <p className="text-xs text-gray-400">
+                <div className="px-2 text-center">
+                  <p className="text-[11px] sm:text-xs text-gray-400">
                     Snapz AI can make mistakes. Consider checking important information.
                   </p>
                   {mlsBypassMode && (

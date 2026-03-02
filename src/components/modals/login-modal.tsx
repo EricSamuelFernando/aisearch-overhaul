@@ -28,7 +28,12 @@ export const LoginModal = ({
   const [magicLogin, setMagicLogin] = useState(false);
   const [loading, setLoading] = useState(false);
   const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql"
-  const { loginMutation } = useUserAuthApi();
+
+  const loginSuccessCallback = React.useCallback(() => {
+    setIsOpen(false);
+  }, [setIsOpen]);
+
+  const { loginMutation } = useUserAuthApi(loginSuccessCallback);
   const { cognitoGoogleLogin } = useCognitoGoogleAuth();
 
   const form = useForm({

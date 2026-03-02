@@ -201,18 +201,13 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       }
       if (user.account_type === "seller") {
         router.push('/sell')
+      } else if (data?.isHome) {
+        // If explicitly requested to go home (e.g. from /login page)
+        router.push(`/`)
+      } else if (!redirect && !data?.isBack) {
+        // Otherwise, stay on current page and refresh data (like header changes)
+        router.refresh()
       }
-      if (data?.isHome) {
-        if (user.account_type === "seller") {
-          router.push('/sell')
-        } else
-          router.push(`/`)
-      }
-      // if (searchTerm) {
-      //   router.push(`/buy/browse?q=${encodeURIComponent(searchTerm)}`);
-      // } else {
-      //   router.push(`/`);
-      // }
       handleCb?.();
 
     },

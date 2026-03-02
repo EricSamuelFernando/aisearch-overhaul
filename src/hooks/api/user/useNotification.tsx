@@ -49,7 +49,7 @@ export const useNotificationApi = () => {
     mutationFn: async (id: string) => {
       const response = await client.put<AxiosResponse<Notification>>(
         `${MARK_ONE_NOTIFICATION_AS_READ}${id}`,
-        null,
+        {},
         {
           headers: { role: USER_ROLE },
         },
@@ -65,7 +65,7 @@ export const useNotificationApi = () => {
     mutationFn: async () => {
       const response = await client.put<AxiosResponse<{ result: boolean }>>(
         MARK_ALL_AS_READ,
-        null,
+        {},
         {
           headers: { role: USER_ROLE },
         },
@@ -81,7 +81,7 @@ export const useNotificationApi = () => {
     mutationFn: async (threadId: string) => {
       const response = await client.put<AxiosResponse<{ result: boolean }>>(
         `${MARK_THREAD_NOTIFICATIONS_AS_READ}${threadId}`,
-        null,
+        {},
         {
           headers: { role: USER_ROLE },
         },

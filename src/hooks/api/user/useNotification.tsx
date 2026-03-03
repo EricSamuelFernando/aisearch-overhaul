@@ -1,7 +1,7 @@
 'use client';
 
 import axios from 'axios';
-import { USER_ROLE } from '@/shared/constants/env';
+import { USER_ROLE, notificationServiceUrl } from '@/shared/constants/env';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AxiosResponse } from '@/types/axios.types';
 import {
@@ -40,7 +40,7 @@ export const useNotificationApi = () => {
     queryFn: () => {
       return handleAsync<AxiosResponse<ApiNewResponse<Notification>>>(
         client.get,
-        GET_NOTIFICATIONS,
+        `${notificationServiceUrl}${GET_NOTIFICATIONS}`,
       );
     },
   });
@@ -48,7 +48,7 @@ export const useNotificationApi = () => {
   const markOneAsReadMutation = useMutation({
     mutationFn: async (id: string) => {
       const response = await client.put<AxiosResponse<Notification>>(
-        `${MARK_ONE_NOTIFICATION_AS_READ}${id}`,
+        `${notificationServiceUrl}${MARK_ONE_NOTIFICATION_AS_READ}${id}`,
         {},
         {
           headers: { role: USER_ROLE },
@@ -64,7 +64,7 @@ export const useNotificationApi = () => {
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
       const response = await client.put<AxiosResponse<{ result: boolean }>>(
-        MARK_ALL_AS_READ,
+        `${notificationServiceUrl}${MARK_ALL_AS_READ}`,
         {},
         {
           headers: { role: USER_ROLE },
@@ -80,7 +80,7 @@ export const useNotificationApi = () => {
   const markThreadAsReadMutation = useMutation({
     mutationFn: async (threadId: string) => {
       const response = await client.put<AxiosResponse<{ result: boolean }>>(
-        `${MARK_THREAD_NOTIFICATIONS_AS_READ}${threadId}`,
+        `${notificationServiceUrl}${MARK_THREAD_NOTIFICATIONS_AS_READ}${threadId}`,
         {},
         {
           headers: { role: USER_ROLE },
@@ -96,7 +96,7 @@ export const useNotificationApi = () => {
   const markLinkAsReadMutation = useMutation({
     mutationFn: async (link: string) => {
       const response = await client.put<AxiosResponse<{ result: boolean }>>(
-        MARK_LINK_NOTIFICATIONS_AS_READ,
+        `${notificationServiceUrl}${MARK_LINK_NOTIFICATIONS_AS_READ}`,
         { link },
         {
           headers: { role: USER_ROLE },

@@ -100,6 +100,8 @@ const CustomMap: React.FC<Props> = ({
   const [mapInstance, setMap] = useState<google.maps.Map | null>(null);
   const [currentMapZoom, setCurrentMapZoom] = useState<number>(zoom);
   const [selectedMarker, setSelectedMarker] = useState<any>(null);
+  const [hoveredMarker, setHoveredMarker] = useState<any>(null);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [measureMode, setMeasureMode] = useState(false);
   const [measureStart, setMeasureStart] = useState<google.maps.LatLngLiteral | null>(null);
   const [measureEnd, setMeasureEnd] = useState<google.maps.LatLngLiteral | null>(null);
@@ -163,6 +165,21 @@ const CustomMap: React.FC<Props> = ({
     setMeasureDuration(null);
     setMeasureDistance(null);
     setMeasureError(null);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const media = window.matchMedia('(hover: none), (pointer: coarse)');
+    const sync = () => setIsTouchDevice(media.matches);
+    sync();
+
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', sync);
+      return () => media.removeEventListener('change', sync);
+    }
+
+    media.addListener(sync);
+    return () => media.removeListener(sync);
   }, []);
 
   useEffect(() => {
@@ -725,16 +742,17 @@ const CustomMap: React.FC<Props> = ({
     };
   };
 
-  const createCustomMarker = (price?: string, isSelected?: boolean) => {
-    if (currentMapZoom <= 11 && !isSelected) {
-      return createDotMarker(isSelected);
+  const createCustomMarker = (price?: string, isSelected?: boolean, isHovered?: boolean) => {
+    const isActive = Boolean(isSelected || isHovered);
+    if (currentMapZoom <= 11 && !isActive) {
+      return createDotMarker(isActive);
     }
 
     const formattedPrice = formatMarkerPriceCompact(parseFloat(price || '0'));
-    const approxCharWidth = isSelected ? 10.2 : 9.8;
-    const horizontalPadding = isSelected ? 30 : 26;
-    const minBubbleWidth = isSelected ? 84 : 76;
-    const maxBubbleWidth = isSelected ? 138 : 124;
+    const approxCharWidth = isActive ? 10.2 : 9.8;
+    const horizontalPadding = isActive ? 30 : 26;
+    const minBubbleWidth = isActive ? 84 : 76;
+    const maxBubbleWidth = isActive ? 138 : 124;
     const bubbleWidth = Math.max(
       minBubbleWidth,
       Math.min(maxBubbleWidth, Math.round(formattedPrice.length * approxCharWidth + horizontalPadding))
@@ -745,15 +763,15 @@ const CustomMap: React.FC<Props> = ({
     const rectX = Math.round((svgWidth - bubbleWidth) / 2);
     const centerX = Math.round(svgWidth / 2);
     const rectY = 6;
-    const rectHeight = isSelected ? 38 : 34;
+    const rectHeight = isActive ? 38 : 34;
     const rectRadius = Math.round(rectHeight / 2);
-    const fontSize = isSelected ? 16 : 15;
+    const fontSize = isActive ? 16 : 15;
 
     const svg = `
 <svg width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <filter id="pillShadow" x="-30%" y="-50%" width="160%" height="220%">
-      <feDropShadow dx="0" dy="2" stdDeviation="${isSelected ? 3 : 2.2}" flood-color="#000000" flood-opacity="${isSelected ? 0.2 : 0.14}" />
+      <feDropShadow dx="0" dy="2" stdDeviation="${isActive ? 3 : 2.2}" flood-color="#000000" flood-opacity="${isActive ? 0.2 : 0.14}" />
     </filter>
   </defs>
   <rect
@@ -764,8 +782,8 @@ const CustomMap: React.FC<Props> = ({
     rx="${rectRadius}"
     ry="${rectRadius}"
     fill="#FFFFFF"
-    stroke="${isSelected ? '#F07639' : '#D4D4D8'}"
-    stroke-width="${isSelected ? 2 : 1}"
+    stroke="${isActive ? '#F07639' : '#D4D4D8'}"
+    stroke-width="${isActive ? 2 : 1}"
     filter="url(#pillShadow)"
   />
   <text x="${centerX}" y="${rectY + Math.round(rectHeight / 2) + 1}" fill="#111827" font-size="${fontSize}" font-family="sans-serif" font-weight="700" text-anchor="middle" alignment-baseline="middle">
@@ -775,10 +793,10 @@ const CustomMap: React.FC<Props> = ({
 `;
     const svgUrl = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
 
-    const bubbleScale = isSelected ? 92 : 84;
-    const bubbleHeight = isSelected ? 52 : 46;
+    const bubbleScale = isActive ? 92 : 84;
+    const bubbleHeight = isActive ? 52 : 46;
     const anchorX = Math.round(bubbleScale / 2);
-    const anchorY = isSelected ? 46 : 40;
+    const anchorY = isActive ? 46 : 40;
 
     return {
       url: svgUrl,
@@ -1521,6 +1539,7 @@ const CustomMap: React.FC<Props> = ({
     setSelectedSchool(null);
     setSelectedSearchPlace(null);
     setSelectedMarker(null);
+    setHoveredMarker(null);
 
     if (!measureMode || !event?.latLng) return;
 
@@ -1557,6 +1576,77 @@ const CustomMap: React.FC<Props> = ({
       mapInstance.setZoom(Math.max(zoom, 21));
     }
   };
+
+  const isSameMarker = useCallback((a: any, b: any) => {
+    if (!a || !b) return false;
+    if (a.id && b.id) return String(a.id) === String(b.id);
+    return a.lat === b.lat && a.lng === b.lng;
+  }, []);
+
+  const previewAnchorMarker = useMemo(
+    () => hoveredMarker || (isTouchDevice ? selectedMarker : null),
+    [hoveredMarker, isTouchDevice, selectedMarker],
+  );
+
+  const hoverPreview = useMemo(() => {
+    if (!previewAnchorMarker) return null;
+
+    const source = previewAnchorMarker?.originalData || {};
+    const listing = source?.listing ?? source?.data?.listing ?? {};
+    const property = listing?.property ?? source?.property ?? {};
+    const listPrice =
+      listing?.listPriceLow ??
+      listing?.listPrice ??
+      source?.listPrice ??
+      Number(previewAnchorMarker?.price || 0);
+    const beds = property?.bedroomsTotal;
+    const baths = property?.bathroomsTotal;
+    const sqft = property?.livingArea;
+    const image =
+      listing?.media?.primaryListingImageUrl ??
+      source?.media?.primaryListingImageUrl ??
+      '';
+    const rawStatus =
+      listing?.standardStatus ??
+      listing?.StandardStatus ??
+      listing?.mlsStatus ??
+      listing?.MlsStatus ??
+      listing?.mostRecentStatus ??
+      listing?.currentStatus ??
+      listing?.status ??
+      '';
+    const status = typeof rawStatus === 'string' ? rawStatus.trim() : '';
+    const normalizedStatus = status.toLowerCase();
+    const statusLabel = normalizedStatus.includes('active')
+      ? 'Active'
+      : status || 'For sale';
+    const compactStatusLabel =
+      statusLabel === 'Active'
+        ? 'House for sale'
+        : statusLabel;
+    const listingType =
+      listing?.propertyType ||
+      property?.propertyType ||
+      property?.propertySubType ||
+      'Residential';
+    const address =
+      source?.public?.address?.label ??
+      listing?.address?.unparsedAddress ??
+      source?.address?.unparsedAddress ??
+      'Property preview';
+
+    return {
+      position: { lat: previewAnchorMarker.lat, lng: previewAnchorMarker.lng },
+      image,
+      priceText: Number(listPrice) > 0 ? formatCurrency(Number(listPrice)) : formatMarkerPriceCompact(Number(previewAnchorMarker?.price || 0)),
+      meta: [beds ? `${beds} bds` : '', baths ? `${baths} ba` : '', sqft ? `${sqft} sqft` : '', compactStatusLabel]
+        .filter(Boolean)
+        .join(' | '),
+      statusLabel,
+      listingType: String(listingType).toUpperCase(),
+      address,
+    };
+  }, [previewAnchorMarker]);
 
 
   const onLoad = useCallback((map: google.maps.Map) => {
@@ -2078,8 +2168,20 @@ const CustomMap: React.FC<Props> = ({
           <Marker
             key={marker.id}
             position={{ lat: marker.lat, lng: marker.lng }}
-            icon={createCustomMarker(marker.price, marker.id === selectedMarker?.id)}
+            icon={createCustomMarker(
+              marker.price,
+              marker.id === selectedMarker?.id,
+              isSameMarker(marker, hoveredMarker),
+            )}
             options={{ clickable: !drawMode }}
+            onMouseOver={() => {
+              if (drawMode || measureModeRef.current || isTouchDevice) return;
+              setHoveredMarker(marker);
+            }}
+            onMouseOut={() => {
+              if (isTouchDevice) return;
+              setHoveredMarker((prev: any) => (isSameMarker(prev, marker) ? null : prev));
+            }}
             onClick={() => {
               if (drawMode) return;
               closeLocationTooltips();
@@ -2095,15 +2197,70 @@ const CustomMap: React.FC<Props> = ({
                   (selectedMarker.lat === marker.lat && selectedMarker.lng === marker.lng));
               if (sameSelected) {
                 setSelectedMarker(null);
+                setHoveredMarker(null);
                 return;
               }
               setSelectedMarker(marker);
+              setHoveredMarker(marker);
               centerOnMarker(markerPos);
               applyMeasurePointFromMarker(markerPos, 'listing');
               if (marker.id && onMarkerClick) onMarkerClick(marker.id);
             }}
           />
         ))}
+
+        {hoverPreview ? (
+          <InfoWindow
+            position={hoverPreview.position}
+            onCloseClick={() => {
+              setHoveredMarker(null);
+              if (isTouchDevice) {
+                setSelectedMarker(null);
+              }
+            }}
+            options={{
+              disableAutoPan: true,
+              pixelOffset: new google.maps.Size(0, -42),
+              maxWidth: 320,
+            }}
+          >
+            <div
+              className="snaphomz-info-window w-[300px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl"
+              style={{ animation: 'snaphomzMapCardIn 180ms ease-out' }}
+            >
+              <div className="relative h-40 w-full overflow-hidden bg-gray-100">
+                {hoverPreview.image ? (
+                  <img
+                    src={hoverPreview.image}
+                    alt={hoverPreview.address}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-xs text-gray-500">
+                    No photo available
+                  </div>
+                )}
+                <div className="absolute left-2 top-2 z-10 rounded-full bg-[#78de2a] px-2 py-0.5 text-[10px] font-semibold text-black shadow-sm">
+                  {hoverPreview.statusLabel}
+                </div>
+              </div>
+              <div className="space-y-2 px-4 py-3">
+                <div className="text-[15px] font-bold leading-none text-gray-900">
+                  {hoverPreview.priceText}
+                </div>
+                {hoverPreview.meta ? (
+                  <div className="text-[11px] leading-4 text-gray-600">
+                    {hoverPreview.meta}
+                  </div>
+                ) : null}
+                <div className="line-clamp-2 min-h-[2rem] text-[12px] leading-4 text-gray-800">{hoverPreview.address}</div>
+                <div className="pt-1 text-[10px] uppercase tracking-wide text-gray-400">
+                  {hoverPreview.listingType}
+                </div>
+              </div>
+            </div>
+          </InfoWindow>
+        ) : null}
 
         {measureRoute && (
           <DirectionsRenderer
@@ -2299,6 +2456,12 @@ const CustomMap: React.FC<Props> = ({
           </InfoWindow>
         )}
       </GoogleMap>
+      <style>{`
+        @keyframes snaphomzMapCardIn {
+          from { opacity: 0; transform: translateY(8px) scale(0.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      `}</style>
     </div>
   ) : (
     <SkeletonLoader className="h-[350px] w-full bg-gray-400 md:col-span-9" />

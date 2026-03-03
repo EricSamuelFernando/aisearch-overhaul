@@ -2,6 +2,113 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── BETA Button (Uiverse animated pill) ─────────────────────── */
+.uiverse {
+  --duration: 7s;
+  --easing: linear;
+  --c-color-1: rgba(245, 127, 46, 0.55);
+  --c-color-2: rgba(245, 127, 46, 0.45);
+  --c-color-3: rgba(245, 127, 46, 0.35);
+  --c-color-4: rgba(245, 127, 46, 0.25);
+  --c-radial-inner: #FFFFFF;
+  --c-radial-outer: #FFFFFF;
+  --c-color: #000;
+  --c-shadow: rgba(0, 0, 0, 0.10);
+  --c-shadow-inset-top: rgba(255, 255, 255, 0.9);
+  --c-shadow-inset-bottom: rgba(0, 0, 0, 0.06);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-appearance: none;
+  outline: none;
+  position: relative;
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0;
+  text-align: center;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  color: var(--c-color);
+  background: radial-gradient(circle, var(--c-radial-inner), var(--c-radial-outer) 80%);
+  box-shadow: 0 6px 16px var(--c-shadow);
+}
+.uiverse:before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  z-index: 3;
+  left: 0; top: 0; right: 0; bottom: 0;
+  border-radius: 999px;
+  box-shadow:
+    inset 0 1px 6px var(--c-shadow-inset-top),
+    inset 0 -1px 3px var(--c-shadow-inset-bottom);
+}
+.uiverse .wrapper {
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  overflow: hidden;
+  border-radius: 999px;
+  min-width: 54px;
+  padding: 6px 10px;
+  position: relative;
+}
+.uiverse .wrapper span {
+  display: inline-block;
+  position: relative;
+  z-index: 1;
+}
+.uiverse:hover { --duration: 1400ms; }
+.uiverse .wrapper .circle {
+  position: absolute;
+  left: 0; top: 0;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  filter: blur(var(--blur, 6px));
+  background: var(--background, transparent);
+  transform: translate(var(--x, 0), var(--y, 0)) translateZ(0);
+  animation: var(--animation, none) var(--duration) var(--easing) infinite;
+}
+.uiverse .wrapper .circle.circle-1,
+.uiverse .wrapper .circle.circle-9,
+.uiverse .wrapper .circle.circle-10 { --background: var(--c-color-4); }
+.uiverse .wrapper .circle.circle-3,
+.uiverse .wrapper .circle.circle-4 { --background: var(--c-color-2); --blur: 8px; }
+.uiverse .wrapper .circle.circle-5,
+.uiverse .wrapper .circle.circle-6 { --background: var(--c-color-3); --blur: 10px; }
+.uiverse .wrapper .circle.circle-2,
+.uiverse .wrapper .circle.circle-7,
+.uiverse .wrapper .circle.circle-8,
+.uiverse .wrapper .circle.circle-11,
+.uiverse .wrapper .circle.circle-12 { --background: var(--c-color-1); --blur: 9px; }
+.uiverse .wrapper .circle.circle-1  { --x: 0px;  --y: -18px; --animation: beta-circle-1; }
+.uiverse .wrapper .circle.circle-2  { --x: 34px; --y: 2px;   --animation: beta-circle-2; }
+.uiverse .wrapper .circle.circle-3  { --x: -6px; --y: -6px;  --animation: beta-circle-3; }
+.uiverse .wrapper .circle.circle-4  { --x: 30px; --y: -6px;  --animation: beta-circle-4; }
+.uiverse .wrapper .circle.circle-5  { --x: 6px;  --y: -2px;  --animation: beta-circle-5; }
+.uiverse .wrapper .circle.circle-6  { --x: 22px; --y: 6px;   --animation: beta-circle-6; }
+.uiverse .wrapper .circle.circle-7  { --x: 4px;  --y: 12px;  --animation: beta-circle-7; }
+.uiverse .wrapper .circle.circle-8  { --x: 12px; --y: -2px;  --animation: beta-circle-8; }
+.uiverse .wrapper .circle.circle-9  { --x: 8px;  --y: -6px;  --animation: beta-circle-9; }
+.uiverse .wrapper .circle.circle-10 { --x: 26px; --y: 6px;   --animation: beta-circle-10; }
+.uiverse .wrapper .circle.circle-11 { --x: 2px;  --y: 2px;   --animation: beta-circle-11; }
+.uiverse .wrapper .circle.circle-12 { --blur: 9px; --x: 20px; --y: 2px; --animation: beta-circle-12; }
+@keyframes beta-circle-1  { 33% { transform: translate(0px, 8px) translateZ(0); }   66% { transform: translate(6px, 22px) translateZ(0); } }
+@keyframes beta-circle-2  { 33% { transform: translate(28px, -6px) translateZ(0); } 66% { transform: translate(24px, -18px) translateZ(0); } }
+@keyframes beta-circle-3  { 33% { transform: translate(10px, 6px) translateZ(0); }  66% { transform: translate(6px, 2px) translateZ(0); } }
+@keyframes beta-circle-4  { 33% { transform: translate(26px, -6px) translateZ(0); } 66% { transform: translate(38px, -4px) translateZ(0); } }
+@keyframes beta-circle-5  { 33% { transform: translate(30px, 12px) translateZ(0); } 66% { transform: translate(14px, -12px) translateZ(0); } }
+@keyframes beta-circle-6  { 33% { transform: translate(12px, -8px) translateZ(0); } 66% { transform: translate(26px, -22px) translateZ(0); } }
+@keyframes beta-circle-7  { 33% { transform: translate(4px, 12px) translateZ(0); }  66% { transform: translate(10px, -20px) translateZ(0); } }
+@keyframes beta-circle-8  { 33% { transform: translate(14px, -2px) translateZ(0); } 66% { transform: translate(22px, -10px) translateZ(0); } }
+@keyframes beta-circle-9  { 33% { transform: translate(8px, -6px) translateZ(0); }  66% { transform: translate(28px, -4px) translateZ(0); } }
+@keyframes beta-circle-10 { 33% { transform: translate(24px, 10px) translateZ(0); } 66% { transform: translate(34px, 12px) translateZ(0); } }
+@keyframes beta-circle-11 { 33% { transform: translate(2px, 2px) translateZ(0); }   66% { transform: translate(24px, 10px) translateZ(0); } }
+@keyframes beta-circle-12 { 33% { transform: translate(22px, 0px) translateZ(0); }  66% { transform: translate(24px, -12px) translateZ(0); } }
+/* ───────────────────────────────────────────────────────────── */
+
 /* Remove Google Maps default InfoWindow chrome so only the card is visible */
 .gm-style .gm-style-iw-c {
   padding: 0 !important;

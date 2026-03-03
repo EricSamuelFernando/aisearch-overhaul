@@ -1,14 +1,16 @@
 import { LucideProps } from 'lucide-react';
-import { ForwardRefExoticComponent } from 'react';
+import { ComponentType, ForwardRefExoticComponent } from 'react';
+import { IconType } from 'react-icons';
 
 type LucideIcon = ForwardRefExoticComponent<LucideProps>;
+type FooterIcon = LucideIcon | IconType | ComponentType<{ className?: string }>;
 
 export interface NavItem {
   title: string;
   href?: string;
   disabled?: boolean;
   external?: boolean;
-  icon?: LucideIcon;
+  icon?: FooterIcon;
   label?: string;
 }
 

@@ -565,15 +565,18 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
     const agentEmail = agent.agentEmail || agent.email || '';
     const identifier = agentId || agentEmail || `agent-${Math.random()}`;
 
-    const hasExistingInvite = engagedProperty?.participants?.some((participant: any) => {
+    const alreadyInvited = engagedProperty?.participants?.some((participant: any) => {
+      const participantAgentId = participant?.agentId || participant?.agent?.id;
+      const participantEmail = participant?.email || participant?.agent?.email;
       const participantEngagementId = participant?.engagementId;
       const engagementMatches = !participantEngagementId || participantEngagementId === engagementId;
       const status = participant?.is_accepted || "pending";
-      return engagementMatches && ["pending", "accepted"].includes(status);
+      const sameAgent = (agentId && participantAgentId === agentId) || (agentEmail && participantEmail === agentEmail);
+      return engagementMatches && ["pending", "accepted"].includes(status) && sameAgent;
     });
 
-    if (hasExistingInvite) {
-      error({ message: "This property already has an invited agent." });
+    if (alreadyInvited) {
+      error({ message: "This agent has already been invited to this property." });
       return;
     }
 

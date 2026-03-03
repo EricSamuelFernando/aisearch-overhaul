@@ -161,7 +161,8 @@ export default function NotificationDropdown() {
   useEffect(() => {
     if (!state?.notification?.isVisible && !state?.newMessage) return;
     notificationsQuery.refetch();
-  }, [notificationsQuery, state?.notification?.isVisible, state?.newMessage]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.notification?.isVisible, state?.newMessage]);
 
   useEffect(() => {
     const activeThreadId = state?.selectedChannel?.id;

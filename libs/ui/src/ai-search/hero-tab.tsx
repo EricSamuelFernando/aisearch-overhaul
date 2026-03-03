@@ -1,13 +1,13 @@
 'use client';
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { askQuestion, searchProperties, cancelActiveTask, fetchHistory, fetchSessionDetails, clearHistoryAPI, suggestAddresses } from '@/lib/api';
 import type { QuestionPayload, AddressSuggestion } from '@/lib/api';
 import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { detectIntent } from '@/lib/chatRouting';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
-import { Sparkles, Paperclip, X, ArrowUp, Mic, Search as SearchIcon, FileText, Image as ImageIcon, ChevronDown, ChevronUp, MapPin, School, Shield, Footprints, Thermometer, CloudSun, BedDouble, Bath, Square, Scaling, Calendar, Clock, TrendingUp, GraduationCap, Trees, Plus, Lightbulb, Droplets } from 'lucide-react';
+import { Sparkles, Paperclip, X, ArrowUp, Mic, Search as SearchIcon, FileText, Image as ImageIcon, ChevronDown, ChevronUp, MapPin, School, Shield, Footprints, Thermometer, CloudSun, BedDouble, Bath, Square, Scaling, Calendar, Clock, TrendingUp, GraduationCap, Trees, Plus, Lightbulb, Droplets, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, ReferenceDot } from 'recharts';
 import SchoolMapPanel from '@/components/SchoolMapPanel';
@@ -190,9 +190,6 @@ const getCookieValue = (name: string): string | undefined => {
 const getCrossAppAuthToken = (): string | undefined => {
   if (typeof window === 'undefined') return undefined;
 
-  const localStorageToken = normalizeAuthToken(window.localStorage.getItem('userAccessToken'));
-  if (localStorageToken) return localStorageToken;
-
   const cookieTokenNames = [
     'oc_real_agent_token',
     '__WEB_APP_Ocreal345####btny_ocreal',
@@ -200,6 +197,12 @@ const getCrossAppAuthToken = (): string | undefined => {
 
   for (const cookieName of cookieTokenNames) {
     const token = normalizeAuthToken(getCookieValue(cookieName));
+    if (token) return token;
+  }
+
+  const localStorageKeys = ['userAccessToken', 'userAccessTokenAgent'];
+  for (const storageKey of localStorageKeys) {
+    const token = normalizeAuthToken(window.localStorage.getItem(storageKey));
     if (token) return token;
   }
 
@@ -221,7 +224,9 @@ const withMainSiteAuthRedirect = (targetUrl: string): string => {
     }
 
     const redirectPath = `${destinationUrl.pathname}${destinationUrl.search}`;
-    const handoffUrl = new URL('/home', mainSiteUrl.origin);
+    // Use the destination path itself as handoff URL so deployments that don't
+    // process /home token links still receive token + redirect correctly.
+    const handoffUrl = new URL(redirectPath || '/', mainSiteUrl.origin);
     handoffUrl.searchParams.set('token', token);
     handoffUrl.searchParams.set('redirect', redirectPath);
     return handoffUrl.toString();
@@ -347,6 +352,158 @@ const parseNumericValue = (value: any): number | null => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 };
+
+const DEFAULT_AUTH_GRAPHQL_URL = 'http://localhost:4000/auth/graphql';
+
+const getAuthGraphqlUrl = () =>
+  process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || DEFAULT_AUTH_GRAPHQL_URL;
+
+const decodeJwtPayload = (token: string): Record<string, any> | null => {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = payload.padEnd(Math.ceil(payload.length / 4) * 4, '=');
+    return JSON.parse(atob(padded));
+  } catch {
+    return null;
+  }
+};
+
+const resolveUserIdFromToken = (token?: string): string | undefined => {
+  const normalizedToken = normalizeAuthToken(token);
+  if (!normalizedToken) return undefined;
+  const payload = decodeJwtPayload(normalizedToken);
+  return pickFirstValidId([payload?.id, payload?.userId, payload?.sub, payload?.uid]);
+};
+
+const resolvePropertyIdentityKey = (property: any): string | undefined =>
+  pickFirstValidId([
+    resolvePropertyId(property),
+    resolveListingId(property),
+    property?.id,
+    property?.propertyId,
+    property?.listingId,
+  ]);
+
+const resolvePropertyAddressText = (property: any): string => {
+  if (typeof property?.address === 'string') return property.address;
+  if (typeof property?.formattedAddress === 'string') return property.formattedAddress;
+  if (typeof property?.fullAddress === 'string') return property.fullAddress;
+  if (typeof property?.streetAddress === 'string') return property.streetAddress;
+  if (typeof property?.address?.unparsedAddress === 'string') return property.address.unparsedAddress;
+  return '';
+};
+
+const resolvePrimaryPropertyImage = (property: any): string | undefined => {
+  const imageCandidates = Array.isArray(property?.images)
+    ? property.images
+    : Array.isArray(property?.photos)
+      ? property.photos
+      : [];
+
+  const galleryImages = imageCandidates
+    .map((img: any) => {
+      if (typeof img === 'string') return img;
+      return img?.highRes || img?.midRes || img?.lowRes || img?.url || null;
+    })
+    .filter(Boolean);
+
+  return (
+    property?.image ||
+    property?.primaryImage ||
+    property?.primaryListingImageUrl ||
+    property?.listing?.media?.primaryListingImageUrl ||
+    galleryImages[0] ||
+    undefined
+  );
+};
+
+const buildFavouritePayload = (property: any, snapId: string) => {
+  const listingId = resolveListingId(property);
+  const propertyId = resolvePropertyId(property);
+  const resolvedListingId = listingId ?? propertyId;
+  const resolvedPropertyId = propertyId ?? listingId;
+
+  if (!resolvedListingId || !resolvedPropertyId) return null;
+
+  const address = resolvePropertyAddressText(property);
+  const city =
+    property?.city ||
+    property?.address?.city ||
+    property?.listing?.address?.city ||
+    '';
+  const zipCode =
+    property?.zipCode ||
+    property?.zipcode ||
+    property?.zip_code ||
+    property?.address?.zipCode ||
+    property?.listing?.address?.zipCode ||
+    '';
+  const price =
+    parseNumericValue(property?.listPrice ?? property?.price) ??
+    parseNumericValue(property?.listing?.listPriceLow) ??
+    0;
+  const bedRooms =
+    parseNumericValue(property?.beds ?? property?.bedrooms ?? property?.bedroomTotal) ??
+    parseNumericValue(property?.listing?.property?.bedroomsTotal) ??
+    0;
+  const bathRooms =
+    parseNumericValue(property?.baths ?? property?.bathrooms ?? property?.bathroomTotal) ??
+    parseNumericValue(property?.listing?.property?.bathroomsTotal) ??
+    0;
+  const sqft =
+    parseNumericValue(property?.sqft ?? property?.livingArea) ??
+    parseNumericValue(property?.listing?.property?.livingArea) ??
+    0;
+  const image = resolvePrimaryPropertyImage(property);
+  const name =
+    property?.name ||
+    property?.listing?.courtesyOf ||
+    (address ? address.split(',')[0].trim() : '') ||
+    'Property';
+
+  return {
+    snapId,
+    name,
+    address,
+    city,
+    zipCode,
+    price,
+    image,
+    bedRooms,
+    bathRooms: String(bathRooms),
+    sqft: String(sqft),
+    listingId: String(resolvedListingId),
+    propertyId: String(resolvedPropertyId),
+  };
+};
+
+interface HeroTabProps {
+  enableAgentFavorites?: boolean;
+  agentUserId?: string;
+}
+
+interface HeroSearchFormProps {
+  placeholderText?: string;
+  onSearchStateChange?: (isActive: boolean, searchTerm: string) => void;
+  isSearchActive?: boolean;
+  searchType?: string;
+  showOutline?: boolean;
+  disableAutoExpand?: boolean;
+  enableAgentFavorites?: boolean;
+  agentUserId?: string;
+}
+
+interface AgentSnapCollection {
+  id?: string;
+  name?: string;
+  favourites?: Array<{
+    id?: string;
+    propertyId?: string;
+    listingId?: string;
+  }>;
+}
 
 const buildPreviewFallbackListing = (property: any) => {
   const listingId = resolveListingId(property);
@@ -656,7 +813,7 @@ const normalizePoolValue = (value: any): boolean | null => {
   return null;
 };
 
-export default function HeroTab() {
+export default function HeroTab({ enableAgentFavorites = false, agentUserId }: HeroTabProps) {
   const [activeTab, setActiveTab] = useState<string | null>('buy');
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -677,12 +834,16 @@ export default function HeroTab() {
           </div>
         ))}
       </div>
-      <HeroSearchForm onSearchStateChange={(expanded) => setIsExpanded(expanded)} />
+      <HeroSearchForm
+        onSearchStateChange={(expanded) => setIsExpanded(expanded)}
+        enableAgentFavorites={enableAgentFavorites}
+        agentUserId={agentUserId}
+      />
     </div>
   );
 }
 
-export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchActive }: { placeholderText?: string, onSearchStateChange?: (isActive: boolean, searchTerm: string) => void, isSearchActive?: boolean, searchType?: string, showOutline?: boolean, disableAutoExpand?: boolean }) => {
+export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchActive, enableAgentFavorites = false, agentUserId }: HeroSearchFormProps) => {
   // --- Hooks & State ---
   // Mocked state
   const searchCount = 0;
@@ -874,6 +1035,15 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   const locationSuggestDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [expandedSchoolLists, setExpandedSchoolLists] = useState<Record<string, boolean>>({});
   const [nearbySchoolsById, setNearbySchoolsById] = useState<Record<string, { status: 'idle' | 'loading' | 'ready' | 'error'; schools: any[]; error?: string; schoolType?: string; fallbackUsed?: boolean }>>({});
+  const [agentFavouriteSavingId, setAgentFavouriteSavingId] = useState<string | null>(null);
+  const [agentFavouriteSavedMap, setAgentFavouriteSavedMap] = useState<Record<string, boolean>>({});
+  const [agentFavouriteMessage, setAgentFavouriteMessage] = useState<string | null>(null);
+  const [agentFavouriteModalOpen, setAgentFavouriteModalOpen] = useState(false);
+  const [agentFavouriteModalProperty, setAgentFavouriteModalProperty] = useState<any | null>(null);
+  const [agentSnapCollections, setAgentSnapCollections] = useState<AgentSnapCollection[]>([]);
+  const [agentSnapLoading, setAgentSnapLoading] = useState(false);
+  const [agentCreateSnapOpen, setAgentCreateSnapOpen] = useState(false);
+  const [agentNewSnapName, setAgentNewSnapName] = useState('');
 
   const startNewChat = React.useCallback((options?: { focusInput?: boolean }) => {
     setIsExpanded(true);
@@ -916,6 +1086,10 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
       }
     };
   }, []);
+
+  useEffect(() => {
+    setAgentFavouriteMessage(null);
+  }, [expandedPropertyId, agentFavouriteModalProperty?.id]);
 
   const toggleMlsBypass = () => {
     const next = !mlsBypassMode;
@@ -995,6 +1169,333 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     setSnapLastUploadFile(null);
     setSnapLastManualLocation(null);
   };
+
+  const runAuthGraphql = React.useCallback(
+    async <T = any>(
+      query: string,
+      variables: Record<string, any>,
+      token: string
+    ): Promise<T> => {
+      const response = await fetch(getAuthGraphqlUrl(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ query, variables }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload?.errors?.length) {
+        throw new Error(payload?.errors?.[0]?.message || 'Failed to process favorites request');
+      }
+
+      return payload.data as T;
+    },
+    []
+  );
+
+  const resolveEffectiveAgentUserId = React.useCallback(
+    (token?: string): string | undefined =>
+      pickFirstValidId([agentUserId, resolveUserIdFromToken(token)]),
+    [agentUserId]
+  );
+
+  const getAgentAuthContext = React.useCallback(() => {
+    const token = getCrossAppAuthToken();
+    if (!token) {
+      throw new Error('Please log in again to manage favorites.');
+    }
+    const userId = resolveEffectiveAgentUserId(token);
+    if (!userId) {
+      throw new Error('Unable to identify your account for favorites.');
+    }
+    return { token, userId: String(userId) };
+  }, [resolveEffectiveAgentUserId]);
+
+  const syncAgentFavouriteSavedMap = React.useCallback((collections: AgentSnapCollection[]) => {
+    const nextMap: Record<string, boolean> = {};
+    (collections || []).forEach((collection) => {
+      (collection?.favourites || []).forEach((favourite) => {
+        const identifiers = [
+          pickFirstValidId([favourite?.propertyId]),
+          pickFirstValidId([favourite?.listingId]),
+        ].filter((value): value is string => !!value);
+        identifiers.forEach((identifier) => {
+          nextMap[identifier] = true;
+        });
+      });
+    });
+    setAgentFavouriteSavedMap(nextMap);
+  }, []);
+
+  const sortMyFavouriteFirst = React.useCallback((collections: AgentSnapCollection[]) => {
+    const list = Array.isArray(collections) ? [...collections] : [];
+    const myFav = list.find((snap) => {
+      const name = String(snap?.name || '').trim().toLowerCase();
+      return name === 'my favourite' || name === 'my favorite';
+    });
+    const others = list.filter((snap) => {
+      const name = String(snap?.name || '').trim().toLowerCase();
+      return name !== 'my favourite' && name !== 'my favorite';
+    });
+    return myFav ? [myFav, ...others] : others;
+  }, []);
+
+  const loadAgentSnapCollections = React.useCallback(async () => {
+    if (!enableAgentFavorites) return [];
+
+    const { token, userId } = getAgentAuthContext();
+    const snapsData = await runAuthGraphql<{ snaps?: AgentSnapCollection[] }>(
+      `
+        query findAllByUserId($userId: String!) {
+          snaps(userId: $userId) {
+            id
+            name
+            favourites {
+              id
+              propertyId
+              listingId
+            }
+          }
+        }
+      `,
+      { userId },
+      token
+    );
+
+    const loaded = sortMyFavouriteFirst(Array.isArray(snapsData?.snaps) ? snapsData.snaps : []);
+    setAgentSnapCollections(loaded);
+    syncAgentFavouriteSavedMap(loaded);
+    return loaded;
+  }, [enableAgentFavorites, getAgentAuthContext, runAuthGraphql, sortMyFavouriteFirst, syncAgentFavouriteSavedMap]);
+
+  useEffect(() => {
+    if (!enableAgentFavorites) return;
+    loadAgentSnapCollections().catch((err) => {
+      console.error('Failed to preload agent favorites:', err);
+    });
+  }, [enableAgentFavorites, loadAgentSnapCollections]);
+
+  const createAgentSnapCollection = React.useCallback(
+    async (name: string) => {
+      const trimmedName = String(name || '').trim();
+      if (!trimmedName) {
+        throw new Error('Snapz name is required.');
+      }
+
+      const { token, userId } = getAgentAuthContext();
+      const baseUrl =
+        process.env.NEXT_PUBLIC_BASE_URL ||
+        (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+      const sanitizedBaseUrl = String(baseUrl).replace(/\/+$/, '');
+      const slug = trimmedName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'snapz';
+      const link = `${sanitizedBaseUrl}/snaps/${slug}-${Date.now()}`;
+
+      const createSnapData = await runAuthGraphql<{ createSnap?: { id?: string } }>(
+        `
+          mutation CreateSnap($createSnapsInput: CreateSnapsInput!) {
+            createSnap(createSnapsInput: $createSnapsInput) {
+              id
+            }
+          }
+        `,
+        {
+          createSnapsInput: {
+            name: trimmedName,
+            link,
+            userId,
+          },
+        },
+        token
+      );
+
+      const createdSnapId = pickFirstValidId([createSnapData?.createSnap?.id]);
+      if (!createdSnapId) {
+        throw new Error('Failed to create snapz.');
+      }
+      return createdSnapId;
+    },
+    [getAgentAuthContext, runAuthGraphql]
+  );
+
+  const ensureMyFavouriteSnapId = React.useCallback(async () => {
+    const existingMyFav = (agentSnapCollections || []).find((snap) => {
+      const name = String(snap?.name || '').trim().toLowerCase();
+      return name === 'my favourite' || name === 'my favorite';
+    });
+    const existingId = pickFirstValidId([existingMyFav?.id]);
+    if (existingId) return existingId;
+
+    const createdId = await createAgentSnapCollection('My Favourite');
+    await loadAgentSnapCollections();
+    return createdId;
+  }, [agentSnapCollections, createAgentSnapCollection, loadAgentSnapCollections]);
+
+  const isPropertySavedInSnap = React.useCallback((property: any, snap: AgentSnapCollection) => {
+    const resolvedPropertyId = pickFirstValidId([resolvePropertyId(property)]);
+    const resolvedListingId = pickFirstValidId([resolveListingId(property), resolvedPropertyId]);
+    if (!Array.isArray(snap?.favourites)) return false;
+
+    return snap.favourites.some((favourite) => {
+      const favPropertyId = pickFirstValidId([favourite?.propertyId]);
+      const favListingId = pickFirstValidId([favourite?.listingId, favPropertyId]);
+      return (
+        (!!resolvedPropertyId && !!favPropertyId && resolvedPropertyId === favPropertyId) ||
+        (!!resolvedListingId && !!favListingId && resolvedListingId === favListingId)
+      );
+    });
+  }, []);
+
+  const isPropertySavedInAnySnap = React.useCallback(
+    (property: any) => {
+      const identifiers = [
+        resolvePropertyIdentityKey(property),
+        pickFirstValidId([resolvePropertyId(property)]),
+        pickFirstValidId([resolveListingId(property)]),
+      ].filter((value): value is string => !!value);
+      return identifiers.some((identifier) => !!agentFavouriteSavedMap[identifier]);
+    },
+    [agentFavouriteSavedMap]
+  );
+
+  const openAgentFavouriteModal = React.useCallback(
+    async (property: any, event?: React.MouseEvent) => {
+      event?.stopPropagation();
+      if (!enableAgentFavorites) return;
+
+      setAgentFavouriteModalProperty(property);
+      setAgentFavouriteModalOpen(true);
+      setAgentFavouriteMessage(null);
+      setAgentCreateSnapOpen(false);
+      setAgentNewSnapName('');
+      setAgentSnapLoading(true);
+
+      try {
+        await loadAgentSnapCollections();
+      } catch (loadError: any) {
+        console.error('Failed to load snapz collections:', loadError);
+        setAgentFavouriteMessage(loadError?.message || 'Unable to load snapz collections.');
+      } finally {
+        setAgentSnapLoading(false);
+      }
+    },
+    [enableAgentFavorites, loadAgentSnapCollections]
+  );
+
+  const closeAgentFavouriteModal = React.useCallback(() => {
+    setAgentFavouriteModalOpen(false);
+    setAgentFavouriteModalProperty(null);
+    setAgentCreateSnapOpen(false);
+    setAgentNewSnapName('');
+    setAgentFavouriteMessage(null);
+  }, []);
+
+  const handleAgentSnapSelection = React.useCallback(
+    async (snap: AgentSnapCollection) => {
+      if (!agentFavouriteModalProperty) return;
+
+      const propertyKey = resolvePropertyIdentityKey(agentFavouriteModalProperty);
+      if (!propertyKey) {
+        setAgentFavouriteMessage('Unable to save this property. Missing property ID.');
+        return;
+      }
+      if (agentFavouriteSavingId === propertyKey) return;
+
+      setAgentFavouriteSavingId(propertyKey);
+      setAgentFavouriteMessage(null);
+
+      try {
+        const targetSnapId =
+          pickFirstValidId([snap?.id]) ||
+          (String(snap?.name || '').trim().toLowerCase() === 'my favourite'
+            ? await ensureMyFavouriteSnapId()
+            : undefined);
+
+        if (!targetSnapId) {
+          throw new Error('Unable to resolve snapz collection.');
+        }
+
+        const createFavouritesInput = buildFavouritePayload(agentFavouriteModalProperty, targetSnapId);
+        if (!createFavouritesInput) {
+          throw new Error('Could not build favourites payload for this property.');
+        }
+
+        const { token } = getAgentAuthContext();
+        const toggleResult = await runAuthGraphql<{ toggleFavourite?: boolean }>(
+          `
+            mutation toggleFavourite(
+              $snapId: String!,
+              $propertyId: String!,
+              $listingId: String!,
+              $createFavouritesInput: CreateFavouritesInput
+            ) {
+              toggleFavourite(
+                snapId: $snapId,
+                propertyId: $propertyId,
+                listingId: $listingId,
+                createFavouritesInput: $createFavouritesInput
+              )
+            }
+          `,
+          {
+            snapId: targetSnapId,
+            propertyId: createFavouritesInput.propertyId,
+            listingId: createFavouritesInput.listingId,
+            createFavouritesInput,
+          },
+          token
+        );
+
+        const wasAdded = !!toggleResult?.toggleFavourite;
+        setAgentFavouriteMessage(wasAdded ? 'Saved to favorites.' : 'Removed from favorites.');
+        await loadAgentSnapCollections();
+      } catch (toggleError: any) {
+        console.error('Failed to toggle favourite from AI Search:', toggleError);
+        setAgentFavouriteMessage(toggleError?.message || 'Failed to update favorites.');
+      } finally {
+        setAgentFavouriteSavingId(null);
+      }
+    },
+    [
+      agentFavouriteModalProperty,
+      agentFavouriteSavingId,
+      ensureMyFavouriteSnapId,
+      getAgentAuthContext,
+      loadAgentSnapCollections,
+      runAuthGraphql,
+    ]
+  );
+
+  const handleAgentCreateSnap = React.useCallback(async () => {
+    const nextName = agentNewSnapName.trim();
+    if (!nextName) return;
+
+    setAgentSnapLoading(true);
+    setAgentFavouriteMessage(null);
+    try {
+      await createAgentSnapCollection(nextName);
+      setAgentNewSnapName('');
+      setAgentCreateSnapOpen(false);
+      await loadAgentSnapCollections();
+      setAgentFavouriteMessage('New snapz created.');
+    } catch (createError: any) {
+      console.error('Failed to create snapz:', createError);
+      setAgentFavouriteMessage(createError?.message || 'Failed to create snapz.');
+    } finally {
+      setAgentSnapLoading(false);
+    }
+  }, [agentNewSnapName, createAgentSnapCollection, loadAgentSnapCollections]);
+
+  const agentModalSnapRows = useMemo(() => {
+    const ordered = sortMyFavouriteFirst(agentSnapCollections);
+    const hasMyFavourite = ordered.some((snap) => {
+      const name = String(snap?.name || '').trim().toLowerCase();
+      return name === 'my favourite' || name === 'my favorite';
+    });
+    if (hasMyFavourite) return ordered;
+    return [{ id: undefined, name: 'My Favourite', favourites: [] }, ...ordered];
+  }, [agentSnapCollections, sortMyFavouriteFirst]);
 
   const registerSnapResultsSession = (messageId: string, properties: any[], page: number = 0) => {
     if (!properties.length) {
@@ -3050,6 +3551,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                 const isActive = selectedPropertyId === property.id;
                                 const isExpandedCard = expandedPropertyId === property.id;
                                 const isAnySelected = selectedPropertyId !== null;
+                                const propertyIdentity = resolvePropertyIdentityKey(property) || String(property.id || '');
+                                const isFavourite = enableAgentFavorites && isPropertySavedInAnySnap(property);
+                                const isFavouriteSaving = !!propertyIdentity && agentFavouriteSavingId === propertyIdentity;
                                 const poolLabel =
                                   property.hasPool === true
                                     ? "Yes"
@@ -3097,6 +3601,20 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                       <div className="absolute top-3 left-3 bg-black/60 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg backdrop-blur-md">
                                         {property.type}
                                       </div>
+                                      {enableAgentFavorites && (
+                                        <button
+                                          type="button"
+                                          onClick={(event) => openAgentFavouriteModal(property, event)}
+                                          className={`absolute top-3 right-3 h-9 w-9 rounded-full border shadow-sm backdrop-blur-sm flex items-center justify-center transition-colors ${isFavourite
+                                            ? 'bg-orange-500 border-orange-400 text-white'
+                                            : 'bg-white/95 border-gray-200 text-gray-700 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-500'
+                                            } ${isFavouriteSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                          aria-label={isFavourite ? 'Saved in favorites' : 'Save to favorites'}
+                                          disabled={isFavouriteSaving}
+                                        >
+                                          <Heart className={`w-4 h-4 ${isFavourite ? 'fill-current' : ''}`} />
+                                        </button>
+                                      )}
                                     </div>
 
                                     <div className="p-5 flex flex-col gap-3">
@@ -3427,6 +3945,155 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     )}
                   </div>
                 ))}
+
+                {enableAgentFavorites && agentFavouriteModalOpen && (
+                  <div
+                    className="fixed inset-0 z-[120] bg-black/35 backdrop-blur-[1px] flex items-center justify-center p-4"
+                    onClick={closeAgentFavouriteModal}
+                  >
+                    <div
+                      className="w-full max-w-[620px] rounded-[24px] bg-white shadow-2xl border border-gray-100 p-6 sm:p-7"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={closeAgentFavouriteModal}
+                          className="rounded-full p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-colors"
+                          aria-label="Close favorites modal"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-3 -mt-1 mb-6">
+                        <div className="w-16 h-12 rounded-md overflow-hidden bg-gray-100 border border-gray-100 flex-shrink-0">
+                          {resolvePrimaryPropertyImage(agentFavouriteModalProperty) ? (
+                            <img
+                              src={resolvePrimaryPropertyImage(agentFavouriteModalProperty)}
+                              alt="Property preview"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gray-100" />
+                          )}
+                        </div>
+                        <h3 className="text-[34px] leading-none font-semibold text-gray-900 tracking-tight">Save to favorites</h3>
+                        <Heart className="w-7 h-7 text-orange-500 fill-orange-500 ml-auto" />
+                      </div>
+
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-[44px] leading-none font-semibold text-gray-900 tracking-tight">Snapz</h4>
+                        <button
+                          type="button"
+                          onClick={() => setAgentCreateSnapOpen((prev) => !prev)}
+                          className="h-10 w-10 rounded-full bg-[#111827] text-white flex items-center justify-center hover:bg-black transition-colors"
+                          aria-label={agentCreateSnapOpen ? 'Cancel create snapz' : 'Create new snapz'}
+                        >
+                          {agentCreateSnapOpen ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                        </button>
+                      </div>
+
+                      {agentCreateSnapOpen && (
+                        <div className="mb-4 flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={agentNewSnapName}
+                            onChange={(event) => setAgentNewSnapName(event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') {
+                                event.preventDefault();
+                                void handleAgentCreateSnap();
+                              }
+                            }}
+                            placeholder="Enter new snapz name"
+                            className="flex-1 h-11 rounded-xl border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => void handleAgentCreateSnap()}
+                            disabled={!agentNewSnapName.trim() || agentSnapLoading}
+                            className={`h-11 px-4 rounded-xl text-sm font-semibold transition-colors ${!agentNewSnapName.trim() || agentSnapLoading
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              : 'bg-orange-500 text-white hover:bg-orange-600'
+                              }`}
+                          >
+                            Create
+                          </button>
+                        </div>
+                      )}
+
+                      <div className="space-y-2.5 max-h-[280px] overflow-y-auto pr-1">
+                        {agentSnapLoading ? (
+                          <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-5 text-sm text-gray-500">
+                            Loading snapz collections...
+                          </div>
+                        ) : (
+                          agentModalSnapRows.map((snap, index) => {
+                            const isMyFavourite = index === 0;
+                            const isSaved =
+                              !!agentFavouriteModalProperty && isPropertySavedInSnap(agentFavouriteModalProperty, snap);
+                            const rowId = pickFirstValidId([snap?.id]) || `snap-row-${index}`;
+
+                            return (
+                              <button
+                                key={rowId}
+                                type="button"
+                                onClick={() => void handleAgentSnapSelection(snap)}
+                                disabled={!!agentFavouriteSavingId || agentSnapLoading}
+                                className={`w-full rounded-2xl border px-4 py-3.5 text-left transition-colors ${isSaved
+                                  ? 'border-orange-200 bg-orange-50/70'
+                                  : 'border-gray-100 bg-white hover:bg-gray-50'
+                                  } ${agentFavouriteSavingId ? 'cursor-not-allowed opacity-80' : ''}`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${isMyFavourite ? 'bg-orange-500 text-white' : 'bg-[#111827] text-white'
+                                    }`}>
+                                    <Heart className={`w-5 h-5 ${isSaved || isMyFavourite ? 'fill-current' : ''}`} />
+                                  </div>
+                                  <span className="flex-1 text-[26px] leading-none font-semibold text-gray-900 tracking-tight">
+                                    {snap?.name || (isMyFavourite ? 'My Favourite' : 'Snapz')}
+                                  </span>
+                                  <Heart className={`w-6 h-6 ${isSaved ? 'text-orange-500 fill-orange-500' : 'text-gray-300'}`} />
+                                </div>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+
+                      <div className="mt-4 border-t border-gray-100 pt-4">
+                        <a
+                          href="/snapz"
+                          className="text-orange-500 text-sm font-medium hover:text-orange-600 transition-colors"
+                        >
+                          View All Snapz
+                        </a>
+                      </div>
+
+                      {agentFavouriteMessage && (
+                        <p className="mt-3 text-sm text-gray-600">{agentFavouriteMessage}</p>
+                      )}
+
+                      <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-11 w-11 rounded-xl bg-black text-white flex items-center justify-center">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                              <circle cx="9" cy="7" r="4" />
+                              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-base font-semibold text-gray-900">Create a collaborative snapz</p>
+                            <p className="text-sm text-gray-500">Invite users to a saved snapz for collaboration</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Loading State */}
                 {isSearching && (

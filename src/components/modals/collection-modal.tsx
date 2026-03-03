@@ -721,7 +721,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
         <div className="flex items-center justify-between mt-4 mb-3">
           <h2 className="text-xl font-bold">Snapz</h2>
           <div className="flex items-center gap-2">
-            {!showInput && (
+            {!isAgentAccount && !showInput && (
               <div className="relative group">
                 <button
                   onClick={() => setShowQuickCreateInput((prev) => !prev)}
@@ -735,7 +735,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
                 </div>
               </div>
             )}
-            {showInput && (
+            {!isAgentAccount && showInput && (
               <button
                 onClick={() => { setShowInput(false); setStep(1); setNewCollectionName(''); }}
                 className="text-sm text-orange-500"
@@ -747,7 +747,29 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
         </div>
 
         {/* ── Collaborative flow (shown when "Create a collaborative snapz" is clicked) ── */}
-        {showInput ? (
+        {isAgentAccount ? (
+          <div className="mb-4 rounded-xl border border-orange-100 bg-orange-50 p-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 rounded-full bg-white p-2 text-orange-500">
+                <Lock className="h-4 w-4" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-gray-900">Agent Snapz are managed in Agent Workspace</h3>
+                <p className="mt-1 text-sm text-gray-600">
+                  Saving favorites and creating snapz from demo is disabled for agent accounts.
+                  Open Agent Snapz to manage your collections.
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={handleOpenAgentSnapz}
+              className="mt-4 w-full rounded-lg bg-gray-900 hover:bg-black text-white"
+            >
+              Open Agent Snapz
+              <ExternalLink className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+        ) : showInput ? (
           <div className="mb-6">
             {step === 1 ? (
               <form
@@ -907,26 +929,28 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
         )}
 
         {/* ── Collaborative Button — always visible ── */}
-        <button
-          onClick={handleCreateCollaborative}
-          className={cn(
-            "flex items-center gap-4 p-4 border border-gray-200 rounded-xl",
-            "hover:bg-gray-50 transition-colors w-full"
-          )}
-        >
-          <div className="flex-shrink-0 bg-black p-3 rounded-md">
-            <Users className="h-5 w-5 text-white" />
-          </div>
-          <div className="text-left">
-            <h3 className="font-semibold">Create a collaborative snapz</h3>
-            <p className="text-sm text-gray-500">Invite users to a saved snapz for collaboration</p>
-          </div>
-          <div className="ml-auto">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-gray-400">
-              <path d="M9 18l6-6-6-6" />
-            </svg>
-          </div>
-        </button>
+        {!isAgentAccount && (
+          <button
+            onClick={handleCreateCollaborative}
+            className={cn(
+              "flex items-center gap-4 p-4 border border-gray-200 rounded-xl",
+              "hover:bg-gray-50 transition-colors w-full"
+            )}
+          >
+            <div className="flex-shrink-0 bg-black p-3 rounded-md">
+              <Users className="h-5 w-5 text-white" />
+            </div>
+            <div className="text-left">
+              <h3 className="font-semibold">Create a collaborative snapz</h3>
+              <p className="text-sm text-gray-500">Invite users to a saved snapz for collaboration</p>
+            </div>
+            <div className="ml-auto">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-gray-400">
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </div>
+          </button>
+        )}
       </div>
     </CustomModal>
   );

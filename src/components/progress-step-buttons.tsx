@@ -31,13 +31,13 @@ const ProgressStepButtons: React.FC<
   hideBack = false,
   hideCancel = false,
 }) => (
-  <div className='flex w-full flex-nowrap items-center justify-between px-0 md:px-5'>
-    <div className='flex flex-row flex-nowrap items-center gap-3 md:ml-3'>
+  <div className='flex w-full flex-wrap items-center gap-3 px-0 md:flex-nowrap md:justify-between md:px-5'>
+    <div className='flex w-full min-w-0 flex-1 flex-nowrap items-center gap-3 md:ml-3 md:w-auto md:flex-none'>
       {!hideBack ? (
         <Button
           onClick={handleBack}
           roundness='full'
-          className='h-12 w-40 border-2 border-black bg-transparent px-10 py-3 text-black hover:border-none hover:bg-grey-830'
+          className='h-12 min-w-0 flex-1 border-2 border-black bg-transparent px-4 py-3 text-black hover:border-none hover:bg-grey-830 sm:w-40 sm:flex-none sm:px-10'
         >
           Back
         </Button>
@@ -53,13 +53,13 @@ const ProgressStepButtons: React.FC<
         </Button>
       ) : null}
     </div>
-    <div className='flex flex-nowrap items-center gap-3'>
+    <div className='flex w-full min-w-0 flex-1 flex-nowrap items-center justify-end gap-3 md:w-auto md:flex-none'>
       {children}
       <Button
         disabled={disableNextButton || loading}
         onClick={handleNextContinue}
         roundness='full'
-        className='h-12 w-44 px-12 py-3'
+        className='h-12 min-w-0 flex-1 px-4 py-3 sm:w-44 sm:flex-none sm:px-12'
       >
         {loading ? (
           <Loader className='w-max animate-spin' />

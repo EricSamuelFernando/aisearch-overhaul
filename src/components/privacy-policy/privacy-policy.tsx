@@ -6,7 +6,7 @@ import { privacyTerms } from './policy-data';
 function PrivacyPolicy() {
   return (
     <>
-      {/* <MainNavPages /> */}
+      <MainNavPages />
 
       {/* Hero */}
       <section className="bg-[#170800] text-white min-h-[600px] relative pt-12 -mt-24 overflow-hidden flex items-center justify-center">

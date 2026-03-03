@@ -83,36 +83,57 @@ export default function OurClients({
       </div>
       <div className="max-w-7xl mx-auto">
         {isMobile ? (
-          <Carousel
-            slideSize="100%"
-            slideGap="lg"
-            align="start"
-            loop
-            withIndicators={false}
-            withControls={false}
-            getEmblaApi={setEmbla}
-            styles={{
-              root: { padding: 0 },
-              viewport: { overflow: 'hidden' },
-            }}
-          >
-            {testimonials.map(({ name, title, text, img }, idx) => (
-              <Carousel.Slide key={idx}>
-                <div className="bg-[#F4E5D0] rounded-2xl p-6 sm:p-8 h-full flex flex-col justify-between shadow">
-                  <div className="text-left mb-6">
-                    <h3 className="font-bold font-outfit text-sm mb-1">{name}</h3>
-                    <p className="text-xs text-[#606060]">{title}</p>
-                    <p className="text-xs mt-4 text-[#595858] leading-relaxed">{text}</p>
+          <div>
+            <div className="mb-4 flex items-center justify-end gap-3">
+              <button
+                onClick={() => embla?.scrollPrev()}
+                disabled={!canScrollPrev}
+                aria-label="Previous testimonial"
+                className={`${canScrollPrev ? 'bg-[#F5EBDF] hover:bg-[#E0D8C7]' : 'bg-[#F5EBDF] cursor-not-allowed'} h-11 w-11 rounded-full border border-[#d7c5ad] shadow-sm flex items-center justify-center`}
+              >
+                <IconChevronLeft size={24} stroke={2.4} className="text-black" />
+              </button>
+              <button
+                onClick={() => embla?.scrollNext()}
+                disabled={!canScrollNext}
+                aria-label="Next testimonial"
+                className={`${canScrollNext ? 'bg-[#F5EBDF] hover:bg-[#E0D8C7]' : 'bg-[#F5EBDF] cursor-not-allowed'} h-11 w-11 rounded-full border border-[#d7c5ad] shadow-sm flex items-center justify-center`}
+              >
+                <IconChevronRight size={24} stroke={2.4} className="text-black" />
+              </button>
+            </div>
+
+            <Carousel
+              slideSize="100%"
+              slideGap="lg"
+              align="start"
+              loop
+              withIndicators={false}
+              withControls={false}
+              getEmblaApi={setEmbla}
+              styles={{
+                root: { padding: 0 },
+                viewport: { overflow: 'hidden' },
+              }}
+            >
+              {testimonials.map(({ name, title, text, img }, idx) => (
+                <Carousel.Slide key={idx}>
+                  <div className="bg-[#F4E5D0] rounded-2xl p-6 sm:p-8 h-full flex flex-col justify-between shadow">
+                    <div className="text-left mb-6">
+                      <h3 className="font-bold font-outfit text-sm mb-1">{name}</h3>
+                      <p className="text-xs text-[#606060]">{title}</p>
+                      <p className="text-xs mt-4 text-[#595858] leading-relaxed">{text}</p>
+                    </div>
+                    <img
+                      src={img}
+                      alt={`${name} photo`}
+                      className="w-14 h-14 rounded-full object-cover self-start"
+                    />
                   </div>
-                  <img
-                    src={img}
-                    alt={`${name} photo`}
-                    className="w-14 h-14 rounded-full object-cover self-start"
-                  />
-                </div>
-              </Carousel.Slide>
-            ))}
-          </Carousel>
+                </Carousel.Slide>
+              ))}
+            </Carousel>
+          </div>
         ) : (
           <div className="grid grid-cols-2 gap-12 px-12">
             {testimonials.map(({ name, title, text, img }, idx) => (

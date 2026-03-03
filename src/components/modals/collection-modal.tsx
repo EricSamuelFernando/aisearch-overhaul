@@ -313,7 +313,7 @@
 // export default CollectionModal;
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Heart, PlusIcon, Users, X } from 'lucide-react';
+import { ExternalLink, Heart, Lock, PlusIcon, Users, X } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';
 import { useSelector } from 'react-redux';
@@ -334,6 +334,41 @@ interface CollectionModalProps {
   propertyImage?: string;
   onSuccess?: () => void;
 }
+
+const resolveAgentSnapzUrl = () => {
+  const localFallback = 'http://localhost:3000/snapz';
+  const prodFallback = 'https://demo-agent.snaphomz.com/snapz';
+  const fallback =
+    typeof window !== 'undefined' && window.location.hostname === 'localhost'
+      ? localFallback
+      : prodFallback;
+
+  const configuredUrl =
+    process.env.NEXT_PUBLIC_AGENT_APP_URL?.trim() ||
+    process.env.NEXT_PUBLIC_AGENT_URL?.trim() ||
+    '';
+
+  if (!configuredUrl) return fallback;
+
+  try {
+    const parsed = new URL(configuredUrl);
+    const host = parsed.hostname.toLowerCase();
+    const path = parsed.pathname.toLowerCase();
+    const isApiHost = host.includes('api.snaphomz.com');
+    const isAuthOrGraphqlPath = path.includes('/auth') || path.includes('/graphql');
+
+    if (isApiHost || isAuthOrGraphqlPath) {
+      return fallback;
+    }
+
+    parsed.pathname = '/snapz';
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString();
+  } catch {
+    return fallback;
+  }
+};
 
 const CollectionModal: React.FC<CollectionModalProps> = ({
   isOpen,
@@ -369,8 +404,18 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
   } = useUserSnapAPIs();
   const { notificationsQuery } = useNotificationApi();
   const userData = useSelector((state: any) => state.auth.user);
+  const accountType = String(userData?.account_type || userData?.accountType || '').toLowerCase();
+  const isAgentAccount = accountType === 'agent';
   const snapId = uuidv4();
   const randomLink = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/snaps/${snapId}`;
+  const agentSnapzUrl = resolveAgentSnapzUrl();
+
+  const handleOpenAgentSnapz = () => {
+    onClose();
+    if (typeof window !== 'undefined') {
+      window.location.assign(agentSnapzUrl);
+    }
+  };
 
   const handleCreateCollaborative = () => {
     setShowInput(true);
@@ -570,12 +615,14 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      getAllSnapsByUserId();
+      if (!isAgentAccount) {
+        getAllSnapsByUserId();
+      }
       // Reset quick-create state when modal opens
       setShowQuickCreateInput(false);
       setQuickSnapName('');
     }
-  }, [userData, isOpen]);
+  }, [userData, isOpen, isAgentAccount]);
 
   // Auto-focus the quick create input when it appears
   useEffect(() => {

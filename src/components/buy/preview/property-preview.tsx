@@ -624,15 +624,16 @@ const PropertyPreview: React.FC = () => {
       return;
     }
 
-    const hasExistingInvite = engagedProperty?.participants?.some((participant: any) => {
+    const alreadyInvited = engagedProperty?.participants?.some((participant: any) => {
+      const participantEmail = participant?.email || participant?.agent?.email;
       const participantEngagementId = participant?.engagementId;
       const engagementMatches = !participantEngagementId || participantEngagementId === engagementIdForModal;
       const status = participant?.is_accepted || "pending";
-      return engagementMatches && ["pending", "accepted"].includes(status);
+      return engagementMatches && ["pending", "accepted"].includes(status) && participantEmail === inviteAgentEmail;
     });
 
-    if (hasExistingInvite) {
-      error({ message: "This property already has an invited agent." });
+    if (alreadyInvited) {
+      error({ message: "This agent has already been invited to this property." });
       return;
     }
 

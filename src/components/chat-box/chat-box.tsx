@@ -2863,10 +2863,10 @@ export default function ChatBoxComponent(props: any) {
         const endpointCandidates = Array.from(
           new Set(
             [
-              `${trimmedBase}/api/overview-short`,
-              `${trimmedBase}/properties/${activeOverviewPropertyId}/overview-short`,
-              `${rootBase}/api/overview-short`,
-              `${rootBase}/properties/${activeOverviewPropertyId}/overview-short`,
+              `${trimmedBase}/auth/api/overview-short`,
+              `${trimmedBase}/auth/properties/${activeOverviewPropertyId}/overview-short`,
+              `${rootBase}/auth/api/overview-short`,
+              `${rootBase}/auth/properties/${activeOverviewPropertyId}/overview-short`,
             ].filter(Boolean),
           ),
         )

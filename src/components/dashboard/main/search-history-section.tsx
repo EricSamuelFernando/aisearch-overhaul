@@ -147,7 +147,7 @@ const SearchHistorySection = () => {
                   <div className='grid grid-cols-1 gap-2 md:grid-cols-12 md:gap-3'>
                     <div className='md:col-span-4'>
                       <p className='text-sm font-semibold text-black'>{label}</p>
-                      {size ? <p className='text-xs text-gray-500'>{size}</p> : null}
+                      {/* {size ? <p className='text-xs text-gray-500'>{size}</p> : null} */}
                     </div>
                     <div className='md:col-span-4'>
                       <p className='text-sm text-gray-800'>{location || 'N/A'}</p>

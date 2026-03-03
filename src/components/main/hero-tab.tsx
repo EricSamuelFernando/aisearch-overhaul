@@ -714,6 +714,45 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     return () => clearInterval(interval);
   }, [isSearching]);
 
+  // Typing effect for placeholder
+  useEffect(() => {
+    const text = "Ask anything about homes, neighborhoods, schools";
+    let i = 0;
+    let isDeleting = false;
+    let timeoutId: NodeJS.Timeout;
+    let mounted = true;
+
+    const tick = () => {
+      if (!mounted) return;
+      setTypedPlaceholder(text.slice(0, i));
+
+      if (!isDeleting) {
+        if (i < text.length) {
+          i++;
+          timeoutId = setTimeout(tick, 60);
+        } else {
+          isDeleting = true;
+          timeoutId = setTimeout(tick, 4000);
+        }
+      } else {
+        if (i > 0) {
+          i--;
+          timeoutId = setTimeout(tick, 30);
+        } else {
+          isDeleting = false;
+          timeoutId = setTimeout(tick, 1000);
+        }
+      }
+    };
+
+    timeoutId = setTimeout(tick, 500);
+
+    return () => {
+      mounted = false;
+      clearTimeout(timeoutId);
+    };
+  }, []);
+
   // Chat History State (consolidated below)
 
   // Forecast State
@@ -2198,8 +2237,26 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
   // Strict Interaction Handlers
   const handlePropertyClick = (id: string | number) => {
-    // Only highlights the card. Does NOT toggle expansion.
-    setSelectedPropertyId(id === selectedPropertyId ? null : id);
+    // Select the card AND immediately expand details (no need to click "Show More")
+    if (id === selectedPropertyId) {
+      // Clicking the already-selected tile: deselect + collapse
+      setSelectedPropertyId(null);
+      setExpandedPropertyId(null);
+    } else {
+      setSelectedPropertyId(id);
+      // Find the property object from chat history to fetch schools
+      let foundProperty: any = null;
+      for (const msg of chatHistory) {
+        if (msg.relatedProperties) {
+          foundProperty = msg.relatedProperties.find((p: any) => p.id === id);
+          if (foundProperty) break;
+        }
+      }
+      setExpandedPropertyId(id);
+      if (foundProperty) {
+        fetchNearbySchools(foundProperty);
+      }
+    }
   };
 
   const handleExpandClick = (property: any, e: React.MouseEvent) => {
@@ -2259,9 +2316,27 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 onSubmit={handleFormSubmit}
                 className="relative flex items-center w-full bg-transparent"
               >
-                {/* Left Sparkle Icon */}
+                {/* Left Ask AI Icon */}
                 <div className="pl-3 md:pl-2 flex-shrink-0">
-                  <Sparkles className="text-[#F58634] w-5 h-5 md:w-6 md:h-6" />
+                  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 md:w-6 md:h-6">
+                    <path d="M15.0645 1C22.8233 0.998533 29.122 7.31736 29.1221 15.1211V25.0967C29.1221 26.201 28.6985 27.1986 28.0068 27.9336L28.0049 27.9355C27.2517 28.7409 26.1847 29.2393 25.001 29.2393H5.12109C2.85069 29.2393 1 27.3893 1 25.0986V15.123C1 7.31903 7.30043 1 15.0645 1Z" fill="black" stroke="url(#askAiGradient)" strokeWidth="2"/>
+                    <mask id="askAiMask1" fill="white">
+                      <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z"/>
+                    </mask>
+                    <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" fill="white" stroke="white" strokeWidth="4" mask="url(#askAiMask1)"/>
+                    <mask id="askAiMask2" fill="white">
+                      <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z"/>
+                    </mask>
+                    <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" fill="white" stroke="white" strokeWidth="4" mask="url(#askAiMask2)"/>
+                    <defs>
+                      <linearGradient id="askAiGradient" x1="15.061" y1="0" x2="15.061" y2="30.2391" gradientUnits="userSpaceOnUse">
+                        <stop stopColor="#E8804C"/>
+                        <stop offset="0.5" stopColor="#E84C85"/>
+                        <stop offset="0.75" stopColor="#A64EBA"/>
+                        <stop offset="1" stopColor="#654FEF"/>
+                      </linearGradient>
+                    </defs>
+                  </svg>
                 </div>
 
                 {/* Input Field */}
@@ -3546,7 +3621,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                           }
                         }
                       }}
-                      placeholder={pendingImage ? "Type city, ZIP, or coordinates for this image" : "Ask anything about homes, neighborhoods, schools"}
+                      placeholder={pendingImage ? "Type city, ZIP, or coordinates for this image" : typedPlaceholder}
                       rows={1}
                       className={`w-full bg-white text-gray-900 rounded-2xl sm:rounded-3xl min-h-[64px] sm:min-h-[68px] max-h-32 sm:max-h-40 overflow-y-hidden resize-none py-4 sm:py-[22px] ${pendingImage || pendingImagePreview ? 'pl-40 sm:pl-[19rem]' : 'pl-12 sm:pl-14'} pr-16 sm:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-[14px] sm:text-base placeholder:text-gray-400 font-normal leading-relaxed`}
                     />
@@ -3555,12 +3630,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                         type="button"
                         onClick={toggleMlsBypass}
                         title={mlsBypassMode ? 'Direct MLS mode is ON (AI search bypassed)' : 'Use Direct MLS mode'}
-                        className={`hidden sm:inline-flex h-7 sm:h-8 rounded-full px-2.5 sm:px-3 text-[10px] sm:text-[11px] font-semibold border transition-colors ${mlsBypassMode
-                          ? 'bg-amber-50 text-amber-700 border-amber-200'
-                          : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                        className={`h-7 sm:h-8 rounded-full px-2.5 sm:px-3 text-[10px] sm:text-[11px] font-semibold border transition-colors ${!mlsBypassMode
+                          ? 'bg-orange-50 text-[#F58634] border-orange-200 hover:bg-orange-100'
+                          : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
                           }`}
                       >
-                        {mlsBypassMode ? 'MLS' : 'AI'}
+                        AI Search
                       </button>
 
                       <button

@@ -2336,6 +2336,7 @@ import {
   Eye,
   Maximize,
   ArrowDown,
+  ArrowLeft,
 } from "lucide-react"
 import "swiper/css"
 import "swiper/css/navigation"
@@ -2863,10 +2864,10 @@ export default function ChatBoxComponent(props: any) {
         const endpointCandidates = Array.from(
           new Set(
             [
-              `${trimmedBase}/api/overview-short`,
-              `${trimmedBase}/properties/${activeOverviewPropertyId}/overview-short`,
-              `${rootBase}/api/overview-short`,
-              `${rootBase}/properties/${activeOverviewPropertyId}/overview-short`,
+              `${trimmedBase}/auth/api/overview-short`,
+              `${trimmedBase}/auth/properties/${activeOverviewPropertyId}/overview-short`,
+              `${rootBase}/auth/api/overview-short`,
+              `${rootBase}/auth/properties/${activeOverviewPropertyId}/overview-short`,
             ].filter(Boolean),
           ),
         )
@@ -2968,12 +2969,12 @@ export default function ChatBoxComponent(props: any) {
         Array.isArray(thread?.messages) && thread.messages.length
           ? thread.messages[thread.messages.length - 1]
           : null;
-      const lastMessageTime = new Date(
-        thread?.updatedAt ||
+      const rawDate = thread?.updatedAt ||
         thread?.lastMessageAt ||
         lastMessage?.createdAt ||
-        0,
-      ).getTime();
+        0;
+      let lastMessageTime = new Date(rawDate).getTime();
+      if (Number.isNaN(lastMessageTime)) lastMessageTime = 0;
 
       const unreadCountFromMessages = Array.isArray(thread?.messages)
         ? thread.messages.filter((message: Message) => {
@@ -5410,17 +5411,15 @@ export default function ChatBoxComponent(props: any) {
           <div className={`w-full md:basis-[25%] md:max-w-[25%] md:min-w-[25%] bg-white border-r ${showThreads ? "block" : "hidden md:block"} overflow-hidden`}>
             {/* Header */}
             <div className="p-4 border-b flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => router.push('/dashboard/buyer?tab=my-snapz')}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-700 hover:bg-gray-100"
-                  aria-label="Back to dashboard"
-                >
-                  &lt;-
-                </button>
-                <h2 className="font-semibold text-lg text-gray-800">Messages</h2>
-              </div>
+              <button
+                type="button"
+                onClick={() => router.push('/dashboard/buyer?tab=my-snapz')}
+                className="flex items-center gap-2 text-gray-800 hover:text-gray-600 transition-colors"
+                aria-label="Back to dashboard"
+              >
+                <ArrowLeft className="h-5 w-5" />
+                <h2 className="font-semibold text-lg">Messages</h2>
+              </button>
               <TooltipProvider delayDuration={120}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -5541,11 +5540,13 @@ export default function ChatBoxComponent(props: any) {
                     const entryKey = entry.entryKey;
                     const isExpanded = expandedEntryKey === entryKey;
                     const isActiveThread = selectedThreadDetail?.id === thread?.id;
-                    const entryUnread = unreadCountByThreadId.get(normalizeThreadKey(thread?.id)) || 0;
+                    const entryUnread = entry.totalUnread || 0;
                     const hasUnread = entryUnread > 0;
                     const threadCardClasses = `relative flex flex-col w-full mt-3 gap-3 rounded-2xl border p-5 transition-colors shadow-sm cursor-pointer ${isActiveThread
                       ? 'bg-[#FFF7EF] border-[#F6D4B3]'
-                      : 'bg-white border-[#F1ECE6]'
+                      : hasUnread
+                        ? 'bg-[#FFF0E6] border-[#F6D4B3]'
+                        : 'bg-white border-[#F1ECE6]'
                       }`;
                     const timestampColor = isActiveThread ? 'text-[#C4A189]' : 'text-gray-400';
                     const engagedLabelColor = isActiveThread ? 'text-[#B5571E]' : 'text-gray-500';
@@ -5572,11 +5573,6 @@ export default function ChatBoxComponent(props: any) {
                             {formatDistanceToNow(new Date(lastMessage?.createdAt), { addSuffix: true })}
                           </span>
                         ) : null}
-                        {hasUnread && (
-                          <Badge className="absolute top-4 left-4 bg-red-600 text-white text-[10px] px-2 py-1 rounded-full">
-                            {entryUnread}
-                          </Badge>
-                        )}
 
                         <div
                           className="flex items-start gap-4 w-full"
@@ -5587,21 +5583,28 @@ export default function ChatBoxComponent(props: any) {
                             );
                           }}
                         >
-                          {agentImage || thread?.image ? (
-                            <Image
-                              src={agentImage || thread.image}
-                              alt="Agent Avatar"
-                              width={50}
-                              height={50}
-                              className="rounded-full object-cover w-[40px] h-[40px] sm:w-[50px] sm:h-[50px]"
-                              priority
-                              unoptimized
-                            />
-                          ) : (
-                            <div className="rounded-full flex items-center justify-center font-semibold w-[40px] h-[40px] sm:w-[50px] sm:h-[50px] bg-gray-800 text-white">
-                              {getInitials(agentName)}
-                            </div>
-                          )}
+                          <div className="relative">
+                            {hasUnread && (
+                              <span className="absolute -top-1 -left-1 z-10 flex items-center justify-center min-w-[20px] h-[20px] rounded-full bg-red-600 text-white text-[10px] font-bold px-1">
+                                {entryUnread}
+                              </span>
+                            )}
+                            {agentImage || thread?.image ? (
+                              <Image
+                                src={agentImage || thread.image}
+                                alt="Agent Avatar"
+                                width={50}
+                                height={50}
+                                className="rounded-full object-cover w-[40px] h-[40px] sm:w-[50px] sm:h-[50px]"
+                                priority
+                                unoptimized
+                              />
+                            ) : (
+                              <div className="rounded-full flex items-center justify-center font-semibold w-[40px] h-[40px] sm:w-[50px] sm:h-[50px] bg-gray-800 text-white">
+                                {getInitials(agentName)}
+                              </div>
+                            )}
+                          </div>
 
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-sm sm:text-base text-gray-900 truncate">
@@ -5634,7 +5637,7 @@ export default function ChatBoxComponent(props: any) {
                               return (
                                 <div
                                   key={property.propertyId}
-                                  className={`w-full min-h-[86px] rounded-3xl border px-6 py-4 text-sm transition-all duration-200 cursor-pointer flex flex-col justify-between ${isActiveProperty
+                                  className={`relative w-full min-h-[86px] rounded-3xl border px-6 py-4 text-sm transition-all duration-200 cursor-pointer flex flex-col justify-between ${isActiveProperty
                                     ? 'bg-[#1B1B1B] text-white border-[#1B1B1B]'
                                     : hasPropertyUnread
                                       ? 'bg-green-50 text-[#12451F] border-green-200'
@@ -5646,12 +5649,12 @@ export default function ChatBoxComponent(props: any) {
                                     setExpandedEntryKey(entryKey);
                                   }}
                                 >
-                                  {hasPropertyUnread && (
-                                    <Badge className="absolute top-3 right-3 bg-red-600 text-white text-[10px] px-2 py-1 rounded-full">
-                                      {propertyUnread}
-                                    </Badge>
-                                  )}
-                                  <div>
+                                  <div className="flex items-center gap-2">
+                                    {hasPropertyUnread && (
+                                      <span className="flex items-center justify-center min-w-[20px] h-[20px] rounded-full bg-red-600 text-white text-[10px] font-bold px-1">
+                                        {propertyUnread}
+                                      </span>
+                                    )}
                                     <p className="font-semibold text-sm sm:text-base truncate">
                                       {displayTitle}
                                     </p>

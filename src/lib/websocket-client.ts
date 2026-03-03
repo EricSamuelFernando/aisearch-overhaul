@@ -300,7 +300,6 @@ export class WebSocketClientImpl implements WebSocketClient {
       'save_messages',
       'save_file',
       'typing',
-      'mark_as_read',
       'userConnected',
       'recievedMessage'
     ];

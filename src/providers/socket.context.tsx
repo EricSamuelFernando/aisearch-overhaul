@@ -541,7 +541,10 @@ function SocketProvider({ children }: { children: ReactNode }) {
 
   // Hydrate bell notifications from API on load and refresh
   useEffect(() => {
-    const apiNotifications = notificationsQuery.data?.data?.data?.result?.result || [];
+    const rawApiData = notificationsQuery.data?.data as any;
+    const apiNotifications = Array.isArray(rawApiData)
+      ? rawApiData
+      : rawApiData?.data?.result?.result || rawApiData?.result || [];
     if (!Array.isArray(apiNotifications) || apiNotifications.length === 0) return;
 
     setState((prev: any) => {
@@ -739,8 +742,26 @@ function SocketProvider({ children }: { children: ReactNode }) {
       const handleNewMessage = (messageData: any) => handleIncomingMessage(messageData, "newMessage");
       const handleRecievedMessage = (messageData: any) => handleIncomingMessage(messageData, "recievedMessage");
 
+      // Handle authoritative unread count pushed from backend
+      const handleUnreadCountUpdated = (data: any) => {
+        const threadId = data?.threadId;
+        const count = typeof data?.count === 'number' ? data.count : 0;
+        if (!threadId) return;
+        console.log(`[SocketContext] unread_count_updated: threadId=${threadId}, count=${count}`);
+        setState((prev: any) => ({
+          ...prev,
+          conversationUnreadCount: [
+            ...(Array.isArray(prev.conversationUnreadCount)
+              ? prev.conversationUnreadCount.filter((c: any) => c.threadId !== threadId)
+              : []),
+            { threadId, count },
+          ],
+        }));
+      };
+
       socket.on("newMessage", handleNewMessage);
       socket.on("recievedMessage", handleRecievedMessage);
+      socket.on("unread_count_updated", handleUnreadCountUpdated);
       socket.on("notification_created", (payload: any) => {
         console.log("[SocketContext] notification_created:", payload);
         queryClient.invalidateQueries({ queryKey: ["notifications"] });
@@ -866,6 +887,7 @@ function SocketProvider({ children }: { children: ReactNode }) {
         socket.off("new_offer_recieved");
         socket.off("newMessage", handleNewMessage);
         socket.off("recievedMessage", handleRecievedMessage);
+        socket.off("unread_count_updated", handleUnreadCountUpdated);
         socket.off("notification_created");
         socket.off("recent_activity_update", handleRecentActivityUpdate);
         socket.off("createOrJoinConversation_response");

@@ -12,6 +12,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, ReferenceDot } from 'recharts';
 import SchoolMapPanel from '@/components/SchoolMapPanel';
 import InteractiveSchoolMapPanel from '@/components/InteractiveSchoolMapPanel';
+import ThinkingPanel from '@/components/main/ThinkingPanel';
+import type { ThinkingStep } from '@/components/main/ThinkingPanel';
 
 
 // Force refresh logic
@@ -613,6 +615,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
   const [isLoadingLocationSuggestions, setIsLoadingLocationSuggestions] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [currentQuery, setCurrentQuery] = useState('');
+  const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([]);
   // Controls expansion state (Collapsed Search Bar vs Expanded Chat UI)
   const [isExpanded, setIsExpanded] = useState(false);
   const [typedPlaceholder, setTypedPlaceholder] = useState("");
@@ -675,27 +679,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     };
   }, [isMenuOpen]);
 
-  // Dynamic Loading State
-  const [loadingStep, setLoadingStep] = useState(0);
-  const loadingMessages = [
-    "Analyzing your request...",
-    "Identifying target location...",
-    "Scanning property database...",
-    "Fetching school ratings...",
-    "Curating top matches..."
-  ];
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isSearching) {
-      setLoadingStep(0);
-      interval = setInterval(() => {
-        // Loop through messages instead of stopping at the last one
-        setLoadingStep((prev) => (prev + 1) % loadingMessages.length);
-      }, 3000); // Slower interval (3 seconds)
-    }
-    return () => clearInterval(interval);
-  }, [isSearching]);
+  // Loading state is now handled by <ThinkingPanel /> below
 
   // Chat History State (consolidated below)
 
@@ -797,6 +781,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     setChatHistory([]);
     setSessionId(null);
     setIsSearching(false);
+    setCurrentQuery('');
+    setThinkingSteps([]);
     setIsMenuOpen(false);
     setSelectedPropertyId(null);
     setExpandedPropertyId(null);
@@ -1266,6 +1252,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
     // 2. Set Loading & Reset Input
     setIsSearching(true);
+    setCurrentQuery(queryToSearch);
+    setThinkingSteps([]);
     setSearchTerm('');
     setSelectedPropertyId(null);
     setExpandedPropertyId(null);
@@ -1417,6 +1405,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         if (data.session_id) {
           setSessionId(data.session_id);
         }
+        if (Array.isArray(data.thinking_steps) && data.thinking_steps.length > 0) {
+          setThinkingSteps(data.thinking_steps);
+        }
         lastIntentRef.current = data.intent || "question";
 
         const aiText =
@@ -1459,6 +1450,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
       }
       if (data.intent) {
         lastIntentRef.current = data.intent;
+      }
+      if (Array.isArray(data.thinking_steps) && data.thinking_steps.length > 0) {
+        setThinkingSteps(data.thinking_steps);
       }
 
       const rawProperties = data.properties || data.search_results || [];
@@ -3344,36 +3338,13 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                   </div>
                 ))}
 
-                {/* Loading State */}
-                {isSearching && (
-                  <div className="flex items-start gap-4 mt-6 ml-1">
-                    <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-[#140800] ring-1 ring-[#F58634]/35 shadow-sm flex items-center justify-center">
-                      <Image
-                        src="/assets/images/snaphomz-icon-thick.png"
-                        alt="SnapHomz AI"
-                        width={32}
-                        height={32}
-                        className="w-8 h-8 object-contain"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-3 pt-1 w-full max-w-md">
-                      <div className="flex items-center gap-3 animate-pulse">
-                        {/* Custom Curvy Sparkles Icon matching Figma */}
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 drop-shadow-[0_0_12px_rgba(245,134,52,0.7)]">
-                          <path d="M14.5 4C14.5 4 15.5 10 20 12C15.5 14 14.5 20 14.5 20C14.5 20 13.5 14 9 12C13.5 10 14.5 4 14.5 4Z" fill="#F58634" />
-                          <path d="M5.5 6C5.5 6 6 9 8 10C6 11 5.5 14 5.5 14C5.5 14 5 11 3 10C5 9 5.5 6 5.5 6Z" fill="#F58634" />
-                          <path d="M5 16C5 16 5.5 18 7 19C5.5 20 5 22 5 22C5 22 4.5 20 3 19C4.5 18 5 16 5 16Z" fill="#F58634" />
-                        </svg>
-                        <span className="text-lg font-medium text-black">
-                          {loadingMessages[loadingStep]}
-                        </span>
-                      </div>
-                      <div className="space-y-3 opacity-40 animate-pulse">
-                        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                        <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                      </div>
-                    </div>
-                  </div>
+                {/* Thinking Panel — agent-transparent loading state */}
+                {(isSearching || thinkingSteps.length > 0) && currentQuery && (
+                  <ThinkingPanel
+                    isThinking={isSearching}
+                    query={currentQuery}
+                    backendSteps={thinkingSteps.length > 0 ? thinkingSteps : undefined}
+                  />
                 )}
 
                 <div ref={chatBottomRef} className="h-2" />

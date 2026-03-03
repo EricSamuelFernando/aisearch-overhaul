@@ -699,6 +699,45 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     return () => clearInterval(interval);
   }, [isSearching]);
 
+  // Typing effect for placeholder
+  useEffect(() => {
+    const text = "Ask anything about homes, neighborhoods, schools";
+    let i = 0;
+    let isDeleting = false;
+    let timeoutId: NodeJS.Timeout;
+    let mounted = true;
+
+    const tick = () => {
+      if (!mounted) return;
+      setTypedPlaceholder(text.slice(0, i));
+
+      if (!isDeleting) {
+        if (i < text.length) {
+          i++;
+          timeoutId = setTimeout(tick, 60);
+        } else {
+          isDeleting = true;
+          timeoutId = setTimeout(tick, 4000);
+        }
+      } else {
+        if (i > 0) {
+          i--;
+          timeoutId = setTimeout(tick, 30);
+        } else {
+          isDeleting = false;
+          timeoutId = setTimeout(tick, 1000);
+        }
+      }
+    };
+
+    timeoutId = setTimeout(tick, 500);
+
+    return () => {
+      mounted = false;
+      clearTimeout(timeoutId);
+    };
+  }, []);
+
   // Chat History State (consolidated below)
 
   // Forecast State
@@ -2183,8 +2222,26 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
   // Strict Interaction Handlers
   const handlePropertyClick = (id: string | number) => {
-    // Only highlights the card. Does NOT toggle expansion.
-    setSelectedPropertyId(id === selectedPropertyId ? null : id);
+    // Select the card AND immediately expand details (no need to click "Show More")
+    if (id === selectedPropertyId) {
+      // Clicking the already-selected tile: deselect + collapse
+      setSelectedPropertyId(null);
+      setExpandedPropertyId(null);
+    } else {
+      setSelectedPropertyId(id);
+      // Find the property object from chat history to fetch schools
+      let foundProperty: any = null;
+      for (const msg of chatHistory) {
+        if (msg.relatedProperties) {
+          foundProperty = msg.relatedProperties.find((p: any) => p.id === id);
+          if (foundProperty) break;
+        }
+      }
+      setExpandedPropertyId(id);
+      if (foundProperty) {
+        fetchNearbySchools(foundProperty);
+      }
+    }
   };
 
   const handleExpandClick = (property: any, e: React.MouseEvent) => {
@@ -3533,7 +3590,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                           }
                         }
                       }}
-                      placeholder={pendingImage ? "Type city, ZIP, or coordinates for this image" : "Ask anything about homes, neighborhoods, schools"}
+                      placeholder={pendingImage ? "Type city, ZIP, or coordinates for this image" : typedPlaceholder}
                       rows={1}
                       className={`w-full bg-white text-gray-900 rounded-3xl min-h-[48px] sm:min-h-[68px] max-h-32 sm:max-h-40 overflow-y-auto resize-none py-3 sm:py-[22px] ${pendingImage || pendingImagePreview ? 'pl-40 sm:pl-[19rem]' : 'pl-11 sm:pl-14'} pr-16 sm:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-sm sm:text-base placeholder:text-gray-400 font-normal leading-relaxed`}
                     />
@@ -3542,12 +3599,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                         type="button"
                         onClick={toggleMlsBypass}
                         title={mlsBypassMode ? 'Direct MLS mode is ON (AI search bypassed)' : 'Use Direct MLS mode'}
-                        className={`h-7 sm:h-8 rounded-full px-2.5 sm:px-3 text-[10px] sm:text-[11px] font-semibold border transition-colors ${mlsBypassMode
-                          ? 'bg-amber-50 text-amber-700 border-amber-200'
-                          : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                        className={`h-7 sm:h-8 rounded-full px-2.5 sm:px-3 text-[10px] sm:text-[11px] font-semibold border transition-colors ${!mlsBypassMode
+                          ? 'bg-orange-50 text-[#F58634] border-orange-200 hover:bg-orange-100'
+                          : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
                           }`}
                       >
-                        {mlsBypassMode ? 'MLS' : 'AI'}
+                        AI Search
                       </button>
 
                       <button

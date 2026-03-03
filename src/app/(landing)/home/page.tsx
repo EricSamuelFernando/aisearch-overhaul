@@ -814,6 +814,7 @@ import { Radio } from '@mantine/core';
 import BuyOrRent from '@/components/buy/buy-or-rent';
 import FindPerfectMortgage from '@/components/buy/find-your-mortgage';
 import HomeDisclosure from '@/components/buy/home-disclosure';
+import Footer from '@/components/shared/footer';
 
 const questions = [
   {
@@ -1586,6 +1587,8 @@ export default function Home() {
           testimonials={HOME_PAGE_TESTIMONIALS}
         />
       </div>
+
+      <Footer />
     </>
   );
 }

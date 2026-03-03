@@ -68,6 +68,7 @@ export const ForgotPasswordModalForm = ({ onEmailSubmit, onBack }: ForgotPasswor
       >
         <CustomInput
           label='Enter Your Email to get Verification Code'
+          labelClass='mb-2 block'
           placeholder='Enter Your Email'
           className='h-12 max-w-xl placeholder:text-base w-full'
           containerClass='max-w-xl w-full'

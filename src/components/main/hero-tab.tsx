@@ -65,13 +65,28 @@ type ForecastPoint = { date: string; rate: number };
 
 // Helper to bold text
 const renderTextWithBold = (text: string) => {
-  const parts = text.split(/(\*\*.*?\*\*)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={i} className="font-bold text-gray-900">{part.slice(2, -2)}</strong>;
-    }
-    return part;
-  });
+  const parseInlineBold = (value: string, keyPrefix: string) => {
+    const parts = value.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={`${keyPrefix}-${i}`} className="font-bold text-gray-900">{part.slice(2, -2)}</strong>;
+      }
+      return part;
+    });
+  };
+
+  const numberedPrefixMatch = text.match(/^(\d+\.)\s+(.*)$/);
+  if (numberedPrefixMatch) {
+    const [, prefix, rest] = numberedPrefixMatch;
+    return (
+      <>
+        <strong className="font-bold text-gray-900">{prefix}</strong>{' '}
+        {parseInlineBold(rest, 'num')}
+      </>
+    );
+  }
+
+  return parseInlineBold(text, 'inline');
 };
 
 // Helper to render table
@@ -2301,9 +2316,27 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 onSubmit={handleFormSubmit}
                 className="relative flex items-center w-full bg-transparent"
               >
-                {/* Left Sparkle Icon */}
+                {/* Left Ask AI Icon */}
                 <div className="pl-3 md:pl-2 flex-shrink-0">
-                  <Sparkles className="text-[#F58634] w-5 h-5 md:w-6 md:h-6" />
+                  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 md:w-6 md:h-6">
+                    <path d="M15.0645 1C22.8233 0.998533 29.122 7.31736 29.1221 15.1211V25.0967C29.1221 26.201 28.6985 27.1986 28.0068 27.9336L28.0049 27.9355C27.2517 28.7409 26.1847 29.2393 25.001 29.2393H5.12109C2.85069 29.2393 1 27.3893 1 25.0986V15.123C1 7.31903 7.30043 1 15.0645 1Z" fill="black" stroke="url(#askAiGradient)" strokeWidth="2"/>
+                    <mask id="askAiMask1" fill="white">
+                      <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z"/>
+                    </mask>
+                    <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" fill="white" stroke="white" strokeWidth="4" mask="url(#askAiMask1)"/>
+                    <mask id="askAiMask2" fill="white">
+                      <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z"/>
+                    </mask>
+                    <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" fill="white" stroke="white" strokeWidth="4" mask="url(#askAiMask2)"/>
+                    <defs>
+                      <linearGradient id="askAiGradient" x1="15.061" y1="0" x2="15.061" y2="30.2391" gradientUnits="userSpaceOnUse">
+                        <stop stopColor="#E8804C"/>
+                        <stop offset="0.5" stopColor="#E84C85"/>
+                        <stop offset="0.75" stopColor="#A64EBA"/>
+                        <stop offset="1" stopColor="#654FEF"/>
+                      </linearGradient>
+                    </defs>
+                  </svg>
                 </div>
 
                 {/* Input Field */}
@@ -3047,7 +3080,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
                             <div
                               id={`carousel-${msg.id}`}
-                              className="flex flex-col sm:flex-row items-stretch sm:items-center overflow-visible sm:overflow-x-auto gap-4 sm:gap-5 md:gap-6 px-4 sm:px-8 md:px-10 py-4 sm:py-6 md:py-8 sm:snap-x sm:snap-mandatory no-scrollbar"
+                              className="flex flex-row items-stretch sm:items-center overflow-x-auto gap-4 sm:gap-5 md:gap-6 px-4 sm:px-8 md:px-10 py-4 sm:py-6 md:py-8 snap-x snap-mandatory no-scrollbar"
                               style={{ scrollBehavior: 'smooth' }}
                             >
                               {msg.relatedProperties.map((property: any) => {
@@ -3073,8 +3106,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                     onClick={() => handlePropertyClick(property.id)}
                                     className={`
                                                                 group relative flex flex-col
-                                                                w-full min-w-0 max-w-full sm:min-w-[300px] sm:w-[300px] md:min-w-[360px] md:w-[360px] md:max-w-[360px] lg:min-w-[320px] lg:w-[320px] lg:max-w-[320px]
-                                                                flex-shrink-0 rounded-2xl cursor-pointer sm:snap-center
+                                                                w-[300px] min-w-[300px] max-w-[300px] sm:min-w-[300px] sm:w-[300px] md:min-w-[360px] md:w-[360px] md:max-w-[360px] lg:min-w-[320px] lg:w-[320px] lg:max-w-[320px]
+                                                                flex-shrink-0 rounded-2xl cursor-pointer snap-start sm:snap-center
                                                                 transition-all duration-300 ease-out border bg-white overflow-hidden
                                                                 ${isAnySelected
                                         ? isActive
@@ -3322,9 +3355,6 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                       );
                                     })()}
                                   </div>
-
-
-
                                   {/* 4. INSIGHTS */}
                                   <div className="bg-[#FFF9F5] border border-[#FFD8B4] rounded-[16px] sm:rounded-[20px] p-4 sm:p-8">
                                     <div className="flex items-center justify-between mb-4 sm:mb-6">
@@ -3407,6 +3437,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                       </button>
                                     </div>
                                   </div>
+
                                   {/* 5. VIEW FULL PROPERTY */}
                                   <div className="flex justify-center pb-4">
                                     <a
@@ -3466,11 +3497,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
               </div>
 
               {/* Footer / Related Questions & Search */}
-              <div className="mt-2 pt-2 border-t border-gray-100/50 sticky bottom-0 bg-white/95 backdrop-blur-md z-30 pb-2 sm:pb-4">
+              <div className="mt-2 border-t border-gray-100/70 sticky bottom-0 bg-white/95 backdrop-blur-md z-30 px-3 pt-3 pb-[max(env(safe-area-inset-bottom),0.9rem)] sm:px-0 sm:pt-2 sm:pb-4">
                 {/* 1. Related Questions (Removed - now dynamic per message) */}
 
                 {/* 2. New Large Search Bar + Controls */}
-                <div ref={searchContainerRef} className="mb-3 flex flex-wrap items-center gap-2 sm:mb-4 sm:flex-nowrap sm:gap-3">
+                <div ref={searchContainerRef} className="mb-2 flex items-center gap-2 sm:mb-4 sm:gap-3">
                   {/* Contextual Actions */}
                   <button
                     onClick={() => {
@@ -3497,9 +3528,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       }, 100);
                     }}
                     title="New Chat"
-                    className="flex-shrink-0 w-11 h-12 sm:w-[60px] sm:h-[68px] bg-white border border-gray-200 rounded-2xl sm:rounded-[28px] flex items-center justify-center text-gray-400 hover:text-[#F58634] hover:border-orange-200 hover:bg-orange-50 transition-all shadow-sm group"
+                    className="hidden sm:flex flex-shrink-0 w-10 h-10 sm:w-[60px] sm:h-[68px] bg-white border border-gray-200 rounded-xl sm:rounded-[28px] items-center justify-center text-gray-400 hover:text-[#F58634] hover:border-orange-200 hover:bg-orange-50 transition-all shadow-sm group"
                   >
-                    <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />
+                    <Sparkles className="w-4 h-4 sm:w-6 sm:h-6" />
                   </button>
                   <button
                     onClick={() => {
@@ -3507,14 +3538,14 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll up to see the menu
                     }}
                     title="History"
-                    className="flex-shrink-0 w-11 h-12 sm:w-[60px] sm:h-[68px] bg-white border border-gray-200 rounded-2xl sm:rounded-[28px] flex items-center justify-center text-gray-400 hover:text-gray-900 hover:border-gray-300 hover:bg-gray-50 transition-all shadow-sm"
+                    className="hidden sm:flex flex-shrink-0 w-10 h-10 sm:w-[60px] sm:h-[68px] bg-white border border-gray-200 rounded-xl sm:rounded-[28px] items-center justify-center text-gray-400 hover:text-gray-900 hover:border-gray-300 hover:bg-gray-50 transition-all shadow-sm"
                   >
-                    <Clock className="w-5 h-5 sm:w-6 sm:h-6" />
+                    <Clock className="w-4 h-4 sm:w-6 sm:h-6" />
                   </button>
 
                   {/* Search Input */}
                   <div className={`relative min-w-0 ${pendingImage || pendingImagePreview ? 'w-full sm:flex-1' : 'flex-1'}`}>
-                    <div className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-20">
+                    <div className="absolute left-3.5 sm:left-6 top-1/2 -translate-y-1/2 z-20">
                       <button
                         type="button"
                         onClick={() => setShowAttachMenu(!showAttachMenu)}
@@ -3592,9 +3623,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       }}
                       placeholder={pendingImage ? "Type city, ZIP, or coordinates for this image" : typedPlaceholder}
                       rows={1}
-                      className={`w-full bg-white text-gray-900 rounded-3xl min-h-[48px] sm:min-h-[68px] max-h-32 sm:max-h-40 overflow-y-auto resize-none py-3 sm:py-[22px] ${pendingImage || pendingImagePreview ? 'pl-40 sm:pl-[19rem]' : 'pl-11 sm:pl-14'} pr-16 sm:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-sm sm:text-base placeholder:text-gray-400 font-normal leading-relaxed`}
+                      className={`w-full bg-white text-gray-900 rounded-2xl sm:rounded-3xl min-h-[64px] sm:min-h-[68px] max-h-32 sm:max-h-40 overflow-y-hidden resize-none py-4 sm:py-[22px] ${pendingImage || pendingImagePreview ? 'pl-40 sm:pl-[19rem]' : 'pl-12 sm:pl-14'} pr-16 sm:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-[14px] sm:text-base placeholder:text-gray-400 font-normal leading-relaxed`}
                     />
-                    <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 sm:gap-4">
+                    <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 sm:gap-4">
                       <button
                         type="button"
                         onClick={toggleMlsBypass}
@@ -3610,12 +3641,55 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       <button
                         onClick={() => pendingImage ? submitPendingImage() : handleSearchSubmit(searchTerm)}
                         disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
-                        className={`bg-black text-white w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shadow-md ${pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim()) ? 'opacity-50 cursor-not-allowed hover:scale-100' : 'hover:bg-gray-800'}`}
+                        className={`bg-black text-white w-10 h-10 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shadow-md ${pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim()) ? 'opacity-50 cursor-not-allowed hover:scale-100' : 'hover:bg-gray-800'}`}
                       >
-                        {isSearching ? <Square className="w-4 h-4 fill-white" /> : <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />}
+                        {isSearching ? <Square className="w-4.5 h-4.5 fill-white" /> : <ArrowUp className="w-4.5 h-4.5 sm:w-5 sm:h-5" />}
                       </button>
                     </div>
                   </div>
+                </div>
+                <div className="mb-2 mt-1 flex items-center justify-between sm:hidden">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setSearchTerm('');
+                        setChatHistory([]);
+                        setSessionId(null);
+                        setIsSearching(false);
+                        setIsMenuOpen(false);
+                        setSelectedPropertyId(null);
+                        setExpandedPropertyId(null);
+                        setNearbySchoolsById({});
+                        if (onSearchStateChange) onSearchStateChange(true, '');
+                        setTimeout(() => searchInputRef.current?.focus(), 100);
+                      }}
+                      title="New Chat"
+                      className="h-10 w-10 rounded-full border border-gray-200 bg-white text-gray-600 flex items-center justify-center shadow-sm"
+                    >
+                      <Sparkles className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsMenuOpen(true);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      title="History"
+                      className="h-10 w-10 rounded-full border border-gray-200 bg-white text-gray-600 flex items-center justify-center shadow-sm"
+                    >
+                      <Clock className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={toggleMlsBypass}
+                    title={mlsBypassMode ? 'Direct MLS mode is ON (AI search bypassed)' : 'Use Direct MLS mode'}
+                    className={`h-10 rounded-full px-4 text-[12px] font-semibold border transition-colors ${mlsBypassMode
+                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                      : 'bg-white text-gray-600 border-gray-200'
+                      }`}
+                  >
+                    {mlsBypassMode ? 'MLS Mode' : 'AI Mode'}
+                  </button>
                 </div>
 
                 {/* Integrated Suggestions Dropdown for Expanded State */}
@@ -3745,8 +3819,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 </AnimatePresence>
 
                 {/* 3. Disclaimer */}
-                <div className="text-center">
-                  <p className="text-xs text-gray-400">
+                <div className="px-2 text-center">
+                  <p className="text-[11px] sm:text-xs text-gray-400">
                     Snapz AI can make mistakes. Consider checking important information.
                   </p>
                   {mlsBypassMode && (

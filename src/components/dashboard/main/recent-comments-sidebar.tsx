@@ -186,10 +186,10 @@ const RecentCommentsSidebar = ({ properties = [], snapId, refreshTrigger = 0, on
                 });
             };
 
-            socket.on('recent_activity_update', handleNewActivity);
+            socket.on('new_comment', handleNewActivity);
 
             return () => {
-                socket.off('recent_activity_update', handleNewActivity);
+                socket.off('new_comment', handleNewActivity);
             };
         }
     }, [refreshTrigger, socket]);

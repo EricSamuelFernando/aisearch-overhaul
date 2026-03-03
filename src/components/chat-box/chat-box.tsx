@@ -2336,6 +2336,7 @@ import {
   Eye,
   Maximize,
   ArrowDown,
+  ArrowLeft,
 } from "lucide-react"
 import "swiper/css"
 import "swiper/css/navigation"
@@ -5410,17 +5411,15 @@ export default function ChatBoxComponent(props: any) {
           <div className={`w-full md:basis-[25%] md:max-w-[25%] md:min-w-[25%] bg-white border-r ${showThreads ? "block" : "hidden md:block"} overflow-hidden`}>
             {/* Header */}
             <div className="p-4 border-b flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => router.push('/dashboard/buyer?tab=my-snapz')}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-700 hover:bg-gray-100"
-                  aria-label="Back to dashboard"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-                <h2 className="font-semibold text-lg text-gray-800">Messages</h2>
-              </div>
+              <button
+                type="button"
+                onClick={() => router.push('/dashboard/buyer?tab=my-snapz')}
+                className="flex items-center gap-2 text-gray-800 hover:text-gray-600 transition-colors"
+                aria-label="Back to dashboard"
+              >
+                <ArrowLeft className="h-5 w-5" />
+                <h2 className="font-semibold text-lg">Messages</h2>
+              </button>
               <TooltipProvider delayDuration={120}>
                 <Tooltip>
                   <TooltipTrigger asChild>

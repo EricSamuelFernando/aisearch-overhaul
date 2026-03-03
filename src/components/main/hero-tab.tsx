@@ -3224,7 +3224,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                         <div className="bg-[#FFF9F5] border border-[#FFD8B4] rounded-[16px] sm:rounded-[20px] p-4 sm:p-8">
                                           <div className="flex items-center justify-between mb-4 sm:mb-6">
                                             <div className="flex items-center gap-3">
-                                              <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6 text-[#F58634]" />
+                                              <GraduationCap className="w-7 h-7 sm:w-6 sm:h-6 text-[#F58634]" />
                                               <h3 className="text-base sm:text-xl font-bold text-gray-900">
                                                 Schools Near <span className="text-[#F58634]">{selectedProp.address.split(',')[0]}</span>
                                               </h3>
@@ -3281,7 +3281,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                     })()}
                                   </div>
                                   {/* 4. INSIGHTS */}
-                                  <div className="bg-[#FFF9F5] border border-[#FFD8B4] rounded-[16px] sm:rounded-[20px] p-4 sm:p-8">
+                                  <div className="hidden sm:block bg-[#FFF9F5] border border-[#FFD8B4] rounded-[16px] sm:rounded-[20px] p-4 sm:p-8">
                                     <div className="flex items-center justify-between mb-4 sm:mb-6">
                                       <div className="flex items-center gap-3">
                                         <div className="">

@@ -18,7 +18,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import debounce from 'lodash.debounce';
 import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
-import { Grid2X2, Map, MapPinned, Search, X } from 'lucide-react';
+import { Building2, Droplets, Grid2X2, Map, MapPinned, Search, ShipWheel, TreePine, Waves, X } from 'lucide-react';
 import PropertyComparisonModal from '../property-comparison-model';
 
 type Props = {};
@@ -210,6 +210,85 @@ function PropertyBrowseView({ }: Props) {
   const [topSearchDeleting, setTopSearchDeleting] = useState(false);
   const [showCompareModal, setShowCompareModal] = useState(false);
 
+  const subCategories = [
+    {
+      title: 'Pool',
+      value: 'has_pool',
+      propertyKey: 'hasPool',
+      keywords: ['pool'],
+      icon: <Waves className="h-3.5 w-3.5" />
+    },
+    {
+      title: 'Park View',
+      value: 'is_park_view',
+      propertyKey: 'isParkView',
+      keywords: ['park view', 'park views', 'overlooking park'],
+      icon: <TreePine className="h-3.5 w-3.5" />
+    },
+    {
+      title: 'Water View',
+      value: 'is_water_view',
+      propertyKey: 'isWaterView',
+      keywords: ['water view', 'water views', 'ocean view', 'bay view', 'lake view', 'river view'],
+      icon: <Droplets className="h-3.5 w-3.5" />
+    },
+    {
+      title: 'City View',
+      value: 'is_city_view',
+      propertyKey: 'isCityView',
+      keywords: ['city view', 'city views', 'skyline view', 'downtown view'],
+      icon: <Building2 className="h-3.5 w-3.5" />
+    },
+    {
+      title: 'Waterfront',
+      value: 'is_water_front',
+      propertyKey: 'isWaterFront',
+      keywords: ['waterfront', 'water front', 'oceanfront', 'beachfront'],
+      icon: <ShipWheel className="h-3.5 w-3.5" />
+    },
+  ];
+
+  const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>([]);
+
+  const toggleSubCategory = (subcategory: string) => {
+    setSelectedSubCategories((prev) => (
+      prev.includes(subcategory)
+        ? prev.filter((item) => item !== subcategory)
+        : [...prev, subcategory]
+    ));
+  };
+
+  const subCategoryAvailability = useMemo(() => {
+    const availability: Record<string, boolean> = {};
+    if (!allProperties || allProperties.length === 0) {
+      subCategories.forEach((sub) => {
+        availability[sub.title] = false;
+      });
+      return availability;
+    }
+
+    subCategories.forEach((sub) => {
+      const hasFeature = allProperties.some((p: any) => {
+        const listing = p?.listing || p?.data?.listing || p;
+        const props = listing?.property || listing?.data || {};
+        const remarks = listing?.publicRemarks;
+
+        if (props[sub.propertyKey]) return true;
+
+        if (remarks && sub.keywords && sub.keywords.length > 0) {
+          const lowerRemarks = remarks.toLowerCase();
+          return sub.keywords.some(k => lowerRemarks.includes(k));
+        }
+
+        return false;
+      });
+
+      availability[sub.title] = hasFeature;
+    });
+
+    return availability;
+  }, [allProperties, subCategories]);
+
   const displayedProperties = Array.isArray(drawFilteredPropertyIds)
     ? (Array.isArray(allProperties)
       ? allProperties.filter((p: any) => {
@@ -219,6 +298,29 @@ function PropertyBrowseView({ }: Props) {
       : [])
     : allProperties;
 
+  const featureFilteredProperties = useMemo(() => {
+    if (!selectedSubCategories.length) return displayedProperties;
+    return (displayedProperties || []).filter((p: any) => {
+      return selectedSubCategories.every((subCat) => {
+        const sub = subCategories.find((s) => s.title === subCat);
+        if (!sub) return true;
+
+        const listing = p?.listing || p?.data?.listing || p;
+        const props = listing?.property || listing?.data || {};
+        const remarks = listing?.publicRemarks;
+
+        if (props[sub.propertyKey]) return true;
+
+        if (remarks && sub.keywords && sub.keywords.length > 0) {
+          const lowerRemarks = remarks.toLowerCase();
+          return sub.keywords.some((k) => lowerRemarks.includes(k));
+        }
+
+        return false;
+      });
+    });
+  }, [displayedProperties, selectedSubCategories, subCategories]);
+
   const coordinates = allProperties?.map((property: any) => ({
     id: resolveListingId(property),
     price: property?.listing?.listPriceLow,
@@ -226,7 +328,7 @@ function PropertyBrowseView({ }: Props) {
     lng: property?.public?.longitude,
   })).filter(coord => coord.lat && coord.lng);
 
-  const resultCount = Array.isArray(displayedProperties) ? displayedProperties.length : 0;
+  const resultCount = Array.isArray(featureFilteredProperties) ? featureFilteredProperties.length : 0;
   const hasDrawFilter = Array.isArray(drawFilteredPropertyIds);
 
   useEffect(() => {
@@ -474,7 +576,7 @@ function PropertyBrowseView({ }: Props) {
               width="100%"
               coord={coordinates}
               zoom={13}
-              properties={displayedProperties}
+              properties={featureFilteredProperties}
               height="100%"
               searchQuery={query ?? ''}
               showDistricts={mapOverlay === 'schools'}
@@ -543,81 +645,117 @@ function PropertyBrowseView({ }: Props) {
                   </button>
                 </form>
 
-                <div className="mt-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                  <MapPinned className="h-3.5 w-3.5" />
-                  {query ? `Results for ${query}` : 'Search Results'}
-                  <span className="normal-case tracking-normal text-gray-400">•</span>
-                  <span className="normal-case tracking-normal text-gray-600">
-                    {resultCount.toLocaleString()} result{resultCount === 1 ? '' : 's'}
-                  </span>
-                </div>
-
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setShowCompactFilters((prev) => !prev)}
-                    className={cn(
-                      'inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition',
-                      showCompactFilters
-                        ? 'border-gray-300 bg-gray-900 text-white'
-                        : 'border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200',
-                    )}
-                  >
-                    Filter
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => savePropertyView('map')}
-                    className={cn(
-                      'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium',
-                      currentView === 'map'
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-                    )}
-                  >
-                    <Map className="h-3.5 w-3.5" />
-                    Map
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => savePropertyView('grid')}
-                    className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
-                  >
-                    <Grid2X2 className="h-3.5 w-3.5" />
-                    Grid
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCompareMode(!isCompareMode);
-                      if (isCompareMode) clearCompareProperties();
-                    }}
-                    className={cn(
-                      'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium',
-                      isCompareMode
-                        ? 'bg-ocOrange text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-                    )}
-                  >
-                    {isCompareMode ? 'Cancel Compare' : 'Compare'}
-                  </button>
-                  {isCompareMode ? (
-                    <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-700">
-                      {selectedCompareProperties.length} selected
+                <div className="mt-3 flex items-center gap-3">
+                  <div className="flex min-w-0 items-center gap-2 whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                    <MapPinned className="h-3.5 w-3.5" />
+                    <span className="truncate max-w-[340px]">
+                      {query ? `Results for ${query}` : 'Search Results'}
                     </span>
-                  ) : null}
-                  {hasDrawFilter ? (
+                    <span className="normal-case tracking-normal text-gray-400">•</span>
+                    <span className="shrink-0 normal-case tracking-normal text-gray-600">
+                      {resultCount.toLocaleString()} result{resultCount === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  <div className="ml-auto flex items-center gap-2 whitespace-nowrap text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setShowCompactFilters((prev) => !prev)}
+                      className={cn(
+                        'inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition',
+                        showCompactFilters
+                          ? 'border-gray-300 bg-gray-900 text-white'
+                          : 'border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200',
+                      )}
+                    >
+                      Filter
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => savePropertyView('map')}
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition',
+                        currentView === 'map'
+                          ? 'border-gray-300 bg-gray-900 text-white'
+                          : 'border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200',
+                      )}
+                    >
+                      <Map className="h-3.5 w-3.5" />
+                      Map
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => savePropertyView('grid')}
+                      className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-200"
+                    >
+                      <Grid2X2 className="h-3.5 w-3.5" />
+                      Grid
+                    </button>
                     <button
                       type="button"
                       onClick={() => {
-                        setDrawFilteredPropertyIds(null);
-                        setClearDrawSignal((prev) => prev + 1);
+                        setCompareMode(!isCompareMode);
+                        if (isCompareMode) clearCompareProperties();
                       }}
-                      className="rounded-full bg-orange-50 px-2.5 py-1 text-orange-700 hover:bg-orange-100"
+                      className={cn(
+                        'inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition',
+                        isCompareMode
+                          ? 'border-ocOrange bg-ocOrange text-white'
+                          : 'border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200',
+                      )}
                     >
-                      Draw Area: {drawFilteredPropertyIds?.length ?? 0} (Clear)
+                      {isCompareMode ? 'Cancel Compare' : 'Compare'}
                     </button>
-                  ) : null}
+                    {isCompareMode ? (
+                      <span className="rounded-full border border-gray-200 bg-gray-100 px-3 py-1.5 text-gray-700">
+                        {selectedCompareProperties.length} selected
+                      </span>
+                    ) : null}
+                    {hasDrawFilter ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDrawFilteredPropertyIds(null);
+                          setClearDrawSignal((prev) => prev + 1);
+                        }}
+                        className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1.5 text-orange-700 hover:bg-orange-100"
+                      >
+                        Draw Area: {drawFilteredPropertyIds?.length ?? 0} (Clear)
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                  {subCategories.map((sub) => {
+                    const isSelected = selectedSubCategories.includes(sub.title);
+                    const isAvailable = subCategoryAvailability[sub.title] ?? true;
+                    const isDisabled = !isAvailable && !isSelected;
+                    return (
+                      <button
+                        key={sub.title}
+                        type="button"
+                        onClick={() => {
+                          if (isDisabled) return;
+                          toggleSubCategory(sub.title);
+                        }}
+                        aria-disabled={isDisabled}
+                        title={isDisabled ? 'Results do not contain this feature.' : ''}
+                        className={cn(
+                          'inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition',
+                          isSelected
+                            ? 'border-ocOrange bg-ocOrange text-white shadow-sm'
+                            : isDisabled
+                              ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                              : 'border-gray-300 bg-white text-gray-700 hover:text-ocOrange hover:border-ocOrange hover:shadow-sm'
+                        )}
+                      >
+                        <span className={cn(isSelected ? 'text-white' : isDisabled ? 'text-gray-400' : 'text-gray-600')}>
+                          {sub.icon}
+                        </span>
+                        {sub.title}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {showCompactFilters ? (
@@ -710,7 +848,7 @@ function PropertyBrowseView({ }: Props) {
               <div className="min-h-0 flex-1 overflow-hidden p-3">
                 <BuyPropertyCards
                   selectedProperty={selectedProperty}
-                  propertiesOverride={displayedProperties}
+                  propertiesOverride={featureFilteredProperties}
                   overlayMode
                   onOpenCompareModal={() => setShowCompareModal(true)}
                 />
@@ -732,7 +870,7 @@ function PropertyBrowseView({ }: Props) {
           <div className="max-h-[60vh] overflow-y-auto overscroll-contain">
             <BuyPropertyCards
               selectedProperty={selectedProperty}
-              propertiesOverride={displayedProperties}
+              propertiesOverride={featureFilteredProperties}
               overlayMode
               onOpenCompareModal={() => setShowCompareModal(true)}
             />
@@ -764,7 +902,7 @@ function PropertyBrowseView({ }: Props) {
           'col-span-5',
         )}
       >
-        <BuyPropertyCards selectedProperty={selectedProperty} propertiesOverride={displayedProperties} />
+        <BuyPropertyCards selectedProperty={selectedProperty} propertiesOverride={featureFilteredProperties} />
       </div>
 
       {currentView !== 'grid' ? (
@@ -780,7 +918,7 @@ function PropertyBrowseView({ }: Props) {
             width="100%"
             coord={coordinates}
             zoom={13}
-            properties={displayedProperties}
+            properties={featureFilteredProperties}
             height="100%"
             searchQuery={query ?? ''}
             showDistricts={mapOverlay === 'schools'}

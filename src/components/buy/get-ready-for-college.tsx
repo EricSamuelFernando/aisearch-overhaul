@@ -1,15 +1,20 @@
 'use client';
 
 import Image from 'next/image';
+import { cn } from '@/lib/utils';
 
-export default function GetReadyForCollege() {
+export default function GetReadyForCollege({
+  headingClassName,
+}: {
+  headingClassName?: string;
+}) {
   return (
     <section className="w-full bg-[#FFF6EC] py-6 sm:py-8 lg:py-10 min-h-[560px]">
       <div className="grid grid-cols-1 lg:grid-cols-2 min-h-auto lg:min-h-[560px] gap-0">
 
         {/* LEFT CONTENT */}
         <div className="flex flex-col justify-center px-4 sm:px-6 md:px-10 lg:px-16 py-6 sm:py-8 lg:py-10">
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#1F1F1F]">
+          <h2 className={cn('text-2xl sm:text-3xl md:text-4xl font-semibold text-[#1F1F1F]', headingClassName)}>
             Get Ready For <span className="font-light">College</span>
           </h2>
 

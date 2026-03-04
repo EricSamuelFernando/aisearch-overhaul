@@ -9,6 +9,7 @@ import { Carousel, Embla } from '@mantine/carousel';
 import { useMediaQuery } from '@mantine/hooks';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import '@mantine/carousel/styles.css';
+import { cn } from '@/lib/utils';
 
 type Testimonial = {
   name: string;
@@ -36,12 +37,14 @@ type OurClientsProps = {
   bgColor?: string;
   subtitle?: string;
   testimonials?: Testimonial[];
+  headingClassName?: string;
 };
 
 export default function OurClients({
   bgColor = '#FAF0E6',
   subtitle = "We value our customers' authentic opinion on our products.",
   testimonials = DEFAULT_TESTIMONIALS,
+  headingClassName,
 }: OurClientsProps) {
   const isMobile = useMediaQuery('(max-width: 1023px)');
   const [embla, setEmbla] = useState<Embla | null>(null);
@@ -73,7 +76,7 @@ export default function OurClients({
       className="pt-17 pb-10 px-4 sm:px-6 lg:px-12 overflow-x-hidden"
     >
       <div className="max-w-6xl mx-auto text-start pb-6 sm:pb-12">
-        <h2 className="satoshi text-3xl sm:text-4xl font-semibold text-left md:text-center">
+        <h2 className={cn('satoshi text-3xl sm:text-4xl font-medium text-left md:text-center', headingClassName)}>
           What Our Clients <span className="font-light">Say</span>
         </h2>
 

@@ -1,6 +1,8 @@
 import Image from 'next/image';
 import MainNavPages from '../navbars/main-nav-pages';
 
+const heroHeadingSize = 'text-[2.35rem] sm:text-[2.75rem] md:text-[3.35rem]';
+
 export default function HeroLayout() {
   return (
     <>
@@ -27,13 +29,8 @@ export default function HeroLayout() {
         ">
 
           {/* LINE 1 */}
-          <div className="flex items-baseline justify-center gap-3 sm:gap-4 mb-4 sm:mb-5">
-            <h1 className="
-              text-3xl
-              sm:text-4xl
-              md:text-6xl
-              font-medium leading-none
-            ">
+          <div className="flex items-baseline justify-center gap-3 sm:gap-4 mb-1 sm:mb-2">
+            <h1 className={`${heroHeadingSize} font-medium leading-snug tracking-tight`}>
               We
             </h1>
 
@@ -59,14 +56,7 @@ export default function HeroLayout() {
           </div>
 
           {/* LINE 2 */}
-          <h2 className="
-            text-3xl
-            sm:text-4xl
-            md:text-6xl
-            font-medium
-            mb-5 sm:mb-7
-            leading-tight
-          ">
+          <h2 className={`${heroHeadingSize} font-medium leading-snug tracking-tight mb-1.5 sm:mb-2.5`}>
             Are Redefining
           </h2>
 
@@ -93,24 +83,14 @@ export default function HeroLayout() {
               <div className="absolute inset-0 bg-[#908884] opacity-40" />
             </div>
 
-            <h2 className="
-              text-3xl
-              sm:text-4xl
-              md:text-6xl
-              font-medium leading-none
-            ">
+            <h2 className={`${heroHeadingSize} font-medium leading-snug tracking-tight`}>
               Real Estate
             </h2>
           </div>
 
           {/* LINE 4 */}
-          <div className="flex items-baseline justify-center gap-1 mb-3">
-            <h2 className="
-              text-3xl
-              sm:text-4xl
-              md:text-6xl
-              font-light italic leading-none
-            ">
+          <div className="flex items-baseline justify-center gap-1 mb-1">
+            <h2 className={`${heroHeadingSize} font-light italic leading-snug tracking-tight`}>
               One Snap
             </h2>
 
@@ -138,14 +118,7 @@ export default function HeroLayout() {
           </div>
 
           {/* LINE 5 */}
-          <h2 className="
-            text-3xl
-            sm:text-4xl
-            md:text-6xl
-            font-light italic
-            mb-6 sm:mb-10
-            leading-tight
-          ">
+          <h2 className={`${heroHeadingSize} font-light italic leading-snug tracking-tight mb-2.5 sm:mb-4`}>
             at a Time
           </h2>
 

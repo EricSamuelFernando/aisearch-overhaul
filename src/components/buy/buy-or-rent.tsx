@@ -1,11 +1,16 @@
 import Image from 'next/image';
+import { cn } from '@/lib/utils';
 
-export default function BuyOrRent() {
+export default function BuyOrRent({
+  headingClassName,
+}: {
+  headingClassName?: string;
+}) {
   return (
     <section className='flex w-full h-full flex-col items-center justify-center gap-12 bg-[#FFF6EC] px-6 text-[#1b120d] md:px-12 lg:px-24'>
       {/* Heading */}
       <div className='max-w-2xl text-center'>
-        <h1 className='text-3xl font-semibold leading-tight text-[#2C1F18] sm:text-4xl md:text-5xl'>
+        <h1 className={cn('text-3xl font-medium leading-tight text-[#2C1F18] sm:text-4xl md:text-5xl', headingClassName)}>
           Buy <span className='font-light'>Or</span> Rent?
         </h1>
         <p className='mt-4 max-w-xl text-sm leading-relaxed text-[#6E645A] sm:mt-6 sm:text-base md:text-lg'>

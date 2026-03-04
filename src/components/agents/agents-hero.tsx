@@ -513,7 +513,7 @@ export default function HeroLayout({
       <div className={`text-black relative pt-28 -mt-28 ${className}`}>
         <div className="relative w-full min-h-[32rem] sm:min-h-[36rem] md:min-h-[42rem] lg:min-h-[48rem] overflow-visible bg-[url('/assets/images/agents-hero.jpg')] bg-[length:100%_100%] bg-center bg-no-repeat">
           <div className="relative inset-0 h-full flex flex-col items-center justify-center px-4 sm:px-6 md:px-12 lg:px-20 z-20 pt-56 pb-0">
-            <h1 className="max-w-4xl text-center text-[clamp(2.1rem,3.3vw,3.75rem)] leading-tight font-semibold text-black drop-shadow-lg mb-6 sm:mb-8">
+            <h1 className="max-w-4xl text-center text-[2.35rem] sm:text-[2.75rem] md:text-[3.35rem] leading-tight font-semibold text-black drop-shadow-lg mb-6 sm:mb-8">
               Discover Agent Possibilities
               <br />
               <span className=''>With</span>

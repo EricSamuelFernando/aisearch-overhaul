@@ -1080,6 +1080,7 @@ export default function Home() {
   const homeSectionGap = 80;
   const heroSectionRef = useRef<HTMLElement | null>(null);
   const heroContentRef = useRef<HTMLDivElement | null>(null);
+  const heroHeadingSize = 'text-[2.35rem] sm:text-[2.75rem] md:text-[3.35rem]';
   const dispatch = useAppDispatch();
   const { email } = useRegister();
   const [carouselEmbla, setCarouselEmbla] = useState<any>(null);
@@ -1518,7 +1519,7 @@ export default function Home() {
             className="relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-8 mt-24 md:mt-32"
           >
 
-            <h1 className="text-[2rem] font-medium leading-snug tracking-tight sm:text-[2.4rem] md:text-[3rem]">
+            <h1 className={`${heroHeadingSize} font-medium leading-snug tracking-tight`}>
               <span className="block">Buying a home</span>
               <span className="block">
                 should be{' '}
@@ -1589,7 +1590,12 @@ export default function Home() {
         style={{ ['--home-section-gap' as any]: `${homeSectionGap}px` }}
       >
         <ChooseYourMeans
-          heading="Choose how you buy"
+          heading={
+            <>
+              Choose How You <span className="font-light">Buy</span>
+            </>
+          }
+          headingClassName={heroHeadingSize}
           subheading="Take control of your home purchase with guided transactions, approval workflows, and transparent tracking, no matter how you like to work."
           yourAgentDescription="Bring the agent you already trust and manage everything together on Snaphomz."
           ourAgentDescription="Match with a vetted local expert and handle your entire transaction in one place."
@@ -1597,7 +1603,7 @@ export default function Home() {
           onCtaClick={handleGetStartedClick}
         />
         <div className="home-section-gap-tight">
-          <WeMakeItEasy contentPreset="home" />
+          <WeMakeItEasy contentPreset="home" headingClassName={heroHeadingSize} />
         </div>
         <section className="relative pt-8 md:pt-10">
           <Carousel
@@ -1624,22 +1630,22 @@ export default function Home() {
           >
             <Carousel.Slide>
               <div className="h-[560px] flex items-center">
-                <GetReadyForCollege />
+                <GetReadyForCollege headingClassName={heroHeadingSize} />
               </div>
             </Carousel.Slide>
             <Carousel.Slide>
               <div className="h-[560px] flex items-start pt-0">
-                <FindPerfectMortgage />
+                <FindPerfectMortgage headingClassName={heroHeadingSize} />
               </div>
             </Carousel.Slide>
             <Carousel.Slide>
               <div className="h-[560px] flex items-center">
-                <HomeDisclosure />
+                <HomeDisclosure headingClassName={heroHeadingSize} />
               </div>
             </Carousel.Slide>
             <Carousel.Slide>
               <div className="h-[560px] flex items-center">
-                <BuyOrRent />
+                <BuyOrRent headingClassName={heroHeadingSize} />
               </div>
             </Carousel.Slide>
           </Carousel>
@@ -1648,6 +1654,7 @@ export default function Home() {
         {/* <OfferStrengthAnalyzer /> */}
         <OurClients
           bgColor="#FFF6EC"
+          headingClassName={heroHeadingSize}
           subtitle="We value our agents' honest feedback on how Snaphomz supports their business."
           testimonials={HOME_PAGE_TESTIMONIALS}
         />

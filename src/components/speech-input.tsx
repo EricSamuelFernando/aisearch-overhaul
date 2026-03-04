@@ -188,6 +188,8 @@ function MemoizedSpeechInput({
 
 
 
+  const limitedSuggestions = suggestions.slice(0, 3);
+
   return (
     <div ref={containerRef} className={cn('relative w-full', className)}>
       <div className="flex h-12 w-full items-center rounded-md bg-transparent">
@@ -206,9 +208,9 @@ function MemoizedSpeechInput({
       </div>
 
       {/* Autocomplete Dropdown */}
-      {showSuggestions && suggestions.length > 0 && (
-        <ul className="absolute z-[99999] top-full left-0 right-0 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-2xl ring-1 ring-black/5">
-          {suggestions.map((city, index) => (
+      {showSuggestions && limitedSuggestions.length > 0 && (
+        <ul className="absolute z-[99999] bottom-full left-0 right-0 mb-1 max-h-40 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-2xl ring-1 ring-black/5">
+          {limitedSuggestions.map((city, index) => (
             <li
               key={index}
               className={cn(

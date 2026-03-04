@@ -1,4 +1,4 @@
-import Image from 'next/image';
+import Image from "next/image";
 import { cn } from '@/lib/utils';
 
 export default function HomeDisclosure({
@@ -125,7 +125,7 @@ export default function HomeDisclosure({
       <div className="w-full md:w-1/2 flex flex-col gap-5 sm:gap-6 md:gap-8">
         {/* Heading / Description */}
         <div>
-          <h2 className={cn('text-3xl md:text-4xl font-medium leading-tight', headingClassName)}>
+          <h2 className={cn('text-3xl md:text-4xl font-semibold leading-tight', headingClassName)}>
             Understand Home <br /> Disclosures <span className='font-light'>In Seconds</span>
           </h2>
           <p className="mt-4 text-sm md:text-base text-[#CEB28B] max-w-md">

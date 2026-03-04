@@ -13,7 +13,7 @@ const WhoWeCompany = () => {
         <div className="absolute inset-0 bg-[#f7e9d5a5] opacity-50" />
 
         <div className="relative max-w-4xl text-center text-[#1B1B1B]">
-          <h2 className="mb-5 text-3xl font-bold sm:mb-6 sm:text-4xl">
+          <h2 className="mb-5 text-[2.35rem] font-semibold sm:mb-6 sm:text-[2.75rem] md:text-[3.35rem]">
             Who We <span className="font-normal">Are</span>
           </h2>
 

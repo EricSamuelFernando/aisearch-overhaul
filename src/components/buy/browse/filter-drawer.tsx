@@ -410,7 +410,7 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
         <button
-          className='z-20 flex h-full cursor-pointer items-center gap-x-2 px-4 font-semibold'
+          className='z-20 flex h-full cursor-pointer items-center gap-x-1 px-1 font-semibold'
           onClick={() => setIsOpen(true)}
         >
           <span>

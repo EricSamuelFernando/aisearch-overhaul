@@ -50,6 +50,28 @@ export type QuestionPayload = {
     selected_property_index?: number | null;
 };
 
+export type ThinkingEvent = {
+    id?: string;
+    label?: string;
+    title?: string;
+    detail?: string;
+    bullets?: string[];
+    status?: 'pending' | 'active' | 'done' | 'error';
+    source?: string;
+    metrics?: Record<string, string | number | boolean>;
+    started_at?: string | null;
+    ended_at?: string | null;
+    durationMs?: number;
+    agentName?: string;
+};
+
+export type ThinkingProgressResponse = {
+    session_id?: string;
+    steps: ThinkingEvent[];
+    is_done: boolean;
+    updated_at?: number;
+};
+
 export async function searchProperties(payload: SearchPayload, signal?: AbortSignal) {
     if (isMlsBypassModeEnabled()) {
         const res = await fetch('/api/mls/search', {
@@ -230,6 +252,28 @@ export async function clearHistoryAPI() {
     } catch (e) {
         console.error("Failed to clear history:", e);
         return false;
+    }
+}
+
+export async function fetchThinkingProgress(sessionId: string): Promise<ThinkingProgressResponse> {
+    if (!sessionId) return { steps: [], is_done: true };
+    try {
+        const res = await fetch(`${API_BASE}/api/thinking/${encodeURIComponent(sessionId)}`, {
+            headers: {
+                "Accept": "application/json",
+                ...getAuthHeaders(),
+            },
+        });
+        if (!res.ok) return { steps: [], is_done: false };
+        const payload = await res.json();
+        return {
+            session_id: payload?.session_id,
+            steps: Array.isArray(payload?.steps) ? payload.steps : [],
+            is_done: Boolean(payload?.is_done),
+            updated_at: payload?.updated_at,
+        };
+    } catch {
+        return { steps: [], is_done: false };
     }
 }
 

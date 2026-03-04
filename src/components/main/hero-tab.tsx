@@ -1,8 +1,7 @@
 'use client';
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useRef, useState } from 'react';
-import { askQuestion, searchProperties, cancelActiveTask, fetchHistory, fetchSessionDetails, clearHistoryAPI, suggestAddresses } from '@/lib/api';
-import type { QuestionPayload, AddressSuggestion } from '@/lib/api';
+import { askQuestion, searchProperties, cancelActiveTask, fetchHistory, fetchSessionDetails, clearHistoryAPI, suggestAddresses, fetchThinkingProgress } from '@/lib/api';
+import type { QuestionPayload, AddressSuggestion, ThinkingProgressResponse } from '@/lib/api';
 import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { detectIntent } from '@/lib/chatRouting';
 import { Button } from '@/components/ui/button';
@@ -480,11 +479,56 @@ const mapSnapProperties = (rawProperties: any[]) => {
   });
 };
 
+const autoFormatAnswerText = (rawText: string): string => {
+  if (!rawText) return '';
+
+  const hasStructuredMarkdown = /(^|\n)\s*(#{1,6}\s|[-*]\s+|\d+\.\s+|\|.+\|)/m.test(rawText);
+  if (hasStructuredMarkdown) return rawText;
+
+  const existingNonEmptyLines = rawText.split('\n').filter((line) => line.trim().length > 0).length;
+  if (existingNonEmptyLines >= 4) return rawText;
+
+  const normalized = rawText.replace(/\s+/g, ' ').trim();
+  if (!normalized) return '';
+
+  const sentenceChunks = normalized
+    .split(/(?<=[.!?])\s+(?=[A-Z])/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (sentenceChunks.length <= 2) return normalized;
+
+  const paragraphCueRegex =
+    /^(firstly|first,|secondly|thirdly|alternatively|on the other hand|the broader market|for families|notably|overall|in summary|key takeaway|these educational opportunities)/i;
+
+  const paragraphs: string[] = [];
+  let currentParagraph: string[] = [];
+
+  sentenceChunks.forEach((sentence) => {
+    const isCueSentence = paragraphCueRegex.test(sentence);
+    const paragraphIsLong = currentParagraph.length >= 2;
+
+    if (currentParagraph.length > 0 && (isCueSentence || paragraphIsLong)) {
+      paragraphs.push(currentParagraph.join(' '));
+      currentParagraph = [sentence];
+      return;
+    }
+
+    currentParagraph.push(sentence);
+  });
+
+  if (currentParagraph.length > 0) {
+    paragraphs.push(currentParagraph.join(' '));
+  }
+
+  return paragraphs.join('\n');
+};
+
 // Helper to format AI response cleanly
 const formatMessageContent = (text: string) => {
   if (!text) return null;
 
-  const lines = text.split('\n');
+  const lines = autoFormatAnswerText(text).split('\n');
   const formattedElements: React.ReactNode[] = [];
   let currentListItems: React.ReactNode[] = [];
   let currentTableRows: string[] = [];
@@ -562,6 +606,80 @@ const formatMessageContent = (text: string) => {
   return formattedElements;
 };
 
+function AssistantResponseText({
+  text,
+  animate,
+  speedMs = 10,
+  onComplete,
+  onProgress,
+}: {
+  text: string;
+  animate: boolean;
+  speedMs?: number;
+  onComplete?: () => void;
+  onProgress?: () => void;
+}) {
+  const [displayedText, setDisplayedText] = useState('');
+  const onCompleteRef = useRef(onComplete);
+  const onProgressRef = useRef(onProgress);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
+    onProgressRef.current = onProgress;
+  }, [onProgress]);
+
+  useEffect(() => {
+    if (!text) {
+      setDisplayedText('');
+      return;
+    }
+
+    if (!animate) {
+      setDisplayedText(text);
+      onProgressRef.current?.();
+      return;
+    }
+
+    let index = 0;
+    setDisplayedText('');
+
+    const timer = setInterval(() => {
+      index += 1;
+      setDisplayedText(text.slice(0, index));
+      if (index % 3 === 0 || index >= text.length) {
+        onProgressRef.current?.();
+      }
+      if (index >= text.length) {
+        clearInterval(timer);
+        onCompleteRef.current?.();
+      }
+    }, speedMs);
+
+    return () => clearInterval(timer);
+  }, [text, animate, speedMs]);
+
+  const showCursor = animate && displayedText.length < text.length;
+
+  return (
+    <>
+      {formatMessageContent(displayedText)}
+      {showCursor && (
+        <motion.span
+          aria-hidden="true"
+          className="ml-[1px] inline-block text-[#F58634]"
+          animate={{ opacity: [1, 0, 1] }}
+          transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          |
+        </motion.span>
+      )}
+    </>
+  );
+}
+
 const normalizePoolValue = (value: any): boolean | null => {
   if (value === null || value === undefined) return null;
   if (typeof value === "boolean") return value;
@@ -618,6 +736,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   const [isSearching, setIsSearching] = useState(false);
   const [currentQuery, setCurrentQuery] = useState('');
   const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([]);
+  const [thinkingIntentHint, setThinkingIntentHint] = useState<string | undefined>(undefined);
   // Controls expansion state (Collapsed Search Bar vs Expanded Chat UI)
   const [isExpanded, setIsExpanded] = useState(false);
   const [typedPlaceholder, setTypedPlaceholder] = useState("");
@@ -758,6 +877,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   // --- State for Real Data ---
   const [properties, setProperties] = useState<any[]>([]); // Accumulates all properties
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]); // Stores conversation
+  const [completedAnswerAnimations, setCompletedAnswerAnimations] = useState<Record<string, boolean>>({});
   const [snapResultsShown, setSnapResultsShown] = useState(0);
   const [snapCachedProperties, setSnapCachedProperties] = useState<any[]>([]);
   const [snapResultsPage, setSnapResultsPage] = useState(0);
@@ -776,6 +896,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   const [expandedSchoolLists, setExpandedSchoolLists] = useState<Record<string, boolean>>({});
   const [nearbySchoolsById, setNearbySchoolsById] = useState<Record<string, { status: 'idle' | 'loading' | 'ready' | 'error'; schools: any[]; error?: string; schoolType?: string; fallbackUsed?: boolean }>>({});
 
+  const scrollChatToBottom = React.useCallback((behavior: ScrollBehavior = 'auto') => {
+    const container = chatBottomRef.current?.parentElement;
+    if (!container) return;
+    container.scrollTo({ top: container.scrollHeight, behavior });
+  }, []);
+
   const startNewChat = React.useCallback((options?: { focusInput?: boolean }) => {
     setIsExpanded(true);
     setSearchTerm('');
@@ -784,6 +910,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     setIsSearching(false);
     setCurrentQuery('');
     setThinkingSteps([]);
+    setThinkingIntentHint(undefined);
     setIsMenuOpen(false);
     setSelectedPropertyId(null);
     setExpandedPropertyId(null);
@@ -1042,16 +1169,50 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     pendingImageRef.current = pendingImage;
   }, [pendingImage]);
 
-  // Auto-scroll to bottom when chat history changes
   useEffect(() => {
-    // Only scroll to bottom for USER messages so we see the 'Thinking...' state.
-    // When AI replies (long content), we STAY at the current position to read from the top.
+    if (!isSearching || !sessionId) return;
+
+    let cancelled = false;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const pollThinking = async () => {
+      try {
+        const progress: ThinkingProgressResponse = await fetchThinkingProgress(sessionId);
+        if (cancelled) return;
+        if (Array.isArray(progress?.steps) && progress.steps.length > 0) {
+          setThinkingSteps(progress.steps);
+        }
+        if (progress?.is_done && intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
+      } catch {
+        // Best-effort polling; silently ignore transient failures.
+      }
+    };
+
+    pollThinking();
+    intervalId = setInterval(pollThinking, 500);
+    return () => {
+      cancelled = true;
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isSearching, sessionId]);
+
+  // Auto-scroll to bottom when conversation updates.
+  useEffect(() => {
     const lastMsg = chatHistory[chatHistory.length - 1];
-    if (lastMsg?.role === 'user' && chatBottomRef.current?.parentElement) {
-      const container = chatBottomRef.current.parentElement;
-      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+    if (!lastMsg) return;
+
+    if (lastMsg.role === 'user') {
+      scrollChatToBottom('smooth');
+      return;
     }
-  }, [chatHistory.length, isSearching]);
+
+    if (lastMsg.role === 'assistant' || isSearching) {
+      scrollChatToBottom('auto');
+    }
+  }, [chatHistory, isSearching, scrollChatToBottom]);
 
   // --- Helpers for Safe Info Extraction (from Assistant) ---
   const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -1251,10 +1412,20 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
       clearSnapSession();
     }
 
+    const activeSessionId =
+      sessionId ||
+      (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    if (!sessionId) {
+      setSessionId(activeSessionId);
+    }
+
     // 2. Set Loading & Reset Input
-    setIsSearching(true);
     setCurrentQuery(queryToSearch);
     setThinkingSteps([]);
+    setThinkingIntentHint(undefined);
+    setIsSearching(true);
     setSearchTerm('');
     setSelectedPropertyId(null);
     setExpandedPropertyId(null);
@@ -1382,13 +1553,14 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
           /\b\d+(?:\.\d+)?\s*%\b/.test(normalizedQuery) ||
           hasRentAmountSignal);
       const effectiveIntent = intent === "general" && hasRvbFollowup ? "property" : intent;
+      setThinkingIntentHint(effectiveIntent);
 
       if (effectiveIntent === "general") {
         const selectedPropPayload =
           selectedPropertyId !== null ? properties.find((p) => p.id === selectedPropertyId) : null;
         const questionPayload: QuestionPayload = {
           question: queryToSearch,
-          session_id: sessionId
+          session_id: activeSessionId
         };
         if (selectedPropertyId !== null) {
           questionPayload.selected_property_id =
@@ -1408,6 +1580,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         }
         if (Array.isArray(data.thinking_steps) && data.thinking_steps.length > 0) {
           setThinkingSteps(data.thinking_steps);
+        }
+        if (data.intent) {
+          setThinkingIntentHint(data.intent);
         }
         lastIntentRef.current = data.intent || "question";
 
@@ -1443,7 +1618,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
       console.log("Fetching properties for:", queryToSearch);
       const data = await searchProperties({
         query: queryToSearch,
-        session_id: sessionId
+        session_id: activeSessionId
       }, newController.signal);
       console.log("Backend Response:", data);
 
@@ -1452,6 +1627,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
       }
       if (data.intent) {
         lastIntentRef.current = data.intent;
+        setThinkingIntentHint(data.intent);
       }
       if (Array.isArray(data.thinking_steps) && data.thinking_steps.length > 0) {
         setThinkingSteps(data.thinking_steps);
@@ -2228,6 +2404,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     }
   };
 
+  const latestAssistantMessageId = chatHistory
+    .slice()
+    .reverse()
+    .find((message) => message.role === 'assistant' && typeof message.content === 'string' && message.content.trim().length > 0)?.id;
+
   // --- Render ---
   return (
     <div className="relative w-full z-20 text-black">
@@ -2771,7 +2952,17 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
 
                             <div className="text-gray-600 text-[15px] sm:text-[17px] leading-relaxed text-left font-normal break-words">
-                              {formatMessageContent(msg.content || '')}
+                              <AssistantResponseText
+                                text={msg.content || ''}
+                                animate={msg.id === latestAssistantMessageId}
+                                speedMs={8}
+                                onProgress={msg.id === latestAssistantMessageId ? () => scrollChatToBottom('auto') : undefined}
+                                onComplete={() =>
+                                  setCompletedAnswerAnimations((prev) =>
+                                    prev[msg.id] ? prev : { ...prev, [msg.id]: true }
+                                  )
+                                }
+                              />
                             </div>
 
                             {msg.clarification && (
@@ -2781,7 +2972,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                               </div>
                             )}
 
-                            {msg.relatedQuestions && msg.relatedQuestions.length > 0 && (
+                            {(msg.id !== latestAssistantMessageId || completedAnswerAnimations[msg.id]) &&
+                              msg.relatedQuestions && msg.relatedQuestions.length > 0 && (
                               <div className="mt-6 mb-2">
                                 <div className="flex items-center gap-2 mb-3">
                                   <Lightbulb className="w-5 h-5 text-[#F58634]" />
@@ -3105,7 +3297,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                     onClick={handleSnapYesResponse}
                                     className="px-5 py-3 rounded-full bg-[#F58634] text-white text-sm font-semibold shadow-sm hover:bg-[#E07224] transition-colors"
                                   >
-                                    Yes, that's the one
+                                    Yes, that&apos;s the one
                                   </button>
                                   <button
                                     type="button"
@@ -3357,6 +3549,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                   <ThinkingPanel
                     isThinking={isSearching}
                     query={currentQuery}
+                    intentHint={thinkingIntentHint}
                     backendSteps={thinkingSteps.length > 0 ? thinkingSteps : undefined}
                   />
                 )}

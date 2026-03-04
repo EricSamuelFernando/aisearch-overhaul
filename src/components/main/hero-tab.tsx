@@ -7,7 +7,7 @@ import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypas
 import { detectIntent } from '@/lib/chatRouting';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
-import { Sparkles, Paperclip, X, ArrowUp, Mic, Search as SearchIcon, FileText, Image as ImageIcon, ChevronDown, ChevronUp, MapPin, School, Shield, Footprints, Thermometer, CloudSun, BedDouble, Bath, Square, Scaling, Calendar, Clock, TrendingUp, GraduationCap, Trees, Plus, Lightbulb, Droplets } from 'lucide-react';
+import { Sparkles, Paperclip, X, ArrowUp, Mic, Search as SearchIcon, FileText, Image as ImageIcon, ChevronDown, ChevronUp, MapPin, School, Shield, Footprints, Thermometer, CloudSun, BedDouble, Bath, Square, Scaling, Calendar, Clock, TrendingUp, GraduationCap, Trees, Plus, Lightbulb, Droplets, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, ReferenceDot } from 'recharts';
 import SchoolMapPanel from '@/components/SchoolMapPanel';
@@ -46,6 +46,7 @@ interface ChatMessage {
   allProperties?: any[];  // All properties for pagination
   totalMatches?: number;  // Total number of matches
   relatedQuestions?: string[];
+  clarification?: string;
   showSchools?: boolean;
   relatedSchools?: {
     name: string;
@@ -1430,6 +1431,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
           role: 'assistant',
           content: aiText,
           relatedQuestions: relatedQuestions,
+          clarification: data.clarification || "",
           map: data.map,
           intent: data.intent || "question"
         };
@@ -1612,12 +1614,15 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         let isForecastMsg = false;
         let forecastPoints: ForecastPoint[] | undefined = undefined;
 
-        // Check for Forecast (avoid false positives like "top-rated")
+        // Check for Forecast — only trigger when user explicitly wants a chart/forecast/trend.
+        // "what is the interest rate today?" is a text question → NO chart.
+        // "show me mortgage rate forecast" / "rate forecast chart" → YES chart.
         const loweredQuery = queryToSearch.toLowerCase();
-        const isRateForecastQuery =
+        const hasExplicitForecastIntent =
           /\bforecast\b/.test(loweredQuery) ||
-          /\binterest rate(s)?\b/.test(loweredQuery) ||
-          (/\bmortgage\b/.test(loweredQuery) && /\brate(s)?\b/.test(loweredQuery));
+          /\brate\s+(trend|chart|graph|projection|predict)\b/.test(loweredQuery) ||
+          /\b(show|display|visuali[sz]e)\b.{0,20}\brate(s)?\b/.test(loweredQuery);
+        const isRateForecastQuery = hasExplicitForecastIntent;
         if (isRateForecastQuery) {
           isForecastMsg = true;
           forecastPoints = await fetchForecast(24);
@@ -1656,6 +1661,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
           query_history_formatted: data.metadata?.query_history_formatted,
           relatedProperties: mappedProps,
           relatedQuestions: relatedQuestions,
+          clarification: data.clarification || "",
           showSchools: showSchools,
           relatedSchools: extractedSchools,
           schoolAddress: extractedAddress,
@@ -1683,6 +1689,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
           content: aiText || "I couldn't find any properties matching that search right now.",
           relatedProperties: [],
           relatedQuestions: relatedQuestions,
+          clarification: data.clarification || "",
           intent: data.intent
         };
         setChatHistory(prev => [...prev, aiMsg]);
@@ -2767,6 +2774,13 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                               {formatMessageContent(msg.content || '')}
                             </div>
 
+                            {msg.clarification && (
+                              <div className="mt-4 mb-2 p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-3">
+                                <HelpCircle className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                                <p className="text-sm text-blue-800 font-medium leading-relaxed">{msg.clarification}</p>
+                              </div>
+                            )}
+
                             {msg.relatedQuestions && msg.relatedQuestions.length > 0 && (
                               <div className="mt-6 mb-2">
                                 <div className="flex items-center gap-2 mb-3">
@@ -2790,8 +2804,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                               </div>
                             )}
 
-                            {/* Forecast Chart Card */}
-                            {msg.isForecast && msg.forecastData && (
+                            {/* Forecast Chart Card — only render when we have actual data points */}
+                            {msg.isForecast && msg.forecastData && msg.forecastData.length > 0 && (
                               <div className="w-full mt-4 max-w-2xl bg-white border border-gray-200 rounded-2xl p-4 lg:p-6 flex flex-col h-full shadow-sm">
                                 {/* Header */}
                                 <div className="flex items-center justify-between mb-4">

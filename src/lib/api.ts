@@ -1,4 +1,4 @@
-﻿//  CONFIRMED BACKEND CONTRACT (IMMUTABLE)
+//  CONFIRMED BACKEND CONTRACT (IMMUTABLE)
 // Backend Base URL (set NEXT_PUBLIC_API_BASE_URL in production)
 import { isMlsBypassModeEnabled } from './mls-bypass-mode';
 
@@ -7,21 +7,15 @@ const API_BASE =
 const AI_BASE =
     process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI ?? API_BASE;
 
-const _COGNITO_CLIENT_ID =
-    process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID ?? "10a2kdoa42lc0enni43mnbj5an";
-const _COGNITO_STORAGE_KEY = `CognitoIdentityServiceProvider.${_COGNITO_CLIENT_ID}.LastAuthResult`;
-
 /** Returns { Authorization: "Bearer <accessToken>" } when logged in, or {} for anonymous */
 function getAuthHeaders(): Record<string, string> {
     try {
         if (typeof window === "undefined") return {};
-        const stored = localStorage.getItem(_COGNITO_STORAGE_KEY);
-        if (stored) {
-            const { accessToken } = JSON.parse(stored);
-            if (accessToken) return { Authorization: `Bearer ${accessToken}` };
-        }
+        // Token stored by useUserAuthApi after login
+        const accessToken = localStorage.getItem("userAccessToken");
+        if (accessToken) return { Authorization: `Bearer ${accessToken}` };
     } catch {
-        // no token â€” anonymous request
+        // no token - anonymous request
     }
     return {};
 }
@@ -239,7 +233,7 @@ export async function clearHistoryAPI() {
     }
 }
 
-// â”€â”€â”€ Address Autocomplete â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Address Autocomplete ---------------------------------------------------
 
 export type AddressSuggestion = {
     address: string;

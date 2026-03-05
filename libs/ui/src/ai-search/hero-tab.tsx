@@ -1044,6 +1044,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   const [agentSnapLoading, setAgentSnapLoading] = useState(false);
   const [agentCreateSnapOpen, setAgentCreateSnapOpen] = useState(false);
   const [agentNewSnapName, setAgentNewSnapName] = useState('');
+  const [agentCollaborativeOpen, setAgentCollaborativeOpen] = useState(false);
+  const [agentCollaborativeStep, setAgentCollaborativeStep] = useState<1 | 2>(1);
+  const [agentCollaborativeSnapName, setAgentCollaborativeSnapName] = useState('');
+  const [agentCollaborativeSnapId, setAgentCollaborativeSnapId] = useState<string | null>(null);
+  const [agentInviteType, setAgentInviteType] = useState<'co-buyer' | 'agent' | 'other'>('co-buyer');
+  const [agentInviteEmail, setAgentInviteEmail] = useState('');
 
   const startNewChat = React.useCallback((options?: { focusInput?: boolean }) => {
     setIsExpanded(true);
@@ -1369,6 +1375,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
       setAgentFavouriteMessage(null);
       setAgentCreateSnapOpen(false);
       setAgentNewSnapName('');
+      setAgentCollaborativeOpen(false);
+      setAgentCollaborativeStep(1);
+      setAgentCollaborativeSnapName('');
+      setAgentCollaborativeSnapId(null);
+      setAgentInviteType('co-buyer');
+      setAgentInviteEmail('');
       setAgentSnapLoading(true);
 
       try {
@@ -1388,6 +1400,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     setAgentFavouriteModalProperty(null);
     setAgentCreateSnapOpen(false);
     setAgentNewSnapName('');
+    setAgentCollaborativeOpen(false);
+    setAgentCollaborativeStep(1);
+    setAgentCollaborativeSnapName('');
+    setAgentCollaborativeSnapId(null);
+    setAgentInviteType('co-buyer');
+    setAgentInviteEmail('');
     setAgentFavouriteMessage(null);
   }, []);
 
@@ -1486,6 +1504,119 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
       setAgentSnapLoading(false);
     }
   }, [agentNewSnapName, createAgentSnapCollection, loadAgentSnapCollections]);
+
+  const openAgentCollaborativeFlow = React.useCallback(() => {
+    setAgentCollaborativeOpen(true);
+    setAgentCollaborativeStep(1);
+    setAgentCollaborativeSnapName('');
+    setAgentCollaborativeSnapId(null);
+    setAgentInviteType('co-buyer');
+    setAgentInviteEmail('');
+    setAgentCreateSnapOpen(false);
+    setAgentNewSnapName('');
+    setAgentFavouriteMessage(null);
+  }, []);
+
+  const closeAgentCollaborativeFlow = React.useCallback(() => {
+    setAgentCollaborativeOpen(false);
+    setAgentCollaborativeStep(1);
+    setAgentCollaborativeSnapName('');
+    setAgentCollaborativeSnapId(null);
+    setAgentInviteType('co-buyer');
+    setAgentInviteEmail('');
+    setAgentFavouriteMessage(null);
+  }, []);
+
+  const handleAgentCollaborativeCreateSnap = React.useCallback(async () => {
+    const nextName = agentCollaborativeSnapName.trim();
+    if (!nextName) return;
+
+    setAgentSnapLoading(true);
+    setAgentFavouriteMessage(null);
+    try {
+      const createdSnapId = await createAgentSnapCollection(nextName);
+      setAgentCollaborativeSnapId(createdSnapId);
+      setAgentCollaborativeStep(2);
+      setAgentCollaborativeSnapName('');
+      await loadAgentSnapCollections();
+    } catch (createError: any) {
+      console.error('Failed to create collaborative snapz:', createError);
+      setAgentFavouriteMessage(createError?.message || 'Failed to create collaborative snapz.');
+    } finally {
+      setAgentSnapLoading(false);
+    }
+  }, [agentCollaborativeSnapName, createAgentSnapCollection, loadAgentSnapCollections]);
+
+  const handleAgentCollaborativeInvite = React.useCallback(async () => {
+    const snapId = pickFirstValidId([agentCollaborativeSnapId]);
+    const inviteEmail = String(agentInviteEmail || '').trim();
+    if (!snapId) {
+      setAgentFavouriteMessage('Create a snapz first before sending invite.');
+      return;
+    }
+    if (!inviteEmail) return;
+
+    setAgentSnapLoading(true);
+    setAgentFavouriteMessage(null);
+
+    try {
+      const { token } = getAgentAuthContext();
+      const accountType =
+        agentInviteType === 'agent' ? 'agent' : agentInviteType === 'other' ? 'other' : 'buyer';
+
+      const inviteResponse = await runAuthGraphql<{
+        createSnapsParticipant?: { success?: boolean | string; message?: string };
+      }>(
+        `
+          mutation createSnapsParticipant($createSnapsParticipantsInput: CreateSnapsParticipantsInput!) {
+            createSnapsParticipant(createSnapsParticipantsInput: $createSnapsParticipantsInput) {
+              message
+              success
+            }
+          }
+        `,
+        {
+          createSnapsParticipantsInput: {
+            snapId,
+            email: inviteEmail,
+            status: 'pending',
+            accountType,
+          },
+        },
+        token
+      );
+
+      const successValue = inviteResponse?.createSnapsParticipant?.success;
+      const isInviteSuccess = successValue === true || successValue === 'true';
+      if (!isInviteSuccess) {
+        throw new Error(inviteResponse?.createSnapsParticipant?.message || 'Failed to send invite.');
+      }
+
+      if (agentFavouriteModalProperty) {
+        await handleAgentSnapSelection({ id: snapId, name: 'Collaborative Snapz', favourites: [] });
+      }
+
+      closeAgentFavouriteModal();
+      success({
+        message: `Great! Your ${agentInviteType === 'agent' ? 'agent' : agentInviteType === 'other' ? 'collaboration' : 'co-buyer'
+          } invite is on its way`,
+      });
+    } catch (inviteError: any) {
+      console.error('Failed to send collaborative invite:', inviteError);
+      setAgentFavouriteMessage(inviteError?.message || 'Failed to send invite.');
+    } finally {
+      setAgentSnapLoading(false);
+    }
+  }, [
+    agentCollaborativeSnapId,
+    agentInviteEmail,
+    agentInviteType,
+    agentFavouriteModalProperty,
+    closeAgentFavouriteModal,
+    getAgentAuthContext,
+    handleAgentSnapSelection,
+    runAuthGraphql,
+  ]);
 
   const agentModalSnapRows = useMemo(() => {
     const ordered = sortMyFavouriteFirst(agentSnapCollections);
@@ -3952,132 +4083,236 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     onClick={closeAgentFavouriteModal}
                   >
                     <div
-                      className="w-full max-w-[620px] rounded-[24px] bg-white shadow-2xl border border-gray-100 p-6 sm:p-7"
+                      className="w-full max-w-[480px] rounded-2xl bg-white shadow-2xl border border-gray-100 p-6"
                       onClick={(event) => event.stopPropagation()}
                     >
-                      <div className="flex justify-end">
+                      <div className="flex justify-end mb-2">
                         <button
                           type="button"
                           onClick={closeAgentFavouriteModal}
-                          className="rounded-full p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-colors"
+                          className="p-1 rounded-full hover:bg-gray-100 transition-colors"
                           aria-label="Close favorites modal"
                         >
-                          <X className="w-5 h-5" />
+                          <X className="h-5 w-5 text-gray-500" />
                         </button>
                       </div>
 
-                      <div className="flex items-center gap-3 -mt-1 mb-6">
-                        <div className="w-16 h-12 rounded-md overflow-hidden bg-gray-100 border border-gray-100 flex-shrink-0">
+                      <div className="flex items-center gap-3">
+                        <div className="relative h-14 w-14 rounded-md overflow-hidden bg-gray-100">
                           {resolvePrimaryPropertyImage(agentFavouriteModalProperty) ? (
                             <img
                               src={resolvePrimaryPropertyImage(agentFavouriteModalProperty)}
                               alt="Property preview"
-                              className="w-full h-full object-cover"
+                              className="h-full w-full object-cover"
                             />
                           ) : (
-                            <div className="w-full h-full bg-gray-100" />
+                            <div className="h-full w-full bg-gray-100" />
                           )}
                         </div>
-                        <h3 className="text-[34px] leading-none font-semibold text-gray-900 tracking-tight">Save to favorites</h3>
-                        <Heart className="w-7 h-7 text-orange-500 fill-orange-500 ml-auto" />
+                        <div>
+                          <h3 className="text-lg font-semibold">Save to favorites</h3>
+                        </div>
+                        <div className="ml-auto">
+                          <Heart className="h-6 w-6 fill-orange-500 text-orange-500" />
+                        </div>
                       </div>
 
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-[44px] leading-none font-semibold text-gray-900 tracking-tight">Snapz</h4>
-                        <button
-                          type="button"
-                          onClick={() => setAgentCreateSnapOpen((prev) => !prev)}
-                          className="h-10 w-10 rounded-full bg-[#111827] text-white flex items-center justify-center hover:bg-black transition-colors"
-                          aria-label={agentCreateSnapOpen ? 'Cancel create snapz' : 'Create new snapz'}
-                        >
-                          {agentCreateSnapOpen ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                        </button>
-                      </div>
-
-                      {agentCreateSnapOpen && (
-                        <div className="mb-4 flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={agentNewSnapName}
-                            onChange={(event) => setAgentNewSnapName(event.target.value)}
-                            onKeyDown={(event) => {
-                              if (event.key === 'Enter') {
-                                event.preventDefault();
-                                void handleAgentCreateSnap();
-                              }
-                            }}
-                            placeholder="Enter new snapz name"
-                            className="flex-1 h-11 rounded-xl border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200"
-                          />
+                      <div className="flex items-center justify-between mt-4 mb-3">
+                        <h2 className="text-xl font-bold">Snapz</h2>
+                        {agentCollaborativeOpen ? (
                           <button
                             type="button"
-                            onClick={() => void handleAgentCreateSnap()}
-                            disabled={!agentNewSnapName.trim() || agentSnapLoading}
-                            className={`h-11 px-4 rounded-xl text-sm font-semibold transition-colors ${!agentNewSnapName.trim() || agentSnapLoading
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                              : 'bg-orange-500 text-white hover:bg-orange-600'
-                              }`}
+                            onClick={closeAgentCollaborativeFlow}
+                            className="text-sm text-orange-500"
                           >
-                            Create
+                            Back
                           </button>
-                        </div>
-                      )}
-
-                      <div className="space-y-2.5 max-h-[280px] overflow-y-auto pr-1">
-                        {agentSnapLoading ? (
-                          <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-5 text-sm text-gray-500">
-                            Loading snapz collections...
-                          </div>
                         ) : (
-                          agentModalSnapRows.map((snap, index) => {
-                            const isMyFavourite = index === 0;
-                            const isSaved =
-                              !!agentFavouriteModalProperty && isPropertySavedInSnap(agentFavouriteModalProperty, snap);
-                            const rowId = pickFirstValidId([snap?.id]) || `snap-row-${index}`;
-
-                            return (
-                              <button
-                                key={rowId}
-                                type="button"
-                                onClick={() => void handleAgentSnapSelection(snap)}
-                                disabled={!!agentFavouriteSavingId || agentSnapLoading}
-                                className={`w-full rounded-2xl border px-4 py-3.5 text-left transition-colors ${isSaved
-                                  ? 'border-orange-200 bg-orange-50/70'
-                                  : 'border-gray-100 bg-white hover:bg-gray-50'
-                                  } ${agentFavouriteSavingId ? 'cursor-not-allowed opacity-80' : ''}`}
-                              >
-                                <div className="flex items-center gap-3">
-                                  <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${isMyFavourite ? 'bg-orange-500 text-white' : 'bg-[#111827] text-white'
-                                    }`}>
-                                    <Heart className={`w-5 h-5 ${isSaved || isMyFavourite ? 'fill-current' : ''}`} />
-                                  </div>
-                                  <span className="flex-1 text-[26px] leading-none font-semibold text-gray-900 tracking-tight">
-                                    {snap?.name || (isMyFavourite ? 'My Favourite' : 'Snapz')}
-                                  </span>
-                                  <Heart className={`w-6 h-6 ${isSaved ? 'text-orange-500 fill-orange-500' : 'text-gray-300'}`} />
-                                </div>
-                              </button>
-                            );
-                          })
+                          <button
+                            type="button"
+                            onClick={() => setAgentCreateSnapOpen((prev) => !prev)}
+                            className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-900 text-white text-lg font-bold hover:bg-black transition-colors leading-none"
+                            aria-label={agentCreateSnapOpen ? 'Cancel create snapz' : 'Create new snapz'}
+                          >
+                            {agentCreateSnapOpen ? '×' : '+'}
+                          </button>
                         )}
                       </div>
 
-                      <div className="mt-4 border-t border-gray-100 pt-4">
-                        <a
-                          href="/snapz"
-                          className="text-orange-500 text-sm font-medium hover:text-orange-600 transition-colors"
-                        >
-                          View All Snapz
-                        </a>
-                      </div>
+                      {agentCollaborativeOpen ? (
+                        <div className="mb-4">
+                          {agentCollaborativeStep === 1 ? (
+                            <form
+                              className="flex flex-col gap-4"
+                              onSubmit={(event) => {
+                                event.preventDefault();
+                                void handleAgentCollaborativeCreateSnap();
+                              }}
+                            >
+                              <input
+                                type="text"
+                                value={agentCollaborativeSnapName}
+                                onChange={(event) => setAgentCollaborativeSnapName(event.target.value)}
+                                placeholder="Enter new snapz name"
+                                className="border border-gray-300 px-4 py-2 rounded-md focus:outline-none focus:border-gray-500 transition-colors"
+                              />
+                              <button
+                                type="submit"
+                                disabled={!agentCollaborativeSnapName.trim() || agentSnapLoading}
+                                className="bg-gray-900 hover:bg-black text-white font-semibold px-4 py-2 rounded-md transition disabled:opacity-40"
+                              >
+                                Create Snapz
+                              </button>
+                            </form>
+                          ) : (
+                            <form
+                              className="flex flex-col gap-4"
+                              onSubmit={(event) => {
+                                event.preventDefault();
+                                void handleAgentCollaborativeInvite();
+                              }}
+                            >
+                              <div className="space-y-4">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">Invite Type</label>
+                                  <select
+                                    value={agentInviteType}
+                                    onChange={(event) =>
+                                      setAgentInviteType(event.target.value as 'co-buyer' | 'agent' | 'other')
+                                    }
+                                    className="w-full rounded-lg border border-gray-300 p-3 focus:outline-none focus:border-gray-500 transition-colors bg-white"
+                                  >
+                                    <option value="co-buyer">Invite Co-buyer</option>
+                                    <option value="agent">Invite Agent</option>
+                                    <option value="other">Invite Family/Friends</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    {agentInviteType === 'co-buyer'
+                                      ? 'Co-buyer Email'
+                                      : agentInviteType === 'agent'
+                                        ? 'Agent Email'
+                                        : 'Email'}
+                                  </label>
+                                  <input
+                                    type="email"
+                                    value={agentInviteEmail}
+                                    onChange={(event) => setAgentInviteEmail(event.target.value)}
+                                    placeholder="example@email.com"
+                                    className="w-full rounded-lg border border-gray-300 p-3 focus:outline-none focus:border-gray-500 transition-colors"
+                                  />
+                                </div>
+                              </div>
+                              <button
+                                type="submit"
+                                disabled={!agentInviteEmail.trim() || agentSnapLoading}
+                                className="bg-gray-900 hover:bg-black text-white font-semibold px-4 py-2 rounded-md transition mt-2 disabled:opacity-40"
+                              >
+                                Send Invite
+                              </button>
+                            </form>
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          {agentCreateSnapOpen && (
+                            <form
+                              className="flex items-center gap-2 mb-3"
+                              onSubmit={(event) => {
+                                event.preventDefault();
+                                void handleAgentCreateSnap();
+                              }}
+                            >
+                              <input
+                                type="text"
+                                value={agentNewSnapName}
+                                onChange={(event) => setAgentNewSnapName(event.target.value)}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Enter') {
+                                    event.preventDefault();
+                                    void handleAgentCreateSnap();
+                                  }
+                                }}
+                                placeholder="Name your snapz..."
+                                className="flex-1 border border-gray-300 px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-gray-500 transition-colors"
+                              />
+                              <button
+                                type="submit"
+                                disabled={!agentNewSnapName.trim() || agentSnapLoading}
+                                className={`text-white text-sm font-semibold px-4 py-2 rounded-lg transition ${!agentNewSnapName.trim() || agentSnapLoading
+                                  ? 'bg-gray-400 cursor-not-allowed opacity-70'
+                                  : 'bg-gray-900 hover:bg-black'
+                                  }`}
+                              >
+                                Save
+                              </button>
+                            </form>
+                          )}
 
-                      {agentFavouriteMessage && (
-                        <p className="mt-3 text-sm text-gray-600">{agentFavouriteMessage}</p>
+                          <div className="flex flex-col gap-2 mb-4 max-h-40 overflow-y-auto scrollbar-hide">
+                            {agentSnapLoading ? (
+                              <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 text-sm text-gray-500">
+                                Loading snapz collections...
+                              </div>
+                            ) : (
+                              agentModalSnapRows.map((snap, index) => {
+                                const isMyFavourite = index === 0;
+                                const isSaved =
+                                  !!agentFavouriteModalProperty && isPropertySavedInSnap(agentFavouriteModalProperty, snap);
+                                const rowId = pickFirstValidId([snap?.id]) || `snap-row-${index}`;
+
+                                return (
+                                  isMyFavourite ? (
+                                    <div
+                                      key={rowId}
+                                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition ${isSaved ? 'bg-orange-50 hover:bg-orange-100' : 'bg-gray-50 hover:bg-gray-100'
+                                        } ${agentFavouriteSavingId ? 'cursor-not-allowed opacity-80' : ''}`}
+                                      onClick={() => void handleAgentSnapSelection(snap)}
+                                    >
+                                      <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-orange-500">
+                                        <Heart className="h-5 w-5 fill-white text-white" />
+                                      </div>
+                                      <span className="flex-1 font-semibold text-gray-800">
+                                        {snap?.name || (isMyFavourite ? 'My Favourite' : 'Snapz')}
+                                      </span>
+                                      <Heart className={`h-6 w-6 ${isSaved ? 'text-orange-500 fill-orange-500' : 'text-gray-300'}`} />
+                                    </div>
+                                  ) : (
+                                    <div
+                                      key={rowId}
+                                      className={`flex cursor-pointer items-center justify-between px-3 py-2.5 rounded-lg hover:bg-gray-100 transition ${agentFavouriteSavingId ? 'cursor-not-allowed opacity-80' : ''}`}
+                                      onClick={() => void handleAgentSnapSelection(snap)}
+                                    >
+                                      <span className="font-medium text-gray-800">{snap?.name || 'Snapz'}</span>
+                                      <Heart className={`h-6 w-6 ${isSaved ? 'text-orange-500 fill-orange-500' : 'text-gray-300'}`} />
+                                    </div>
+                                  )
+                                );
+                              })
+                            )}
+                          </div>
+
+                          <a
+                            href="/snapz"
+                            className="text-sm mb-4 text-right text-orange-500 w-full block"
+                          >
+                            View All Snapz
+                          </a>
+                        </>
                       )}
 
-                      <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
+                      {agentFavouriteMessage && (
+                        <p className="text-sm text-gray-500 mb-3">{agentFavouriteMessage}</p>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={openAgentCollaborativeFlow}
+                        className="flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors w-full"
+                      >
                         <div className="flex items-center gap-3">
-                          <div className="h-11 w-11 rounded-xl bg-black text-white flex items-center justify-center">
+                          <div className="flex-shrink-0 bg-black p-3 rounded-md">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
                               <circle cx="9" cy="7" r="4" />
@@ -4086,11 +4321,16 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                             </svg>
                           </div>
                           <div>
-                            <p className="text-base font-semibold text-gray-900">Create a collaborative snapz</p>
+                            <p className="font-semibold">Create a collaborative snapz</p>
                             <p className="text-sm text-gray-500">Invite users to a saved snapz for collaboration</p>
                           </div>
                         </div>
-                      </div>
+                        <div className="ml-auto">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-gray-400">
+                            <path d="M9 18l6-6-6-6" />
+                          </svg>
+                        </div>
+                      </button>
                     </div>
                   </div>
                 )}
@@ -4288,5 +4528,4 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     </div >
   );
 };
-
 

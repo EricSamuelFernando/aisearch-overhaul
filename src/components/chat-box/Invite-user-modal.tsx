@@ -10,6 +10,8 @@ import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
 import { useAgentConversationApi } from '@/hooks/api/auth/useConversationApi';
 import { SocketContext } from '@/providers/socket.context';
 import { showLogger } from '@/shared/constants/env';
+import { useRouter } from 'next/navigation';
+import { sendAgentInvitationEmail } from '@/utils/email-notification';
 
 interface InviteUserModalProps {
   threadId: string
@@ -145,27 +147,27 @@ const InviteUserModal = ({
         propertyProgress: 10,
         fullAddress: safePropertyAddress,
       });
-      
+
       console.log('[Invite-user-modal] Engagement creation response:', createdResponse);
       const newEngagementId = createdResponse?.data?.createEngagement?.id;
-      
+
       if (!newEngagementId) {
         console.error('[Invite-user-modal] No engagement ID in response:', createdResponse);
         throw new Error('Failed to create engagement - no ID returned from server');
       }
-      
+
       // Validate that we got a reasonable engagement ID (UUID-like string)
       if (typeof newEngagementId !== 'string' || newEngagementId.trim().length === 0) {
         console.error('[Invite-user-modal] Invalid engagement ID format:', newEngagementId);
         throw new Error('Invalid engagement ID format received from server');
       }
-      
+
       console.log('[Invite-user-modal] Successfully created engagement:', newEngagementId);
       setEngagementId(newEngagementId);
-      
+
       // Small delay to allow DB transaction to commit
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       return newEngagementId;
     } catch (err: any) {
       console.error('[Invite-user-modal] Error ensuring engagement:', err);
@@ -381,7 +383,7 @@ const InviteUserModal = ({
           propertyAddress: safePropertyAddress,
           propertyImage: safePropertyImage,
           invitationStatus: 'NEGOTIATION_PENDING',
-          participantId: response?.participantId,
+          participantId: inviteResponse?.participantId,
           socket,
         });
 
@@ -428,7 +430,7 @@ const InviteUserModal = ({
         inviteResponse?.invite?.emailFailureReason ??
         inviteResponse?.invite?.email_failure_reason;
       logInviteDeliveryDebug({
-        path: effectiveInviteRole === 'buyer_agent' ? 'createExternalParticipant' : 'add_participant_to_thread',
+        path: 'add_participant_to_thread',
         targetEmail: email.trim(),
         role: effectiveInviteRole,
         statusRaw,

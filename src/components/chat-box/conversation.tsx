@@ -328,7 +328,7 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
       socket.sendMessage({
         threadId: currentThread.id,
         message: messageContent,
-        userId: userData?.id,
+        userId: userData?.id || "",
         messageType: 'notification'
       });
     }
@@ -349,7 +349,7 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
 
     // Send email notification to agent about tier selection
     if (agentEmail) {
-      const buyerName = userData?.firstName || userData?.firstname || 'Buyer';
+      const buyerName = userData?.firstName || 'Buyer';
       sendNegotiationUpdateEmail(
         agentEmail,
         buyerName,
@@ -444,7 +444,7 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
   // Auto-select thread based on agentEmail or focusLatest query param
   useEffect(() => {
     if (!threads || threads.length === 0 || !selectedThread) return;
-    
+
     if (focusLatest === '1' && threads.length > 0) {
       // Select the most recent thread
       const latestThread = threads[0];
@@ -460,7 +460,7 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
         const buyerAgentMatch = thread?.buyerAgent?.email?.toLowerCase() === agentEmail?.toLowerCase();
         return sellerAgentMatch || buyerAgentMatch;
       });
-      
+
       if (matchedThread) {
         handleThreadSelection(matchedThread);
       } else if (threads.length > 0) {
@@ -1930,17 +1930,17 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
                                 <p className='mb-3 text-xs font-medium text-gray-600 sm:text-sm'>
                                   Select an agent tier to proceed with negotiation:
                                 </p>
-                                  <NegotiationCard
-                                    tiers={agentTiers}
-                                    status={currentThread.status}
-                                    onSelectTier={handleselectTier}
-                                    onNegotiate={(offer) => {
-                                      const negotiationMessage = offer?.message
-                                        ? `Offer sent: ${offer.message}`
-                                        : "Negotiation flow initiated. You can now propose custom terms.";
-                                      success({ message: negotiationMessage });
-                                    }}
-                                  />
+                                <NegotiationCard
+                                  tiers={agentTiers}
+                                  status={currentThread.status}
+                                  onSelectTier={handleselectTier}
+                                  onNegotiate={(offer) => {
+                                    const negotiationMessage = offer?.message
+                                      ? `Offer sent: ${offer.message}`
+                                      : "Negotiation flow initiated. You can now propose custom terms.";
+                                    success({ message: negotiationMessage });
+                                  }}
+                                />
                               </>
                             ) : (
                               <p className='text-xs font-medium text-gray-600 sm:text-sm'>

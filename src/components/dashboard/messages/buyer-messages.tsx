@@ -27,7 +27,7 @@ function BuyerMessagesPanel() {
   const [search, setSearch] = useState('');
   const searchParams = useSearchParams();
   const [cachedMessageThreads, setMessageThreads] = useAtom(messageThreadsAtom);
-  const { setState } = useContext(SocketContext);
+  const { state, setState } = useContext(SocketContext);
   const { getAllThreadsByUserAgentMutation } = useUserAgentMessageApi();
   const { getAllThreadsByUserMutation, getThreadById } = useAgentConversationApi();
 
@@ -56,7 +56,7 @@ function BuyerMessagesPanel() {
         threadName: search,
         isRead: isRead,
       };
-      getAllThreadsByUserAgentMutation.mutate(data, {
+      getAllThreadsByUserAgentMutation.mutate(payload, {
         onSuccess: (response) => {
           const nextThreads = response?.data?.get_user_and_agent_threads || [];
           const socketUnread = Array.isArray(state?.conversationUnreadCount)

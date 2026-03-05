@@ -1093,6 +1093,9 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       }
 
       return response.data?.data?.createExternalParticipant;
+      } catch (err) {
+        throw err;
+      }
     },
     onSuccess: (data) => {
       console.log("Agent invited:", data);

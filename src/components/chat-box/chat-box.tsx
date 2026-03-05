@@ -2375,6 +2375,7 @@ import { useUserAgentMessageApi } from "@/hooks/api/auth/useMessageApi"
 import { useUserAuthApi } from "@/hooks/api/auth/useUserAuthApi"
 import { AgentDirectoryWrapper } from "@/components/buy/preview/agent-directory-wrapper"
 import InviteUserModal from "./Invite-user-modal"
+import NegotiationCard from "./negotiation-card"
 import { useAtom } from "jotai"
 import { messageThreadsAtom } from "@/hooks/atoms"
 import { Loader } from "@mantine/core"
@@ -2990,10 +2991,10 @@ export default function ChatBoxComponent(props: any) {
         const endpointCandidates = Array.from(
           new Set(
             [
-              `${trimmedBase}/auth/api/overview-short`,
-              `${trimmedBase}/auth/properties/${activeOverviewPropertyId}/overview-short`,
-              `${rootBase}/auth/api/overview-short`,
-              `${rootBase}/auth/properties/${activeOverviewPropertyId}/overview-short`,
+              `${trimmedBase}/api/overview-short`,
+              `${trimmedBase}/properties/${activeOverviewPropertyId}/overview-short`,
+              `${rootBase}/api/overview-short`,
+              `${rootBase}/properties/${activeOverviewPropertyId}/overview-short`,
             ].filter(Boolean),
           ),
         )
@@ -3891,13 +3892,13 @@ export default function ChatBoxComponent(props: any) {
     const finalMessageType =
       resolvedMessageType === 'system'
         ? 'system'
-        : normalizedMessageType === "notification"
+        : resolvedMessageType === "notification"
           ? "notification"
-          : normalizedMessageType === "file"
+          : resolvedMessageType === "file"
             ? (hasFileReference ? "file" : "text")
-            : normalizedMessageType === "text"
+            : resolvedMessageType === "text"
               ? (hasFileReference ? "file" : "text")
-              : normalizedMessageType
+              : resolvedMessageType
 
     const normalizedCreatedAt =
       resolveMessageCreatedAt(messageAny) ||
@@ -4005,6 +4006,9 @@ export default function ChatBoxComponent(props: any) {
       return "File"
     }
   }, [])
+  const buildFileEventKey = (senderId: string | undefined, fileName: string): string =>
+    `${String(senderId || "").trim()}:${fileName}`;
+
   const resolveAttachmentUrlFromMessage = useCallback((message: Message): string => {
     const candidateValues = [
       message?.file?.url,
@@ -4454,6 +4458,12 @@ export default function ChatBoxComponent(props: any) {
       }
     }))
   }
+
+  const normalizeAgentTiersPayload = (value: any): any[] => {
+    if (Array.isArray(value)) return value;
+    if (value && typeof value === "object") return [value];
+    return [];
+  };
 
   const buildAgentTierFetchIdCandidates = useCallback((threadLike: any) => {
     return Array.from(
@@ -5578,9 +5588,6 @@ export default function ChatBoxComponent(props: any) {
         }
         syncThreadMessage(processedMessage);
       };
-      const handleNewMessage = (messageData: any) => handleRealtimeMessage(messageData, "newMessage");
-      const handleRecievedMessage = (messageData: any) => handleRealtimeMessage(messageData, "recievedMessage");
-
       const applyNegotiationPayload = (
         payload: any,
         fallbackStatus?: string
@@ -6928,9 +6935,20 @@ export default function ChatBoxComponent(props: any) {
                               </div>
                             )}
 
-                            {Object.entries(groupedMessages)
-                              .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
-                              .map(([dateKey, dayMessages]) => {
+                            {(() => {
+                              const existingSystemFileEvents = new Set<string>(
+                                messages
+                                  .filter((m: any) => m?.messageType === "system")
+                                  .map((m: any) => {
+                                    const url = resolveAttachmentUrlFromMessage(m as Message);
+                                    const name = getFileNameFromUrl(url || m?.message || "");
+                                    return buildFileEventKey(m?.senderId, name);
+                                  })
+                                  .filter(Boolean)
+                              );
+                              return Object.entries(groupedMessages)
+                                .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
+                                .map(([dateKey, dayMessages]) => {
                                 const parsedDate = new Date(dateKey);
                                 // const label = "Today"
                                 const label = isToday(parsedDate)
@@ -7248,7 +7266,8 @@ export default function ChatBoxComponent(props: any) {
                                     </div>
                                   </div>
                                 );
-                              })}
+                              });
+                            })()}
                           </div>
 
                           {selectedFile && (

@@ -86,7 +86,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         className="h-full flex flex-col font-satoshi scroll-smooth overflow-auto"
       >
         <ClientRoot>
-          <main className="flex-1 overflow-y-auto">
+          <main className="flex-1 overflow-y-auto mobile-hide-scrollbar">
             {children}
           </main>
         </ClientRoot>

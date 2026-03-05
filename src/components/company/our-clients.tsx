@@ -84,22 +84,28 @@ export default function OurClients({
       <div className="max-w-7xl mx-auto">
         {isMobile ? (
           <div>
-            <div className="mb-4 flex items-center justify-end gap-3">
+            <div className="mb-4 flex items-center justify-end gap-2">
               <button
                 onClick={() => embla?.scrollPrev()}
                 disabled={!canScrollPrev}
                 aria-label="Previous testimonial"
-                className={`${canScrollPrev ? 'bg-[#F5EBDF] hover:bg-[#E0D8C7]' : 'bg-[#F5EBDF] cursor-not-allowed'} h-11 w-11 rounded-full border border-[#d7c5ad] shadow-sm flex items-center justify-center`}
+                className={`flex h-8 w-16 items-center justify-center rounded-full transition-all duration-200 ${canScrollPrev
+                  ? 'bg-[#F5EBDF] text-[#4A3A2B] hover:bg-[#EFE2D2]'
+                  : 'bg-[#F1E7DC] text-[#CFC3B5] cursor-not-allowed'
+                  }`}
               >
-                <IconChevronLeft size={24} stroke={2.4} className="text-black" />
+                <IconChevronLeft size={20} stroke={2} />
               </button>
               <button
                 onClick={() => embla?.scrollNext()}
                 disabled={!canScrollNext}
                 aria-label="Next testimonial"
-                className={`${canScrollNext ? 'bg-[#F5EBDF] hover:bg-[#E0D8C7]' : 'bg-[#F5EBDF] cursor-not-allowed'} h-11 w-11 rounded-full border border-[#d7c5ad] shadow-sm flex items-center justify-center`}
+                className={`flex h-8 w-16 items-center justify-center rounded-full transition-all duration-200 ${canScrollNext
+                  ? 'bg-[#F5EBDF] text-[#4A3A2B] hover:bg-[#EFE2D2]'
+                  : 'bg-[#F1E7DC] text-[#CFC3B5] cursor-not-allowed'
+                  }`}
               >
-                <IconChevronRight size={24} stroke={2.4} className="text-black" />
+                <IconChevronRight size={20} stroke={2} />
               </button>
             </div>
 
@@ -155,28 +161,28 @@ export default function OurClients({
             ))}
           </div>
         )}
-        <div className="hidden md:flex justify-end mt-8">
+        <div className="hidden md:flex justify-end mt-8 gap-2">
           {/* Left Arrow */}
           <button
             onClick={() => embla?.scrollPrev()}
             disabled={!canScrollPrev}
-            className={`
-      ${canScrollPrev ? 'bg-[#F5EBDF] hover:bg-[#E0D8C7]' : 'bg-[#F5EBDF] cursor-not-allowed'}
-      px-4 py-2 rounded-full 
-    `}
+            className={`flex h-10 w-16 items-center justify-center rounded-full transition-all duration-200 ${canScrollPrev
+              ? 'bg-[#F5EBDF] text-[#4A3A2B] hover:bg-[#EFE2D2]'
+              : 'bg-[#F1E7DC] text-[#CFC3B5] cursor-not-allowed'
+              }`}
           >
-            <IconChevronLeft size={20} />
+            <IconChevronLeft size={20} stroke={2} />
           </button>
 
           <button
             onClick={() => embla?.scrollNext()}
             disabled={!canScrollNext}
-            className={`
-      ${canScrollNext ? 'bg-[#F5EBDF] hover:bg-[#E0D8C7]' : 'bg-[#F5EBDF] cursor-not-allowed'}
-      px-4 py-2 rounded-full ml-4
-    `}
+            className={`flex h-10 w-16 items-center justify-center rounded-full transition-all duration-200 ${canScrollNext
+              ? 'bg-[#F5EBDF] text-[#4A3A2B] hover:bg-[#EFE2D2]'
+              : 'bg-[#F1E7DC] text-[#CFC3B5] cursor-not-allowed'
+              }`}
           >
-            <IconChevronRight size={20} />
+            <IconChevronRight size={20} stroke={2} />
           </button>
         </div>
 

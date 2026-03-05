@@ -257,9 +257,19 @@ const resolveSenderId = (messageData: any): string =>
   getStringValue(
     messageData?.senderId,
     messageData?.sender_id,
+    messageData?.userId,
+    messageData?.user_id,
     messageData?.sender?.id,
     messageData?.sender?.userId,
     messageData?.sender?.user_id,
+    messageData?.data?.senderId,
+    messageData?.data?.sender_id,
+    messageData?.data?.userId,
+    messageData?.data?.user_id,
+    messageData?.payload?.senderId,
+    messageData?.payload?.sender_id,
+    messageData?.payload?.userId,
+    messageData?.payload?.user_id,
     messageData?.createdById,
     messageData?.created_by_id,
   );
@@ -755,118 +765,41 @@ function SocketProvider({ children }: { children: ReactNode }) {
 
       const handleNewMessage = (messageData: any) => handleIncomingMessage(messageData, "newMessage");
       const handleRecievedMessage = (messageData: any) => handleIncomingMessage(messageData, "recievedMessage");
-
-      // Handle authoritative unread count pushed from backend
-      const handleUnreadCountUpdated = (data: any) => {
-        const threadId = data?.threadId;
-        const count = typeof data?.count === 'number' ? data.count : 0;
-        if (!threadId) return;
-        console.log(`[SocketContext] unread_count_updated: threadId=${threadId}, count=${count}`);
-        setState((prev: any) => ({
-          ...prev,
-          conversationUnreadCount: [
-            ...(Array.isArray(prev.conversationUnreadCount)
-              ? prev.conversationUnreadCount.filter((c: any) => c.threadId !== threadId)
-              : []),
-            { threadId, count },
-          ],
-        }));
+      const handleNotificationCreated = (payload: any) => {
+        console.log("[SocketContext] notification_created:", payload);
+        queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      };
+      const handleCreateOrJoinResponse = (response: any) => {
+        console.log('[SocketContext] createOrJoinConversation_response:', response);
+      };
+      const handleSendMessageResponse = (response: any) => {
+        console.log('[SocketContext] sendMessage_response:', response);
+      };
+      const handleJoinRoomResponse = (response: any) => {
+        console.log('[SocketContext] joinRoom_response:', response);
+      };
+      const handleLeaveRoomResponse = (response: any) => {
+        console.log('[SocketContext] leaveRoom_response:', response);
       };
 
       socket.on("newMessage", handleNewMessage);
       socket.on("recievedMessage", handleRecievedMessage);
-      socket.on("unread_count_updated", handleUnreadCountUpdated);
-      socket.on("notification_created", (payload: any) => {
-        console.log("[SocketContext] notification_created:", payload);
-        queryClient.invalidateQueries({ queryKey: ["notifications"] });
-        const data = payload?.data || payload;
-        const threadId = resolveNotificationThreadId(data);
-        const snapId = getStringValue(data?.snapId, data?.snap_id);
-        const title = getStringValue(data?.title, data?.heading);
-        const body = getStringValue(data?.body, data?.message, data?.text);
-        const kind = getStringValue(data?.type, data?.kind) || "general";
-        const link =
-          getStringValue(data?.link) ||
-          (snapId ? `/account/collections/${snapId}` : '') ||
-          (threadId ? `/dashboard/buyer?tab=messages&threadId=${threadId}` : '');
-
-        console.log("[SocketContext] notification_created received:", data);
-
-        setState((prev: any) => ({
-          ...prev,
-          notification: {
-            user: prev.notification?.user,
-            property: prev.notification?.property,
-            message: body || title || "New notification",
-            title: title || "New notification",
-            body: body || "",
-            kind,
-            channelId: threadId,
-            action: "navigate",
-            isVisible: true,
-            link,
-          },
-          notifications: [
-            {
-              id: data?.id || `socket-notification-${Date.now()}`,
-              title: title || "New notification",
-              body: body || "",
-              createdAt: data?.createdAt || new Date().toISOString(),
-              read: false,
-              kind: kind || "general",
-              link: link || undefined,
-              threadId: threadId || undefined,
-              snapId: snapId || undefined,
-              source: "socket",
-            },
-            ...(Array.isArray(prev.notifications) ? prev.notifications : []),
-          ].slice(0, 50),
-        }));
-
-        console.log("[SocketContext] Notification added to state");
-      });
-
-      const handleRecentActivityUpdate = (payload: any) => {
-        // Do NOT create bell notifications here — this event is broadcast to
-        // all connected users. Instead, invalidate the notifications query so
-        // that only accepted/owner/creator participants (who have a DB record)
-        // will see the new notification after refetch.
-        console.log("[SocketContext] recent_activity_update received — refreshing notifications");
-        queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      };
-
-      socket.on("recent_activity_update", handleRecentActivityUpdate);
+      socket.on("notification_created", handleNotificationCreated);
 
       // Handle websocket response events
-      socket.on("createOrJoinConversation_response", (response: any) => {
-        console.log('[SocketContext] createOrJoinConversation_response:', response);
-      });
-
-      socket.on("sendMessage_response", (response: any) => {
-        console.log('[SocketContext] sendMessage_response:', response);
-      });
-
-      socket.on("joinRoom_response", (response: any) => {
-        console.log('[SocketContext] joinRoom_response:', response);
-      });
-
-      socket.on("leaveRoom_response", (response: any) => {
-        console.log('[SocketContext] leaveRoom_response:', response);
-      });
+      socket.on("createOrJoinConversation_response", handleCreateOrJoinResponse);
+      socket.on("sendMessage_response", handleSendMessageResponse);
+      socket.on("joinRoom_response", handleJoinRoomResponse);
+      socket.on("leaveRoom_response", handleLeaveRoomResponse);
 
       return () => {
-        socket.off("recievedMessage");
-        socket.off("invitation_updated");
-        socket.off("new_offer_recieved");
         socket.off("newMessage", handleNewMessage);
         socket.off("recievedMessage", handleRecievedMessage);
-        socket.off("unread_count_updated", handleUnreadCountUpdated);
-        socket.off("notification_created");
-        socket.off("recent_activity_update", handleRecentActivityUpdate);
-        socket.off("createOrJoinConversation_response");
-        socket.off("sendMessage_response");
-        socket.off("joinRoom_response");
-        socket.off("leaveRoom_response");
+        socket.off("notification_created", handleNotificationCreated);
+        socket.off("createOrJoinConversation_response", handleCreateOrJoinResponse);
+        socket.off("sendMessage_response", handleSendMessageResponse);
+        socket.off("joinRoom_response", handleJoinRoomResponse);
+        socket.off("leaveRoom_response", handleLeaveRoomResponse);
       };
     }
   }, [messageThreads, socket, user?.id, queryClient]);

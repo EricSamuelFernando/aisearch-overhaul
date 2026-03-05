@@ -76,6 +76,9 @@ import { usePropertyServiceAPI } from '../../lib/api/property';
 import { useRepoManagementApi } from '../../lib/api/useRepoManagement';
 import { claimPropertyAtom } from '../../hooks/claim-property-atom';
 import Modal from '../common/Modal';
+import NegotiationCard from './negotiation-card';
+import { normalizeAgentTiersPayload } from './agent-tier-utils';
+import { sendNegotiationUpdateEmail } from '@/utils/email-notification';
 
 interface User {
   id: string;
@@ -118,11 +121,13 @@ interface Thread {
     id?: string;
     firstName?: string;
     lastName?: string;
+    email?: string;
   };
   sellerAgent?: {
     id?: string;
     firstName?: string;
     lastName?: string;
+    email?: string;
   };
   lastMessage?: string;
   lastMessageAt?: string | null;
@@ -131,6 +136,7 @@ interface Thread {
   threadId?: string | null;
   isActive?: boolean;
   visibleForOthersUsers?: boolean;
+  status?: "NEGOTIATION_PENDING" | "OFFER_SENT" | "COUNTER_SENT" | "AGREED" | "ACTIVE";
 }
 interface PropertyData {
   media?: {
@@ -173,7 +179,7 @@ interface BuyerQuestionInterface {
 }
 
 export default function ConversationPageForBuyerAgentChat(props: any) {
-  const { threads, setIsRead, setSearch, loading, updateConversationThread } =
+  const { threads, setIsRead, setSearch, loading, updateConversationThread, agentEmail, focusLatest } =
     props;
   const router = useRouter();
   const { socket, state, setState } = useContext(SocketContext);
@@ -206,7 +212,7 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
     firstName?: string;
     lastName?: string;
   } | null>(null);
-  const { getAllConversationMessagesMutation, addParticipant, searchMessages } =
+  const { getAllConversationMessagesMutation, addParticipant, searchMessages, getAgentTiersForThreadMutation } =
     useAgentConversationApi();
   const userData = agentData.user;
   const scrollContainerRef = useRef(null);
@@ -236,6 +242,10 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
   >([]);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [currentThread, setCurrentThread] = useState<Thread>();
+  const [tierSelected, setTierSelected] = useState(false);
+  const [agentTiers, setAgentTiers] = useState<any[]>([]);
+  const [isLoadingAgentTiers, setIsLoadingAgentTiers] = useState(false);
+  const fetchedTierKeyRef = useRef<string>('');
   const [isChecked, setIsChecked] = useState(
     currentThread?.visibleForOthersUsers,
   );
@@ -287,6 +297,75 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
   const handleEmojiClick = (emoji: any) => {
     setMessage((prev) => prev + emoji.emoji);
   };
+
+  const handleselectTier = (tier: any) => {
+    if (!currentThread?.id || !socket) return;
+
+    console.log("[Conversation Negotiation] Selecting tier:", tier);
+    const messageContent = `Buyer selected ${tier.name} (${tier.commission}%)`;
+    const newMessage = {
+      id: uuidv4(),
+      threadId: currentThread.id,
+      message: messageContent,
+      isRead: false,
+      senderId: userData?.id,
+      receiverId: receiverId,
+      createdAt: new Date().toISOString(),
+      messageType: 'notification',
+    } as Message;
+
+    // Update LOCAL status (optimistic UI)
+    setCurrentThread((prev: any) => ({
+      ...prev,
+      status: "OFFER_SENT"
+    }));
+
+    // Mark tier as selected to unlock messages
+    setTierSelected(true);
+
+    // Emit message and status update
+    if (socket && socket.sendMessage) {
+      socket.sendMessage({
+        threadId: currentThread.id,
+        message: messageContent,
+        userId: userData?.id,
+        messageType: 'notification'
+      });
+    }
+
+    // Custom event for backend to update status
+    socket.emit("update_negotiation_status", {
+      threadId: currentThread.id,
+      status: "OFFER_SENT"
+    });
+
+    // Determine agent email (other party)
+    let agentEmail = '';
+    if (userData?.id === currentThread?.buyerAgent?.id) {
+      agentEmail = currentThread?.sellerAgent?.email || '';
+    } else {
+      agentEmail = currentThread?.buyerAgent?.email || '';
+    }
+
+    // Send email notification to agent about tier selection
+    if (agentEmail) {
+      const buyerName = userData?.firstName || userData?.firstname || 'Buyer';
+      sendNegotiationUpdateEmail(
+        agentEmail,
+        buyerName,
+        currentThread?.propertyAddress || 'Property',
+        tier.name,
+        tier.commission,
+        socket
+      ).catch(err => {
+        console.warn('[Conversation] Email notification failed:', err);
+        // Don't interrupt the flow if email fails
+      });
+    }
+
+    success({ message: `Offer for ${tier.name} sent to agent.` });
+  };
+
   const handleThreadSelection = (thread: Thread) => {
     setCurrentThread(thread);
     if (socket) {
@@ -361,6 +440,84 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
     setSelectedChannel(null);
     setSelectedThread('');
   };
+
+  // Auto-select thread based on agentEmail or focusLatest query param
+  useEffect(() => {
+    if (!threads || threads.length === 0 || !selectedThread) return;
+    
+    if (focusLatest === '1' && threads.length > 0) {
+      // Select the most recent thread
+      const latestThread = threads[0];
+      if (latestThread) {
+        handleThreadSelection(latestThread);
+      }
+    } else if (agentEmail && threads.length > 0) {
+      // Find agent thread by matching email in agent details or participants
+      // Note: Threads typically contain buyerAgent and sellerAgent info
+      const matchedThread = threads.find((thread: any) => {
+        // Check if agentEmail matches any agent in the thread
+        const sellerAgentMatch = thread?.sellerAgent?.email?.toLowerCase() === agentEmail?.toLowerCase();
+        const buyerAgentMatch = thread?.buyerAgent?.email?.toLowerCase() === agentEmail?.toLowerCase();
+        return sellerAgentMatch || buyerAgentMatch;
+      });
+      
+      if (matchedThread) {
+        handleThreadSelection(matchedThread);
+      } else if (threads.length > 0) {
+        // Fallback to first thread if exact match not found
+        handleThreadSelection(threads[0]);
+      }
+    }
+  }, [threads, agentEmail, focusLatest, selectedThread]);
+
+  // Reset tierSelected when thread changes
+  useEffect(() => {
+    if (selectedThread !== currentThread?.id) {
+      setTierSelected(false);
+    }
+  }, [selectedThread, currentThread?.id]);
+
+  // Fetch agent tiers when thread is NEGOTIATION_PENDING
+  useEffect(() => {
+    const activeThreadId = currentThread?.id || '';
+    const currentStatus = currentThread?.status || '';
+    const fetchKey = `${activeThreadId}:${currentStatus}`;
+
+    if (!currentThread?.id || currentThread?.status !== 'NEGOTIATION_PENDING') {
+      fetchedTierKeyRef.current = '';
+      setAgentTiers((prev) => (prev.length > 0 ? [] : prev));
+      setIsLoadingAgentTiers((prev) => (prev ? false : prev));
+      return;
+    }
+
+    if (fetchedTierKeyRef.current === fetchKey) {
+      return;
+    }
+
+    fetchedTierKeyRef.current = fetchKey;
+    let isActive = true;
+    setIsLoadingAgentTiers(true);
+
+    getAgentTiersForThreadMutation.mutate(currentThread.id, {
+      onSuccess: (payload: any) => {
+        if (!isActive) return;
+        setAgentTiers(normalizeAgentTiersPayload(payload?.tiers));
+        setIsLoadingAgentTiers(false);
+      },
+      onError: (mutationError: any) => {
+        if (!isActive) return;
+        fetchedTierKeyRef.current = '';
+        console.error('[conversation] Failed to load agent tiers:', mutationError);
+        setAgentTiers((prev) => (prev.length > 0 ? [] : prev));
+        setIsLoadingAgentTiers((prev) => (prev ? false : prev));
+      },
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [currentThread?.id, currentThread?.status, getAgentTiersForThreadMutation]);
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -551,6 +708,12 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
 
   const handleSendMessage = async () => {
     try {
+      // Check if in negotiation mode and tier not selected
+      if (currentThread?.status === 'NEGOTIATION_PENDING' && !tierSelected) {
+        error({ message: 'Please select an agent tier before sending messages.' });
+        return;
+      }
+
       if (message.trim() !== '' || selectedFile) {
         // const encryptedMessage = encryptMessage(message)
         const encryptedMessage = message;
@@ -1754,6 +1917,39 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
                           </div>
                           <div ref={endMessageRef} />
                         </ScrollArea>
+
+                        {/* Negotiation Card - Show when in NEGOTIATION_PENDING status */}
+                        {currentThread?.status === 'NEGOTIATION_PENDING' && (
+                          <div className='border-t bg-white p-3 sm:p-4'>
+                            {isLoadingAgentTiers ? (
+                              <p className='text-xs font-medium text-gray-600 sm:text-sm'>
+                                Loading agent tier preferences...
+                              </p>
+                            ) : agentTiers.length > 0 ? (
+                              <>
+                                <p className='mb-3 text-xs font-medium text-gray-600 sm:text-sm'>
+                                  Select an agent tier to proceed with negotiation:
+                                </p>
+                                  <NegotiationCard
+                                    tiers={agentTiers}
+                                    status={currentThread.status}
+                                    onSelectTier={handleselectTier}
+                                    onNegotiate={(offer) => {
+                                      const negotiationMessage = offer?.message
+                                        ? `Offer sent: ${offer.message}`
+                                        : "Negotiation flow initiated. You can now propose custom terms.";
+                                      success({ message: negotiationMessage });
+                                    }}
+                                  />
+                              </>
+                            ) : (
+                              <p className='text-xs font-medium text-gray-600 sm:text-sm'>
+                                Agent has not configured tier preferences yet.
+                              </p>
+                            )}
+                          </div>
+                        )}
+
                         {/* 
                         {showNewMessageTag && (
                           <button

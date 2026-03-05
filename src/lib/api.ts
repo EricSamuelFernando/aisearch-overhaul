@@ -29,6 +29,8 @@ function getAuthHeaders(): Record<string, string> {
 export type SearchPayload = {
     query: string;
     session_id?: string | null;  //  Added for conversation memory
+    system_prompt?: string | null;
+    assistant_mode?: string | null;
     state?: string | null;
     city?: string | null;
     zip_code?: string | null;
@@ -52,6 +54,8 @@ export type RentVsBuyPayload = {
 export type QuestionPayload = {
     question: string;
     session_id?: string | null;
+    system_prompt?: string | null;
+    assistant_mode?: string | null;
     selected_property_id?: string | number | null;
     selected_property_index?: number | null;
 };
@@ -80,10 +84,13 @@ export async function searchProperties(payload: SearchPayload, signal?: AbortSig
 
     console.log('[API] Search Request:', {
         query: payload.query,
-        session_id: payload.session_id
+        session_id: payload.session_id,
+        assistant_mode: payload.assistant_mode
     });
 
-    const res = await fetch(`${API_BASE}/api/search`, {
+    // Use the local Next.js proxy to bypass CORS (hits our src/app/api/search/route.ts)
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const res = await fetch(`${baseUrl}/api/search`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -92,7 +99,9 @@ export async function searchProperties(payload: SearchPayload, signal?: AbortSig
         },
         body: JSON.stringify({
             query: payload.query,
-            session_id: payload.session_id  //  Send session ID to backend
+            session_id: payload.session_id,  //  Send session ID to backend
+            system_prompt: payload.system_prompt,
+            assistant_mode: payload.assistant_mode,
         }),
         signal, // Pass signal to fetch
     });
@@ -155,7 +164,8 @@ export async function askQuestion(payload: QuestionPayload, signal?: AbortSignal
     // Use /question endpoint (not /api/question)
     console.log('[API] Question Request:', {
         question: payload.question,
-        session_id: payload.session_id
+        session_id: payload.session_id,
+        assistant_mode: payload.assistant_mode
     });
 
     const res = await fetch(`${API_BASE}/question`, {

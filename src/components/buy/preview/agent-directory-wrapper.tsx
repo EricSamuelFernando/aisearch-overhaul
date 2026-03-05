@@ -580,6 +580,11 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
       return;
     }
 
+    if (!engagementId) {
+      error({ message: "Missing engagement context. Please refresh and try again." });
+      return;
+    }
+
     setLoadingAgentId(identifier);
 
     // Use email-based invitation for MLS data (which has email but may not have valid agentId in our DB)
@@ -593,7 +598,7 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
         userId: wrapperCurrentUser?.id,
         email: agentEmail,
         is_accepted: 'pending',
-        engagementId: engagementId || undefined,
+        engagementId,
         ...(engagedProperty?.threadId && { threadId: engagedProperty.threadId }),
       };
 
@@ -661,7 +666,7 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
         userId: wrapperCurrentUser?.id,
         agentId,
         is_accepted: 'pending',
-        engagementId: engagementId || undefined,
+        engagementId,
       };
 
       console.log("Agent payload", payload)

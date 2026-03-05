@@ -193,10 +193,35 @@ const RecentCommentsSidebar = ({ properties = [], snapId, refreshTrigger = 0, on
                 });
             };
 
+            // Re-join room on reconnect (e.g. after Lambda redeployment disconnects clients)
+            const handleConnect = () => {
+                if (room) {
+                    console.log(`[RecentComments] Reconnected — re-joining room: ${room}`);
+                    socket.emit('joinRoom', { roomId: room });
+                }
+            };
+
+            const handleRecentActivityUpdate = (data: any) => {
+                console.log('[RecentComments] Global recent activity update:', data);
+
+                // If a comment was added to THIS snap, refresh everything
+                if (data.action === 'comment_added' && data.snapId === snapId) {
+                    console.log('[RecentComments] New comment detected in current snap, refreshing all data.');
+                    fetchRecentComments();
+                    if (typeof onNewComment === 'function') {
+                        onNewComment();
+                    }
+                }
+            };
+
             socket.on('new_comment', handleNewActivity);
+            socket.on('recent_activity_update', handleRecentActivityUpdate);
+            socket.on('connect', handleConnect);
 
             return () => {
                 socket.off('new_comment', handleNewActivity);
+                socket.off('recent_activity_update', handleRecentActivityUpdate);
+                socket.off('connect', handleConnect);
                 if (room) {
                     socket.emit('leaveRoom', { roomId: room });
                 }

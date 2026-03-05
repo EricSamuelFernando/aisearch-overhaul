@@ -134,7 +134,7 @@ export const useComments = (propertyId: string, snapId?: string) => {
             setComments((prev) => [savedComment, ...prev]);
 
             // Also emit via WebSocket for real-time broadcast to other users
-            // Pass the saved comment ID so Lambda skips duplicate DB save and just broadcasts
+            // Pass the full saved comment so recipients have all fields (including createdAt)
             if (socket && socket.connected) {
                 socket.emit('addComment', {
                     id: savedComment.id,
@@ -145,6 +145,7 @@ export const useComments = (propertyId: string, snapId?: string) => {
                     userName,
                     accountType: accountType || 'buyer',
                     propertyName: propertyName || null,
+                    createdAt: savedComment.createdAt || new Date().toISOString(),
                     broadcastOnly: true,
                 });
             }
@@ -169,13 +170,12 @@ export const useComments = (propertyId: string, snapId?: string) => {
             const handleNewComment = (newComment: Comment & { snapId?: string; tempId?: string }) => {
                 console.log('[useComments] Received new_comment event:', newComment);
 
-                // Filter by propertyId
-                if (newComment.propertyId !== propertyId) {
-                    return;
-                }
+                // If we're in a specific snap context, prioritise snapId match
+                const isSameSnap = snapId && newComment.snapId && newComment.snapId === snapId;
+                const isSameProperty = newComment.propertyId === propertyId;
 
-                // If we're in a specific snap context, filter by snapId
-                if (snapId && newComment.snapId && newComment.snapId !== snapId) {
+                // If neither snap nor property matches, ignore
+                if (!isSameSnap && !isSameProperty) {
                     return;
                 }
 
@@ -202,20 +202,28 @@ export const useComments = (propertyId: string, snapId?: string) => {
                 });
             };
 
+            const handleActivityUpdate = (data: any) => {
+                console.log('[useComments] Received recent_activity_update:', data);
+                if (data.action === 'comment_added' && data.snapId === snapId) {
+                    console.log('[useComments] New comment in current snap, refetching...');
+                    fetchComments();
+                }
+            };
+
             const handleConnect = () => {
                 console.log('[useComments] Socket reconnected/connected. Re-joining room.');
                 socket.emit('joinRoom', { roomId: room }); // Send as object
             };
 
             socket.on('new_comment', handleNewComment);
-            socket.on('recent_activity_update', handleNewComment); // Also listen to global updates
+            socket.on('recent_activity_update', handleActivityUpdate);
             socket.on('connect', handleConnect);
 
             return () => {
                 console.log(`[useComments] Leaving room: ${room}`);
                 socket.emit('leaveRoom', { roomId: room }); // Send as object
                 socket.off('new_comment', handleNewComment);
-                socket.off('recent_activity_update', handleNewComment);
+                socket.off('recent_activity_update', handleActivityUpdate);
                 socket.off('connect', handleConnect);
             };
         }

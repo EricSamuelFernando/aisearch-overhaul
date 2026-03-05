@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import { error } from '@/components/alert/notify';
 
-const ASK_AI_API_URL = 'https://cr2dxaiuni.execute-api.us-west-1.amazonaws.com/question'; // Appended /question path
+const ASK_AI_API_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL}/question`; // Appended /question path
 
 interface AskAIRequest {
     question: string;

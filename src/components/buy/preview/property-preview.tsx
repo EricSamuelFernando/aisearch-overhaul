@@ -476,15 +476,14 @@ const PropertyPreview: React.FC = () => {
     propertyEngagementMutation.mutate(
       {
         propertyName: propertyData?.listing?.courtesyOf || propertyData?.public?.address?.label,
-        price: propertyData?.listing?.listPriceLow || propertyData?.listPrice,
+        price: Number(String(propertyData?.listing?.listPriceLow || propertyData?.listPrice || 0).replace(/[^0-9.-]+/g, "")),
         listingId: +propertyData?.listingId || +listingId,
-        propertyId: propertyData?.id || +id,
+        propertyId: String(propertyData?.id || id),
         city: propertyData?.address?.city || propertyData?.public?.address?.city || "Los angeles",
         zipCode: propertyData?.listing?.address?.zipCode || propertyData?.public?.address?.zipCode,
         propertyAddress: propertyData?.listing?.address?.unparsedAddress || propertyData?.public?.address?.unparsedAddress || propertyData?.public?.address?.label,
         propertyImage: propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.media?.primaryListingImageUrl,
         userId: currentUser?.id,
-        answers: undefined,
         propertyProgress: 10,
         fullAddress: propertyData?.public?.address?.label || propertyData?.listing?.address?.unparsedAddress || `${propertyData?.address?.city || ''}, USA`
       },
@@ -497,14 +496,20 @@ const PropertyPreview: React.FC = () => {
             setIsContactAgentDialogOpen(false);
             setIsSearchAgentModalOpen(true);
           } else {
+            console.error("Engagement successfully created but no ID returned:", response);
             error({ message: "Failed to create engagement" });
           }
           setIsProcessingInvitation(false);
           setContactActionInProgress(null);
         },
         onError: (err: any) => {
-          console.error("Error creating engagement:", err);
-          error({ message: "Failed to create engagement. Please try again." });
+          console.error("Error creating engagement [Full Error]:", err);
+          let errorMessage = "Failed to create engagement. Please try again.";
+          if (err?.message) errorMessage = err.message;
+          if (err?.response?.data?.errors?.[0]?.message) {
+            errorMessage = err.response.data.errors[0].message;
+          }
+          error({ message: errorMessage });
           setIsProcessingInvitation(false);
           setContactActionInProgress(null);
         }
@@ -549,15 +554,14 @@ const PropertyPreview: React.FC = () => {
     propertyEngagementMutation.mutate(
       {
         propertyName: propertyData?.listing?.courtesyOf || propertyData?.public?.address?.label,
-        price: propertyData?.listing?.listPriceLow || propertyData?.listPrice,
+        price: Number(String(propertyData?.listing?.listPriceLow || propertyData?.listPrice || 0).replace(/[^0-9.-]+/g, "")),
         listingId: +propertyData?.listingId || +listingId,
-        propertyId: propertyData?.id || +id,
+        propertyId: String(propertyData?.id || id),
         city: propertyData?.address?.city || propertyData?.public?.address?.city || "Los angeles",
         zipCode: propertyData?.listing?.address?.zipCode || propertyData?.public?.address?.zipCode,
         propertyAddress: propertyData?.listing?.address?.unparsedAddress || propertyData?.public?.address?.unparsedAddress || propertyData?.public?.address?.label,
         propertyImage: propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.media?.primaryListingImageUrl,
         userId: currentUser?.id,
-        answers: undefined,
         propertyProgress: 10,
         fullAddress: propertyData?.public?.address?.label || propertyData?.listing?.address?.unparsedAddress || `${propertyData?.address?.city || ''}, USA`
       },
@@ -570,14 +574,20 @@ const PropertyPreview: React.FC = () => {
             setIsContactAgentDialogOpen(false);
             setIsInviteAgentModalOpen(true);
           } else {
+            console.error("Engagement successfully created but no ID returned:", response);
             error({ message: "Failed to create engagement" });
           }
           setIsProcessingInvitation(false);
           setContactActionInProgress(null);
         },
         onError: (err: any) => {
-          console.error("Error creating engagement:", err);
-          error({ message: "Failed to create engagement. Please try again." });
+          console.error("Error creating engagement [Full Error]:", err);
+          let errorMessage = "Failed to create engagement. Please try again.";
+          if (err?.message) errorMessage = err.message;
+          if (err?.response?.data?.errors?.[0]?.message) {
+            errorMessage = err.response.data.errors[0].message;
+          }
+          error({ message: errorMessage });
           setIsProcessingInvitation(false);
           setContactActionInProgress(null);
         }
@@ -686,8 +696,8 @@ const PropertyPreview: React.FC = () => {
           setInviteAgentEmail('');
           setInviteEmailError('');
           setIsInviteAgentModalOpen(false);
-          // Navigate to dashboard after successful invitation
-          router.push('/dashboard/buyer');
+          // Navigate to dashboard messages after successful invitation
+          router.push('/dashboard/buyer?tab=messages');
         } else {
           error({ message: message || 'Failed to send invitation' });
         }
@@ -2433,7 +2443,7 @@ const PropertyPreview: React.FC = () => {
                         <p>{aiAnswer}</p>
                       </div>
                     ) : (
-                      <p>Your AI real estate assistant. We'll answer pretty much any question about this home.</p>
+                      <p>Your AI real estate assistant. We&apos;ll answer pretty much any question about this home.</p>
                     )}
                   </div>
 

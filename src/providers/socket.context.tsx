@@ -586,13 +586,13 @@ function SocketProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isLogin) return;
     notificationsQuery.refetch();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, isLogin]);
 
   useEffect(() => {
     if (!isLogin) return;
     notificationsQuery.refetch();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLogin, effectiveToken]);
 
   useEffect(() => {

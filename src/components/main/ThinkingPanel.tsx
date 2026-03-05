@@ -441,7 +441,8 @@ function CollapsedChip({
   totalMs: number;
   onExpand: () => void;
 }) {
-  const s = (totalMs / 1000).toFixed(1);
+  const safeMs = Math.max(800, totalMs);
+  const s = (safeMs / 1000).toFixed(1);
   return (
     <motion.button
       initial={{ opacity: 0, scale: 0.95 }}
@@ -565,6 +566,36 @@ function SkeletonLines() {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+function coerceDurationMs(value: unknown): number | undefined {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return undefined;
+
+  // Guard against epoch timestamps accidentally sent as durations.
+  if (numeric > 1e11) return undefined;
+
+  // Backend may send second-based durations for short steps.
+  if (numeric < 1000 && numeric <= 300) return numeric * 1000;
+
+  // Ignore implausibly large single-step durations.
+  if (numeric > 60 * 60 * 1000) return undefined;
+
+  return numeric;
+}
+
+function parseTimestampToMs(value?: string): number | undefined {
+  if (!value) return undefined;
+
+  const numeric = Number(value);
+  if (Number.isFinite(numeric) && numeric > 0) {
+    // Epoch seconds.
+    if (numeric >= 1e9 && numeric < 1e11) return numeric * 1000;
+    // Epoch milliseconds.
+    if (numeric >= 1e11) return numeric;
+  }
+
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
 interface ThinkingPanelProps {
   isThinking: boolean;
   query: string;
@@ -572,9 +603,13 @@ interface ThinkingPanelProps {
   intentHint?: string;
   /** Optional actual steps from backend — used when available for real timing */
   backendSteps?: ThinkingStep[];
+  /** Optional fallback elapsed time when backend emits no steps */
+  forceDoneMs?: number;
+  /** Render inside an existing assistant bubble instead of standalone row */
+  embedded?: boolean;
 }
 
-export default function ThinkingPanel({ isThinking, query, intentHint, backendSteps }: ThinkingPanelProps) {
+export default function ThinkingPanel({ isThinking, query, intentHint, backendSteps, forceDoneMs, embedded = false }: ThinkingPanelProps) {
   const intent = resolveIntent(query, intentHint);
   const baseStepDefs = STEP_LIBRARY[intent] ?? STEP_LIBRARY.property_search;
   const focusSummary = buildFocusSummary(extractQuerySignals(query));
@@ -599,7 +634,22 @@ export default function ThinkingPanel({ isThinking, query, intentHint, backendSt
       : (nonPendingSteps[nonPendingSteps.length - 1] ?? liveSteps[liveSteps.length - 1]);
   const displayStepIndex = displayStep ? liveSteps.findIndex((s) => s.id === displayStep.id) : -1;
   const completedSteps = liveSteps.filter((s) => s.status !== 'pending');
+  const fallbackCompletedSteps: LiveStep[] =
+    completedSteps.length > 0
+      ? completedSteps
+      : stepDefs.slice(0, Math.min(2, stepDefs.length)).map((step) => ({
+        ...step,
+        status: 'done' as StepStatus,
+        durationMs:
+          typeof forceDoneMs === 'number' && forceDoneMs > 0
+            ? Math.max(400, Math.floor(forceDoneMs / Math.max(1, Math.min(2, stepDefs.length))))
+            : 800,
+      }));
   const activeThinkingText = activeStep?.title || activeStep?.label || 'Thinking';
+  const expandPanel = () => {
+    setIsDone(true);
+    setIsExpanded(true);
+  };
 
   // If backend emits live thinking steps while still processing, prefer those over local simulation.
   useEffect(() => {
@@ -640,15 +690,15 @@ export default function ThinkingPanel({ isThinking, query, intentHint, backendSt
         started_at: bs.started_at || fallback.started_at,
         ended_at: bs.ended_at || fallback.ended_at,
         agentName: bs.agentName ?? fallback.agentName,
-        durationMs: bs.durationMs,
+        durationMs: coerceDurationMs(bs.durationMs),
         status: resolvedStatus,
       };
     });
 
     if (startTimeRef.current <= 0) {
       const startedTimes = mappedLiveSteps
-        .map((step) => (step.started_at ? Date.parse(step.started_at) : NaN))
-        .filter((ts) => Number.isFinite(ts) && ts > 0);
+        .map((step) => parseTimestampToMs(step.started_at))
+        .filter((ts): ts is number => typeof ts === 'number');
       startTimeRef.current = startedTimes.length > 0 ? Math.min(...startedTimes) : Date.now();
     }
 
@@ -727,18 +777,18 @@ export default function ThinkingPanel({ isThinking, query, intentHint, backendSt
     let elapsed = 0;
     if (backendSteps && backendSteps.length > 0) {
       const sumDuration = backendSteps.reduce((acc, step) => {
-        const value = typeof step.durationMs === 'number' && Number.isFinite(step.durationMs) ? step.durationMs : 0;
+        const value = coerceDurationMs(step.durationMs) ?? 0;
         return acc + Math.max(0, value);
       }, 0);
       if (sumDuration > 0) {
         elapsed = sumDuration;
       } else {
         const starts = backendSteps
-          .map((step) => (step.started_at ? Date.parse(step.started_at) : NaN))
-          .filter((ts) => Number.isFinite(ts) && ts > 0);
+          .map((step) => parseTimestampToMs(step.started_at))
+          .filter((ts): ts is number => typeof ts === 'number');
         const ends = backendSteps
-          .map((step) => (step.ended_at ? Date.parse(step.ended_at) : NaN))
-          .filter((ts) => Number.isFinite(ts) && ts > 0);
+          .map((step) => parseTimestampToMs(step.ended_at))
+          .filter((ts): ts is number => typeof ts === 'number');
         if (starts.length > 0 && ends.length > 0) {
           elapsed = Math.max(0, Math.max(...ends) - Math.min(...starts));
         }
@@ -747,7 +797,8 @@ export default function ThinkingPanel({ isThinking, query, intentHint, backendSt
     if (elapsed <= 0 && startTimeRef.current > 0) {
       elapsed = Math.max(0, Date.now() - startTimeRef.current);
     }
-    setTotalMs(elapsed);
+    const fallbackMs = typeof forceDoneMs === 'number' && forceDoneMs > 0 ? forceDoneMs : 1200;
+    setTotalMs(elapsed > 0 ? elapsed : fallbackMs);
 
     if (backendSteps && backendSteps.length > 0) {
       // Backend sent actual timing — use it for labels and durations
@@ -764,7 +815,7 @@ export default function ThinkingPanel({ isThinking, query, intentHint, backendSt
         ended_at: bs.ended_at || stepDefs[i]?.ended_at,
         agentName: bs.agentName ?? stepDefs[i]?.agentName ?? '',
         status: (bs.status === 'error' ? 'error' : 'done') as StepStatus,
-        durationMs: bs.durationMs,
+        durationMs: coerceDurationMs(bs.durationMs),
       }));
       setLiveSteps(finalSteps);
     } else {
@@ -788,12 +839,45 @@ export default function ThinkingPanel({ isThinking, query, intentHint, backendSt
     startTimeRef.current = 0;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isThinking]);
+  // If backend omitted steps, still show a post-answer "Thought for Xs" + expandable trace.
+  useEffect(() => {
+    if (isThinking) return;
+    if (backendSteps && backendSteps.length > 0) return;
+    if (typeof forceDoneMs !== 'number' || forceDoneMs <= 0) return;
+
+    setTotalMs(forceDoneMs);
+    setLiveSteps((prev) => {
+      if (prev.length > 0) {
+        return prev.map((step) => ({ ...step, status: 'done' as StepStatus }));
+      }
+      return stepDefs.map((step) => ({ ...step, status: 'done' as StepStatus }));
+    });
+    setIsDone(true);
+  }, [isThinking, backendSteps, forceDoneMs, stepDefs]);
 
   // ── Don't render before first query ──────────────────────────────────────
-  if (!isThinking && !isDone) return null;
+  if (!isThinking && !isDone) {
+    if (embedded) {
+      const fallbackMs = typeof forceDoneMs === 'number' && forceDoneMs > 0 ? forceDoneMs : 1200;
+      return (
+        <div className="mb-3 flex items-start justify-start w-full self-start pointer-events-auto">
+          <CollapsedChip totalMs={fallbackMs} onExpand={expandPanel} />
+        </div>
+      );
+    }
+    return null;
+  }
 
   // ── Collapsed chip (after response) ──────────────────────────────────────
   if (!isExpanded) {
+    const collapsedChip = isThinking
+      ? <ThinkingCollapsedChip onExpand={expandPanel} />
+      : <CollapsedChip totalMs={totalMs} onExpand={expandPanel} />;
+
+    if (embedded) {
+      return <div className="mb-3 flex items-start justify-start w-full self-start pointer-events-auto">{collapsedChip}</div>;
+    }
+
     return (
       <div className="flex items-start gap-4 mt-6 ml-1">
         <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-[#140800] ring-1 ring-[#F58634]/35 shadow-sm flex items-center justify-center">
@@ -806,11 +890,7 @@ export default function ThinkingPanel({ isThinking, query, intentHint, backendSt
           />
         </div>
         <div className="pt-2.5">
-          {isThinking ? (
-            <ThinkingCollapsedChip onExpand={() => setIsExpanded(true)} />
-          ) : (
-            <CollapsedChip totalMs={totalMs} onExpand={() => setIsExpanded(true)} />
-          )}
+          {collapsedChip}
         </div>
       </div>
     );
@@ -822,21 +902,23 @@ export default function ThinkingPanel({ isThinking, query, intentHint, backendSt
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="flex items-start gap-4 mt-6 ml-1"
+      className={embedded ? 'w-full mb-3' : 'flex items-start gap-4 mt-6 ml-1'}
     >
       {/* SnapHomz avatar */}
-      <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-[#140800] ring-1 ring-[#F58634]/35 shadow-sm flex items-center justify-center">
-        <Image
-          src="/assets/images/snaphomz-icon-thick.png"
-          alt="SnapHomz AI"
-          width={32}
-          height={32}
-          className="w-8 h-8 object-contain"
-        />
-      </div>
+      {!embedded && (
+        <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-[#140800] ring-1 ring-[#F58634]/35 shadow-sm flex items-center justify-center">
+          <Image
+            src="/assets/images/snaphomz-icon-thick.png"
+            alt="SnapHomz AI"
+            width={32}
+            height={32}
+            className="w-8 h-8 object-contain"
+          />
+        </div>
+      )}
 
       {/* Panel body */}
-      <div className="flex-1 min-w-0 max-w-3xl rounded-2xl border border-slate-200/90 bg-white/80 shadow-sm p-4 sm:p-5">
+      <div className={`flex-1 min-w-0 rounded-2xl border border-slate-200/90 bg-white/80 shadow-sm p-4 sm:p-5 ${embedded ? 'w-full max-w-none' : 'max-w-3xl'}`}>
 
         {/* Header row */}
         <div className="flex items-center gap-2.5 mb-4">
@@ -859,7 +941,7 @@ export default function ThinkingPanel({ isThinking, query, intentHint, backendSt
               className="inline-flex items-center gap-2 text-[14px] text-slate-500 hover:text-slate-700 transition-colors group"
             >
               <Check className="w-4 h-4 text-emerald-500" strokeWidth={2.5} />
-              <span>Thought for <span className="font-medium text-gray-500">{(totalMs / 1000).toFixed(1)}s</span></span>
+              <span>Thought for <span className="font-medium text-gray-500">{(Math.max(800, totalMs) / 1000).toFixed(1)}s</span></span>
               <ChevronUp className="w-4 h-4 ml-0.5 opacity-40 group-hover:opacity-70 transition-opacity" />
             </button>
           )}
@@ -882,9 +964,9 @@ export default function ThinkingPanel({ isThinking, query, intentHint, backendSt
             </div>
           ) : null
         ) : (
-          completedSteps.length > 0 ? (
+          fallbackCompletedSteps.length > 0 ? (
             <div className="space-y-3">
-              {completedSteps.map((step, idx) => (
+              {fallbackCompletedSteps.map((step, idx) => (
                 <StepRow
                   key={`${step.id}-${step.status}-${step.durationMs ?? 0}`}
                   step={step}

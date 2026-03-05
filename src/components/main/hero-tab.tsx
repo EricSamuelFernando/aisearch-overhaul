@@ -524,6 +524,115 @@ const autoFormatAnswerText = (rawText: string): string => {
   return paragraphs.join('\n');
 };
 
+const sanitizeAssistantOutput = (rawText: string) => {
+  if (!rawText || typeof rawText !== 'string') {
+    return { cleanedText: '', extractedSuggestions: [] as string[] };
+  }
+
+  let cleaned = rawText;
+  const extractedSuggestions: string[] = [];
+  const actionSuggestionPattern = /^(show|find|compare|filter|explore|use|list|calculate|tell|what|help|focus)\b/i;
+
+  const suggestionsBlockRegex = /(?:^|\n)\s*-{2,}\s*SUGGESTIONS\s*-{2,}\s*([\s\S]*)$/i;
+  const suggestionsBlock = cleaned.match(suggestionsBlockRegex);
+  if (suggestionsBlock?.[1]) {
+    const suggestionLines = suggestionsBlock[1]
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    suggestionLines.forEach((line) => {
+      const item = line.replace(/^\d+[\).\-\s]+/, '').trim();
+      if (item) extractedSuggestions.push(item);
+    });
+
+    cleaned = cleaned.replace(suggestionsBlockRegex, '').trim();
+  }
+
+  // Extract actionable numbered suggestions even when no explicit SUGGESTIONS block exists.
+  rawText
+    .split('\n')
+    .map((line) => line.trim())
+    .forEach((line) => {
+      const numbered = line.match(/^\d+[\).\-\s]+(.+)$/);
+      if (numbered?.[1]) {
+        const candidate = numbered[1].trim();
+        if (candidate && actionSuggestionPattern.test(candidate)) {
+          extractedSuggestions.push(candidate);
+        }
+      }
+
+      const cta = line.match(/^want me to\s+(.+)\?$/i);
+      if (cta?.[1]) {
+        const normalized = cta[1]
+          .replace(/\s+or\s+/gi, ',')
+          .split(',')
+          .map((part) => part.trim())
+          .filter(Boolean);
+        normalized.forEach((part) => {
+          if (actionSuggestionPattern.test(part)) {
+            extractedSuggestions.push(part.charAt(0).toUpperCase() + part.slice(1));
+          }
+        });
+      }
+    });
+
+  // Remove templated sections that should not be shown directly to end users.
+  cleaned = cleaned.replace(
+    /(?:^|\n)\s*(?:\*\*|__)?\s*Context\s*:(?:\*\*|__)?\s*[\s\S]*?(?=\n\s*(?:\*\*|__)?\s*Closing CTA\s*:|$)/i,
+    '\n'
+  );
+  cleaned = cleaned.replace(
+    /(?:^|\n)\s*(?:\*\*|__)?\s*Closing CTA\s*:(?:\*\*|__)?\s*[\s\S]*$/i,
+    '\n'
+  );
+
+  // Line-based cleanup fallback to remove any lingering Context/CTA sections.
+  const cleanedLines = cleaned.split('\n');
+  const filteredLines: string[] = [];
+  let skipBlock = false;
+  for (const line of cleanedLines) {
+    const trimmed = line.trim();
+    const isContextHeader = /^(?:\*\*|__)?\s*Context\s*:(?:\*\*|__)?\s*$/i.test(trimmed);
+    const isCtaHeader = /^(?:\*\*|__)?\s*Closing CTA\s*:(?:\*\*|__)?\s*$/i.test(trimmed);
+
+    if (isContextHeader || isCtaHeader) {
+      skipBlock = true;
+      continue;
+    }
+    if (skipBlock) {
+      if (!trimmed) {
+        skipBlock = false;
+      }
+      continue;
+    }
+    filteredLines.push(line);
+  }
+  cleaned = filteredLines.join('\n');
+  cleaned = cleaned
+    .split('\n')
+    .filter((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return true;
+      if (/^---\s*SUGGESTIONS\s*---$/i.test(trimmed)) return false;
+      if (/^Want me to\s+.+\?$/i.test(trimmed)) return false;
+      const numbered = trimmed.match(/^\d+[\).\-\s]+(.+)$/);
+      if (numbered?.[1] && actionSuggestionPattern.test(numbered[1].trim())) return false;
+      return true;
+    })
+    .join('\n');
+
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
+  const uniqueSuggestions = Array.from(
+    new Set(
+      extractedSuggestions
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+    )
+  );
+  return { cleanedText: cleaned, extractedSuggestions: uniqueSuggestions };
+};
+
 // Helper to format AI response cleanly
 const formatMessageContent = (text: string) => {
   if (!text) return null;
@@ -737,6 +846,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   const [currentQuery, setCurrentQuery] = useState('');
   const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([]);
   const [thinkingIntentHint, setThinkingIntentHint] = useState<string | undefined>(undefined);
+  const [latestThoughtDurationMs, setLatestThoughtDurationMs] = useState<number | null>(null);
+  const requestStartedAtRef = useRef<number | null>(null);
   // Controls expansion state (Collapsed Search Bar vs Expanded Chat UI)
   const [isExpanded, setIsExpanded] = useState(false);
   const [typedPlaceholder, setTypedPlaceholder] = useState("");
@@ -911,6 +1022,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     setCurrentQuery('');
     setThinkingSteps([]);
     setThinkingIntentHint(undefined);
+    setLatestThoughtDurationMs(null);
     setIsMenuOpen(false);
     setSelectedPropertyId(null);
     setExpandedPropertyId(null);
@@ -1214,6 +1326,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     }
   }, [chatHistory, isSearching, scrollChatToBottom]);
 
+  // Keep the viewport pinned while thinking steps stream in.
+  useEffect(() => {
+    if (!isSearching || thinkingSteps.length === 0) return;
+    scrollChatToBottom('auto');
+  }, [thinkingSteps, isSearching, scrollChatToBottom]);
+
   // --- Helpers for Safe Info Extraction (from Assistant) ---
   const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === "object" && value !== null;
@@ -1425,6 +1543,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     setCurrentQuery(queryToSearch);
     setThinkingSteps([]);
     setThinkingIntentHint(undefined);
+    setLatestThoughtDurationMs(null);
+    requestStartedAtRef.current = Date.now();
     setIsSearching(true);
     setSearchTerm('');
     setSelectedPropertyId(null);
@@ -1592,19 +1712,23 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
           data.summary ||
           data.response ||
           "I couldn't find a response for that question.";
+        const sanitized = sanitizeAssistantOutput(aiText);
 
-        const relatedQuestions =
+        const backendRelatedQuestions =
           data.suggestions ||
           data.suggested_actions ||
           data.recommendations ||
           data.suggested_questions ||
           data.related_questions ||
           [];
+        const relatedQuestions = Array.from(
+          new Set([...(Array.isArray(backendRelatedQuestions) ? backendRelatedQuestions : []), ...sanitized.extractedSuggestions])
+        );
 
         const aiMsg: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: aiText,
+          content: sanitized.cleanedText || aiText,
           relatedQuestions: relatedQuestions,
           clarification: data.clarification || "",
           map: data.map,
@@ -1772,7 +1896,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
         // Add Assistant Response
         const aiMsgId = (Date.now() + 1).toString();
-        const relatedQuestions =
+        const backendRelatedQuestions =
           data.suggestions ||
           data.suggested_actions ||
           data.recommendations ||
@@ -1829,10 +1953,18 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
           }
         }
 
+        const sanitizedFinal = sanitizeAssistantOutput(finalContent);
+        const relatedQuestions = Array.from(
+          new Set([
+            ...(Array.isArray(backendRelatedQuestions) ? backendRelatedQuestions : []),
+            ...sanitizedFinal.extractedSuggestions
+          ])
+        );
+
         const aiMsg: ChatMessage = {
           id: aiMsgId,
           role: 'assistant',
-          content: finalContent,
+          content: sanitizedFinal.cleanedText || finalContent,
           query: queryToSearch,
           query_history_formatted: data.metadata?.query_history_formatted,
           relatedProperties: mappedProps,
@@ -1851,18 +1983,25 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
       } else {
         // Empty results
         const aiMsgId = (Date.now() + 1).toString();
-        const relatedQuestions =
+        const backendRelatedQuestions =
           data.suggestions ||
           data.suggested_actions ||
           data.recommendations ||
           data.suggested_questions ||
           data.related_questions ||
           [];
+        const sanitizedEmpty = sanitizeAssistantOutput(aiText || "I couldn't find any properties matching that search right now.");
+        const relatedQuestions = Array.from(
+          new Set([
+            ...(Array.isArray(backendRelatedQuestions) ? backendRelatedQuestions : []),
+            ...sanitizedEmpty.extractedSuggestions
+          ])
+        );
 
         const aiMsg: ChatMessage = {
           id: aiMsgId,
           role: 'assistant',
-          content: aiText || "I couldn't find any properties matching that search right now.",
+          content: sanitizedEmpty.cleanedText || aiText || "I couldn't find any properties matching that search right now.",
           relatedProperties: [],
           relatedQuestions: relatedQuestions,
           clarification: data.clarification || "",
@@ -1883,6 +2022,10 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         content: "Sorry, I encountered an error while searching. Please try again."
       }]);
     } finally {
+      if (requestStartedAtRef.current) {
+        setLatestThoughtDurationMs(Math.max(0, Date.now() - requestStartedAtRef.current));
+        requestStartedAtRef.current = null;
+      }
       setIsSearching(false);
     }
   };
@@ -2404,10 +2547,30 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     }
   };
 
-  const latestAssistantMessageId = chatHistory
+  const latestVisibleAssistantMessageId = chatHistory
+    .slice()
+    .reverse()
+    .find((message) =>
+      message.role === 'assistant' &&
+      (
+        (typeof message.content === 'string' && message.content.trim().length > 0) ||
+        (Array.isArray(message.relatedProperties) && message.relatedProperties.length > 0) ||
+        (Array.isArray(message.relatedSchools) && message.relatedSchools.length > 0) ||
+        Boolean(message.isForecast)
+      )
+    )?.id;
+  const latestAssistantTextMessageId = chatHistory
     .slice()
     .reverse()
     .find((message) => message.role === 'assistant' && typeof message.content === 'string' && message.content.trim().length > 0)?.id;
+  const hasCompletedThinkingForCurrentTurn = thinkingSteps.length > 0 || latestThoughtDurationMs !== null;
+  const shouldShowThinkingForLatestAssistant =
+    !isSearching &&
+    Boolean(latestVisibleAssistantMessageId) &&
+    hasCompletedThinkingForCurrentTurn;
+  const showStandaloneThinkingPanel =
+    isSearching ||
+    (hasCompletedThinkingForCurrentTurn && !latestVisibleAssistantMessageId);
 
   // --- Render ---
   return (
@@ -2926,6 +3089,18 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                               <div className="flex items-center gap-2">
                                 <span className="font-bold text-black text-sm tracking-tight">SnapHomz AI</span>
                               </div>
+                              {msg.id === latestVisibleAssistantMessageId && shouldShowThinkingForLatestAssistant && (
+                                <div className="mt-3 self-start">
+                                  <ThinkingPanel
+                                    isThinking={isSearching}
+                                    query={msg.query || currentQuery}
+                                    intentHint={thinkingIntentHint}
+                                    backendSteps={thinkingSteps.length > 0 ? thinkingSteps : undefined}
+                                    forceDoneMs={latestThoughtDurationMs ?? (!isSearching ? 1200 : undefined)}
+                                    embedded
+                                  />
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}
@@ -2950,51 +3125,75 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                               </div>
                             )}
 
-
-                            <div className="text-gray-600 text-[15px] sm:text-[17px] leading-relaxed text-left font-normal break-words">
-                              <AssistantResponseText
-                                text={msg.content || ''}
-                                animate={msg.id === latestAssistantMessageId}
-                                speedMs={8}
-                                onProgress={msg.id === latestAssistantMessageId ? () => scrollChatToBottom('auto') : undefined}
-                                onComplete={() =>
-                                  setCompletedAnswerAnimations((prev) =>
-                                    prev[msg.id] ? prev : { ...prev, [msg.id]: true }
-                                  )
-                                }
+                            {msg.id === latestVisibleAssistantMessageId && shouldShowThinkingForLatestAssistant && !msg.relatedProperties?.length && (
+                              <ThinkingPanel
+                                isThinking={isSearching}
+                                query={msg.query || currentQuery}
+                                intentHint={thinkingIntentHint}
+                                backendSteps={thinkingSteps.length > 0 ? thinkingSteps : undefined}
+                                forceDoneMs={latestThoughtDurationMs ?? (!isSearching ? 1200 : undefined)}
+                                embedded
                               />
-                            </div>
-
-                            {msg.clarification && (
-                              <div className="mt-4 mb-2 p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-3">
-                                <HelpCircle className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
-                                <p className="text-sm text-blue-800 font-medium leading-relaxed">{msg.clarification}</p>
-                              </div>
                             )}
 
-                            {(msg.id !== latestAssistantMessageId || completedAnswerAnimations[msg.id]) &&
-                              msg.relatedQuestions && msg.relatedQuestions.length > 0 && (
-                              <div className="mt-6 mb-2">
-                                <div className="flex items-center gap-2 mb-3">
-                                  <Lightbulb className="w-5 h-5 text-[#F58634]" />
-                                  <h3 className="text-lg font-bold text-gray-900">Related questions</h3>
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                  {msg.relatedQuestions.map((q, idx) => (
-                                    <button
-                                      key={idx}
-                                      onClick={() => {
-                                        setSearchTerm(q);
-                                        handleSearchSubmit(q);
-                                      }}
-                                      className="px-4 py-2 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 rounded-full text-sm font-medium text-gray-700 hover:text-gray-900 transition-all text-left shadow-sm whitespace-normal"
-                                    >
-                                      {q}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
+
+                            {(() => {
+                              const sanitizedMessage = sanitizeAssistantOutput(msg.content || '');
+                              const relatedQuestionCandidates =
+                                msg.relatedQuestions && msg.relatedQuestions.length > 0
+                                  ? msg.relatedQuestions
+                                  : sanitizedMessage.extractedSuggestions;
+                              const displayRelatedQuestions = Array.from(new Set(relatedQuestionCandidates || []));
+
+                              return (
+                                <>
+                                  <div className="text-gray-600 text-[15px] sm:text-[17px] leading-relaxed text-left font-normal break-words">
+                                    <AssistantResponseText
+                                      text={sanitizedMessage.cleanedText || msg.content || ''}
+                                      animate={msg.id === latestAssistantTextMessageId}
+                                      speedMs={8}
+                                      onProgress={msg.id === latestAssistantTextMessageId ? () => scrollChatToBottom('auto') : undefined}
+                                      onComplete={() =>
+                                        setCompletedAnswerAnimations((prev) =>
+                                          prev[msg.id] ? prev : { ...prev, [msg.id]: true }
+                                        )
+                                      }
+                                    />
+                                  </div>
+
+                                  {msg.clarification && (
+                                    <div className="mt-4 mb-2 p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-3">
+                                      <HelpCircle className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                                      <p className="text-sm text-blue-800 font-medium leading-relaxed">{msg.clarification}</p>
+                                    </div>
+                                  )}
+
+                                  {(msg.id !== latestAssistantTextMessageId || completedAnswerAnimations[msg.id]) &&
+                                    displayRelatedQuestions.length > 0 && (
+                                    <div className="mt-6 mb-2">
+                                      <div className="flex items-center gap-2 mb-3">
+                                        <Lightbulb className="w-5 h-5 text-[#F58634]" />
+                                        <h3 className="text-lg font-bold text-gray-900">Related questions</h3>
+                                      </div>
+                                      <div className="flex flex-wrap gap-2">
+                                        {displayRelatedQuestions.map((q, idx) => (
+                                          <button
+                                            key={idx}
+                                            onClick={() => {
+                                              setSearchTerm(q);
+                                              handleSearchSubmit(q);
+                                            }}
+                                            className="px-4 py-2 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 rounded-full text-sm font-medium text-gray-700 hover:text-gray-900 transition-all text-left shadow-sm whitespace-normal"
+                                          >
+                                            {q}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
 
                             {/* Forecast Chart Card — only render when we have actual data points */}
                             {msg.isForecast && msg.forecastData && msg.forecastData.length > 0 && (
@@ -3162,10 +3361,14 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                         {msg.relatedProperties && msg.relatedProperties.length > 0 && (
                           <div className={`w-full max-w-full ${msg.relatedProperties?.length ? 'order-2' : ''}`}>
                             <div className="flex flex-col sm:flex-row items-stretch sm:items-center overflow-visible sm:overflow-x-auto gap-2 sm:gap-4 md:gap-6 px-0 sm:px-4 md:px-6 py-3 sm:py-5 md:py-6 sm:snap-x sm:snap-mandatory no-scrollbar" style={{ scrollBehavior: 'smooth' }}>
-                              {msg.relatedProperties.map((property: any) => {
+                              {msg.relatedProperties.map((property: any, idx: number) => {
                                 const isActive = selectedPropertyId === property.id;
                                 const isExpandedCard = expandedPropertyId === property.id;
                                 const isAnySelected = selectedPropertyId !== null;
+                                const listingNumber =
+                                  Number.isFinite(Number(property.displayIndex))
+                                    ? Number(property.displayIndex)
+                                    : idx + 1;
                                 const poolLabel =
                                   property.hasPool === true
                                     ? "Yes"
@@ -3212,6 +3415,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                       />
                                       <div className="absolute top-3 left-3 bg-black/60 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg backdrop-blur-md">
                                         {property.type}
+                                      </div>
+                                      <div className="absolute top-3 right-3 bg-white/90 text-gray-900 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-white/80 shadow-sm backdrop-blur-md">
+                                        #{listingNumber}
                                       </div>
                                     </div>
 
@@ -3545,12 +3751,13 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 ))}
 
                 {/* Thinking Panel — agent-transparent loading state */}
-                {(isSearching || thinkingSteps.length > 0) && currentQuery && (
+                {showStandaloneThinkingPanel && (
                   <ThinkingPanel
                     isThinking={isSearching}
                     query={currentQuery}
                     intentHint={thinkingIntentHint}
                     backendSteps={thinkingSteps.length > 0 ? thinkingSteps : undefined}
+                    forceDoneMs={latestThoughtDurationMs ?? undefined}
                   />
                 )}
 

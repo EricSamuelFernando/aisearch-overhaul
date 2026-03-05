@@ -4184,17 +4184,19 @@ export default function ChatBoxComponent(props: any) {
       return;
     }
     try {
-      await getThreadById.mutateAsync(normalizedId, {
-        onSuccess: async (data: any) => {
-          const participants = await [
-            ...(data?.buyerAgent ? [data.buyerAgent] : []),
-            ...(data?.sellerAgent ? [data.sellerAgent] : []),
-            ...(data?.user ? [data.user] : []),
-            ...(Array.isArray(data?.participants) ? data.participants.map((p: any) => p?.user || p).filter(Boolean) : []),
-          ];
-          handleThreadSelection(data, participants)
-        },
-      });
+      const data = await getThreadById.mutateAsync(normalizedId);
+      if (data) {
+        const participants = [
+          ...(data?.buyerAgent ? [data.buyerAgent] : []),
+          ...(data?.sellerAgent ? [data.sellerAgent] : []),
+          ...(data?.user ? [data.user] : []),
+          ...(Array.isArray(data?.participants) ? data.participants.map((p: any) => p?.user || p).filter(Boolean) : []),
+        ];
+        handleThreadSelection(data, participants);
+      } else {
+        console.warn("[chat-box] getThreadDetails returned null/undefined for id:", normalizedId);
+        selectThreadById(normalizedId);
+      }
     } catch (err) {
       console.error("[chat-box] Failed to fetch thread details for id:", normalizedId, err);
       selectThreadById(normalizedId);
@@ -5249,27 +5251,20 @@ export default function ChatBoxComponent(props: any) {
         }
       }
 
-      // 2️⃣ Send message via WebSocket
-      socket.sendMessage({
-        threadId: currentThreadId,
-        userId: userData.id,
-        receiverId: resolvedReceiverId || undefined,
-        messageType: hasFile ? "file" : "text",
-        message: hasFile ? fileUrl : message,
-        fileType: hasFile ? selectedFile?.type : undefined, // ✅ FIX
-
-      });
-
-      // 3️⃣ Optimistic UI update
+      // 2️⃣ Optimistic UI update with temp ID for rollback
+      const tempId = `temp-${Date.now()}`;
+      const messageContent = hasFile ? fileUrl : message;
+      const msgType = hasFile ? "file" : "text";
       setPendingNewMessageCount(0);
       setMessages((prev: any) => [
         {
+          id: tempId,
           threadId: currentThreadId,
           senderId: userData.id,
           receiverId: resolvedReceiverId,
-          messageType: hasFile ? "file" : "text",
-          message: hasFile ? fileUrl : message,
-          fileType: hasFile ? selectedFile?.type : undefined, // ✅ FIX
+          messageType: msgType,
+          message: messageContent,
+          fileType: hasFile ? selectedFile?.type : undefined,
           createdAt: new Date().toISOString(),
           file: hasFile
             ? {
@@ -5282,6 +5277,32 @@ export default function ChatBoxComponent(props: any) {
         },
         ...prev,
       ]);
+
+      // 3️⃣ Send message via WebSocket (Lambda saves to DB + broadcasts)
+      // Listen for response to detect failures and roll back optimistic update
+      const handleResponse = (response: any) => {
+        socket.off('sendMessage_response', handleResponse);
+        const isError = response?.status === 'error' || response?.data?.status === 'error';
+        if (isError) {
+          const errMsg = response?.data?.message || response?.message || 'Failed to send message';
+          console.error('[handleSendMessage] Lambda rejected message:', errMsg);
+          error({ message: errMsg });
+          // Remove optimistic message
+          setMessages((prev: any) => prev.filter((m: any) => m.id !== tempId));
+        }
+      };
+      socket.on('sendMessage_response', handleResponse);
+      // Cleanup listener after 10s in case no response
+      setTimeout(() => socket.off('sendMessage_response', handleResponse), 10000);
+
+      socket.sendMessage({
+        threadId: currentThreadId,
+        userId: userData.id,
+        receiverId: resolvedReceiverId || undefined,
+        messageType: msgType,
+        message: messageContent,
+        fileType: hasFile ? selectedFile?.type : undefined,
+      });
 
       // 4️⃣ Cleanup
       setMessage("");
@@ -6949,324 +6970,324 @@ export default function ChatBoxComponent(props: any) {
                               return Object.entries(groupedMessages)
                                 .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
                                 .map(([dateKey, dayMessages]) => {
-                                const parsedDate = new Date(dateKey);
-                                // const label = "Today"
-                                const label = isToday(parsedDate)
-                                  ? "Today"
-                                  : isYesterday(parsedDate)
-                                    ? "Yesterday"
-                                    : format(parsedDate, "EEEE, MMMM d");
+                                  const parsedDate = new Date(dateKey);
+                                  // const label = "Today"
+                                  const label = isToday(parsedDate)
+                                    ? "Today"
+                                    : isYesterday(parsedDate)
+                                      ? "Yesterday"
+                                      : format(parsedDate, "EEEE, MMMM d");
 
-                                return (
-                                  <div key={dateKey}>
-                                    <div className="text-center py-2">
-                                      <span className="text-gray-500 text-xs sm:text-sm font-medium bg-white px-3 py-1 rounded-full shadow">
-                                        {label}
-                                      </span>
-                                    </div>
+                                  return (
+                                    <div key={dateKey}>
+                                      <div className="text-center py-2">
+                                        <span className="text-gray-500 text-xs sm:text-sm font-medium bg-white px-3 py-1 rounded-full shadow">
+                                          {label}
+                                        </span>
+                                      </div>
 
 
-                                    <div className="space-y-4">
-                                      {[...dayMessages]
-                                        .sort((a, b) => new Date(a.createdAt ?? 0).getTime() - new Date(b?.createdAt ?? 0).getTime())
-                                        .map((message, index) => {
-                                          const resolvedMessageSenderId = pickFirstString(
-                                            message?.senderId,
-                                            (message as any)?.userId,
-                                            (message as any)?.sender?.id,
-                                            (message as any)?.createdBy,
-                                          );
-                                          const isSender =
-                                            !!resolvedMessageSenderId &&
-                                            normalizeComparableId(resolvedMessageSenderId) ===
-                                            normalizeComparableId(userData?.id || user?.id);
-                                          const isLastMessage = index === dayMessages?.length - 1;
-                                          const formattedTime = format(new Date(message?.createdAt ?? 0), "hh:mm a");
-                                          const receiver = threadParticipants.find(
-                                            (p: any) => {
-                                              const participantId = pickFirstString(
-                                                p?.id,
-                                                p?.user?.id,
-                                                p?.userId,
-                                                p?.user?.userId,
-                                              );
-                                              if (!participantId) return false;
-                                              const normalizedParticipantId = normalizeComparableId(participantId);
-                                              return (
-                                                normalizedParticipantId ===
-                                                normalizeComparableId(resolvedMessageSenderId) &&
-                                                normalizedParticipantId !==
-                                                normalizeComparableId(userData?.id || user?.id)
-                                              );
-                                            }
-                                          );
-                                          const receiverImage = resolveProfileImage(receiver);
-                                          const senderImage = resolveProfileImage(userData) || resolveProfileImage(user);
-                                          const receiverFallbackName =
-                                            `${receiver?.firstName || ''} ${receiver?.lastName || ''}`.trim() ||
-                                            receiver?.email ||
-                                            receiver?.id ||
-                                            'NA';
-                                          const senderFallbackName =
-                                            `${userData?.firstname || ''} ${userData?.lastname || ''}`.trim() ||
-                                            userData?.email ||
-                                            userData?.id ||
-                                            user?.email ||
-                                            user?.id ||
-                                            'NA';
+                                      <div className="space-y-4">
+                                        {[...dayMessages]
+                                          .sort((a, b) => new Date(a.createdAt ?? 0).getTime() - new Date(b?.createdAt ?? 0).getTime())
+                                          .map((message, index) => {
+                                            const resolvedMessageSenderId = pickFirstString(
+                                              message?.senderId,
+                                              (message as any)?.userId,
+                                              (message as any)?.sender?.id,
+                                              (message as any)?.createdBy,
+                                            );
+                                            const isSender =
+                                              !!resolvedMessageSenderId &&
+                                              normalizeComparableId(resolvedMessageSenderId) ===
+                                              normalizeComparableId(userData?.id || user?.id);
+                                            const isLastMessage = index === dayMessages?.length - 1;
+                                            const formattedTime = format(new Date(message?.createdAt ?? 0), "hh:mm a");
+                                            const receiver = threadParticipants.find(
+                                              (p: any) => {
+                                                const participantId = pickFirstString(
+                                                  p?.id,
+                                                  p?.user?.id,
+                                                  p?.userId,
+                                                  p?.user?.userId,
+                                                );
+                                                if (!participantId) return false;
+                                                const normalizedParticipantId = normalizeComparableId(participantId);
+                                                return (
+                                                  normalizedParticipantId ===
+                                                  normalizeComparableId(resolvedMessageSenderId) &&
+                                                  normalizedParticipantId !==
+                                                  normalizeComparableId(userData?.id || user?.id)
+                                                );
+                                              }
+                                            );
+                                            const receiverImage = resolveProfileImage(receiver);
+                                            const senderImage = resolveProfileImage(userData) || resolveProfileImage(user);
+                                            const receiverFallbackName =
+                                              `${receiver?.firstName || ''} ${receiver?.lastName || ''}`.trim() ||
+                                              receiver?.email ||
+                                              receiver?.id ||
+                                              'NA';
+                                            const senderFallbackName =
+                                              `${userData?.firstname || ''} ${userData?.lastname || ''}`.trim() ||
+                                              userData?.email ||
+                                              userData?.id ||
+                                              user?.email ||
+                                              user?.id ||
+                                              'NA';
 
-                                          const notificationMessage = message?.messageType === "notification";
-                                          const systemMessage = message?.messageType === "system";
-                                          const systemText = systemMessage ? getSystemMessageText(message) : "";
-                                          const isFileMessage = message?.messageType === "file";
-                                          const fileEventUrl = isFileMessage ? resolveAttachmentUrlFromMessage(message) : "";
-                                          const fileEventName = isFileMessage
-                                            ? getFileNameFromUrl(fileEventUrl || message?.message || "")
-                                            : "";
-                                          const fileEventKey = isFileMessage
-                                            ? buildFileEventKey(message?.senderId, fileEventName)
-                                            : "";
-                                          const shouldShowInlineFileEvent =
-                                            isFileMessage &&
-                                            !notificationMessage &&
-                                            !systemMessage &&
-                                            !!fileEventKey &&
-                                            !existingSystemFileEvents.has(fileEventKey);
+                                            const notificationMessage = message?.messageType === "notification";
+                                            const systemMessage = message?.messageType === "system";
+                                            const systemText = systemMessage ? getSystemMessageText(message) : "";
+                                            const isFileMessage = message?.messageType === "file";
+                                            const fileEventUrl = isFileMessage ? resolveAttachmentUrlFromMessage(message) : "";
+                                            const fileEventName = isFileMessage
+                                              ? getFileNameFromUrl(fileEventUrl || message?.message || "")
+                                              : "";
+                                            const fileEventKey = isFileMessage
+                                              ? buildFileEventKey(message?.senderId, fileEventName)
+                                              : "";
+                                            const shouldShowInlineFileEvent =
+                                              isFileMessage &&
+                                              !notificationMessage &&
+                                              !systemMessage &&
+                                              !!fileEventKey &&
+                                              !existingSystemFileEvents.has(fileEventKey);
 
-                                          return (
-                                            <div key={index} className="w-full">
-                                              {systemMessage && !!systemText && (
-                                                <div className="flex justify-center rounded-xl text-center w-full pt-4 p-3">
-                                                  <div className="bg-white shadow-md rounded-full w-fit px-8 py-3">
-                                                    <div className="flex gap-2 items-center justify-center">
-                                                      <MdNotificationAdd size={20} />
-                                                      <p className="whitespace-pre-wrap break-words text-sm">
-                                                        {systemText}
-                                                      </p>
-                                                    </div>
-                                                    <div className="text-xs text-gray-400 px-2 mt-1 text-right">
-                                                      {formattedTime}
-                                                    </div>
-                                                  </div>
-                                                </div>
-                                              )}
-
-                                              {notificationMessage && (
-                                                <div className="flex justify-center rounded-xl text-center w-full pt-6 p-3">
-                                                  <div className="bg-white shadow-md rounded-full w-fit px-8 py-4 pt-6">
-                                                    <div className="flex gap-2 items-center">
-                                                      <MdNotificationAdd size={24} />
-                                                      <p className="whitespace-pre-wrap break-words text- text-sm">{message.message}</p>
-                                                    </div>
-                                                    <div className="text-xs text-gray-400 px-2 mt-2 text-right">
-                                                      {formattedTime}
-                                                    </div>
-                                                  </div>
-                                                </div>
-                                              )}
-
-                                              {!systemMessage && !notificationMessage && (
-                                                <>
-                                                  <div
-                                                    className={`flex gap-3 mt-4 items-start ${isSender ? 'justify-end' : ''}`}
-                                                  >
-                                                    {!isSender && receiver && (
-                                                      <div className="w-7 h-7 sm:w-10 sm:h-10 mt-4 rounded-full border border-white/70 bg-[#FBB785] overflow-hidden flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0 text-white">
-                                                        {receiverImage ? (
-                                                          <Image
-                                                            src={receiverImage}
-                                                            alt="Participant"
-                                                            width={40}
-                                                            height={40}
-                                                            className="h-full w-full object-cover"
-                                                            unoptimized
-                                                          />
-                                                        ) : (
-                                                          getInitials(receiverFallbackName) || 'NA'
-                                                        )}
+                                            return (
+                                              <div key={index} className="w-full">
+                                                {systemMessage && !!systemText && (
+                                                  <div className="flex justify-center rounded-xl text-center w-full pt-4 p-3">
+                                                    <div className="bg-white shadow-md rounded-full w-fit px-8 py-3">
+                                                      <div className="flex gap-2 items-center justify-center">
+                                                        <MdNotificationAdd size={20} />
+                                                        <p className="whitespace-pre-wrap break-words text-sm">
+                                                          {systemText}
+                                                        </p>
                                                       </div>
-                                                    )}
-
-                                                    <div className="w-full flex flex-col gap-1">
-                                                      {/* Time aligned to sender/receiver side */}
-                                                      <div className={`text-xs text-gray-400 px-2 ${isSender ? "text-right" : "text-left"}`}>
+                                                      <div className="text-xs text-gray-400 px-2 mt-1 text-right">
                                                         {formattedTime}
                                                       </div>
+                                                    </div>
+                                                  </div>
+                                                )}
 
-                                                      {/* Message container taking full width */}
-                                                      <div className={`w-full flex ${isSender ? "justify-end" : "justify-start"}`}>
-                                                        <div
-                                                          className={`p-3 sm:p-4 font-medium rounded-2xl shadow-md text-xs sm:text-sm max-w-full sm:max-w-[90%] ${isSender ? "bg-black text-white" : "bg-white text-black"}`}
-                                                        >
-                                                          {/* Text message */}
-                                                          {message?.messageType !== "file" && message.message && (
-                                                            <p className="whitespace-pre-wrap break-words">{message.message}</p>
-                                                          )}
-
-                                                          {/* File message */}
-                                                          {message?.messageType === "file" && (
-                                                            <div className="rounded-lg flex items-center gap-3 p-2">
-                                                              {(() => {
-                                                                // Get the file URL - ensure it's not encrypted
-                                                                let fileUrl = message.message || "";
-
-                                                                // Handle CL:: prefix (legacy encryption artifact)
-                                                                if (fileUrl.startsWith('CL::')) {
-                                                                  fileUrl = fileUrl.substring(4);
-                                                                }
-
-                                                                // If the URL looks encrypted (starts with common encryption patterns), try to decrypt
-                                                                // But file URLs from S3 should not be encrypted, so only decrypt if it looks like encrypted text
-                                                                if (fileUrl && !fileUrl.startsWith('http') && !fileUrl.startsWith('data:')) {
-                                                                  try {
-                                                                    const decrypted = decryptMessage(fileUrl);
-                                                                    // Only use decrypted if it looks like a URL
-                                                                    if (decrypted.startsWith('http') || decrypted.startsWith('data:')) {
-                                                                      fileUrl = decrypted;
-                                                                    }
-                                                                  } catch (error) {
-                                                                    console.log("[ChatBox] File URL might not be encrypted:", error);
-                                                                  }
-                                                                }
-
-                                                                // Helper to extract filename
-                                                                const getFileNameFromUrl = (url: string) => {
-                                                                  try {
-                                                                    if (!url) return "File";
-                                                                    const cleanUrl = url.split('?')[0]; // Remove query params
-                                                                    const fileName = cleanUrl.split('/').pop() || "File";
-                                                                    const decodedFileName = decodeURIComponent(fileName);
-
-                                                                    // Regex to match UUID at the beginning of the filename (8-4-4-4-12 hex chars followed by a hyphen)
-                                                                    const uuidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}-?/;
-                                                                    return decodedFileName.replace(uuidPattern, "");
-                                                                  } catch (e) {
-                                                                    console.error("Error parsing filename:", e);
-                                                                    return "File";
-                                                                  }
-                                                                };
-
-                                                                if (message.fileType && imageMimeType.includes(message.fileType)) {
-                                                                  return (
-                                                                    <div
-                                                                      className="relative cursor-pointer group"
-                                                                      onClick={() => openMediaPreview(fileUrl, message.fileType ?? "")}
-                                                                    >
-                                                                      <Image
-                                                                        src={fileUrl || "/placeholder.svg"}
-                                                                        alt="Uploaded Image"
-                                                                        width={140}
-                                                                        height={140}
-                                                                        unoptimized={true}
-                                                                        priority
-                                                                        className="rounded-lg max-w-[120px] hover:opacity-90 transition-opacity"
-                                                                        onError={(e) => {
-                                                                          console.error("[ChatBox] Failed to load image:", fileUrl);
-                                                                          // Fallback to placeholder
-                                                                          e.currentTarget.src = "/placeholder.svg";
-                                                                        }}
-                                                                      />
-                                                                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-lg transition-opacity">
-                                                                        <Maximize className="w-4 h-4 text-white" />
-                                                                      </div>
-                                                                    </div>
-                                                                  );
-                                                                } else if (message.fileType && videoMimeType?.includes(message.fileType)) {
-                                                                  return (
-                                                                    <video
-                                                                      controls
-                                                                      className="rounded-lg max-w-[120px]"
-                                                                      onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        openMediaPreview(fileUrl, message.fileType || "");
-                                                                      }}
-                                                                    >
-                                                                      <source src={fileUrl} type={message.fileType} />
-                                                                      Your browser does not support the video tag.
-                                                                    </video>
-                                                                  );
-                                                                } else {
-                                                                  return (
-                                                                    <div className="flex items-center gap-2 text-xs sm:text-sm">
-                                                                      <FileText className="w-5 h-5 text-gray-600" />
-                                                                      {/* Display Filename instead of truncated URL */}
-                                                                      <span className="truncate max-w-[100px] sm:max-w-full" title={getFileNameFromUrl(fileUrl)}>
-                                                                        {getFileNameFromUrl(fileUrl)}
-                                                                      </span>
-                                                                      <a
-                                                                        href={fileUrl}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        className="text-blue-500 hover:underline"
-                                                                      >
-                                                                        <Eye className="w-4 h-4 text-orange-500" />
-                                                                      </a>
-                                                                    </div>
-                                                                  );
-                                                                }
-                                                              })()}
-                                                            </div>
-                                                          )}
-
-                                                          {/* Reply Preview */}
-                                                          {message.parentMessageId && (
-                                                            <div className="mt-2 p-2 border-l-4 border-gray-300 text-sm italic">
-                                                              Replying to: <span className="font-medium">{message.parentMessageId}</span>
-                                                            </div>
-                                                          )}
-
-                                                          {/* Seen indicator */}
-                                                          {isSender && isLastMessage && message.seen && (
-                                                            <div className="text-xs text-blue-500 mt-1 text-right">Seen</div>
-                                                          )}
-                                                        </div>
+                                                {notificationMessage && (
+                                                  <div className="flex justify-center rounded-xl text-center w-full pt-6 p-3">
+                                                    <div className="bg-white shadow-md rounded-full w-fit px-8 py-4 pt-6">
+                                                      <div className="flex gap-2 items-center">
+                                                        <MdNotificationAdd size={24} />
+                                                        <p className="whitespace-pre-wrap break-words text- text-sm">{message.message}</p>
+                                                      </div>
+                                                      <div className="text-xs text-gray-400 px-2 mt-2 text-right">
+                                                        {formattedTime}
                                                       </div>
                                                     </div>
-
-                                                    {isSender && (
-                                                      <div className="w-7 h-7 mt-4 sm:w-10 sm:h-10 rounded-full border border-white/70 bg-[#FBB785] overflow-hidden flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0 text-white">
-                                                        {senderImage ? (
-                                                          <Image
-                                                            src={senderImage}
-                                                            alt="You"
-                                                            width={40}
-                                                            height={40}
-                                                            className="h-full w-full object-cover"
-                                                            unoptimized
-                                                          />
-                                                        ) : (
-                                                          getInitials(senderFallbackName) || 'NA'
-                                                        )}
-                                                      </div>
-                                                    )}
                                                   </div>
+                                                )}
 
-                                                  {shouldShowInlineFileEvent && (
-                                                    <div className="flex justify-center rounded-xl text-center w-full pt-2 p-3">
-                                                      <div
-                                                        className={`shadow-md rounded-full w-fit px-8 py-3 ${isSender ? "bg-gray-200" : "bg-white"}`}
-                                                      >
-                                                        <div className="flex gap-2 items-center justify-center">
-                                                          <MdNotificationAdd size={20} />
-                                                          <p className="whitespace-pre-wrap break-words text-sm">
-                                                            {`${isSender ? "You" : receiverFallbackName} shared ${fileEventName}`}
-                                                          </p>
+                                                {!systemMessage && !notificationMessage && (
+                                                  <>
+                                                    <div
+                                                      className={`flex gap-3 mt-4 items-start ${isSender ? 'justify-end' : ''}`}
+                                                    >
+                                                      {!isSender && receiver && (
+                                                        <div className="w-7 h-7 sm:w-10 sm:h-10 mt-4 rounded-full border border-white/70 bg-[#FBB785] overflow-hidden flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0 text-white">
+                                                          {receiverImage ? (
+                                                            <Image
+                                                              src={receiverImage}
+                                                              alt="Participant"
+                                                              width={40}
+                                                              height={40}
+                                                              className="h-full w-full object-cover"
+                                                              unoptimized
+                                                            />
+                                                          ) : (
+                                                            getInitials(receiverFallbackName) || 'NA'
+                                                          )}
                                                         </div>
-                                                        <div className="text-xs text-gray-400 px-2 mt-1 text-right">
+                                                      )}
+
+                                                      <div className="w-full flex flex-col gap-1">
+                                                        {/* Time aligned to sender/receiver side */}
+                                                        <div className={`text-xs text-gray-400 px-2 ${isSender ? "text-right" : "text-left"}`}>
                                                           {formattedTime}
                                                         </div>
+
+                                                        {/* Message container taking full width */}
+                                                        <div className={`w-full flex ${isSender ? "justify-end" : "justify-start"}`}>
+                                                          <div
+                                                            className={`p-3 sm:p-4 font-medium rounded-2xl shadow-md text-xs sm:text-sm max-w-full sm:max-w-[90%] ${isSender ? "bg-black text-white" : "bg-white text-black"}`}
+                                                          >
+                                                            {/* Text message */}
+                                                            {message?.messageType !== "file" && message.message && (
+                                                              <p className="whitespace-pre-wrap break-words">{message.message}</p>
+                                                            )}
+
+                                                            {/* File message */}
+                                                            {message?.messageType === "file" && (
+                                                              <div className="rounded-lg flex items-center gap-3 p-2">
+                                                                {(() => {
+                                                                  // Get the file URL - ensure it's not encrypted
+                                                                  let fileUrl = message.message || "";
+
+                                                                  // Handle CL:: prefix (legacy encryption artifact)
+                                                                  if (fileUrl.startsWith('CL::')) {
+                                                                    fileUrl = fileUrl.substring(4);
+                                                                  }
+
+                                                                  // If the URL looks encrypted (starts with common encryption patterns), try to decrypt
+                                                                  // But file URLs from S3 should not be encrypted, so only decrypt if it looks like encrypted text
+                                                                  if (fileUrl && !fileUrl.startsWith('http') && !fileUrl.startsWith('data:')) {
+                                                                    try {
+                                                                      const decrypted = decryptMessage(fileUrl);
+                                                                      // Only use decrypted if it looks like a URL
+                                                                      if (decrypted.startsWith('http') || decrypted.startsWith('data:')) {
+                                                                        fileUrl = decrypted;
+                                                                      }
+                                                                    } catch (error) {
+                                                                      console.log("[ChatBox] File URL might not be encrypted:", error);
+                                                                    }
+                                                                  }
+
+                                                                  // Helper to extract filename
+                                                                  const getFileNameFromUrl = (url: string) => {
+                                                                    try {
+                                                                      if (!url) return "File";
+                                                                      const cleanUrl = url.split('?')[0]; // Remove query params
+                                                                      const fileName = cleanUrl.split('/').pop() || "File";
+                                                                      const decodedFileName = decodeURIComponent(fileName);
+
+                                                                      // Regex to match UUID at the beginning of the filename (8-4-4-4-12 hex chars followed by a hyphen)
+                                                                      const uuidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}-?/;
+                                                                      return decodedFileName.replace(uuidPattern, "");
+                                                                    } catch (e) {
+                                                                      console.error("Error parsing filename:", e);
+                                                                      return "File";
+                                                                    }
+                                                                  };
+
+                                                                  if (message.fileType && imageMimeType.includes(message.fileType)) {
+                                                                    return (
+                                                                      <div
+                                                                        className="relative cursor-pointer group"
+                                                                        onClick={() => openMediaPreview(fileUrl, message.fileType ?? "")}
+                                                                      >
+                                                                        <Image
+                                                                          src={fileUrl || "/placeholder.svg"}
+                                                                          alt="Uploaded Image"
+                                                                          width={140}
+                                                                          height={140}
+                                                                          unoptimized={true}
+                                                                          priority
+                                                                          className="rounded-lg max-w-[120px] hover:opacity-90 transition-opacity"
+                                                                          onError={(e) => {
+                                                                            console.error("[ChatBox] Failed to load image:", fileUrl);
+                                                                            // Fallback to placeholder
+                                                                            e.currentTarget.src = "/placeholder.svg";
+                                                                          }}
+                                                                        />
+                                                                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-lg transition-opacity">
+                                                                          <Maximize className="w-4 h-4 text-white" />
+                                                                        </div>
+                                                                      </div>
+                                                                    );
+                                                                  } else if (message.fileType && videoMimeType?.includes(message.fileType)) {
+                                                                    return (
+                                                                      <video
+                                                                        controls
+                                                                        className="rounded-lg max-w-[120px]"
+                                                                        onClick={(e) => {
+                                                                          e.stopPropagation();
+                                                                          openMediaPreview(fileUrl, message.fileType || "");
+                                                                        }}
+                                                                      >
+                                                                        <source src={fileUrl} type={message.fileType} />
+                                                                        Your browser does not support the video tag.
+                                                                      </video>
+                                                                    );
+                                                                  } else {
+                                                                    return (
+                                                                      <div className="flex items-center gap-2 text-xs sm:text-sm">
+                                                                        <FileText className="w-5 h-5 text-gray-600" />
+                                                                        {/* Display Filename instead of truncated URL */}
+                                                                        <span className="truncate max-w-[100px] sm:max-w-full" title={getFileNameFromUrl(fileUrl)}>
+                                                                          {getFileNameFromUrl(fileUrl)}
+                                                                        </span>
+                                                                        <a
+                                                                          href={fileUrl}
+                                                                          target="_blank"
+                                                                          rel="noopener noreferrer"
+                                                                          className="text-blue-500 hover:underline"
+                                                                        >
+                                                                          <Eye className="w-4 h-4 text-orange-500" />
+                                                                        </a>
+                                                                      </div>
+                                                                    );
+                                                                  }
+                                                                })()}
+                                                              </div>
+                                                            )}
+
+                                                            {/* Reply Preview */}
+                                                            {message.parentMessageId && (
+                                                              <div className="mt-2 p-2 border-l-4 border-gray-300 text-sm italic">
+                                                                Replying to: <span className="font-medium">{message.parentMessageId}</span>
+                                                              </div>
+                                                            )}
+
+                                                            {/* Seen indicator */}
+                                                            {isSender && isLastMessage && message.seen && (
+                                                              <div className="text-xs text-blue-500 mt-1 text-right">Seen</div>
+                                                            )}
+                                                          </div>
+                                                        </div>
                                                       </div>
+
+                                                      {isSender && (
+                                                        <div className="w-7 h-7 mt-4 sm:w-10 sm:h-10 rounded-full border border-white/70 bg-[#FBB785] overflow-hidden flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0 text-white">
+                                                          {senderImage ? (
+                                                            <Image
+                                                              src={senderImage}
+                                                              alt="You"
+                                                              width={40}
+                                                              height={40}
+                                                              className="h-full w-full object-cover"
+                                                              unoptimized
+                                                            />
+                                                          ) : (
+                                                            getInitials(senderFallbackName) || 'NA'
+                                                          )}
+                                                        </div>
+                                                      )}
                                                     </div>
-                                                  )}
-                                                </>
-                                              )}
-                                            </div>
-                                          );
-                                        })}
+
+                                                    {shouldShowInlineFileEvent && (
+                                                      <div className="flex justify-center rounded-xl text-center w-full pt-2 p-3">
+                                                        <div
+                                                          className={`shadow-md rounded-full w-fit px-8 py-3 ${isSender ? "bg-gray-200" : "bg-white"}`}
+                                                        >
+                                                          <div className="flex gap-2 items-center justify-center">
+                                                            <MdNotificationAdd size={20} />
+                                                            <p className="whitespace-pre-wrap break-words text-sm">
+                                                              {`${isSender ? "You" : receiverFallbackName} shared ${fileEventName}`}
+                                                            </p>
+                                                          </div>
+                                                          <div className="text-xs text-gray-400 px-2 mt-1 text-right">
+                                                            {formattedTime}
+                                                          </div>
+                                                        </div>
+                                                      </div>
+                                                    )}
+                                                  </>
+                                                )}
+                                              </div>
+                                            );
+                                          })}
+                                      </div>
                                     </div>
-                                  </div>
-                                );
-                              });
+                                  );
+                                });
                             })()}
                           </div>
 

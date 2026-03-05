@@ -1044,14 +1044,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
             message
             participantId
             agentId
-            code
-            field
-            correlationId
-            emailDeliveryStatus
-            emailFailureReason
-            emailProviderMessageId
-            email_delivery_status
-            email_failure_reason
+            engagementId
           }
         }
       `;
@@ -1088,11 +1081,11 @@ export const useUserAuthApi = (handleCb?: () => void) => {
           return response.data?.data?.createExternalParticipant;
         }
 
-      if (response.data.errors) {
-        throw new Error(response.data.errors[0].message);
-      }
+        if (response.data.errors) {
+          throw new Error(response.data.errors[0].message);
+        }
 
-      return response.data?.data?.createExternalParticipant;
+        return response.data?.data?.createExternalParticipant;
       } catch (err) {
         throw err;
       }

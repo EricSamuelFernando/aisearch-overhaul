@@ -7,7 +7,7 @@ import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypas
 import { detectIntent } from '@/lib/chatRouting';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
-import { Sparkles, Paperclip, X, ArrowUp, Mic, Search as SearchIcon, FileText, Image as ImageIcon, ChevronDown, ChevronUp, MapPin, School, Shield, Footprints, Thermometer, CloudSun, BedDouble, Bath, Square, Scaling, Calendar, Clock, TrendingUp, GraduationCap, Trees, Plus, Lightbulb, Droplets, Home } from 'lucide-react';
+import { Sparkles, Paperclip, X, ArrowUp, Mic, Search as SearchIcon, FileText, Image as ImageIcon, ChevronDown, ChevronUp, MapPin, School, Shield, Footprints, Thermometer, CloudSun, BedDouble, Bath, Square, Scaling, Calendar, Clock, TrendingUp, GraduationCap, Trees, Lightbulb, Droplets, Home } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, ReferenceDot } from 'recharts';
 import SchoolMapPanel from '@/components/SchoolMapPanel';
@@ -2314,12 +2314,13 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0, transition: { duration: 0.1 } }}
                 onSubmit={handleFormSubmit}
-                className="relative flex items-center w-full bg-transparent"
+                className="relative flex items-center w-full bg-transparent gap-2 md:gap-3"
               >
+                <div className="flex-1 min-w-0 flex items-center rounded-[22px] border border-[#ECECEC] bg-white px-2.5 py-2 md:border-0 md:rounded-none md:bg-transparent md:p-0">
                 {/* Left Ask AI Icon */}
-                <div className="pl-3 md:pl-2 flex-shrink-0">
-                  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 md:w-6 md:h-6">
-                    <path d="M15.0645 1C22.8233 0.998533 29.122 7.31736 29.1221 15.1211V25.0967C29.1221 26.201 28.6985 27.1986 28.0068 27.9336L28.0049 27.9355C27.2517 28.7409 26.1847 29.2393 25.001 29.2393H5.12109C2.85069 29.2393 1 27.3893 1 25.0986V15.123C1 7.31903 7.30043 1 15.0645 1Z" fill="black" stroke="url(#askAiGradient)" strokeWidth="2" />
+                <div className="pl-1 md:pl-2 flex-shrink-0">
+                  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 md:w-6 md:h-6">
+                    <path d="M15.0645 1C22.8233 0.998533 29.122 7.31736 29.1221 15.1211V25.0967C29.1221 26.201 28.6985 27.1986 28.0068 27.9336L28.0049 27.9355C27.2517 28.7409 26.1847 29.2393 25.001 29.2393H5.12109C2.85069 29.2393 1 27.3893 1 25.0986V15.123C1 7.31903 7.30043 1 15.0645 1Z" fill="black" stroke="url(#askAiGradient)" strokeWidth="2"/>
                     <mask id="askAiMask1" fill="white">
                       <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" />
                     </mask>
@@ -2338,10 +2339,32 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     </defs>
                   </svg>
                 </div>
+                <div className="mx-2 h-9 w-px bg-[#8A6444]/45 md:hidden" />
 
                 {/* Input Field */}
-                <div className="flex-1 min-w-0 flex items-center gap-3">
+                <div className="flex-1 min-w-0 flex items-center gap-2 md:gap-3">
                   {renderPendingImageChip('collapsed')}
+                  <textarea
+                    value={searchTerm}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSearchTerm(val);
+                      fetchAddressSuggestions(val);
+                    }}
+                    onFocus={() => setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => {
+                      setShowSuggestions(false);
+                      setShowAddressSuggestions(false);
+                      setShowLocationSuggestions(false);
+                    }, 200)}
+                    placeholder={
+                      pendingImage
+                        ? 'Add city, ZIP, or coordinates\nfor this image'
+                        : ((placeholderText || typedPlaceholder).replace(', ', ',\n'))
+                    }
+                    rows={2}
+                    className="md:hidden flex-1 min-w-0 bg-transparent outline-none px-1 py-0.5 text-gray-700 placeholder:text-gray-400 text-[12px] font-medium leading-[1.25] resize-none overflow-hidden"
+                  />
                   <input
                     type="text"
                     value={searchTerm}
@@ -2357,12 +2380,25 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       setShowLocationSuggestions(false);
                     }, 200)}
                     placeholder={pendingImage ? 'Add city, ZIP, or coordinates for this image' : (placeholderText || typedPlaceholder)}
-                    className="flex-1 min-w-0 bg-transparent outline-none px-3 md:px-4 py-2 text-gray-700 placeholder-gray-400 text-sm md:text-sm font-medium"
+                    className="hidden md:block flex-1 min-w-0 bg-transparent outline-none px-1 md:px-4 py-2 text-gray-700 placeholder:text-transparent md:placeholder:text-gray-400 text-sm md:text-sm font-medium"
                   />
                 </div>
 
+                {/* Mobile AI Search pill */}
+                <button
+                  type="button"
+                  onClick={toggleMlsBypass}
+                  title={!mlsBypassMode ? 'AI Search is ON' : 'AI Search is OFF'}
+                  className={`md:hidden h-10 rounded-full px-4 text-[13px] font-semibold transition-colors border-2 ${!mlsBypassMode
+                    ? 'bg-[#FFFBEF] text-[#94661E] border-[#E7D293]'
+                    : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                    }`}
+                >
+                  Ai Search
+                </button>
+
                 {/* Right Actions */}
-                <div className="flex items-center gap-2 flex-shrink-0 pr-1">
+                <div className="hidden md:flex items-center gap-2 flex-shrink-0 pr-1">
                   <button
                     type="button"
                     onClick={toggleMlsBypass}
@@ -2414,15 +2450,6 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       )}
                     </AnimatePresence>
                   </div>
-                  {/* Mobile Compact Search Button */}
-                  <Button
-                    type='submit'
-                    disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
-                    className="md:hidden bg-[#F58634] hover:bg-[#E07224] text-white rounded-xl w-10 h-9 flex items-center justify-center transition-all shadow-md hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634] p-0"
-                  >
-                    <SearchIcon className="w-5 h-5" />
-                  </Button>
-
                   {/* Desktop Begin Journey Button */}
                   <Button
                     type='submit'
@@ -2432,6 +2459,16 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     Begin Journey
                   </Button>
                 </div>
+                </div>
+
+                {/* Mobile Search Button */}
+                <Button
+                  type='submit'
+                  disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
+                  className="md:hidden bg-[#F58634] hover:bg-[#E07224] text-white rounded-[14px] w-10 h-10 flex items-center justify-center transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634] p-0 shadow-none"
+                >
+                  <SearchIcon className="w-5 h-5" />
+                </Button>
               </motion.form>
 
               {/* Integrated Suggestions Dropdown */}
@@ -3545,47 +3582,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
                   {/* Search Input */}
                   <div className={`relative min-w-0 ${pendingImage || pendingImagePreview ? 'w-full sm:flex-1' : 'flex-1'}`}>
-                    <div className="absolute left-3.5 sm:left-6 top-1/2 -translate-y-1/2 z-20">
-                      <button
-                        type="button"
-                        onClick={() => setShowAttachMenu(!showAttachMenu)}
-                        className="w-8 h-8 flex items-center justify-center bg-transparent hover:bg-gray-100 rounded-full text-gray-500 hover:text-black transition-colors"
-                      >
-                        <Plus className="w-5 h-5" strokeWidth={2} />
-                      </button>
-                      <AnimatePresence>
-                        {showAttachMenu && (
-                          <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                            animate={{ opacity: 1, scale: 1, y: -50 }} // Floating upwards from the button
-                            exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                            transition={{ duration: 0.2 }}
-                            className="absolute bottom-full left-0 mb-2 w-32 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200 ring-1 ring-black/5 overflow-hidden z-[70]"
-                          >
-                            <div className="flex flex-col p-1.5 gap-1">
-                              <button
-                                onClick={() => handleAttachmentClick('image')}
-                                type="button"
-                                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
-                              >
-                                <ImageIcon className="w-4 h-4 text-blue-500" />
-                                <span>Image</span>
-                              </button>
-                              <button
-                                onClick={() => handleAttachmentClick('pdf')}
-                                type="button"
-                                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
-                              >
-                                <FileText className="w-4 h-4 text-red-500" />
-                                <span>PDF</span>
-                              </button>
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
                     {(pendingImage || pendingImagePreview) && (
-                      <div className="absolute left-11 sm:left-14 top-1/2 -translate-y-1/2 z-10">
+                      <div className="absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 z-10">
                         {renderPendingImageChip('expanded')}
                       </div>
                     )}
@@ -3623,19 +3621,19 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       }}
                       placeholder={pendingImage ? "Type city, ZIP, or coordinates for this image" : typedPlaceholder}
                       rows={1}
-                      className={`w-full bg-white text-gray-900 rounded-2xl sm:rounded-3xl min-h-[64px] sm:min-h-[68px] max-h-32 sm:max-h-40 overflow-y-hidden resize-none py-4 sm:py-[22px] ${pendingImage || pendingImagePreview ? 'pl-40 sm:pl-[19rem]' : 'pl-12 sm:pl-14'} pr-16 sm:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-[14px] sm:text-base placeholder:text-gray-400 font-normal leading-relaxed`}
+                      className={`w-full bg-white text-gray-900 rounded-2xl sm:rounded-3xl min-h-[64px] sm:min-h-[68px] max-h-32 sm:max-h-40 overflow-y-hidden resize-none py-4 sm:py-[22px] ${pendingImage || pendingImagePreview ? 'pl-36 sm:pl-[19rem]' : 'pl-4 sm:pl-5'} pr-28 sm:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-[14px] sm:text-base placeholder:text-gray-400 font-normal leading-relaxed`}
                     />
                     <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 sm:gap-4">
                       <button
                         type="button"
                         onClick={toggleMlsBypass}
-                        title={mlsBypassMode ? 'Direct MLS mode is ON (AI search bypassed)' : 'Use Direct MLS mode'}
+                        title={mlsBypassMode ? 'AI Mode is OFF' : 'AI Mode is ON'}
                         className={`h-7 sm:h-8 rounded-full px-2.5 sm:px-3 text-[10px] sm:text-[11px] font-semibold border transition-colors ${!mlsBypassMode
                           ? 'bg-orange-50 text-[#F58634] border-orange-200 hover:bg-orange-100'
                           : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
                           }`}
                       >
-                        AI Search
+                        AI Mode
                       </button>
 
                       <button
@@ -3643,58 +3641,14 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                         disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
                         className={`bg-black text-white w-10 h-10 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shadow-md ${pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim()) ? 'opacity-50 cursor-not-allowed hover:scale-100' : 'hover:bg-gray-800'}`}
                       >
-                        {isSearching ? <Square className="w-4.5 h-4.5 fill-white" /> : <ArrowUp className="w-4.5 h-4.5 sm:w-5 sm:h-5" />}
+                        {isSearching ? <Square className="w-4 h-4 fill-white" /> : <ArrowUp className="w-4.5 h-4.5 sm:w-5 sm:h-5" />}
                       </button>
                     </div>
                   </div>
                 </div>
-                <div className="mb-2 mt-1 flex items-center justify-between sm:hidden">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        setSearchTerm('');
-                        setChatHistory([]);
-                        setSessionId(null);
-                        setIsSearching(false);
-                        setIsMenuOpen(false);
-                        setSelectedPropertyId(null);
-                        setExpandedPropertyId(null);
-                        setNearbySchoolsById({});
-                        if (onSearchStateChange) onSearchStateChange(true, '');
-                        setTimeout(() => searchInputRef.current?.focus(), 100);
-                      }}
-                      title="New Chat"
-                      className="h-10 w-10 rounded-full border border-gray-200 bg-white text-gray-600 flex items-center justify-center shadow-sm"
-                    >
-                      <Sparkles className="h-5 w-5" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsMenuOpen(true);
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
-                      title="History"
-                      className="h-10 w-10 rounded-full border border-gray-200 bg-white text-gray-600 flex items-center justify-center shadow-sm"
-                    >
-                      <Clock className="h-5 w-5" />
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={toggleMlsBypass}
-                    title={mlsBypassMode ? 'Direct MLS mode is ON (AI search bypassed)' : 'Use Direct MLS mode'}
-                    className={`h-10 rounded-full px-4 text-[12px] font-semibold border transition-colors ${mlsBypassMode
-                      ? 'bg-amber-50 text-amber-700 border-amber-200'
-                      : 'bg-white text-gray-600 border-gray-200'
-                      }`}
-                  >
-                    {mlsBypassMode ? 'MLS Mode' : 'AI Mode'}
-                  </button>
-                </div>
-
                 {/* Integrated Suggestions Dropdown for Expanded State */}
                 <AnimatePresence>
-                  {!searchTerm && showSuggestions && (
+                  {false && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
@@ -3823,11 +3777,6 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                   <p className="text-[11px] sm:text-xs text-gray-400">
                     Snapz AI can make mistakes. Consider checking important information.
                   </p>
-                  {mlsBypassMode && (
-                    <p className="mt-1 text-[11px] text-amber-600">
-                      Direct MLS mode enabled: AI chat answers/history are bypassed for search reliability.
-                    </p>
-                  )}
                 </div>
               </div>
             </motion.div>

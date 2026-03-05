@@ -116,7 +116,7 @@ const NegotiationCard: React.FC<NegotiationCardProps> = ({ tiers, onSelectTier, 
                         </div>
                         <h4 className="mt-3 text-xl font-semibold text-gray-900">{tier.name}</h4>
                         <ul className="mt-3 space-y-2 text-sm text-gray-600">
-                            {tier.services.map((service, serviceIndex) => (
+                            {(tier.services || []).map((service, serviceIndex) => (
                                 <li key={`${tier.id}-${serviceIndex}`} className="flex items-start gap-2">
                                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
                                     <span>{service}</span>

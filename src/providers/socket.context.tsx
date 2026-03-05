@@ -108,6 +108,14 @@ const isUuidLike = (value: string): boolean =>
     value,
   );
 
+const extractNumericId = (id: any): string => {
+  if (!id) return "";
+  const strId = String(id).trim();
+  // Strip common prefixes like 'noti_' or 'socket-'
+  const match = strId.match(/(\d+)$/);
+  return match ? match[1] : strId;
+};
+
 const resolveSenderName = (messageData: any): string => {
   const containers = [
     messageData,
@@ -493,7 +501,7 @@ function SocketProvider({ children }: { children: ReactNode }) {
             },
             notifications: [
               {
-                id: data?.id || `socket-notification-${Date.now()}`,
+                id: extractNumericId(data?.id || data?._id) || `socket-notification-${Date.now()}`,
                 title: title || 'New notification',
                 body: body || '',
                 createdAt: data?.createdAt || new Date().toISOString(),
@@ -555,7 +563,7 @@ function SocketProvider({ children }: { children: ReactNode }) {
     setState((prev: any) => {
       const existing = Array.isArray(prev.notifications) ? prev.notifications : [];
       const normalized = apiNotifications.map((item: any) => ({
-        id: item._id,
+        id: extractNumericId(item._id || item.id),
         title: item.title,
         body: item.body,
         createdAt: item.createdAt,
@@ -586,13 +594,13 @@ function SocketProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isLogin) return;
     notificationsQuery.refetch();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, isLogin]);
 
   useEffect(() => {
     if (!isLogin) return;
     notificationsQuery.refetch();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLogin, effectiveToken]);
 
   useEffect(() => {
@@ -616,10 +624,24 @@ function SocketProvider({ children }: { children: ReactNode }) {
   // Re-emit userConnected whenever socket connects/reconnects or user ID becomes available
   useEffect(() => {
     if (!socket || !user?.id) return;
+    const userId = user.id;
+
+    // Emit immediately if already connected
     if (socket.connected) {
-      socket.emit('userConnected', { userId: user.id });
-      console.log('[SocketContext] Re-emitted userConnected for userId:', user.id);
+      socket.emit('userConnected', { userId });
+      console.log('[SocketContext] Re-emitted userConnected for userId:', userId);
     }
+
+    // Also re-emit on every reconnect (socket object stays same, but connection resets)
+    const handleReconnect = () => {
+      socket.emit('userConnected', { userId });
+      console.log('[SocketContext] Reconnect — re-emitted userConnected for userId:', userId);
+    };
+    socket.on('connect', handleReconnect);
+
+    return () => {
+      socket.off('connect', handleReconnect);
+    };
   }, [socket, user?.id]);
 
   // Handle incoming messages - only using backend-supported events
@@ -808,7 +830,7 @@ function SocketProvider({ children }: { children: ReactNode }) {
           },
           notifications: [
             {
-              id: data?.id || `socket-notification-${Date.now()}`,
+              id: extractNumericId(data?.id || data?._id) || `socket-notification-${Date.now()}`,
               title: title || "New notification",
               body: body || "",
               createdAt: data?.createdAt || new Date().toISOString(),

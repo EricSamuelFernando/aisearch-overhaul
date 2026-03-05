@@ -193,7 +193,11 @@ export async function POST(request: NextRequest) {
       delete (mergedPayload as Record<string, any>).additional_criteria;
     }
     const pageSize = isMapViewportRefresh ? 24 : 50;
-    const maxResults = isMapViewportRefresh ? pageSize : 50;
+    // const requestedMax = Number(process.env.MLS_DIRECT_MAX_RESULTS || 200);
+    // const maxResults = isMapViewportRefresh
+    //   ? pageSize
+    //   : Math.min(500, Number.isFinite(requestedMax) && requestedMax > 0 ? requestedMax : 200);
+    const maxResults = isMapViewportRefresh ? pageSize : 90;
 
     const aggregateRaw: any[] = [];
     const seenKeys = new Set<string>();

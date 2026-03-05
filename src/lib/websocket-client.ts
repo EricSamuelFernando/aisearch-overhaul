@@ -65,30 +65,32 @@ export class WebSocketClientImpl implements WebSocketClient {
   private isLambda: boolean = false;
 
   constructor(url: string) {
-    const normalizedInput = (url || "").trim() || "http://localhost:4000";
-    const normalizedLowerInput = normalizedInput.toLowerCase();
-    const isApiGatewayPattern =
-      normalizedLowerInput.includes("execute-api.amazonaws.com") ||
-      normalizedLowerInput.includes("execute-api.") ||
-      /execute-api\.[a-z0-9-]+\.amazonaws\.com/i.test(normalizedLowerInput);
+    // const normalizedInput = (url || "").trim() || "http://localhost:4000";
+    // const normalizedLowerInput = normalizedInput.toLowerCase();
+    // const isApiGatewayPattern =
+    //   normalizedLowerInput.includes("execute-api.amazonaws.com") ||
+    //   normalizedLowerInput.includes("execute-api.") ||
+    //   /execute-api\.[a-z0-9-]+\.amazonaws\.com/i.test(normalizedLowerInput);
 
-    this.isLambda =
-      process.env.NEXT_PUBLIC_USE_LAMBDA_WEBSOCKET === "true" ||
-      isApiGatewayPattern;
+    // this.isLambda =
+    //   process.env.NEXT_PUBLIC_USE_LAMBDA_WEBSOCKET === "true" ||
+    //   isApiGatewayPattern;
 
-    const wsBase = normalizedInput.startsWith("ws")
-      ? normalizedInput
-      : normalizedInput.replace(/^http/i, "ws");
+    // const wsBase = normalizedInput.startsWith("ws")
+    //   ? normalizedInput
+    //   : normalizedInput.replace(/^http/i, "ws");
 
-    if (this.isLambda) {
-      this.url = wsBase;
-    } else {
-      this.url = wsBase.endsWith("/ws")
-        ? wsBase
-        : `${wsBase.replace(/\/+$/, "")}/ws`;
-    }
+    // if (this.isLambda) {
+    //   this.url = wsBase;
+    // } else {
+    //   this.url = wsBase.endsWith("/ws")
+    //     ? wsBase
+    //     : `${wsBase.replace(/\/+$/, "")}/ws`;
+    // }
 
-    console.log("[WebSocket] Base URL:", normalizedInput, "-> WebSocket URL:", this.url, "Lambda:", this.isLambda);
+    this.url = url
+
+    console.log("[WebSocket] Base URL:", url, "-> WebSocket URL:", this.url, "Lambda:", this.isLambda);
 
     const token: string | null = getAuthToken() ?? null;
     this.token = token;

@@ -39,7 +39,7 @@ export const buyerDashboardRoutes: TabLinks = [
   {
     title: 'Conversations',
     query: 'conversation',
-    url: '/dashboard/conversation',
+    url: '/dashboard/chat',
     hidden: !isBuyerSectionVisible('conversation'),
   },
   // {

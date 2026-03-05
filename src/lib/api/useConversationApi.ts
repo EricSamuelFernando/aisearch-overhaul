@@ -5,6 +5,22 @@ import { getAuthToken } from "../../lib/storage";
 
 export const useAgentConversationApi = (handleCb?: () => void) => {
   const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql";
+  const isLocalhostRuntime =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const getTierFetchEndpoints = () => {
+    const primaryEndpoint = String(GRAPHQL_URI || '').trim();
+    const endpointCandidates = [primaryEndpoint];
+
+    if (isLocalhostRuntime) {
+      endpointCandidates.push(
+        'http://localhost:4000/auth/graphql',
+        'http://localhost:4000/graphql',
+      );
+    }
+
+    return Array.from(new Set(endpointCandidates.filter(Boolean)));
+  };
 
   const createThreadMutation = useMutation({
     mutationKey: ['create-thread'],
@@ -627,6 +643,71 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
     },
   });
 
+  const getAgentTiersForThreadMutation = useMutation({
+    mutationKey: ['getAgentTiersForThread'],
+    mutationFn: async (threadId: string) => {
+      const token = getAuthToken() || localStorage.getItem('userAccessToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      try {
+        const requestBody = {
+          query: `
+            query GetAgentTiersForThread($threadId: String!) {
+              getAgentTiersForThread(threadId: $threadId) {
+                threadId
+                agentId
+                agentEmail
+                tiers
+              }
+            }
+          `,
+          variables: { threadId },
+        };
+        const requestConfig = {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        };
+        const endpointCandidates = getTierFetchEndpoints();
+        let lastError: any = null;
+
+        for (let index = 0; index < endpointCandidates.length; index += 1) {
+          const endpoint = endpointCandidates[index];
+          try {
+            const response = await axios.post(endpoint, requestBody, requestConfig);
+
+            if (response.status !== 200 || response.data.errors) {
+              throw new Error(
+                response.data?.errors?.[0]?.message || 'Failed to fetch agent tiers',
+              );
+            }
+
+            return response.data?.data?.getAgentTiersForThread;
+          } catch (endpointError: any) {
+            lastError = endpointError;
+            const hasFallbackEndpoint = index < endpointCandidates.length - 1;
+            if (hasFallbackEndpoint) {
+              console.warn(
+                `[getAgentTiersForThread] Failed at ${endpoint}. Retrying with fallback endpoint.`,
+                endpointError?.response?.data?.errors?.[0]?.message ||
+                  endpointError?.message ||
+                  endpointError,
+              );
+            }
+          }
+        }
+
+        throw lastError || new Error('Failed to fetch agent tiers');
+      } catch (error) {
+        console.error('Error fetching agent tiers:', error);
+        throw error;
+      }
+    },
+  });
+
   const getAllSnapzRequest = useMutation({
     mutationKey: ['get_snapz_request'],
     mutationFn: async (snapData: any) => {
@@ -890,6 +971,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
     searchEngagedProperty,
     addParticipant,
     getAllThreadByIdMutation,
+    getAgentTiersForThreadMutation,
     getAllSnapzRequest,
     updateSnapzById,
     getAllSnapzProperties,

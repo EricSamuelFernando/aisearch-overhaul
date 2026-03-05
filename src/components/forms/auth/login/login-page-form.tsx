@@ -90,8 +90,8 @@ export const LoginPageForm = () => {
           />
           
         </div>
-        <section className='flex w-full items-center justify-between'>
-          <div>
+        <section className='flex w-full flex-col items-center gap-1 sm:flex-row sm:items-center sm:justify-between'>
+          <div className='order-2 sm:order-1'>
             <p className='text-sm'>
               <span
                 onClick={() => {
@@ -103,8 +103,8 @@ export const LoginPageForm = () => {
               </span>
             </p>
           </div>
-          <div>
-            <p className='text-sm font-medium'>
+          <div className='order-1 sm:order-2'>
+            <p className='text-center text-sm font-medium sm:text-left'>
               Dont have an account?{' '}
               <Link
                 className='cursor-pointer font-medium text-primary-main'

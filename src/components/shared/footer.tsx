@@ -106,11 +106,30 @@ function Footer() {
                 .filter((item) => ['About us', 'Insight'].includes(item.title))
                 .map((item) => (
                   <li key={item.href ?? item.title}>
-                    <Link href={item.href!} className="hover:text-white">
-                      {item.title}
-                    </Link>
+                    {item.title === 'Insight' ? (
+                      <span
+                        title="Expert Insights Coming Your Way"
+                        className="cursor-pointer text-white/50"
+                        aria-disabled="true"
+                      >
+                        {item.title}
+                      </span>
+                    ) : (
+                      <Link href={item.href!} className="hover:text-white">
+                        {item.title}
+                      </Link>
+                    )}
                   </li>
                 ))}
+              <li>
+                <span
+                  title="Stay Tuned — Selling Gets Smarter"
+                  className="cursor-pointer text-white/50"
+                  aria-disabled="true"
+                >
+                  Sell
+                </span>
+              </li>
             </ul>
           </div>
 

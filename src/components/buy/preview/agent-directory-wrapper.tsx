@@ -89,6 +89,74 @@ function normalizeLocationQuery(rawQuery: string): string | null {
   return null;
 }
 
+function titleCaseWords(value: string): string {
+  return value
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function formatLocationLabel(rawLocation: string): string {
+  const raw = String(rawLocation || '').trim();
+  if (!raw) return 'CA';
+
+  const normalizedToken = normalizeLocationQuery(raw);
+  if (normalizedToken) {
+    const mapped = LOCATION_MAPPINGS.find(
+      (m) => m.token.toLowerCase() === normalizedToken.toLowerCase()
+    );
+    if (mapped) {
+      return `${mapped.city}, ${mapped.state}`;
+    }
+  }
+
+  const [cityPart = '', statePart = ''] = raw.split(',').map((part) => part.trim());
+  if (cityPart && statePart) {
+    const prettyCity = titleCaseWords(cityPart.replace(/\s+/g, ' '));
+    const prettyState =
+      statePart.length <= 3 ? statePart.toUpperCase() : titleCaseWords(statePart);
+    return `${prettyCity}, ${prettyState}`;
+  }
+
+  return titleCaseWords(raw.replace(/\s+/g, ' '));
+}
+
+function agentMatchesLocation(agent: any, rawQuery: string): boolean {
+  const queryToken = normalizeLocationQuery(rawQuery);
+  const queryClean = cleanLocationForMatch(rawQuery);
+  if (!queryToken && !queryClean) return true;
+
+  const rawLocation = String(
+    agent?.Location ?? agent?.locationRaw ?? agent?.location ?? agent?.city ?? ''
+  ).trim();
+  if (!rawLocation) return false;
+
+  const locationClean = cleanLocationForMatch(rawLocation);
+  const mappedLocationToken = normalizeLocationQuery(rawLocation);
+
+  if (queryToken) {
+    if (mappedLocationToken && mappedLocationToken === queryToken) return true;
+    const mappedByToken = LOCATION_MAPPINGS.find(
+      (m) => m.token.toLowerCase() === queryToken.toLowerCase()
+    );
+    if (mappedByToken) {
+      const cityLower = mappedByToken.city.toLowerCase();
+      const stateLower = mappedByToken.state.toLowerCase();
+      if (
+        locationClean.startsWith(`${cityLower}, ${stateLower}`) ||
+        locationClean.startsWith(`${cityLower} ${stateLower}`) ||
+        locationClean === cityLower ||
+        locationClean.startsWith(cityLower)
+      ) {
+        return true;
+      }
+    }
+  }
+
+  return locationClean.includes(queryClean);
+}
+
 function normalizeNameForSearch(raw: string): string {
   if (!raw) return '';
   return String(raw).replace(/^[^a-z0-9]+/i, '').trim().toLowerCase();
@@ -395,6 +463,12 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
     });
   }, [agentsToFilter, searchMode, immediateQuery]);
 
+  const filteredLocationAgents = React.useMemo(() => {
+    if (searchMode !== 'location') return [];
+    if (!immediateQuery) return [];
+    return locationAgents.filter((agent) => agentMatchesLocation(agent, immediateQuery));
+  }, [locationAgents, searchMode, immediateQuery]);
+
   const hasMoreAgents = React.useMemo(() => {
     if (searchMode !== 'name') return false;
     if (!totalAgents) return false;
@@ -491,15 +565,18 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
     const agentEmail = agent.agentEmail || agent.email || '';
     const identifier = agentId || agentEmail || `agent-${Math.random()}`;
 
-    const hasExistingInvite = engagedProperty?.participants?.some((participant: any) => {
+    const alreadyInvited = engagedProperty?.participants?.some((participant: any) => {
+      const participantAgentId = participant?.agentId || participant?.agent?.id;
+      const participantEmail = participant?.email || participant?.agent?.email;
       const participantEngagementId = participant?.engagementId;
       const engagementMatches = !participantEngagementId || participantEngagementId === engagementId;
       const status = participant?.is_accepted || "pending";
-      return engagementMatches && ["pending", "accepted"].includes(status);
+      const sameAgent = (agentId && participantAgentId === agentId) || (agentEmail && participantEmail === agentEmail);
+      return engagementMatches && ["pending", "accepted"].includes(status) && sameAgent;
     });
 
-    if (hasExistingInvite) {
-      error({ message: "This property already has an invited agent." });
+    if (alreadyInvited) {
+      error({ message: "This agent has already been invited to this property." });
       return;
     }
 
@@ -645,12 +722,12 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
     }
   }, [engagementId, wrapperCurrentUser, wrapperPropertyData, wrapperSocket, engagedProperty, selectedAgent, agentIvitationMutation, externalAgentIvitationMutation, dispatch, onClose, router]);
 
-  // Agent cards for name mode
-  const agentCards = React.useMemo(() => {
-    return filteredAgents.map((agent) => {
+  const renderAgentCards = React.useCallback((agents: any[], shouldHighlightName: boolean) => {
+    return agents.map((agent) => {
       const agentName = agent.Name || agent.full_name || `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || 'Agent';
       const agentId = agent.id || agent._id || '';
       const agentEmail = agent.agentEmail || agent.email || '';
+      const agentLocation = formatLocationLabel(agent.Location || agent.locationRaw || agent.location || '');
 
       return (
         <div
@@ -661,12 +738,12 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
               <div>
                 <h4 className="font-bold text-black text-base sm:text-lg group-hover:text-orange-900 break-words">
-                  {highlightMatch(agentName)}
+                  {shouldHighlightName ? highlightMatch(agentName) : agentName}
                 </h4>
                 <p className="text-xs sm:text-sm text-gray-500 break-words">
                   {agent.Brokerage || 'Real Estate Agent'}
                   {' - '}
-                  {agent.Location || 'CA'}
+                  {agentLocation}
                 </p>
               </div>
             </div>
@@ -694,7 +771,7 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
                 }
                 setSelectedAgent(agent);
                 if (agentId) {
-                  sendAgentInvitation(agentId);
+                  sendAgentInvitation(agent);
                 }
               }}
               disabled={!agentId || (mode !== 'chat' && loadingAgentId === agentId)}
@@ -710,7 +787,17 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
         </div>
       );
     });
-  }, [filteredAgents, highlightMatch, loadingAgentId, sendAgentInvitation, router, mode, onAgentSelected]);
+  }, [highlightMatch, loadingAgentId, sendAgentInvitation, router, mode, onAgentSelected]);
+
+  // Agent cards for name mode
+  const agentCards = React.useMemo(() => {
+    return renderAgentCards(filteredAgents, true);
+  }, [filteredAgents, renderAgentCards]);
+
+  // Agent cards for location mode
+  const locationAgentCards = React.useMemo(() => {
+    return renderAgentCards(filteredLocationAgents, false);
+  }, [filteredLocationAgents, renderAgentCards]);
 
   const placeholderText =
     searchMode === 'location'
@@ -718,10 +805,10 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
       : 'Search by agent name or email';
 
   const handleLocationSuggestionClick = (suggestion: any) => {
-    const normalized = normalizeLocationQuery(suggestion.label);
-    const qParam = normalized || suggestion.token.toLowerCase();
-    setSearchQuery(qParam);
-    setSearchMode('name');
+    setSearchMode('location');
+    setSearchQuery(suggestion.label);
+    searchQueryPreservedRef.current = suggestion.label;
+    setIsSearchFocused(true);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -797,6 +884,11 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
               <button
                 type="button"
                 onClick={() => {
+                  if (searchMode !== 'location') {
+                    userClearedRef.current = true;
+                    setSearchQuery('');
+                    searchQueryPreservedRef.current = '';
+                  }
                   setSearchMode('location');
                   setTimeout(() => {
                     inputRef.current?.focus();
@@ -812,6 +904,11 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
               <button
                 type="button"
                 onClick={() => {
+                  if (searchMode !== 'name') {
+                    userClearedRef.current = true;
+                    setSearchQuery('');
+                    searchQueryPreservedRef.current = '';
+                  }
                   setSearchMode('name');
                   setTimeout(() => {
                     inputRef.current?.focus();
@@ -844,11 +941,15 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
         >
           {searchMode === 'location' ? (
             <div className="p-4 bg-white h-full flex flex-col">
-              <p className="text-gray-500 text-sm mb-3 pl-2">
-                {query ? `${locationSuggestions.length} locations found` : 'Browse available locations'}
+              <p className="text-gray-500 text-sm mb-3 pl-2 sticky top-0 bg-white py-2 z-10 border-b pb-2">
+                {query
+                  ? `${filteredLocationAgents.length} agents found in this location`
+                  : 'Browse available locations'}
               </p>
 
-              {locationSuggestions.length > 0 ? (
+              {query && filteredLocationAgents.length > 0 ? (
+                <div className="flex flex-col gap-3 pb-4">{locationAgentCards}</div>
+              ) : locationSuggestions.length > 0 ? (
                 <div className="flex flex-col divide-y divide-gray-100">
                   {locationSuggestions.map((s) => (
                     <button
@@ -867,7 +968,7 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
                   <div className="w-16 h-16 bg-[#F9F9F9] rounded-full flex items-center justify-center mb-4">
                     <Search className="w-6 h-6 text-[#1A2B49]" />
                   </div>
-                  <h3 className="text-lg font-semibold text-black mb-2">No locations found</h3>
+                  <h3 className="text-lg font-semibold text-black mb-2">No agents found</h3>
                   <p className="text-gray-500 text-sm">Try a different city, area, or region.</p>
                 </div>
               ) : null}

@@ -39,7 +39,7 @@ function MainNavPages() {
 
   // Determine text color based on route
   const getTextColor = () => {
-    if (pathname?.startsWith('/home') || pathname === '/home' || pathname === '/home/buy') {
+    if (pathname === '/' || pathname?.startsWith('/home') || pathname === '/home' || pathname === '/home/buy') {
       return 'text-white';
     } else if (pathname === '/sell') {
       return 'text-black';
@@ -54,7 +54,7 @@ function MainNavPages() {
 
   // Determine background color based on route for scrolled state
   const getBackgroundColor = () => {
-    if (pathname?.startsWith('/home') || pathname === '/home' || pathname === '/home/buy') {
+    if (pathname === '/' || pathname?.startsWith('/home') || pathname === '/home' || pathname === '/home/buy') {
       return 'bg-black';
     } else if (pathname === '/sell') {
       return 'bg-white';
@@ -84,7 +84,7 @@ function MainNavPages() {
     if (!isScrolled) return 'bg-transparent';
 
     // Inline the background color logic to ensure pathname is used correctly
-    if (pathname?.startsWith('/home') || pathname === '/home' || pathname === '/home/buy') {
+    if (pathname === '/' || pathname?.startsWith('/home') || pathname === '/home' || pathname === '/home/buy') {
       return 'bg-black';
     } else if (pathname === '/sell') {
       return 'bg-white';
@@ -172,7 +172,7 @@ function MainNavPages() {
     const baseClasses = 'fixed left-0 right-0 top-0 z-50 flex w-full items-center justify-between px-4 md:px-8 transition-all duration-300';
     const backgroundClasses = isScrolled
       ? `${scrollBackgroundClass} shadow-lg py-2`
-      : 'bg-transparent py-4';
+      : (pathname === '/do-not-sell-or-share' ? 'bg-black py-4' : 'bg-transparent py-4');
 
     return `${baseClasses} ${finalTextColorClass} ${backgroundClasses}`;
   }, [finalTextColorClass, isScrolled, scrollBackgroundClass]);
@@ -191,7 +191,7 @@ function MainNavPages() {
 
         {/* Logo - Left side on mobile, center on desktop */}
         <Link
-          href="/home"
+          href="/"
           className="flex items-center justify-center md:absolute md:inset-y-0 md:left-1/2 md:transform md:-translate-x-1/2"
         >
           <Image
@@ -201,7 +201,7 @@ function MainNavPages() {
             unoptimized
             alt="logo"
             className={`transition-all duration-300 object-contain ${isScrolled
-              ? 'h-9 w-28 md:h-10 md:w-32'
+              ? 'h-10 w-32 md:h-10 md:w-32'
               : 'h-10 w-32 md:h-12 md:w-36'
               }`}
           />

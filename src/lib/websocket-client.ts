@@ -35,6 +35,8 @@ export interface SendMessageData {
   message: string;
   userId: string;
   receiverId?: string;
+  recipient?: string;
+  reciepent?: string;
   messageType?: string;
   fileType?: string;
   parentMessageId?: string;
@@ -110,14 +112,29 @@ export class WebSocketClientImpl implements WebSocketClient {
     }
 
     try {
+      console.log('[WebSocket] Connect requested', {
+        baseUrl: this.url,
+        hasToken: !!this.token,
+        reconnectAttempts: this.reconnectAttempts,
+      });
       const wsUrl = this.token
-        ? `${this.url}?token=Bearer ${this.token}`
+        ? `${this.url}?token=${encodeURIComponent(`Bearer ${this.token}`)}&authorization=${encodeURIComponent(`Bearer ${this.token}`)}`
         : this.url;
+
+      console.log('[WebSocket] Connecting:', {
+        url: this.url,
+        wsUrl,
+        hasToken: !!this.token,
+        tokenPrefix: this.token ? this.token.slice(0, 6) + '...' : 'none',
+      });
 
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
-        console.log('[WebSocket] Connected');
+        console.log('[WebSocket] Connected', {
+          readyState: this.ws?.readyState || 0,
+          reconnectAttempts: this.reconnectAttempts,
+        });
         this.connected = true;
         this.reconnectAttempts = 0;
         this.startHeartbeat();
@@ -127,9 +144,8 @@ export class WebSocketClientImpl implements WebSocketClient {
           const packet = this.messageQueue.shift();
           if (packet && this.ws?.readyState === WebSocket.OPEN) {
             // Validate packet has action/event before sending
-            const hasAction = this.isLambda ? packet.action : packet.event;
-            if (!hasAction) {
-              console.error('[WebSocket] Skipping queued message with undefined action/event:', packet);
+            if (!packet.action && !packet.event) {
+              console.error('[WebSocket] Skipping queued message with undefined event:', packet);
               continue;
             }
             try {
@@ -169,12 +185,20 @@ export class WebSocketClientImpl implements WebSocketClient {
       };
 
       this.ws.onerror = (error) => {
-        console.error('[WebSocket] Error:', error);
+        console.error('[WebSocket] Error event:', {
+          error,
+          readyState: this.ws?.readyState,
+          url: this.url,
+        });
         this.triggerEvent('connect_error', error);
       };
 
       this.ws.onclose = (event) => {
-        console.log('[WebSocket] Disconnected:', event.code, event.reason);
+        console.log('[WebSocket] Disconnected:', {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+        });
         this.connected = false;
         this.id = null;
         this.stopHeartbeat();
@@ -183,7 +207,11 @@ export class WebSocketClientImpl implements WebSocketClient {
         // Attempt to reconnect
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
           this.reconnectAttempts++;
-          console.log(`[WebSocket] Reconnecting in ${this.reconnectDelay}ms (attempt ${this.reconnectAttempts})`);
+          console.log('[WebSocket] Reconnecting', {
+            delayMs: this.reconnectDelay,
+            attempt: this.reconnectAttempts,
+            maxAttempts: this.maxReconnectAttempts,
+          });
           this.reconnectTimer = setTimeout(() => {
             this.connect();
           }, this.reconnectDelay);
@@ -241,10 +269,7 @@ export class WebSocketClientImpl implements WebSocketClient {
       'save_user_agent_messages',
       'save_messages',
       'save_file',
-      'sendMessagetoThread',
-      'joinThread',
       'typing',
-      'userConnected',
       'recievedMessage'
     ];
 
@@ -257,27 +282,10 @@ export class WebSocketClientImpl implements WebSocketClient {
       return;
     }
 
-    // Lambda/API Gateway expects: { action: string, data: any }
-    // Local NestJS expects: { event: string, data: any }
-    // IMPORTANT: If using AWS API Gateway WebSocket, ALWAYS use Lambda format
-    const packet = this.isLambda
-      ? { action: event, data: data || {} }
-      : { event, data: data || {} };
-
-    // Double-check action/event is not undefined
-    if (this.isLambda && !packet.action) {
-      console.error('[WebSocket] Packet action is undefined after creation:', { event, data, packet });
-      return;
-    }
-    if (!this.isLambda && !(packet as any).event) {
-      console.error('[WebSocket] Packet event is undefined after creation:', { event, data, packet });
-      return;
-    }
+    const packet = { action: event, data: data || {} };
 
     console.log('[WebSocket] Emitting:', {
       event,
-      action: this.isLambda ? packet.action : undefined,
-      isLambda: this.isLambda,
       packet,
       url: this.url
     });
@@ -316,9 +324,7 @@ export class WebSocketClientImpl implements WebSocketClient {
     this.heartbeatInterval = setInterval(() => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
         // Lambda/API Gateway uses 'action', Local NestJS uses 'event'
-        const pingPacket = this.isLambda
-          ? { action: 'ping', data: {} }
-          : { event: 'ping', data: {} };
+        const pingPacket = { action: 'ping', data: {} };
         this.ws.send(JSON.stringify(pingPacket));
       }
     }, 30000); // Every 30 seconds
@@ -395,7 +401,7 @@ export class WebSocketClientImpl implements WebSocketClient {
     comment: string;
     userType?: string;
   }): void {
-    this.emit('send_comment', commentData);
+    this.emit('addComment', commentData);
   }
 
   // Connection status methods

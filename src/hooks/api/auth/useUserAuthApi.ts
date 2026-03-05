@@ -201,18 +201,13 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       }
       if (user.account_type === "seller") {
         router.push('/sell')
+      } else if (data?.isHome) {
+        // If explicitly requested to go home (e.g. from /login page)
+        router.push(`/`)
+      } else if (!redirect && !data?.isBack) {
+        // Otherwise, stay on current page and refresh data (like header changes)
+        router.refresh()
       }
-      if (data?.isHome) {
-        if (user.account_type === "seller") {
-          router.push('/sell')
-        } else
-          router.push(`/home`)
-      }
-      // if (searchTerm) {
-      //   router.push(`/buy/browse?q=${encodeURIComponent(searchTerm)}`);
-      // } else {
-      //   router.push(`/home`);
-      // }
       handleCb?.();
 
     },
@@ -323,7 +318,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     },
     onSuccess: () => {
       success({ message: 'Password has been reset successfully.' });
-      router.push('/home');
+      router.push('/');
     },
     onError: (err: any) => {
       const apiMessage = err?.response?.data?.errors?.[0]?.message || err?.message || '';
@@ -730,7 +725,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
   });
 
   const verifyPasswordResetCodeMutation = useMutation({
-    mutationKey: ['send-verification-code'],
+    mutationKey: ['verify-password-reset-code'],
     mutationFn: async (data: VerifyCode) => {
       return await handleAsync<AxiosResponse<IAuthUser>>(
         client.post,
@@ -742,16 +737,12 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     },
 
     onSuccess: (data: AxiosResponse<any>) => {
-      if ((data as any).status === 200) {
-        success({ message: data?.data?.message });
-        setAuthToken(data?.data?.data?.token);
-        storeCookie({ key: AUTH_TOKEN, value: data?.data?.data?.token });
-        storeCookie({ key: USER_ROLE, value: 'seller' });
-        router.push(`/set-password`);
-      }
+      // Keep this side-effect light; callers decide navigation/next steps
+      const message = data?.data?.message || 'Code verified successfully';
+      success({ message });
     },
     onError: (err: any) => {
-      error({ message: err?.response?.data?.message });
+      error({ message: err?.response?.data?.message || 'Invalid verification code' });
     },
   });
 
@@ -1039,29 +1030,63 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     mutationKey: ["invite_an_agent"],
     mutationFn: async (agentData: any) => {
       const token = getAuthToken();
-
-      const response = await axios.post(
-        GRAPHQL_URI,
-        {
-          query: `
-            mutation createExternalParticipant($input: InviteExternalAgentInput!) {
-              createExternalParticipant(input: $input) {
-                success
-                message
-                agentId
-                participantId
-              }
-            }
-          `,
-          variables: { input: agentData },
+      const requestConfig = {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+      };
+
+      const enhancedQuery = `
+        mutation createExternalParticipant($input: InviteExternalAgentInput!) {
+          createExternalParticipant(input: $input) {
+            success
+            message
+            participantId
+            agentId
+            code
+            field
+            correlationId
+            emailDeliveryStatus
+            emailFailureReason
+            emailProviderMessageId
+            email_delivery_status
+            email_failure_reason
+          }
         }
-      );
+      `;
+
+      const legacyQuery = `
+        mutation createExternalParticipant($input: InviteExternalAgentInput!) {
+          createExternalParticipant(input: $input) {
+            success
+            message
+            participantId
+            agentId
+          }
+        }
+      `;
+
+      const isSchemaCompatibilityError = (errors: any[] | undefined) =>
+        Array.isArray(errors) &&
+        errors.some((err) => {
+          const message = String(err?.message || "").toLowerCase();
+          return message.includes("cannot query field") || message.includes("unknown argument");
+        });
+
+      try {
+        const response = await axios.post(
+          GRAPHQL_URI,
+          {
+            query: enhancedQuery,
+            variables: { input: agentData },
+          },
+          requestConfig
+        );
+
+        if (response.status === 200 && !response?.data?.errors) {
+          return response.data?.data?.createExternalParticipant;
+        }
 
       if (response.data.errors) {
         throw new Error(response.data.errors[0].message);
@@ -1518,7 +1543,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
 
       // Always perform local logout and redirect, regardless of backend response
       logout();
-      router.push('/home');
+      router.push('/');
     },
     onError: (err: any) => {
       // Even on unexpected errors, always perform local cleanup so the user isn't stuck
@@ -1529,7 +1554,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
 
       // Still clear local state and redirect
       logout();
-      router.push('/home');
+      router.push('/');
     },
   });
 
@@ -1678,7 +1703,7 @@ export const useTokenLoginMutation = (handleCb?: () => void) => {
         router.push(redirect);
         return;
       }
-      router.push(`/home`);
+      router.push(`/`);
       handleCb?.();
     },
 

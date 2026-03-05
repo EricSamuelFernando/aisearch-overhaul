@@ -2336,6 +2336,7 @@ import {
   Eye,
   Maximize,
   ArrowDown,
+  ArrowLeft,
 } from "lucide-react"
 import "swiper/css"
 import "swiper/css/navigation"
@@ -2390,9 +2391,7 @@ import { useUserSnapAPIs } from "@/hooks/api/auth/snaps.API"
 import { SnapzHeartButton } from "@/components/ui/snapz-heart"
 import { usePropertyActions } from "@/shared/hooks/useProperty"
 import { v4 as uuidv4 } from "uuid"
-import NegotiationCard from "./negotiation-card"
-import { normalizeAgentTiersPayload } from "./agent-tier-utils"
-
+import { getAuthToken } from "@/lib/storage"
 
 
 interface User {
@@ -2566,6 +2565,19 @@ export default function ChatBoxComponent(props: any) {
   const [showChat, setShowChat] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
   const [propertyData, setPropertyData] = useState<any>(null)
+  const [shortOverviewByProperty, setShortOverviewByProperty] = useState<
+    Record<
+      string,
+      {
+        overview_short?: string
+        overview_short_updated_at?: string
+        overview_short_model?: string
+        overview_short_source_hash?: string
+      }
+    >
+  >({})
+  const [shortOverviewLoadingByProperty, setShortOverviewLoadingByProperty] = useState<Record<string, boolean>>({})
+  const shortOverviewInFlightRef = useRef<Set<string>>(new Set())
   const [messages, setMessages] = useState<Message[]>([])
   const [mediaPreview, setMediaPreview] = useState<MediaPreview | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -2798,6 +2810,262 @@ export default function ChatBoxComponent(props: any) {
 
   const isFavored = isPropertyInFavourite(snaps)
 
+  const shortOverviewApiBase = useMemo(() => {
+    if (process.env.NODE_ENV !== "production") {
+      return "http://localhost:4000"
+    }
+    const raw =
+      process.env.NEXT_PUBLIC_SHORT_OVERVIEW_API_BASE_URL ||
+      process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL ||
+      ""
+    return String(raw || "").replace(/\/$/, "")
+  }, [])
+
+  const extractOverviewMeta = useCallback((data: any) => {
+    return {
+      overview: String(
+        data?.overview ??
+        data?.publicRemarks ??
+        data?.property?.descriptions?.[0]?.value ??
+        "",
+      ).trim(),
+      overview_short: String(
+        data?.overview_short ??
+        data?.overviewShort ??
+        data?.public?.overview_short ??
+        "",
+      ).trim(),
+      overview_short_updated_at:
+        data?.overview_short_updated_at ??
+        data?.overviewShortUpdatedAt ??
+        undefined,
+      overview_short_model:
+        data?.overview_short_model ??
+        data?.overviewShortModel ??
+        undefined,
+      overview_short_source_hash:
+        data?.overview_short_source_hash ??
+        data?.overviewShortSourceHash ??
+        undefined,
+    }
+  }, [])
+
+  const activeOverviewPropertyId = useMemo(
+    () =>
+      String(
+        snapzPropertyId ||
+        propertyData?.propertyId ||
+        propertyData?.id ||
+        selectedThreadDetail?.propertyId ||
+        "",
+      ).trim(),
+    [propertyData?.id, propertyData?.propertyId, selectedThreadDetail?.propertyId, snapzPropertyId],
+  )
+
+  const activeOverviewMeta = useMemo(
+    () => extractOverviewMeta(propertyData),
+    [extractOverviewMeta, propertyData],
+  )
+
+  const displayOverviewText = useMemo(() => {
+    const cachedShort = shortOverviewByProperty[activeOverviewPropertyId]?.overview_short || ""
+    const latestShort = activeOverviewMeta.overview_short || cachedShort
+    return latestShort.trim() ? latestShort : activeOverviewMeta.overview
+  }, [activeOverviewMeta.overview, activeOverviewMeta.overview_short, activeOverviewPropertyId, shortOverviewByProperty])
+
+  const isOverviewSummaryLoading = useMemo(
+    () => !!shortOverviewLoadingByProperty[activeOverviewPropertyId],
+    [activeOverviewPropertyId, shortOverviewLoadingByProperty],
+  )
+
+  useEffect(() => {
+    if (!showDetails) return
+    const cachedShort = shortOverviewByProperty[activeOverviewPropertyId]?.overview_short || ""
+    const latestShort = activeOverviewMeta.overview_short || cachedShort
+    const mode = latestShort.trim() ? "summary" : "fallback"
+    console.info("[ChatBox][OverviewDisplay]", {
+      propertyId: activeOverviewPropertyId || null,
+      mode,
+      shortLength: latestShort?.length || 0,
+      fallbackLength: activeOverviewMeta.overview?.length || 0,
+    })
+  }, [
+    activeOverviewMeta.overview,
+    activeOverviewMeta.overview_short,
+    activeOverviewPropertyId,
+    shortOverviewByProperty,
+    showDetails,
+  ])
+
+  useEffect(() => {
+    if (!activeOverviewPropertyId) return
+    if (!activeOverviewMeta.overview_short) return
+
+    setShortOverviewByProperty((prev) => ({
+      ...prev,
+      [activeOverviewPropertyId]: {
+        overview_short: activeOverviewMeta.overview_short,
+        overview_short_updated_at: activeOverviewMeta.overview_short_updated_at,
+        overview_short_model: activeOverviewMeta.overview_short_model,
+        overview_short_source_hash: activeOverviewMeta.overview_short_source_hash,
+      },
+    }))
+  }, [
+    activeOverviewMeta.overview_short,
+    activeOverviewMeta.overview_short_model,
+    activeOverviewMeta.overview_short_source_hash,
+    activeOverviewMeta.overview_short_updated_at,
+    activeOverviewPropertyId,
+  ])
+
+  useEffect(() => {
+    if (!showDetails) return
+    if (!shortOverviewApiBase) return
+    if (!activeOverviewPropertyId) return
+    if (!activeOverviewMeta.overview) return
+    if (shortOverviewInFlightRef.current.has(activeOverviewPropertyId)) return
+
+    const controller = new AbortController()
+    shortOverviewInFlightRef.current.add(activeOverviewPropertyId)
+    setShortOverviewLoadingByProperty((prev) => ({ ...prev, [activeOverviewPropertyId]: true }))
+
+    const upsertSummary = (payload: any) => {
+      const summary = String(
+        payload?.summary ??
+        payload?.overview_short ??
+        payload?.data?.overview_short ??
+        payload?.data?.summary ??
+        "",
+      ).trim()
+      if (!summary) return
+
+      const nextMeta = {
+        overview_short: summary,
+        overview_short_updated_at:
+          payload?.overview_short_updated_at ??
+          payload?.data?.overview_short_updated_at ??
+          new Date().toISOString(),
+        overview_short_model:
+          payload?.overview_short_model ??
+          payload?.data?.overview_short_model ??
+          undefined,
+        overview_short_source_hash:
+          payload?.overview_short_source_hash ??
+          payload?.data?.overview_short_source_hash ??
+          undefined,
+      }
+
+      setShortOverviewByProperty((prev) => ({
+        ...prev,
+        [activeOverviewPropertyId]: {
+          ...(prev[activeOverviewPropertyId] || {}),
+          ...nextMeta,
+        },
+      }))
+
+      setPropertyData((prev: any) =>
+        prev
+          ? {
+            ...prev,
+            ...nextMeta,
+          }
+          : prev,
+      )
+    }
+
+    const run = async () => {
+      try {
+        const token =
+          getAuthToken() ||
+          (typeof window !== "undefined" ? localStorage.getItem("userAccessToken") : null)
+        const basePayload = {
+          propertyId: activeOverviewPropertyId,
+          overview: activeOverviewMeta.overview,
+          force: false,
+        }
+        const trimmedBase = shortOverviewApiBase.replace(/\/$/, "")
+        const rootBase = trimmedBase.endsWith("/auth")
+          ? trimmedBase.slice(0, -"/auth".length)
+          : trimmedBase
+        const endpointCandidates = Array.from(
+          new Set(
+            [
+              `${trimmedBase}/auth/api/overview-short`,
+              `${trimmedBase}/auth/properties/${activeOverviewPropertyId}/overview-short`,
+              `${rootBase}/auth/api/overview-short`,
+              `${rootBase}/auth/properties/${activeOverviewPropertyId}/overview-short`,
+            ].filter(Boolean),
+          ),
+        )
+
+        let lastErrorMessage = "No summary endpoint candidates configured"
+        for (const endpoint of endpointCandidates) {
+          try {
+            const response = await fetch(endpoint, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+              body: JSON.stringify(basePayload),
+              signal: controller.signal,
+              credentials: "include",
+            })
+
+            let responseBody: any = null
+            try {
+              responseBody = await response.json()
+            } catch (_) {
+              responseBody = null
+            }
+
+            if (!response.ok) {
+              lastErrorMessage = String(
+                responseBody?.message ||
+                responseBody?.error ||
+                `Short overview request failed (${response.status})`,
+              )
+              console.info("[ChatBox][OverviewShort] Endpoint attempt failed", {
+                endpoint,
+                status: response.status,
+                message: lastErrorMessage,
+              })
+              continue
+            }
+
+            upsertSummary(responseBody)
+            return
+          } catch (attemptErr: any) {
+            lastErrorMessage = String(attemptErr?.message || "Unknown summary request error")
+            console.info("[ChatBox][OverviewShort] Endpoint attempt error", {
+              endpoint,
+              message: lastErrorMessage,
+            })
+          }
+        }
+
+        throw new Error(lastErrorMessage)
+      } catch (err) {
+        // Non-blocking fallback: keep showing full overview.
+        console.warn("[ChatBox][OverviewShort] Unable to generate short overview", err)
+      } finally {
+        shortOverviewInFlightRef.current.delete(activeOverviewPropertyId)
+        setShortOverviewLoadingByProperty((prev) => ({ ...prev, [activeOverviewPropertyId]: false }))
+      }
+    }
+
+    run()
+
+    return () => {
+      controller.abort()
+    }
+  }, [
+    activeOverviewMeta.overview,
+    activeOverviewPropertyId,
+    shortOverviewApiBase,
+    showDetails,
+  ])
+
   interface AggregatedAgentThread {
     entryKey: string;
     agentId?: string;
@@ -2807,8 +3075,102 @@ export default function ChatBoxComponent(props: any) {
     totalUnread: number;
   }
 
+  const threadsForDisplay = useMemo(
+    () =>
+      Array.isArray(messageThreads) && messageThreads.length > 0
+        ? messageThreads
+        : threads,
+    [messageThreads, threads],
+  );
+
+  const unreadCountByThreadId = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!Array.isArray(threadsForDisplay)) return map;
+
+    const normalizeId = (value?: string | null) =>
+      String(value ?? "").trim().toLowerCase();
+
+    threadsForDisplay.forEach((thread: Thread) => {
+      const lastMessage =
+        Array.isArray(thread?.messages) && thread.messages.length
+          ? thread.messages[thread.messages.length - 1]
+          : null;
+      const rawDate = thread?.updatedAt ||
+        thread?.lastMessageAt ||
+        lastMessage?.createdAt ||
+        0;
+      let lastMessageTime = new Date(rawDate).getTime();
+      if (Number.isNaN(lastMessageTime)) lastMessageTime = 0;
+
+      const unreadCountFromMessages = Array.isArray(thread?.messages)
+        ? thread.messages.filter((message: Message) => {
+          const isUnread =
+            message?.isRead === false ||
+            message?.read === false ||
+            message?.seen === false;
+          if (!isUnread) return false;
+          const senderId =
+            message?.senderId ||
+            (message as any)?.sender_id ||
+            (message as any)?.sender?.id;
+          return !senderId || senderId !== userData?.id;
+        }).length
+        : 0;
+
+      const socketUnreadCount = Array.isArray(state?.conversationUnreadCount)
+        ? state.conversationUnreadCount.find((entry: any) => {
+          const entryId = normalizeId(entry?.threadId);
+          if (!entryId) return false;
+          const candidates = [
+            thread?.id,
+            (thread as any)?.threadId,
+            (thread as any)?.thread_id,
+            (thread as any)?.roomId,
+            (thread as any)?.room_id,
+            (thread as any)?.conversationId,
+            (thread as any)?.conversation_id,
+          ];
+          return candidates.some(
+            (candidate) => normalizeId(candidate as any) === entryId,
+          );
+        })?.count || 0
+        : 0;
+
+      const normalizedThreadId = normalizeId(thread?.id);
+      const localReadAt = locallyReadThreadIds[normalizedThreadId] || 0;
+      const isLocallyRead = localReadAt > 0 && localReadAt >= lastMessageTime;
+
+      let unreadCount = 0;
+      if (socketUnreadCount > 0) {
+        unreadCount = socketUnreadCount;
+      } else if (isLocallyRead) {
+        unreadCount = 0;
+      } else {
+        unreadCount = thread?.unreadCount ?? unreadCountFromMessages;
+      }
+
+      // Do not infer unread from last message alone; rely on backend counts or socket updates.
+
+      const candidateIds = [
+        thread?.id,
+        (thread as any)?.threadId,
+        (thread as any)?.thread_id,
+        (thread as any)?.roomId,
+        (thread as any)?.room_id,
+        (thread as any)?.conversationId,
+        (thread as any)?.conversation_id,
+      ];
+      candidateIds.forEach((candidate) => {
+        const key = normalizeId(candidate as any);
+        if (key) map.set(key, unreadCount);
+      });
+    });
+
+    return map;
+  }, [threadsForDisplay, locallyReadThreadIds, state?.conversationUnreadCount, userData?.id]);
+
   const aggregatedThreads = useMemo<AggregatedAgentThread[]>(() => {
-    if (!Array.isArray(threads)) {
+    if (!Array.isArray(threadsForDisplay)) {
       return [];
     }
 
@@ -2845,7 +3207,7 @@ export default function ChatBoxComponent(props: any) {
       ).getTime();
     };
 
-    threads.forEach((thread: Thread) => {
+    threadsForDisplay.forEach((thread: Thread) => {
       const agentCandidate = resolveAgentCandidate(thread);
       const agentId = agentCandidate?.id;
       const propertyIdentifier = resolvePropertyIdentifier(thread);
@@ -2861,6 +3223,11 @@ export default function ChatBoxComponent(props: any) {
         : undefined;
 
       const updatedAt = resolveLastUpdated(thread);
+      const lastMessage =
+        Array.isArray(thread?.messages) && thread.messages.length
+          ? thread.messages[thread.messages.length - 1]
+          : null;
+
       const unreadCountFromMessages = Array.isArray(thread?.messages)
         ? thread.messages.filter((message: Message) => {
           const isUnread =
@@ -2875,11 +3242,24 @@ export default function ChatBoxComponent(props: any) {
           return !senderId || senderId !== userData?.id;
         }).length
         : 0;
+
       const socketUnreadCount = Array.isArray(state?.conversationUnreadCount)
-        ? state.conversationUnreadCount.find(
-          (entry: any) =>
-            normalizeThreadId(entry?.threadId) === normalizeThreadId(thread?.id),
-        )?.count || 0
+        ? state.conversationUnreadCount.find((entry: any) => {
+          const entryId = normalizeThreadId(entry?.threadId);
+          if (!entryId) return false;
+          const candidates = [
+            thread?.id,
+            (thread as any)?.threadId,
+            (thread as any)?.thread_id,
+            (thread as any)?.roomId,
+            (thread as any)?.room_id,
+            (thread as any)?.conversationId,
+            (thread as any)?.conversation_id,
+          ];
+          return candidates.some(
+            (candidate) => normalizeThreadId(candidate as any) === entryId,
+          );
+        })?.count || 0
         : 0;
       const normalizedThreadId = normalizeThreadId(thread?.id);
       const lastMessageTime = updatedAt || 0;
@@ -2894,9 +3274,7 @@ export default function ChatBoxComponent(props: any) {
         unreadCount = thread?.unreadCount ?? unreadCountFromMessages;
       }
 
-      const threadStatus = (thread as any).status || "ACTIVE";
-      const isNegotiating = threadStatus === "NEGOTIATION_PENDING";
-
+      // Do not infer unread from last message alone; rely on backend counts or socket updates.
 
       if (agentId) {
         let entry = groupMap.get(agentId);
@@ -2954,7 +3332,7 @@ export default function ChatBoxComponent(props: any) {
     );
 
     return aggregated;
-  }, [threads, userData?.id, locallyReadThreadIds, state?.conversationUnreadCount]);
+  }, [threadsForDisplay, userData?.id, locallyReadThreadIds, state?.conversationUnreadCount]);
 
   const displayedThreads = useMemo<AggregatedAgentThread[]>(() => {
     if (showUnreadOnly) {
@@ -2964,6 +3342,18 @@ export default function ChatBoxComponent(props: any) {
     }
     return aggregatedThreads;
   }, [aggregatedThreads, showUnreadOnly]);
+
+  useEffect(() => {
+    const threadIds = displayedThreads
+      .map((entry) => entry?.baseThread?.id)
+      .filter((id): id is string => Boolean(id));
+    const duplicateThreadIds = threadIds.filter(
+      (id, index) => threadIds.indexOf(id) !== index,
+    );
+    if (duplicateThreadIds.length) {
+      console.warn("[ChatBox] Duplicate thread ids:", duplicateThreadIds);
+    }
+  }, [displayedThreads]);
 
   const unreadMessageCount = useMemo(() => {
     return aggregatedThreads.reduce(
@@ -3098,8 +3488,12 @@ export default function ChatBoxComponent(props: any) {
       const firstName = userDetails?.firstName || ""
       const lastName = userDetails?.lastName || ""
       const combinedName = `${firstName} ${lastName}`.trim()
-      const email = userDetails?.email || participant?.email || ""
-      const name = combinedName || email?.split("@")?.[0] || "Invited User"
+      const email =
+        userDetails?.email ||
+        participant?.invitedEmail ||
+        participant?.email ||
+        ""
+      const name = combinedName || email || "Invited User"
       const role = getRoleLabel(
         participant?.inviteRole ||
         participant?.role ||
@@ -3110,8 +3504,8 @@ export default function ChatBoxComponent(props: any) {
       const id = String(userDetails?.id || participant?.id || `${email}-${index}`)
       const dedupeKey = email
         ? `email-${String(email).toLowerCase()}`
-        : userDetails?.id || participant?.id
-          ? `id-${String(userDetails?.id || participant?.id).toLowerCase()}`
+        : userDetails?.id || participant?.invitedUserId || participant?.id
+          ? `id-${String(userDetails?.id || participant?.invitedUserId || participant?.id).toLowerCase()}`
           : `fallback-${index}`
 
       if (seenKeys.has(dedupeKey)) {
@@ -3201,7 +3595,53 @@ export default function ChatBoxComponent(props: any) {
       label: "Declined",
     },
   }
-  const totalParticipantsCount = Array.isArray(threadParticipants) ? threadParticipants.length : 0
+  const acceptedParticipantsCount = useMemo(() => {
+    const baseParticipants = [
+      selectedThreadDetail?.user,
+      selectedThreadDetail?.buyerAgent,
+      selectedThreadDetail?.sellerAgent,
+    ].filter(Boolean)
+
+    const invitedAcceptedParticipants = Array.isArray(selectedThreadDetail?.participants)
+      ? selectedThreadDetail.participants.filter((participant: any) => {
+        const rawStatus = String(
+          participant?.approvalStatus ??
+          participant?.status ??
+          participant?.inviteStatus ??
+          participant?.invitationStatus ??
+          "",
+        ).toLowerCase()
+        return (
+          participant?.is_accepted === true ||
+          participant?.isAccepted === true ||
+          rawStatus.includes("accept") ||
+          rawStatus.includes("approv") ||
+          rawStatus.includes("join")
+        )
+      })
+      : []
+
+    const uniqueIds = new Set<string>()
+    const addByIdOrEmail = (value: any) => {
+      const id = String(value?.id || value?.user?.id || "").trim().toLowerCase()
+      const email = String(value?.email || value?.user?.email || "").trim().toLowerCase()
+      const key = id ? `id-${id}` : email ? `email-${email}` : ""
+      if (!key) return
+      uniqueIds.add(key)
+    }
+
+    baseParticipants.forEach(addByIdOrEmail)
+    invitedAcceptedParticipants.forEach((participant: any) => addByIdOrEmail(participant?.user || participant))
+
+    return uniqueIds.size
+  }, [
+    selectedThreadDetail?.buyerAgent,
+    selectedThreadDetail?.participants,
+    selectedThreadDetail?.sellerAgent,
+    selectedThreadDetail?.user,
+  ])
+
+  const totalParticipantsCount = acceptedParticipantsCount
   const isInviteLimitReached = totalParticipantsCount >= MAX_INVITES_PER_CHAT
   const inviteLimitMessage = `No more than ${MAX_INVITES_PER_CHAT} participants can be in this chat.`
   const blockedInviteEmails = useMemo(() => {
@@ -3412,14 +3852,20 @@ export default function ChatBoxComponent(props: any) {
       messageAny?.payload?.message,
     )
     const decryptedMessage = decryptMessageSafely(rawMessage)
-    const normalizedMessageType =
-      messageAny?.messageType ||
-      messageAny?.message_type ||
-      messageAny?.data?.messageType ||
-      messageAny?.data?.message_type ||
-      messageAny?.payload?.messageType ||
-      messageAny?.payload?.message_type ||
-      (messageAny?.fileType || messageAny?.file_type ? 'file' : 'text')
+    const resolvedMessageType =
+      message.messageType ||
+      message.message_type ||
+      (message as any)?.type ||
+      (message.fileType || message.file_type ? 'file' : 'text')
+    const resolvedEventType =
+      message?.eventType ||
+      (message as any)?.event_type ||
+      (message as any)?.data?.eventType ||
+      (message as any)?.data?.event_type;
+    const resolvedMeta =
+      message?.meta ||
+      (message as any)?.metadata ||
+      (message as any)?.data?.meta;
     const fileUrlCandidate =
       messageAny?.file?.url ||
       (isProbablyUrl(decryptedMessage) ? decryptedMessage : '') ||
@@ -3443,7 +3889,7 @@ export default function ChatBoxComponent(props: any) {
         normalizedFileUrlCandidate.startsWith("blob:")
       )
     const finalMessageType =
-      normalizedMessageType === 'system'
+      resolvedMessageType === 'system'
         ? 'system'
         : normalizedMessageType === "notification"
           ? "notification"
@@ -3465,6 +3911,8 @@ export default function ChatBoxComponent(props: any) {
       createdAt: normalizedCreatedAt || message.createdAt,
       timestamp: normalizedCreatedAt || message.timestamp,
       message: decryptedMessage,
+      eventType: resolvedEventType,
+      meta: resolvedMeta,
       messageType: finalMessageType,
       fileType: derivedFileType,
       fileUrl: hasFileReference ? normalizedFileUrlCandidate : (messageAny?.fileUrl || "")
@@ -3505,20 +3953,43 @@ export default function ChatBoxComponent(props: any) {
   }, [normalizeMessage])
 
   const getSystemMessageText = (message: Message) => {
-    const actor = message?.meta?.actor?.name || "Someone";
+    const metaActorName = message?.meta?.actor?.name?.trim();
+    const isCurrentUser = !!message?.senderId && message.senderId === userData?.id;
+    const participant =
+      threadParticipants?.find(
+        (p: any) => p?.id && p.id === message?.senderId,
+      ) || null;
+    const participantName = participant
+      ? `${participant?.firstName || ""} ${participant?.lastName || ""}`.trim() ||
+      participant?.email ||
+      participant?.id
+      : "";
+    const actor =
+      (!isCurrentUser && metaActorName ? metaActorName : "") ||
+      (isCurrentUser ? "You" : "") ||
+      metaActorName ||
+      participantName ||
+      "Someone";
     const target = message?.meta?.target?.name || "someone";
+    const fileName =
+      message?.meta?.file?.name ||
+      (typeof message?.message === "string" ? getFileNameFromUrl(message.message) : "") ||
+      "";
     const eventType = message?.eventType;
 
     if (eventType === "user_added") {
       return `${actor} added ${target}`;
     }
-    if (eventType === "document_shared") {
-      return `${actor} shared a document`;
+    if (eventType === "document_shared" && fileName) {
+      return `${actor} shared ${fileName}`;
     }
-    if (eventType === "media_shared") {
-      return `${actor} shared media`;
+    if (eventType === "media_shared" && fileName) {
+      return `${actor} shared ${fileName}`;
     }
-    return message?.message || "System update";
+    if (message?.messageType === "system" && fileName) {
+      return `${actor} shared ${fileName}`;
+    }
+    return "";
   };
   const getFileNameFromUrl = useCallback((url: string) => {
     try {
@@ -3677,49 +4148,17 @@ export default function ChatBoxComponent(props: any) {
     const activeThreadId = String(selectedThreadDetail?.id || selectedThread || "")
     if (!activeThreadId) return
 
-    const inferredName = invitedEmail.split("@")[0] || "Invited"
     const optimisticParticipant = {
       id: `pending-${Date.now()}-${normalizedEmail}`,
       approvalStatus: "pending",
       inviteRole: selectedRole,
       createdAt: new Date().toISOString(),
       user: {
-        firstName: inferredName,
+        firstName: "",
         lastName: "",
         email: invitedEmail,
       },
     }
-
-    setSelectedThreadDetail((prev: any) => {
-      if (!prev) return prev
-      const existingParticipants = Array.isArray(prev?.participants) ? prev.participants : []
-      const alreadyExists = existingParticipants.some(
-        (participant: any) =>
-          String(participant?.user?.email || participant?.email || "").toLowerCase() === normalizedEmail,
-      )
-      if (alreadyExists) return prev
-      return {
-        ...prev,
-        participants: [...existingParticipants, optimisticParticipant],
-      }
-    })
-
-    setThreadParticipant((prev: any) => {
-      const existingParticipants = Array.isArray(prev) ? prev : []
-      const alreadyExists = existingParticipants.some(
-        (participant: any) =>
-          String(participant?.email || "").toLowerCase() === normalizedEmail,
-      )
-      if (alreadyExists) return existingParticipants
-      return [
-        ...existingParticipants,
-        {
-          firstName: inferredName,
-          lastName: "",
-          email: invitedEmail,
-        },
-      ]
-    })
 
     setPersistedInvitesByThread((prev) => {
       const threadInvites = Array.isArray(prev[activeThreadId]) ? prev[activeThreadId] : []
@@ -3747,7 +4186,7 @@ export default function ChatBoxComponent(props: any) {
             ...(data?.buyerAgent ? [data.buyerAgent] : []),
             ...(data?.sellerAgent ? [data.sellerAgent] : []),
             ...(data?.user ? [data.user] : []),
-            ...(Array.isArray(data?.participants) ? data.participants.map((p: any) => p.user) : []),
+            ...(Array.isArray(data?.participants) ? data.participants.map((p: any) => p?.user || p).filter(Boolean) : []),
           ];
           handleThreadSelection(data, participants)
         },
@@ -3982,16 +4421,16 @@ export default function ChatBoxComponent(props: any) {
   }
 
   const selectThreadById = (targetThreadId?: string) => {
-    if (!targetThreadId || !Array.isArray(threads)) return
+    if (!targetThreadId || !Array.isArray(threadsForDisplay)) return
 
-    const targetThread = threads.find((thread: Thread) => threadMatchesRouteId(thread, targetThreadId))
+    const targetThread = threadsForDisplay.find((thread: Thread) => threadMatchesRouteId(thread, targetThreadId))
     if (!targetThread) return
 
     const participants = [
       ...(targetThread?.buyerAgent ? [targetThread.buyerAgent] : []),
       ...(targetThread?.sellerAgent ? [targetThread.sellerAgent] : []),
       ...(targetThread?.user ? [targetThread.user] : []),
-      ...(Array.isArray(targetThread?.participants) ? targetThread.participants.map((p: any) => p.user) : []),
+      ...(Array.isArray(targetThread?.participants) ? targetThread.participants.map((p: any) => p?.user || p).filter(Boolean) : []),
     ]
 
     handleThreadSelection(targetThread, participants)
@@ -4006,6 +4445,14 @@ export default function ChatBoxComponent(props: any) {
     setSelectedChannel(null)
     setSelectedThread('')
     setExpandedEntryKey(null)
+    setSelectedThreadDetail(null)
+    setState((prev: any) => ({
+      ...prev,
+      selectedChannel: {
+        id: null,
+        propertyName: ""
+      }
+    }))
   }
 
   const buildAgentTierFetchIdCandidates = useCallback((threadLike: any) => {
@@ -4729,7 +5176,6 @@ export default function ChatBoxComponent(props: any) {
 
       if (!socket.connected) {
         socket.connect();
-        return;
       }
 
       // Resolve thread ID
@@ -4739,7 +5185,7 @@ export default function ChatBoxComponent(props: any) {
         selectedThread ||
         threadId;
 
-      if (!currentThreadId || !userData?.id || !receiverId) {
+      if (!currentThreadId || !userData?.id) {
         console.error("[handleSendMessage] Missing required data");
         return;
       }
@@ -4775,6 +5221,13 @@ export default function ChatBoxComponent(props: any) {
       }
 
       let fileUrl: string | '' = '';
+      const resolvedReceiverId =
+        receiverId ||
+        threadParticipants?.find((participant: any) => participant?.id && participant.id !== userData?.id)?.id ||
+        selectedThreadDetail?.participants
+          ?.map((participant: any) => participant?.user || participant)
+          .find((participant: any) => participant?.id && participant.id !== userData?.id)?.id ||
+        "";
 
       // 1️⃣ Upload file first (REST)
       if (hasFile && selectedFile) {
@@ -4790,7 +5243,7 @@ export default function ChatBoxComponent(props: any) {
       socket.sendMessage({
         threadId: currentThreadId,
         userId: userData.id,
-        receiverId,
+        receiverId: resolvedReceiverId || undefined,
         messageType: hasFile ? "file" : "text",
         message: hasFile ? fileUrl : message,
         fileType: hasFile ? selectedFile?.type : undefined, // ✅ FIX
@@ -4803,7 +5256,7 @@ export default function ChatBoxComponent(props: any) {
         {
           threadId: currentThreadId,
           senderId: userData.id,
-          receiverId,
+          receiverId: resolvedReceiverId,
           messageType: hasFile ? "file" : "text",
           message: hasFile ? fileUrl : message,
           fileType: hasFile ? selectedFile?.type : undefined, // ✅ FIX
@@ -4841,12 +5294,18 @@ export default function ChatBoxComponent(props: any) {
     </>
   }
 
-  const groupedMessages: { [date: string]: Message[] } = messages.reduce((acc: { [date: string]: Message[] }, message) => {
-    const date = format(new Date(message?.createdAt ?? 0), "yyyy-MM-dd");
-    if (!acc[date]) acc[date] = [];
-    acc[date].push(message);
-    return acc;
-  }, {});
+  const groupedMessages: { [date: string]: Message[] } = [...messages]
+    .sort(
+      (a, b) =>
+        new Date(a?.createdAt ?? 0).getTime() -
+        new Date(b?.createdAt ?? 0).getTime(),
+    )
+    .reduce((acc: { [date: string]: Message[] }, message) => {
+      const date = format(new Date(message?.createdAt ?? 0), "yyyy-MM-dd");
+      if (!acc[date]) acc[date] = [];
+      acc[date].push(message);
+      return acc;
+    }, {});
 
   // const groupedMessages: { [date: string]: Message[] } = (() => {
   //   const thread = messageThreads.find((thread) => thread.id === selectedThread);
@@ -4907,6 +5366,70 @@ export default function ChatBoxComponent(props: any) {
       return [processedMessage, ...prevMessages];
     });
   }, [userData?.id]);
+
+  const syncThreadMessage = useCallback(
+    (processedMessage: Message) => {
+      const threadId = processedMessage?.threadId;
+      if (!threadId) return;
+
+      setMessageThreads((prevThreads) => {
+        const threadsList = Array.isArray(prevThreads) ? [...prevThreads] : [];
+        const threadIndex = threadsList.findIndex((thread: Thread) =>
+          threadMatchesRouteId(thread, threadId),
+        );
+        if (threadIndex === -1) return prevThreads;
+
+        const targetThread: any = threadsList[threadIndex];
+        const existingMessages = Array.isArray(targetThread?.messages)
+          ? targetThread.messages
+          : [];
+
+        const hasDuplicate = existingMessages.some((msg: any) => {
+          if (processedMessage.id && msg?.id === processedMessage.id) return true;
+          if (
+            processedMessage.createdAt &&
+            msg?.createdAt === processedMessage.createdAt &&
+            msg?.senderId === processedMessage.senderId &&
+            msg?.message === processedMessage.message
+          ) {
+            return true;
+          }
+          return false;
+        });
+
+        if (hasDuplicate) return prevThreads;
+
+        const normalizedMessage: any = {
+          ...processedMessage,
+          createdAt: processedMessage.createdAt || new Date().toISOString(),
+          isRead:
+            typeof processedMessage.isRead === "boolean"
+              ? processedMessage.isRead
+              : processedMessage.senderId === userData?.id,
+          read:
+            typeof processedMessage.read === "boolean"
+              ? processedMessage.read
+              : processedMessage.senderId === userData?.id,
+        };
+
+        const nextMessages = [...existingMessages, normalizedMessage];
+        threadsList[threadIndex] = {
+          ...targetThread,
+          messages: nextMessages,
+          lastMessage: normalizedMessage.message || targetThread.lastMessage,
+          lastMessageAt: normalizedMessage.createdAt || targetThread.lastMessageAt,
+          updatedAt: normalizedMessage.createdAt || targetThread.updatedAt,
+          unreadCount:
+            normalizedMessage.senderId && normalizedMessage.senderId !== userData?.id
+              ? (targetThread?.unreadCount || 0) + 1
+              : targetThread?.unreadCount || 0,
+        };
+
+        return threadsList;
+      });
+    },
+    [setMessageThreads, threadMatchesRouteId, userData?.id],
+  );
 
 
   useEffect(() => {
@@ -4997,72 +5520,63 @@ export default function ChatBoxComponent(props: any) {
         setIsTyping(typing);
       });
 
-      // Handle both backend message events for compatibility.
-      const handleRealtimeMessage = (messageData: any, sourceEvent: "newMessage" | "recievedMessage") => {
+      // Handle incoming message events from websocket backend
+      const processIncomingMessage = (
+        messageData: any,
+        sourceEvent: 'newMessage' | 'recievedMessage',
+      ) => {
         console.log(`[ChatBox] Received ${sourceEvent} from websocket:`, messageData);
         console.log('[ChatBox] Current thread ID:', currentThreadId, 'Selected thread detail:', selectedThreadDetail?.id);
 
-        const threadId = resolveMessageThreadId(messageData);
+        const threadId = messageData.threadId || messageData.thread_id;
+        const inboundMessageType =
+          messageData.messageType ||
+          messageData.message_type ||
+          messageData.type ||
+          'text';
+        const inboundEventType =
+          messageData.eventType ||
+          messageData.event_type;
+        const inboundMeta =
+          messageData.meta ||
+          messageData.metadata ||
+          messageData.data?.meta;
         console.log('[ChatBox] Message thread ID:', threadId);
         const normalizedIncomingThreadId = normalizeComparableId(threadId);
         const normalizedCurrentThreadId = normalizeComparableId(currentThreadId);
         const normalizedSelectedThreadId = normalizeComparableId(selectedThreadDetail?.id);
 
-        // Only process messages for the current thread
-        if (
-          !!normalizedIncomingThreadId &&
-          (normalizedIncomingThreadId === normalizedCurrentThreadId ||
-            normalizedIncomingThreadId === normalizedSelectedThreadId)
-        ) {
-          console.log('[ChatBox] Message matches current thread, processing...');
-          let processedMessage = normalizeMessage({
-            ...messageData,
-            threadId: threadId,
-            message:
-              messageData.message ||
-              messageData.content ||
-              messageData?.data?.message ||
-              messageData?.payload?.message,
-            senderId:
-              messageData.senderId ||
-              messageData.sender_id ||
-              messageData.userId ||
-              messageData.user_id ||
-              messageData.createdBy ||
-              messageData?.data?.senderId ||
-              messageData?.data?.userId ||
-              messageData?.payload?.senderId ||
-              messageData?.payload?.userId,
-            receiverId:
-              messageData.receiverId ||
-              messageData.receiver_id ||
-              messageData?.data?.receiverId ||
-              messageData?.payload?.receiverId,
-            createdAt:
-              messageData.createdAt ||
-              messageData.created_at ||
-              messageData.timestamp ||
-              messageData?.data?.createdAt ||
-              messageData?.data?.timestamp ||
-              messageData?.payload?.createdAt ||
-              messageData?.payload?.timestamp,
-            messageType:
-              messageData.messageType ||
-              messageData.message_type ||
-              messageData?.data?.messageType ||
-              messageData?.payload?.messageType ||
-              'text',
-            fileType: messageData.fileType || messageData.file_type,
-          }, { fallbackCreatedAtToNow: true });
+        let processedMessage = normalizeMessage({
+          ...messageData,
+          threadId: threadId,
+          message: messageData.message || messageData.content,
+          senderId:
+            messageData.senderId ||
+            messageData.sender_id ||
+            messageData.userId ||
+            messageData.user_id ||
+            messageData.createdBy ||
+            inboundMeta?.actor?.id,
+          receiverId: messageData.receiverId || messageData.receiver_id,
+          createdAt: messageData.createdAt || messageData.created_at,
+          messageType: inboundMessageType,
+          fileType: messageData.fileType || messageData.file_type,
+          eventType: inboundEventType,
+          meta: inboundMeta,
+        });
 
+        // Only append to the active thread UI, but always sync thread state for unread counts
+        if (threadId === currentThreadId || threadId === selectedThreadDetail?.id) {
+          console.log('[ChatBox] Message matches current thread, processing...');
           console.log("[ChatBox] Adding newMessage to state:", processedMessage);
           appendIncomingMessage(processedMessage);
         } else {
-          console.log(`[ChatBox] ${sourceEvent} is for different thread, ignoring:`, {
+          console.log("[ChatBox] newMessage is for different thread, updating unread counts:", {
             receivedThreadId: threadId,
             currentThreadId: currentThreadId
           });
         }
+        syncThreadMessage(processedMessage);
       };
       const handleNewMessage = (messageData: any) => handleRealtimeMessage(messageData, "newMessage");
       const handleRecievedMessage = (messageData: any) => handleRealtimeMessage(messageData, "recievedMessage");
@@ -5091,12 +5605,42 @@ export default function ChatBoxComponent(props: any) {
       const handleNegotiationDeclined = (payload: any) =>
         applyNegotiationPayload(payload, "DECLINED")
 
+      const handleNewMessage = (messageData: any) =>
+        processIncomingMessage(messageData, 'newMessage');
+      const handleRecievedMessage = (messageData: any) =>
+        processIncomingMessage(messageData, 'recievedMessage');
+
       socket.on('newMessage', handleNewMessage);
       socket.on('recievedMessage', handleRecievedMessage);
-      socket.on('negotiation_status_updated', handleNegotiationStatusUpdated);
-      socket.on('negotiation_offer_sent', handleNegotiationOfferSent);
-      socket.on('negotiation_accepted', handleNegotiationAccepted);
-      socket.on('negotiation_declined', handleNegotiationDeclined);
+      socket.on('thread_marked_as_read', (data: any) => {
+        const resolvedThreadId = data?.threadId || data?.thread_id;
+        if (!resolvedThreadId) return;
+
+        if (
+          resolvedThreadId === currentThreadId ||
+          resolvedThreadId === selectedThreadDetail?.id
+        ) {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.isRead || msg.read ? msg : { ...msg, isRead: true, read: true },
+            ),
+          );
+        }
+
+        const normalizedId = String(resolvedThreadId).toLowerCase();
+        setLocallyReadThreadIds((prev) => ({
+          ...prev,
+          [normalizedId]: Date.now(),
+        }));
+        setState((prev: any) => ({
+          ...prev,
+          conversationUnreadCount: Array.isArray(prev.conversationUnreadCount)
+            ? prev.conversationUnreadCount.filter(
+              (entry: { threadId?: string | null }) => entry?.threadId !== resolvedThreadId,
+            )
+            : prev.conversationUnreadCount,
+        }));
+      });
 
       // Handle websocket response events
       socket.on('createOrJoinConversation_response', (response: any) => {
@@ -5137,6 +5681,7 @@ export default function ChatBoxComponent(props: any) {
         console.log("[ChatBox] Cleaning up real-time listeners");
         socket.off("newMessage", handleNewMessage);
         socket.off("recievedMessage", handleRecievedMessage);
+        socket.off("thread_marked_as_read");
         socket.off("typingStatus");
         socket.off("error");
         socket.off("connect");
@@ -5202,6 +5747,7 @@ export default function ChatBoxComponent(props: any) {
       if (!handledByActiveSocketListener) {
         appendIncomingMessage(normalized);
       }
+      syncThreadMessage(normalized);
       setState((prev: any) => ({
         ...prev,
         newMessage: null
@@ -5227,7 +5773,7 @@ export default function ChatBoxComponent(props: any) {
       ...(matchedThread?.buyerAgent ? [matchedThread.buyerAgent] : []),
       ...(matchedThread?.sellerAgent ? [matchedThread.sellerAgent] : []),
       ...(matchedThread?.user ? [matchedThread.user] : []),
-      ...(Array.isArray(matchedThread?.participants) ? matchedThread.participants.map((p: any) => p.user) : []),
+      ...(Array.isArray(matchedThread?.participants) ? matchedThread.participants.map((p: any) => p?.user || p).filter(Boolean) : []),
     ];
     handleThreadSelection(matchedThread, participants);
   }, [threadId, threads, selectedThreadDetail?.id]);
@@ -5240,6 +5786,16 @@ export default function ChatBoxComponent(props: any) {
     scrollToLatestMessagesWithRetry(24);
     hasHandledNotificationFocusRef.current = true;
   }, [focusLatestFromNotification, messages.length, scrollToLatestMessagesWithRetry, selectedThreadDetail?.id]);
+
+  useEffect(() => {
+    if (focusLatestFromNotification) return;
+    if (!messages.length) return;
+    const activeThreadId =
+      state?.selectedChannel?.id || selectedThreadDetail?.id || selectedThread || threadId;
+    if (!activeThreadId) return;
+
+    scrollToLatestMessagesWithRetry(16);
+  }, [focusLatestFromNotification, messages.length, scrollToLatestMessagesWithRetry, selectedThread, selectedThreadDetail?.id, state?.selectedChannel?.id, threadId]);
 
   useEffect(() => {
     hasHandledNotificationFocusRef.current = false;
@@ -5763,6 +6319,9 @@ export default function ChatBoxComponent(props: any) {
           </DialogHeader>
           <div className="mt-4 space-y-3">
             <input
+              id="invite-agent-email"
+              name="invite-agent-email"
+              type="email"
               value={inviteAgentEmail}
               onChange={(e) => setInviteAgentEmail(e.target.value)}
               placeholder="Agent email"
@@ -5811,7 +6370,15 @@ export default function ChatBoxComponent(props: any) {
           <div className={`w-full md:basis-[25%] md:max-w-[25%] md:min-w-[25%] bg-white border-r ${showThreads ? "block" : "hidden md:block"} overflow-hidden`}>
             {/* Header */}
             <div className="p-4 border-b flex justify-between items-center">
-              <h2 className="font-semibold text-lg text-gray-800">Messages</h2>
+              <button
+                type="button"
+                onClick={() => router.push('/dashboard/buyer?tab=my-snapz')}
+                className="flex items-center gap-2 text-gray-800 hover:text-gray-600 transition-colors"
+                aria-label="Back to dashboard"
+              >
+                <ArrowLeft className="h-5 w-5" />
+                <h2 className="font-semibold text-lg">Messages</h2>
+              </button>
               <TooltipProvider delayDuration={120}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -5852,11 +6419,26 @@ export default function ChatBoxComponent(props: any) {
                   variant="ghost"
                   onClick={() => {
                     setShowUnreadOnly(true)
-                    setIsRead(true)
+                    setIsRead(false)
                   }}
-                  className={`h-10 w-full text-gray-600 rounded-full px-4 py-2 ${showUnreadOnly ? "bg-white shadow text-gray-800" : ""}`}
+                  className={`h-10 w-full rounded-full px-4 py-2 ${showUnreadOnly
+                    ? "bg-red-50 shadow text-red-700"
+                    : unreadMessageCount > 0
+                      ? "text-red-600"
+                      : "text-gray-600"
+                    }`}
                 >
-                  Unread {unreadMessageCount > 0 ? `(${unreadMessageCount})` : "(0)"}
+                  <span className="flex items-center justify-center gap-2">
+                    <span>Unread</span>
+                    <span
+                      className={`min-w-[24px] rounded-full px-2 py-0.5 text-[11px] font-semibold ${unreadMessageCount > 0
+                        ? "bg-red-600 text-white"
+                        : "bg-gray-200 text-gray-600"
+                        }`}
+                    >
+                      {unreadMessageCount}
+                    </span>
+                  </span>
                 </Button>
               </div>
             </div>
@@ -5917,7 +6499,13 @@ export default function ChatBoxComponent(props: any) {
                     const entryKey = entry.entryKey;
                     const isExpanded = expandedEntryKey === entryKey;
                     const isActiveThread = selectedThreadDetail?.id === thread?.id;
-                    const threadCardClasses = `relative flex flex-col w-full mt-3 gap-3 rounded-2xl border p-5 transition-colors shadow-sm cursor-pointer ${isActiveThread ? 'bg-[#FFF7EF] border-[#F6D4B3]' : 'bg-white border-[#F1ECE6]'
+                    const entryUnread = entry.totalUnread || 0;
+                    const hasUnread = entryUnread > 0;
+                    const threadCardClasses = `relative flex flex-col w-full mt-3 gap-3 rounded-2xl border p-5 transition-colors shadow-sm cursor-pointer ${isActiveThread
+                      ? 'bg-[#FFF7EF] border-[#F6D4B3]'
+                      : hasUnread
+                        ? 'bg-[#FFF0E6] border-[#F6D4B3]'
+                        : 'bg-white border-[#F1ECE6]'
                       }`;
                     const timestampColor = isActiveThread ? 'text-[#C4A189]' : 'text-gray-400';
                     const engagedLabelColor = isActiveThread ? 'text-[#B5571E]' : 'text-gray-500';
@@ -5935,7 +6523,7 @@ export default function ChatBoxComponent(props: any) {
 
                     return (
                       <div
-                        key={thread.id}
+                        key={`${entry.entryKey}-${thread.id}`}
                         className={threadCardClasses}
                         onClick={() => handleThreadSelection(thread, participants)}
                       >
@@ -5954,21 +6542,28 @@ export default function ChatBoxComponent(props: any) {
                             );
                           }}
                         >
-                          {agentImage || thread?.image ? (
-                            <Image
-                              src={agentImage || thread.image}
-                              alt="Agent Avatar"
-                              width={50}
-                              height={50}
-                              className="rounded-full object-cover w-[40px] h-[40px] sm:w-[50px] sm:h-[50px]"
-                              priority
-                              unoptimized
-                            />
-                          ) : (
-                            <div className="rounded-full flex items-center justify-center font-semibold w-[40px] h-[40px] sm:w-[50px] sm:h-[50px] bg-gray-800 text-white">
-                              {getInitials(agentName)}
-                            </div>
-                          )}
+                          <div className="relative">
+                            {hasUnread && (
+                              <span className="absolute -top-1 -left-1 z-10 flex items-center justify-center min-w-[20px] h-[20px] rounded-full bg-red-600 text-white text-[10px] font-bold px-1">
+                                {entryUnread}
+                              </span>
+                            )}
+                            {agentImage || thread?.image ? (
+                              <Image
+                                src={agentImage || thread.image}
+                                alt="Agent Avatar"
+                                width={50}
+                                height={50}
+                                className="rounded-full object-cover w-[40px] h-[40px] sm:w-[50px] sm:h-[50px]"
+                                priority
+                                unoptimized
+                              />
+                            ) : (
+                              <div className="rounded-full flex items-center justify-center font-semibold w-[40px] h-[40px] sm:w-[50px] sm:h-[50px] bg-gray-800 text-white">
+                                {getInitials(agentName)}
+                              </div>
+                            )}
+                          </div>
 
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-sm sm:text-base text-gray-900 truncate">
@@ -5985,6 +6580,9 @@ export default function ChatBoxComponent(props: any) {
                           <div className="mt-4 space-y-3 w-full">
                             {engagedProperties.map((property: AgentPropertySummary) => {
                               const isActiveProperty = selectedThreadDetail?.id === property.threadId;
+                              const propertyUnread =
+                                unreadCountByThreadId.get(normalizeThreadKey(property.threadId)) || 0;
+                              const hasPropertyUnread = propertyUnread > 0;
                               const displayTitle =
                                 property.propertyAddress || property.propertyName || 'Property';
                               const participantUsers = (property.participants ?? [])
@@ -5998,9 +6596,11 @@ export default function ChatBoxComponent(props: any) {
                               return (
                                 <div
                                   key={property.propertyId}
-                                  className={`w-full min-h-[86px] rounded-3xl border px-6 py-4 text-sm transition-all duration-200 cursor-pointer flex flex-col justify-between ${isActiveProperty
+                                  className={`relative w-full min-h-[86px] rounded-3xl border px-6 py-4 text-sm transition-all duration-200 cursor-pointer flex flex-col justify-between ${isActiveProperty
                                     ? 'bg-[#1B1B1B] text-white border-[#1B1B1B]'
-                                    : 'bg-[#FFF4EC] text-[#352416] border-[#F5D4B7]'
+                                    : hasPropertyUnread
+                                      ? 'bg-green-50 text-[#12451F] border-green-200'
+                                      : 'bg-[#FFF4EC] text-[#352416] border-[#F5D4B7]'
                                     }`}
                                   onClick={(event) => {
                                     event.stopPropagation();
@@ -6008,7 +6608,12 @@ export default function ChatBoxComponent(props: any) {
                                     setExpandedEntryKey(entryKey);
                                   }}
                                 >
-                                  <div>
+                                  <div className="flex items-center gap-2">
+                                    {hasPropertyUnread && (
+                                      <span className="flex items-center justify-center min-w-[20px] h-[20px] rounded-full bg-red-600 text-white text-[10px] font-bold px-1">
+                                        {propertyUnread}
+                                      </span>
+                                    )}
                                     <p className="font-semibold text-sm sm:text-base truncate">
                                       {displayTitle}
                                     </p>
@@ -6167,7 +6772,7 @@ export default function ChatBoxComponent(props: any) {
                                 <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                   <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
                                 </svg>
-                                <span className="font-medium">{threadParticipants?.length || 0} participants</span>
+                                <span className="font-medium">{acceptedParticipantsCount} participants</span>
                               </div>
                             </div>
                           </div>
@@ -6394,20 +6999,31 @@ export default function ChatBoxComponent(props: any) {
 
                                           const notificationMessage = message?.messageType === "notification";
                                           const systemMessage = message?.messageType === "system";
+                                          const systemText = systemMessage ? getSystemMessageText(message) : "";
+                                          const isFileMessage = message?.messageType === "file";
+                                          const fileEventUrl = isFileMessage ? resolveAttachmentUrlFromMessage(message) : "";
+                                          const fileEventName = isFileMessage
+                                            ? getFileNameFromUrl(fileEventUrl || message?.message || "")
+                                            : "";
+                                          const fileEventKey = isFileMessage
+                                            ? buildFileEventKey(message?.senderId, fileEventName)
+                                            : "";
+                                          const shouldShowInlineFileEvent =
+                                            isFileMessage &&
+                                            !notificationMessage &&
+                                            !systemMessage &&
+                                            !!fileEventKey &&
+                                            !existingSystemFileEvents.has(fileEventKey);
 
                                           return (
-                                            <div
-                                              key={index}
-                                              className={`flex gap-3 mt-4 items-start ${isSender ? 'justify-end' : ''}`}
-                                            // ref={isLastMessage ? messagesEndRef : null}
-                                            >
-                                              {systemMessage && (
+                                            <div key={index} className="w-full">
+                                              {systemMessage && !!systemText && (
                                                 <div className="flex justify-center rounded-xl text-center w-full pt-4 p-3">
                                                   <div className="bg-white shadow-md rounded-full w-fit px-8 py-3">
                                                     <div className="flex gap-2 items-center justify-center">
                                                       <MdNotificationAdd size={20} />
                                                       <p className="whitespace-pre-wrap break-words text-sm">
-                                                        {getSystemMessageText(message)}
+                                                        {systemText}
                                                       </p>
                                                     </div>
                                                     <div className="text-xs text-gray-400 px-2 mt-1 text-right">
@@ -6416,194 +7032,215 @@ export default function ChatBoxComponent(props: any) {
                                                   </div>
                                                 </div>
                                               )}
-                                              {notificationMessage &&
 
-                                                <div className="flex justify-center  rounded-xl text-center w-full  pt-6 p-3">
+                                              {notificationMessage && (
+                                                <div className="flex justify-center rounded-xl text-center w-full pt-6 p-3">
                                                   <div className="bg-white shadow-md rounded-full w-fit px-8 py-4 pt-6">
                                                     <div className="flex gap-2 items-center">
                                                       <MdNotificationAdd size={24} />
-                                                      <p className="whitespace-pre-wrap break-words  text- text-sm">{message.message}</p>
+                                                      <p className="whitespace-pre-wrap break-words text- text-sm">{message.message}</p>
                                                     </div>
-                                                    <div className={`text-xs text-gray-400 px-2 mt-2 text-right`}>
+                                                    <div className="text-xs text-gray-400 px-2 mt-2 text-right">
                                                       {formattedTime}
                                                     </div>
                                                   </div>
-
-                                                </div>
-                                              }
-                                              {!isSender && receiver && !notificationMessage && !systemMessage && (
-                                                <div className="w-7 h-7 sm:w-10 sm:h-10 mt-4 rounded-full border border-white/70 bg-[#FBB785] overflow-hidden flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0 text-white">
-                                                  {receiverImage ? (
-                                                    <Image
-                                                      src={receiverImage}
-                                                      alt="Participant"
-                                                      width={40}
-                                                      height={40}
-                                                      className="h-full w-full object-cover"
-                                                      unoptimized
-                                                    />
-                                                  ) : (
-                                                    getInitials(receiverFallbackName) || 'NA'
-                                                  )}
                                                 </div>
                                               )}
 
+                                              {!systemMessage && !notificationMessage && (
+                                                <>
+                                                  <div
+                                                    className={`flex gap-3 mt-4 items-start ${isSender ? 'justify-end' : ''}`}
+                                                  >
+                                                    {!isSender && receiver && (
+                                                      <div className="w-7 h-7 sm:w-10 sm:h-10 mt-4 rounded-full border border-white/70 bg-[#FBB785] overflow-hidden flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0 text-white">
+                                                        {receiverImage ? (
+                                                          <Image
+                                                            src={receiverImage}
+                                                            alt="Participant"
+                                                            width={40}
+                                                            height={40}
+                                                            className="h-full w-full object-cover"
+                                                            unoptimized
+                                                          />
+                                                        ) : (
+                                                          getInitials(receiverFallbackName) || 'NA'
+                                                        )}
+                                                      </div>
+                                                    )}
 
-                                              {!notificationMessage && !systemMessage &&
+                                                    <div className="w-full flex flex-col gap-1">
+                                                      {/* Time aligned to sender/receiver side */}
+                                                      <div className={`text-xs text-gray-400 px-2 ${isSender ? "text-right" : "text-left"}`}>
+                                                        {formattedTime}
+                                                      </div>
 
-                                                <div className="w-full flex flex-col gap-1">
-                                                  {/* Time aligned to sender/receiver side */}
-                                                  <div className={`text-xs text-gray-400 px-2 ${isSender ? "text-right" : "text-left"}`}>
-                                                    {formattedTime}
-                                                  </div>
+                                                      {/* Message container taking full width */}
+                                                      <div className={`w-full flex ${isSender ? "justify-end" : "justify-start"}`}>
+                                                        <div
+                                                          className={`p-3 sm:p-4 font-medium rounded-2xl shadow-md text-xs sm:text-sm max-w-full sm:max-w-[90%] ${isSender ? "bg-black text-white" : "bg-white text-black"}`}
+                                                        >
+                                                          {/* Text message */}
+                                                          {message?.messageType !== "file" && message.message && (
+                                                            <p className="whitespace-pre-wrap break-words">{message.message}</p>
+                                                          )}
 
-                                                  {/* Message container taking full width */}
-                                                  <div className={`w-full flex ${isSender ? "justify-end" : "justify-start"}`}>
-                                                    <div
-                                                      className={`p-3 sm:p-4 bg-white text-black font-medium rounded-2xl shadow-md text-xs sm:text-sm max-w-full sm:max-w-[90%]`}
-                                                    >
-                                                      {/* Text message */}
-                                                      {message?.messageType !== "file" && message.message && (
-                                                        <p className="whitespace-pre-wrap break-words">{message.message}</p>
-                                                      )}
+                                                          {/* File message */}
+                                                          {message?.messageType === "file" && (
+                                                            <div className="rounded-lg flex items-center gap-3 p-2">
+                                                              {(() => {
+                                                                // Get the file URL - ensure it's not encrypted
+                                                                let fileUrl = message.message || "";
 
-                                                      {/* File message */}
-                                                      {message?.messageType === "file" && (
-                                                        <div className="rounded-lg flex items-center gap-3 p-2">
-                                                          {(() => {
-                                                            // Get the file URL - ensure it's not encrypted
-                                                            let fileUrl = message.fileUrl || message.message || "";
-
-                                                            // Handle CL:: prefix (legacy encryption artifact)
-                                                            if (fileUrl.startsWith('CL::')) {
-                                                              fileUrl = fileUrl.substring(4);
-                                                            }
-
-                                                            // If the URL looks encrypted (starts with common encryption patterns), try to decrypt
-                                                            // But file URLs from S3 should not be encrypted, so only decrypt if it looks like encrypted text
-                                                            if (fileUrl && !fileUrl.startsWith('http') && !fileUrl.startsWith('data:')) {
-                                                              try {
-                                                                const decrypted = decryptMessage(fileUrl);
-                                                                // Only use decrypted if it looks like a URL
-                                                                if (decrypted.startsWith('http') || decrypted.startsWith('data:')) {
-                                                                  fileUrl = decrypted;
+                                                                // Handle CL:: prefix (legacy encryption artifact)
+                                                                if (fileUrl.startsWith('CL::')) {
+                                                                  fileUrl = fileUrl.substring(4);
                                                                 }
-                                                              } catch (error) {
-                                                                console.log("[ChatBox] File URL might not be encrypted:", error);
-                                                              }
-                                                            }
 
-                                                            // Helper to extract filename
-                                                            const getFileNameFromUrl = (url: string) => {
-                                                              try {
-                                                                if (!url) return "File";
-                                                                const cleanUrl = url.split('?')[0]; // Remove query params
-                                                                const fileName = cleanUrl.split('/').pop() || "File";
-                                                                const decodedFileName = decodeURIComponent(fileName);
+                                                                // If the URL looks encrypted (starts with common encryption patterns), try to decrypt
+                                                                // But file URLs from S3 should not be encrypted, so only decrypt if it looks like encrypted text
+                                                                if (fileUrl && !fileUrl.startsWith('http') && !fileUrl.startsWith('data:')) {
+                                                                  try {
+                                                                    const decrypted = decryptMessage(fileUrl);
+                                                                    // Only use decrypted if it looks like a URL
+                                                                    if (decrypted.startsWith('http') || decrypted.startsWith('data:')) {
+                                                                      fileUrl = decrypted;
+                                                                    }
+                                                                  } catch (error) {
+                                                                    console.log("[ChatBox] File URL might not be encrypted:", error);
+                                                                  }
+                                                                }
 
-                                                                // Regex to match UUID at the beginning of the filename (8-4-4-4-12 hex chars followed by a hyphen)
-                                                                const uuidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}-?/;
-                                                                return decodedFileName.replace(uuidPattern, "");
-                                                              } catch (e) {
-                                                                console.error("Error parsing filename:", e);
-                                                                return "File";
-                                                              }
-                                                            };
+                                                                // Helper to extract filename
+                                                                const getFileNameFromUrl = (url: string) => {
+                                                                  try {
+                                                                    if (!url) return "File";
+                                                                    const cleanUrl = url.split('?')[0]; // Remove query params
+                                                                    const fileName = cleanUrl.split('/').pop() || "File";
+                                                                    const decodedFileName = decodeURIComponent(fileName);
 
-                                                            if (message.fileType && imageMimeType.includes(message.fileType)) {
-                                                              return (
-                                                                <div
-                                                                  className="relative cursor-pointer group"
-                                                                  onClick={() => openMediaPreview(fileUrl, message.fileType ?? "")}
-                                                                >
-                                                                  <Image
-                                                                    src={fileUrl || "/placeholder.svg"}
-                                                                    alt="Uploaded Image"
-                                                                    width={140}
-                                                                    height={140}
-                                                                    unoptimized={true}
-                                                                    priority
-                                                                    className="rounded-lg max-w-[120px] hover:opacity-90 transition-opacity"
-                                                                    onError={(e) => {
-                                                                      console.error("[ChatBox] Failed to load image:", fileUrl);
-                                                                      // Fallback to placeholder
-                                                                      e.currentTarget.src = "/placeholder.svg";
-                                                                    }}
-                                                                  />
-                                                                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-lg transition-opacity">
-                                                                    <Maximize className="w-4 h-4 text-white" />
-                                                                  </div>
-                                                                </div>
-                                                              );
-                                                            } else if (message.fileType && videoMimeType?.includes(message.fileType)) {
-                                                              return (
-                                                                <video
-                                                                  controls
-                                                                  className="rounded-lg max-w-[120px]"
-                                                                  onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    openMediaPreview(fileUrl, message.fileType || "");
-                                                                  }}
-                                                                >
-                                                                  <source src={fileUrl} type={message.fileType} />
-                                                                  Your browser does not support the video tag.
-                                                                </video>
-                                                              );
-                                                            } else {
-                                                              return (
-                                                                <div className="flex items-center gap-2 text-xs sm:text-sm">
-                                                                  <FileText className="w-5 h-5 text-gray-600" />
-                                                                  {/* Display Filename instead of truncated URL */}
-                                                                  <span className="truncate max-w-[100px] sm:max-w-full" title={getFileNameFromUrl(fileUrl)}>
-                                                                    {getFileNameFromUrl(fileUrl)}
-                                                                  </span>
-                                                                  <a
-                                                                    href={fileUrl}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="text-blue-500 hover:underline"
-                                                                  >
-                                                                    <Eye className="w-4 h-4 text-orange-500" />
-                                                                  </a>
-                                                                </div>
-                                                              );
-                                                            }
-                                                          })()}
+                                                                    // Regex to match UUID at the beginning of the filename (8-4-4-4-12 hex chars followed by a hyphen)
+                                                                    const uuidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}-?/;
+                                                                    return decodedFileName.replace(uuidPattern, "");
+                                                                  } catch (e) {
+                                                                    console.error("Error parsing filename:", e);
+                                                                    return "File";
+                                                                  }
+                                                                };
+
+                                                                if (message.fileType && imageMimeType.includes(message.fileType)) {
+                                                                  return (
+                                                                    <div
+                                                                      className="relative cursor-pointer group"
+                                                                      onClick={() => openMediaPreview(fileUrl, message.fileType ?? "")}
+                                                                    >
+                                                                      <Image
+                                                                        src={fileUrl || "/placeholder.svg"}
+                                                                        alt="Uploaded Image"
+                                                                        width={140}
+                                                                        height={140}
+                                                                        unoptimized={true}
+                                                                        priority
+                                                                        className="rounded-lg max-w-[120px] hover:opacity-90 transition-opacity"
+                                                                        onError={(e) => {
+                                                                          console.error("[ChatBox] Failed to load image:", fileUrl);
+                                                                          // Fallback to placeholder
+                                                                          e.currentTarget.src = "/placeholder.svg";
+                                                                        }}
+                                                                      />
+                                                                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-lg transition-opacity">
+                                                                        <Maximize className="w-4 h-4 text-white" />
+                                                                      </div>
+                                                                    </div>
+                                                                  );
+                                                                } else if (message.fileType && videoMimeType?.includes(message.fileType)) {
+                                                                  return (
+                                                                    <video
+                                                                      controls
+                                                                      className="rounded-lg max-w-[120px]"
+                                                                      onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        openMediaPreview(fileUrl, message.fileType || "");
+                                                                      }}
+                                                                    >
+                                                                      <source src={fileUrl} type={message.fileType} />
+                                                                      Your browser does not support the video tag.
+                                                                    </video>
+                                                                  );
+                                                                } else {
+                                                                  return (
+                                                                    <div className="flex items-center gap-2 text-xs sm:text-sm">
+                                                                      <FileText className="w-5 h-5 text-gray-600" />
+                                                                      {/* Display Filename instead of truncated URL */}
+                                                                      <span className="truncate max-w-[100px] sm:max-w-full" title={getFileNameFromUrl(fileUrl)}>
+                                                                        {getFileNameFromUrl(fileUrl)}
+                                                                      </span>
+                                                                      <a
+                                                                        href={fileUrl}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="text-blue-500 hover:underline"
+                                                                      >
+                                                                        <Eye className="w-4 h-4 text-orange-500" />
+                                                                      </a>
+                                                                    </div>
+                                                                  );
+                                                                }
+                                                              })()}
+                                                            </div>
+                                                          )}
+
+                                                          {/* Reply Preview */}
+                                                          {message.parentMessageId && (
+                                                            <div className="mt-2 p-2 border-l-4 border-gray-300 text-sm italic">
+                                                              Replying to: <span className="font-medium">{message.parentMessageId}</span>
+                                                            </div>
+                                                          )}
+
+                                                          {/* Seen indicator */}
+                                                          {isSender && isLastMessage && message.seen && (
+                                                            <div className="text-xs text-blue-500 mt-1 text-right">Seen</div>
+                                                          )}
                                                         </div>
-                                                      )}
-
-                                                      {/* Reply Preview */}
-                                                      {message.parentMessageId && (
-                                                        <div className="mt-2 p-2 border-l-4 border-gray-300 text-sm italic">
-                                                          Replying to: <span className="font-medium">{message.parentMessageId}</span>
-                                                        </div>
-                                                      )}
-
-                                                      {/* Seen indicator */}
-                                                      {isSender && isLastMessage && message.seen && (
-                                                        <div className="text-xs text-blue-500 mt-1 text-right">Seen</div>
-                                                      )}
+                                                      </div>
                                                     </div>
+
+                                                    {isSender && (
+                                                      <div className="w-7 h-7 mt-4 sm:w-10 sm:h-10 rounded-full border border-white/70 bg-[#FBB785] overflow-hidden flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0 text-white">
+                                                        {senderImage ? (
+                                                          <Image
+                                                            src={senderImage}
+                                                            alt="You"
+                                                            width={40}
+                                                            height={40}
+                                                            className="h-full w-full object-cover"
+                                                            unoptimized
+                                                          />
+                                                        ) : (
+                                                          getInitials(senderFallbackName) || 'NA'
+                                                        )}
+                                                      </div>
+                                                    )}
                                                   </div>
-                                                </div>
-                                              }
 
-
-                                              {isSender && !notificationMessage && !systemMessage && (
-                                                <div className="w-7 h-7 mt-4 sm:w-10 sm:h-10 rounded-full border border-white/70 bg-[#FBB785] overflow-hidden flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0 text-white">
-                                                  {senderImage ? (
-                                                    <Image
-                                                      src={senderImage}
-                                                      alt="You"
-                                                      width={40}
-                                                      height={40}
-                                                      className="h-full w-full object-cover"
-                                                      unoptimized
-                                                    />
-                                                  ) : (
-                                                    getInitials(senderFallbackName) || 'NA'
+                                                  {shouldShowInlineFileEvent && (
+                                                    <div className="flex justify-center rounded-xl text-center w-full pt-2 p-3">
+                                                      <div
+                                                        className={`shadow-md rounded-full w-fit px-8 py-3 ${isSender ? "bg-gray-200" : "bg-white"}`}
+                                                      >
+                                                        <div className="flex gap-2 items-center justify-center">
+                                                          <MdNotificationAdd size={20} />
+                                                          <p className="whitespace-pre-wrap break-words text-sm">
+                                                            {`${isSender ? "You" : receiverFallbackName} shared ${fileEventName}`}
+                                                          </p>
+                                                        </div>
+                                                        <div className="text-xs text-gray-400 px-2 mt-1 text-right">
+                                                          {formattedTime}
+                                                        </div>
+                                                      </div>
+                                                    </div>
                                                   )}
-                                                </div>
+                                                </>
                                               )}
                                             </div>
                                           );
@@ -6745,6 +7382,8 @@ export default function ChatBoxComponent(props: any) {
                                       <Paperclip className="h-4 w-4 text-blue-500" />
                                       <span>Image</span>
                                       <input
+                                        id="chat-upload-image"
+                                        name="chat-upload-image"
                                         type="file"
                                         className="hidden"
                                         onChange={handleFileChange}
@@ -6755,6 +7394,8 @@ export default function ChatBoxComponent(props: any) {
                                       <Play className="h-4 w-4 text-red-500" />
                                       <span>Video</span>
                                       <input
+                                        id="chat-upload-video"
+                                        name="chat-upload-video"
                                         type="file"
                                         className="hidden"
                                         onChange={handleFileChange}
@@ -6765,6 +7406,8 @@ export default function ChatBoxComponent(props: any) {
                                       <FileText className="h-4 w-4 text-gray-500" />
                                       <span>Document</span>
                                       <input
+                                        id="chat-upload-document"
+                                        name="chat-upload-document"
                                         type="file"
                                         className="hidden"
                                         onChange={handleFileChange}
@@ -6822,6 +7465,8 @@ export default function ChatBoxComponent(props: any) {
                             }}
                           >
                             <Input
+                              id="chat-message-input"
+                              name="chat-message-input"
                               className="flex-1 py-1 sm:py-2 px-2 sm:px-4 text-xs sm:text-sm border rounded-lg focus:outline-none"
                               placeholder={shouldLockChatInput
                                 ? normalizedNegotiationStatus === "DECLINED"
@@ -6886,7 +7531,7 @@ export default function ChatBoxComponent(props: any) {
                         <div className="pb-2">
                           <div className="relative">
                             <Image
-                              src={propertyData?.media?.photosList?.[0]?.lowRes || ""}
+                              src={propertyData?.media?.photosList?.[0]?.lowRes || "/placeholder.svg"}
                               alt={`Property Image `}
                               width={400}
                               height={100}
@@ -7001,13 +7646,25 @@ export default function ChatBoxComponent(props: any) {
                           </div>
                           <div className="mt-4">
                             <h4 className="font-semibold text-lg">Overview</h4>
-                            <span>{propertyData?.publicRemarks}</span>
+                            {isOverviewSummaryLoading && (
+                              <div className="my-2 space-y-2">
+                                <div className="h-3 w-full animate-pulse rounded bg-gray-200" />
+                                <div className="h-3 w-5/6 animate-pulse rounded bg-gray-200" />
+                              </div>
+                            )}
+                            <span>{displayOverviewText}</span>
 
                             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                               <DialogContent>
                                 <DialogHeader>
                                   <DialogTitle>Property Overview</DialogTitle>
-                                  <DialogDescription>{propertyData?.property?.descriptions?.[0]?.value}</DialogDescription>
+                                  {isOverviewSummaryLoading && (
+                                    <div className="my-2 space-y-2">
+                                      <div className="h-3 w-full animate-pulse rounded bg-gray-200" />
+                                      <div className="h-3 w-5/6 animate-pulse rounded bg-gray-200" />
+                                    </div>
+                                  )}
+                                  <DialogDescription>{displayOverviewText}</DialogDescription>
                                 </DialogHeader>
                                 <DialogClose asChild>
                                   <Button className="bg-orange-500 hover:bg-orange-600">Close</Button>
@@ -7070,12 +7727,12 @@ export default function ChatBoxComponent(props: any) {
                               </div>
                             ) : (
                               <div className="divide-y divide-gray-100">
-                                {invitedUsers.map((invitedUser) => {
+                                {invitedUsers.map((invitedUser, index) => {
                                   const styles = invitedUserStyles[invitedUser.status]
                                   const isExistingInviteDisabled = isInviteLimitReached
                                   return (
                                     <div
-                                      key={invitedUser.id}
+                                      key={`${invitedUser.id}-${invitedUser.email || "unknown"}-${index}`}
                                       className={`flex items-center justify-between gap-3 px-3 py-3 transition-colors ${isExistingInviteDisabled ? "opacity-60 bg-gray-50 cursor-not-allowed" : "hover:bg-gray-50"}`}
                                     >
                                       <div className="flex items-center gap-3 min-w-0">
@@ -7155,7 +7812,7 @@ export default function ChatBoxComponent(props: any) {
                                       ) : (
                                         mediaDocuments
                                           .filter((item) => item.kind === "image" || item.kind === "video")
-                                          .map((item) => {
+                                          .map((item, index) => {
                                             const createdDate = item.createdAt ? new Date(item.createdAt) : null
                                             const hasValidDate = createdDate instanceof Date && !Number.isNaN(createdDate.getTime())
                                             const timeLabel = hasValidDate
@@ -7163,7 +7820,7 @@ export default function ChatBoxComponent(props: any) {
                                               : "Unknown time"
                                             return (
                                               <button
-                                                key={item.id}
+                                                key={`${item.id}-${item.url}-${item.createdAt ?? ""}-${index}`}
                                                 type="button"
                                                 onClick={() => openMediaPreview(item.url, item.fileType)}
                                                 className="w-full text-left px-3 py-3 hover:bg-gray-50 transition-colors"
@@ -7216,7 +7873,7 @@ export default function ChatBoxComponent(props: any) {
                                       ) : (
                                         mediaDocuments
                                           .filter((item) => item.kind === "document")
-                                          .map((item) => {
+                                          .map((item, index) => {
                                             const createdDate = item.createdAt ? new Date(item.createdAt) : null
                                             const hasValidDate = createdDate instanceof Date && !Number.isNaN(createdDate.getTime())
                                             const timeLabel = hasValidDate
@@ -7224,7 +7881,7 @@ export default function ChatBoxComponent(props: any) {
                                               : "Unknown time"
                                             return (
                                               <button
-                                                key={item.id}
+                                                key={`${item.id}-${item.url}-${item.createdAt ?? ""}-${index}`}
                                                 type="button"
                                                 onClick={() => window.open(item.url, "_blank", "noopener,noreferrer")}
                                                 className="w-full text-left px-3 py-3 hover:bg-gray-50 transition-colors"

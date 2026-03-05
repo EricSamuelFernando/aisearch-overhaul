@@ -3,7 +3,7 @@ name: Deploying PROD ENV Terraform Resources in AWS
 on:
   push:
     branches:
-      - prod-deploy
+      - main
 
     paths: ['terraform/**', '.github/workflows/prod-deploy-terraform.yaml']
 

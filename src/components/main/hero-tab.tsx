@@ -1,12 +1,13 @@
 'use client';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useRef, useState } from 'react';
-import { askQuestion, searchProperties, cancelActiveTask, fetchHistory, fetchSessionDetails, clearHistoryAPI } from '@/lib/api';
-import type { QuestionPayload } from '@/lib/api';
+import { askQuestion, searchProperties, cancelActiveTask, fetchHistory, fetchSessionDetails, clearHistoryAPI, suggestAddresses } from '@/lib/api';
+import type { QuestionPayload, AddressSuggestion } from '@/lib/api';
+import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { detectIntent } from '@/lib/chatRouting';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
-import { Sparkles, Paperclip, X, ArrowUp, Mic, Search as SearchIcon, FileText, Image as ImageIcon, ChevronDown, ChevronUp, MapPin, School, Shield, Footprints, Thermometer, CloudSun, BedDouble, Bath, Square, Scaling, Calendar, Clock, TrendingUp, GraduationCap, Trees, Plus, Lightbulb, Droplets } from 'lucide-react';
+import { Sparkles, Paperclip, X, ArrowUp, Mic, Search as SearchIcon, FileText, Image as ImageIcon, ChevronDown, ChevronUp, MapPin, School, Shield, Footprints, Thermometer, CloudSun, BedDouble, Bath, Square, Scaling, Calendar, Clock, TrendingUp, GraduationCap, Trees, Plus, Lightbulb, Droplets, Home } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, ReferenceDot } from 'recharts';
 import SchoolMapPanel from '@/components/SchoolMapPanel';
@@ -47,6 +48,11 @@ type Suggestion = {
   text: string;
 }
 
+interface LocationSuggestion {
+  placeId: string;
+  description: string;
+}
+
 interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -81,13 +87,28 @@ type ForecastPoint = { date: string; rate: number };
 
 // Helper to bold text
 const renderTextWithBold = (text: string) => {
-  const parts = text.split(/(\*\*.*?\*\*)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={i} className="font-bold text-gray-900">{part.slice(2, -2)}</strong>;
-    }
-    return part;
-  });
+  const parseInlineBold = (value: string, keyPrefix: string) => {
+    const parts = value.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={`${keyPrefix}-${i}`} className="font-bold text-gray-900">{part.slice(2, -2)}</strong>;
+      }
+      return part;
+    });
+  };
+
+  const numberedPrefixMatch = text.match(/^(\d+\.)\s+(.*)$/);
+  if (numberedPrefixMatch) {
+    const [, prefix, rest] = numberedPrefixMatch;
+    return (
+      <>
+        <strong className="font-bold text-gray-900">{prefix}</strong>{' '}
+        {parseInlineBold(rest, 'num')}
+      </>
+    );
+  }
+
+  return parseInlineBold(text, 'inline');
 };
 
 // Helper to render table
@@ -165,26 +186,57 @@ const SNAP_YES_KEYWORDS = [
   'yes please'
 ];
 
-const DEFAULT_MAIN_SITE_URL = 'https://demo.snaphomz.com';
-
 const getMainSiteBaseUrl = () => {
-  const raw = process.env.NEXT_PUBLIC_MAIN_SITE_URL || DEFAULT_MAIN_SITE_URL;
-  return raw.replace(/\/+$/, '');
+  // If we are in the browser, dynamically get the current domain
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  // Fallback for Server-Side Rendering (SSR)
+  return '';
+};
+
+const pickFirstValidId = (candidates: any[]): string | undefined => {
+  for (const candidate of candidates) {
+    if (candidate === undefined || candidate === null) continue;
+    const raw = String(candidate).trim();
+    if (!raw) continue;
+    if (raw === '0' || /^null$/i.test(raw) || /^undefined$/i.test(raw)) continue;
+
+    // MLS/detail IDs should not be negative; skip them and try the next candidate.
+    if (/^-?\d+$/.test(raw)) {
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed) || parsed <= 0) continue;
+      return String(Math.trunc(parsed));
+    }
+
+    return raw;
+  }
+  return undefined;
 };
 
 const resolveListingId = (property: any) =>
-  property?.listingId ??
-  property?.listing_id ??
-  property?.ListingId ??
-  property?.mls_id ??
-  property?.id ??
-  property?.zpid;
+  pickFirstValidId([
+    property?.listingId,
+    property?.listing_id,
+    property?.ListingId,
+    property?.mls_id,
+    property?.zpid,
+    property?.propertyId,
+    property?.property_id,
+    property?.id,
+  ]);
 
 const resolvePropertyId = (property: any) =>
-  property?.propertyId ??
-  property?.property_id ??
-  property?.id ??
-  property?.zpid ??
+  pickFirstValidId([
+    property?.propertyId,
+    property?.property_id,
+    property?.zpid,
+    property?.id,
+    property?.listingId,
+    property?.listing_id,
+    property?.ListingId,
+    property?.mls_id,
+  ]) ??
   resolveListingId(property);
 
 const buildStableFallbackId = (property: any, prefix: string, index: number) => {
@@ -236,6 +288,118 @@ const toMainSitePropertyPreviewUrl = (property: any, fallbackQuery?: string) => 
   }
 
   return `${mainSiteBase}/buy/browse`;
+};
+
+const parseNumericValue = (value: any): number | null => {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const cleaned = value.replace(/[^0-9.-]/g, '');
+    if (!cleaned) return null;
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const buildPreviewFallbackListing = (property: any) => {
+  const listingId = resolveListingId(property);
+  const propertyId = resolvePropertyId(property);
+  const imageCandidates = Array.isArray(property?.images)
+    ? property.images
+    : Array.isArray(property?.photos)
+      ? property.photos
+      : [];
+  const galleryImages = imageCandidates
+    .map((img: any) => {
+      if (typeof img === 'string') return img;
+      return img?.highRes || img?.midRes || img?.lowRes || img?.url || null;
+    })
+    .filter(Boolean);
+  const primaryImage =
+    property?.image ||
+    property?.primaryListingImageUrl ||
+    property?.primaryImage ||
+    galleryImages[0] ||
+    null;
+  const photosList = (galleryImages.length ? galleryImages : primaryImage ? [primaryImage] : []).map((url: string) => ({
+    lowRes: url,
+    midRes: url,
+    highRes: url,
+    url,
+  }));
+  const rawAddress =
+    property?.address ||
+    property?.unparsedAddress ||
+    property?.streetAddress ||
+    property?.formattedAddress ||
+    '';
+  const listPriceValue = parseNumericValue(property?.listPrice ?? property?.price);
+
+  return {
+    listingId: listingId ?? propertyId,
+    propertyId: propertyId ?? listingId,
+    listPrice: listPriceValue ?? property?.listPrice ?? property?.price ?? null,
+    listPriceLow: listPriceValue ?? property?.listPrice ?? property?.price ?? null,
+    zpid: property?.zpid ?? propertyId ?? listingId,
+    address: {
+      unparsedAddress: rawAddress,
+      city: property?.city || '',
+      stateOrProvince: property?.state || property?.province || property?.stateOrProvince || '',
+      zipCode: property?.zipCode || property?.zipcode || property?.zip_code || '',
+      countyOrParish: property?.countyOrParish || '',
+    },
+    property: {
+      bedroomsTotal: parseNumericValue(property?.beds ?? property?.bedrooms ?? property?.bedroomTotal),
+      bathroomsTotal: parseNumericValue(property?.baths ?? property?.bathrooms ?? property?.bathroomTotal),
+      livingArea: parseNumericValue(property?.sqft ?? property?.livingArea),
+      yearBuilt: property?.yearBuilt || null,
+      propertyType: property?.propertyType || property?.homeType || property?.type || 'Residential',
+      hasPool: Boolean(property?.hasPool ?? property?.has_pool),
+      latitude: parseNumericValue(property?.latitude ?? property?.lat),
+      longitude: parseNumericValue(property?.longitude ?? property?.lon ?? property?.long),
+    },
+    homedetails: {
+      flooring: '',
+      fireplaceYn: false,
+    },
+    media: {
+      primaryListingImageUrl: primaryImage,
+      photosList,
+    },
+    publicRemarks: property?.description || '',
+    tags: Array.isArray(property?.features) ? property.features : [],
+    standardStatus: property?.homeStatus || property?.status || property?.mostRecentStatus || 'Active',
+    mostRecentStatus: property?.homeStatus || property?.status || property?.mostRecentStatus || 'Active',
+    daysOnMarket: property?.daysOnMarket ?? null,
+    listingContractDate: property?.listingContractDate ?? null,
+    latitude: parseNumericValue(property?.latitude ?? property?.lat),
+    longitude: parseNumericValue(property?.longitude ?? property?.lon ?? property?.long),
+    url: property?.listingUrl || property?.listing_url || property?.url || null,
+  };
+};
+
+const storePreviewFallback = (property: any) => {
+  if (typeof window === 'undefined') return;
+  const listingId = resolveListingId(property);
+  const propertyId = resolvePropertyId(property);
+  const cacheIds = [listingId, propertyId].filter(
+    (value): value is string => value !== undefined && value !== null && String(value).trim() !== ''
+  );
+  if (!cacheIds.length) return;
+
+  const fallbackPayload = {
+    listingId: String(listingId || propertyId),
+    listing: buildPreviewFallbackListing(property),
+  };
+
+  cacheIds.forEach((cacheId) => {
+    localStorage.setItem(
+      `snaphomz_preview_fallback_${String(cacheId)}`,
+      JSON.stringify(fallbackPayload)
+    );
+  });
 };
 
 const mapSnapProperties = (rawProperties: any[]) => {
@@ -532,6 +696,13 @@ export const HeroSearchForm = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  // Address autocomplete state
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
+  const [isLoadingAddressSuggestions, setIsLoadingAddressSuggestions] = useState(false);
+  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+  const [isLoadingLocationSuggestions, setIsLoadingLocationSuggestions] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   // Controls expansion state (Collapsed Search Bar vs Expanded Chat UI)
   const [isExpanded, setIsExpanded] = useState(false);
@@ -544,6 +715,7 @@ export const HeroSearchForm = ({
   // Session State for Conversation Persistence
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [recentSessions, setRecentSessions] = useState<any[]>([]);
+  const [mlsBypassMode, setMlsBypassMode] = useState(false);
   const [pendingLocationImage, setPendingLocationImage] = useState<File | null>(null);
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const [pendingImagePreview, setPendingImagePreview] = useState<string | null>(null);
@@ -561,6 +733,24 @@ export const HeroSearchForm = ({
     (assistantMode !== 'default' && (searchType?.toLowerCase() === 'agent' || !!isAgentPath));
 
   // Rent Vs Buy State
+
+  useEffect(() => {
+    setMlsBypassMode(isMlsBypassModeEnabled());
+
+    const handleBypassChange = (event: Event) => {
+      const customEvent = event as CustomEvent<boolean>;
+      if (typeof customEvent.detail === 'boolean') {
+        setMlsBypassMode(customEvent.detail);
+        return;
+      }
+      setMlsBypassMode(isMlsBypassModeEnabled());
+    };
+
+    window.addEventListener('snaphomz:mls-bypass-changed', handleBypassChange as EventListener);
+    return () => {
+      window.removeEventListener('snaphomz:mls-bypass-changed', handleBypassChange as EventListener);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -605,6 +795,45 @@ export const HeroSearchForm = ({
     }
     return () => clearInterval(interval);
   }, [isSearching]);
+
+  // Typing effect for placeholder
+  useEffect(() => {
+    const text = "Ask anything about homes, neighborhoods, schools";
+    let i = 0;
+    let isDeleting = false;
+    let timeoutId: NodeJS.Timeout;
+    let mounted = true;
+
+    const tick = () => {
+      if (!mounted) return;
+      setTypedPlaceholder(text.slice(0, i));
+
+      if (!isDeleting) {
+        if (i < text.length) {
+          i++;
+          timeoutId = setTimeout(tick, 60);
+        } else {
+          isDeleting = true;
+          timeoutId = setTimeout(tick, 4000);
+        }
+      } else {
+        if (i > 0) {
+          i--;
+          timeoutId = setTimeout(tick, 30);
+        } else {
+          isDeleting = false;
+          timeoutId = setTimeout(tick, 1000);
+        }
+      }
+    };
+
+    timeoutId = setTimeout(tick, 500);
+
+    return () => {
+      mounted = false;
+      clearTimeout(timeoutId);
+    };
+  }, []);
 
   // Chat History State (consolidated below)
 
@@ -694,11 +923,34 @@ export const HeroSearchForm = ({
   const [snapConfirmationMessageId, setSnapConfirmationMessageId] = useState<string | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchInputRef = useRef<HTMLTextAreaElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastIntentRef = useRef<string | null>(null);
+  const addressSuggestDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const locationSuggestDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [expandedSchoolLists, setExpandedSchoolLists] = useState<Record<string, boolean>>({});
   const [nearbySchoolsById, setNearbySchoolsById] = useState<Record<string, { status: 'idle' | 'loading' | 'ready' | 'error'; schools: any[]; error?: string; schoolType?: string; fallbackUsed?: boolean }>>({});
+
+  useEffect(() => {
+    return () => {
+      if (addressSuggestDebounceRef.current) {
+        clearTimeout(addressSuggestDebounceRef.current);
+      }
+      if (locationSuggestDebounceRef.current) {
+        clearTimeout(locationSuggestDebounceRef.current);
+      }
+    };
+  }, []);
+
+  const toggleMlsBypass = () => {
+    const next = !mlsBypassMode;
+    setMlsBypassModeEnabled(next);
+    setMlsBypassMode(next);
+    if (next) {
+      setSessionId(null);
+      setRecentSessions([]);
+    }
+  };
 
   const appendAssistantMessage = (content: string) => {
     const msgId = (Date.now() + Math.random()).toString();
@@ -1081,8 +1333,15 @@ export const HeroSearchForm = ({
   const handleSearchSubmit = async (queryToSearch: string) => {
     if (!queryToSearch.trim()) return;
 
-
-
+    // Direct MLS mode should behave like a normal search bar:
+    // skip chat expansion/conversation and route to the listings page.
+    if (mlsBypassMode && !pendingLocationImage) {
+      const destination = `/buy/browse?q=${encodeURIComponent(queryToSearch.trim())}`;
+      if (typeof window !== 'undefined') {
+        window.location.assign(destination);
+      }
+      return;
+    }
     setIsExpanded(true); // Immediate UI response
     if (onSearchStateChange) {
       onSearchStateChange(true, queryToSearch);
@@ -1117,6 +1376,7 @@ export const HeroSearchForm = ({
     // 2. Set Loading & Reset Input
     setIsSearching(true);
     setSearchTerm('');
+    if (searchInputRef.current) searchInputRef.current.style.height = 'auto'; // Reset textarea height
     setSelectedPropertyId(null);
     setExpandedPropertyId(null);
 
@@ -1740,6 +2000,7 @@ export const HeroSearchForm = ({
     setChatHistory(prev => [...prev, userMessage]);
 
     setSearchTerm('');
+    if (searchInputRef.current) searchInputRef.current.style.height = 'auto'; // Reset textarea height
     setPendingImage(null);
     pendingImageRef.current = null;
     setPendingImagePreview(null);
@@ -1916,8 +2177,26 @@ export const HeroSearchForm = ({
 
   // Strict Interaction Handlers
   const handlePropertyClick = (id: string | number) => {
-    // Only highlights the card. Does NOT toggle expansion.
-    setSelectedPropertyId(id === selectedPropertyId ? null : id);
+    // Select the card AND immediately expand details (no need to click "Show More")
+    if (id === selectedPropertyId) {
+      // Clicking the already-selected tile: deselect + collapse
+      setSelectedPropertyId(null);
+      setExpandedPropertyId(null);
+    } else {
+      setSelectedPropertyId(id);
+      // Find the property object from chat history to fetch schools
+      let foundProperty: any = null;
+      for (const msg of chatHistory) {
+        if (msg.relatedProperties) {
+          foundProperty = msg.relatedProperties.find((p: any) => p.id === id);
+          if (foundProperty) break;
+        }
+      }
+      setExpandedPropertyId(id);
+      if (foundProperty) {
+        fetchNearbySchools(foundProperty);
+      }
+    }
   };
 
   const handleExpandClick = (property: any, e: React.MouseEvent) => {
@@ -1976,9 +2255,27 @@ export const HeroSearchForm = ({
                 onSubmit={handleFormSubmit}
                 className="relative flex items-center w-full bg-transparent"
               >
-                {/* Left Sparkle Icon */}
+                {/* Left Ask AI Icon */}
                 <div className="pl-3 md:pl-2 flex-shrink-0">
-                  <Sparkles className="text-[#F58634] w-5 h-5 md:w-6 md:h-6" />
+                  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 md:w-6 md:h-6">
+                    <path d="M15.0645 1C22.8233 0.998533 29.122 7.31736 29.1221 15.1211V25.0967C29.1221 26.201 28.6985 27.1986 28.0068 27.9336L28.0049 27.9355C27.2517 28.7409 26.1847 29.2393 25.001 29.2393H5.12109C2.85069 29.2393 1 27.3893 1 25.0986V15.123C1 7.31903 7.30043 1 15.0645 1Z" fill="black" stroke="url(#askAiGradient)" strokeWidth="2"/>
+                    <mask id="askAiMask1" fill="white">
+                      <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z"/>
+                    </mask>
+                    <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" fill="white" stroke="white" strokeWidth="4" mask="url(#askAiMask1)"/>
+                    <mask id="askAiMask2" fill="white">
+                      <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z"/>
+                    </mask>
+                    <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" fill="white" stroke="white" strokeWidth="4" mask="url(#askAiMask2)"/>
+                    <defs>
+                      <linearGradient id="askAiGradient" x1="15.061" y1="0" x2="15.061" y2="30.2391" gradientUnits="userSpaceOnUse">
+                        <stop stopColor="#E8804C"/>
+                        <stop offset="0.5" stopColor="#E84C85"/>
+                        <stop offset="0.75" stopColor="#A64EBA"/>
+                        <stop offset="1" stopColor="#654FEF"/>
+                      </linearGradient>
+                    </defs>
+                  </svg>
                 </div>
 
                 {/* Input Field */}
@@ -1987,7 +2284,11 @@ export const HeroSearchForm = ({
                   <input
                     type="text"
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSearchTerm(val);
+                      fetchAddressSuggestions(val);
+                    }}
                     onFocus={() => setShowSuggestions(true)}
                     onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                     placeholder={placeholderText || typedPlaceholder}
@@ -1997,7 +2298,18 @@ export const HeroSearchForm = ({
 
                 {/* Right Actions */}
                 <div className="flex items-center gap-2 flex-shrink-0 pr-1">
-                  <div className="relative">
+                  <button
+                    type="button"
+                    onClick={toggleMlsBypass}
+                    title={!mlsBypassMode ? 'AI Search is ON' : 'AI Search is OFF'}
+                    className={`h-9 md:h-10 rounded-full px-4 text-sm font-semibold transition-colors border ${!mlsBypassMode
+                      ? 'bg-orange-50 text-[#F58634] border-orange-200'
+                      : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                      }`}
+                  >
+                    Ai Search
+                  </button>
+                  <div className="relative hidden md:block">
                     <div
                       className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
                       onClick={() => setShowAttachMenu(!showAttachMenu)}
@@ -2037,6 +2349,16 @@ export const HeroSearchForm = ({
                       )}
                     </AnimatePresence>
                   </div>
+                  {/* Mobile Compact Search Button */}
+                  <Button
+                    type='submit'
+                    disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
+                    className="md:hidden bg-[#F58634] hover:bg-[#E07224] text-white rounded-xl w-10 h-9 flex items-center justify-center transition-all shadow-md hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634] p-0"
+                  >
+                    <SearchIcon className="w-5 h-5" />
+                  </Button>
+
+                  {/* Desktop Begin Journey Button */}
                   <Button
                     type='submit'
                     disabled={!!pendingImage && pendingImageStatus !== 'ready'}
@@ -2078,6 +2400,99 @@ export const HeroSearchForm = ({
                     </div>
                   </motion.div>
                 )}
+
+                {/* ── Address Autocomplete Suggestions ── */}
+                {searchTerm && (showAddressSuggestions || isLoadingAddressSuggestions) && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="w-full border-t border-gray-100/50"
+                  >
+                    <div className="p-2 pt-3 text-left">
+                      <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-wider pl-3">
+                        Properties
+                      </p>
+                      <div className="space-y-0.5">
+                        {isLoadingAddressSuggestions ? (
+                          <div className="flex items-center gap-3 p-3 text-sm text-gray-400">
+                            <div className="w-4 h-4 border-2 border-orange-300 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                            Searching addresses…
+                          </div>
+                        ) : (
+                          addressSuggestions.map((suggestion, idx) => {
+                            // Split "123 Main St, City, State ZIP" into street vs city-state
+                            const commaIdx = suggestion.address.indexOf(',');
+                            const streetPart = commaIdx !== -1
+                              ? suggestion.address.slice(0, commaIdx).trim()
+                              : suggestion.address;
+                            const cityStatePart = commaIdx !== -1
+                              ? suggestion.address.slice(commaIdx + 1).trim()
+                              : '';
+                            return (
+                              <div
+                                key={suggestion.id || String(idx)}
+                                onMouseDown={() => handleAddressSuggestionClick(suggestion)}
+                                className="flex items-start gap-3 p-3 hover:bg-orange-50/50 rounded-xl cursor-pointer group transition-all"
+                              >
+                                <MapPin className="w-4 h-4 text-gray-300 group-hover:text-[#F58634] flex-shrink-0 mt-0.5 transition-colors" />
+                                <span className="flex flex-col min-w-0">
+                                  <span className="text-gray-800 font-semibold text-sm leading-snug truncate">
+                                    {streetPart}
+                                  </span>
+                                  {cityStatePart && (
+                                    <span className="text-gray-400 text-xs leading-snug truncate">
+                                      {cityStatePart}
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* ── Location (City/State) Autocomplete Suggestions ── */}
+                {searchTerm && (showLocationSuggestions || isLoadingLocationSuggestions) && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="w-full border-t border-gray-100/50"
+                  >
+                    <div className="p-2 pt-3 text-left">
+                      <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-wider pl-3">
+                        Locations
+                      </p>
+                      <div className="space-y-0.5">
+                        {isLoadingLocationSuggestions ? (
+                          <div className="flex items-center gap-3 p-3 text-sm text-gray-400">
+                            <div className="w-4 h-4 border-2 border-orange-300 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                            Searching locations...
+                          </div>
+                        ) : (
+                          locationSuggestions.map((suggestion, idx) => (
+                            <div
+                              key={suggestion.placeId || String(idx)}
+                              onMouseDown={() => handleLocationSuggestionClick(suggestion)}
+                              className="flex items-start gap-3 p-3 hover:bg-orange-50/50 rounded-xl cursor-pointer group transition-all"
+                            >
+                              <MapPin className="w-4 h-4 text-gray-300 group-hover:text-[#F58634] flex-shrink-0 mt-0.5 transition-colors" />
+                              <span className="text-gray-800 font-medium text-sm leading-snug truncate">
+                                {suggestion.description}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
               </AnimatePresence>
             </>
           ) : (
@@ -2094,18 +2509,31 @@ export const HeroSearchForm = ({
                 <div className="relative">
                   <div
                     onClick={() => setIsMenuOpen(!isMenuOpen)}
-                    className="bg-black text-white pl-1 pr-4 py-1 rounded-full flex items-center gap-3 shadow-md hover:bg-gray-800 transition-colors cursor-pointer group active:scale-95 duration-200 select-none"
+                    className="bg-black text-white pl-4 pr-4 py-2 rounded-full flex items-center gap-3 shadow-md hover:bg-gray-800 transition-colors cursor-pointer group active:scale-95 duration-200 select-none"
                   >
-                    <div className="relative w-8 h-8 flex-shrink-0">
-                      <Image
-                        src="/assets/images/snaphomz-icon-thick.png"
-                        alt="SnapHomz AI"
-                        fill
-                        className="object-contain"
-                      />
+                    <div className="relative flex-shrink-0 flex items-center justify-center">
+                      <svg width="24" height="24" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M15.0645 1C22.8233 0.998533 29.122 7.31736 29.1221 15.1211V25.0967C29.1221 26.201 28.6985 27.1986 28.0068 27.9336L28.0049 27.9355C27.2517 28.7409 26.1847 29.2393 25.001 29.2393H5.12109C2.85069 29.2393 1 27.3893 1 25.0986V15.123C1 7.31903 7.30043 1 15.0645 1Z" fill="black" stroke="url(#paint0_linear_1389_231_small)" style={{ fill: 'black', fillOpacity: 1 }} strokeWidth="2" />
+                        <mask id="path-2-inside-1_1389_231_small" fill="white">
+                          <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" />
+                        </mask>
+                        <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" fill="white" stroke="white" style={{ fill: 'white', fillOpacity: 1, stroke: 'white', strokeOpacity: 1 }} strokeWidth="4" mask="url(#path-2-inside-1_1389_231_small)" />
+                        <mask id="path-3-inside-2_1389_231_small" fill="white">
+                          <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" />
+                        </mask>
+                        <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" fill="white" stroke="white" style={{ fill: 'white', fillOpacity: 1, stroke: 'white', strokeOpacity: 1 }} strokeWidth="4" mask="url(#path-3-inside-2_1389_231_small)" />
+                        <defs>
+                          <linearGradient id="paint0_linear_1389_231_small" x1="15.061" y1="0" x2="15.061" y2="30.2391" gradientUnits="userSpaceOnUse">
+                            <stop stopColor="#E8804C" style={{ stopColor: 'color(display-p3 0.9098 0.5020 0.2980)' }} stopOpacity="1" />
+                            <stop offset="0.5" stopColor="#E84C85" style={{ stopColor: 'color(display-p3 0.9098 0.2980 0.5224)' }} stopOpacity="1" />
+                            <stop offset="0.75" stopColor="#A64EBA" style={{ stopColor: 'color(display-p3 0.6521 0.3044 0.7303)' }} stopOpacity="1" />
+                            <stop offset="1" stopColor="#654FEF" style={{ stopColor: 'color(display-p3 0.3944 0.3107 0.9382)' }} stopOpacity="1" />
+                          </linearGradient>
+                        </defs>
+                      </svg>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm tracking-wide">SnapHomz AI</span>
+                      <span className="font-semibold text-[15px] tracking-wide">Snaphomz AI</span>
                       <ChevronDown className={`w-4 h-4 text-gray-400 group-hover:text-white transition-transform duration-300 ${isMenuOpen ? 'rotate-180' : ''}`} />
                     </div>
                   </div>
@@ -2592,7 +3020,7 @@ export const HeroSearchForm = ({
                                   >
                                     {/* White Overlay for Inactive Effect */}
                                     {isAnySelected && !isActive && (
-                                      <div className="absolute inset-0 bg-white/60 backdrop-blur-[0.5px] z-20 pointer-events-none transition-opacity duration-300" />
+                                      <div className="absolute inset-0 bg-white/60 backdrop-blur-[0.5px] z-30 pointer-events-none transition-opacity duration-300" />
                                     )}
 
                                     <div className="h-52 w-full relative overflow-hidden bg-gray-100 flex-shrink-0">
@@ -2914,6 +3342,7 @@ export const HeroSearchForm = ({
                                       </button>
                                     </div>
                                   </div>
+
                                   {/* 5. VIEW FULL PROPERTY */}
                                   <div className="flex justify-center pb-4">
                                     <a
@@ -3064,11 +3493,22 @@ export const HeroSearchForm = ({
                         {renderPendingImageChip('expanded')}
                       </div>
                     )}
-                    <input
+                    <textarea
                       ref={searchInputRef}
-                      type="text"
                       value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSearchTerm(val);
+                        fetchAddressSuggestions(val);
+                        e.target.style.height = 'auto';
+                        e.target.style.height = e.target.scrollHeight + 'px';
+                      }}
+                      onFocus={() => setShowSuggestions(true)}
+                      onBlur={() => setTimeout(() => {
+                        setShowSuggestions(false);
+                        setShowAddressSuggestions(false);
+                        setShowLocationSuggestions(false);
+                      }, 200)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault();
@@ -3079,6 +3519,10 @@ export const HeroSearchForm = ({
                           } else {
                             handleSearchSubmit(searchTerm);
                           }
+                          // Reset height on submit
+                          if (searchInputRef.current) {
+                            searchInputRef.current.style.height = 'auto';
+                          }
                         }
                       }}
                       placeholder="Ask anything about homes, neighborhoods, schools"
@@ -3088,6 +3532,7 @@ export const HeroSearchForm = ({
                       <button className="text-gray-500 hover:text-gray-900 transition-colors">
                         <Mic className="w-5 h-5" />
                       </button>
+
                       <button
                         onClick={() => pendingImage ? submitPendingImage() : handleSearchSubmit(searchTerm)}
                         disabled={!!pendingImage && pendingImageStatus !== 'ready'}
@@ -3098,12 +3543,186 @@ export const HeroSearchForm = ({
                     </div>
                   </div>
                 </div>
+                <div className="mb-2 mt-1 flex items-center justify-between sm:hidden">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setSearchTerm('');
+                        setChatHistory([]);
+                        setSessionId(null);
+                        setIsSearching(false);
+                        setIsMenuOpen(false);
+                        setSelectedPropertyId(null);
+                        setExpandedPropertyId(null);
+                        setNearbySchoolsById({});
+                        if (onSearchStateChange) onSearchStateChange(true, '');
+                        setTimeout(() => searchInputRef.current?.focus(), 100);
+                      }}
+                      title="New Chat"
+                      className="h-10 w-10 rounded-full border border-gray-200 bg-white text-gray-600 flex items-center justify-center shadow-sm"
+                    >
+                      <Sparkles className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsMenuOpen(true);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      title="History"
+                      className="h-10 w-10 rounded-full border border-gray-200 bg-white text-gray-600 flex items-center justify-center shadow-sm"
+                    >
+                      <Clock className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={toggleMlsBypass}
+                    title={mlsBypassMode ? 'Direct MLS mode is ON (AI search bypassed)' : 'Use Direct MLS mode'}
+                    className={`h-10 rounded-full px-4 text-[12px] font-semibold border transition-colors ${mlsBypassMode
+                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                      : 'bg-white text-gray-600 border-gray-200'
+                      }`}
+                  >
+                    {mlsBypassMode ? 'MLS Mode' : 'AI Mode'}
+                  </button>
+                </div>
+
+                {/* Integrated Suggestions Dropdown for Expanded State */}
+                <AnimatePresence>
+                  {!searchTerm && showSuggestions && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="w-full border-t border-gray-100/50"
+                    >
+                      <div className="p-4 pt-4 text-left">
+                        <p className="text-[10px] font-bold text-gray-400 mb-3 uppercase tracking-wider pl-2">
+                          Try Asking
+                        </p>
+                        <div className="space-y-1">
+                          {suggestions.map((suggestion) => (
+                            <div
+                              key={suggestion.id}
+                              onMouseDown={() => handleSuggestionClick(suggestion.text)}
+                              className="flex items-center gap-3 p-3 hover:bg-orange-50/50 rounded-xl cursor-pointer group transition-all"
+                            >
+                              <SearchIcon className="w-4 h-4 text-gray-300 group-hover:text-[#F58634] transition-colors" />
+                              <span className="text-gray-600 group-hover:text-gray-900 font-medium text-sm transition-colors leading-snug">
+                                {suggestion.text}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* ── Address Autocomplete Suggestions ── */}
+                  {searchTerm && (showAddressSuggestions || isLoadingAddressSuggestions) && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="w-full border-t border-gray-100/50"
+                    >
+                      <div className="p-2 pt-3 text-left">
+                        <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-wider pl-3">
+                          Properties
+                        </p>
+                        <div className="space-y-0.5">
+                          {isLoadingAddressSuggestions ? (
+                            <div className="flex items-center gap-3 p-3 text-sm text-gray-400">
+                              <div className="w-4 h-4 border-2 border-orange-300 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                              Searching addresses…
+                            </div>
+                          ) : (
+                            addressSuggestions.map((suggestion, idx) => {
+                              // Split "123 Main St, City, State ZIP" into street vs city-state
+                              const commaIdx = suggestion.address.indexOf(',');
+                              const streetPart = commaIdx !== -1
+                                ? suggestion.address.slice(0, commaIdx).trim()
+                                : suggestion.address;
+                              const cityStatePart = commaIdx !== -1
+                                ? suggestion.address.slice(commaIdx + 1).trim()
+                                : '';
+                              return (
+                                <div
+                                  key={suggestion.id || String(idx)}
+                                  onMouseDown={() => handleAddressSuggestionClick(suggestion)}
+                                  className="flex items-start gap-3 p-3 hover:bg-orange-50/50 rounded-xl cursor-pointer group transition-all"
+                                >
+                                  <MapPin className="w-4 h-4 text-gray-300 group-hover:text-[#F58634] flex-shrink-0 mt-0.5 transition-colors" />
+                                  <span className="flex flex-col min-w-0">
+                                    <span className="text-gray-800 font-semibold text-sm leading-snug truncate">
+                                      {streetPart}
+                                    </span>
+                                    {cityStatePart && (
+                                      <span className="text-gray-400 text-xs leading-snug truncate">
+                                        {cityStatePart}
+                                      </span>
+                                    )}
+                                  </span>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* ── Location (City/State) Autocomplete Suggestions ── */}
+                  {searchTerm && (showLocationSuggestions || isLoadingLocationSuggestions) && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="w-full border-t border-gray-100/50"
+                    >
+                      <div className="p-2 pt-3 text-left">
+                        <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-wider pl-3">
+                          Locations
+                        </p>
+                        <div className="space-y-0.5">
+                          {isLoadingLocationSuggestions ? (
+                            <div className="flex items-center gap-3 p-3 text-sm text-gray-400">
+                              <div className="w-4 h-4 border-2 border-orange-300 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                              Searching locations...
+                            </div>
+                          ) : (
+                            locationSuggestions.map((suggestion, idx) => (
+                              <div
+                                key={suggestion.placeId || String(idx)}
+                                onMouseDown={() => handleLocationSuggestionClick(suggestion)}
+                                className="flex items-start gap-3 p-3 hover:bg-orange-50/50 rounded-xl cursor-pointer group transition-all"
+                              >
+                                <MapPin className="w-4 h-4 text-gray-300 group-hover:text-[#F58634] flex-shrink-0 mt-0.5 transition-colors" />
+                                <span className="text-gray-800 font-medium text-sm leading-snug truncate">
+                                  {suggestion.description}
+                                </span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* 3. Disclaimer */}
-                <div className="text-center">
-                  <p className="text-xs text-gray-400">
+                <div className="px-2 text-center">
+                  <p className="text-[11px] sm:text-xs text-gray-400">
                     Snapz AI can make mistakes. Consider checking important information.
                   </p>
+                  {mlsBypassMode && (
+                    <p className="mt-1 text-[11px] text-amber-600">
+                      Direct MLS mode enabled: AI chat answers/history are bypassed for search reliability.
+                    </p>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -3113,3 +3732,4 @@ export const HeroSearchForm = ({
     </div>
   );
 };
+

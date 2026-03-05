@@ -17,7 +17,7 @@ env:
 jobs:
   apply-terraform-prod:
     name: Deploy PROD ENV Terraform Resources
-    if: ${{ inputs.run_apply == 'PROD-APPLY' && github.ref_name == 'prod-deploy' }}
+    if: ${{ inputs.run_apply == 'PROD-APPLY' && github.ref_name == 'main' }}
     runs-on: ubuntu-latest
 
     defaults:
@@ -46,7 +46,7 @@ jobs:
 
   apply-terraform-demo:
     name: Deploy DEMO ENV Terraform Resources
-    if: ${{ inputs.run_apply == 'DEMO-APPLY' && github.ref_name == 'demo-deploy' }}
+    if: ${{ inputs.run_apply == 'DEMO-APPLY' && github.ref_name == 'release' }}
     runs-on: ubuntu-latest
 
     defaults:

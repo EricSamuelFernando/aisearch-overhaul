@@ -38,12 +38,14 @@ const progressMapping: Record<BuyerOnboardingProgress, ProgressMappingType> = {
 type PropertyPreferenceModalProps = {
   isOpen: boolean;
   onClose: () => void;
+  onSkip?: () => void;
   onComplete?: () => void;
 };
 
 const PropertyPreferenceModal: React.FC<PropertyPreferenceModalProps> = ({
   isOpen,
   onClose,
+  onSkip,
   onComplete,
 }) => {
   const progress = useAppSelector(buyerOnboardProgress);
@@ -53,15 +55,15 @@ const PropertyPreferenceModal: React.FC<PropertyPreferenceModalProps> = ({
     <CustomModal
       isOpen={isOpen}
       onClose={onClose}
-      contentClassName='w-full max-w-3xl'
+      contentClassName='w-[calc(100vw-2rem)] max-w-3xl overflow-x-hidden p-5 sm:p-8'
     >
-      <div className='flex items-center justify-between'>
-        <h3 className='text-xl font-semibold text-black'>Buyer Preference</h3>
+      <div className='flex items-center justify-between gap-3'>
+        <h3 className='text-lg font-semibold text-black sm:text-xl'>Buyer Preference</h3>
         <Button
           variant='ghost'
           roundness='full'
-          className='border border-black px-6 py-2 text-ocOrange'
-          onClick={onClose}
+          className='h-10 border border-black px-5 py-2 text-ocOrange'
+          onClick={onSkip || onClose}
         >
           Skip
         </Button>
@@ -83,8 +85,9 @@ const PropertyPreferenceModal: React.FC<PropertyPreferenceModalProps> = ({
       <div className='mt-8'>
         <BuyerProgressButton
           onComplete={onComplete}
-          onSkip={onClose}
+          onSkip={onSkip || onClose}
           cancelLabel='Skip'
+          hideCancel
         />
       </div>
     </CustomModal>

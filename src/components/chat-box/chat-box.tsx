@@ -3909,17 +3909,21 @@ export default function ChatBoxComponent(props: any) {
 
   const getThreadDetails = async (id: string) => {
     try {
-      await getThreadById.mutateAsync(id ?? threadId, {
-        onSuccess: async (data: any) => {
-          const participants = await [
-            ...(data?.buyerAgent ? [data.buyerAgent] : []),
-            ...(data?.sellerAgent ? [data.sellerAgent] : []),
-            ...(data?.user ? [data.user] : []),
-            ...(Array.isArray(data?.participants) ? data.participants.map((p: any) => p?.user || p).filter(Boolean) : []),
-          ];
-          handleThreadSelection(data, participants)
-        },
-      });
+      console.log("[chat-box] getThreadDetails called with id:", id);
+      const data = await getThreadById.mutateAsync(id ?? threadId);
+      console.log("[chat-box] getThreadDetails success:", data?.id, data?.threadName);
+      if (data) {
+        const participants = [
+          ...(data?.buyerAgent ? [data.buyerAgent] : []),
+          ...(data?.sellerAgent ? [data.sellerAgent] : []),
+          ...(data?.user ? [data.user] : []),
+          ...(Array.isArray(data?.participants) ? data.participants.map((p: any) => p?.user || p).filter(Boolean) : []),
+        ];
+        handleThreadSelection(data, participants);
+      } else {
+        console.warn("[chat-box] getThreadDetails returned null/undefined for id:", id);
+        selectThreadById(id);
+      }
     } catch (err) {
       console.error("[chat-box] Failed to fetch thread details for id:", id, err);
       selectThreadById(id);
@@ -4607,27 +4611,20 @@ export default function ChatBoxComponent(props: any) {
         }
       }
 
-      // 2️⃣ Send message via WebSocket
-      socket.sendMessage({
-        threadId: currentThreadId,
-        userId: userData.id,
-        receiverId: resolvedReceiverId || undefined,
-        messageType: hasFile ? "file" : "text",
-        message: hasFile ? fileUrl : message,
-        fileType: hasFile ? selectedFile?.type : undefined, // ✅ FIX
-
-      });
-
-      // 3️⃣ Optimistic UI update
+      // 2️⃣ Optimistic UI update with temp ID for rollback
+      const tempId = `temp-${Date.now()}`;
+      const messageContent = hasFile ? fileUrl : message;
+      const msgType = hasFile ? "file" : "text";
       setPendingNewMessageCount(0);
       setMessages((prev: any) => [
         {
+          id: tempId,
           threadId: currentThreadId,
           senderId: userData.id,
           receiverId: resolvedReceiverId,
-          messageType: hasFile ? "file" : "text",
-          message: hasFile ? fileUrl : message,
-          fileType: hasFile ? selectedFile?.type : undefined, // ✅ FIX
+          messageType: msgType,
+          message: messageContent,
+          fileType: hasFile ? selectedFile?.type : undefined,
           createdAt: new Date().toISOString(),
           file: hasFile
             ? {
@@ -4640,6 +4637,32 @@ export default function ChatBoxComponent(props: any) {
         },
         ...prev,
       ]);
+
+      // 3️⃣ Send message via WebSocket (Lambda saves to DB + broadcasts)
+      // Listen for response to detect failures and roll back optimistic update
+      const handleResponse = (response: any) => {
+        socket.off('sendMessage_response', handleResponse);
+        const isError = response?.status === 'error' || response?.data?.status === 'error';
+        if (isError) {
+          const errMsg = response?.data?.message || response?.message || 'Failed to send message';
+          console.error('[handleSendMessage] Lambda rejected message:', errMsg);
+          error({ message: errMsg });
+          // Remove optimistic message
+          setMessages((prev: any) => prev.filter((m: any) => m.id !== tempId));
+        }
+      };
+      socket.on('sendMessage_response', handleResponse);
+      // Cleanup listener after 10s in case no response
+      setTimeout(() => socket.off('sendMessage_response', handleResponse), 10000);
+
+      socket.sendMessage({
+        threadId: currentThreadId,
+        userId: userData.id,
+        receiverId: resolvedReceiverId || undefined,
+        messageType: msgType,
+        message: messageContent,
+        fileType: hasFile ? selectedFile?.type : undefined,
+      });
 
       // 4️⃣ Cleanup
       setMessage("");
@@ -5088,6 +5111,7 @@ export default function ChatBoxComponent(props: any) {
   }, [appendIncomingMessage, setState, socket, state?.newMessage, state?.selectedChannel?.id, selectedThread, selectedThreadDetail?.id, threadId]);
 
   useEffect(() => {
+    console.log("[chat-box] Thread restore useEffect - threadId:", threadId);
     if (threadId) {
       getThreadDetails(threadId);
     }

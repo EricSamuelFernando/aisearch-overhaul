@@ -616,10 +616,24 @@ function SocketProvider({ children }: { children: ReactNode }) {
   // Re-emit userConnected whenever socket connects/reconnects or user ID becomes available
   useEffect(() => {
     if (!socket || !user?.id) return;
+    const userId = user.id;
+
+    // Emit immediately if already connected
     if (socket.connected) {
-      socket.emit('userConnected', { userId: user.id });
-      console.log('[SocketContext] Re-emitted userConnected for userId:', user.id);
+      socket.emit('userConnected', { userId });
+      console.log('[SocketContext] Re-emitted userConnected for userId:', userId);
     }
+
+    // Also re-emit on every reconnect (socket object stays same, but connection resets)
+    const handleReconnect = () => {
+      socket.emit('userConnected', { userId });
+      console.log('[SocketContext] Reconnect — re-emitted userConnected for userId:', userId);
+    };
+    socket.on('connect', handleReconnect);
+
+    return () => {
+      socket.off('connect', handleReconnect);
+    };
   }, [socket, user?.id]);
 
   // Handle incoming messages - only using backend-supported events

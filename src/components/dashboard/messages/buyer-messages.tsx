@@ -21,6 +21,12 @@ interface ThreadInterface {
 function BuyerMessagesPanel() {
   const [loading, setLoading] = useState(false);
   const [threads, setThreads] = useState<ThreadInterface[] | []>([]);
+  const [restoredThreadId] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('threadId') || undefined;
+    }
+    return undefined;
+  });
   const [isRead, setIsRead] = useState(false);
   const [search, setSearch] = useState('');
   const [, setMessageThreads] = useAtom(messageThreadsAtom);
@@ -119,6 +125,7 @@ function BuyerMessagesPanel() {
 
   return (
     <ChatBoxComponent
+      threadId={restoredThreadId}
       loading={loading}
       setLoading={setLoading}
       threads={threads}

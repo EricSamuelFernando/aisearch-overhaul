@@ -49,20 +49,20 @@ const WhoWeCompany = () => {
         <div className="absolute inset-0 bg-black/10" />
 
         <div className="relative w-full max-w-6xl">
-          <div className="h-[180px] sm:h-[220px] lg:h-[520px]" />
+          <div className="h-[300px] sm:h-[220px] lg:h-[520px]" />
 
           <div className="w-full lg:hidden">
-            <div className="scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto overflow-y-hidden scroll-smooth px-1 pb-2 sm:gap-6 sm:px-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <div className="snap-center min-w-[85%] rounded-2xl bg-[#F7E9D7] px-5 py-7 text-center shadow-[0_20px_60px_rgba(0,0,0,0.25)] sm:min-w-[300px] sm:px-6 sm:py-8">
-                <h3 className="mb-2 text-lg font-semibold">People Driven</h3>
+            <div className="scrollbar-hide flex snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-hidden scroll-smooth px-3 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="snap-start w-[72%] shrink-0 rounded-[24px] bg-[#EADCC8] px-5 py-7 text-center shadow-[0_18px_48px_rgba(0,0,0,0.22)] sm:w-[300px] sm:px-6 sm:py-8">
+                <h3 className="mb-2 text-[17px] font-semibold leading-tight sm:text-lg sm:leading-tight">People Driven</h3>
                 <p className="text-sm leading-relaxed text-[#777675]">
                   Human connections at the heart of every interaction and
                   decision.
                 </p>
               </div>
 
-              <div className="snap-center min-w-[85%] rounded-2xl bg-[#F7E9D7] px-5 py-7 text-center shadow-[0_20px_60px_rgba(0,0,0,0.25)] sm:min-w-[300px] sm:px-6 sm:py-8">
-                <h3 className="mb-2 text-lg font-semibold">
+              <div className="snap-start w-[72%] shrink-0 rounded-[24px] bg-[#EADCC8] px-5 py-7 text-center shadow-[0_18px_48px_rgba(0,0,0,0.22)] sm:w-[300px] sm:px-6 sm:py-8">
+                <h3 className="mb-2 text-[17px] font-semibold leading-tight sm:text-lg sm:leading-tight">
                   Open House. Open Mind
                 </h3>
                 <p className="text-sm leading-relaxed text-[#777675]">
@@ -71,8 +71,8 @@ const WhoWeCompany = () => {
                 </p>
               </div>
 
-              <div className="snap-center min-w-[85%] rounded-2xl bg-[#F7E9D7] px-5 py-7 text-center shadow-[0_20px_60px_rgba(0,0,0,0.25)] sm:min-w-[300px] sm:px-6 sm:py-8">
-                <h3 className="mb-2 text-lg font-semibold">Digital Edge</h3>
+              <div className="snap-start w-[72%] shrink-0 rounded-[24px] bg-[#EADCC8] px-5 py-7 text-center shadow-[0_18px_48px_rgba(0,0,0,0.22)] sm:w-[300px] sm:px-6 sm:py-8">
+                <h3 className="mb-2 text-[17px] font-semibold leading-tight sm:text-lg sm:leading-tight">Digital Edge</h3>
                 <p className="text-sm leading-relaxed text-[#777675]">
                   We build revolutionary digital solutions to disrupt
                   traditional real estate.

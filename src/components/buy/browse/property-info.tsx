@@ -17,7 +17,7 @@ import { PROPERTY_SEARCH_AI_URL } from '@/shared/constants/env';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import debounce from 'lodash.debounce';
-import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
+import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { Grid2X2, Map, MapPinned, Search, X } from 'lucide-react';
 import PropertyComparisonModal from '../property-comparison-model';
 
@@ -51,7 +51,25 @@ function PropertyBrowseView({ }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const query = searchParams.get('q');
-  const isMlsMode = isMlsBypassModeEnabled();
+  const [isMlsMode, setIsMlsMode] = useState(false);
+
+  useEffect(() => {
+    setIsMlsMode(isMlsBypassModeEnabled());
+    const handleBypassChange = (event: Event) => {
+      const customEvent = event as CustomEvent<boolean>;
+      if (typeof customEvent.detail === 'boolean') {
+        setIsMlsMode(customEvent.detail);
+        return;
+      }
+      setIsMlsMode(isMlsBypassModeEnabled());
+    };
+
+    window.addEventListener('snaphomz:mls-bypass-changed', handleBypassChange as EventListener);
+    return () => {
+      window.removeEventListener('snaphomz:mls-bypass-changed', handleBypassChange as EventListener);
+    };
+  }, []);
+
   const activeSearchFilters = useMemo(() => ({
     bedrooms: Number(searchParams.get('bedRooms') || '') || undefined,
     bathrooms: Number(searchParams.get('bathRooms') || '') || undefined,
@@ -113,15 +131,15 @@ function PropertyBrowseView({ }: Props) {
 
     const prompts = isMlsMode
       ? [
-          'Enter an address, city, neighborhood, or ZIP',
-          'Try: Manhattan Beach, CA',
-          'Try: Los Angeles, CA 90049',
-        ]
+        'Enter an address, city, neighborhood, or ZIP',
+        'Try: Manhattan Beach, CA',
+        'Try: Los Angeles, CA 90049',
+      ]
       : [
-          'Show me homes in Los Angeles under 2M',
-          'Find 3-bedroom homes in Manhattan Beach',
-          'Homes near top-rated schools in Irvine',
-        ];
+        'Show me homes in Los Angeles under 2M',
+        'Find 3-bedroom homes in Manhattan Beach',
+        'Homes near top-rated schools in Irvine',
+      ];
 
     const prompt = prompts[topSearchPromptIndex % prompts.length];
     const doneTyping = topSearchCharIndex >= prompt.length;
@@ -304,6 +322,126 @@ function PropertyBrowseView({ }: Props) {
       <>
         <section className="relative mb-0 flex-1 min-h-0 w-full px-4 pb-0 md:px-6">
           <div className="relative h-full min-h-0 w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <div className="pointer-events-none absolute left-0 right-0 top-0 z-30 px-3 py-3 lg:hidden">
+            <div className="pointer-events-auto rounded-xl border border-gray-200 bg-white/95 p-2 shadow-sm backdrop-blur">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                  {resultCount} result{resultCount === 1 ? '' : 's'}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowCompactFilters((prev) => !prev)}
+                    className={cn(
+                      'inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition',
+                      showCompactFilters
+                        ? 'border-gray-300 bg-gray-900 text-white'
+                        : 'border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200',
+                    )}
+                  >
+                    Filter
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => savePropertyView('map')}
+                    className={cn(
+                      'inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium',
+                      currentView === 'map'
+                        ? 'bg-gray-900 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+                    )}
+                  >
+                    <Map className="h-3.5 w-3.5" />
+                    Map
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => savePropertyView('grid')}
+                    className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200"
+                  >
+                    <Grid2X2 className="h-3.5 w-3.5" />
+                    Grid
+                  </button>
+                </div>
+              </div>
+              {showCompactFilters ? (
+                <div className="mt-2 rounded-xl border border-gray-200 bg-white p-2.5 shadow-sm">
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="flex flex-col gap-1">
+                      <span className="px-1 text-[11px] font-medium text-gray-500">Min price</span>
+                      <input
+                        inputMode="numeric"
+                        value={draftPriceMin}
+                        onChange={(e) => setDraftPriceMin(e.target.value.replace(/[^\d]/g, ''))}
+                        placeholder="$ Min"
+                        className="block w-full appearance-none rounded-full border border-gray-300 bg-white px-3 text-sm text-gray-900 shadow-sm outline-none placeholder:text-gray-400 focus:border-gray-400"
+                        style={{ height: 36, minHeight: 36, lineHeight: '36px' }}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="px-1 text-[11px] font-medium text-gray-500">Max price</span>
+                      <input
+                        inputMode="numeric"
+                        value={draftPriceMax}
+                        onChange={(e) => setDraftPriceMax(e.target.value.replace(/[^\d]/g, ''))}
+                        placeholder="$ Max"
+                        className="block w-full appearance-none rounded-full border border-gray-300 bg-white px-3 text-sm text-gray-900 shadow-sm outline-none placeholder:text-gray-400 focus:border-gray-400"
+                        style={{ height: 36, minHeight: 36, lineHeight: '36px' }}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="px-1 text-[11px] font-medium text-gray-500">Beds (min)</span>
+                      <select
+                        value={draftBeds}
+                        onChange={(e) => setDraftBeds(e.target.value)}
+                        className="block w-full appearance-none rounded-full border border-gray-300 bg-white px-3 pr-8 text-sm text-gray-900 shadow-sm outline-none focus:border-gray-400"
+                        style={{ height: 36, minHeight: 36 }}
+                      >
+                        <option value="">Beds+</option>
+                        <option value="1">1+</option>
+                        <option value="2">2+</option>
+                        <option value="3">3+</option>
+                        <option value="4">4+</option>
+                        <option value="5">5+</option>
+                      </select>
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="px-1 text-[11px] font-medium text-gray-500">Baths (min)</span>
+                      <select
+                        value={draftBaths}
+                        onChange={(e) => setDraftBaths(e.target.value)}
+                        className="block w-full appearance-none rounded-full border border-gray-300 bg-white px-3 pr-8 text-sm text-gray-900 shadow-sm outline-none focus:border-gray-400"
+                        style={{ height: 36, minHeight: 36 }}
+                      >
+                        <option value="">Baths+</option>
+                        <option value="1">1+</option>
+                        <option value="2">2+</option>
+                        <option value="3">3+</option>
+                        <option value="4">4+</option>
+                        <option value="5">5+</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={clearCompactFilters}
+                      className="text-xs font-medium text-gray-500 hover:text-gray-700"
+                    >
+                      Clear all
+                    </button>
+                    <button
+                      type="button"
+                      onClick={applyCompactFilters}
+                      className="rounded-full bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-800"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
           <div ref={mapRef} className="absolute inset-0">
             <CustomMap
               width="100%"
@@ -332,267 +470,269 @@ function PropertyBrowseView({ }: Props) {
             />
           </div>
 
-          <div className="pointer-events-none absolute inset-y-0 left-0 z-20 hidden w-[620px] max-w-[44vw] lg:block">
-            <div className="pointer-events-auto relative flex h-full flex-col border-r border-gray-200 bg-[#f7f7f7]">
-              <div className="border-b border-gray-200 bg-white px-4 py-3">
-                <form onSubmit={handleTopSearchSubmit} className="relative z-30 flex items-center gap-2">
-                  <div className="relative min-w-0 flex-1 rounded-2xl border border-gray-300 bg-white shadow-sm ring-1 ring-black/5 transition focus-within:border-gray-400 focus-within:ring-2 focus-within:ring-orange-200">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <SpeechInput
-                      value={topSearchValue}
-                      setValue={setTopSearchValue}
-                      searchType={isMlsMode ? 'address' : 'nlp'}
-                      placeholderText={topSearchAnimatedPlaceholder}
-                      className="w-full"
-                      inputClassName="h-11 w-full rounded-2xl border-0 bg-transparent pl-10 pr-28 text-sm text-gray-900 shadow-none outline-none ring-0 placeholder:text-gray-400 focus-visible:ring-0"
-                    />
-                    <span
-                      className={cn(
-                        'pointer-events-none absolute right-10 top-1/2 -translate-y-1/2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
-                        isMlsMode
-                          ? 'bg-gray-100 text-gray-600 ring-1 ring-gray-200'
-                          : 'bg-orange-50 text-orange-700 ring-1 ring-orange-200'
-                      )}
-                    >
-                      {isMlsMode ? 'AI Off' : 'AI On'}
-                    </span>
-                    {topSearchValue ? (
+            <div className="pointer-events-none absolute inset-y-0 left-0 z-20 hidden w-[620px] max-w-[44vw] lg:block">
+              <div className="pointer-events-auto relative flex h-full flex-col border-r border-gray-200 bg-[#f7f7f7]">
+                <div className="border-b border-gray-200 bg-white px-4 py-3">
+                  <form onSubmit={handleTopSearchSubmit} className="relative z-30 flex items-center gap-2">
+                    <div className="relative min-w-0 flex-1 rounded-2xl border border-gray-300 bg-white shadow-sm ring-1 ring-black/5 transition focus-within:border-gray-400 focus-within:ring-2 focus-within:ring-orange-200">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                      <SpeechInput
+                        value={topSearchValue}
+                        setValue={setTopSearchValue}
+                        searchType={isMlsMode ? 'address' : 'nlp'}
+                        placeholderText={topSearchAnimatedPlaceholder}
+                        className="w-full"
+                        inputClassName="h-11 w-full rounded-2xl border-0 bg-transparent pl-10 pr-28 text-sm text-gray-900 shadow-none outline-none ring-0 placeholder:text-gray-400 focus-visible:ring-0"
+                      />
                       <button
                         type="button"
-                        onClick={() => setTopSearchValue('')}
-                        className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                        aria-label="Clear search"
+                        onClick={() => setMlsBypassModeEnabled(!isMlsMode)}
+                        className={cn(
+                          'absolute right-10 top-1/2 -translate-y-1/2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition-colors',
+                          isMlsMode
+                            ? 'bg-gray-100 text-gray-600 ring-1 ring-gray-200 hover:bg-gray-200'
+                            : 'bg-orange-50 text-[#F58634] ring-1 ring-orange-200 hover:bg-orange-100'
+                        )}
                       >
-                        <X className="h-3.5 w-3.5" />
+                        AI Search
                       </button>
-                    ) : null}
-                  </div>
-                  <button
-                    type="submit"
-                    className="h-11 shrink-0 rounded-2xl bg-ocOrange px-4 text-sm font-semibold text-white shadow-sm hover:brightness-95"
-                  >
-                    Search
-                  </button>
-                </form>
+                      {topSearchValue ? (
+                        <button
+                          type="button"
+                          onClick={() => setTopSearchValue('')}
+                          className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                          aria-label="Clear search"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      ) : null}
+                    </div>
+                    <button
+                      type="submit"
+                      className="h-11 shrink-0 rounded-2xl bg-ocOrange px-4 text-sm font-semibold text-white shadow-sm hover:brightness-95"
+                    >
+                      Search
+                    </button>
+                  </form>
 
-                <div className="mt-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                  <MapPinned className="h-3.5 w-3.5" />
-                  {query ? `Results for ${query}` : 'Search Results'}
-                  <span className="normal-case tracking-normal text-gray-400">•</span>
-                  <span className="normal-case tracking-normal text-gray-600">
-                    {resultCount.toLocaleString()} result{resultCount === 1 ? '' : 's'}
-                  </span>
-                </div>
-
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setShowCompactFilters((prev) => !prev)}
-                    className={cn(
-                      'inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition',
-                      showCompactFilters
-                        ? 'border-gray-300 bg-gray-900 text-white'
-                        : 'border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200',
-                    )}
-                  >
-                    Filter
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => savePropertyView('map')}
-                    className={cn(
-                      'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium',
-                      currentView === 'map'
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-                    )}
-                  >
-                    <Map className="h-3.5 w-3.5" />
-                    Map
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => savePropertyView('grid')}
-                    className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
-                  >
-                    <Grid2X2 className="h-3.5 w-3.5" />
-                    Grid
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCompareMode(!isCompareMode);
-                      if (isCompareMode) clearCompareProperties();
-                    }}
-                    className={cn(
-                      'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium',
-                      isCompareMode
-                        ? 'bg-ocOrange text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-                    )}
-                  >
-                    {isCompareMode ? 'Cancel Compare' : 'Compare'}
-                  </button>
-                  {isCompareMode ? (
-                    <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-700">
-                      {selectedCompareProperties.length} selected
+                  <div className="mt-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                    <MapPinned className="h-3.5 w-3.5" />
+                    {query ? `Results for ${query}` : 'Search Results'}
+                    <span className="normal-case tracking-normal text-gray-400">•</span>
+                    <span className="normal-case tracking-normal text-gray-600">
+                      {resultCount.toLocaleString()} result{resultCount === 1 ? '' : 's'}
                     </span>
-                  ) : null}
-                  {hasDrawFilter ? (
+                  </div>
+
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setShowCompactFilters((prev) => !prev)}
+                      className={cn(
+                        'inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition',
+                        showCompactFilters
+                          ? 'border-gray-300 bg-gray-900 text-white'
+                          : 'border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200',
+                      )}
+                    >
+                      Filter
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => savePropertyView('map')}
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium',
+                        currentView === 'map'
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+                      )}
+                    >
+                      <Map className="h-3.5 w-3.5" />
+                      Map
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => savePropertyView('grid')}
+                      className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
+                    >
+                      <Grid2X2 className="h-3.5 w-3.5" />
+                      Grid
+                    </button>
                     <button
                       type="button"
                       onClick={() => {
-                        setDrawFilteredPropertyIds(null);
-                        setClearDrawSignal((prev) => prev + 1);
+                        setCompareMode(!isCompareMode);
+                        if (isCompareMode) clearCompareProperties();
                       }}
-                      className="rounded-full bg-orange-50 px-2.5 py-1 text-orange-700 hover:bg-orange-100"
+                      className={cn(
+                        'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium',
+                        isCompareMode
+                          ? 'bg-ocOrange text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+                      )}
                     >
-                      Draw Area: {drawFilteredPropertyIds?.length ?? 0} (Clear)
+                      {isCompareMode ? 'Cancel Compare' : 'Compare'}
                     </button>
+                    {isCompareMode ? (
+                      <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-700">
+                        {selectedCompareProperties.length} selected
+                      </span>
+                    ) : null}
+                    {hasDrawFilter ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDrawFilteredPropertyIds(null);
+                          setClearDrawSignal((prev) => prev + 1);
+                        }}
+                        className="rounded-full bg-orange-50 px-2.5 py-1 text-orange-700 hover:bg-orange-100"
+                      >
+                        Draw Area: {drawFilteredPropertyIds?.length ?? 0} (Clear)
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {showCompactFilters ? (
+                    <div className="mt-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="flex flex-col gap-1">
+                          <span className="px-1 text-[11px] font-medium text-gray-500">Min price</span>
+                          <input
+                            inputMode="numeric"
+                            value={draftPriceMin}
+                            onChange={(e) => setDraftPriceMin(e.target.value.replace(/[^\d]/g, ''))}
+                            placeholder="$ Min"
+                            className="block w-full appearance-none rounded-full border border-gray-300 bg-white px-3 text-sm text-gray-900 shadow-sm outline-none placeholder:text-gray-400 focus:border-gray-400"
+                            style={{ height: 40, minHeight: 40, lineHeight: '40px' }}
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1">
+                          <span className="px-1 text-[11px] font-medium text-gray-500">Max price</span>
+                          <input
+                            inputMode="numeric"
+                            value={draftPriceMax}
+                            onChange={(e) => setDraftPriceMax(e.target.value.replace(/[^\d]/g, ''))}
+                            placeholder="$ Max"
+                            className="block w-full appearance-none rounded-full border border-gray-300 bg-white px-3 text-sm text-gray-900 shadow-sm outline-none placeholder:text-gray-400 focus:border-gray-400"
+                            style={{ height: 40, minHeight: 40, lineHeight: '40px' }}
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1">
+                          <span className="px-1 text-[11px] font-medium text-gray-500">Beds (min)</span>
+                          <select
+                            value={draftBeds}
+                            onChange={(e) => setDraftBeds(e.target.value)}
+                            className="block w-full appearance-none rounded-full border border-gray-300 bg-white px-3 pr-8 text-sm text-gray-900 shadow-sm outline-none focus:border-gray-400"
+                            style={{ height: 40, minHeight: 40 }}
+                          >
+                            <option value="">Beds+</option>
+                            <option value="1">1+</option>
+                            <option value="2">2+</option>
+                            <option value="3">3+</option>
+                            <option value="4">4+</option>
+                            <option value="5">5+</option>
+                          </select>
+                        </label>
+                        <label className="flex flex-col gap-1">
+                          <span className="px-1 text-[11px] font-medium text-gray-500">Baths (min)</span>
+                          <select
+                            value={draftBaths}
+                            onChange={(e) => setDraftBaths(e.target.value)}
+                            className="block w-full appearance-none rounded-full border border-gray-300 bg-white px-3 pr-8 text-sm text-gray-900 shadow-sm outline-none focus:border-gray-400"
+                            style={{ height: 40, minHeight: 40 }}
+                          >
+                            <option value="">Baths+</option>
+                            <option value="1">1+</option>
+                            <option value="2">2+</option>
+                            <option value="3">3+</option>
+                            <option value="4">4+</option>
+                            <option value="5">5+</option>
+                          </select>
+                        </label>
+                      </div>
+                      <div className="mt-3 flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={clearCompactFilters}
+                          className="text-xs font-medium text-gray-500 hover:text-gray-700"
+                        >
+                          Clear all
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowCompactFilters(false)}
+                            className="rounded-full border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                          >
+                            Close
+                          </button>
+                          <button
+                            type="button"
+                            onClick={applyCompactFilters}
+                            className="rounded-full bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-800"
+                          >
+                            Apply
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   ) : null}
                 </div>
 
-                {showCompactFilters ? (
-                  <div className="mt-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
-                    <div className="grid grid-cols-2 gap-2">
-                      <label className="flex flex-col gap-1">
-                        <span className="px-1 text-[11px] font-medium text-gray-500">Min price</span>
-                        <input
-                          inputMode="numeric"
-                          value={draftPriceMin}
-                          onChange={(e) => setDraftPriceMin(e.target.value.replace(/[^\d]/g, ''))}
-                          placeholder="$ Min"
-                          className="block w-full appearance-none rounded-full border border-gray-300 bg-white px-3 text-sm text-gray-900 shadow-sm outline-none placeholder:text-gray-400 focus:border-gray-400"
-                          style={{ height: 40, minHeight: 40, lineHeight: '40px' }}
-                        />
-                      </label>
-                      <label className="flex flex-col gap-1">
-                        <span className="px-1 text-[11px] font-medium text-gray-500">Max price</span>
-                        <input
-                          inputMode="numeric"
-                          value={draftPriceMax}
-                          onChange={(e) => setDraftPriceMax(e.target.value.replace(/[^\d]/g, ''))}
-                          placeholder="$ Max"
-                          className="block w-full appearance-none rounded-full border border-gray-300 bg-white px-3 text-sm text-gray-900 shadow-sm outline-none placeholder:text-gray-400 focus:border-gray-400"
-                          style={{ height: 40, minHeight: 40, lineHeight: '40px' }}
-                        />
-                      </label>
-                      <label className="flex flex-col gap-1">
-                        <span className="px-1 text-[11px] font-medium text-gray-500">Beds (min)</span>
-                        <select
-                          value={draftBeds}
-                          onChange={(e) => setDraftBeds(e.target.value)}
-                          className="block w-full appearance-none rounded-full border border-gray-300 bg-white px-3 pr-8 text-sm text-gray-900 shadow-sm outline-none focus:border-gray-400"
-                          style={{ height: 40, minHeight: 40 }}
-                        >
-                          <option value="">Beds+</option>
-                          <option value="1">1+</option>
-                          <option value="2">2+</option>
-                          <option value="3">3+</option>
-                          <option value="4">4+</option>
-                          <option value="5">5+</option>
-                        </select>
-                      </label>
-                      <label className="flex flex-col gap-1">
-                        <span className="px-1 text-[11px] font-medium text-gray-500">Baths (min)</span>
-                        <select
-                          value={draftBaths}
-                          onChange={(e) => setDraftBaths(e.target.value)}
-                          className="block w-full appearance-none rounded-full border border-gray-300 bg-white px-3 pr-8 text-sm text-gray-900 shadow-sm outline-none focus:border-gray-400"
-                          style={{ height: 40, minHeight: 40 }}
-                        >
-                          <option value="">Baths+</option>
-                          <option value="1">1+</option>
-                          <option value="2">2+</option>
-                          <option value="3">3+</option>
-                          <option value="4">4+</option>
-                          <option value="5">5+</option>
-                        </select>
-                      </label>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                      <button
-                        type="button"
-                        onClick={clearCompactFilters}
-                        className="text-xs font-medium text-gray-500 hover:text-gray-700"
-                      >
-                        Clear all
-                      </button>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setShowCompactFilters(false)}
-                          className="rounded-full border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                        >
-                          Close
-                        </button>
-                        <button
-                          type="button"
-                          onClick={applyCompactFilters}
-                          className="rounded-full bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-800"
-                        >
-                          Apply
-                        </button>
-                      </div>
-                    </div>
+                <div className="min-h-0 flex-1 overflow-hidden p-3">
+                  <BuyPropertyCards
+                    selectedProperty={selectedProperty}
+                    propertiesOverride={displayedProperties}
+                    overlayMode
+                  />
+                </div>
+
+                {isCompareMode ? (
+                  <div className="pointer-events-none absolute bottom-52 left-1/2 z-40 -translate-x-1/2">
+                    <button
+                      type="button"
+                      onClick={() => setShowCompareModal(true)}
+                      disabled={selectedCompareProperties.length < 2}
+                      className={cn(
+                        'pointer-events-auto inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-lg transition',
+                        selectedCompareProperties.length >= 2
+                          ? 'bg-ocOrange text-white hover:brightness-95'
+                          : 'cursor-not-allowed bg-white/95 text-gray-400 ring-1 ring-gray-200'
+                      )}
+                    >
+                      Compare
+                      <span className={cn(
+                        'rounded-full px-2 py-0.5 text-[11px] font-semibold',
+                        selectedCompareProperties.length >= 2
+                          ? 'bg-white/20 text-white'
+                          : 'bg-gray-100 text-gray-500'
+                      )}>
+                        {selectedCompareProperties.length}
+                      </span>
+                    </button>
                   </div>
                 ) : null}
               </div>
+            </div>
+          </div>
 
-              <div className="min-h-0 flex-1 overflow-hidden p-3">
-                <BuyPropertyCards
-                  selectedProperty={selectedProperty}
-                  propertiesOverride={displayedProperties}
-                  overlayMode
-                />
+          <div className="mt-3 lg:hidden">
+            <div className="mb-2 rounded-xl border border-gray-200 bg-white px-3 py-2">
+              <div className="text-sm font-semibold text-gray-900">
+                {query ? `Results for ${query}` : 'Listings'}
               </div>
-
-              {isCompareMode ? (
-                <div className="pointer-events-none absolute bottom-52 left-1/2 z-40 -translate-x-1/2">
-                  <button
-                    type="button"
-                    onClick={() => setShowCompareModal(true)}
-                    disabled={selectedCompareProperties.length < 2}
-                    className={cn(
-                      'pointer-events-auto inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-lg transition',
-                      selectedCompareProperties.length >= 2
-                        ? 'bg-ocOrange text-white hover:brightness-95'
-                        : 'cursor-not-allowed bg-white/95 text-gray-400 ring-1 ring-gray-200'
-                    )}
-                  >
-                    Compare
-                    <span className={cn(
-                      'rounded-full px-2 py-0.5 text-[11px] font-semibold',
-                      selectedCompareProperties.length >= 2
-                        ? 'bg-white/20 text-white'
-                        : 'bg-gray-100 text-gray-500'
-                    )}>
-                      {selectedCompareProperties.length}
-                    </span>
-                  </button>
-                </div>
-              ) : null}
+              <div className="mt-1 text-xs text-gray-600">
+                {resultCount} listing{resultCount === 1 ? '' : 's'}
+                {hasDrawFilter ? ` • Draw Area: ${drawFilteredPropertyIds?.length ?? 0}` : ''}
+              </div>
             </div>
-          </div>
-        </div>
-
-        <div className="mt-3 lg:hidden">
-          <div className="mb-2 rounded-xl border border-gray-200 bg-white px-3 py-2">
-            <div className="text-sm font-semibold text-gray-900">
-              {query ? `Results for ${query}` : 'Listings'}
+            <div className="max-h-[60vh] overflow-y-auto overscroll-contain">
+              <BuyPropertyCards
+                selectedProperty={selectedProperty}
+                propertiesOverride={displayedProperties}
+                overlayMode
+              />
             </div>
-            <div className="mt-1 text-xs text-gray-600">
-              {resultCount} listing{resultCount === 1 ? '' : 's'}
-              {hasDrawFilter ? ` • Draw Area: ${drawFilteredPropertyIds?.length ?? 0}` : ''}
-            </div>
-          </div>
-          <div className="max-h-[60vh] overflow-y-auto overscroll-contain">
-            <BuyPropertyCards
-              selectedProperty={selectedProperty}
-              propertiesOverride={displayedProperties}
-              overlayMode
-            />
-          </div>
           </div>
         </section>
         <PropertyComparisonModal
@@ -608,58 +748,58 @@ function PropertyBrowseView({ }: Props) {
       <section
         className="relative mb-20 mx-auto grid w-full max-w-[1600px] grid-cols-5 gap-x-8"
       >
-      {/* Property Cards */}
-      <div
-        ref={divRef}
-        // className={cn(
-        //   'px-4 md:px-8',
-        //   currentView === 'map' ? 'col-span-3 px-[3.12rem]' : 'col-span-5',
-        // )}
-        className={cn(
-          'px-4 md:px-6',
-          'col-span-5',
-        )}
-      >
-        <BuyPropertyCards selectedProperty={selectedProperty} propertiesOverride={displayedProperties} />
-      </div>
-
-      {currentView !== 'grid' ? (
+        {/* Property Cards */}
         <div
-          ref={mapRef}
-        className={cn(
-          'relative w-full px-4 md:px-6 lg:px-0',
-          isMapPinned ? 'lg:sticky lg:top-[88px]' : 'lg:relative',
-          'h-[420px] sm:h-[500px] lg:h-[calc(100vh-230px)]'
+          ref={divRef}
+          // className={cn(
+          //   'px-4 md:px-8',
+          //   currentView === 'map' ? 'col-span-3 px-[3.12rem]' : 'col-span-5',
+          // )}
+          className={cn(
+            'px-4 md:px-6',
+            'col-span-5',
           )}
         >
-          <CustomMap
-            width="100%"
-            coord={coordinates}
-            zoom={13}
-            properties={displayedProperties}
-            height="100%"
-            searchQuery={query ?? ''}
-            showDistricts={mapOverlay === 'schools'}
-            overlayValue={mapOverlay}
-            onOverlayChange={setMapOverlay}
-            onMarkerClick={(id: string) => setSelectedProperty(id)}
-            onDrawFilterChange={(ids) => {
-              setDrawFilteredPropertyIds(ids);
-              if (!ids || ids.length === 0) return;
-              if (selectedProperty && !ids.includes(String(selectedProperty))) {
-                setSelectedProperty('');
-              }
-            }}
-            clearDrawSignal={clearDrawSignal}
-            onMapMove={(center) => {
-              if (isMlsMode) return;
-              sendSearchRequest({ latitude: center.lat, longitude: center.lng });
-            }}
-          />
+          <BuyPropertyCards selectedProperty={selectedProperty} propertiesOverride={displayedProperties} />
         </div>
-      ) : null}
 
-      {/* Fixed Map on Right */}
+        {currentView !== 'grid' ? (
+          <div
+            ref={mapRef}
+            className={cn(
+              'relative w-full px-4 md:px-6 lg:px-0',
+              isMapPinned ? 'lg:sticky lg:top-[88px]' : 'lg:relative',
+              'h-[420px] sm:h-[500px] lg:h-[calc(100vh-230px)]'
+            )}
+          >
+            <CustomMap
+              width="100%"
+              coord={coordinates}
+              zoom={13}
+              properties={displayedProperties}
+              height="100%"
+              searchQuery={query ?? ''}
+              showDistricts={mapOverlay === 'schools'}
+              overlayValue={mapOverlay}
+              onOverlayChange={setMapOverlay}
+              onMarkerClick={(id: string) => setSelectedProperty(id)}
+              onDrawFilterChange={(ids) => {
+                setDrawFilteredPropertyIds(ids);
+                if (!ids || ids.length === 0) return;
+                if (selectedProperty && !ids.includes(String(selectedProperty))) {
+                  setSelectedProperty('');
+                }
+              }}
+              clearDrawSignal={clearDrawSignal}
+              onMapMove={(center) => {
+                if (isMlsMode) return;
+                sendSearchRequest({ latitude: center.lat, longitude: center.lng });
+              }}
+            />
+          </div>
+        ) : null}
+
+        {/* Fixed Map on Right */}
       </section>
       <PropertyComparisonModal
         isOpen={showCompareModal}

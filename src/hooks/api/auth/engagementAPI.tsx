@@ -2,14 +2,18 @@ import { useAppDispatch } from '@/lib/hook';
 import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import { useSelector } from 'react-redux';
+import { getAuthToken } from '@/lib/storage';
 
 export const usePropertyAPI = (handleCb?: () => void) => {
-  const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql";
+  const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/auth/graphql";
   const dispatch = useAppDispatch();
   const engagementData = useSelector((state: any) => state.questions.engagementData);
   const propertyEngagementMutation = useMutation({
     mutationKey: ['property-engagement-mutation'],
     mutationFn: async (propertyEngagementData: any) => {
+      const token = getAuthToken();
+      console.log('[engagementAPI] Creating engagement with userId:', propertyEngagementData?.userId, 'propertyId:', propertyEngagementData?.propertyId);
+      
       const response = await axios.post(GRAPHQL_URI, {
         query: `
                   mutation createEngagement($createPropertyEngagementData: PropertyEngagementDTO!) {
@@ -21,8 +25,20 @@ export const usePropertyAPI = (handleCb?: () => void) => {
         variables: {
           createPropertyEngagementData: propertyEngagementData,
         },
+      }, {
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
       });
 
+      if (response.data.errors) {
+        console.error('[engagementAPI] GraphQL error in response:', response.data.errors);
+        throw new Error(response.data.errors[0].message);
+      }
+
+      const engagementId = response.data?.data?.createEngagement?.id;
+      console.log('[engagementAPI] Engagement created successfully:', engagementId);
       return response.data;
     },
 
@@ -37,7 +53,7 @@ export const usePropertyAPI = (handleCb?: () => void) => {
     },
 
     onError: (err: any) => {
-      console.log(err, 'line');
+      console.error('[engagementAPI] Error creating engagement:', err);
     },
   });
 
@@ -78,4 +94,3 @@ export const usePropertyAPI = (handleCb?: () => void) => {
     propertyProgressMutation
   };
 };
-

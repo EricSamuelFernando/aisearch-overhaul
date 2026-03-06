@@ -6039,7 +6039,7 @@ export default function ChatBoxComponent(props: any) {
               engagementId: usedEngagementId,
             });
 
-            if (inviteResult?.success && inviteResult?.agentId) {
+            if (inviteResult?.agentId) {
               agentIdForThread = inviteResult.agentId;
             }
           } catch (inviteError: any) {
@@ -6059,6 +6059,13 @@ export default function ChatBoxComponent(props: any) {
       }
 
       // Step 2: Proceed to create the thread with a (hopefully valid) agentId object mapping
+      if (isExternalAgent && agentIdForThread === rawAgentId) {
+        console.error('[chat-box] Failed to resolve external agent to a valid user ID. Aborting thread creation.');
+        error({ message: 'Unable to start chat: Agent profile is not yet linked to our messaging system.' });
+        setIsCreatingThread(false);
+        return;
+      }
+
       const agentIdField = resolveAgentIdField();
       const payload: Record<string, any> = {
         propertyId: '',

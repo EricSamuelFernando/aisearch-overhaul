@@ -8,6 +8,7 @@ import EmblaCarousel from "@/components/customs/carousel/embla-carousel";
 
 interface PropertyCardProps {
   listing: any;
+  compareMode?: boolean;
   isSelected?: boolean;
   compareDisabled?: boolean;
   onToggleCompare?: () => void;
@@ -15,6 +16,7 @@ interface PropertyCardProps {
 
 const PropertyCardHomes: React.FC<PropertyCardProps> = ({
   listing,
+  compareMode,
   isSelected,
   compareDisabled,
   onToggleCompare,
@@ -28,6 +30,11 @@ const PropertyCardHomes: React.FC<PropertyCardProps> = ({
   // ✅ Click handlers
   const handleClick = (e: React.MouseEvent) => {
     if (carouselEvent) return;
+    if (compareMode && typeof onToggleCompare === "function") {
+      e.preventDefault();
+      onToggleCompare();
+      return;
+    }
     const targetId =
       listing?.listingId ||
       listing?.listing?.listingId ||

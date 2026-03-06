@@ -2,10 +2,10 @@ import Image from 'next/image';
 
 export default function BuyOrRent() {
   return (
-    <section className='flex w-full min-h-full flex-col items-center justify-start gap-6 bg-[#FFF6EC] px-4 py-6 text-[#1b120d] sm:justify-center sm:gap-12 sm:px-6 sm:py-0 md:px-12 lg:px-24'>
+    <section className='home-rent-section flex w-full min-h-full flex-col items-center justify-start gap-6 bg-[#FFF6EC] px-4 py-6 text-[#1b120d] sm:justify-center sm:gap-12 sm:px-6 sm:py-0 md:px-12 lg:px-24 xl:px-28 2xl:px-32'>
       {/* Heading */}
-      <div className='max-w-2xl text-center'>
-        <h1 className='text-2xl font-semibold leading-tight text-[#2C1F18] sm:text-4xl md:text-5xl'>
+      <div className='max-w-2xl xl:max-w-3xl text-center'>
+        <h1 className='text-2xl font-semibold leading-tight text-[#2C1F18] sm:text-4xl md:text-5xl xl:text-6xl'>
           Buy <span className='font-light'>Or</span> Rent?
         </h1>
         <p className='mt-2 max-w-xl text-xs leading-relaxed text-[#6E645A] sm:mt-6 sm:text-base md:text-lg'>
@@ -27,7 +27,7 @@ export default function BuyOrRent() {
       </div> */}
 
       <div
-        className='flex w-full max-w-3xl flex-col 
+        className='flex w-full max-w-3xl xl:max-w-5xl flex-col 
      items-center gap-3 rounded-[10px] bg-[#FDF2E2] p-3 
      sm:flex-row sm:justify-between sm:p-2 sm:pl-6'
       >
@@ -50,7 +50,7 @@ export default function BuyOrRent() {
       </div>
 
       {/* Feature Grid */}
-      <div className='grid w-full max-w-3xl grid-cols-2 gap-3 sm:gap-6'>
+      <div className='grid w-full max-w-3xl xl:max-w-5xl grid-cols-2 gap-3 sm:gap-6 xl:gap-8'>
         {/* Card 1 */}
         <div className='flex items-center gap-2 rounded-xl bg-[#f1dfc8] p-3 shadow sm:gap-4 sm:p-6'>
           <div className='relative h-8 w-8 sm:h-14 sm:w-14'>

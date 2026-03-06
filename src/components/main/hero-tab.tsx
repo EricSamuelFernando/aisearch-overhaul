@@ -846,6 +846,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   const locationSuggestDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [expandedSchoolLists, setExpandedSchoolLists] = useState<Record<string, boolean>>({});
   const [nearbySchoolsById, setNearbySchoolsById] = useState<Record<string, { status: 'idle' | 'loading' | 'ready' | 'error'; schools: any[]; error?: string; schoolType?: string; fallbackUsed?: boolean }>>({});
+  const requestedSchoolsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     return () => {
@@ -2184,6 +2185,10 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     if (existing && (existing.status === 'loading' || existing.status === 'ready')) {
       return;
     }
+    if (requestedSchoolsRef.current.has(key) && existing?.status !== 'error') {
+      return;
+    }
+    requestedSchoolsRef.current.add(key);
 
     if (!options?.silent) {
       setNearbySchoolsById(prev => ({
@@ -2228,6 +2233,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
       }));
     } catch (err: any) {
       console.error('[Schools] Nearby fetch error:', err);
+      requestedSchoolsRef.current.delete(key);
       setNearbySchoolsById(prev => ({
         ...prev,
         [key]: { status: 'error', schools: [], error: err?.message || 'Failed to fetch' }
@@ -2964,12 +2970,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                     <div className="h-44 sm:h-48 md:h-56 lg:h-52 w-full relative overflow-hidden bg-[#F8F9FA] flex-shrink-0 flex items-center justify-center">
                                       <Home className="w-10 h-10 text-gray-300 absolute z-0" />
                                       {property.image && property.image.trim() !== '' && (
-                                        <Image
+                                        <img
                                           src={property.image}
                                           alt="Property"
-                                          fill
-                                          unoptimized={true}
-                                          className="object-cover transition-transform duration-700 group-hover:scale-105 z-10"
+                                          loading="lazy"
+                                          decoding="async"
+                                          className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105 z-10"
                                           onError={(e) => {
                                             if (e.currentTarget) {
                                               e.currentTarget.style.display = 'none';
@@ -3113,12 +3119,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                     <div className="flex overflow-x-auto gap-3 sm:gap-5 w-full pb-3 sm:pb-4 no-scrollbar snap-x snap-mandatory" style={{ scrollBehavior: 'smooth' }}>
                                       {selectedProp.images.map((img: string, idx: number) => (
                                         <div key={idx} className="relative flex-shrink-0 w-[85%] md:w-[320px] h-[170px] sm:h-[240px] rounded-[16px] sm:rounded-[20px] overflow-hidden shadow-sm group snap-center border border-gray-100">
-                                          <Image
+                                          <img
                                             src={img}
                                             alt={`Gallery ${idx}`}
-                                            fill
-                                            unoptimized={true}
-                                            className="object-cover transition-transform duration-700 group-hover:scale-105"
+                                            loading="lazy"
+                                            decoding="async"
+                                            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                                           />
                                         </div>
                                       ))}

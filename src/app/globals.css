@@ -1590,6 +1590,133 @@ input:-webkit-autofill {
   }
 }
 
+@media (min-width: 1536px) {
+  .home-hero {
+    min-height: 760px;
+    height: 760px;
+    max-height: 760px;
+  }
+
+  .home-hero-arc {
+    width: 1400px !important;
+    height: 980px !important;
+    top: 7rem !important;
+  }
+
+  .home-hero-content {
+    max-width: 1720px !important;
+    margin-top: 8.5rem !important;
+    gap: 2.5rem !important;
+  }
+
+  .home-hero-title {
+    font-size: 3.8rem;
+    line-height: 1.1;
+  }
+
+  .home-hero-subtitle {
+    font-size: 1.1rem;
+  }
+
+  .home-hero-search-wrap {
+    max-width: 1700px;
+  }
+
+  .home-choose-section,
+  .home-easy-section,
+  .home-rent-section {
+    padding-left: 3rem;
+    padding-right: 3rem;
+  }
+
+  .home-choose-container {
+    max-width: 1320px;
+  }
+
+  .home-choose-title,
+  .home-easy-title {
+    font-size: 3rem;
+  }
+
+  .home-choose-subtitle,
+  .home-easy-subtitle,
+  .home-clients-subtitle {
+    max-width: 760px;
+    font-size: 1rem;
+  }
+
+  .home-choose-grid {
+    gap: 2rem;
+  }
+
+  .home-choose-card {
+    flex: 1 1 0%;
+    max-width: 620px;
+  }
+
+  .home-easy-container {
+    max-width: 1540px;
+  }
+
+  .home-easy-tabs {
+    max-width: 980px !important;
+  }
+
+  .home-college-container,
+  .home-mortgage-container,
+  .home-clients-container {
+    max-width: 1540px;
+  }
+
+  .home-clients-section {
+    padding-left: 3rem;
+    padding-right: 3rem;
+  }
+
+  .home-clients-title {
+    font-size: 3rem;
+  }
+
+  .home-clients-card {
+    min-height: 420px;
+  }
+
+  .home-sections>*+* {
+    margin-top: 4.5rem;
+  }
+}
+
+@media (min-width: 1920px) {
+  .home-hero {
+    min-height: 820px;
+    height: 820px;
+    max-height: 820px;
+  }
+
+  .home-hero-arc {
+    width: 1520px !important;
+    height: 1060px !important;
+    top: 6.8rem !important;
+  }
+
+  .home-hero-title {
+    font-size: 4.25rem;
+  }
+
+  .home-choose-container,
+  .home-easy-container,
+  .home-college-container,
+  .home-mortgage-container,
+  .home-clients-container,
+  .home-footer {
+    max-width: 1760px;
+  }
+
+  .home-sections>*+* {
+    margin-top: 5.25rem;
+  }
+}
+
 
 [data-sonner-toast] [data-close-button] {
   display: none !important;

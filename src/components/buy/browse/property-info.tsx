@@ -266,7 +266,8 @@ function PropertyBrowseView({ }: Props) {
           ...activeSearchFilters,
           ...body,
           query,
-          radius: 20
+          radius: 20,
+          user: user?.id
         });
 
         const newProperties = response?.data?.records || response?.data?.result?.records;

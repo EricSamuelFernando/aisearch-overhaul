@@ -2323,148 +2323,135 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 className="relative flex items-center w-full bg-transparent gap-2 md:gap-3"
               >
                 <div className="flex-1 min-w-0 flex items-center rounded-[22px] border border-[#ECECEC] bg-white px-2.5 py-2 md:border-0 md:rounded-none md:bg-transparent md:p-0">
-                {/* Left Ask AI Icon */}
-                <div className="pl-1 md:pl-2 flex-shrink-0">
-                  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 md:w-6 md:h-6">
-                    <path d="M15.0645 1C22.8233 0.998533 29.122 7.31736 29.1221 15.1211V25.0967C29.1221 26.201 28.6985 27.1986 28.0068 27.9336L28.0049 27.9355C27.2517 28.7409 26.1847 29.2393 25.001 29.2393H5.12109C2.85069 29.2393 1 27.3893 1 25.0986V15.123C1 7.31903 7.30043 1 15.0645 1Z" fill="black" stroke="url(#askAiGradient)" strokeWidth="2"/>
-                    <mask id="askAiMask1" fill="white">
-                      <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" />
-                    </mask>
-                    <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" fill="white" stroke="white" strokeWidth="4" mask="url(#askAiMask1)" />
-                    <mask id="askAiMask2" fill="white">
-                      <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" />
-                    </mask>
-                    <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" fill="white" stroke="white" strokeWidth="4" mask="url(#askAiMask2)" />
-                    <defs>
-                      <linearGradient id="askAiGradient" x1="15.061" y1="0" x2="15.061" y2="30.2391" gradientUnits="userSpaceOnUse">
-                        <stop stopColor="#E8804C" />
-                        <stop offset="0.5" stopColor="#E84C85" />
-                        <stop offset="0.75" stopColor="#A64EBA" />
-                        <stop offset="1" stopColor="#654FEF" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                </div>
-                <div className="mx-2 h-9 w-px bg-[#8A6444]/45 md:hidden" />
-
-                {/* Input Field */}
-                <div className="flex-1 min-w-0 flex items-center gap-2 md:gap-3">
-                  {renderPendingImageChip('collapsed')}
-                  <textarea
-                    value={searchTerm}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setSearchTerm(val);
-                      fetchAddressSuggestions(val);
-                    }}
-                    onFocus={() => setShowSuggestions(true)}
-                    onBlur={() => setTimeout(() => {
-                      setShowSuggestions(false);
-                      setShowAddressSuggestions(false);
-                      setShowLocationSuggestions(false);
-                    }, 200)}
-                    placeholder={
-                      pendingImage
-                        ? 'Add city, ZIP, or coordinates\nfor this image'
-                        : ((placeholderText || typedPlaceholder).replace(', ', ',\n'))
-                    }
-                    rows={2}
-                    className="md:hidden flex-1 min-w-0 bg-transparent outline-none px-1 py-0.5 text-gray-700 placeholder:text-gray-400 text-[12px] font-medium leading-[1.25] resize-none overflow-hidden"
-                  />
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setSearchTerm(val);
-                      fetchAddressSuggestions(val);
-                    }}
-                    onFocus={() => setShowSuggestions(true)}
-                    onBlur={() => setTimeout(() => {
-                      setShowSuggestions(false);
-                      setShowAddressSuggestions(false);
-                      setShowLocationSuggestions(false);
-                    }, 200)}
-                    placeholder={pendingImage ? 'Add city, ZIP, or coordinates for this image' : (placeholderText || typedPlaceholder)}
-                    className="hidden md:block flex-1 min-w-0 bg-transparent outline-none px-1 md:px-4 py-2 text-gray-700 placeholder:text-transparent md:placeholder:text-gray-400 text-sm md:text-sm font-medium"
-                  />
-                </div>
-
-                {/* Mobile AI Search pill */}
-                <button
-                  type="button"
-                  onClick={toggleMlsBypass}
-                  title={!mlsBypassMode ? 'AI Search is ON' : 'AI Search is OFF'}
-                  className={`md:hidden h-10 rounded-full px-4 text-[13px] font-semibold transition-colors border-2 ${!mlsBypassMode
-                    ? 'bg-[#FFFBEF] text-[#94661E] border-[#E7D293]'
-                    : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-                    }`}
-                >
-                  Ai Search
-                </button>
-
-                {/* Right Actions */}
-                <div className="hidden md:flex items-center gap-2 flex-shrink-0 pr-1">
-                  <button
-                    type="button"
-                    onClick={toggleMlsBypass}
-                    title={!mlsBypassMode ? 'AI Search is ON' : 'AI Search is OFF'}
-                    className={`h-9 md:h-10 rounded-full px-4 text-sm font-semibold transition-colors border ${!mlsBypassMode
-                      ? 'bg-orange-50 text-[#F58634] border-orange-200'
-                      : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-                      }`}
-                  >
-                    Ai Search
-                  </button>
-                  <div className="relative hidden md:block">
-                    <div
-                      className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
-                      onClick={() => setShowAttachMenu(!showAttachMenu)}
-                    >
-                      <Paperclip className="w-5 h-5" />
-                    </div>
-
-                    {/* Dropdown Menu */}
-                    <AnimatePresence>
-                      {showAttachMenu && (
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                          animate={{ opacity: 1, scale: 1, y: 0 }}
-                          exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                          transition={{ duration: 0.2 }}
-                          className="absolute bottom-full right-0 mb-2 w-32 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200 ring-1 ring-black/5 overflow-hidden z-[70]"
-                        >
-                          <div className="flex flex-col p-1.5 gap-1">
-                            <button
-                              onClick={() => handleAttachmentClick('image')}
-                              type="button"
-                              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
-                            >
-                              <ImageIcon className="w-4 h-4 text-blue-500" />
-                              <span>Image</span>
-                            </button>
-                            <button
-                              onClick={() => handleAttachmentClick('pdf')}
-                              type="button"
-                              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
-                            >
-                              <FileText className="w-4 h-4 text-red-500" />
-                              <span>PDF</span>
-                            </button>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                  {/* Left Ask AI Icon */}
+                  <div className="pl-1 md:pl-2 flex-shrink-0">
+                    <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 md:w-6 md:h-6">
+                      <path d="M15.0645 1C22.8233 0.998533 29.122 7.31736 29.1221 15.1211V25.0967C29.1221 26.201 28.6985 27.1986 28.0068 27.9336L28.0049 27.9355C27.2517 28.7409 26.1847 29.2393 25.001 29.2393H5.12109C2.85069 29.2393 1 27.3893 1 25.0986V15.123C1 7.31903 7.30043 1 15.0645 1Z" fill="black" stroke="url(#askAiGradient)" strokeWidth="2" />
+                      <mask id="askAiMask1" fill="white">
+                        <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" />
+                      </mask>
+                      <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" fill="white" stroke="white" strokeWidth="4" mask="url(#askAiMask1)" />
+                      <mask id="askAiMask2" fill="white">
+                        <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" />
+                      </mask>
+                      <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" fill="white" stroke="white" strokeWidth="4" mask="url(#askAiMask2)" />
+                      <defs>
+                        <linearGradient id="askAiGradient" x1="15.061" y1="0" x2="15.061" y2="30.2391" gradientUnits="userSpaceOnUse">
+                          <stop stopColor="#E8804C" />
+                          <stop offset="0.5" stopColor="#E84C85" />
+                          <stop offset="0.75" stopColor="#A64EBA" />
+                          <stop offset="1" stopColor="#654FEF" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
                   </div>
-                  {/* Desktop Begin Journey Button */}
-                  <Button
-                    type='submit'
-                    disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
-                    className="hidden md:flex bg-[#F58634] hover:bg-[#E07224] text-white rounded-xl px-8 py-3 font-semibold text-sm md:text-base items-center transition-all shadow-md hover:shadow-lg h-full disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634]"
-                  >
-                    Begin Journey
-                  </Button>
-                </div>
+                  <div className="mx-2 h-9 w-px bg-[#8A6444]/45 md:hidden" />
+
+                  {/* Input Field */}
+                  <div className="flex-1 min-w-0 flex items-center gap-2 md:gap-3">
+                    {renderPendingImageChip('collapsed')}
+                    <textarea
+                      value={searchTerm}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSearchTerm(val);
+                        fetchAddressSuggestions(val);
+                      }}
+                      onFocus={() => setShowSuggestions(true)}
+                      onBlur={() => setTimeout(() => {
+                        setShowSuggestions(false);
+                        setShowAddressSuggestions(false);
+                        setShowLocationSuggestions(false);
+                      }, 200)}
+                      placeholder={
+                        pendingImage
+                          ? 'Add city, ZIP, or coordinates\nfor this image'
+                          : ((placeholderText || typedPlaceholder).replace(', ', ',\n'))
+                      }
+                      rows={2}
+                      className="md:hidden flex-1 min-w-0 bg-transparent outline-none px-1 py-0.5 text-gray-700 placeholder:text-gray-400 text-[12px] font-medium leading-[1.25] resize-none overflow-hidden"
+                    />
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSearchTerm(val);
+                        fetchAddressSuggestions(val);
+                      }}
+                      onFocus={() => setShowSuggestions(true)}
+                      onBlur={() => setTimeout(() => {
+                        setShowSuggestions(false);
+                        setShowAddressSuggestions(false);
+                        setShowLocationSuggestions(false);
+                      }, 200)}
+                      placeholder={pendingImage ? 'Add city, ZIP, or coordinates for this image' : (placeholderText || typedPlaceholder)}
+                      className="hidden md:block flex-1 min-w-0 bg-transparent outline-none px-1 md:px-4 py-2 text-gray-700 placeholder:text-transparent md:placeholder:text-gray-400 text-sm md:text-sm font-medium"
+                    />
+                  </div>
+
+                  {/* Right Actions (AI Pill + Attach Menu) */}
+                  <div className="flex items-center gap-2 flex-shrink-0 pr-1">
+                    <button
+                      type="button"
+                      onClick={toggleMlsBypass}
+                      title={!mlsBypassMode ? 'AI Search is ON' : 'AI Search is OFF'}
+                      className={`h-9 md:h-10 rounded-full px-3 md:px-4 text-[13px] md:text-sm font-semibold transition-colors border ${!mlsBypassMode
+                        ? 'bg-orange-50 text-[#F58634] border-orange-200'
+                        : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                        }`}
+                    >
+                      Ai Search
+                    </button>
+                    <div className="relative block">
+                      <div
+                        className="p-1.5 md:p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
+                        onClick={() => setShowAttachMenu(!showAttachMenu)}
+                      >
+                        <Paperclip className="w-5 h-5" />
+                      </div>
+
+                      {/* Dropdown Menu */}
+                      <AnimatePresence>
+                        {showAttachMenu && (
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                            transition={{ duration: 0.2 }}
+                            className="absolute bottom-full right-0 mb-2 w-32 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200 ring-1 ring-black/5 overflow-hidden z-[70]"
+                          >
+                            <div className="flex flex-col p-1.5 gap-1">
+                              <button
+                                onClick={() => handleAttachmentClick('image')}
+                                type="button"
+                                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
+                              >
+                                <ImageIcon className="w-4 h-4 text-blue-500" />
+                                <span>Image</span>
+                              </button>
+                              <button
+                                onClick={() => handleAttachmentClick('pdf')}
+                                type="button"
+                                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
+                              >
+                                <FileText className="w-4 h-4 text-red-500" />
+                                <span>PDF</span>
+                              </button>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                    {/* Desktop Begin Journey Button */}
+                    <Button
+                      type='submit'
+                      disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
+                      className="hidden md:flex bg-[#F58634] hover:bg-[#E07224] text-white rounded-xl px-8 py-3 font-semibold text-sm md:text-base items-center transition-all shadow-md hover:shadow-lg h-full disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634]"
+                    >
+                      Begin Journey
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Mobile Search Button */}
@@ -2510,7 +2497,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 )}
 
                 {/* ── Address Autocomplete Suggestions ── */}
-                {searchTerm && (showAddressSuggestions || isLoadingAddressSuggestions) && (
+                {searchTerm && chatHistory.length === 0 && (showAddressSuggestions || isLoadingAddressSuggestions) && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
@@ -2565,7 +2552,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 )}
 
                 {/* ── Location (City/State) Autocomplete Suggestions ── */}
-                {searchTerm && (showLocationSuggestions || isLoadingLocationSuggestions) && (
+                {searchTerm && chatHistory.length === 0 && (showLocationSuggestions || isLoadingLocationSuggestions) && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
@@ -3200,7 +3187,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                     })()}
                                   </div>
                                   {/* 4. INSIGHTS */}
-                                  <div className="hidden sm:block bg-[#FFF9F5] border border-[#FFD8B4] rounded-[16px] sm:rounded-[20px] p-4 sm:p-8">
+                                  {/* <div className="hidden sm:block bg-[#FFF9F5] border border-[#FFD8B4] rounded-[16px] sm:rounded-[20px] p-4 sm:p-8">
                                     <div className="flex items-center justify-between mb-4 sm:mb-6">
                                       <div className="flex items-center gap-3">
                                         <div className="">
@@ -3213,7 +3200,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                       </span>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
-                                      {/* Card 1: Price */}
+
                                       <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[24px] shadow-sm border border-gray-100 flex flex-col justify-between h-auto sm:h-48">
                                         <div className="flex justify-between items-start">
                                           <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center">
@@ -3228,7 +3215,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                           </p>
                                         </div>
                                       </div>
-                                      {/* Card 2: Safety */}
+                                   
                                       <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[24px] shadow-sm border border-gray-100 flex flex-col justify-between h-auto sm:h-48">
                                         <div className="flex justify-between items-start">
                                           <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center">
@@ -3243,7 +3230,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                           </p>
                                         </div>
                                       </div>
-                                      {/* Card 3: Walkability */}
+                                     
                                       <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[24px] shadow-sm border border-gray-100 flex flex-col justify-between h-auto sm:h-48">
                                         <div className="flex justify-between items-start">
                                           <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center">
@@ -3258,7 +3245,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                           </div>
                                         </div>
                                       </div>
-                                      {/* Card 4: Climate */}
+                                      
                                       <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[24px] shadow-sm border border-gray-100 flex flex-col justify-between h-auto sm:h-48">
                                         <div className="flex justify-between items-start">
                                           <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center">
@@ -3274,15 +3261,15 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                         </div>
                                       </div>
                                     </div>
-                                    {/* Bottom Button */}
+                                   
                                     <div className="flex justify-end mt-3 sm:mt-4">
                                       <button className="bg-[#121212] hover:bg-black text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-full text-[11px] sm:text-xs font-bold flex items-center gap-2 transition-transform hover:scale-105 shadow-md">
                                         Explore Manhattan Beach on Local Wiki <ArrowUp className="w-3 h-3 rotate-90" />
                                       </button>
                                     </div>
-                                  </div>
+                                  </div> */}
 
-                                  {/* 5. VIEW FULL PROPERTY */}
+
                                   <div className="flex justify-center pb-4">
                                     <a
                                       href={propertyDetailsUrl}
@@ -3564,6 +3551,48 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       className={`w-full bg-white text-gray-900 rounded-2xl sm:rounded-3xl min-h-[64px] sm:min-h-[68px] max-h-32 sm:max-h-40 overflow-y-hidden resize-none py-4 sm:py-[22px] ${pendingImage || pendingImagePreview ? 'pl-36 sm:pl-[19rem]' : 'pl-4 sm:pl-5'} pr-28 sm:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-[14px] sm:text-base placeholder:text-gray-400 font-normal leading-relaxed`}
                     />
                     <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 sm:gap-4">
+                      {/* Attach Icon & Menu */}
+                      <div className="relative">
+                        <div
+                          className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
+                          onClick={() => setShowAttachMenu(!showAttachMenu)}
+                        >
+                          <Paperclip className="w-5 h-5 sm:w-5 sm:h-5" />
+                        </div>
+
+                        {/* Dropdown Menu (Opens Upwards) */}
+                        <AnimatePresence>
+                          {showAttachMenu && (
+                            <motion.div
+                              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                              animate={{ opacity: 1, scale: 1, y: 0 }}
+                              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                              transition={{ duration: 0.2 }}
+                              className="absolute bottom-full right-0 mb-2 w-32 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200 ring-1 ring-black/5 overflow-hidden z-[70]"
+                            >
+                              <div className="flex flex-col p-1.5 gap-1">
+                                <button
+                                  onClick={() => handleAttachmentClick('image')}
+                                  type="button"
+                                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
+                                >
+                                  <ImageIcon className="w-4 h-4 text-blue-500" />
+                                  <span>Image</span>
+                                </button>
+                                <button
+                                  onClick={() => handleAttachmentClick('pdf')}
+                                  type="button"
+                                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
+                                >
+                                  <FileText className="w-4 h-4 text-red-500" />
+                                  <span>PDF</span>
+                                </button>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
                       <button
                         type="button"
                         onClick={toggleMlsBypass}
@@ -3619,7 +3648,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                   )}
 
                   {/* ── Address Autocomplete Suggestions ── */}
-                  {searchTerm && (showAddressSuggestions || isLoadingAddressSuggestions) && (
+                  {searchTerm && chatHistory.length === 0 && (showAddressSuggestions || isLoadingAddressSuggestions) && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
@@ -3674,7 +3703,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                   )}
 
                   {/* ── Location (City/State) Autocomplete Suggestions ── */}
-                  {searchTerm && (showLocationSuggestions || isLoadingLocationSuggestions) && (
+                  {searchTerm && chatHistory.length === 0 && (showLocationSuggestions || isLoadingLocationSuggestions) && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
@@ -5482,7 +5511,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 //         if (isRateForecastQuery) {
 //           isForecastMsg = true;
 //           forecastPoints = await fetchForecast(24);
-//           // Don't override content if we have AI text, unless necessary. 
+//           // Don't override content if we have AI text, unless necessary.
 //           // Often AI text might be "Here is the forecast..."
 //           // If explicit "Show me forecast", AI might verify.
 //           // visual feedback:

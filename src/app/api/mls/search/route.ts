@@ -197,7 +197,7 @@ export async function POST(request: NextRequest) {
     // const maxResults = isMapViewportRefresh
     //   ? pageSize
     //   : Math.min(500, Number.isFinite(requestedMax) && requestedMax > 0 ? requestedMax : 200);
-    const maxResults = isMapViewportRefresh ? pageSize : 90;
+    const maxResults = isMapViewportRefresh ? pageSize : 70;
 
     const aggregateRaw: any[] = [];
     const seenKeys = new Set<string>();

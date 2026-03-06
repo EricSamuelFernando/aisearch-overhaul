@@ -846,6 +846,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   const locationSuggestDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [expandedSchoolLists, setExpandedSchoolLists] = useState<Record<string, boolean>>({});
   const [nearbySchoolsById, setNearbySchoolsById] = useState<Record<string, { status: 'idle' | 'loading' | 'ready' | 'error'; schools: any[]; error?: string; schoolType?: string; fallbackUsed?: boolean }>>({});
+  const requestedSchoolsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     return () => {
@@ -2184,6 +2185,10 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     if (existing && (existing.status === 'loading' || existing.status === 'ready')) {
       return;
     }
+    if (requestedSchoolsRef.current.has(key) && existing?.status !== 'error') {
+      return;
+    }
+    requestedSchoolsRef.current.add(key);
 
     if (!options?.silent) {
       setNearbySchoolsById(prev => ({
@@ -2228,6 +2233,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
       }));
     } catch (err: any) {
       console.error('[Schools] Nearby fetch error:', err);
+      requestedSchoolsRef.current.delete(key);
       setNearbySchoolsById(prev => ({
         ...prev,
         [key]: { status: 'error', schools: [], error: err?.message || 'Failed to fetch' }
@@ -2317,148 +2323,135 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 className="relative flex items-center w-full bg-transparent gap-2 md:gap-3"
               >
                 <div className="flex-1 min-w-0 flex items-center rounded-[22px] border border-[#ECECEC] bg-white px-2.5 py-2 md:border-0 md:rounded-none md:bg-transparent md:p-0">
-                {/* Left Ask AI Icon */}
-                <div className="pl-1 md:pl-2 flex-shrink-0">
-                  <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 md:w-6 md:h-6">
-                    <path d="M15.0645 1C22.8233 0.998533 29.122 7.31736 29.1221 15.1211V25.0967C29.1221 26.201 28.6985 27.1986 28.0068 27.9336L28.0049 27.9355C27.2517 28.7409 26.1847 29.2393 25.001 29.2393H5.12109C2.85069 29.2393 1 27.3893 1 25.0986V15.123C1 7.31903 7.30043 1 15.0645 1Z" fill="black" stroke="url(#askAiGradient)" strokeWidth="2"/>
-                    <mask id="askAiMask1" fill="white">
-                      <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" />
-                    </mask>
-                    <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" fill="white" stroke="white" strokeWidth="4" mask="url(#askAiMask1)" />
-                    <mask id="askAiMask2" fill="white">
-                      <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" />
-                    </mask>
-                    <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" fill="white" stroke="white" strokeWidth="4" mask="url(#askAiMask2)" />
-                    <defs>
-                      <linearGradient id="askAiGradient" x1="15.061" y1="0" x2="15.061" y2="30.2391" gradientUnits="userSpaceOnUse">
-                        <stop stopColor="#E8804C" />
-                        <stop offset="0.5" stopColor="#E84C85" />
-                        <stop offset="0.75" stopColor="#A64EBA" />
-                        <stop offset="1" stopColor="#654FEF" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                </div>
-                <div className="mx-2 h-9 w-px bg-[#8A6444]/45 md:hidden" />
-
-                {/* Input Field */}
-                <div className="flex-1 min-w-0 flex items-center gap-2 md:gap-3">
-                  {renderPendingImageChip('collapsed')}
-                  <textarea
-                    value={searchTerm}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setSearchTerm(val);
-                      fetchAddressSuggestions(val);
-                    }}
-                    onFocus={() => setShowSuggestions(true)}
-                    onBlur={() => setTimeout(() => {
-                      setShowSuggestions(false);
-                      setShowAddressSuggestions(false);
-                      setShowLocationSuggestions(false);
-                    }, 200)}
-                    placeholder={
-                      pendingImage
-                        ? 'Add city, ZIP, or coordinates\nfor this image'
-                        : ((placeholderText || typedPlaceholder).replace(', ', ',\n'))
-                    }
-                    rows={2}
-                    className="md:hidden flex-1 min-w-0 bg-transparent outline-none px-1 py-0.5 text-gray-700 placeholder:text-gray-400 text-[12px] font-medium leading-[1.25] resize-none overflow-hidden"
-                  />
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setSearchTerm(val);
-                      fetchAddressSuggestions(val);
-                    }}
-                    onFocus={() => setShowSuggestions(true)}
-                    onBlur={() => setTimeout(() => {
-                      setShowSuggestions(false);
-                      setShowAddressSuggestions(false);
-                      setShowLocationSuggestions(false);
-                    }, 200)}
-                    placeholder={pendingImage ? 'Add city, ZIP, or coordinates for this image' : (placeholderText || typedPlaceholder)}
-                    className="hidden md:block flex-1 min-w-0 bg-transparent outline-none px-1 md:px-4 py-2 text-gray-700 placeholder:text-transparent md:placeholder:text-gray-400 text-sm md:text-sm font-medium"
-                  />
-                </div>
-
-                {/* Mobile AI Search pill */}
-                <button
-                  type="button"
-                  onClick={toggleMlsBypass}
-                  title={!mlsBypassMode ? 'AI Search is ON' : 'AI Search is OFF'}
-                  className={`md:hidden h-10 rounded-full px-4 text-[13px] font-semibold transition-colors border-2 ${!mlsBypassMode
-                    ? 'bg-[#FFFBEF] text-[#94661E] border-[#E7D293]'
-                    : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-                    }`}
-                >
-                  Ai Search
-                </button>
-
-                {/* Right Actions */}
-                <div className="hidden md:flex items-center gap-2 flex-shrink-0 pr-1">
-                  <button
-                    type="button"
-                    onClick={toggleMlsBypass}
-                    title={!mlsBypassMode ? 'AI Search is ON' : 'AI Search is OFF'}
-                    className={`h-9 md:h-10 rounded-full px-4 text-sm font-semibold transition-colors border ${!mlsBypassMode
-                      ? 'bg-orange-50 text-[#F58634] border-orange-200'
-                      : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-                      }`}
-                  >
-                    Ai Search
-                  </button>
-                  <div className="relative hidden md:block">
-                    <div
-                      className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
-                      onClick={() => setShowAttachMenu(!showAttachMenu)}
-                    >
-                      <Paperclip className="w-5 h-5" />
-                    </div>
-
-                    {/* Dropdown Menu */}
-                    <AnimatePresence>
-                      {showAttachMenu && (
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                          animate={{ opacity: 1, scale: 1, y: 0 }}
-                          exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                          transition={{ duration: 0.2 }}
-                          className="absolute bottom-full right-0 mb-2 w-32 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200 ring-1 ring-black/5 overflow-hidden z-[70]"
-                        >
-                          <div className="flex flex-col p-1.5 gap-1">
-                            <button
-                              onClick={() => handleAttachmentClick('image')}
-                              type="button"
-                              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
-                            >
-                              <ImageIcon className="w-4 h-4 text-blue-500" />
-                              <span>Image</span>
-                            </button>
-                            <button
-                              onClick={() => handleAttachmentClick('pdf')}
-                              type="button"
-                              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
-                            >
-                              <FileText className="w-4 h-4 text-red-500" />
-                              <span>PDF</span>
-                            </button>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                  {/* Left Ask AI Icon */}
+                  <div className="pl-1 md:pl-2 flex-shrink-0">
+                    <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 md:w-6 md:h-6">
+                      <path d="M15.0645 1C22.8233 0.998533 29.122 7.31736 29.1221 15.1211V25.0967C29.1221 26.201 28.6985 27.1986 28.0068 27.9336L28.0049 27.9355C27.2517 28.7409 26.1847 29.2393 25.001 29.2393H5.12109C2.85069 29.2393 1 27.3893 1 25.0986V15.123C1 7.31903 7.30043 1 15.0645 1Z" fill="black" stroke="url(#askAiGradient)" strokeWidth="2" />
+                      <mask id="askAiMask1" fill="white">
+                        <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" />
+                      </mask>
+                      <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" fill="white" stroke="white" strokeWidth="4" mask="url(#askAiMask1)" />
+                      <mask id="askAiMask2" fill="white">
+                        <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" />
+                      </mask>
+                      <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" fill="white" stroke="white" strokeWidth="4" mask="url(#askAiMask2)" />
+                      <defs>
+                        <linearGradient id="askAiGradient" x1="15.061" y1="0" x2="15.061" y2="30.2391" gradientUnits="userSpaceOnUse">
+                          <stop stopColor="#E8804C" />
+                          <stop offset="0.5" stopColor="#E84C85" />
+                          <stop offset="0.75" stopColor="#A64EBA" />
+                          <stop offset="1" stopColor="#654FEF" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
                   </div>
-                  {/* Desktop Begin Journey Button */}
-                  <Button
-                    type='submit'
-                    disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
-                    className="hidden md:flex bg-[#F58634] hover:bg-[#E07224] text-white rounded-xl px-8 py-3 font-semibold text-sm md:text-base items-center transition-all shadow-md hover:shadow-lg h-full disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634]"
-                  >
-                    Begin Journey
-                  </Button>
-                </div>
+                  <div className="mx-2 h-9 w-px bg-[#8A6444]/45 md:hidden" />
+
+                  {/* Input Field */}
+                  <div className="flex-1 min-w-0 flex items-center gap-2 md:gap-3">
+                    {renderPendingImageChip('collapsed')}
+                    <textarea
+                      value={searchTerm}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSearchTerm(val);
+                        fetchAddressSuggestions(val);
+                      }}
+                      onFocus={() => setShowSuggestions(true)}
+                      onBlur={() => setTimeout(() => {
+                        setShowSuggestions(false);
+                        setShowAddressSuggestions(false);
+                        setShowLocationSuggestions(false);
+                      }, 200)}
+                      placeholder={
+                        pendingImage
+                          ? 'Add city, ZIP, or coordinates\nfor this image'
+                          : ((placeholderText || typedPlaceholder).replace(', ', ',\n'))
+                      }
+                      rows={2}
+                      className="md:hidden flex-1 min-w-0 bg-transparent outline-none px-1 py-0.5 text-gray-700 placeholder:text-gray-400 text-[12px] font-medium leading-[1.25] resize-none overflow-hidden"
+                    />
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSearchTerm(val);
+                        fetchAddressSuggestions(val);
+                      }}
+                      onFocus={() => setShowSuggestions(true)}
+                      onBlur={() => setTimeout(() => {
+                        setShowSuggestions(false);
+                        setShowAddressSuggestions(false);
+                        setShowLocationSuggestions(false);
+                      }, 200)}
+                      placeholder={pendingImage ? 'Add city, ZIP, or coordinates for this image' : (placeholderText || typedPlaceholder)}
+                      className="hidden md:block flex-1 min-w-0 bg-transparent outline-none px-1 md:px-4 py-2 text-gray-700 placeholder:text-transparent md:placeholder:text-gray-400 text-sm md:text-sm font-medium"
+                    />
+                  </div>
+
+                  {/* Right Actions (AI Pill + Attach Menu) */}
+                  <div className="flex items-center gap-2 flex-shrink-0 pr-1">
+                    <button
+                      type="button"
+                      onClick={toggleMlsBypass}
+                      title={!mlsBypassMode ? 'AI Search is ON' : 'AI Search is OFF'}
+                      className={`h-9 md:h-10 rounded-full px-3 md:px-4 text-[13px] md:text-sm font-semibold transition-colors border ${!mlsBypassMode
+                        ? 'bg-orange-50 text-[#F58634] border-orange-200'
+                        : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                        }`}
+                    >
+                      Ai Search
+                    </button>
+                    <div className="relative block">
+                      <div
+                        className="p-1.5 md:p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
+                        onClick={() => setShowAttachMenu(!showAttachMenu)}
+                      >
+                        <Paperclip className="w-5 h-5" />
+                      </div>
+
+                      {/* Dropdown Menu */}
+                      <AnimatePresence>
+                        {showAttachMenu && (
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                            transition={{ duration: 0.2 }}
+                            className="absolute bottom-full right-0 mb-2 w-32 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200 ring-1 ring-black/5 overflow-hidden z-[70]"
+                          >
+                            <div className="flex flex-col p-1.5 gap-1">
+                              <button
+                                onClick={() => handleAttachmentClick('image')}
+                                type="button"
+                                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
+                              >
+                                <ImageIcon className="w-4 h-4 text-blue-500" />
+                                <span>Image</span>
+                              </button>
+                              <button
+                                onClick={() => handleAttachmentClick('pdf')}
+                                type="button"
+                                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
+                              >
+                                <FileText className="w-4 h-4 text-red-500" />
+                                <span>PDF</span>
+                              </button>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                    {/* Desktop Begin Journey Button */}
+                    <Button
+                      type='submit'
+                      disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
+                      className="hidden md:flex bg-[#F58634] hover:bg-[#E07224] text-white rounded-xl px-8 py-3 font-semibold text-sm md:text-base items-center transition-all shadow-md hover:shadow-lg h-full disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634]"
+                    >
+                      Begin Journey
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Mobile Search Button */}
@@ -2504,7 +2497,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 )}
 
                 {/* ── Address Autocomplete Suggestions ── */}
-                {searchTerm && (showAddressSuggestions || isLoadingAddressSuggestions) && (
+                {searchTerm && chatHistory.length === 0 && (showAddressSuggestions || isLoadingAddressSuggestions) && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
@@ -2559,7 +2552,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 )}
 
                 {/* ── Location (City/State) Autocomplete Suggestions ── */}
-                {searchTerm && (showLocationSuggestions || isLoadingLocationSuggestions) && (
+                {searchTerm && chatHistory.length === 0 && (showLocationSuggestions || isLoadingLocationSuggestions) && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
@@ -2606,206 +2599,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
               transition={{ duration: 0.2, delay: 0.1 }}
               className="flex flex-col gap-6 w-full"
             >
-              <div className="flex justify-between items-center w-full px-1 relative z-50">
-                {/* Left: Brand Badge & Menu Trigger */}
-                <div className="relative">
-                  <div
-                    onClick={() => setIsMenuOpen(!isMenuOpen)}
-                    className="bg-black text-white pl-4 pr-4 py-2 rounded-full flex items-center gap-3 shadow-md hover:bg-gray-800 transition-colors cursor-pointer group active:scale-95 duration-200 select-none"
-                  >
-                    <div className="relative flex-shrink-0 flex items-center justify-center">
-                      <svg width="24" height="24" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M15.0645 1C22.8233 0.998533 29.122 7.31736 29.1221 15.1211V25.0967C29.1221 26.201 28.6985 27.1986 28.0068 27.9336L28.0049 27.9355C27.2517 28.7409 26.1847 29.2393 25.001 29.2393H5.12109C2.85069 29.2393 1 27.3893 1 25.0986V15.123C1 7.31903 7.30043 1 15.0645 1Z" fill="black" stroke="url(#paint0_linear_1389_231_small)" style={{ fill: 'black', fillOpacity: 1 }} strokeWidth="2" />
-                        <mask id="path-2-inside-1_1389_231_small" fill="white">
-                          <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" />
-                        </mask>
-                        <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" fill="white" stroke="white" style={{ fill: 'white', fillOpacity: 1, stroke: 'white', strokeOpacity: 1 }} strokeWidth="4" mask="url(#path-2-inside-1_1389_231_small)" />
-                        <mask id="path-3-inside-2_1389_231_small" fill="white">
-                          <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" />
-                        </mask>
-                        <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" fill="white" stroke="white" style={{ fill: 'white', fillOpacity: 1, stroke: 'white', strokeOpacity: 1 }} strokeWidth="4" mask="url(#path-3-inside-2_1389_231_small)" />
-                        <defs>
-                          <linearGradient id="paint0_linear_1389_231_small" x1="15.061" y1="0" x2="15.061" y2="30.2391" gradientUnits="userSpaceOnUse">
-                            <stop stopColor="#E8804C" style={{ stopColor: 'color(display-p3 0.9098 0.5020 0.2980)' }} stopOpacity="1" />
-                            <stop offset="0.5" stopColor="#E84C85" style={{ stopColor: 'color(display-p3 0.9098 0.2980 0.5224)' }} stopOpacity="1" />
-                            <stop offset="0.75" stopColor="#A64EBA" style={{ stopColor: 'color(display-p3 0.6521 0.3044 0.7303)' }} stopOpacity="1" />
-                            <stop offset="1" stopColor="#654FEF" style={{ stopColor: 'color(display-p3 0.3944 0.3107 0.9382)' }} stopOpacity="1" />
-                          </linearGradient>
-                        </defs>
-                      </svg>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-[15px] tracking-wide">Snaphomz AI</span>
-                      <ChevronDown className={`w-4 h-4 text-gray-400 group-hover:text-white transition-transform duration-300 ${isMenuOpen ? 'rotate-180' : ''}`} />
-                    </div>
-                  </div>
-
-                  {/* --- Premium Command Menu --- */}
-                  <AnimatePresence>
-                    {isMenuOpen && (
-                      <>
-                        {/* Backdrop to close */}
-                        <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)} />
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                          animate={{ opacity: 1, scale: 1, y: 0 }}
-                          exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                          transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                          className="absolute top-full left-0 mt-3 w-80 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden ring-1 ring-black/5 max-h-80 flex flex-col"
-                        >
-                          <div className="flex flex-col flex-1 overflow-hidden p-2 space-y-1">
-                            {/* New Chat Action */}
-                            <button
-                              onClick={() => {
-                                setSearchTerm('');
-                                setChatHistory([]);
-                                setSessionId(null);
-                                setIsSearching(false);
-                                setIsMenuOpen(false);
-                                setSelectedPropertyId(null);
-                                setExpandedPropertyId(null);
-                                if (onSearchStateChange) onSearchStateChange(true, '');
-
-                                // Smooth scroll to search bar
-                                setTimeout(() => {
-                                  searchContainerRef.current?.scrollIntoView({
-                                    behavior: 'smooth',
-                                    block: 'center'
-                                  });
-                                  // Focus input after scroll
-                                  setTimeout(() => {
-                                    searchInputRef.current?.focus();
-                                  }, 300);
-                                }, 100);
-                              }}
-                              className="flex items-center gap-3 w-full px-3 py-3 hover:bg-orange-50 rounded-xl transition-colors group text-left"
-                            >
-                              <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                <Sparkles className="w-4 h-4 text-orange-600" />
-                              </div>
-                              <div>
-                                <p className="text-sm font-bold text-gray-900">New Chat</p>
-                                <p className="text-xs text-gray-500">Start a fresh search</p>
-                              </div>
-                            </button>
-
-                            <div className="h-px bg-gray-100 my-1 mx-2" />
-
-                            {/* History Section */}
-                            <div className="flex flex-col flex-1 min-h-0 px-3 py-1.5">
-                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex-none">Recent</p>
-                              <div className="space-y-0.5 flex-1 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-300">
-                                {recentSessions.length === 0 && (
-                                  <div className="px-2 py-2 text-xs text-gray-400">
-                                    No recent chats yet.
-                                  </div>
-                                )}
-                                {recentSessions.map((item, idx) => (
-                                  <div
-                                    key={item.id || idx}
-                                    onClick={async () => {
-                                      try {
-                                        const details = await fetchSessionDetails(item.id);
-                                        if (details) {
-                                          const recovered: ChatMessage[] = details.messages.map((m: any, i: number) => ({
-                                            id: `restored-${i}`,
-                                            role: m.role,
-                                            content: m.content
-                                          }));
-
-                                          if (details.last_results && recovered.length > 0) {
-                                            const lastAiIndex = recovered.map(m => m.role).lastIndexOf('assistant');
-                                            if (lastAiIndex !== -1) {
-                                              const mappedProps = details.last_results.map((p: any, index: number) => {
-                                                const mainImage = p.primaryListingImageUrl || p.primaryImage || p.imgSrc || p.image || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c';
-                                                const price = p.price || p.listPrice || '$0';
-                                                const fmtPrice = typeof price === 'number' ? `$${price.toLocaleString()}` : price;
-                                                const address = p.address || p.formattedAddress || (p.street ? `${p.street}, ${p.city}, ${p.state}` : 'Address Unavailable');
-                                                const listingId = resolveListingId(p);
-                                                const propertyId = resolvePropertyId(p);
-                                                const cardIdentity = listingId ?? propertyId;
-                                                const cardId = cardIdentity ?? `restored-${item.id}-${index}`;
-                                                return {
-                                                  id: cardId,
-                                                  listingId,
-                                                  propertyId,
-                                                  listingUrl: p.listing_url || p.url || p.hdpUrl,
-                                                  image: mainImage,
-                                                  price: fmtPrice,
-                                                  address: address,
-                                                  beds: p.beds || p.bedrooms || p.bedroomTotal || 0,
-                                                  baths: p.baths || p.bathrooms || p.bathroomTotal || 0,
-                                                  sqft: p.livingArea || p.sqft || 'N/A',
-                                                  type: 'Residential',
-                                                  hasPool: p.hasPool,
-                                                  features: p.features || [],
-                                                  schools: [],
-                                                  insights: { price: fmtPrice, safety: 'N/A', walkability: 'N/A', climate: 'N/A' },
-                                                  images: [mainImage]
-                                                };
-                                              });
-                                              recovered[lastAiIndex].relatedProperties = mappedProps;
-                                              recovered[lastAiIndex].totalMatches = mappedProps.length;
-                                              const existingContent = recovered[lastAiIndex].content;
-                                              if (!existingContent || !existingContent.trim()) {
-                                                recovered[lastAiIndex].content = `I found ${mappedProps.length} homes that match your criteria.`;
-                                              }
-                                            }
-                                          }
-
-                                          setSessionId(item.id);
-                                          setChatHistory(recovered);
-                                          setIsSearching(false);
-                                          setIsMenuOpen(false);
-                                          setIsExpanded(true);
-                                          if (onSearchStateChange) onSearchStateChange(true, '');
-                                        }
-                                      } catch (e) { console.error(e); }
-                                    }}
-                                    className="flex items-center gap-3 px-2 py-2 hover:bg-gray-50 rounded-lg cursor-pointer group transition-colors"
-                                  >
-                                    <Clock className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-600 flex-shrink-0" />
-                                    <span className="text-sm text-gray-600 group-hover:text-gray-900 truncate">{item.title || 'Untitled Session'}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-
-                            {/* Footer Actions */}
-                            <div className="border-t border-gray-100 mt-1 p-1 flex-none">
-                              <button
-                                onClick={async () => {
-                                  if (isClearingHistory) return;
-                                  setIsClearingHistory(true);
-                                  // Optimistic UI clear for smooth UX
-                                  setRecentSessions([]);
-                                  setSearchTerm('');
-                                  setChatHistory([]);
-                                  setSessionId(null);
-                                  setIsSearching(false);
-                                  setProperties([]);
-                                  try {
-                                    await clearHistoryAPI();
-                                  } catch (e) {
-                                    console.error("Failed to clear history:", e);
-                                  } finally {
-                                    setIsClearingHistory(false);
-                                    setIsMenuOpen(false);
-                                  }
-                                }}
-                                className={`w-full flex items-center justify-center gap-2 py-2 text-xs font-medium transition-colors ${isClearingHistory ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-red-500'}`}
-                                disabled={isClearingHistory}
-                              >
-                                {isClearingHistory ? 'Clearing...' : 'Clear History'}
-                              </button>
-                            </div>
-                          </div>
-                        </motion.div>
-                      </>
-                    )}
-                  </AnimatePresence>
-                </div>
-
+              <div className="flex justify-end items-center w-full px-1 relative z-50">
                 {/* Right: Close */}
                 <button
                   onClick={() => {
@@ -3163,12 +2957,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                     <div className="h-44 sm:h-48 md:h-56 lg:h-52 w-full relative overflow-hidden bg-[#F8F9FA] flex-shrink-0 flex items-center justify-center">
                                       <Home className="w-10 h-10 text-gray-300 absolute z-0" />
                                       {property.image && property.image.trim() !== '' && (
-                                        <Image
+                                        <img
                                           src={property.image}
                                           alt="Property"
-                                          fill
-                                          unoptimized={true}
-                                          className="object-cover transition-transform duration-700 group-hover:scale-105 z-10"
+                                          loading="lazy"
+                                          decoding="async"
+                                          className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105 z-10"
                                           onError={(e) => {
                                             if (e.currentTarget) {
                                               e.currentTarget.style.display = 'none';
@@ -3312,12 +3106,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                     <div className="flex overflow-x-auto gap-3 sm:gap-5 w-full pb-3 sm:pb-4 no-scrollbar snap-x snap-mandatory" style={{ scrollBehavior: 'smooth' }}>
                                       {selectedProp.images.map((img: string, idx: number) => (
                                         <div key={idx} className="relative flex-shrink-0 w-[85%] md:w-[320px] h-[170px] sm:h-[240px] rounded-[16px] sm:rounded-[20px] overflow-hidden shadow-sm group snap-center border border-gray-100">
-                                          <Image
+                                          <img
                                             src={img}
                                             alt={`Gallery ${idx}`}
-                                            fill
-                                            unoptimized={true}
-                                            className="object-cover transition-transform duration-700 group-hover:scale-105"
+                                            loading="lazy"
+                                            decoding="async"
+                                            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                                           />
                                         </div>
                                       ))}
@@ -3393,7 +3187,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                     })()}
                                   </div>
                                   {/* 4. INSIGHTS */}
-                                  <div className="hidden sm:block bg-[#FFF9F5] border border-[#FFD8B4] rounded-[16px] sm:rounded-[20px] p-4 sm:p-8">
+                                  {/* <div className="hidden sm:block bg-[#FFF9F5] border border-[#FFD8B4] rounded-[16px] sm:rounded-[20px] p-4 sm:p-8">
                                     <div className="flex items-center justify-between mb-4 sm:mb-6">
                                       <div className="flex items-center gap-3">
                                         <div className="">
@@ -3406,7 +3200,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                       </span>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
-                                      {/* Card 1: Price */}
+
                                       <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[24px] shadow-sm border border-gray-100 flex flex-col justify-between h-auto sm:h-48">
                                         <div className="flex justify-between items-start">
                                           <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center">
@@ -3421,7 +3215,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                           </p>
                                         </div>
                                       </div>
-                                      {/* Card 2: Safety */}
+                                   
                                       <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[24px] shadow-sm border border-gray-100 flex flex-col justify-between h-auto sm:h-48">
                                         <div className="flex justify-between items-start">
                                           <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center">
@@ -3436,7 +3230,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                           </p>
                                         </div>
                                       </div>
-                                      {/* Card 3: Walkability */}
+                                     
                                       <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[24px] shadow-sm border border-gray-100 flex flex-col justify-between h-auto sm:h-48">
                                         <div className="flex justify-between items-start">
                                           <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center">
@@ -3451,7 +3245,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                           </div>
                                         </div>
                                       </div>
-                                      {/* Card 4: Climate */}
+                                      
                                       <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[24px] shadow-sm border border-gray-100 flex flex-col justify-between h-auto sm:h-48">
                                         <div className="flex justify-between items-start">
                                           <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center">
@@ -3467,15 +3261,15 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                         </div>
                                       </div>
                                     </div>
-                                    {/* Bottom Button */}
+                                   
                                     <div className="flex justify-end mt-3 sm:mt-4">
                                       <button className="bg-[#121212] hover:bg-black text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-full text-[11px] sm:text-xs font-bold flex items-center gap-2 transition-transform hover:scale-105 shadow-md">
                                         Explore Manhattan Beach on Local Wiki <ArrowUp className="w-3 h-3 rotate-90" />
                                       </button>
                                     </div>
-                                  </div>
+                                  </div> */}
 
-                                  {/* 5. VIEW FULL PROPERTY */}
+
                                   <div className="flex justify-center pb-4">
                                     <a
                                       href={propertyDetailsUrl}
@@ -3539,46 +3333,179 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
                 {/* 2. New Large Search Bar + Controls */}
                 <div ref={searchContainerRef} className="mb-2 flex items-center gap-2 sm:mb-4 sm:gap-3">
-                  {/* Contextual Actions */}
-                  <button
-                    onClick={() => {
-                      setSearchTerm('');
-                      setChatHistory([]); // Clear history
-                      setSessionId(null); // Clear session
-                      setIsSearching(false);
-                      setIsMenuOpen(false);
-                      setSelectedPropertyId(null);
-                      setExpandedPropertyId(null);
-                      setNearbySchoolsById({});
-                      if (onSearchStateChange) onSearchStateChange(true, '');
+                  <div className="relative hidden sm:block flex-shrink-0">
+                    <button
+                      onClick={() => setIsMenuOpen(!isMenuOpen)}
+                      className="bg-black text-white pl-3 pr-3 py-2 rounded-full flex items-center gap-2.5 shadow-md hover:bg-gray-800 transition-colors group active:scale-95 duration-200 select-none"
+                    >
+                      <Image
+                        src="/assets/images/snaphomz-icon-thick.png"
+                        alt="Snaphomz AI"
+                        width={22}
+                        height={22}
+                        className="w-[22px] h-[22px] object-contain"
+                      />
+                      <span className="font-semibold text-[14px] tracking-wide">New Chat</span>
+                      <ChevronDown className={`w-4 h-4 text-gray-400 group-hover:text-white transition-transform duration-300 ${isMenuOpen ? 'rotate-180' : ''}`} />
+                    </button>
 
-                      // Smooth scroll to search bar
-                      setTimeout(() => {
-                        searchContainerRef.current?.scrollIntoView({
-                          behavior: 'smooth',
-                          block: 'center'
-                        });
-                        // Focus input after scroll
-                        setTimeout(() => {
-                          searchInputRef.current?.focus();
-                        }, 300);
-                      }, 100);
-                    }}
-                    title="New Chat"
-                    className="hidden sm:flex flex-shrink-0 w-10 h-10 sm:w-[60px] sm:h-[68px] bg-white border border-gray-200 rounded-xl sm:rounded-[28px] items-center justify-center text-gray-400 hover:text-[#F58634] hover:border-orange-200 hover:bg-orange-50 transition-all shadow-sm group"
-                  >
-                    <Sparkles className="w-4 h-4 sm:w-6 sm:h-6" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsMenuOpen(true);
-                      window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll up to see the menu
-                    }}
-                    title="History"
-                    className="hidden sm:flex flex-shrink-0 w-10 h-10 sm:w-[60px] sm:h-[68px] bg-white border border-gray-200 rounded-xl sm:rounded-[28px] items-center justify-center text-gray-400 hover:text-gray-900 hover:border-gray-300 hover:bg-gray-50 transition-all shadow-sm"
-                  >
-                    <Clock className="w-4 h-4 sm:w-6 sm:h-6" />
-                  </button>
+                    <AnimatePresence>
+                      {isMenuOpen && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)} />
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                            className="absolute bottom-full left-0 mb-3 w-80 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden ring-1 ring-black/5 max-h-80 flex flex-col"
+                          >
+                            <div className="flex flex-col flex-1 overflow-hidden p-2 space-y-1">
+                              <button
+                                onClick={() => {
+                                  setSearchTerm('');
+                                  setChatHistory([]);
+                                  setSessionId(null);
+                                  setIsSearching(false);
+                                  setIsMenuOpen(false);
+                                  setSelectedPropertyId(null);
+                                  setExpandedPropertyId(null);
+                                  if (onSearchStateChange) onSearchStateChange(true, '');
+
+                                  setTimeout(() => {
+                                    searchContainerRef.current?.scrollIntoView({
+                                      behavior: 'smooth',
+                                      block: 'center'
+                                    });
+                                    setTimeout(() => {
+                                      searchInputRef.current?.focus();
+                                    }, 300);
+                                  }, 100);
+                                }}
+                                className="flex items-center gap-3 w-full px-3 py-3 hover:bg-orange-50 rounded-xl transition-colors group text-left"
+                              >
+                                <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                  <Sparkles className="w-4 h-4 text-orange-600" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-bold text-gray-900">New Chat</p>
+                                  <p className="text-xs text-gray-500">Start a fresh search</p>
+                                </div>
+                              </button>
+
+                              <div className="h-px bg-gray-100 my-1 mx-2" />
+
+                              <div className="flex flex-col flex-1 min-h-0 px-3 py-1.5">
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex-none">Recent</p>
+                                <div className="space-y-0.5 flex-1 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-300">
+                                  {recentSessions.length === 0 && (
+                                    <div className="px-2 py-2 text-xs text-gray-400">
+                                      No recent chats yet.
+                                    </div>
+                                  )}
+                                  {recentSessions.map((item, idx) => (
+                                    <div
+                                      key={item.id || idx}
+                                      onClick={async () => {
+                                        try {
+                                          const details = await fetchSessionDetails(item.id);
+                                          if (details) {
+                                            const recovered: ChatMessage[] = details.messages.map((m: any, i: number) => ({
+                                              id: `restored-${i}`,
+                                              role: m.role,
+                                              content: m.content
+                                            }));
+
+                                            if (details.last_results && recovered.length > 0) {
+                                              const lastAiIndex = recovered.map(m => m.role).lastIndexOf('assistant');
+                                              if (lastAiIndex !== -1) {
+                                                const mappedProps = details.last_results.map((p: any, index: number) => {
+                                                  const mainImage = p.primaryListingImageUrl || p.primaryImage || p.imgSrc || p.image || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c';
+                                                  const price = p.price || p.listPrice || '$0';
+                                                  const fmtPrice = typeof price === 'number' ? `$${price.toLocaleString()}` : price;
+                                                  const address = p.address || p.formattedAddress || (p.street ? `${p.street}, ${p.city}, ${p.state}` : 'Address Unavailable');
+                                                  const listingId = resolveListingId(p);
+                                                  const propertyId = resolvePropertyId(p);
+                                                  const cardIdentity = listingId ?? propertyId;
+                                                  const cardId = cardIdentity ?? `restored-${item.id}-${index}`;
+                                                  return {
+                                                    id: cardId,
+                                                    listingId,
+                                                    propertyId,
+                                                    listingUrl: p.listing_url || p.url || p.hdpUrl,
+                                                    image: mainImage,
+                                                    price: fmtPrice,
+                                                    address: address,
+                                                    beds: p.beds || p.bedrooms || p.bedroomTotal || 0,
+                                                    baths: p.baths || p.bathrooms || p.bathroomTotal || 0,
+                                                    sqft: p.livingArea || p.sqft || 'N/A',
+                                                    type: 'Residential',
+                                                    hasPool: p.hasPool,
+                                                    features: p.features || [],
+                                                    schools: [],
+                                                    insights: { price: fmtPrice, safety: 'N/A', walkability: 'N/A', climate: 'N/A' },
+                                                    images: [mainImage]
+                                                  };
+                                                });
+                                                recovered[lastAiIndex].relatedProperties = mappedProps;
+                                                recovered[lastAiIndex].totalMatches = mappedProps.length;
+                                                const existingContent = recovered[lastAiIndex].content;
+                                                if (!existingContent || !existingContent.trim()) {
+                                                  recovered[lastAiIndex].content = `I found ${mappedProps.length} homes that match your criteria.`;
+                                                }
+                                              }
+                                            }
+
+                                            setSessionId(item.id);
+                                            setChatHistory(recovered);
+                                            setIsSearching(false);
+                                            setIsMenuOpen(false);
+                                            setIsExpanded(true);
+                                            if (onSearchStateChange) onSearchStateChange(true, '');
+                                          }
+                                        } catch (e) { console.error(e); }
+                                      }}
+                                      className="flex items-center gap-3 px-2 py-2 hover:bg-gray-50 rounded-lg cursor-pointer group transition-colors"
+                                    >
+                                      <Clock className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-600 flex-shrink-0" />
+                                      <span className="text-sm text-gray-600 group-hover:text-gray-900 truncate">{item.title || 'Untitled Session'}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div className="border-t border-gray-100 mt-1 p-1 flex-none">
+                                <button
+                                  onClick={async () => {
+                                    if (isClearingHistory) return;
+                                    setIsClearingHistory(true);
+                                    setRecentSessions([]);
+                                    setSearchTerm('');
+                                    setChatHistory([]);
+                                    setSessionId(null);
+                                    setIsSearching(false);
+                                    setProperties([]);
+                                    try {
+                                      await clearHistoryAPI();
+                                    } catch (e) {
+                                      console.error("Failed to clear history:", e);
+                                    } finally {
+                                      setIsClearingHistory(false);
+                                      setIsMenuOpen(false);
+                                    }
+                                  }}
+                                  className={`w-full flex items-center justify-center gap-2 py-2 text-xs font-medium transition-colors ${isClearingHistory ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-red-500'}`}
+                                  disabled={isClearingHistory}
+                                >
+                                  {isClearingHistory ? 'Clearing...' : 'Clear History'}
+                                </button>
+                              </div>
+                            </div>
+                          </motion.div>
+                        </>
+                      )}
+                    </AnimatePresence>
+                  </div>
 
                   {/* Search Input */}
                   <div className={`relative min-w-0 ${pendingImage || pendingImagePreview ? 'w-full sm:flex-1' : 'flex-1'}`}>
@@ -3624,6 +3551,48 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                       className={`w-full bg-white text-gray-900 rounded-2xl sm:rounded-3xl min-h-[64px] sm:min-h-[68px] max-h-32 sm:max-h-40 overflow-y-hidden resize-none py-4 sm:py-[22px] ${pendingImage || pendingImagePreview ? 'pl-36 sm:pl-[19rem]' : 'pl-4 sm:pl-5'} pr-28 sm:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-[14px] sm:text-base placeholder:text-gray-400 font-normal leading-relaxed`}
                     />
                     <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 sm:gap-4">
+                      {/* Attach Icon & Menu */}
+                      <div className="relative">
+                        <div
+                          className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
+                          onClick={() => setShowAttachMenu(!showAttachMenu)}
+                        >
+                          <Paperclip className="w-5 h-5 sm:w-5 sm:h-5" />
+                        </div>
+
+                        {/* Dropdown Menu (Opens Upwards) */}
+                        <AnimatePresence>
+                          {showAttachMenu && (
+                            <motion.div
+                              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                              animate={{ opacity: 1, scale: 1, y: 0 }}
+                              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                              transition={{ duration: 0.2 }}
+                              className="absolute bottom-full right-0 mb-2 w-32 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200 ring-1 ring-black/5 overflow-hidden z-[70]"
+                            >
+                              <div className="flex flex-col p-1.5 gap-1">
+                                <button
+                                  onClick={() => handleAttachmentClick('image')}
+                                  type="button"
+                                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
+                                >
+                                  <ImageIcon className="w-4 h-4 text-blue-500" />
+                                  <span>Image</span>
+                                </button>
+                                <button
+                                  onClick={() => handleAttachmentClick('pdf')}
+                                  type="button"
+                                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
+                                >
+                                  <FileText className="w-4 h-4 text-red-500" />
+                                  <span>PDF</span>
+                                </button>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
                       <button
                         type="button"
                         onClick={toggleMlsBypass}
@@ -3679,7 +3648,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                   )}
 
                   {/* ── Address Autocomplete Suggestions ── */}
-                  {searchTerm && (showAddressSuggestions || isLoadingAddressSuggestions) && (
+                  {searchTerm && chatHistory.length === 0 && (showAddressSuggestions || isLoadingAddressSuggestions) && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
@@ -3734,7 +3703,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                   )}
 
                   {/* ── Location (City/State) Autocomplete Suggestions ── */}
-                  {searchTerm && (showLocationSuggestions || isLoadingLocationSuggestions) && (
+                  {searchTerm && chatHistory.length === 0 && (showLocationSuggestions || isLoadingLocationSuggestions) && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
@@ -5542,7 +5511,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 //         if (isRateForecastQuery) {
 //           isForecastMsg = true;
 //           forecastPoints = await fetchForecast(24);
-//           // Don't override content if we have AI text, unless necessary. 
+//           // Don't override content if we have AI text, unless necessary.
 //           // Often AI text might be "Here is the forecast..."
 //           // If explicit "Show me forecast", AI might verify.
 //           // visual feedback:

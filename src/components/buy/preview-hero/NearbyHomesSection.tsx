@@ -23,6 +23,7 @@ const NearbyHomesSection = ({ nearbyHomes, soldHomes, currentProperty, currentLi
 
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'For Sale' | 'Sold'>('For Sale');
+  const [isCompareMode, setIsCompareMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [limitReached, setLimitReached] = useState(false);
 
@@ -119,7 +120,7 @@ const NearbyHomesSection = ({ nearbyHomes, soldHomes, currentProperty, currentLi
   };
 
   const handleGoToCompare = () => {
-    if (selectedIds.length === 0) return;
+    if (selectedIds.length < 2) return;
     const payload = {
       createdAt: new Date().toISOString(),
       base: currentProperty || null,
@@ -150,31 +151,51 @@ const NearbyHomesSection = ({ nearbyHomes, soldHomes, currentProperty, currentLi
         </div>
         <div className="flex flex-col items-end gap-2">
           <button
-            className="px-4 py-2 bg-gray-100 text-gray-900 text-sm font-medium rounded-lg"
-            aria-live="polite"
-          >
-            ({selectedIds.length}) Selected to Compare
-          </button>
-          <button
             type="button"
-            onClick={handleGoToCompare}
-            disabled={selectedIds.length === 0}
-            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${selectedIds.length === 0
-              ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              : 'bg-black text-white hover:bg-gray-900'
+            onClick={() => {
+              setIsCompareMode((prev) => {
+                const next = !prev;
+                if (!next) {
+                  setSelectedIds([]);
+                  setLimitReached(false);
+                }
+                return next;
+              });
+            }}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${isCompareMode
+              ? 'bg-[#F58634] text-white'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
           >
-            Compare selected
+            {isCompareMode ? 'Cancel Compare' : 'Compare'}
           </button>
-          {limitReached && (
-            <span className="text-xs text-orange-600">
-              You can compare up to {MAX_COMPARE} homes.
-            </span>
-          )}
-          {selectedIds.length > 0 && selectedIds.length < MAX_COMPARE && (
-            <span className="text-xs text-gray-500">
-              You can add {MAX_COMPARE - selectedIds.length} more.
-            </span>
+          {isCompareMode && (
+            <>
+              <span className="px-3 py-1.5 bg-gray-100 text-gray-900 text-sm font-medium rounded-lg" aria-live="polite">
+                ({selectedIds.length}) Selected to Compare
+              </span>
+              <button
+                type="button"
+                onClick={handleGoToCompare}
+                disabled={selectedIds.length < 2}
+                className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${selectedIds.length >= 2
+                  ? 'bg-black text-white hover:bg-gray-900'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  }`}
+              >
+                Compare selected
+              </button>
+              {limitReached && (
+                <span className="text-xs text-orange-600">
+                  You can compare up to {MAX_COMPARE} homes.
+                </span>
+              )}
+              {selectedIds.length > 0 && selectedIds.length < MAX_COMPARE && (
+                <span className="text-xs text-gray-500">
+                  You can add {MAX_COMPARE - selectedIds.length} more.
+                </span>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -221,9 +242,10 @@ const NearbyHomesSection = ({ nearbyHomes, soldHomes, currentProperty, currentLi
             >
               <PropertyCardHomes
                 listing={home}
-                isSelected={selectedIds.includes(getListingKey(home, index))}
-                compareDisabled={selectedIds.length >= MAX_COMPARE}
-                onToggleCompare={() => handleToggleCompare(home, index)}
+                compareMode={isCompareMode}
+                isSelected={isCompareMode && selectedIds.includes(getListingKey(home, index))}
+                compareDisabled={isCompareMode && selectedIds.length >= MAX_COMPARE}
+                onToggleCompare={isCompareMode ? () => handleToggleCompare(home, index) : undefined}
               />
             </div>
           ))

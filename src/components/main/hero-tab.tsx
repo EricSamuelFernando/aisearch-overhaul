@@ -2584,6 +2584,15 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     -ms-overflow-style: none;
                     scrollbar-width: none;
                 }
+                @media (max-width: 639px) {
+                    .mobile-no-scrollbar::-webkit-scrollbar {
+                        display: none;
+                    }
+                    .mobile-no-scrollbar {
+                        -ms-overflow-style: none;
+                        scrollbar-width: none;
+                    }
+                }
             `}</style>
 
       {/* Animated Container: Transitions from Pill (Search Bar) to Box (Chat UI) */}
@@ -2846,18 +2855,18 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 <div className="relative">
                   <div
                     onClick={() => setIsMenuOpen(!isMenuOpen)}
-                    className="bg-black text-white pl-1 pr-4 py-1 rounded-full flex items-center gap-3 shadow-md hover:bg-gray-800 transition-colors cursor-pointer group active:scale-95 duration-200 select-none"
+                    className="bg-black text-white h-[44px] w-[183px] pl-[17px] pr-[12px] py-[8px] rounded-full border border-white/15 flex items-center gap-2 shadow-[0_4px_10px_rgba(0,0,0,0.28)] hover:bg-[#0A0A0A] transition-colors cursor-pointer group duration-200 select-none"
                   >
-                    <div className="relative w-8 h-8 flex-shrink-0">
+                    <div className="relative w-7 h-7 flex-shrink-0 ">
                       <Image
-                        src="/assets/images/snaphomz-icon-thick.png"
-                        alt="SnapHomz AI"
+                        src="/assets/images/Group14455(1).svg"
+                        alt="Snaphomz AI"
                         fill
                         className="object-contain"
                       />
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm tracking-wide">SnapHomz AI</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-medium text-sm tracking-normal whitespace-nowrap">Snaphomz AI</span>
                       <ChevronDown className={`w-4 h-4 text-gray-400 group-hover:text-white transition-transform duration-300 ${isMenuOpen ? 'rotate-180' : ''}`} />
                     </div>
                   </div>
@@ -3045,7 +3054,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
               {/* 2) AI Logic Section */}
               {/* Chat History Loop */}
-              <div className={`flex flex-col gap-8 w-full min-h-0 overflow-y-auto pr-0 sm:pr-2 pb-20 sm:pb-8 transition-all duration-500
+              <div className={`mobile-no-scrollbar flex flex-col gap-8 w-full min-h-0 overflow-y-auto overflow-x-hidden pr-0 sm:pr-2 pb-20 sm:pb-8 transition-all duration-500
               ${isExpanded ? 'h-[56vh] sm:h-[600px] md:h-[700px] lg:h-[750px]' : 'h-auto'}`}
                 style={{ overflowAnchor: 'none' }}>
                 {chatHistory.map((msg) => (
@@ -3075,22 +3084,22 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     ) : (
                       <div className="flex flex-col gap-6 w-full animate-in fade-in slide-in-from-bottom-2 duration-500">
                         {msg.relatedProperties && msg.relatedProperties.length > 0 && (
-                          <div className="order-1 flex items-start gap-5 px-1">
-                            <div className="flex-shrink-0 mt-1 w-11 h-11 rounded-xl bg-[#140800] ring-1 ring-[#F58634]/35 shadow-sm flex items-center justify-center">
+                          <div className="order-1 flex items-start gap-3 sm:gap-5 px-1">
+                            <div className="flex-shrink-0 mt-1 w-[45px] h-[45.18px] flex items-center justify-center">
                               <Image
-                                src="/assets/images/snaphomz-icon-thick.png"
-                                alt="SnapHomz AI"
-                                width={32}
-                                height={32}
-                                className="w-8 h-8 object-contain"
+                                src="/assets/images/Group14455(1).svg"
+                                alt="Snaphomz AI"
+                                width={45}
+                                height={45}
+                                className="w-[45px] h-[45.18px] object-contain"
                               />
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
-                                <span className="font-bold text-black text-sm tracking-tight">SnapHomz AI</span>
+                                <span className="font-bold text-black text-sm tracking-tight">Snaphomz AI</span>
                               </div>
                               {msg.id === latestVisibleAssistantMessageId && shouldShowThinkingForLatestAssistant && (
-                                <div className="mt-3 self-start">
+                                <div className="mt-3 self-start w-full">
                                   <ThinkingPanel
                                     isThinking={isSearching}
                                     query={msg.query || currentQuery}
@@ -3106,22 +3115,22 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                         )}
 
                         {/* AI Avatar & Message */}
-                        <div className={`flex items-start gap-5 px-1 ${msg.relatedProperties?.length ? 'order-4' : ''}`}>
+                        <div className={`flex items-start gap-3 sm:gap-5 px-1 ${msg.relatedProperties?.length ? 'order-4' : ''}`}>
                           {!msg.relatedProperties?.length && (
-                            <div className="flex-shrink-0 mt-1 w-11 h-11 rounded-xl bg-[#140800] ring-1 ring-[#F58634]/35 shadow-sm flex items-center justify-center">
+                            <div className="flex-shrink-0 mt-1 w-[45px] h-[45.18px] flex items-center justify-center">
                               <Image
-                                src="/assets/images/snaphomz-icon-thick.png"
-                                alt="SnapHomz AI"
-                                width={32}
-                                height={32}
-                                className="w-8 h-8 object-contain"
+                                src="/assets/images/Group14455(1).svg"
+                                alt="Snaphomz AI"
+                                width={45}
+                                height={45}
+                                className="w-[45px] h-[45.18px] object-contain"
                               />
                             </div>
                           )}
-                          <div className="flex-1 min-w-0 space-y-3">
+                          <div className="flex-1 min-w-0 space-y-2 sm:space-y-3">
                             {!msg.relatedProperties?.length && (
                               <div className="flex items-center gap-2">
-                                <span className="font-bold text-black text-sm tracking-tight">SnapHomz AI</span>
+                                <span className="font-bold text-black text-sm tracking-tight">Snaphomz AI</span>
                               </div>
                             )}
 

@@ -142,54 +142,54 @@ function resolveIntent(query: string, intentHint?: string): QueryIntent {
 // The last step in each sequence has delayMs: 0 — it stays active until the backend responds.
 const STEP_LIBRARY: Record<QueryIntent, StepDef[]> = {
   property_search: [
-    { id: 's1', label: 'Nova analyzed your request',        detail: 'Routing to PropertySearchAgent',           agentName: 'Nova',                 delayMs: 900  },
-    { id: 's2', label: 'PropertySearchAgent activated',     detail: 'Extracting location, price & filters',     agentName: 'PropertySearchAgent',  delayMs: 1500 },
-    { id: 's3', label: 'Querying MLS database',             detail: 'Scanning thousands of active listings',    agentName: 'MLS',                  delayMs: 2500 },
-    { id: 's4', label: 'Ranking top matches',               detail: 'Scoring by fit, value & neighborhood',    agentName: 'PropertySearchAgent',  delayMs: 2000 },
-    { id: 's5', label: 'Generating advisor response',       detail: 'Composing personalised summary',           agentName: 'PropertySearchAgent',  delayMs: 0    },
+    { id: 's1', label: 'Got it, finding homes for you',      detail: 'Understanding what you\'re looking for.',                  agentName: 'Nova',                delayMs: 800  },
+    { id: 's2', label: 'Searching listings',                 detail: 'Scanning active listings in your area.',                   agentName: 'Home Finder',         delayMs: 1400 },
+    { id: 's3', label: 'Filtering by your preferences',      detail: 'Applying your price, size, and location filters.',         agentName: 'Home Finder',         delayMs: 1800 },
+    { id: 's4', label: 'Picking the best matches',           detail: 'Choosing homes that best fit what you\'re after.',         agentName: 'Home Finder',         delayMs: 1600 },
+    { id: 's5', label: 'Putting your results together',      detail: 'Writing up a summary of the top homes for you.',           agentName: 'Nova',                delayMs: 0    },
   ],
   financial_analysis: [
-    { id: 'f1', label: 'Nova analyzed your request',        detail: 'Routing to FinancialAdvisorAgent',         agentName: 'Nova',                 delayMs: 800  },
-    { id: 'f2', label: 'FinancialAdvisorAgent activated',   detail: 'Parsing financial parameters',             agentName: 'FinancialAdvisorAgent',delayMs: 1200 },
-    { id: 'f3', label: 'Computing mortgage scenarios',      detail: 'Calculating P&I, tax, insurance & PMI',   agentName: 'FinancialAdvisorAgent',delayMs: 2000 },
-    { id: 'f4', label: 'Calculating DTI & affordability',   detail: 'Checking thresholds vs your income',      agentName: 'FinancialAdvisorAgent',delayMs: 1800 },
-    { id: 'f5', label: 'Composing detailed analysis',       detail: 'Building cost table & verdict',           agentName: 'FinancialAdvisorAgent',delayMs: 0    },
+    { id: 'f1', label: 'Got it, analysing your finances',    detail: 'Understanding your financial scenario.',                   agentName: 'Nova',                delayMs: 700  },
+    { id: 'f2', label: 'Running cost projections',           detail: 'Estimating monthly costs, down payment, and total spend.',  agentName: 'Financial Advisor',   delayMs: 1800 },
+    { id: 'f3', label: 'Checking your affordability',        detail: 'Seeing how this fits within your budget.',                  agentName: 'Financial Advisor',   delayMs: 1500 },
+    { id: 'f4', label: 'Comparing your options',             detail: 'Laying out the trade-offs between different scenarios.',    agentName: 'Financial Advisor',   delayMs: 1400 },
+    { id: 'f5', label: 'Preparing your financial summary',   detail: 'Pulling together a clear picture of your options.',         agentName: 'Nova',                delayMs: 0    },
   ],
   school_search: [
-    { id: 'sc1', label: 'Nova analyzed your request',       detail: 'Routing to SnapGradAgent',                agentName: 'Nova',                 delayMs: 800  },
-    { id: 'sc2', label: 'SnapGradAgent activated',          detail: 'Identifying school district & location',  agentName: 'SnapGradAgent',        delayMs: 1200 },
-    { id: 'sc3', label: 'Querying school database',         detail: 'Fetching ratings, test scores & programs',agentName: 'SnapGradAgent',        delayMs: 2500 },
-    { id: 'sc4', label: 'Ranking by ratings & programs',    detail: 'Scoring STEM, athletics & overall fit',   agentName: 'SnapGradAgent',        delayMs: 1800 },
-    { id: 'sc5', label: 'Compiling school report',          detail: 'Generating personalised school summary',  agentName: 'SnapGradAgent',        delayMs: 0    },
+    { id: 'sc1', label: 'Got it, looking into schools',      detail: 'Understanding what kind of schools you need.',             agentName: 'Nova',                delayMs: 800  },
+    { id: 'sc2', label: 'Finding schools in the area',       detail: 'Locating schools in the district you asked about.',        agentName: 'School Scout',        delayMs: 1200 },
+    { id: 'sc3', label: 'Checking ratings and programs',     detail: 'Looking at test scores, STEM, sports, and other programs.', agentName: 'School Scout',       delayMs: 2000 },
+    { id: 'sc4', label: 'Ranking by best fit',               detail: 'Sorting by the things that matter most for your family.',  agentName: 'School Scout',        delayMs: 1500 },
+    { id: 'sc5', label: 'Preparing your school summary',     detail: 'Writing up the best options for you.',                     agentName: 'Nova',                delayMs: 0    },
   ],
   mortgage_calc: [
-    { id: 'm1', label: 'Nova analyzed your request',        detail: 'Routing to SnapInterestAgent',            agentName: 'Nova',                 delayMs: 800  },
-    { id: 'm2', label: 'SnapInterestAgent activated',       detail: 'Parsing loan amount, rate & term',        agentName: 'SnapInterestAgent',    delayMs: 1200 },
-    { id: 'm3', label: 'Running mortgage calculations',     detail: 'Computing P&I using amortisation formula',agentName: 'SnapInterestAgent',    delayMs: 2000 },
-    { id: 'm4', label: 'Preparing payment breakdown',       detail: 'Building monthly cost summary',           agentName: 'SnapInterestAgent',    delayMs: 0    },
+    { id: 'm1', label: 'Got it, running the numbers',        detail: 'Understanding your mortgage question.',                    agentName: 'Nova',                delayMs: 700  },
+    { id: 'm2', label: 'Calculating your monthly payments',  detail: 'Working out principal, interest, taxes, and insurance.',   agentName: 'Mortgage Calculator', delayMs: 1800 },
+    { id: 'm3', label: 'Checking current rate ranges',       detail: 'Looking at what rates are available right now.',           agentName: 'Mortgage Calculator', delayMs: 1200 },
+    { id: 'm4', label: 'Preparing your breakdown',           detail: 'Putting together a clear cost summary for you.',           agentName: 'Nova',                delayMs: 0    },
   ],
   rent_vs_buy: [
-    { id: 'r1', label: 'Nova analyzed your request',        detail: 'Routing to RentVsBuyAgent',               agentName: 'Nova',                 delayMs: 800  },
-    { id: 'r2', label: 'RentVsBuyAgent activated',          detail: 'Gathering market & income data',          agentName: 'RentVsBuyAgent',       delayMs: 1200 },
-    { id: 'r3', label: 'Analysing market conditions',       detail: 'Checking local price-to-rent ratios',     agentName: 'RentVsBuyAgent',       delayMs: 2000 },
-    { id: 'r4', label: 'Calculating 10-year scenarios',     detail: 'Modelling wealth delta, equity & taxes',  agentName: 'RentVsBuyAgent',       delayMs: 2000 },
-    { id: 'r5', label: 'Generating recommendation',         detail: 'Building your personalised verdict',      agentName: 'RentVsBuyAgent',       delayMs: 0    },
+    { id: 'r1', label: 'Got it, comparing your options',     detail: 'Understanding your rent vs buy question.',                 agentName: 'Nova',                delayMs: 700  },
+    { id: 'r2', label: 'Looking at the cost of buying',      detail: 'Factoring in mortgage, taxes, maintenance, and equity.',   agentName: 'Financial Advisor',   delayMs: 1600 },
+    { id: 'r3', label: 'Looking at the cost of renting',     detail: 'Estimating rent, insurance, and opportunity cost.',        agentName: 'Financial Advisor',   delayMs: 1400 },
+    { id: 'r4', label: 'Comparing both scenarios',           detail: 'Running the numbers over 5, 10, and 30 years.',            agentName: 'Financial Advisor',   delayMs: 1600 },
+    { id: 'r5', label: 'Writing your recommendation',        detail: 'Summarising which option makes more sense for you.',       agentName: 'Nova',                delayMs: 0    },
   ],
   qa_advisory: [
-    { id: 'q1', label: 'Nova analyzed your request',        detail: 'Routing to RealEstateAdvisorAgent',       agentName: 'Nova',                 delayMs: 800  },
-    { id: 'q2', label: 'RealEstateAdvisorAgent activated',  detail: 'Researching your question',               agentName: 'RealEstateAdvisorAgent',delayMs: 1800 },
-    { id: 'q3', label: 'Composing expert answer',           detail: 'Drawing on real estate knowledge base',   agentName: 'RealEstateAdvisorAgent',delayMs: 0    },
+    { id: 'q1', label: 'Got it, looking that up',            detail: 'Understanding your real estate question.',                 agentName: 'Nova',                delayMs: 700  },
+    { id: 'q2', label: 'Looking that up for you',            detail: 'Searching our real estate knowledge base.',                agentName: 'Real Estate Advisor', delayMs: 1800 },
+    { id: 'q3', label: 'Writing your answer',                detail: 'Putting together a clear, helpful response.',              agentName: 'Nova',                delayMs: 0    },
   ],
   reference: [
-    { id: 'ref1', label: 'Nova analyzed your request',      detail: 'Identifying referenced property',         agentName: 'Nova',                 delayMs: 600  },
-    { id: 'ref2', label: 'Loading property details',        detail: 'Retrieving listing data from context',    agentName: 'PropertySearchAgent',  delayMs: 1000 },
-    { id: 'ref3', label: 'Generating property summary',     detail: 'Composing detailed property insights',    agentName: 'PropertySearchAgent',  delayMs: 0    },
+    { id: 'ref1', label: 'Got it, finding that property',    detail: 'Looking up the property you mentioned.',                   agentName: 'Nova',                delayMs: 700  },
+    { id: 'ref2', label: 'Pulling up the details',           detail: 'Retrieving the listing info, photos, and key facts.',      agentName: 'Home Finder',         delayMs: 1600 },
+    { id: 'ref3', label: 'Preparing a summary',              detail: 'Putting together what you need to know.',                  agentName: 'Nova',                delayMs: 0    },
   ],
   compare: [
-    { id: 'c1', label: 'Nova analyzed your request',        detail: 'Identifying properties to compare',       agentName: 'Nova',                 delayMs: 700  },
-    { id: 'c2', label: 'Loading comparison data',           detail: 'Retrieving both listing details',         agentName: 'PropertySearchAgent',  delayMs: 1200 },
-    { id: 'c3', label: 'Running side-by-side analysis',     detail: 'Scoring value, size & location factors',  agentName: 'PropertySearchAgent',  delayMs: 2000 },
-    { id: 'c4', label: 'Generating comparison report',      detail: 'Building verdict with key differences',   agentName: 'PropertySearchAgent',  delayMs: 0    },
+    { id: 'c1', label: 'Got it, comparing those properties', detail: 'Identifying the properties you want to compare.',          agentName: 'Nova',                delayMs: 700  },
+    { id: 'c2', label: 'Loading both properties',            detail: 'Pulling up the full details for each listing.',            agentName: 'Home Finder',         delayMs: 1400 },
+    { id: 'c3', label: 'Comparing features and value',       detail: 'Looking at price, size, location, and condition.',         agentName: 'Home Finder',         delayMs: 1600 },
+    { id: 'c4', label: 'Writing your comparison',            detail: 'Putting together a side-by-side breakdown.',               agentName: 'Nova',                delayMs: 0    },
   ],
 };
 
@@ -351,29 +351,31 @@ function StepRow({ step, index }: { step: LiveStep; index: number }) {
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: isPending ? 0.35 : 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.04 }}
-      className="rounded-2xl border border-slate-200/90 bg-white shadow-sm px-4 sm:px-5 py-3 sm:py-4 text-left"
+      className="rounded-2xl border border-slate-200/90 bg-white shadow-sm px-3 sm:px-5 py-3 sm:py-4 text-left overflow-hidden"
     >
       <button
         onClick={() => setIsOpen((prev) => !prev)}
         className="w-full text-left"
       >
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-2 sm:gap-3">
           <div className="min-w-0 flex-1">
-            <span className="text-[17px] sm:text-[18px] leading-tight font-semibold text-slate-800">
-              {title}
-            </span>
             {step.source ? (
-              <div className="mt-1 text-[12px] sm:text-[13px] text-slate-500">
+              <div className="text-[12px] sm:text-[13px] text-slate-500">
                 {step.source}
               </div>
             ) : null}
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusBadgeClass(isActive ? 'active' : step.status)}`}>
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            <span className={`hidden sm:inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium whitespace-nowrap ${statusBadgeClass(isActive ? 'active' : step.status)}`}>
               {statusLabel}
             </span>
-            {step.durationMs !== undefined && step.durationMs >= 100 ? <DurationBadge ms={step.durationMs} /> : null}
+            {step.durationMs !== undefined && step.durationMs >= 100 ? (
+              <span className="hidden sm:inline-flex">
+                <DurationBadge ms={step.durationMs} />
+              </span>
+            ) : null}
+            {!isActive && step.status === 'done' ? <Check className="w-3.5 h-3.5 text-emerald-500 sm:hidden" strokeWidth={2.5} /> : null}
             {isActive ? <Spinner className="w-4 h-4 text-[#F58634]" /> : null}
             {isOpen ? (
               <ChevronUp className="w-4 h-4 text-slate-400" />
@@ -392,39 +394,27 @@ function StepRow({ step, index }: { step: LiveStep; index: number }) {
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2 }}
-            className="pl-1 sm:pl-2 pt-2"
+            className="pl-0.5 sm:pl-2 pt-2"
           >
             {showDetail ? (
-              <p className="text-[15px] sm:text-[16px] text-slate-600 leading-7 text-left">
+              <p className="text-[15px] sm:text-[16px] text-slate-600 leading-7 text-left break-words">
                 {isActive ? <TypewriterText text={step.detail} speedMs={14} /> : step.detail}
               </p>
             ) : null}
 
             {hasBullets && (
-              <ul className="mt-2.5 pl-6 list-disc space-y-1.5 text-[15px] sm:text-[16px] leading-7 text-slate-600 marker:text-slate-400 text-left">
+              <ul className="mt-2.5 pl-4 sm:pl-6 list-disc space-y-1.5 text-[15px] sm:text-[16px] leading-7 text-slate-600 marker:text-slate-400 text-left">
                 {displayBullets.map((bullet, bulletIndex) => (
                   <li key={`${step.id}-bullet-${bulletIndex}`}>{bullet}</li>
                 ))}
                 {isActive && (
-                  <li className="list-none ml-[-20px] mt-1">
+                  <li className="list-none mt-1">
                     <PulsingDots />
                   </li>
                 )}
               </ul>
             )}
 
-            {metricEntries.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {metricEntries.map(([key, value]) => (
-                  <span
-                    key={`${step.id}-metric-${key}`}
-                    className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] sm:text-[12px] text-slate-600"
-                  >
-                    {formatMetricLabel(key)}: {formatMetricValue(value)}
-                  </span>
-                ))}
-              </div>
-            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -659,19 +649,6 @@ export default function ThinkingPanel({ isThinking, query, intentHint, backendSt
     timersRef.current = [];
 
     const mappedLiveSteps: LiveStep[] = backendSteps.map((bs, i) => {
-      const fallback = stepDefs[i] ?? {
-        id: bs.id || `step-${i + 1}`,
-        label: bs.label || `Step ${i + 1}`,
-        title: bs.title || bs.label || `Step ${i + 1}`,
-        detail: '',
-        bullets: [],
-        source: bs.source || bs.agentName || bs.label || '',
-        metrics: {},
-        started_at: bs.started_at,
-        ended_at: bs.ended_at,
-        agentName: bs.agentName ?? '',
-        delayMs: 0,
-      };
       const resolvedStatus: StepStatus =
         bs.status === 'pending' || bs.status === 'active' || bs.status === 'done' || bs.status === 'error'
           ? bs.status
@@ -679,19 +656,19 @@ export default function ThinkingPanel({ isThinking, query, intentHint, backendSt
             ? 'active'
             : 'done';
       return {
-        ...fallback,
-        id: bs.id || fallback.id,
-        label: bs.label || fallback.label,
-        title: bs.title || fallback.title || bs.label || fallback.label,
-        detail: bs.detail || fallback.detail,
-        bullets: Array.isArray(bs.bullets) && bs.bullets.length > 0 ? bs.bullets : fallback.bullets,
-        source: bs.source || fallback.source,
-        metrics: bs.metrics || fallback.metrics,
-        started_at: bs.started_at || fallback.started_at,
-        ended_at: bs.ended_at || fallback.ended_at,
-        agentName: bs.agentName ?? fallback.agentName,
+        id: bs.id || `step-${i + 1}`,
+        label: bs.title || bs.label || `Step ${i + 1}`,
+        title: bs.title || bs.label || `Step ${i + 1}`,
+        detail: bs.detail || '',
+        bullets: Array.isArray(bs.bullets) && bs.bullets.length > 0 ? bs.bullets : [],
+        source: bs.source || bs.agentName || '',
+        metrics: bs.metrics || {},
+        started_at: bs.started_at,
+        ended_at: bs.ended_at,
+        agentName: bs.agentName || bs.source || '',
         durationMs: coerceDurationMs(bs.durationMs),
         status: resolvedStatus,
+        delayMs: 0,
       };
     });
 
@@ -769,7 +746,10 @@ export default function ThinkingPanel({ isThinking, query, intentHint, backendSt
 
   // ── Mark all done when backend responds ──────────────────────────────────
   useEffect(() => {
-    if (isThinking || liveSteps.length === 0) return;
+    if (isThinking) return;
+    // Allow continuing even when liveSteps is empty — backendSteps may have arrived
+    // on a fresh mount (standalone panel unmounted → embedded panel remounted).
+    if (liveSteps.length === 0 && (!backendSteps || backendSteps.length === 0)) return;
 
     timersRef.current.forEach(clearTimeout);
     timersRef.current = [];
@@ -801,28 +781,31 @@ export default function ThinkingPanel({ isThinking, query, intentHint, backendSt
     setTotalMs(elapsed > 0 ? elapsed : fallbackMs);
 
     if (backendSteps && backendSteps.length > 0) {
-      // Backend sent actual timing — use it for labels and durations
-      const finalSteps = backendSteps.map((bs, i) => ({
-        ...(stepDefs[i] ?? { id: bs.id, label: bs.label, title: bs.title || bs.label, detail: '', bullets: [], source: bs.source || bs.agentName || bs.label, metrics: {}, agentName: bs.agentName ?? '', delayMs: 0 }),
-        id: bs.id || stepDefs[i]?.id || `step-${i + 1}`,
-        label: bs.label || stepDefs[i]?.label || `Step ${i + 1}`,
-        title: bs.title || stepDefs[i]?.title || bs.label || stepDefs[i]?.label || `Step ${i + 1}`,
-        detail: bs.detail || stepDefs[i]?.detail || '',
-        bullets: Array.isArray(bs.bullets) && bs.bullets.length > 0 ? bs.bullets : stepDefs[i]?.bullets,
-        source: bs.source || stepDefs[i]?.source,
-        metrics: bs.metrics || stepDefs[i]?.metrics,
-        started_at: bs.started_at || stepDefs[i]?.started_at,
-        ended_at: bs.ended_at || stepDefs[i]?.ended_at,
-        agentName: bs.agentName ?? stepDefs[i]?.agentName ?? '',
+      // Backend sent actual steps — use them directly, no STEP_LIBRARY fallback
+      const finalSteps: LiveStep[] = backendSteps.map((bs, i) => ({
+        id: bs.id || `step-${i + 1}`,
+        label: bs.title || bs.label || `Step ${i + 1}`,
+        title: bs.title || bs.label || `Step ${i + 1}`,
+        detail: bs.detail || '',
+        bullets: Array.isArray(bs.bullets) && bs.bullets.length > 0 ? bs.bullets : [],
+        source: bs.source || bs.agentName || '',
+        metrics: bs.metrics || {},
+        started_at: bs.started_at,
+        ended_at: bs.ended_at,
+        agentName: bs.agentName || bs.source || '',
         status: (bs.status === 'error' ? 'error' : 'done') as StepStatus,
         durationMs: coerceDurationMs(bs.durationMs),
+        delayMs: 0,
       }));
       setLiveSteps(finalSteps);
     } else {
-      // Preserve durations for already-done steps; only compute duration for the last active step
+      // Preserve durations for already-done steps; only compute duration for the last active step.
+      // If prev is empty (fresh embedded mount with no backend steps), leave liveSteps empty
+      // — the forceDoneMs fallback effect will populate from STEP_LIBRARY instead.
       const now = Date.now();
-      setLiveSteps((prev) =>
-        prev.map((s, i) => {
+      setLiveSteps((prev) => {
+        if (prev.length === 0) return prev;
+        return prev.map((s, i) => {
           if (s.status === 'done') return s; // keep exact duration already recorded
           return {
             ...s,
@@ -831,14 +814,14 @@ export default function ThinkingPanel({ isThinking, query, intentHint, backendSt
               ? now - stepTimesRef.current[i]
               : undefined,
           };
-        })
-      );
+        });
+      });
     }
 
     setIsDone(true);
     startTimeRef.current = 0;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isThinking]);
+  }, [isThinking, backendSteps]);
   // If backend omitted steps, still show a post-answer "Thought for Xs" + expandable trace.
   useEffect(() => {
     if (isThinking) return;
@@ -880,13 +863,13 @@ export default function ThinkingPanel({ isThinking, query, intentHint, backendSt
 
     return (
       <div className="flex items-start gap-4 mt-6 ml-1">
-        <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-[#140800] ring-1 ring-[#F58634]/35 shadow-sm flex items-center justify-center">
+        <div className="flex-shrink-0 w-[45px] h-[45.18px] flex items-center justify-center">
           <Image
-            src="/assets/images/snaphomz-icon-thick.png"
-            alt="SnapHomz AI"
-            width={32}
-            height={32}
-            className="w-8 h-8 object-contain"
+            src="/assets/images/Group14455(1).svg"
+            alt="Snaphomz AI"
+            width={45}
+            height={45}
+            className="w-[45px] h-[45.18px] object-contain"
           />
         </div>
         <div className="pt-2.5">
@@ -902,36 +885,32 @@ export default function ThinkingPanel({ isThinking, query, intentHint, backendSt
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className={embedded ? 'w-full mb-3' : 'flex items-start gap-4 mt-6 ml-1'}
+      className={embedded ? 'w-full mb-3 overflow-hidden' : 'flex items-start gap-4 mt-6 ml-1'}
     >
       {/* SnapHomz avatar */}
       {!embedded && (
-        <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-[#140800] ring-1 ring-[#F58634]/35 shadow-sm flex items-center justify-center">
+        <div className="flex-shrink-0 w-[45px] h-[45.18px] flex items-center justify-center">
           <Image
-            src="/assets/images/snaphomz-icon-thick.png"
-            alt="SnapHomz AI"
-            width={32}
-            height={32}
-            className="w-8 h-8 object-contain"
+            src="/assets/images/Group14455(1).svg"
+            alt="Snaphomz AI"
+            width={45}
+            height={45}
+            className="w-[45px] h-[45.18px] object-contain"
           />
         </div>
       )}
 
       {/* Panel body */}
-      <div className={`flex-1 min-w-0 rounded-2xl border border-slate-200/90 bg-white/80 shadow-sm p-4 sm:p-5 ${embedded ? 'w-full max-w-none' : 'max-w-3xl'}`}>
+      <div className={`flex-1 min-w-0 overflow-hidden shadow-sm ${embedded ? 'w-full max-w-none rounded-xl border border-slate-200/90 bg-white p-3 sm:p-5' : 'max-w-3xl rounded-2xl border border-slate-200/90 bg-white/80 p-4 sm:p-5'}`}>
 
         {/* Header row */}
-        <div className="flex items-center gap-2.5 mb-4">
+        <div className="flex items-center gap-2 mb-3 sm:mb-4">
           {isThinking ? (
             <button
               onClick={() => setIsExpanded(false)}
               className="inline-flex items-center gap-2 text-[14px] text-slate-600 hover:text-slate-800 transition-colors group"
             >
-              <TypewriterText
-                text={activeThinkingText}
-                className="text-[18px] sm:text-[19px] font-semibold text-slate-800 leading-tight group-hover:text-slate-900"
-                speedMs={18}
-              />
+              <span className="text-[18px] sm:text-[19px] font-semibold text-slate-800 leading-tight group-hover:text-slate-900">Working on it</span>
               <PulsingDots />
               <ChevronUp className="w-4 h-4 ml-0.5 opacity-50 group-hover:opacity-80 transition-opacity" />
             </button>
@@ -941,7 +920,7 @@ export default function ThinkingPanel({ isThinking, query, intentHint, backendSt
               className="inline-flex items-center gap-2 text-[14px] text-slate-500 hover:text-slate-700 transition-colors group"
             >
               <Check className="w-4 h-4 text-emerald-500" strokeWidth={2.5} />
-              <span>Thought for <span className="font-medium text-gray-500">{(Math.max(800, totalMs) / 1000).toFixed(1)}s</span></span>
+              <span>Thought for <span className="font-medium text-gray-500">{(Math.max(800, totalMs > 0 ? totalMs : (typeof forceDoneMs === 'number' && forceDoneMs > 0 ? forceDoneMs : 0)) / 1000).toFixed(1)}s</span></span>
               <ChevronUp className="w-4 h-4 ml-0.5 opacity-40 group-hover:opacity-70 transition-opacity" />
             </button>
           )}
@@ -949,18 +928,20 @@ export default function ThinkingPanel({ isThinking, query, intentHint, backendSt
 
         {/* Streaming step view while thinking; full trace after completion */}
         {isThinking ? (
-          displayStep ? (
+          nonPendingSteps.length > 0 ? (
             <div className="space-y-1.5">
               {liveSteps.length > 1 && displayStepIndex >= 0 && (
                 <p className="text-[12px] text-slate-500 uppercase tracking-[0.14em] font-medium">
                   Step {displayStepIndex + 1} of {liveSteps.length}
                 </p>
               )}
-              <StepRow
-                key={`${displayStep.id}-${displayStep.status}-${displayStep.durationMs ?? 0}`}
-                step={displayStep}
-                index={0}
-              />
+              {nonPendingSteps.map((step, idx) => (
+                <StepRow
+                  key={`${step.id}-${step.status}-${step.durationMs ?? 0}`}
+                  step={step}
+                  index={idx}
+                />
+              ))}
             </div>
           ) : null
         ) : (

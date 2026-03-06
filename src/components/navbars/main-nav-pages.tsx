@@ -201,7 +201,7 @@ function MainNavPages() {
             unoptimized
             alt="logo"
             className={`transition-all duration-300 object-contain ${isScrolled
-              ? 'h-9 w-28 md:h-10 md:w-32'
+              ? 'h-10 w-32 md:h-10 md:w-32'
               : 'h-10 w-32 md:h-12 md:w-36'
               }`}
           />

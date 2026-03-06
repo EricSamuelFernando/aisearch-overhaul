@@ -1504,11 +1504,30 @@ export default function Home() {
               </div> */}
             </div>
 
-            <div
-              className={`text-[1rem] transition-colors ${isHomeSearchActive ? 'text-white md:text-[#2C211A]' : 'text-white'}`}
-            >
-              <span className="font-medium">Conversational search, </span>
-              <span className="font-bold underline">powered by AI.</span>
+            <div className="flex items-center gap-3">
+              <div
+                className={`text-[1rem] transition-colors ${isHomeSearchActive ? 'text-white md:text-[#2C211A]' : 'text-white'}`}
+              >
+                <span className="font-medium">Conversational search, </span>
+                <span className="font-bold underline">powered by Snaphomz AI.</span>
+              </div>
+              <button className="uiverse">
+                <div className="wrapper">
+                  <span>BETA</span>
+                  <div className="circle circle-12"></div>
+                  <div className="circle circle-11"></div>
+                  <div className="circle circle-10"></div>
+                  <div className="circle circle-9"></div>
+                  <div className="circle circle-8"></div>
+                  <div className="circle circle-7"></div>
+                  <div className="circle circle-6"></div>
+                  <div className="circle circle-5"></div>
+                  <div className="circle circle-4"></div>
+                  <div className="circle circle-3"></div>
+                  <div className="circle circle-2"></div>
+                  <div className="circle circle-1"></div>
+                </div>
+              </button>
             </div>
           </div>
         </section>

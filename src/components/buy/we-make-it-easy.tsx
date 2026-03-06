@@ -309,7 +309,7 @@ const WeMakeItEasy = ({
 
         {/* SegmentedControl (three tabs styled like the first screenshot) */}
         <div className='mb-8 w-full px-1 md:mb-10'>
-          <div className='home-easy-tabs mx-auto w-full max-w-[820px]'>
+          <div className='home-easy-tabs mx-auto w-full max-w-[460px]'>
             <SegmentedControl
               value={activeCategory}
               onChange={setActiveCategory}
@@ -537,7 +537,13 @@ const WeMakeItEasy = ({
           ))}
         </Carousel>
 
-        <div className="mx-auto mt-6 flex w-full max-w-3xl items-center justify-center gap-2">
+        <div
+          className="mx-auto mt-6 flex w-full items-center justify-end gap-2"
+          style={{
+            maxWidth: '100%',
+            paddingRight: isSmallScreen ? 8 : isLargeScreen ? 72 : 56,
+          }}
+        >
           <button
             type="button"
             aria-label="Scroll previous cards"

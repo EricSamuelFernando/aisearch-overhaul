@@ -64,7 +64,7 @@ function Footer() {
       </div>
 
       {/* New footer layout */}
-      <section className="mx-auto w-full px-4 sm:px-6 lg:px-12 py-10">
+      <section className="home-footer mx-auto w-full max-w-[1900px] px-4 sm:px-6 lg:px-12 xl:px-16 2xl:px-20 py-10 xl:py-12">
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 xl:grid-cols-12 xl:gap-10 items-start">
           <div className="flex flex-col gap-4 sm:col-span-2 xl:col-span-3">
             <Link href="/" className="inline-flex items-center gap-3">

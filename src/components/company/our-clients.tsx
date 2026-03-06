@@ -70,18 +70,18 @@ export default function OurClients({
     <section
       id="testimonials"
       style={{ backgroundColor: bgColor }}
-      className="pt-12 md:pt-16 pb-10 px-4 sm:px-6 lg:px-12 overflow-x-hidden"
+      className="home-clients-section pt-12 md:pt-16 pb-10 px-4 sm:px-6 lg:px-12 overflow-x-hidden"
     >
-      <div className="max-w-6xl mx-auto text-start pb-6 sm:pb-12">
-        <h2 className="satoshi text-3xl sm:text-4xl font-semibold text-left md:text-center">
+      <div className="home-clients-header max-w-6xl mx-auto text-start pb-6 sm:pb-12">
+        <h2 className="home-clients-title satoshi text-3xl sm:text-4xl font-semibold text-left md:text-center">
           What Our Clients <span className="font-light">Say</span>
         </h2>
 
-        <p className="satoshi text-xs sm:text-sm text-[#8E8B8A] mb-10 md:mb-12 max-w-[600px] mx-auto text-left md:text-center">
+        <p className="home-clients-subtitle satoshi text-xs sm:text-sm text-[#8E8B8A] mb-10 md:mb-12 max-w-[600px] mx-auto text-left md:text-center">
           {subtitle}
         </p>
       </div>
-      <div className="max-w-7xl mx-auto">
+      <div className="home-clients-container max-w-7xl mx-auto">
         {isMobile ? (
           <div>
             <div className="mb-4 flex items-center justify-end gap-2">
@@ -141,11 +141,11 @@ export default function OurClients({
             </Carousel>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-12 px-12">
+          <div className="grid grid-cols-2 gap-12 px-12 2xl:px-16">
             {testimonials.map(({ name, title, text, img }, idx) => (
               <div
                 key={idx}
-                className="bg-[#EEDFC9] rounded-2xl p-11 flex flex-col justify-between "
+                className="home-clients-card bg-[#EEDFC9] rounded-2xl p-11 flex flex-col justify-between "
               >
                 <div className="text-left mb-6">
                   <h3 className="font-bold text-xl mb-1">{name}</h3>

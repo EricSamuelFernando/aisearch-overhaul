@@ -267,8 +267,9 @@ const WeMakeItEasy = ({
   //     : '33.3333%';
 
   const isSmallScreen = useMediaQuery('(max-width: 768px)');
+  const isLargeScreen = useMediaQuery('(min-width: 1536px)');
 
-  const slideSize = isSmallScreen ? '90%' : '33.3333%';
+  const slideSize = isSmallScreen ? '90%' : isLargeScreen ? '31.5%' : '33.3333%';
 
 
 
@@ -296,19 +297,19 @@ const WeMakeItEasy = ({
   }, [embla, activeCategory]);
 
   return (
-    <section className="bg-[#FFF6EC] pt-8 md:pt-4 px-4 sm:px-6 lg:px-24 overflow-x-hidden">
-      <div className=" mx-auto text-center">
+    <section className="home-easy-section bg-[#FFF6EC] pt-8 md:pt-4 px-4 sm:px-6 lg:px-24 overflow-x-hidden">
+      <div className="home-easy-container mx-auto text-center">
         {/* Heading */}
-        <h2 className=" satoshi text-3xl sm:text-4xl font-semibold ">
+        <h2 className="home-easy-title satoshi text-3xl sm:text-4xl font-semibold ">
           {effectiveHeading}
         </h2>
-        <p className="satoshi text-xs sm:text-sm text-[#8E8B8A] mb-12 max-w-[600px] mx-auto">
+        <p className="home-easy-subtitle satoshi text-xs sm:text-sm text-[#8E8B8A] mb-12 max-w-[600px] mx-auto">
           {effectiveSubtitle}
         </p>
 
         {/* SegmentedControl (three tabs styled like the first screenshot) */}
         <div className='mb-8 w-full px-1 md:mb-10'>
-          <div className='mx-auto w-full max-w-[820px]'>
+          <div className='home-easy-tabs mx-auto w-full max-w-[820px]'>
             <SegmentedControl
               value={activeCategory}
               onChange={setActiveCategory}
@@ -472,7 +473,7 @@ const WeMakeItEasy = ({
           align={isSmallScreen ? 'center' : 'start'}
           loop
           slideGap="lg"
-          height={isSmallScreen ? 320 : 400}
+          height={isSmallScreen ? 320 : isLargeScreen ? 430 : 400}
 
           // withControls={!isSmallScreen}   // ðŸ‘ˆ KEY LINE
           // nextControlIcon={<IconArrowNarrowRight size={36} stroke={1} />}
@@ -512,7 +513,7 @@ const WeMakeItEasy = ({
                 bg="#F4E5D0"
                 style={{
                   borderRadius: '14px',
-                  padding: isSmallScreen ? '18px' : '60px', // ðŸ‘ˆ slightly tighter
+                  padding: isSmallScreen ? '18px' : isLargeScreen ? '72px' : '60px',
                   height: isSmallScreen ? '300px' : '100%',
                   maxWidth: isSmallScreen ? '320px' : '100%', // ðŸ‘ˆ KEY LINE
                   margin: '0 auto',

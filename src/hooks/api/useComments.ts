@@ -82,40 +82,76 @@ export const useComments = (propertyId: string, snapId?: string) => {
     const addComment = async (text: string, userName: string, propertyName?: string, accountType?: string) => {
         if (!text.trim()) return;
 
-        console.log('[useComments] Adding comment via WebSocket:', { text, userName, propertyName, accountType, snapId, userId, socketConnected: socket?.connected });
+        console.log('[useComments] Adding comment via GraphQL:', { text, userName, propertyName, accountType, snapId, userId });
 
-        if (socket && socket.connected) {
-            try {
-                // Lambda-compatible payload
-                const payload = {
+        try {
+            // Save comment via GraphQL mutation (persists to local DB)
+            const mutation = `
+                mutation CreateComment($createCommentInput: CreateCommentDto!) {
+                    createComment(createCommentInput: $createCommentInput) {
+                        id
+                        propertyId
+                        text
+                        userName
+                        accountType
+                        snapId
+                        propertyName
+                        createdAt
+                    }
+                }
+            `;
+
+            const response = await API.post(
+                GRAPHQL_URI,
+                {
+                    query: mutation,
+                    variables: {
+                        createCommentInput: {
+                            propertyId,
+                            snapId: snapId || null,
+                            text,
+                            userName,
+                            accountType: accountType || 'buyer',
+                            propertyName: propertyName || null,
+                        },
+                    },
+                },
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                }
+            );
+
+            if (response.data.errors) {
+                throw new Error(response.data.errors[0]?.message || 'Failed to create comment');
+            }
+
+            const savedComment = response.data.data.createComment;
+            console.log('[useComments] Comment saved via GraphQL:', savedComment.id);
+
+            // Update local state with the real saved comment
+            setComments((prev) => [savedComment, ...prev]);
+
+            // Also emit via WebSocket for real-time broadcast to other users
+            // Pass the full saved comment so recipients have all fields (including createdAt)
+            if (socket && socket.connected) {
+                socket.emit('addComment', {
+                    id: savedComment.id,
                     propertyId,
                     snapId: snapId || null,
                     text,
-                    userId, // Critical for Lambda handler
+                    userId,
                     userName,
                     accountType: accountType || 'buyer',
                     propertyName: propertyName || null,
-                };
-
-                socket.emit('addComment', payload);
-
-                // Optimistic update
-                const newComment: Comment = {
-                    id: `temp-${Date.now()}`,
-                    ...payload,
-                    createdAt: new Date().toISOString(),
-                    userId: userId,
-                } as any;
-
-                setComments((prev) => [newComment, ...prev]);
-
-            } catch (err) {
-                console.error('[useComments] Error adding comment via WebSocket:', err);
-                setError('Failed to send comment via WebSocket');
+                    createdAt: savedComment.createdAt || new Date().toISOString(),
+                    broadcastOnly: true,
+                });
             }
-        } else {
-            console.warn('[useComments] Socket not connected. Cannot send comment.');
-            setError('Real-time connection lost. Please verify your connection.');
+        } catch (err) {
+            console.error('[useComments] Error adding comment:', err);
+            setError('Failed to save comment');
         }
     };
 
@@ -134,13 +170,12 @@ export const useComments = (propertyId: string, snapId?: string) => {
             const handleNewComment = (newComment: Comment & { snapId?: string; tempId?: string }) => {
                 console.log('[useComments] Received new_comment event:', newComment);
 
-                // Filter by propertyId
-                if (newComment.propertyId !== propertyId) {
-                    return;
-                }
+                // If we're in a specific snap context, prioritise snapId match
+                const isSameSnap = snapId && newComment.snapId && newComment.snapId === snapId;
+                const isSameProperty = newComment.propertyId === propertyId;
 
-                // If we're in a specific snap context, filter by snapId
-                if (snapId && newComment.snapId && newComment.snapId !== snapId) {
+                // If neither snap nor property matches, ignore
+                if (!isSameSnap && !isSameProperty) {
                     return;
                 }
 
@@ -151,24 +186,28 @@ export const useComments = (propertyId: string, snapId?: string) => {
                         return prev;
                     }
 
-                    // 2. Check if we have a TEMP version of this comment (Optimistic UI)
-                    // We match by text + userId + roughly same time, OR if backend returned our tempId
-                    const existingTempIndex = prev.findIndex(c =>
-                        c.id.startsWith('temp-') &&
+                    // 2. Check if we already have a comment with same text + userId (GraphQL-saved + WebSocket echo)
+                    const alreadyExists = prev.some(c =>
                         c.text === newComment.text &&
                         c.userId === newComment.userId
                     );
 
-                    if (existingTempIndex !== -1) {
-                        console.log('[useComments] Replacing optimistic comment with real one');
-                        const newComments = [...prev];
-                        newComments[existingTempIndex] = newComment; // Replace temp with real
-                        return newComments;
+                    if (alreadyExists) {
+                        console.log('[useComments] Duplicate comment (same text+user), skipping');
+                        return prev;
                     }
 
                     console.log('[useComments] Adding new verified comment to state');
                     return [newComment, ...prev];
                 });
+            };
+
+            const handleActivityUpdate = (data: any) => {
+                console.log('[useComments] Received recent_activity_update:', data);
+                if (data.action === 'comment_added' && data.snapId === snapId) {
+                    console.log('[useComments] New comment in current snap, refetching...');
+                    fetchComments();
+                }
             };
 
             const handleConnect = () => {
@@ -177,14 +216,14 @@ export const useComments = (propertyId: string, snapId?: string) => {
             };
 
             socket.on('new_comment', handleNewComment);
-            socket.on('recent_activity_update', handleNewComment); // Also listen to global updates
+            socket.on('recent_activity_update', handleActivityUpdate);
             socket.on('connect', handleConnect);
 
             return () => {
                 console.log(`[useComments] Leaving room: ${room}`);
                 socket.emit('leaveRoom', { roomId: room }); // Send as object
                 socket.off('new_comment', handleNewComment);
-                socket.off('recent_activity_update', handleNewComment);
+                socket.off('recent_activity_update', handleActivityUpdate);
                 socket.off('connect', handleConnect);
             };
         }

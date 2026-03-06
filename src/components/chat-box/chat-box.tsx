@@ -2375,11 +2375,12 @@ import { useUserAgentMessageApi } from "@/hooks/api/auth/useMessageApi"
 import { useUserAuthApi } from "@/hooks/api/auth/useUserAuthApi"
 import { AgentDirectoryWrapper } from "@/components/buy/preview/agent-directory-wrapper"
 import InviteUserModal from "./Invite-user-modal"
-import { threadId } from "worker_threads"
+import NegotiationCard from "./negotiation-card"
 import { useAtom } from "jotai"
 import { messageThreadsAtom } from "@/hooks/atoms"
 import { Loader } from "@mantine/core"
 import { usePropertyServiceAPI } from "@/hooks/api/agent/useAgentProperty"
+import { usePropertyAPI } from "@/hooks/api/auth/engagementAPI"
 import { useRepoManagementApi } from "@/hooks/api/document/useRepoManagement"
 import { useNotificationApi } from "@/hooks/api/user/useNotification"
 import { error, success } from "../alert/notify"
@@ -2453,6 +2454,7 @@ interface Thread {
   propertyAddress?: string
   propertyId?: string
   listingId?: string
+  engagementId?: string
   participants?: any
   user?: {
     id?: string
@@ -2475,6 +2477,14 @@ interface Thread {
   members?: any[]
   threadId?: string | null
   isActive?: boolean
+  status?:
+  | "NEGOTIATION_PENDING"
+  | "OFFER_SENT"
+  | "COUNTER_SENT"
+  | "AGREED"
+  | "ACTIVE"
+  | "ACCEPTED"
+  | "DECLINED"
 }
 interface AgentPropertySummary {
   propertyId: string
@@ -2602,6 +2612,123 @@ export default function ChatBoxComponent(props: any) {
   const [locallyReadThreadIds, setLocallyReadThreadIds] = useState<Record<string, number>>({});
   const [pendingNewMessageCount, setPendingNewMessageCount] = useState(0);
   const [isAtLatestMessage, setIsAtLatestMessage] = useState(true);
+  const [agentTiers, setAgentTiers] = useState<any[]>([]);
+  const [isLoadingAgentTiers, setIsLoadingAgentTiers] = useState(false);
+  const fetchedTierKeyRef = useRef<string>("");
+  const tierFetchRequestIdRef = useRef(0);
+  const threadMessageRequestIdRef = useRef(0);
+
+  const normalizeNegotiationStatus = (value: unknown) => {
+    const normalized = String(value || "").trim().toUpperCase()
+    if (!normalized) return ""
+    if (normalized === "PENDING") return "NEGOTIATION_PENDING"
+    if (normalized === "AGREED") return "ACCEPTED"
+    return normalized
+  }
+
+  const deriveNegotiationStatusFromMessages = useCallback((threadMessages: any[]): string => {
+    if (!Array.isArray(threadMessages) || threadMessages.length === 0) {
+      return "NEGOTIATION_PENDING";
+    }
+
+    let hasOfferSignal = false;
+    let hasAcceptedSignal = false;
+    let hasDeclinedSignal = false;
+    let hasMeaningfulChatMessage = false;
+
+    threadMessages.forEach((rawMessage: any) => {
+      const messageType = String(rawMessage?.messageType || rawMessage?.message_type || "").trim().toLowerCase();
+      const text = String(rawMessage?.message || rawMessage?.content || "").trim();
+      const normalizedText = text.toLowerCase();
+
+      if (!normalizedText) return;
+
+      if (
+        (normalizedText.includes("negotiation") && normalizedText.includes("accepted")) ||
+        normalizedText.includes("chat is now unlocked")
+      ) {
+        hasAcceptedSignal = true;
+      }
+      if (normalizedText.includes("declined")) {
+        hasDeclinedSignal = true;
+      }
+      if (/buyer selected|buyer proposed|commission|tier/.test(normalizedText)) {
+        hasOfferSignal = true;
+      }
+
+      const isNotification = messageType === "notification";
+      const isInitialInvitationMessage = normalizedText === "let's connect and talk";
+      if (!isNotification && !isInitialInvitationMessage) {
+        hasMeaningfulChatMessage = true;
+      }
+    });
+
+    if (hasDeclinedSignal) return "DECLINED";
+    if (hasAcceptedSignal) return "ACCEPTED";
+    if (hasOfferSignal) {
+      return hasMeaningfulChatMessage ? "ACCEPTED" : "OFFER_SENT";
+    }
+    if (hasMeaningfulChatMessage) return "ACCEPTED";
+    return "NEGOTIATION_PENDING";
+  }, []);
+
+  const resolveThreadNegotiationStatus = useCallback(
+    (threadLike: any, fallbackMessages?: any[]) => {
+      const explicitStatus = normalizeNegotiationStatus(threadLike?.status);
+      const sourceMessages = Array.isArray(fallbackMessages)
+        ? fallbackMessages
+        : Array.isArray(threadLike?.messages)
+          ? threadLike.messages
+          : [];
+      const derivedStatus = deriveNegotiationStatusFromMessages(sourceMessages);
+
+      if (!explicitStatus) return derivedStatus;
+
+      // Keep terminal states when backend provides them.
+      if (explicitStatus === "ACCEPTED" || explicitStatus === "DECLINED") {
+        return explicitStatus;
+      }
+
+      // Upgrade stale OFFER_SENT / NEGOTIATION_PENDING when chat messages prove accepted flow.
+      if (derivedStatus === "ACCEPTED" || derivedStatus === "DECLINED") {
+        return derivedStatus;
+      }
+
+      if (explicitStatus === "OFFER_SENT" || derivedStatus === "OFFER_SENT") {
+        return "OFFER_SENT";
+      }
+
+      return explicitStatus;
+    },
+    [deriveNegotiationStatusFromMessages],
+  );
+
+  const applyNegotiationStatusToThread = useCallback(
+    (targetThreadId: string, nextStatusRaw: unknown) => {
+      const nextStatus = normalizeNegotiationStatus(nextStatusRaw)
+      if (!targetThreadId || !nextStatus) return
+
+      setSelectedThreadDetail((prev: any) => {
+        if (!prev || prev?.id !== targetThreadId) return prev
+        return {
+          ...prev,
+          status: nextStatus,
+        }
+      })
+
+      setMessageThreads((prev: any) =>
+        Array.isArray(prev)
+          ? prev.map((thread: any) =>
+            thread?.id === targetThreadId
+              ? { ...thread, status: nextStatus }
+              : thread
+          )
+          : prev
+      )
+    },
+    [setMessageThreads]
+  )
+
 
   const fetchSnaps = () => {
     const currentUserId = userData?.id
@@ -2864,10 +2991,10 @@ export default function ChatBoxComponent(props: any) {
         const endpointCandidates = Array.from(
           new Set(
             [
-              `${trimmedBase}/auth/api/overview-short`,
-              `${trimmedBase}/auth/properties/${activeOverviewPropertyId}/overview-short`,
-              `${rootBase}/auth/api/overview-short`,
-              `${rootBase}/auth/properties/${activeOverviewPropertyId}/overview-short`,
+              `${trimmedBase}/api/overview-short`,
+              `${trimmedBase}/properties/${activeOverviewPropertyId}/overview-short`,
+              `${rootBase}/api/overview-short`,
+              `${rootBase}/properties/${activeOverviewPropertyId}/overview-short`,
             ].filter(Boolean),
           ),
         )
@@ -3622,8 +3749,109 @@ export default function ChatBoxComponent(props: any) {
       return value
     }
   }
-  const normalizeMessage = (message: Message) => {
-    const rawMessage = message.message ?? message.content ?? ''
+  const pickFirstString = (...values: any[]): string => {
+    for (const value of values) {
+      if (typeof value !== "string") continue
+      const trimmed = value.trim()
+      if (trimmed) return trimmed
+    }
+    return ""
+  }
+
+  const normalizeComparableId = (value: any): string =>
+    String(value ?? "").trim().toLowerCase()
+
+  const normalizeIsoTimestamp = (value?: string): string => {
+    if (!value) return ""
+    const timestamp = new Date(value)
+    if (Number.isNaN(timestamp.getTime())) return ""
+    return timestamp.toISOString()
+  }
+
+  const resolveMessageSenderId = (message: any): string =>
+    pickFirstString(
+      message?.senderId,
+      message?.sender_id,
+      message?.userId,
+      message?.user_id,
+      message?.sender?.id,
+      message?.sender?.userId,
+      message?.sender?.user_id,
+      message?.createdBy,
+      message?.created_by,
+      message?.createdById,
+      message?.created_by_id,
+      message?.data?.senderId,
+      message?.data?.sender_id,
+      message?.data?.userId,
+      message?.data?.user_id,
+      message?.payload?.senderId,
+      message?.payload?.sender_id,
+      message?.payload?.userId,
+      message?.payload?.user_id,
+    )
+
+  const resolveMessageReceiverId = (message: any): string =>
+    pickFirstString(
+      message?.receiverId,
+      message?.receiver_id,
+      message?.recieverId,
+      message?.reciever_id,
+      message?.recipientId,
+      message?.recipient_id,
+      message?.data?.receiverId,
+      message?.data?.receiver_id,
+      message?.data?.recipientId,
+      message?.data?.recipient_id,
+      message?.payload?.receiverId,
+      message?.payload?.receiver_id,
+      message?.payload?.recipientId,
+      message?.payload?.recipient_id,
+    )
+
+  const resolveMessageThreadId = (message: any): string =>
+    pickFirstString(
+      message?.threadId,
+      message?.thread_id,
+      message?.roomId,
+      message?.room_id,
+      message?.conversationId,
+      message?.conversation_id,
+      message?.channelId,
+      message?.channel_id,
+      message?.data?.threadId,
+      message?.data?.thread_id,
+      message?.payload?.threadId,
+      message?.payload?.thread_id,
+    )
+
+  const resolveMessageCreatedAt = (message: any): string =>
+    normalizeIsoTimestamp(
+      pickFirstString(
+        message?.createdAt,
+        message?.created_at,
+        message?.timestamp,
+        message?.data?.createdAt,
+        message?.data?.created_at,
+        message?.data?.timestamp,
+        message?.payload?.createdAt,
+        message?.payload?.created_at,
+        message?.payload?.timestamp,
+      ),
+    )
+
+  const normalizeMessage = (
+    message: Message,
+    options?: { fallbackCreatedAtToNow?: boolean },
+  ) => {
+    const messageAny = message as any
+    const rawMessage = pickFirstString(
+      messageAny?.message,
+      messageAny?.content,
+      messageAny?.text,
+      messageAny?.data?.message,
+      messageAny?.payload?.message,
+    )
     const decryptedMessage = decryptMessageSafely(rawMessage)
     const resolvedMessageType =
       message.messageType ||
@@ -3640,29 +3868,90 @@ export default function ChatBoxComponent(props: any) {
       (message as any)?.metadata ||
       (message as any)?.data?.meta;
     const fileUrlCandidate =
-      message.file?.url ||
+      messageAny?.file?.url ||
       (isProbablyUrl(decryptedMessage) ? decryptedMessage : '') ||
-      message.documents?.[0] ||
-      message.fileUrl ||
+      messageAny?.documents?.[0] ||
+      messageAny?.fileUrl ||
       ''
     const derivedFileType =
-      message.fileType || message.file_type || getMimeTypeFromUrl(fileUrlCandidate)
+      messageAny?.fileType ||
+      messageAny?.file_type ||
+      messageAny?.data?.fileType ||
+      messageAny?.data?.file_type ||
+      messageAny?.payload?.fileType ||
+      messageAny?.payload?.file_type ||
+      getMimeTypeFromUrl(fileUrlCandidate)
+    const normalizedFileUrlCandidate = String(fileUrlCandidate || "").trim()
+    const hasFileReference =
+      !!normalizedFileUrlCandidate &&
+      (
+        isProbablyUrl(normalizedFileUrlCandidate) ||
+        normalizedFileUrlCandidate.startsWith("/") ||
+        normalizedFileUrlCandidate.startsWith("blob:")
+      )
     const finalMessageType =
       resolvedMessageType === 'system'
         ? 'system'
-        : resolvedMessageType === 'text' && (fileUrlCandidate || derivedFileType)
-          ? 'file'
-          : resolvedMessageType
+        : resolvedMessageType === "notification"
+          ? "notification"
+          : resolvedMessageType === "file"
+            ? (hasFileReference ? "file" : "text")
+            : resolvedMessageType === "text"
+              ? (hasFileReference ? "file" : "text")
+              : resolvedMessageType
+
+    const normalizedCreatedAt =
+      resolveMessageCreatedAt(messageAny) ||
+      (options?.fallbackCreatedAtToNow ? new Date().toISOString() : '')
+
     return {
       ...message,
+      threadId: resolveMessageThreadId(messageAny) || message.threadId,
+      senderId: resolveMessageSenderId(messageAny) || message.senderId,
+      receiverId: resolveMessageReceiverId(messageAny) || message.receiverId,
+      createdAt: normalizedCreatedAt || message.createdAt,
+      timestamp: normalizedCreatedAt || message.timestamp,
       message: decryptedMessage,
       eventType: resolvedEventType,
       meta: resolvedMeta,
       messageType: finalMessageType,
       fileType: derivedFileType,
-      fileUrl: fileUrlCandidate || message.fileUrl
+      fileUrl: hasFileReference ? normalizedFileUrlCandidate : (messageAny?.fileUrl || "")
     }
   }
+
+  const mergeUniqueMessages = useCallback((...messageCollections: any[][]) => {
+    const mergedMessages = messageCollections
+      .flatMap((collection) => (Array.isArray(collection) ? collection : []))
+      .filter(Boolean)
+      .map((rawMessage: any) =>
+        normalizeMessage(rawMessage, { fallbackCreatedAtToNow: true }),
+      )
+
+    const dedupedMessages = new Map<string, Message>()
+    mergedMessages.forEach((message: any) => {
+      const dedupeKey =
+        String(message?.id || "").trim() ||
+        [
+          resolveMessageCreatedAt(message),
+          resolveMessageSenderId(message),
+          resolveMessageReceiverId(message),
+          String(message?.message || "").trim(),
+          String(message?.messageType || "").trim(),
+          String(message?.fileUrl || "").trim(),
+        ].join("::")
+
+      if (!dedupedMessages.has(dedupeKey)) {
+        dedupedMessages.set(dedupeKey, message)
+      }
+    })
+
+    return Array.from(dedupedMessages.values()).sort(
+      (a: any, b: any) =>
+        new Date(b?.createdAt || b?.timestamp || 0).getTime() -
+        new Date(a?.createdAt || a?.timestamp || 0).getTime(),
+    )
+  }, [normalizeMessage])
 
   const getSystemMessageText = (message: Message) => {
     const metaActorName = message?.meta?.actor?.name?.trim();
@@ -3717,6 +4006,9 @@ export default function ChatBoxComponent(props: any) {
       return "File"
     }
   }, [])
+  const buildFileEventKey = (senderId: string | undefined, fileName: string): string =>
+    `${String(senderId || "").trim()}:${fileName}`;
+
   const resolveAttachmentUrlFromMessage = useCallback((message: Message): string => {
     const candidateValues = [
       message?.file?.url,
@@ -3804,8 +4096,13 @@ export default function ChatBoxComponent(props: any) {
           getMimeTypeFromUrl(attachmentUrl) ||
           ""
         const kind = getAttachmentKind(fileType, attachmentUrl)
-        const senderId = String(message?.senderId || "").trim()
-        const senderName = senderId && senderId === userData?.id
+        const senderId = pickFirstString(
+          message?.senderId,
+          (message as any)?.userId,
+          (message as any)?.sender?.id,
+          (message as any)?.createdBy,
+        )
+        const senderName = normalizeComparableId(senderId) === normalizeComparableId(userData?.id)
           ? "You"
           : participantNameById.get(senderId) || "Unknown user"
         const createdAt = message?.createdAt || message?.timestamp
@@ -3835,42 +4132,16 @@ export default function ChatBoxComponent(props: any) {
     userData?.id,
   ])
 
-  useEffect(() => {
-    const mediaIds = mediaDocuments
-      .map((item) => item?.id)
-      .filter((id): id is string => Boolean(id));
-    const duplicateMediaIds = mediaIds.filter(
-      (id, index) => mediaIds.indexOf(id) !== index,
-    );
-    if (duplicateMediaIds.length) {
-      console.warn("[ChatBox] Duplicate media document ids:", duplicateMediaIds);
-    }
-  }, [mediaDocuments]);
-
-  const buildFileEventKey = useCallback((senderId?: string, fileName?: string) => {
-    const normalizedSender = String(senderId || "").trim().toLowerCase()
-    const normalizedFile = String(fileName || "").trim().toLowerCase()
-    if (!normalizedSender || !normalizedFile) return ""
-    return `${normalizedSender}::${normalizedFile}`
-  }, [])
-
-  const existingSystemFileEvents = useMemo(() => {
-    const keys = new Set<string>()
-      ; (messages || []).forEach((message: Message) => {
-        if (message?.messageType !== "system") return
-        const fileName =
-          message?.meta?.file?.name ||
-          (typeof message?.message === "string" ? getFileNameFromUrl(message.message) : "")
-        const key = buildFileEventKey(message?.senderId, fileName)
-        if (key) keys.add(key)
-      })
-    return keys
-  }, [buildFileEventKey, getFileNameFromUrl, messages])
-
-  const { getAllConversationMessagesMutation } = useAgentConversationApi()
+  const {
+    getAllConversationMessagesMutation,
+    getThreadById,
+    getAgentTiersForThreadMutation,
+    getEngagedPropertyByPropertyId,
+    getAllEngagedProperties,
+  } = useAgentConversationApi()
   const { getAllUserAgentMessagesMutation, createUserAgentThreadMutation } = useUserAgentMessageApi()
   const { externalAgentIvitationMutation } = useUserAuthApi()
-  const { getThreadById } = useAgentConversationApi()
+  const { propertyEngagementMutation } = usePropertyAPI()
   const { uploadNewFile } = usePropertyServiceAPI()
   const { createRepoWithUploadedFile } = useRepoManagementApi()
   const { markThreadAsReadMutation } = useNotificationApi()
@@ -3908,23 +4179,54 @@ export default function ChatBoxComponent(props: any) {
   }, [selectedThread, selectedThreadDetail?.id])
 
   const getThreadDetails = async (id: string) => {
+    const normalizedId = String(id || "").trim();
+    if (!normalizedId) {
+      return;
+    }
     try {
-      await getThreadById.mutateAsync(id ?? threadId, {
-        onSuccess: async (data: any) => {
-          const participants = await [
-            ...(data?.buyerAgent ? [data.buyerAgent] : []),
-            ...(data?.sellerAgent ? [data.sellerAgent] : []),
-            ...(data?.user ? [data.user] : []),
-            ...(Array.isArray(data?.participants) ? data.participants.map((p: any) => p?.user || p).filter(Boolean) : []),
-          ];
-          handleThreadSelection(data, participants)
-        },
-      });
+      const data = await getThreadById.mutateAsync(normalizedId);
+      if (data) {
+        const participants = [
+          ...(data?.buyerAgent ? [data.buyerAgent] : []),
+          ...(data?.sellerAgent ? [data.sellerAgent] : []),
+          ...(data?.user ? [data.user] : []),
+          ...(Array.isArray(data?.participants) ? data.participants.map((p: any) => p?.user || p).filter(Boolean) : []),
+        ];
+        handleThreadSelection(data, participants);
+      } else {
+        console.warn("[chat-box] getThreadDetails returned null/undefined for id:", normalizedId);
+        selectThreadById(normalizedId);
+      }
     } catch (err) {
-      console.error("[chat-box] Failed to fetch thread details for id:", id, err);
-      selectThreadById(id);
+      console.error("[chat-box] Failed to fetch thread details for id:", normalizedId, err);
+      selectThreadById(normalizedId);
     }
   }
+
+  const refreshThreadNegotiationStatus = useCallback((id?: string) => {
+    const normalizedId = String(id || "").trim()
+    if (!normalizedId) return
+
+    getThreadById.mutate(normalizedId, {
+      onSuccess: (data: any) => {
+        const latestStatus = normalizeNegotiationStatus(data?.status)
+        if (latestStatus) {
+          applyNegotiationStatusToThread(normalizedId, latestStatus)
+        }
+
+        setSelectedThreadDetail((prev: any) => {
+          if (!prev || prev?.id !== normalizedId) return prev
+          return {
+            ...prev,
+            status: latestStatus || prev?.status,
+          }
+        })
+      },
+      onError: (err: any) => {
+        console.warn("[chat-box] Failed to refresh thread negotiation status:", err)
+      },
+    })
+  }, [applyNegotiationStatusToThread, getThreadById])
   const normalizeThreadKey = (value?: string | null) =>
     String(value ?? "").trim().toLowerCase();
 
@@ -4005,13 +4307,21 @@ export default function ChatBoxComponent(props: any) {
         (participant: any) => participant?.id && participant.id !== userData?.id,
       )?.id ||
       null
-    setExpandedEntryKey(resolvedAgentId || thread?.id || null)
-    setSelectedThreadDetail(thread)
-    localStorage.setItem('threadId', thread?.id || '');
+    const resolvedStatus = resolveThreadNegotiationStatus(thread, thread?.messages as any[]);
+    const selectedThreadWithStatus: any = resolvedStatus
+      ? { ...thread, status: resolvedStatus }
+      : thread;
 
-    setSelectedThread(thread?.id)
-    if (thread?.id) {
-      const normalizedId = thread.id.toString().trim().toLowerCase();
+    setExpandedEntryKey(resolvedAgentId || selectedThreadWithStatus?.id || null)
+    setSelectedThreadDetail(selectedThreadWithStatus)
+    if (selectedThreadWithStatus?.id && resolvedStatus) {
+      applyNegotiationStatusToThread(selectedThreadWithStatus.id, resolvedStatus)
+    }
+    localStorage.setItem('threadId', selectedThreadWithStatus?.id || '');
+
+    setSelectedThread(selectedThreadWithStatus?.id)
+    if (selectedThreadWithStatus?.id) {
+      const normalizedId = String(selectedThreadWithStatus.id).trim().toLowerCase();
       setLocallyReadThreadIds((prev) => ({
         ...prev,
         [normalizedId]: Date.now(),
@@ -4043,26 +4353,12 @@ export default function ChatBoxComponent(props: any) {
     if (socket && thread?.id && userData?.id) {
       console.log('[chat-box] Joining room for thread:', thread.id);
 
-      // First, try to create or join conversation
-      socket.createOrJoinRoom({
-        threadId: thread.id,
-        propertyId: thread.propertyId,
-        userId: userData.id,
-        userType: 'buyer',
-        buyerAgentId: thread.buyerAgent?.id,
-        sellerAgentId: thread.sellerAgent?.id,
-        roomId: thread.id,
-        threadName: thread.threadName,
-        propertyName: thread.propertyName,
-        propertyAddress: thread.propertyAddress,
-      });
-
       socket.emit('mark_as_read', { threadId: thread.id });
       if (thread?.id) {
         markThreadAsReadMutation.mutate(thread.id);
       }
 
-      // Also join the room directly
+      // Backend supports room joins directly for existing threads.
       if (socket.joinRoom) {
         socket.joinRoom(thread.id);
       }
@@ -4070,20 +4366,50 @@ export default function ChatBoxComponent(props: any) {
       // Removed joinThread event - not supported by backend, use joinRoom instead
     }
 
+    const normalizedCurrentUserId = String(userData?.id || "").trim();
+    const receiverCandidates = [
+      thread?.buyerAgent,
+      thread?.sellerAgent,
+      thread?.user,
+      ...participants,
+    ].filter((participant: any) => participant?.id);
+    const resolvedReceiver =
+      receiverCandidates.find(
+        (participant: any) => String(participant?.id || "").trim() !== normalizedCurrentUserId,
+      ) || null;
+
+    setRecieverId(String(resolvedReceiver?.id || ""));
+    setRecieverDetail(resolvedReceiver || {});
+
+    if (Array.isArray((thread as any)?.messages) && (thread as any).messages.length > 0) {
+      const scopedThreadIds = new Set(
+        [
+          thread?.id,
+          (thread as any)?.threadId,
+          (thread as any)?.thread_id,
+          (thread as any)?.roomId,
+          (thread as any)?.room_id,
+        ]
+          .map((value) => normalizeComparableId(value))
+          .filter(Boolean),
+      );
+
+      setMessages((prevMessages: any) => {
+        const scopedPrevMessages = Array.isArray(prevMessages)
+          ? prevMessages.filter((rawMessage: any) => {
+            const messageThreadId = normalizeComparableId(
+              resolveMessageThreadId(rawMessage),
+            );
+            return !messageThreadId || scopedThreadIds.has(messageThreadId);
+          })
+          : [];
+
+        return mergeUniqueMessages((thread as any).messages, scopedPrevMessages);
+      });
+    }
+
     // if (TYPE === "messages") {
     getAllThreadMessage(thread?.id)
-    if (userData?.id === thread?.buyerAgent?.id) {
-      setRecieverId(thread?.user?.id || "")
-      setRecieverDetail(thread?.user)
-    }
-    if (userData?.id === thread?.sellerAgent?.id) {
-      setRecieverId(thread?.user?.id || "")
-      setRecieverDetail(thread?.user)
-    }
-    else if (userData?.id === thread?.user?.id) {
-      setRecieverId(thread?.buyerAgent?.id || "")
-      setRecieverDetail(thread?.buyerAgent)
-    }
     // }
     // else {
     //   getAllConversationThreads(thread?.id)
@@ -4095,6 +4421,7 @@ export default function ChatBoxComponent(props: any) {
     //   }
     // }
     getPropertyDetails(thread?.listingId, thread.propertyId)
+    refreshThreadNegotiationStatus(thread?.id)
 
     console.log('[chat-box] Thread selection complete. showChat:', true, 'selectedThread:', thread?.id, 'selectedThreadDetail:', thread?.id);
   }
@@ -4134,6 +4461,154 @@ export default function ChatBoxComponent(props: any) {
     }))
   }
 
+  const normalizeAgentTiersPayload = (value: any): any[] => {
+    if (Array.isArray(value)) return value;
+    if (value && typeof value === "object") return [value];
+    return [];
+  };
+
+  const buildAgentTierFetchIdCandidates = useCallback((threadLike: any) => {
+    return Array.from(
+      new Set(
+        [
+          threadLike?.id,
+          threadLike?.threadId,
+          threadLike?.thread_id,
+          threadLike?.roomId,
+          threadLike?.room_id,
+          selectedThread,
+        ]
+          .map((value) => String(value || "").trim())
+          .filter(Boolean),
+      ),
+    );
+  }, [selectedThread]);
+
+  const fetchAgentTiersWithTimeout = useCallback(
+    async (threadIdentifier: string, timeoutMs = 4000) => {
+      let timeoutHandle: number | undefined;
+      try {
+        return await Promise.race([
+          getAgentTiersForThreadMutation.mutateAsync(threadIdentifier),
+          new Promise((_, reject) => {
+            timeoutHandle = window.setTimeout(() => {
+              reject(new Error(`Timed out while fetching agent tiers for ${threadIdentifier}`));
+            }, timeoutMs);
+          }),
+        ]);
+      } finally {
+        if (typeof timeoutHandle === "number") {
+          window.clearTimeout(timeoutHandle);
+        }
+      }
+    },
+    [getAgentTiersForThreadMutation],
+  );
+
+  useEffect(() => {
+    const activeThreadId = String(selectedThreadDetail?.id || selectedThread || "").trim();
+    const normalizedStatus = resolveThreadNegotiationStatus(selectedThreadDetail, messages);
+    const isNegotiationPending = normalizedStatus === "NEGOTIATION_PENDING";
+    const fetchKey = `${activeThreadId}:${normalizedStatus}`;
+
+    if (!activeThreadId || !isNegotiationPending) {
+      tierFetchRequestIdRef.current += 1;
+      fetchedTierKeyRef.current = "";
+      setAgentTiers((prev) => (prev.length > 0 ? [] : prev));
+      setIsLoadingAgentTiers((prev) => (prev ? false : prev));
+      return;
+    }
+
+    if (fetchedTierKeyRef.current === fetchKey) {
+      return;
+    }
+
+    fetchedTierKeyRef.current = fetchKey;
+    tierFetchRequestIdRef.current += 1;
+    const requestId = tierFetchRequestIdRef.current;
+    setIsLoadingAgentTiers(true);
+    const staleLoadingGuard = window.setTimeout(() => {
+      if (tierFetchRequestIdRef.current !== requestId) return;
+      fetchedTierKeyRef.current = "";
+      setIsLoadingAgentTiers(false);
+    }, 12000);
+
+    const activeThreadSnapshot =
+      selectedThreadDetail?.id
+        ? selectedThreadDetail
+        : Array.isArray(threads)
+          ? threads.find((thread: any) => {
+            const threadIdCandidate = String(thread?.id || "").trim();
+            const roomIdCandidate = String(thread?.roomId || "").trim();
+            return threadIdCandidate === activeThreadId || roomIdCandidate === activeThreadId;
+          })
+          : null;
+    const fetchCandidates = buildAgentTierFetchIdCandidates(
+      activeThreadSnapshot || { id: activeThreadId, roomId: selectedThreadDetail?.roomId },
+    );
+
+    (async () => {
+      let matchedTiers: any[] = [];
+      let lastTierFetchError: any = null;
+
+      try {
+        for (const candidateId of fetchCandidates) {
+          for (let attempt = 1; attempt <= 2; attempt += 1) {
+            if (tierFetchRequestIdRef.current !== requestId) return;
+            try {
+              const payload: any = await fetchAgentTiersWithTimeout(candidateId, 4000);
+              const normalizedTiers = normalizeAgentTiersPayload(payload?.tiers ?? payload);
+              if (normalizedTiers.length > 0) {
+                matchedTiers = normalizedTiers;
+                break;
+              }
+
+              // No tiers payload means retrying the same id is unlikely to help immediately.
+              break;
+            } catch (mutationError: any) {
+              lastTierFetchError = mutationError;
+              console.warn(
+                `[chat-box] Tier fetch attempt ${attempt}/2 failed for ${candidateId}:`,
+                mutationError,
+              );
+              if (attempt < 2) {
+                await new Promise((resolve) => window.setTimeout(resolve, 500));
+              }
+            }
+          }
+          if (matchedTiers.length > 0) break;
+        }
+
+        if (tierFetchRequestIdRef.current !== requestId) return;
+
+        if (matchedTiers.length > 0) {
+          setAgentTiers(matchedTiers);
+        } else {
+          fetchedTierKeyRef.current = "";
+          setAgentTiers((prev) => (prev.length > 0 ? [] : prev));
+          if (lastTierFetchError) {
+            console.error("[chat-box] Failed to load agent tiers:", lastTierFetchError);
+          }
+        }
+
+        setIsLoadingAgentTiers(false);
+      } finally {
+        window.clearTimeout(staleLoadingGuard);
+      }
+    })();
+  }, [
+    buildAgentTierFetchIdCandidates,
+    fetchAgentTiersWithTimeout,
+    messages,
+    selectedThread,
+    selectedThreadDetail?.id,
+    selectedThreadDetail?.roomId,
+    selectedThreadDetail?.messages,
+    selectedThreadDetail?.status,
+    resolveThreadNegotiationStatus,
+    threads,
+  ]);
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollIntoView({ behavior: "smooth" })
@@ -4166,25 +4641,108 @@ export default function ChatBoxComponent(props: any) {
   };
 
   const getAllThreadMessage = async (threadId: string) => {
+    const normalizedThreadId = String(threadId || "").trim();
+    if (!normalizedThreadId) return;
+
+    const requestId = threadMessageRequestIdRef.current + 1;
+    threadMessageRequestIdRef.current = requestId;
+
     try {
-      setMessages([]);
-      getAllUserAgentMessagesMutation.mutate(threadId, {
-        onSuccess: (data) => {
-          const decryptedMessages = data?.data?.messagesByThread?.map((message: Message) =>
-            normalizeMessage(message)
-          );
-          setPendingNewMessageCount(0);
-          setMessages(decryptedMessages || []);
-          if (focusLatestFromNotification) {
-            scrollToLatestMessagesWithRetry();
-          } else {
-            scrollToLatestMessagesWithRetry();
-          }
-        },
-        onError: (error) => {
-          console.log("Error in mutation: ", error);
-        },
+      const [messagesByThreadResult, conversationsByThreadResult] =
+        await Promise.allSettled([
+          getAllUserAgentMessagesMutation.mutateAsync(normalizedThreadId),
+          getAllConversationMessagesMutation.mutateAsync(normalizedThreadId),
+        ]);
+
+      if (threadMessageRequestIdRef.current !== requestId) return;
+
+      const readSettledMessages = (
+        settledResult: PromiseSettledResult<any>,
+        key: "messagesByThread" | "conversationsByThread",
+      ) => {
+        if (settledResult.status !== "fulfilled") return [];
+        const payload = settledResult.value;
+        const rows = payload?.data?.[key];
+        if (!Array.isArray(rows)) return [];
+        return rows.map((message: Message) => normalizeMessage(message));
+      };
+
+      const userAgentMessages = readSettledMessages(
+        messagesByThreadResult,
+        "messagesByThread",
+      );
+      const conversationMessages = readSettledMessages(
+        conversationsByThreadResult,
+        "conversationsByThread",
+      );
+
+      if (messagesByThreadResult.status === "rejected") {
+        console.warn(
+          "[chat-box] messagesByThread fetch failed:",
+          messagesByThreadResult.reason,
+        );
+      }
+      if (conversationsByThreadResult.status === "rejected") {
+        console.warn(
+          "[chat-box] conversationsByThread fetch failed:",
+          conversationsByThreadResult.reason,
+        );
+      }
+
+      const activeThreadSnapshot =
+        selectedThreadDetail?.id
+          ? selectedThreadDetail
+          : Array.isArray(threads)
+            ? threads.find((thread: any) => {
+              const candidateThreadId = String(thread?.id || "").trim();
+              const candidateRoomId = String(thread?.roomId || "").trim();
+              return (
+                candidateThreadId === normalizedThreadId ||
+                candidateRoomId === normalizedThreadId
+              );
+            })
+            : null;
+
+      const scopedThreadIds = new Set(
+        [
+          normalizedThreadId,
+          activeThreadSnapshot?.id,
+          activeThreadSnapshot?.roomId,
+          selectedThreadDetail?.id,
+          selectedThreadDetail?.roomId,
+        ]
+          .map((value) => normalizeComparableId(value))
+          .filter(Boolean),
+      );
+
+      const selectedThreadSeed = Array.isArray(selectedThreadDetail?.messages)
+        ? selectedThreadDetail.messages
+        : [];
+
+      setPendingNewMessageCount(0);
+      setMessages((prevMessages: any) => {
+        if (threadMessageRequestIdRef.current !== requestId) return prevMessages;
+
+        const scopedPrevMessages = Array.isArray(prevMessages)
+          ? prevMessages.filter((rawMessage: any) => {
+            const messageThreadId = normalizeComparableId(
+              resolveMessageThreadId(rawMessage),
+            );
+            return !messageThreadId || scopedThreadIds.has(messageThreadId);
+          })
+          : [];
+
+        return mergeUniqueMessages(
+          userAgentMessages,
+          conversationMessages,
+          selectedThreadSeed,
+          scopedPrevMessages,
+        );
       });
+
+      if (focusLatestFromNotification) {
+        scrollToLatestMessagesWithRetry();
+      }
     } catch (error) {
       console.log("error: ", error);
     }
@@ -4556,6 +5114,70 @@ export default function ChatBoxComponent(props: any) {
   // }
 
 
+  const handleSelectTier = (tier: any) => {
+    if (!selectedThreadDetail?.id || !socket) return;
+
+    console.log("[Negotiation] Selecting tier:", tier);
+    const messageContent = `Buyer selected ${tier.name} (${tier.commission}%)`;
+    const newMessage = {
+      threadId: selectedThreadDetail.id,
+      message: messageContent,
+      senderId: userData?.id,
+      receiverId: receiverId,
+      messageType: 'notification',
+      createdAt: new Date().toISOString(),
+    };
+
+    // Update LOCAL status (optimistic UI)
+    applyNegotiationStatusToThread(selectedThreadDetail.id, "OFFER_SENT")
+
+    // Emit message and status update
+    socket.emit("sendMessage", newMessage);
+
+    // Custom event for backend to update status
+    socket.emit("update_negotiation_status", {
+      threadId: selectedThreadDetail.id,
+      status: "OFFER_SENT"
+    });
+
+    success({ message: `Offer for ${tier.name} sent to agent.` });
+  };
+
+  const handleNegotiate = (offer?: {
+    tierId: string;
+    tierName: string;
+    offeredCommission: number;
+    message: string;
+  }) => {
+    if (!selectedThreadDetail?.id || !socket) return;
+
+    const commission = Number(offer?.offeredCommission);
+    const commissionText = Number.isFinite(commission) ? `${commission}%` : "custom terms";
+    const tierName = offer?.tierName || "requested tier";
+
+    const messageContent =
+      offer?.message?.trim() ||
+      `Buyer proposed ${commissionText} commission for ${tierName}.`;
+
+    const negotiationMessage = {
+      threadId: selectedThreadDetail.id,
+      message: messageContent,
+      senderId: userData?.id,
+      receiverId: receiverId,
+      messageType: "notification",
+      createdAt: new Date().toISOString(),
+    };
+
+    applyNegotiationStatusToThread(selectedThreadDetail.id, "OFFER_SENT");
+    socket.emit("sendMessage", negotiationMessage);
+    socket.emit("update_negotiation_status", {
+      threadId: selectedThreadDetail.id,
+      status: "OFFER_SENT",
+    });
+
+    success({ message: "Negotiation offer sent to agent." });
+  };
+
   const handleSendMessage = async () => {
     try {
       // Validate socket
@@ -4578,6 +5200,28 @@ export default function ChatBoxComponent(props: any) {
       if (!currentThreadId || !userData?.id) {
         console.error("[handleSendMessage] Missing required data");
         return;
+      }
+
+      const currentNegotiationStatus = resolveThreadNegotiationStatus(
+        selectedThreadDetail,
+        messages,
+      )
+      if (
+        currentNegotiationStatus === "NEGOTIATION_PENDING" ||
+        currentNegotiationStatus === "OFFER_SENT"
+      ) {
+        error({
+          message:
+            "Negotiation is in progress. Resolve negotiation status before sending messages.",
+        })
+        return
+      }
+      if (currentNegotiationStatus === "DECLINED") {
+        error({
+          message:
+            "Negotiation was declined. Chat is locked for this thread.",
+        })
+        return
       }
 
       const hasText = message.trim() !== "";
@@ -4607,27 +5251,20 @@ export default function ChatBoxComponent(props: any) {
         }
       }
 
-      // 2️⃣ Send message via WebSocket
-      socket.sendMessage({
-        threadId: currentThreadId,
-        userId: userData.id,
-        receiverId: resolvedReceiverId || undefined,
-        messageType: hasFile ? "file" : "text",
-        message: hasFile ? fileUrl : message,
-        fileType: hasFile ? selectedFile?.type : undefined, // ✅ FIX
-
-      });
-
-      // 3️⃣ Optimistic UI update
+      // 2️⃣ Optimistic UI update with temp ID for rollback
+      const tempId = `temp-${Date.now()}`;
+      const messageContent = hasFile ? fileUrl : message;
+      const msgType = hasFile ? "file" : "text";
       setPendingNewMessageCount(0);
       setMessages((prev: any) => [
         {
+          id: tempId,
           threadId: currentThreadId,
           senderId: userData.id,
           receiverId: resolvedReceiverId,
-          messageType: hasFile ? "file" : "text",
-          message: hasFile ? fileUrl : message,
-          fileType: hasFile ? selectedFile?.type : undefined, // ✅ FIX
+          messageType: msgType,
+          message: messageContent,
+          fileType: hasFile ? selectedFile?.type : undefined,
           createdAt: new Date().toISOString(),
           file: hasFile
             ? {
@@ -4640,6 +5277,32 @@ export default function ChatBoxComponent(props: any) {
         },
         ...prev,
       ]);
+
+      // 3️⃣ Send message via WebSocket (Lambda saves to DB + broadcasts)
+      // Listen for response to detect failures and roll back optimistic update
+      const handleResponse = (response: any) => {
+        socket.off('sendMessage_response', handleResponse);
+        const isError = response?.status === 'error' || response?.data?.status === 'error';
+        if (isError) {
+          const errMsg = response?.data?.message || response?.message || 'Failed to send message';
+          console.error('[handleSendMessage] Lambda rejected message:', errMsg);
+          error({ message: errMsg });
+          // Remove optimistic message
+          setMessages((prev: any) => prev.filter((m: any) => m.id !== tempId));
+        }
+      };
+      socket.on('sendMessage_response', handleResponse);
+      // Cleanup listener after 10s in case no response
+      setTimeout(() => socket.off('sendMessage_response', handleResponse), 10000);
+
+      socket.sendMessage({
+        threadId: currentThreadId,
+        userId: userData.id,
+        receiverId: resolvedReceiverId || undefined,
+        messageType: msgType,
+        message: messageContent,
+        fileType: hasFile ? selectedFile?.type : undefined,
+      });
 
       // 4️⃣ Cleanup
       setMessage("");
@@ -4820,8 +5483,9 @@ export default function ChatBoxComponent(props: any) {
       // Removed saveAllMessages interval - save_user_agent_messages event not supported by backend
       // const interval = setInterval(saveAllMessages, 5000);
       return () => {
-        socket.off("recievedMessage")
-        socket.off("thread_marked_as_read")
+        // No listeners are registered in this effect.
+        // Avoid calling broad `off(event)` here because it removes listeners
+        // registered by other modules (e.g. SocketContext / active chat listener).
         // Removed clearInterval(interval) - interval was removed
         // Removed saveAllMessages() - message saving removed, use REST API instead
       }
@@ -4909,6 +5573,9 @@ export default function ChatBoxComponent(props: any) {
           messageData.metadata ||
           messageData.data?.meta;
         console.log('[ChatBox] Message thread ID:', threadId);
+        const normalizedIncomingThreadId = normalizeComparableId(threadId);
+        const normalizedCurrentThreadId = normalizeComparableId(currentThreadId);
+        const normalizedSelectedThreadId = normalizeComparableId(selectedThreadDetail?.id);
 
         let processedMessage = normalizeMessage({
           ...messageData,
@@ -4942,6 +5609,29 @@ export default function ChatBoxComponent(props: any) {
         }
         syncThreadMessage(processedMessage);
       };
+      const applyNegotiationPayload = (
+        payload: any,
+        fallbackStatus?: string
+      ) => {
+        const targetThreadId = String(
+          payload?.threadId || payload?.thread_id || ""
+        ).trim()
+        const nextStatus = normalizeNegotiationStatus(
+          payload?.status || fallbackStatus || ""
+        )
+
+        if (!targetThreadId || !nextStatus) return
+        applyNegotiationStatusToThread(targetThreadId, nextStatus)
+      }
+
+      const handleNegotiationStatusUpdated = (payload: any) =>
+        applyNegotiationPayload(payload)
+      const handleNegotiationOfferSent = (payload: any) =>
+        applyNegotiationPayload(payload, "OFFER_SENT")
+      const handleNegotiationAccepted = (payload: any) =>
+        applyNegotiationPayload(payload, "ACCEPTED")
+      const handleNegotiationDeclined = (payload: any) =>
+        applyNegotiationPayload(payload, "DECLINED")
 
       const handleNewMessage = (messageData: any) =>
         processIncomingMessage(messageData, 'newMessage');
@@ -5027,18 +5717,22 @@ export default function ChatBoxComponent(props: any) {
         socket.off("createOrJoinConversation_response");
         socket.off("joinRoom_response");
         socket.off("sendMessage_response");
+        socket.off("negotiation_status_updated", handleNegotiationStatusUpdated);
+        socket.off("negotiation_offer_sent", handleNegotiationOfferSent);
+        socket.off("negotiation_accepted", handleNegotiationAccepted);
+        socket.off("negotiation_declined", handleNegotiationDeclined);
       };
     }
-    return () => {
-      setState((prev: any) => ({
-        ...prev,
-        selectedChannel: {
-          id: null,
-          propertyName: ""
-        }
-      }));
-    };
-  }, [appendIncomingMessage, socket, state?.selectedChannel?.id, selectedThreadDetail?.id, threadId, selectedThread]);
+    return;
+  }, [
+    appendIncomingMessage,
+    applyNegotiationStatusToThread,
+    socket,
+    state?.selectedChannel?.id,
+    selectedThreadDetail?.id,
+    threadId,
+    selectedThread,
+  ]);
 
   useEffect(() => {
 
@@ -5067,7 +5761,9 @@ export default function ChatBoxComponent(props: any) {
 
   useEffect(() => {
     if (state?.newMessage) {
-      const normalized = normalizeMessage(state?.newMessage);
+      const normalized = normalizeMessage(state?.newMessage, {
+        fallbackCreatedAtToNow: true,
+      });
       const currentThreadId =
         state?.selectedChannel?.id || selectedThreadDetail?.id || selectedThread || threadId;
       const normalizedThreadId = normalized?.threadId;
@@ -5088,8 +5784,9 @@ export default function ChatBoxComponent(props: any) {
   }, [appendIncomingMessage, setState, socket, state?.newMessage, state?.selectedChannel?.id, selectedThread, selectedThreadDetail?.id, threadId]);
 
   useEffect(() => {
-    if (threadId) {
-      getThreadDetails(threadId);
+    const normalizedRouteThreadId = String(threadId || "").trim();
+    if (normalizedRouteThreadId) {
+      getThreadDetails(normalizedRouteThreadId);
     }
   }, [threadId]);
 
@@ -5184,13 +5881,125 @@ export default function ChatBoxComponent(props: any) {
     return /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(url);
   };
 
-  const resolveAgentIdField = () => {
-    const normalizedType = (currentUser || '').toString().toLowerCase();
-    return normalizedType === 'seller' ? 'sellerAgentId' : 'buyerAgentId';
-  };
+  const resolveCurrentAccountType = () =>
+    String(userData?.account_type || user?.account_type || currentUser || '').trim().toLowerCase();
+
+  const resolveThreadUserType = () =>
+    resolveCurrentAccountType() === 'seller' ? 'SELLER' : 'BUYER';
+
+  const resolveAgentIdField = () =>
+    resolveCurrentAccountType() === 'seller' ? 'sellerAgentId' : 'buyerAgentId';
 
   const resolveProfileImage = (person: any) =>
     person?.profile || person?.avatar || person?.image || '';
+
+  const hasActiveAgentInvite = useCallback((participants: any) => {
+    if (!Array.isArray(participants) || participants.length === 0) return false;
+    return participants.some((participant: any) => {
+      const status = String(participant?.is_accepted || participant?.status || '').trim().toLowerCase();
+      if (!['pending', 'accepted', 'negotiation_pending'].includes(status)) return false;
+      return Boolean(
+        participant?.bra_id ||
+        participant?.braId ||
+        participant?.agent?.id ||
+        participant?.agentId,
+      );
+    });
+  }, []);
+
+  const createPlaceholderInviteEngagement = useCallback(
+    async (activeUserId: string) => {
+      const placeholderTimestamp = Date.now();
+      const placeholderAddress = 'Direct chat invite';
+      const createPayload = {
+        propertyName: 'New Chat',
+        price: 0,
+        listingId: 0,
+        propertyId: `chat-${placeholderTimestamp}`,
+        city: 'Los angeles',
+        zipCode: '',
+        propertyAddress: placeholderAddress,
+        propertyImage: '/assets/images/property-placeholder.jpg',
+        userId: activeUserId,
+        answers: undefined,
+        propertyProgress: 10,
+        fullAddress: placeholderAddress,
+      };
+      const createdResponse: any = await propertyEngagementMutation.mutateAsync(createPayload);
+      const newEngagementId = String(createdResponse?.data?.createEngagement?.id || '').trim();
+      if (!newEngagementId) {
+        throw new Error('Unable to prepare a new chat engagement.');
+      }
+      return newEngagementId;
+    },
+    [propertyEngagementMutation],
+  );
+
+  const resolveInviteEngagementId = useCallback(
+    async (activeUserId: string) => {
+      const currentThreadEngagementId = String(selectedThreadDetail?.engagementId || '').trim();
+      if (currentThreadEngagementId) {
+        return currentThreadEngagementId;
+      }
+
+      const candidatePropertyIds = Array.from(
+        new Set(
+          [
+            selectedThreadDetail?.propertyId,
+            propertyData?.propertyId,
+            propertyData?.id,
+            ...(Array.isArray(threads) ? threads.map((thread: any) => thread?.propertyId) : []),
+            ...(Array.isArray(messageThreads) ? messageThreads.map((thread: any) => thread?.propertyId) : []),
+          ]
+            .map((value) => String(value || '').trim())
+            .filter(Boolean),
+        ),
+      );
+
+      for (const propertyId of candidatePropertyIds) {
+        try {
+          const engagementResponse: any = await getEngagedPropertyByPropertyId.mutateAsync(propertyId);
+          const engagement = engagementResponse?.data?.data?.getUserEngagementsByPropertyId;
+          const engagementIdByProperty = String(engagement?.id || '').trim();
+          if (!engagementIdByProperty) continue;
+          if (hasActiveAgentInvite(engagement?.participants)) continue;
+          return engagementIdByProperty;
+        } catch (lookupError) {
+          console.log(`[chat-box] Engagement lookup failed for property ${propertyId}:`, lookupError);
+        }
+      }
+
+      try {
+        const allEngagementsResponse: any = await getAllEngagedProperties.mutateAsync(activeUserId);
+        const engagements = allEngagementsResponse?.data?.data?.getUserEngagements;
+        if (Array.isArray(engagements)) {
+          const availableEngagement = engagements.find((engagement: any) => {
+            const engagementId = String(engagement?.id || '').trim();
+            return Boolean(engagementId) && !hasActiveAgentInvite(engagement?.participants);
+          });
+          const fallbackEngagementId = String(availableEngagement?.id || '').trim();
+          if (fallbackEngagementId) {
+            return fallbackEngagementId;
+          }
+        }
+      } catch (allEngagementsError) {
+        console.log('[chat-box] Failed to fetch user engagements for invite fallback:', allEngagementsError);
+      }
+
+      return null;
+    },
+    [
+      getAllEngagedProperties,
+      getEngagedPropertyByPropertyId,
+      hasActiveAgentInvite,
+      messageThreads,
+      propertyData?.id,
+      propertyData?.propertyId,
+      selectedThreadDetail?.engagementId,
+      selectedThreadDetail?.propertyId,
+      threads,
+    ],
+  );
 
   const handleCreateThreadWithAgent = async (agent: any) => {
     const agentId = agent?.id || agent?._id;
@@ -5214,8 +6023,8 @@ export default function ChatBoxComponent(props: any) {
       propertyImage: '',
       listingId: '',
       propertyAddress: '',
-      propertyOwnerId: '',
-      userType: (currentUser || 'Buyer').toString(),
+      propertyOwnerId: undefined,
+      userType: resolveThreadUserType(),
       userId: activeUserId,
       roomId: uuidv4(),
       parentMessage: "Let's connect and talk",
@@ -5223,10 +6032,14 @@ export default function ChatBoxComponent(props: any) {
     };
 
     createUserAgentThreadMutation.mutate(payload, {
-      onSuccess: (data: any) => {
+      onSuccess: async (data: any) => {
         const createdThreadId = data?.id;
         if (createdThreadId) {
-          getThreadDetails(createdThreadId);
+          await getThreadDetails(createdThreadId);
+          applyNegotiationStatusToThread(createdThreadId, 'NEGOTIATION_PENDING');
+          setSelectedThreadDetail((prev: any) => (
+            prev?.id === createdThreadId ? { ...prev, status: 'NEGOTIATION_PENDING' } : prev
+          ));
         }
         setIsContactAgentDialogOpen(false);
         setIsSearchAgentModalOpen(false);
@@ -5255,24 +6068,106 @@ export default function ChatBoxComponent(props: any) {
       setInviteAgentError('Please login to invite an agent.');
       return;
     }
+    const inviteAgentType = resolveCurrentAccountType();
+    if (!inviteAgentType) {
+      setInviteAgentError('Unable to detect your account type. Please sign in again.');
+      return;
+    }
     if (isCreatingThread) return;
 
     setIsCreatingThread(true);
     try {
-      const payload = {
-        agentType: currentUser,
-        userId: activeUserId,
-        email,
-        is_accepted: 'pending',
-      };
-      await externalAgentIvitationMutation.mutateAsync(payload);
-      success({ message: 'Agent invitation sent successfully.' });
+      let usedEngagementId = await resolveInviteEngagementId(String(activeUserId));
+      if (!usedEngagementId) {
+        usedEngagementId = await createPlaceholderInviteEngagement(String(activeUserId));
+      }
+      // Step 1: Send agent invitation using an available engagement id.
+      const sendInviteForEngagement = async (engagementId: string) =>
+        externalAgentIvitationMutation.mutateAsync({
+          agentType: inviteAgentType,
+          userId: activeUserId,
+          email,
+          is_accepted: 'pending',
+          engagementId,
+        });
+
+      let inviteResult: any;
+      try {
+        inviteResult = await sendInviteForEngagement(usedEngagementId);
+      } catch (inviteError: any) {
+        const inviteErrorMessage = String(
+          inviteError?.response?.data?.errors?.[0]?.message ||
+          inviteError?.response?.data?.message ||
+          inviteError?.message ||
+          '',
+        ).toLowerCase();
+        if (!inviteErrorMessage.includes('already has an invited agent')) {
+          throw inviteError;
+        }
+
+        usedEngagementId = await createPlaceholderInviteEngagement(String(activeUserId));
+        inviteResult = await sendInviteForEngagement(usedEngagementId);
+      }
+      if (!inviteResult?.success) {
+        throw new Error(inviteResult?.message || 'Failed to send invitation');
+      }
+
+      // Step 2: If backend returned agentId, immediately create a chat thread
+      const invitedAgentId = inviteResult?.agentId;
+      if (invitedAgentId) {
+        const agentIdField = resolveAgentIdField();
+        const threadPayload: Record<string, any> = {
+          propertyId: '',
+          threadName: `Chat with ${email.split('@')[0]}`,
+          propertyName: 'New Chat',
+          propertyImage: '',
+          listingId: '',
+          propertyAddress: '',
+          propertyOwnerId: undefined,
+          userType: resolveThreadUserType(),
+          userId: activeUserId,
+          roomId: uuidv4(),
+          parentMessage: "Let's connect and talk",
+          engagementId: inviteResult?.engagementId || usedEngagementId,
+          [agentIdField]: invitedAgentId,
+        };
+
+        createUserAgentThreadMutation.mutate(threadPayload, {
+          onSuccess: async (threadData: any) => {
+            const createdThreadId = threadData?.id;
+            if (createdThreadId) {
+              // Auto-open the new thread so the buyer lands on the conversation
+              await getThreadDetails(createdThreadId);
+              applyNegotiationStatusToThread(createdThreadId, 'NEGOTIATION_PENDING');
+              setSelectedThreadDetail((prev: any) => (
+                prev?.id === createdThreadId ? { ...prev, status: 'NEGOTIATION_PENDING' } : prev
+              ));
+            }
+            success({ message: `Invitation sent to ${email}. Chat opened - negotiate a tier first.` });
+          },
+          onError: (threadErr: any) => {
+            // Thread creation failed but invite was sent — still inform the user
+            console.warn('[chat-box] Thread creation failed after invite:', threadErr);
+            error({ message: `Invitation sent to ${email}, but opening chat failed. Please refresh and try again.` });
+          },
+        });
+      } else {
+        // Invite succeeded but no agentId (edge case) — just show success
+        success({ message: `Invitation sent to ${email}.` });
+      }
+
+      // Close modal and reset form
       setIsInviteAgentModalOpen(false);
       setInviteAgentEmail('');
       setInviteAgentError('');
     } catch (err: any) {
       console.error('[chat-box] Invite agent failed:', err);
-      setInviteAgentError(err?.message || 'Unable to send invite right now.');
+      const errorMessage =
+        err?.response?.data?.errors?.[0]?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Unable to send invite right now.';
+      setInviteAgentError(errorMessage);
     } finally {
       setIsCreatingThread(false);
     }
@@ -5290,6 +6185,98 @@ export default function ChatBoxComponent(props: any) {
     [agentForHeader?.firstName, agentForHeader?.lastName].filter(Boolean).join(' ') || '';
   const agentImageForHeader =
     agentForHeader?.profile || agentForHeader?.image || agentForHeader?.avatar || '';
+  const normalizedNegotiationStatus = resolveThreadNegotiationStatus(
+    selectedThreadDetail,
+    messages,
+  )
+  const negotiationOfferSummary = useMemo(() => {
+    if (!Array.isArray(messages) || messages.length === 0) return null
+
+    const parseNegotiationOfferSummary = (rawText?: string) => {
+      const text = String(rawText || "").trim()
+      if (!text) return null
+
+      const selectedTierMatch = text.match(
+        /^buyer selected\s+(.+?)\s*\((\d+(?:\.\d+)?)%\)/i
+      )
+      if (selectedTierMatch) {
+        return {
+          requestedServices: selectedTierMatch[1].trim(),
+          offeredCommission: `${selectedTierMatch[2]}%`,
+          sourceMessage: text,
+        }
+      }
+
+      const proposedMatch = text.match(
+        /^buyer proposed\s+(\d+(?:\.\d+)?)%\s+commission\s+for\s+(.+?)(?:[.!]|$)/i
+      )
+      if (proposedMatch) {
+        return {
+          requestedServices: proposedMatch[2].trim(),
+          offeredCommission: `${proposedMatch[1]}%`,
+          sourceMessage: text,
+        }
+      }
+
+      const freeformMatch = text.match(
+        /i want\s+(.+?)\s+services\s+at\s+(\d+(?:\.\d+)?)%\s+commission/i
+      )
+      if (freeformMatch) {
+        return {
+          requestedServices: freeformMatch[1].trim(),
+          offeredCommission: `${freeformMatch[2]}%`,
+          sourceMessage: text,
+        }
+      }
+
+      const commissionOnlyMatch = text.match(/(\d+(?:\.\d+)?)%\s*commission/i)
+      if (commissionOnlyMatch) {
+        return {
+          requestedServices: "Custom services",
+          offeredCommission: `${commissionOnlyMatch[1]}%`,
+          sourceMessage: text,
+        }
+      }
+
+      return null
+    }
+
+    const activeThreadId = String(
+      selectedThreadDetail?.id || state?.selectedChannel?.id || ""
+    ).trim()
+
+    const candidateMessages = [...messages]
+      .filter((msg) => {
+        const messageThreadId = String(msg?.threadId || "").trim()
+        if (activeThreadId && messageThreadId && messageThreadId !== activeThreadId) {
+          return false
+        }
+        if (msg?.messageType && msg.messageType !== "notification") {
+          return false
+        }
+        const text = String(msg?.message || msg?.content || "").trim()
+        return /buyer selected|buyer proposed|commission|tier/i.test(text)
+      })
+      .sort((a, b) => {
+        const left = new Date(a?.createdAt || 0).getTime()
+        const right = new Date(b?.createdAt || 0).getTime()
+        return right - left
+      })
+
+    for (const item of candidateMessages) {
+      const parsed = parseNegotiationOfferSummary(
+        String(item?.message || item?.content || "")
+      )
+      if (parsed) return parsed
+    }
+
+    return null
+  }, [messages, selectedThreadDetail?.id, state?.selectedChannel?.id])
+  const isNegotiationInProgress =
+    normalizedNegotiationStatus === "NEGOTIATION_PENDING" ||
+    normalizedNegotiationStatus === "OFFER_SENT"
+  const isNegotiationDeclined = normalizedNegotiationStatus === "DECLINED"
+  const shouldLockChatInput = isNegotiationInProgress || isNegotiationDeclined
 
   const wrapperClassName = embedded
     ? "max-w-full min-h-[calc(100vh-6rem)] flex flex-col"
@@ -5869,6 +6856,7 @@ export default function ChatBoxComponent(props: any) {
                                       currentUserData={userData}
                                       propertyId={selectedThreadDetail?.propertyId || snapzPropertyId}
                                       listingId={selectedThreadDetail?.listingId || snapzListingId}
+                                      engagementId={selectedThreadDetail?.engagementId}
                                       propertyName={
                                         selectedThreadDetail?.propertyName ||
                                         propertyData?.listing?.courtesyOf
@@ -5918,303 +6906,389 @@ export default function ChatBoxComponent(props: any) {
                           className="ms-2 mb-2 sm:ms-5 scrollbar-hide sm:me-5 overflow-auto h-[calc(96vh-16rem)] sm:h-[calc(96vh-18rem)]"
                         >
                           <div className="space-y-6 me-4">
-                            {Object.entries(groupedMessages)
-                              .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
-                              .map(([dateKey, dayMessages]) => {
-                                const parsedDate = new Date(dateKey);
-                                // const label = "Today"
-                                const label = isToday(parsedDate)
-                                  ? "Today"
-                                  : isYesterday(parsedDate)
-                                    ? "Yesterday"
-                                    : format(parsedDate, "EEEE, MMMM d");
+                            {normalizedNegotiationStatus === "NEGOTIATION_PENDING" && (
+                              <>
+                                {isLoadingAgentTiers ? (
+                                  <div className="rounded-2xl border border-orange-100 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm">
+                                    Loading agent tier preferences...
+                                  </div>
+                                ) : agentTiers.length > 0 ? (
+                                  <NegotiationCard
+                                    tiers={agentTiers}
+                                    onSelectTier={(tier) => handleSelectTier(tier)}
+                                    onNegotiate={(offer) => handleNegotiate(offer)}
+                                    status={normalizedNegotiationStatus}
+                                  />
+                                ) : (
+                                  <div className="rounded-2xl border border-orange-100 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm">
+                                    Agent has not configured tier preferences yet.
+                                  </div>
+                                )}
+                              </>
+                            )}
+                            {normalizedNegotiationStatus === "OFFER_SENT" && (
+                              <div className="rounded-2xl border border-orange-200 bg-white px-4 py-3 text-sm text-gray-700 shadow-sm">
+                                <p className="font-medium text-gray-800">
+                                  Offer sent to agent. Waiting for agent response.
+                                </p>
+                                <div className="mt-2 rounded-md border border-orange-100 bg-orange-50 px-3 py-2">
+                                  <div className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-1 text-xs sm:text-sm">
+                                    <span className="text-gray-500">Requested Services</span>
+                                    <span className="text-right font-medium text-gray-800">
+                                      {negotiationOfferSummary?.requestedServices || "Not specified"}
+                                    </span>
+                                    <span className="text-gray-500">Offered Commission</span>
+                                    <span className="text-right font-medium text-gray-800">
+                                      {negotiationOfferSummary?.offeredCommission || "Not specified"}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            {normalizedNegotiationStatus === "DECLINED" && (
+                              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
+                                Agent declined your negotiation offer. Chat is locked for this thread.
+                              </div>
+                            )}
+                            {normalizedNegotiationStatus === "ACCEPTED" && (
+                              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 shadow-sm">
+                                Negotiation accepted. Chat is now unlocked.
+                              </div>
+                            )}
 
-                                return (
-                                  <div key={dateKey}>
-                                    <div className="text-center py-2">
-                                      <span className="text-gray-500 text-xs sm:text-sm font-medium bg-white px-3 py-1 rounded-full shadow">
-                                        {label}
-                                      </span>
-                                    </div>
+                            {(() => {
+                              const existingSystemFileEvents = new Set<string>(
+                                messages
+                                  .filter((m: any) => m?.messageType === "system")
+                                  .map((m: any) => {
+                                    const url = resolveAttachmentUrlFromMessage(m as Message);
+                                    const name = getFileNameFromUrl(url || m?.message || "");
+                                    return buildFileEventKey(m?.senderId, name);
+                                  })
+                                  .filter(Boolean)
+                              );
+                              return Object.entries(groupedMessages)
+                                .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
+                                .map(([dateKey, dayMessages]) => {
+                                  const parsedDate = new Date(dateKey);
+                                  // const label = "Today"
+                                  const label = isToday(parsedDate)
+                                    ? "Today"
+                                    : isYesterday(parsedDate)
+                                      ? "Yesterday"
+                                      : format(parsedDate, "EEEE, MMMM d");
+
+                                  return (
+                                    <div key={dateKey}>
+                                      <div className="text-center py-2">
+                                        <span className="text-gray-500 text-xs sm:text-sm font-medium bg-white px-3 py-1 rounded-full shadow">
+                                          {label}
+                                        </span>
+                                      </div>
 
 
-                                    <div className="space-y-4">
-                                      {[...dayMessages]
-                                        .sort((a, b) => new Date(a.createdAt ?? 0).getTime() - new Date(b?.createdAt ?? 0).getTime())
-                                        .map((message, index) => {
-                                          const isSender = message.senderId === userData?.id;
-                                          const isLastMessage = index === dayMessages?.length - 1;
-                                          const formattedTime = format(new Date(message?.createdAt ?? 0), "hh:mm a");
-                                          const receiver = threadParticipants.find(
-                                            (p: any) => p.id === message.senderId && p.id !== userData?.id
-                                          );
-                                          const receiverImage = resolveProfileImage(receiver);
-                                          const senderImage = resolveProfileImage(userData) || resolveProfileImage(user);
-                                          const receiverFallbackName =
-                                            `${receiver?.firstName || ''} ${receiver?.lastName || ''}`.trim() ||
-                                            receiver?.email ||
-                                            receiver?.id ||
-                                            'NA';
-                                          const senderFallbackName =
-                                            `${userData?.firstname || ''} ${userData?.lastname || ''}`.trim() ||
-                                            userData?.email ||
-                                            userData?.id ||
-                                            user?.email ||
-                                            user?.id ||
-                                            'NA';
+                                      <div className="space-y-4">
+                                        {[...dayMessages]
+                                          .sort((a, b) => new Date(a.createdAt ?? 0).getTime() - new Date(b?.createdAt ?? 0).getTime())
+                                          .map((message, index) => {
+                                            const resolvedMessageSenderId = pickFirstString(
+                                              message?.senderId,
+                                              (message as any)?.userId,
+                                              (message as any)?.sender?.id,
+                                              (message as any)?.createdBy,
+                                            );
+                                            const isSender =
+                                              !!resolvedMessageSenderId &&
+                                              normalizeComparableId(resolvedMessageSenderId) ===
+                                              normalizeComparableId(userData?.id || user?.id);
+                                            const isLastMessage = index === dayMessages?.length - 1;
+                                            const formattedTime = format(new Date(message?.createdAt ?? 0), "hh:mm a");
+                                            const receiver = threadParticipants.find(
+                                              (p: any) => {
+                                                const participantId = pickFirstString(
+                                                  p?.id,
+                                                  p?.user?.id,
+                                                  p?.userId,
+                                                  p?.user?.userId,
+                                                );
+                                                if (!participantId) return false;
+                                                const normalizedParticipantId = normalizeComparableId(participantId);
+                                                return (
+                                                  normalizedParticipantId ===
+                                                  normalizeComparableId(resolvedMessageSenderId) &&
+                                                  normalizedParticipantId !==
+                                                  normalizeComparableId(userData?.id || user?.id)
+                                                );
+                                              }
+                                            );
+                                            const receiverImage = resolveProfileImage(receiver);
+                                            const senderImage = resolveProfileImage(userData) || resolveProfileImage(user);
+                                            const receiverFallbackName =
+                                              `${receiver?.firstName || ''} ${receiver?.lastName || ''}`.trim() ||
+                                              receiver?.email ||
+                                              receiver?.id ||
+                                              'NA';
+                                            const senderFallbackName =
+                                              `${userData?.firstname || ''} ${userData?.lastname || ''}`.trim() ||
+                                              userData?.email ||
+                                              userData?.id ||
+                                              user?.email ||
+                                              user?.id ||
+                                              'NA';
 
-                                          const notificationMessage = message?.messageType === "notification";
-                                          const systemMessage = message?.messageType === "system";
-                                          const systemText = systemMessage ? getSystemMessageText(message) : "";
-                                          const isFileMessage = message?.messageType === "file";
-                                          const fileEventUrl = isFileMessage ? resolveAttachmentUrlFromMessage(message) : "";
-                                          const fileEventName = isFileMessage
-                                            ? getFileNameFromUrl(fileEventUrl || message?.message || "")
-                                            : "";
-                                          const fileEventKey = isFileMessage
-                                            ? buildFileEventKey(message?.senderId, fileEventName)
-                                            : "";
-                                          const shouldShowInlineFileEvent =
-                                            isFileMessage &&
-                                            !notificationMessage &&
-                                            !systemMessage &&
-                                            !!fileEventKey &&
-                                            !existingSystemFileEvents.has(fileEventKey);
+                                            const notificationMessage = message?.messageType === "notification";
+                                            const systemMessage = message?.messageType === "system";
+                                            const systemText = systemMessage ? getSystemMessageText(message) : "";
+                                            const isFileMessage = message?.messageType === "file";
+                                            const fileEventUrl = isFileMessage ? resolveAttachmentUrlFromMessage(message) : "";
+                                            const fileEventName = isFileMessage
+                                              ? getFileNameFromUrl(fileEventUrl || message?.message || "")
+                                              : "";
+                                            const fileEventKey = isFileMessage
+                                              ? buildFileEventKey(message?.senderId, fileEventName)
+                                              : "";
+                                            const shouldShowInlineFileEvent =
+                                              isFileMessage &&
+                                              !notificationMessage &&
+                                              !systemMessage &&
+                                              !!fileEventKey &&
+                                              !existingSystemFileEvents.has(fileEventKey);
 
-                                          return (
-                                            <div key={index} className="w-full">
-                                              {systemMessage && !!systemText && (
-                                                <div className="flex justify-center rounded-xl text-center w-full pt-4 p-3">
-                                                  <div className="bg-white shadow-md rounded-full w-fit px-8 py-3">
-                                                    <div className="flex gap-2 items-center justify-center">
-                                                      <MdNotificationAdd size={20} />
-                                                      <p className="whitespace-pre-wrap break-words text-sm">
-                                                        {systemText}
-                                                      </p>
-                                                    </div>
-                                                    <div className="text-xs text-gray-400 px-2 mt-1 text-right">
-                                                      {formattedTime}
-                                                    </div>
-                                                  </div>
-                                                </div>
-                                              )}
-
-                                              {notificationMessage && (
-                                                <div className="flex justify-center rounded-xl text-center w-full pt-6 p-3">
-                                                  <div className="bg-white shadow-md rounded-full w-fit px-8 py-4 pt-6">
-                                                    <div className="flex gap-2 items-center">
-                                                      <MdNotificationAdd size={24} />
-                                                      <p className="whitespace-pre-wrap break-words text- text-sm">{message.message}</p>
-                                                    </div>
-                                                    <div className="text-xs text-gray-400 px-2 mt-2 text-right">
-                                                      {formattedTime}
-                                                    </div>
-                                                  </div>
-                                                </div>
-                                              )}
-
-                                              {!systemMessage && !notificationMessage && (
-                                                <>
-                                                  <div
-                                                    className={`flex gap-3 mt-4 items-start ${isSender ? 'justify-end' : ''}`}
-                                                  >
-                                                    {!isSender && receiver && (
-                                                      <div className="w-7 h-7 sm:w-10 sm:h-10 mt-4 rounded-full border border-white/70 bg-[#FBB785] overflow-hidden flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0 text-white">
-                                                        {receiverImage ? (
-                                                          <Image
-                                                            src={receiverImage}
-                                                            alt="Participant"
-                                                            width={40}
-                                                            height={40}
-                                                            className="h-full w-full object-cover"
-                                                            unoptimized
-                                                          />
-                                                        ) : (
-                                                          getInitials(receiverFallbackName) || 'NA'
-                                                        )}
+                                            return (
+                                              <div key={index} className="w-full">
+                                                {systemMessage && !!systemText && (
+                                                  <div className="flex justify-center rounded-xl text-center w-full pt-4 p-3">
+                                                    <div className="bg-white shadow-md rounded-full w-fit px-8 py-3">
+                                                      <div className="flex gap-2 items-center justify-center">
+                                                        <MdNotificationAdd size={20} />
+                                                        <p className="whitespace-pre-wrap break-words text-sm">
+                                                          {systemText}
+                                                        </p>
                                                       </div>
-                                                    )}
-
-                                                    <div className="w-full flex flex-col gap-1">
-                                                      {/* Time aligned to sender/receiver side */}
-                                                      <div className={`text-xs text-gray-400 px-2 ${isSender ? "text-right" : "text-left"}`}>
+                                                      <div className="text-xs text-gray-400 px-2 mt-1 text-right">
                                                         {formattedTime}
                                                       </div>
+                                                    </div>
+                                                  </div>
+                                                )}
 
-                                                      {/* Message container taking full width */}
-                                                      <div className={`w-full flex ${isSender ? "justify-end" : "justify-start"}`}>
-                                                        <div
-                                                          className={`p-3 sm:p-4 font-medium rounded-2xl shadow-md text-xs sm:text-sm max-w-full sm:max-w-[90%] ${isSender ? "bg-black text-white" : "bg-white text-black"}`}
-                                                        >
-                                                          {/* Text message */}
-                                                          {message?.messageType !== "file" && message.message && (
-                                                            <p className="whitespace-pre-wrap break-words">{message.message}</p>
-                                                          )}
-
-                                                          {/* File message */}
-                                                          {message?.messageType === "file" && (
-                                                            <div className="rounded-lg flex items-center gap-3 p-2">
-                                                              {(() => {
-                                                                // Get the file URL - ensure it's not encrypted
-                                                                let fileUrl = message.message || "";
-
-                                                                // Handle CL:: prefix (legacy encryption artifact)
-                                                                if (fileUrl.startsWith('CL::')) {
-                                                                  fileUrl = fileUrl.substring(4);
-                                                                }
-
-                                                                // If the URL looks encrypted (starts with common encryption patterns), try to decrypt
-                                                                // But file URLs from S3 should not be encrypted, so only decrypt if it looks like encrypted text
-                                                                if (fileUrl && !fileUrl.startsWith('http') && !fileUrl.startsWith('data:')) {
-                                                                  try {
-                                                                    const decrypted = decryptMessage(fileUrl);
-                                                                    // Only use decrypted if it looks like a URL
-                                                                    if (decrypted.startsWith('http') || decrypted.startsWith('data:')) {
-                                                                      fileUrl = decrypted;
-                                                                    }
-                                                                  } catch (error) {
-                                                                    console.log("[ChatBox] File URL might not be encrypted:", error);
-                                                                  }
-                                                                }
-
-                                                                // Helper to extract filename
-                                                                const getFileNameFromUrl = (url: string) => {
-                                                                  try {
-                                                                    if (!url) return "File";
-                                                                    const cleanUrl = url.split('?')[0]; // Remove query params
-                                                                    const fileName = cleanUrl.split('/').pop() || "File";
-                                                                    const decodedFileName = decodeURIComponent(fileName);
-
-                                                                    // Regex to match UUID at the beginning of the filename (8-4-4-4-12 hex chars followed by a hyphen)
-                                                                    const uuidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}-?/;
-                                                                    return decodedFileName.replace(uuidPattern, "");
-                                                                  } catch (e) {
-                                                                    console.error("Error parsing filename:", e);
-                                                                    return "File";
-                                                                  }
-                                                                };
-
-                                                                if (message.fileType && imageMimeType.includes(message.fileType)) {
-                                                                  return (
-                                                                    <div
-                                                                      className="relative cursor-pointer group"
-                                                                      onClick={() => openMediaPreview(fileUrl, message.fileType ?? "")}
-                                                                    >
-                                                                      <Image
-                                                                        src={fileUrl || "/placeholder.svg"}
-                                                                        alt="Uploaded Image"
-                                                                        width={140}
-                                                                        height={140}
-                                                                        unoptimized={true}
-                                                                        priority
-                                                                        className="rounded-lg max-w-[120px] hover:opacity-90 transition-opacity"
-                                                                        onError={(e) => {
-                                                                          console.error("[ChatBox] Failed to load image:", fileUrl);
-                                                                          // Fallback to placeholder
-                                                                          e.currentTarget.src = "/placeholder.svg";
-                                                                        }}
-                                                                      />
-                                                                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-lg transition-opacity">
-                                                                        <Maximize className="w-4 h-4 text-white" />
-                                                                      </div>
-                                                                    </div>
-                                                                  );
-                                                                } else if (message.fileType && videoMimeType?.includes(message.fileType)) {
-                                                                  return (
-                                                                    <video
-                                                                      controls
-                                                                      className="rounded-lg max-w-[120px]"
-                                                                      onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        openMediaPreview(fileUrl, message.fileType || "");
-                                                                      }}
-                                                                    >
-                                                                      <source src={fileUrl} type={message.fileType} />
-                                                                      Your browser does not support the video tag.
-                                                                    </video>
-                                                                  );
-                                                                } else {
-                                                                  return (
-                                                                    <div className="flex items-center gap-2 text-xs sm:text-sm">
-                                                                      <FileText className="w-5 h-5 text-gray-600" />
-                                                                      {/* Display Filename instead of truncated URL */}
-                                                                      <span className="truncate max-w-[100px] sm:max-w-full" title={getFileNameFromUrl(fileUrl)}>
-                                                                        {getFileNameFromUrl(fileUrl)}
-                                                                      </span>
-                                                                      <a
-                                                                        href={fileUrl}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        className="text-blue-500 hover:underline"
-                                                                      >
-                                                                        <Eye className="w-4 h-4 text-orange-500" />
-                                                                      </a>
-                                                                    </div>
-                                                                  );
-                                                                }
-                                                              })()}
-                                                            </div>
-                                                          )}
-
-                                                          {/* Reply Preview */}
-                                                          {message.parentMessageId && (
-                                                            <div className="mt-2 p-2 border-l-4 border-gray-300 text-sm italic">
-                                                              Replying to: <span className="font-medium">{message.parentMessageId}</span>
-                                                            </div>
-                                                          )}
-
-                                                          {/* Seen indicator */}
-                                                          {isSender && isLastMessage && message.seen && (
-                                                            <div className="text-xs text-blue-500 mt-1 text-right">Seen</div>
-                                                          )}
-                                                        </div>
+                                                {notificationMessage && (
+                                                  <div className="flex justify-center rounded-xl text-center w-full pt-6 p-3">
+                                                    <div className="bg-white shadow-md rounded-full w-fit px-8 py-4 pt-6">
+                                                      <div className="flex gap-2 items-center">
+                                                        <MdNotificationAdd size={24} />
+                                                        <p className="whitespace-pre-wrap break-words text- text-sm">{message.message}</p>
+                                                      </div>
+                                                      <div className="text-xs text-gray-400 px-2 mt-2 text-right">
+                                                        {formattedTime}
                                                       </div>
                                                     </div>
-
-                                                    {isSender && (
-                                                      <div className="w-7 h-7 mt-4 sm:w-10 sm:h-10 rounded-full border border-white/70 bg-[#FBB785] overflow-hidden flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0 text-white">
-                                                        {senderImage ? (
-                                                          <Image
-                                                            src={senderImage}
-                                                            alt="You"
-                                                            width={40}
-                                                            height={40}
-                                                            className="h-full w-full object-cover"
-                                                            unoptimized
-                                                          />
-                                                        ) : (
-                                                          getInitials(senderFallbackName) || 'NA'
-                                                        )}
-                                                      </div>
-                                                    )}
                                                   </div>
+                                                )}
 
-                                                  {shouldShowInlineFileEvent && (
-                                                    <div className="flex justify-center rounded-xl text-center w-full pt-2 p-3">
-                                                      <div
-                                                        className={`shadow-md rounded-full w-fit px-8 py-3 ${isSender ? "bg-gray-200" : "bg-white"}`}
-                                                      >
-                                                        <div className="flex gap-2 items-center justify-center">
-                                                          <MdNotificationAdd size={20} />
-                                                          <p className="whitespace-pre-wrap break-words text-sm">
-                                                            {`${isSender ? "You" : receiverFallbackName} shared ${fileEventName}`}
-                                                          </p>
+                                                {!systemMessage && !notificationMessage && (
+                                                  <>
+                                                    <div
+                                                      className={`flex gap-3 mt-4 items-start ${isSender ? 'justify-end' : ''}`}
+                                                    >
+                                                      {!isSender && receiver && (
+                                                        <div className="w-7 h-7 sm:w-10 sm:h-10 mt-4 rounded-full border border-white/70 bg-[#FBB785] overflow-hidden flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0 text-white">
+                                                          {receiverImage ? (
+                                                            <Image
+                                                              src={receiverImage}
+                                                              alt="Participant"
+                                                              width={40}
+                                                              height={40}
+                                                              className="h-full w-full object-cover"
+                                                              unoptimized
+                                                            />
+                                                          ) : (
+                                                            getInitials(receiverFallbackName) || 'NA'
+                                                          )}
                                                         </div>
-                                                        <div className="text-xs text-gray-400 px-2 mt-1 text-right">
+                                                      )}
+
+                                                      <div className="w-full flex flex-col gap-1">
+                                                        {/* Time aligned to sender/receiver side */}
+                                                        <div className={`text-xs text-gray-400 px-2 ${isSender ? "text-right" : "text-left"}`}>
                                                           {formattedTime}
                                                         </div>
+
+                                                        {/* Message container taking full width */}
+                                                        <div className={`w-full flex ${isSender ? "justify-end" : "justify-start"}`}>
+                                                          <div
+                                                            className={`p-3 sm:p-4 font-medium rounded-2xl shadow-md text-xs sm:text-sm max-w-full sm:max-w-[90%] ${isSender ? "bg-black text-white" : "bg-white text-black"}`}
+                                                          >
+                                                            {/* Text message */}
+                                                            {message?.messageType !== "file" && message.message && (
+                                                              <p className="whitespace-pre-wrap break-words">{message.message}</p>
+                                                            )}
+
+                                                            {/* File message */}
+                                                            {message?.messageType === "file" && (
+                                                              <div className="rounded-lg flex items-center gap-3 p-2">
+                                                                {(() => {
+                                                                  // Get the file URL - ensure it's not encrypted
+                                                                  let fileUrl = message.message || "";
+
+                                                                  // Handle CL:: prefix (legacy encryption artifact)
+                                                                  if (fileUrl.startsWith('CL::')) {
+                                                                    fileUrl = fileUrl.substring(4);
+                                                                  }
+
+                                                                  // If the URL looks encrypted (starts with common encryption patterns), try to decrypt
+                                                                  // But file URLs from S3 should not be encrypted, so only decrypt if it looks like encrypted text
+                                                                  if (fileUrl && !fileUrl.startsWith('http') && !fileUrl.startsWith('data:')) {
+                                                                    try {
+                                                                      const decrypted = decryptMessage(fileUrl);
+                                                                      // Only use decrypted if it looks like a URL
+                                                                      if (decrypted.startsWith('http') || decrypted.startsWith('data:')) {
+                                                                        fileUrl = decrypted;
+                                                                      }
+                                                                    } catch (error) {
+                                                                      console.log("[ChatBox] File URL might not be encrypted:", error);
+                                                                    }
+                                                                  }
+
+                                                                  // Helper to extract filename
+                                                                  const getFileNameFromUrl = (url: string) => {
+                                                                    try {
+                                                                      if (!url) return "File";
+                                                                      const cleanUrl = url.split('?')[0]; // Remove query params
+                                                                      const fileName = cleanUrl.split('/').pop() || "File";
+                                                                      const decodedFileName = decodeURIComponent(fileName);
+
+                                                                      // Regex to match UUID at the beginning of the filename (8-4-4-4-12 hex chars followed by a hyphen)
+                                                                      const uuidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}-?/;
+                                                                      return decodedFileName.replace(uuidPattern, "");
+                                                                    } catch (e) {
+                                                                      console.error("Error parsing filename:", e);
+                                                                      return "File";
+                                                                    }
+                                                                  };
+
+                                                                  if (message.fileType && imageMimeType.includes(message.fileType)) {
+                                                                    return (
+                                                                      <div
+                                                                        className="relative cursor-pointer group"
+                                                                        onClick={() => openMediaPreview(fileUrl, message.fileType ?? "")}
+                                                                      >
+                                                                        <Image
+                                                                          src={fileUrl || "/placeholder.svg"}
+                                                                          alt="Uploaded Image"
+                                                                          width={140}
+                                                                          height={140}
+                                                                          unoptimized={true}
+                                                                          priority
+                                                                          className="rounded-lg max-w-[120px] hover:opacity-90 transition-opacity"
+                                                                          onError={(e) => {
+                                                                            console.error("[ChatBox] Failed to load image:", fileUrl);
+                                                                            // Fallback to placeholder
+                                                                            e.currentTarget.src = "/placeholder.svg";
+                                                                          }}
+                                                                        />
+                                                                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-lg transition-opacity">
+                                                                          <Maximize className="w-4 h-4 text-white" />
+                                                                        </div>
+                                                                      </div>
+                                                                    );
+                                                                  } else if (message.fileType && videoMimeType?.includes(message.fileType)) {
+                                                                    return (
+                                                                      <video
+                                                                        controls
+                                                                        className="rounded-lg max-w-[120px]"
+                                                                        onClick={(e) => {
+                                                                          e.stopPropagation();
+                                                                          openMediaPreview(fileUrl, message.fileType || "");
+                                                                        }}
+                                                                      >
+                                                                        <source src={fileUrl} type={message.fileType} />
+                                                                        Your browser does not support the video tag.
+                                                                      </video>
+                                                                    );
+                                                                  } else {
+                                                                    return (
+                                                                      <div className="flex items-center gap-2 text-xs sm:text-sm">
+                                                                        <FileText className="w-5 h-5 text-gray-600" />
+                                                                        {/* Display Filename instead of truncated URL */}
+                                                                        <span className="truncate max-w-[100px] sm:max-w-full" title={getFileNameFromUrl(fileUrl)}>
+                                                                          {getFileNameFromUrl(fileUrl)}
+                                                                        </span>
+                                                                        <a
+                                                                          href={fileUrl}
+                                                                          target="_blank"
+                                                                          rel="noopener noreferrer"
+                                                                          className="text-blue-500 hover:underline"
+                                                                        >
+                                                                          <Eye className="w-4 h-4 text-orange-500" />
+                                                                        </a>
+                                                                      </div>
+                                                                    );
+                                                                  }
+                                                                })()}
+                                                              </div>
+                                                            )}
+
+                                                            {/* Reply Preview */}
+                                                            {message.parentMessageId && (
+                                                              <div className="mt-2 p-2 border-l-4 border-gray-300 text-sm italic">
+                                                                Replying to: <span className="font-medium">{message.parentMessageId}</span>
+                                                              </div>
+                                                            )}
+
+                                                            {/* Seen indicator */}
+                                                            {isSender && isLastMessage && message.seen && (
+                                                              <div className="text-xs text-blue-500 mt-1 text-right">Seen</div>
+                                                            )}
+                                                          </div>
+                                                        </div>
                                                       </div>
+
+                                                      {isSender && (
+                                                        <div className="w-7 h-7 mt-4 sm:w-10 sm:h-10 rounded-full border border-white/70 bg-[#FBB785] overflow-hidden flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0 text-white">
+                                                          {senderImage ? (
+                                                            <Image
+                                                              src={senderImage}
+                                                              alt="You"
+                                                              width={40}
+                                                              height={40}
+                                                              className="h-full w-full object-cover"
+                                                              unoptimized
+                                                            />
+                                                          ) : (
+                                                            getInitials(senderFallbackName) || 'NA'
+                                                          )}
+                                                        </div>
+                                                      )}
                                                     </div>
-                                                  )}
-                                                </>
-                                              )}
-                                            </div>
-                                          );
-                                        })}
+
+                                                    {shouldShowInlineFileEvent && (
+                                                      <div className="flex justify-center rounded-xl text-center w-full pt-2 p-3">
+                                                        <div
+                                                          className={`shadow-md rounded-full w-fit px-8 py-3 ${isSender ? "bg-gray-200" : "bg-white"}`}
+                                                        >
+                                                          <div className="flex gap-2 items-center justify-center">
+                                                            <MdNotificationAdd size={20} />
+                                                            <p className="whitespace-pre-wrap break-words text-sm">
+                                                              {`${isSender ? "You" : receiverFallbackName} shared ${fileEventName}`}
+                                                            </p>
+                                                          </div>
+                                                          <div className="text-xs text-gray-400 px-2 mt-1 text-right">
+                                                            {formattedTime}
+                                                          </div>
+                                                        </div>
+                                                      </div>
+                                                    )}
+                                                  </>
+                                                )}
+                                              </div>
+                                            );
+                                          })}
+                                      </div>
                                     </div>
-                                  </div>
-                                );
-                              })}
+                                  );
+                                });
+                            })()}
                           </div>
 
                           {selectedFile && (
@@ -6316,8 +7390,17 @@ export default function ChatBoxComponent(props: any) {
                           {/* File Upload with dropdown */}
                           <div className="relative">
                             <button
-                              className="cursor-pointer  p-1 sm:p-2 rounded-full hover:bg-[#FAF9F5]"
-                              onClick={toggleUploadMenu}
+                              disabled={shouldLockChatInput}
+                              className={`p-1 sm:p-2 rounded-full ${shouldLockChatInput
+                                ? "cursor-not-allowed opacity-40"
+                                : "cursor-pointer hover:bg-[#FAF9F5]"
+                                }`}
+                              onClick={() => {
+                                if (shouldLockChatInput) {
+                                  return
+                                }
+                                toggleUploadMenu()
+                              }}
                             >
                               <FolderOpenDot className="h-4 w-4 sm:h-5 sm:w-5 text-green-700" />
                             </button>
@@ -6380,8 +7463,17 @@ export default function ChatBoxComponent(props: any) {
                           <div className="relative">
                             <button
                               type="button"
-                              className="p-1 sm:p-2 rounded-full bg-[#FAF9F5] hover:bg-[#FAF9F5]"
-                              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                              disabled={shouldLockChatInput}
+                              className={`p-1 sm:p-2 rounded-full bg-[#FAF9F5] ${shouldLockChatInput
+                                ? "cursor-not-allowed opacity-40"
+                                : "hover:bg-[#FAF9F5]"
+                                }`}
+                              onClick={() => {
+                                if (shouldLockChatInput) {
+                                  return
+                                }
+                                setShowEmojiPicker(!showEmojiPicker)
+                              }}
                             >
                               <Smile className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" />
                             </button>
@@ -6406,6 +7498,9 @@ export default function ChatBoxComponent(props: any) {
                             className="flex-1 py-1 sm:py-2 px-2 sm:px-4"
                             onSubmit={(e) => {
                               e.preventDefault();
+                              if (shouldLockChatInput) {
+                                return
+                              }
                               handleSendMessage();
                             }}
                           >
@@ -6413,15 +7508,22 @@ export default function ChatBoxComponent(props: any) {
                               id="chat-message-input"
                               name="chat-message-input"
                               className="flex-1 py-1 sm:py-2 px-2 sm:px-4 text-xs sm:text-sm border rounded-lg focus:outline-none"
-                              placeholder="Type a message..."
+                              placeholder={shouldLockChatInput
+                                ? normalizedNegotiationStatus === "DECLINED"
+                                  ? "Negotiation declined. Chat is locked."
+                                  : "Finish negotiation to chat..."
+                                : "Type a message..."}
                               value={message}
                               onChange={handleInputChange}
+                              disabled={shouldLockChatInput}
                             />
+
                           </form>
 
                           {/* Send Button */}
                           <Button
                             size="icon"
+                            disabled={shouldLockChatInput}
                             className="bg-black text-white rounded-xl flex h-8 w-8 sm:h-10 sm:w-auto sm:px-3 sm:gap-2 items-center justify-center"
                             onClick={handleSendMessage}
                           > <SendHorizontal className="h-3 w-3 sm:h-4 sm:w-4" />

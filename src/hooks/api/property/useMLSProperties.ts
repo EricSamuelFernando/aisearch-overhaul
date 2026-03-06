@@ -22,7 +22,7 @@ const postProperties = async (searchTerm: string) => {
     }
 
     const response = await axios.post(
-      'https://demo-ai.snaphomz.com/api/search',
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}}/api/search`,
       //'https://cr2dxaiuni.execute-api.us-west-1.amazonaws.com/api/search',
       {
         query: searchTerm,

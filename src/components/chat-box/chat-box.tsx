@@ -5942,14 +5942,13 @@ export default function ChatBoxComponent(props: any) {
         return currentThreadEngagementId;
       }
 
+      // Avoid mapping over all threads to prevent a flood of sequential API calls.
       const candidatePropertyIds = Array.from(
         new Set(
           [
             selectedThreadDetail?.propertyId,
             propertyData?.propertyId,
             propertyData?.id,
-            ...(Array.isArray(threads) ? threads.map((thread: any) => thread?.propertyId) : []),
-            ...(Array.isArray(messageThreads) ? messageThreads.map((thread: any) => thread?.propertyId) : []),
           ]
             .map((value) => String(value || '').trim())
             .filter(Boolean),
@@ -6002,12 +6001,16 @@ export default function ChatBoxComponent(props: any) {
   );
 
   const handleCreateThreadWithAgent = async (agent: any) => {
-    const agentId = agent?.id || agent?._id;
-    if (!agentId) {
+    const rawAgentId = agent?.id || agent?._id;
+    const isExternalAgent = !agent?.isInternal; // Assume external agent if internal flag isn't explicitly true
+
+    if (!rawAgentId) {
       error({ message: 'Agent selection is missing an id.' });
       return;
     }
     const activeUserId = userData?.id || user?.id;
+    const activeUserType = resolveCurrentAccountType();
+
     if (!activeUserId) {
       error({ message: 'Please login to start a chat.' });
       return;
@@ -6015,45 +6018,85 @@ export default function ChatBoxComponent(props: any) {
     if (isCreatingThread) return;
 
     setIsCreatingThread(true);
-    const agentIdField = resolveAgentIdField();
-    const payload: Record<string, any> = {
-      propertyId: '',
-      threadName: 'New Chat',
-      propertyName: 'New Chat',
-      propertyImage: '',
-      listingId: '',
-      propertyAddress: '',
-      propertyOwnerId: undefined,
-      userType: resolveThreadUserType(),
-      userId: activeUserId,
-      roomId: uuidv4(),
-      parentMessage: "Let's connect and talk",
-      [agentIdField]: agentId,
-    };
+    let agentIdForThread = rawAgentId;
 
-    createUserAgentThreadMutation.mutate(payload, {
-      onSuccess: async (data: any) => {
-        const createdThreadId = data?.id;
-        if (createdThreadId) {
-          await getThreadDetails(createdThreadId);
-          applyNegotiationStatusToThread(createdThreadId, 'NEGOTIATION_PENDING');
-          setSelectedThreadDetail((prev: any) => (
-            prev?.id === createdThreadId ? { ...prev, status: 'NEGOTIATION_PENDING' } : prev
-          ));
+    try {
+      // Step 1: If it's an external agent, we must invite them to generate a valid User ID
+      if (isExternalAgent || agent?.email || agent?.agentEmail) {
+        const agentEmail = agent?.email || agent?.agentEmail || '';
+        if (agentEmail) {
+          let usedEngagementId = await resolveInviteEngagementId(String(activeUserId));
+          if (!usedEngagementId) {
+            usedEngagementId = await createPlaceholderInviteEngagement(String(activeUserId));
+          }
+
+          try {
+            const inviteResult: any = await externalAgentIvitationMutation.mutateAsync({
+              agentType: activeUserType,
+              userId: activeUserId,
+              email: agentEmail,
+              is_accepted: 'pending',
+              engagementId: usedEngagementId,
+            });
+
+            if (inviteResult?.success && inviteResult?.agentId) {
+              agentIdForThread = inviteResult.agentId;
+            }
+          } catch (inviteError: any) {
+            console.warn('[chat-box] External agent invite during direct chat creation failed or returned an error:', inviteError);
+            // Wait, see if the agent was already invited by this user
+            const inviteErrorMessage = String(
+              inviteError?.response?.data?.errors?.[0]?.message ||
+              inviteError?.response?.data?.message ||
+              inviteError?.message ||
+              '',
+            ).toLowerCase();
+            if (!inviteErrorMessage.includes('already has an invited agent')) {
+              // Fall through if they somehow already have an invite, maybe the agentId was returned on a retry
+            }
+          }
         }
-        setIsContactAgentDialogOpen(false);
-        setIsSearchAgentModalOpen(false);
-        setIsInviteAgentModalOpen(false);
-        setInviteAgentEmail('');
-        setInviteAgentError('');
-        setIsCreatingThread(false);
-      },
-      onError: (err: any) => {
-        console.error('[chat-box] Failed to create thread:', err);
-        error({ message: err?.message || 'Unable to create chat. Please try again.' });
-        setIsCreatingThread(false);
-      },
-    });
+      }
+
+      // Step 2: Proceed to create the thread with a (hopefully valid) agentId object mapping
+      const agentIdField = resolveAgentIdField();
+      const payload: Record<string, any> = {
+        propertyId: '',
+        threadName: 'New Chat',
+        propertyName: 'New Chat',
+        propertyImage: '',
+        listingId: '',
+        propertyAddress: '',
+        propertyOwnerId: undefined,
+        userType: resolveThreadUserType(),
+        userId: activeUserId,
+        roomId: uuidv4(),
+        parentMessage: "Let's connect and talk",
+        [agentIdField]: agentIdForThread,
+      };
+
+      const threadData: any = await createUserAgentThreadMutation.mutateAsync(payload);
+
+      const createdThreadId = threadData?.id;
+      if (createdThreadId) {
+        await getThreadDetails(createdThreadId);
+        applyNegotiationStatusToThread(createdThreadId, 'NEGOTIATION_PENDING');
+        setSelectedThreadDetail((prev: any) => (
+          prev?.id === createdThreadId ? { ...prev, status: 'NEGOTIATION_PENDING' } : prev
+        ));
+      }
+      setIsContactAgentDialogOpen(false);
+      setIsSearchAgentModalOpen(false);
+      setIsInviteAgentModalOpen(false);
+      setInviteAgentEmail('');
+      setInviteAgentError('');
+      setIsCreatingThread(false);
+
+    } catch (err: any) {
+      console.error('[chat-box] Failed to create thread:', err);
+      error({ message: err?.message || 'Unable to create chat. Please try again.' });
+      setIsCreatingThread(false);
+    }
   };
 
   const handleInviteAgentSubmit = async () => {

@@ -189,7 +189,7 @@ export function CompleteOnboardingForm() {
         </div>
 
         <div
-          className="my-4 grid w-full grid-flow-col grid-cols-1 gap-5 md:grid-cols-2 md:gap-x-[39px]"
+          className="my-4 flex w-full flex-col gap-5"
           onFocusCapture={() => setShowPasswordRules(true)}
           onBlurCapture={(event) => {
             const nextTarget = event.relatedTarget as Node | null;
@@ -198,7 +198,7 @@ export function CompleteOnboardingForm() {
             }
           }}
         >
-          <div className="flex flex-col md:w-[330px]">
+          <div className="flex w-full flex-col">
             <UserPasswordInput
               id="password"
               {...form.getInputProps('password')}
@@ -216,10 +216,10 @@ export function CompleteOnboardingForm() {
                 <p className="text-gray-600">Password must contain:</p>
                 <div
                   className={`flex items-center gap-2 ${passwordChecks.length
-                      ? 'text-green-700'
-                      : passwordValue.length > 0
-                        ? 'text-red-500'
-                        : 'text-gray-500'
+                    ? 'text-green-700'
+                    : passwordValue.length > 0
+                      ? 'text-red-500'
+                      : 'text-gray-500'
                     }`}
                 >
                   <span>{passwordChecks.length ? '✓' : '○'}</span>
@@ -227,10 +227,10 @@ export function CompleteOnboardingForm() {
                 </div>
                 <div
                   className={`flex items-center gap-2 ${passwordChecks.upper
-                      ? 'text-green-700'
-                      : passwordValue.length > 0
-                        ? 'text-red-500'
-                        : 'text-gray-500'
+                    ? 'text-green-700'
+                    : passwordValue.length > 0
+                      ? 'text-red-500'
+                      : 'text-gray-500'
                     }`}
                 >
                   <span>{passwordChecks.upper ? '✓' : '○'}</span>
@@ -238,10 +238,10 @@ export function CompleteOnboardingForm() {
                 </div>
                 <div
                   className={`flex items-center gap-2 ${passwordChecks.lower
-                      ? 'text-green-700'
-                      : passwordValue.length > 0
-                        ? 'text-red-500'
-                        : 'text-gray-500'
+                    ? 'text-green-700'
+                    : passwordValue.length > 0
+                      ? 'text-red-500'
+                      : 'text-gray-500'
                     }`}
                 >
                   <span>{passwordChecks.lower ? '✓' : '○'}</span>
@@ -249,10 +249,10 @@ export function CompleteOnboardingForm() {
                 </div>
                 <div
                   className={`flex items-center gap-2 ${passwordChecks.number
-                      ? 'text-green-700'
-                      : passwordValue.length > 0
-                        ? 'text-red-500'
-                        : 'text-gray-500'
+                    ? 'text-green-700'
+                    : passwordValue.length > 0
+                      ? 'text-red-500'
+                      : 'text-gray-500'
                     }`}
                 >
                   <span>{passwordChecks.number ? '✓' : '○'}</span>
@@ -260,10 +260,10 @@ export function CompleteOnboardingForm() {
                 </div>
                 <div
                   className={`flex items-center gap-2 ${passwordChecks.special
-                      ? 'text-green-700'
-                      : passwordValue.length > 0
-                        ? 'text-red-500'
-                        : 'text-gray-500'
+                    ? 'text-green-700'
+                    : passwordValue.length > 0
+                      ? 'text-red-500'
+                      : 'text-gray-500'
                     }`}
                 >
                   <span>{passwordChecks.special ? '✓' : '○'}</span>
@@ -273,9 +273,9 @@ export function CompleteOnboardingForm() {
             )}
           </div>
 
-          <div className="flex flex-col md:w-[330px]">
+          <div className="flex w-full flex-col">
             <UserPasswordInput
-              placeholder="Confirm Password"
+              placeholder="Re-enter password"
               id="confirm_password"
               {...form.getInputProps('confirm_password')}
             />

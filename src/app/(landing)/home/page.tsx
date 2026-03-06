@@ -1177,7 +1177,7 @@ export default function Home() {
           {/* ================= DESKTOP ARC ================= */}
 
           <div className="hidden md:flex w-full justify-center items-center overflow-visible">
-            <div className="home-hero-arc absolute top-32 h-[850px] w-[1200px]">
+            <div className="home-hero-arc absolute left-1/2 top-32 h-[850px] w-[1200px] -translate-x-[54%]">
               {/* Image 1 */}
               <div
                 className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
@@ -1462,10 +1462,10 @@ export default function Home() {
         </div>
 
 
-        <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pt-24 pb-16 text-center">
+        <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pt-24 pb-24 md:pb-28 text-center">
 
           {/* ================= TEXT + SEARCH ================= */}
-          <div className="home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-8 mt-24 md:mt-32">
+          <div className="home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-8 mt-24 md:mt-24">
 
             <h1 className="home-hero-title text-[2rem] font-medium leading-snug tracking-tight sm:text-[2.4rem] md:text-[3rem]">
               <span className="block">Buying a home</span>
@@ -1504,7 +1504,7 @@ export default function Home() {
               </div> */}
             </div>
 
-            <div className="flex flex-col items-center gap-1">
+            <div className="mb-4 flex flex-col items-center gap-1 md:mb-6">
               <div
                 className={`text-[1rem] transition-colors ${isHomeSearchActive ? 'text-white md:text-[#2C211A]' : 'text-white'}`}
               >
@@ -1550,7 +1550,7 @@ export default function Home() {
 
 
       {/* ================= OTHER SECTIONS ================= */}
-      <div className="home-sections">
+      <div className="home-sections pt-8 md:pt-10">
         <ChooseYourMeans
           heading="Choose how you buy"
           subheading="Take control of your home purchase with guided transactions, approval workflows, and transparent tracking, no matter how you like to work."

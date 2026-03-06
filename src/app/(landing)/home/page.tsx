@@ -1504,18 +1504,17 @@ export default function Home() {
               </div> */}
             </div>
 
-            <div className="mb-4 flex flex-col items-center gap-1 md:mb-6">
-              <div
-                className={`text-[1rem] transition-colors ${isHomeSearchActive ? 'text-white md:text-[#2C211A]' : 'text-white'}`}
+            <div className="mb-4 flex items-center gap-3 whitespace-nowrap md:mb-6">
+              <span
+                className={`text-[1rem] font-medium transition-colors ${isHomeSearchActive ? 'text-white md:text-[#2C211A]' : 'text-white'}`}
               >
-                <span className="font-medium">Conversational search,</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span
-                  className={`text-[1rem] font-bold underline transition-colors ${isHomeSearchActive ? 'text-white md:text-[#2C211A]' : 'text-white'}`}
-                >
-                  powered by Snaphomz AI.
-                </span>
+                Conversational search,
+              </span>
+              <span
+                className={`text-[1rem] font-bold underline transition-colors ${isHomeSearchActive ? 'text-white md:text-[#2C211A]' : 'text-white'}`}
+              >
+                powered by Snaphomz AI.
+              </span>
                 <button className="uiverse">
                   <div className="wrapper">
                     <span>BETA</span>
@@ -1533,7 +1532,6 @@ export default function Home() {
                     <div className="circle circle-1"></div>
                   </div>
                 </button>
-              </div>
             </div>
           </div>
         </section>

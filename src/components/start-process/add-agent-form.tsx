@@ -57,12 +57,18 @@ export const AddAgentSearchForm: React.FC = () => {
 
   const sendAgentInvitation = () => {
     setLoading(true)
+    if (!engagementId) {
+      setLoading(false);
+      error({ message: 'No engagement context found. Please restart from property flow and try again.' });
+      return;
+    }
+
     const data = {
       agentType: currentUser?.account_type,
       userId: currentUser?.id,
       email,
       is_accepted: "pending",
-      engagementId: engagementId || undefined,
+      engagementId,
     };
 
     externalAgentIvitationMutation.mutateAsync(data, {

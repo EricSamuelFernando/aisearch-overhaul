@@ -536,15 +536,17 @@ const WeMakeItEasy = ({
           ))}
         </Carousel>
 
-        <div className="mx-auto mt-6 flex w-full max-w-3xl items-center justify-center gap-3">
+        <div className="mx-auto mt-6 flex w-full max-w-3xl items-center justify-center gap-2">
           <button
             type="button"
             aria-label="Scroll previous cards"
             disabled={!canScrollPrev}
             onClick={() => embla?.scrollPrev()}
-            className={`flex h-11 w-11 items-center justify-center rounded-full border transition-all duration-200 ${canScrollPrev
-                ? 'border-[#1E1E1E] bg-white text-[#1E1E1E] shadow-[0_6px_18px_rgba(0,0,0,0.12)] hover:-translate-y-0.5 hover:bg-[#1E1E1E] hover:text-white'
-                : 'border-gray-300 bg-white text-gray-300 cursor-not-allowed'
+            className={`flex items-center justify-center rounded-full transition-all duration-200 ${
+              isSmallScreen ? 'h-8 w-16' : 'h-10 w-16'
+            } ${canScrollPrev
+                ? 'bg-[#F5EBDF] text-[#4A3A2B] hover:bg-[#EFE2D2]'
+                : 'bg-[#F1E7DC] text-[#CFC3B5] cursor-not-allowed'
               }`}
           >
             <IconArrowNarrowLeft size={20} stroke={2.2} />
@@ -554,9 +556,11 @@ const WeMakeItEasy = ({
             aria-label="Scroll next cards"
             disabled={!canScrollNext}
             onClick={() => embla?.scrollNext()}
-            className={`flex h-11 w-11 items-center justify-center rounded-full border transition-all duration-200 ${canScrollNext
-                ? 'border-[#1E1E1E] bg-white text-[#1E1E1E] shadow-[0_6px_18px_rgba(0,0,0,0.12)] hover:-translate-y-0.5 hover:bg-[#1E1E1E] hover:text-white'
-                : 'border-gray-300 bg-white text-gray-300 cursor-not-allowed'
+            className={`flex items-center justify-center rounded-full transition-all duration-200 ${
+              isSmallScreen ? 'h-8 w-16' : 'h-10 w-16'
+            } ${canScrollNext
+                ? 'bg-[#F5EBDF] text-[#4A3A2B] hover:bg-[#EFE2D2]'
+                : 'bg-[#F1E7DC] text-[#CFC3B5] cursor-not-allowed'
               }`}
           >
             <IconArrowNarrowRight size={20} stroke={2.2} />

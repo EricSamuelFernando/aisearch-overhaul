@@ -1,7 +1,7 @@
 import { IFooterItems, MainNavItem } from '../interfaces/footer.interface';
 import { Facebook, Instagram, Linkedin } from 'lucide-react';
+import { FaTwitter } from 'react-icons/fa';
 import TikTokIcon from '@/components/icons/tiktok-icon';
-import XIcon from '@/components/icons/x-icon';
 
 export const footerLinks: Record<string, IFooterItems> = {
   company: {
@@ -99,10 +99,10 @@ export const socialLinks: MainNavItem[] = [
     icon: TikTokIcon,
   },
   {
-    title: 'x',
+    title: 'twitter',
     external: true,
-    href: 'https://x.com/snaphomz?s=20',
-    icon: XIcon,
+    href: 'https://twitter.com/snaphomz',
+    icon: FaTwitter,
   },
 ];
 

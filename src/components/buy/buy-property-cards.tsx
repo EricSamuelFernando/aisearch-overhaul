@@ -20,22 +20,46 @@ type Props = {
   selectedProperty: string;
   propertiesOverride?: any[] | null;
   overlayMode?: boolean;
+  onOpenCompareModal?: () => void;
 };
 
-const ITEMS_PER_PAGE = 10;
+const MAP_ITEMS_PER_PAGE = 10;
+const GRID_ITEMS_PER_PAGE = 12;
+
+const resolveListingId = (item: any): string | undefined => {
+  const raw =
+    item?.id ??
+    item?.listingId ??
+    item?.listing_id ??
+    item?.listing?.id ??
+    item?.listing?.listingId ??
+    item?.mlsId ??
+    item?.mls_id ??
+    item?.propertyId;
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  return String(raw);
+};
 
 function BuyPropertyCards({
   forwardedRef,
   selectedProperty,
   propertiesOverride,
   overlayMode = false,
+  onOpenCompareModal,
 }: Props) {
   const { currentView } = useProperty();
   const { ref } = useInView();
-  const { allProperties, isLoading } = usePropertyStore();
+  const { allProperties, isLoading, isCompareMode, selectedCompareProperties } = usePropertyStore();
   const sourceProperties = Array.isArray(propertiesOverride)
     ? propertiesOverride
     : allProperties;
+  const normalizedProperties = useMemo(
+    () =>
+      Array.isArray(sourceProperties)
+        ? sourceProperties.filter((prop) => prop !== null && prop !== undefined)
+        : [],
+    [sourceProperties],
+  );
   const userData = useSelector((state: any) => state.auth.user);
   const { getAllSnaps } = useUserSnapAPIs();
   const [snaps, setSnaps] = useState<any[]>([]);
@@ -55,20 +79,26 @@ function BuyPropertyCards({
     fetchSnaps();
   }, [userData?.id]);
 
+  const itemsPerPage = useMemo(() => {
+    if (overlayMode) return MAP_ITEMS_PER_PAGE;
+    if (currentView === 'map') return MAP_ITEMS_PER_PAGE;
+    return GRID_ITEMS_PER_PAGE;
+  }, [currentView, overlayMode]);
+
   useEffect(() => {
     setCurrentPage(1);
-  }, [sourceProperties?.length]);
+  }, [normalizedProperties.length, itemsPerPage]);
 
   const totalPages = useMemo(
-    () => Math.max(1, Math.ceil((sourceProperties?.length || 0) / ITEMS_PER_PAGE)),
-    [sourceProperties],
+    () => Math.max(1, Math.ceil(normalizedProperties.length / itemsPerPage)),
+    [normalizedProperties.length, itemsPerPage],
   );
 
   const paginatedProperties = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    const end = start + ITEMS_PER_PAGE;
-    return Array.isArray(sourceProperties) ? sourceProperties.slice(start, end) : [];
-  }, [sourceProperties, currentPage]);
+    const start = (currentPage - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    return normalizedProperties.slice(start, end);
+  }, [normalizedProperties, currentPage, itemsPerPage]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -86,14 +116,16 @@ function BuyPropertyCards({
   }, [totalPages, currentPage]);
 
   useEffect(() => {
-    if (!selectedProperty || !Array.isArray(sourceProperties)) return;
-    const idx = sourceProperties.findIndex((p: any) => String(p?.id) === String(selectedProperty));
+    if (!selectedProperty || !normalizedProperties.length) return;
+    const idx = normalizedProperties.findIndex(
+      (p: any) => resolveListingId(p) === String(selectedProperty),
+    );
     if (idx === -1) return;
-    const targetPage = Math.floor(idx / ITEMS_PER_PAGE) + 1;
+    const targetPage = Math.floor(idx / itemsPerPage) + 1;
     if (targetPage !== currentPage) {
       setCurrentPage(targetPage);
     }
-  }, [selectedProperty, sourceProperties, currentPage]);
+  }, [selectedProperty, normalizedProperties, currentPage, itemsPerPage]);
   useEffect(() => {
     if (!selectedProperty) return;
     const raf = requestAnimationFrame(() => {
@@ -112,10 +144,10 @@ function BuyPropertyCards({
         overlayMode ? 'min-h-0' : '',
       )}
     >
-      <div className={cn('flex-auto', overlayMode ? 'min-h-0 overflow-y-auto overscroll-contain pr-1' : '')}>
+      <div className={cn('flex-auto', overlayMode ? 'min-h-0 overflow-y-auto overscroll-contain pr-1 pb-3' : '')}>
         <div
           className={cn(
-            currentView === 'grid' ? 'max-w-[1450px] mx-auto w-full' : 'w-full',
+            'w-full',
             overlayMode ? 'max-w-none' : '',
           )}
         >
@@ -125,26 +157,27 @@ function BuyPropertyCards({
               overlayMode
                 ? 'grid grid-cols-1 gap-3 xl:grid-cols-2'
                 : currentView === 'map'
-                  ? 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2'
-                  : 'grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4 lg:grid-cols-[repeat(4,360px)] lg:gap-x-8 lg:justify-center xl:grid-cols-[repeat(4,380px)]',
+                  ? 'grid grid-cols-1 gap-y-4 gap-x-8 md:grid-cols-2 md:gap-x-6 md:gap-y-6 lg:grid-cols-2'
+                  : 'grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4 lg:grid-cols-4 lg:gap-x-6 xl:gap-x-8',
             )}
           >
             {isLoading ? (
               <>
-                {Array.from({ length: 10 }).map(() => (
+                {Array.from({ length: itemsPerPage }).map(() => (
                   <PropCardLoader key={nanoid()} />
                 ))}
               </>
             ) : (
               <>
-                {Array.isArray(sourceProperties) && sourceProperties.length > 0
-                  ? paginatedProperties.map((prop: any) => {
-                      const isSelected = String(prop?.id) === String(selectedProperty);
+                {normalizedProperties.length > 0
+                  ? paginatedProperties.map((prop: any, index: number) => {
+                      const listingId = resolveListingId(prop) ?? `listing-${currentPage}-${index}`;
+                      const isSelected = String(listingId) === String(selectedProperty);
                       return (
                         <div
                           ref={ref}
-                          key={prop.id}
-                          id={String(prop.id)}
+                          key={listingId}
+                          id={String(listingId)}
                           className={cn(
                             isSelected
                               ? overlayMode
@@ -152,7 +185,6 @@ function BuyPropertyCards({
                                 : 'bg-white p-1 bg-orange-500 rounded-2xl shadow-xl'
                               : '',
                             'transition duration-300 ease-in-out',
-                            currentView === 'grid' && !overlayMode ? 'w-[320px]' : '',
                           )}
                         >
                           <PropertyCards
@@ -174,12 +206,36 @@ function BuyPropertyCards({
       {totalPages > 1 ? (
         <div
           className={cn(
-            'flex flex-col items-center gap-3',
+            'relative flex flex-col items-center gap-3',
             overlayMode
-              ? 'mt-1 shrink-0 border-t border-gray-200 bg-white px-2 pt-2 pb-2'
+              ? 'mt-1 shrink-0 border-t border-gray-200 bg-white px-2 pt-14 pb-2'
               : 'mt-6',
           )}
         >
+          {overlayMode && isCompareMode ? (
+            <button
+              type="button"
+              onClick={onOpenCompareModal}
+              disabled={selectedCompareProperties.length < 2}
+              className={cn(
+                'absolute left-1/2 top-2 z-[80] -translate-x-1/2 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-lg transition',
+                selectedCompareProperties.length >= 2
+                  ? 'bg-ocOrange text-white hover:brightness-95'
+                  : 'cursor-not-allowed bg-white text-gray-400 ring-1 ring-gray-200'
+              )}
+            >
+              Compare
+              <span className={cn(
+                'rounded-full px-2 py-0.5 text-[11px] font-semibold',
+                selectedCompareProperties.length >= 2
+                  ? 'bg-white/20 text-white'
+                  : 'bg-gray-100 text-gray-500'
+              )}>
+                {selectedCompareProperties.length}
+              </span>
+            </button>
+          ) : null}
+
           <div className="flex items-center gap-3">
             <button
               className={cn(
@@ -228,7 +284,7 @@ function BuyPropertyCards({
           </div>
 
           <div className={cn('text-sm text-gray-600', overlayMode ? 'text-center text-xs font-medium' : '')}>
-            {`${sourceProperties?.length || 0} homes found (showing ${(currentPage - 1) * ITEMS_PER_PAGE + 1}-${Math.min(sourceProperties?.length || 0, currentPage * ITEMS_PER_PAGE)})`}
+            {`${normalizedProperties.length || 0} homes found (showing ${(currentPage - 1) * itemsPerPage + 1}-${Math.min(normalizedProperties.length || 0, currentPage * itemsPerPage)})`}
           </div>
         </div>
       ) : null}

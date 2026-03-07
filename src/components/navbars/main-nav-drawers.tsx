@@ -12,6 +12,7 @@ import LoginRegisterModal from '../modals/login-register-modal';
 import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
 import { getInitials } from '@/lib/helpers';
 import { getProfileImageUrl } from '@/lib/utils';
+import { setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 
 interface MobileSideDrawerProps {
   closeDrawer: () => void;
@@ -218,6 +219,10 @@ const BuyDropdownMenu: React.FC<DropdownMenuProps> = ({
   handleMouseLeave,
   headerHeight,
 }) => {
+  const handleStateMlsQuickSearch = React.useCallback(() => {
+    setMlsBypassModeEnabled(true);
+  }, []);
+
   return (
     <div
       className={cn(
@@ -234,9 +239,14 @@ const BuyDropdownMenu: React.FC<DropdownMenuProps> = ({
         <div className='flex flex-col space-y-7 pr-14'>
           <h4 className='text-md font-medium'>Buy a Home With</h4>
           <div className='flex flex-col space-y-5'>
-            <Link href='/#agents'>Your Agent</Link>
-            <Link href='/#agents'>Our Real Estate Agents</Link>
-            {/* <Link href='/#agents'>Do it Yourself</Link> */}
+            <Link href='/buy/browse?q=California' onClick={handleStateMlsQuickSearch}>
+              Homes in California
+            </Link>
+            <Link href='/buy/browse?q=Texas' onClick={handleStateMlsQuickSearch}>
+              Homes in Texas
+            </Link>
+            <Link href='/home#agents'>Our Real Estate Agents</Link>
+            {/* <Link href='/home#agents'>Do it Yourself</Link> */}
           </div>
         </div>
         <div className='flex flex-col space-y-7 pl-14'>

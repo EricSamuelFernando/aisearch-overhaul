@@ -1077,6 +1077,10 @@ export default function Home() {
   const [isOpen, setIsOpen] = useState(false);
   const [searchMethod, setSearchMethod] = useState('');
   const [isHomeSearchActive, setIsHomeSearchActive] = useState(false);
+  const [homeSectionsOffset, setHomeSectionsOffset] = useState(0);
+  const homeSectionGap = 80;
+  const heroSectionRef = useRef<HTMLElement | null>(null);
+  const heroContentRef = useRef<HTMLDivElement | null>(null);
   const dispatch = useAppDispatch();
   const { email } = useRegister();
   const [carouselEmbla, setCarouselEmbla] = useState<any>(null);
@@ -1099,6 +1103,48 @@ export default function Home() {
   useEffect(() => {
     dispatch(initializeTempUserId());
   }, [dispatch]);
+
+  const handleGetStartedClick = () => {
+    heroSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('snaphomz:open-hero-search', { detail: { focusInput: true } }));
+    }, 300);
+  };
+
+  useEffect(() => {
+    if (!heroSectionRef.current || !heroContentRef.current) return;
+
+    let frame = 0;
+    const updateLayoutOffsets = () => {
+      if (!heroSectionRef.current || !heroContentRef.current) return;
+      const heroRect = heroSectionRef.current.getBoundingClientRect();
+      const contentRect = heroContentRef.current.getBoundingClientRect();
+      const overflow = Math.max(0, Math.ceil(contentRect.bottom - heroRect.bottom + 24));
+      setHomeSectionsOffset((prev) => (prev === overflow ? prev : overflow));
+      setIsHomeSearchActive(overflow > 0);
+    };
+
+    const scheduleUpdate = () => {
+      if (frame) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(updateLayoutOffsets);
+    };
+
+    scheduleUpdate();
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(scheduleUpdate);
+      resizeObserver.observe(heroSectionRef.current);
+      resizeObserver.observe(heroContentRef.current);
+    }
+
+    window.addEventListener('resize', scheduleUpdate);
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      window.removeEventListener('resize', scheduleUpdate);
+      if (resizeObserver) resizeObserver.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     if (!carouselEmbla) return;
@@ -1172,7 +1218,8 @@ export default function Home() {
       <MainNavPages />
 
       {/* ================= HERO SECTION ================= */}
-      <section className="home-hero relative -mt-24 min-h-[80vh] bg-[#170800] pt-28 text-white md:h-[695px] md:min-h-[695px] md:max-h-[695px] md:pt-24">
+      
+      <section  ref={heroSectionRef} className="home-hero relative -mt-24 min-h-[80vh] bg-[#170800] pt-28 text-white md:h-[695px] md:min-h-[695px] md:max-h-[695px] md:pt-24">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {/* ================= DESKTOP ARC ================= */}
 
@@ -1465,7 +1512,8 @@ export default function Home() {
         <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pt-24 pb-24 md:pb-28 text-center">
 
           {/* ================= TEXT + SEARCH ================= */}
-          <div className="home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-8 mt-24 md:mt-24">
+      
+          <div ref={heroContentRef} className="home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-8 mt-24 md:mt-24">
 
             <h1 className="home-hero-title text-[2rem] font-medium leading-snug tracking-tight sm:text-[2.4rem] md:text-[3rem]">
               <span className="block">Buying a home</span>
@@ -1482,7 +1530,6 @@ export default function Home() {
             <div className="relative w-full flex justify-center text-black">
               <div className="home-hero-search-wrap w-full max-w-[1500px]">
                 <HeroSearchForm
-                  onSearchStateChange={(isActive) => setIsHomeSearchActive(isActive)}
                 />
               </div>
 
@@ -1548,13 +1595,26 @@ export default function Home() {
 
 
       {/* ================= OTHER SECTIONS ================= */}
-      <div className="home-sections pt-8 md:pt-10">
+      {(homeSectionsOffset > 0 || homeSectionGap > 0) && (
+        <div
+          aria-hidden="true"
+          style={{
+            height: `${homeSectionsOffset + homeSectionGap}px`,
+            backgroundColor: '#FFF6EC',
+          }}
+        />
+      )}
+      <div
+        className="home-sections pt-8 md:pt-10"
+        style={{ ['--home-section-gap' as any]: `${homeSectionGap}px` }}
+      >
         <ChooseYourMeans
           heading="Choose how you buy"
           subheading="Take control of your home purchase with guided transactions, approval workflows, and transparent tracking, no matter how you like to work."
           yourAgentDescription="Bring the agent you already trust and manage everything together on Snaphomz."
           ourAgentDescription="Match with a vetted local expert and handle your entire transaction in one place."
           ctaLabel="Get started"
+          onCtaClick={handleGetStartedClick}
         />
         <WeMakeItEasy contentPreset="home" />
         <section className="relative pt-8 md:pt-10 home-info-carousel">

@@ -2335,6 +2335,7 @@ import {
   ZoomOut,
   Eye,
   Maximize,
+  ArrowLeft,
   ArrowDown,
   ArrowLeft,
 } from "lucide-react"
@@ -2602,6 +2603,7 @@ export default function ChatBoxComponent(props: any) {
   const isAtLatestMessageRef = useRef(true);
   const shouldAutoScrollOnIncomingRef = useRef(false);
   const hasHandledNotificationFocusRef = useRef(false);
+  const lastAutoScrolledThreadRef = useRef<string | null>(null);
   const [showUploadMenu, setShowUploadMenu] = useState(false);
   const [isContactAgentDialogOpen, setIsContactAgentDialogOpen] = useState(false);
   const [isSearchAgentModalOpen, setIsSearchAgentModalOpen] = useState(false);
@@ -5308,7 +5310,7 @@ export default function ChatBoxComponent(props: any) {
       setMessage("");
       setSelectedFile(null);
       requestAnimationFrame(() => {
-        scrollToLatestMessages();
+        scrollToLatestMessagesWithRetry(20);
       });
 
     } catch (err) {
@@ -5824,6 +5826,16 @@ export default function ChatBoxComponent(props: any) {
 
     scrollToLatestMessagesWithRetry(16);
   }, [focusLatestFromNotification, messages.length, scrollToLatestMessagesWithRetry, selectedThread, selectedThreadDetail?.id, state?.selectedChannel?.id, threadId]);
+
+  useEffect(() => {
+    const activeThreadId =
+      state?.selectedChannel?.id || selectedThreadDetail?.id || selectedThread || threadId;
+    if (!activeThreadId || !messages.length) return;
+    if (lastAutoScrolledThreadRef.current === activeThreadId) return;
+
+    lastAutoScrolledThreadRef.current = activeThreadId;
+    scrollToLatestMessagesWithRetry(24);
+  }, [messages.length, scrollToLatestMessagesWithRetry, selectedThread, selectedThreadDetail?.id, state?.selectedChannel?.id, threadId]);
 
   useEffect(() => {
     hasHandledNotificationFocusRef.current = false;
@@ -6448,15 +6460,18 @@ export default function ChatBoxComponent(props: any) {
           <div className={`w-full md:basis-[25%] md:max-w-[25%] md:min-w-[25%] bg-white border-r ${showThreads ? "block" : "hidden md:block"} overflow-hidden`}>
             {/* Header */}
             <div className="p-4 border-b flex justify-between items-center">
-              <button
-                type="button"
-                onClick={() => router.push('/dashboard/buyer?tab=my-snapz')}
-                className="flex items-center gap-2 text-gray-800 hover:text-gray-600 transition-colors"
-                aria-label="Back to dashboard"
-              >
-                <ArrowLeft className="h-5 w-5" />
-                <h2 className="font-semibold text-lg">Messages</h2>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => router.push('/dashboard/buyer?tab=my-snapz')}
+                  className="flex items-center gap-2 text-gray-800 hover:text-gray-600 transition-colors"
+                  aria-label="Back to dashboard"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <h2 className="font-semibold text-lg text-gray-800">Messages</h2>
+                </button>
+              </div>
+       
               <TooltipProvider delayDuration={120}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -7312,20 +7327,34 @@ export default function ChatBoxComponent(props: any) {
                                                       )}
                                                     </div>
 
-                                                    {shouldShowInlineFileEvent && (
-                                                      <div className="flex justify-center rounded-xl text-center w-full pt-2 p-3">
-                                                        <div
-                                                          className={`shadow-md rounded-full w-fit px-8 py-3 ${isSender ? "bg-gray-200" : "bg-white"}`}
-                                                        >
-                                                          <div className="flex gap-2 items-center justify-center">
-                                                            <MdNotificationAdd size={20} />
-                                                            <p className="whitespace-pre-wrap break-words text-sm">
-                                                              {`${isSender ? "You" : receiverFallbackName} shared ${fileEventName}`}
-                                                            </p>
-                                                          </div>
-                                                          <div className="text-xs text-gray-400 px-2 mt-1 text-right">
-                                                            {formattedTime}
-                                                          </div>
+                                                  {isSender && (
+                                                    <div className="w-7 h-7 mt-4 sm:w-10 sm:h-10 rounded-full border border-white/70 bg-[#FBB785] overflow-hidden flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0 text-white">
+                                                      {senderImage ? (
+                                                        <Image
+                                                          src={senderImage}
+                                                          alt="You"
+                                                          width={40}
+                                                          height={40}
+                                                          className="h-full w-full object-cover"
+                                                          unoptimized
+                                                        />
+                                                      ) : (
+                                                        getInitials(senderFallbackName) || 'NA'
+                                                      )}
+                                                    </div>
+                                                  )}
+                                                  </div>
+
+                                                  {shouldShowInlineFileEvent && (
+                                                    <div className="flex justify-center rounded-xl text-center w-full pt-2 p-3">
+                                                      <div
+                                                        className={`shadow-md rounded-full w-fit px-8 py-3 ${isSender ? "bg-gray-200" : "bg-white"}`}
+                                                      >
+                                                        <div className="flex gap-2 items-center justify-center">
+                                                          <MdNotificationAdd size={20} />
+                                                          <p className="whitespace-pre-wrap break-words text-sm">
+                                                            {`${isSender ? "You" : receiverFallbackName} shared ${fileEventName}`}
+                                                          </p>
                                                         </div>
                                                       </div>
                                                     )}
@@ -7341,50 +7370,6 @@ export default function ChatBoxComponent(props: any) {
                             })()}
                           </div>
 
-                          {selectedFile && (
-                            <div className="mx-4 mt-2 mb-3 relative">
-                              <div className="bg-gray-100 rounded-lg p-3 pr-10">
-                                <div className="flex items-start">
-                                  {selectedFile.type && imageTypes.includes(selectedFile.type) ? (
-                                    <div className="mr-3">
-                                      <div className="w-16 h-16 sm:w-20 sm:h-20 relative bg-[#FAF9F5] rounded-md overflow-hidden">
-                                        <img
-                                          src={URL.createObjectURL(selectedFile) || "/placeholder.svg"}
-                                          alt="Preview"
-                                          className="w-full h-full object-cover"
-                                        />
-                                      </div>
-                                    </div>
-                                  ) : selectedFile.type && selectedFile.type.startsWith("video/") ? (
-                                    <div className="mr-3">
-                                      <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center bg-[#FAF9F5] rounded-md relative">
-                                        <Play className="w-8 h-8 text-gray-500" />
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="mr-3">
-                                      <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center bg-[#FAF9F5] rounded-md">
-                                        <FileText className="w-8 h-8 text-gray-500" />
-                                      </div>
-                                    </div>
-                                  )}
-                                  <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-sm truncate">{selectedFile.name}</p>
-                                    <p className="text-xs text-gray-500 mt-1">
-                                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                                    </p>
-                                    <p className="text-xs text-gray-500 capitalize">{selectedFile.type.split("/")[0]}</p>
-                                  </div>
-                                </div>
-                                <button
-                                  className="absolute top-3 right-3 p-1 rounded-full hover:bg-[#FAF9F5] text-gray-500"
-                                  onClick={() => setSelectedFile(null)}
-                                >
-                                  <X className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
-                          )}
                           <div ref={messagesEndRef} />
                         </ScrollArea>
 
@@ -7430,7 +7415,7 @@ export default function ChatBoxComponent(props: any) {
                         </div>
                       </div> */}
 
-                      <div className="p-2 sm:p-4 border-t relative bg-white">
+                      <div className="px-2 sm:px-4 py-1 sm:py-1 border-t relative bg-white">
                         {fileErrorMsg && (
                           <div className="absolute -top-10 left-0 right-0 bg-red-100 text-red-600 p-2 text-xs sm:text-sm text-center">
                             {fileErrorMsg}
@@ -7545,7 +7530,7 @@ export default function ChatBoxComponent(props: any) {
 
                           {/* Message Input */}
                           <form
-                            className="flex-1 py-1 sm:py-2 px-2 sm:px-4"
+                            className="flex-1"
                             onSubmit={(e) => {
                               e.preventDefault();
                               if (shouldLockChatInput) {
@@ -7554,20 +7539,46 @@ export default function ChatBoxComponent(props: any) {
                               handleSendMessage();
                             }}
                           >
-                            <Input
-                              id="chat-message-input"
-                              name="chat-message-input"
-                              className="flex-1 py-1 sm:py-2 px-2 sm:px-4 text-xs sm:text-sm border rounded-lg focus:outline-none"
-                              placeholder={shouldLockChatInput
-                                ? normalizedNegotiationStatus === "DECLINED"
-                                  ? "Negotiation declined. Chat is locked."
-                                  : "Finish negotiation to chat..."
-                                : "Type a message..."}
-                              value={message}
-                              onChange={handleInputChange}
-                              disabled={shouldLockChatInput}
-                            />
-
+                            <div className="flex items-center gap-2 rounded-full py-0.5 sm:py-1.5 px-2 sm:px-4 bg-white">
+                              {selectedFile && (
+                                <div className="flex items-center gap-2 rounded-full bg-gray-100 px-2 py-1 max-w-[65%]">
+                                  {selectedFile.type && imageTypes.includes(selectedFile.type) ? (
+                                    <img
+                                      src={URL.createObjectURL(selectedFile) || "/placeholder.svg"}
+                                      alt="Preview"
+                                      className="h-8 w-8 rounded-full object-cover shrink-0"
+                                    />
+                                  ) : selectedFile.type && selectedFile.type.startsWith("video/") ? (
+                                    <div className="h-8 w-8 rounded-full bg-[#FAF9F5] flex items-center justify-center shrink-0">
+                                      <Play className="h-4 w-4 text-gray-500" />
+                                    </div>
+                                  ) : (
+                                    <div className="h-8 w-8 rounded-full bg-[#FAF9F5] flex items-center justify-center shrink-0">
+                                      <FileText className="h-4 w-4 text-gray-500" />
+                                    </div>
+                                  )}
+                                  <div className="min-w-0">
+                                    <p className="text-xs text-gray-700 truncate">{selectedFile.name}</p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="p-1 rounded-full hover:bg-[#FAF9F5] text-gray-500 shrink-0"
+                                    onClick={() => setSelectedFile(null)}
+                                    aria-label="Remove selected file"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )}
+                              <Input
+                                id="chat-message-input"
+                                name="chat-message-input"
+                                className="flex-1 min-w-0 border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none px-0 text-xs sm:text-sm"
+                                placeholder="Type a message..."
+                                value={message}
+                                onChange={handleInputChange}
+                              />
+                            </div>
                           </form>
 
                           {/* Send Button */}

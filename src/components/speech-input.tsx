@@ -27,6 +27,7 @@ function MemoizedSpeechInput({
   onFocus,
   onBlur,
 }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   // Default to 'nlp' if searchType is empty or undefined
   const effectiveSearchType = searchType || 'nlp';
@@ -119,6 +120,9 @@ function MemoizedSpeechInput({
       setValue(`${words.join(' ')} ${suggestions[selectedIndex]}`);
       setShowSuggestions(false);
       inputRef.current?.focus();
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+      setSelectedIndex(null);
     }
   };
 
@@ -156,11 +160,36 @@ function MemoizedSpeechInput({
     return str.replace(/[.*+?^=!:${}()|\[\]\/\\]/g, '\\$&'); // Escape special regex characters
   }
 
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (containerRef.current?.contains(target)) return;
+      setShowSuggestions(false);
+      setSelectedIndex(null);
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (value.trim().length <= 1) {
+      setShowSuggestions(false);
+      setSelectedIndex(null);
+    }
+  }, [value]);
+
 
 
 
   return (
-    <div className={cn('relative w-full', className)}>
+    <div ref={containerRef} className={cn('relative w-full', className)}>
       <div className="flex h-12 w-full items-center rounded-md bg-transparent">
         <Input
           ref={inputRef}

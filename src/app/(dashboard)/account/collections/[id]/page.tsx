@@ -142,10 +142,14 @@ export default function SnapDetailsPage() {
                             name: snapData.name || 'Shared Snapz',
                             image: favourites[0]?.image || undefined
                         });
-                        // Determine user's role in this snap from participants
-                        const participant = snapData.participants?.find((p: any) => p.participant?.id === userData?.id || p.participant?.email === userData?.email);
-                        if (participant?.participant?.accountType) {
-                            setUserSnapRole(participant.participant.accountType);
+                        // Determine user's role: if they are the snap owner → 'buyer', otherwise → 'co-buyer'
+                        if (snapData.userId === userData?.id) {
+                            setUserSnapRole('buyer');
+                        } else {
+                            // Invited participant → co-buyer (unless they're an agent)
+                            const participant = snapData.participants?.find((p: any) => p.participant?.id === userData?.id || p.participant?.email === userData?.email);
+                            const participantType = participant?.participant?.accountType?.toLowerCase();
+                            setUserSnapRole(participantType === 'agent' ? 'agent' : 'co-buyer');
                         }
                     }
                 },
@@ -169,6 +173,8 @@ export default function SnapDetailsPage() {
                 const found = snaps?.find((s: any) => s.id === id);
                 if (found) {
                     setSnap(found);
+                    // Current user owns this snap → they are the "Buyer"
+                    setUserSnapRole('buyer');
                 } else {
                     // If not found in own snaps, it might be a shared snap
                     // We'll fetch it by ID in the useEffect above
@@ -225,7 +231,7 @@ export default function SnapDetailsPage() {
             snapId: id,
             email: email,
             status: "pending",
-            accountType: type === 'agent' ? 'agent' : type === 'other' ? 'other' : 'buyer'
+            accountType: type === 'agent' ? 'agent' : type === 'other' ? 'other' : 'co-buyer'
         }
         createParticipents.mutateAsync(data, {
             onSuccess: (response: any) => {
@@ -272,7 +278,7 @@ export default function SnapDetailsPage() {
                 const rawAccountType = (user.accountType || 'agent').toLowerCase();
                 const accountTypeToSend =
                     rawAccountType === 'buyer'
-                        ? 'buyer'
+                        ? 'co-buyer'
                         : rawAccountType === 'seller'
                             ? 'other'
                             : 'agent';

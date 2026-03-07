@@ -1709,7 +1709,7 @@
 //                                                 {/* Message container taking full width */}
 //                                                 <div className={`w-full flex ${isSender ? "justify-end" : "justify-start"}`}>
 //                                                   <div
-//                                                     className={`p-3 sm:p-4 bg-black text-white  font-medium rounded-2xl shadow-md text-xs sm:text-sm max-w-full sm:max-w-[90%] 
+//                                                     className={`p-3 sm:p-4 bg-black text-white  font-medium rounded-2xl shadow-md text-xs sm:text-sm max-w-full sm:max-w-[90%]
 //       `}
 //                                                   >
 //                                                     {/* Text message */}
@@ -2335,8 +2335,8 @@ import {
   ZoomOut,
   Eye,
   Maximize,
-  ArrowDown,
   ArrowLeft,
+  ArrowDown,
 } from "lucide-react"
 import "swiper/css"
 import "swiper/css/navigation"
@@ -2602,6 +2602,7 @@ export default function ChatBoxComponent(props: any) {
   const isAtLatestMessageRef = useRef(true);
   const shouldAutoScrollOnIncomingRef = useRef(false);
   const hasHandledNotificationFocusRef = useRef(false);
+  const lastAutoScrolledThreadRef = useRef<string | null>(null);
   const [showUploadMenu, setShowUploadMenu] = useState(false);
   const [isContactAgentDialogOpen, setIsContactAgentDialogOpen] = useState(false);
   const [isSearchAgentModalOpen, setIsSearchAgentModalOpen] = useState(false);
@@ -5308,7 +5309,7 @@ export default function ChatBoxComponent(props: any) {
       setMessage("");
       setSelectedFile(null);
       requestAnimationFrame(() => {
-        scrollToLatestMessages();
+        scrollToLatestMessagesWithRetry(20);
       });
 
     } catch (err) {
@@ -5826,6 +5827,16 @@ export default function ChatBoxComponent(props: any) {
   }, [focusLatestFromNotification, messages.length, scrollToLatestMessagesWithRetry, selectedThread, selectedThreadDetail?.id, state?.selectedChannel?.id, threadId]);
 
   useEffect(() => {
+    const activeThreadId =
+      state?.selectedChannel?.id || selectedThreadDetail?.id || selectedThread || threadId;
+    if (!activeThreadId || !messages.length) return;
+    if (lastAutoScrolledThreadRef.current === activeThreadId) return;
+
+    lastAutoScrolledThreadRef.current = activeThreadId;
+    scrollToLatestMessagesWithRetry(24);
+  }, [messages.length, scrollToLatestMessagesWithRetry, selectedThread, selectedThreadDetail?.id, state?.selectedChannel?.id, threadId]);
+
+  useEffect(() => {
     hasHandledNotificationFocusRef.current = false;
   }, [threadId, focusLatestFromNotification]);
 
@@ -5942,14 +5953,13 @@ export default function ChatBoxComponent(props: any) {
         return currentThreadEngagementId;
       }
 
+      // Avoid mapping over all threads to prevent a flood of sequential API calls.
       const candidatePropertyIds = Array.from(
         new Set(
           [
             selectedThreadDetail?.propertyId,
             propertyData?.propertyId,
             propertyData?.id,
-            ...(Array.isArray(threads) ? threads.map((thread: any) => thread?.propertyId) : []),
-            ...(Array.isArray(messageThreads) ? messageThreads.map((thread: any) => thread?.propertyId) : []),
           ]
             .map((value) => String(value || '').trim())
             .filter(Boolean),
@@ -6002,12 +6012,16 @@ export default function ChatBoxComponent(props: any) {
   );
 
   const handleCreateThreadWithAgent = async (agent: any) => {
-    const agentId = agent?.id || agent?._id;
-    if (!agentId) {
+    const rawAgentId = agent?.id || agent?._id;
+    const isExternalAgent = !agent?.isInternal; // Assume external agent if internal flag isn't explicitly true
+
+    if (!rawAgentId) {
       error({ message: 'Agent selection is missing an id.' });
       return;
     }
     const activeUserId = userData?.id || user?.id;
+    const activeUserType = resolveCurrentAccountType();
+
     if (!activeUserId) {
       error({ message: 'Please login to start a chat.' });
       return;
@@ -6015,45 +6029,92 @@ export default function ChatBoxComponent(props: any) {
     if (isCreatingThread) return;
 
     setIsCreatingThread(true);
-    const agentIdField = resolveAgentIdField();
-    const payload: Record<string, any> = {
-      propertyId: '',
-      threadName: 'New Chat',
-      propertyName: 'New Chat',
-      propertyImage: '',
-      listingId: '',
-      propertyAddress: '',
-      propertyOwnerId: undefined,
-      userType: resolveThreadUserType(),
-      userId: activeUserId,
-      roomId: uuidv4(),
-      parentMessage: "Let's connect and talk",
-      [agentIdField]: agentId,
-    };
+    let agentIdForThread = rawAgentId;
 
-    createUserAgentThreadMutation.mutate(payload, {
-      onSuccess: async (data: any) => {
-        const createdThreadId = data?.id;
-        if (createdThreadId) {
-          await getThreadDetails(createdThreadId);
-          applyNegotiationStatusToThread(createdThreadId, 'NEGOTIATION_PENDING');
-          setSelectedThreadDetail((prev: any) => (
-            prev?.id === createdThreadId ? { ...prev, status: 'NEGOTIATION_PENDING' } : prev
-          ));
+    try {
+      // Step 1: If it's an external agent, we must invite them to generate a valid User ID
+      if (isExternalAgent || agent?.email || agent?.agentEmail) {
+        const agentEmail = agent?.email || agent?.agentEmail || '';
+        if (agentEmail) {
+          let usedEngagementId = await resolveInviteEngagementId(String(activeUserId));
+          if (!usedEngagementId) {
+            usedEngagementId = await createPlaceholderInviteEngagement(String(activeUserId));
+          }
+
+          try {
+            const inviteResult: any = await externalAgentIvitationMutation.mutateAsync({
+              agentType: activeUserType,
+              userId: activeUserId,
+              email: agentEmail,
+              is_accepted: 'pending',
+              engagementId: usedEngagementId,
+            });
+
+            if (inviteResult?.agentId) {
+              agentIdForThread = inviteResult.agentId;
+            }
+          } catch (inviteError: any) {
+            console.warn('[chat-box] External agent invite during direct chat creation failed or returned an error:', inviteError);
+            // Wait, see if the agent was already invited by this user
+            const inviteErrorMessage = String(
+              inviteError?.response?.data?.errors?.[0]?.message ||
+              inviteError?.response?.data?.message ||
+              inviteError?.message ||
+              '',
+            ).toLowerCase();
+            if (!inviteErrorMessage.includes('already has an invited agent')) {
+              // Fall through if they somehow already have an invite, maybe the agentId was returned on a retry
+            }
+          }
         }
-        setIsContactAgentDialogOpen(false);
-        setIsSearchAgentModalOpen(false);
-        setIsInviteAgentModalOpen(false);
-        setInviteAgentEmail('');
-        setInviteAgentError('');
+      }
+
+      // Step 2: Proceed to create the thread with a (hopefully valid) agentId object mapping
+      if (isExternalAgent && agentIdForThread === rawAgentId) {
+        console.error('[chat-box] Failed to resolve external agent to a valid user ID. Aborting thread creation.');
+        error({ message: 'Unable to start chat: Agent profile is not yet linked to our messaging system.' });
         setIsCreatingThread(false);
-      },
-      onError: (err: any) => {
-        console.error('[chat-box] Failed to create thread:', err);
-        error({ message: err?.message || 'Unable to create chat. Please try again.' });
-        setIsCreatingThread(false);
-      },
-    });
+        return;
+      }
+
+      const agentIdField = resolveAgentIdField();
+      const payload: Record<string, any> = {
+        propertyId: '',
+        threadName: 'New Chat',
+        propertyName: 'New Chat',
+        propertyImage: '',
+        listingId: '',
+        propertyAddress: '',
+        propertyOwnerId: undefined,
+        userType: resolveThreadUserType(),
+        userId: activeUserId,
+        roomId: uuidv4(),
+        parentMessage: "Let's connect and talk",
+        [agentIdField]: agentIdForThread,
+      };
+
+      const threadData: any = await createUserAgentThreadMutation.mutateAsync(payload);
+
+      const createdThreadId = threadData?.id;
+      if (createdThreadId) {
+        await getThreadDetails(createdThreadId);
+        applyNegotiationStatusToThread(createdThreadId, 'NEGOTIATION_PENDING');
+        setSelectedThreadDetail((prev: any) => (
+          prev?.id === createdThreadId ? { ...prev, status: 'NEGOTIATION_PENDING' } : prev
+        ));
+      }
+      setIsContactAgentDialogOpen(false);
+      setIsSearchAgentModalOpen(false);
+      setIsInviteAgentModalOpen(false);
+      setInviteAgentEmail('');
+      setInviteAgentError('');
+      setIsCreatingThread(false);
+
+    } catch (err: any) {
+      console.error('[chat-box] Failed to create thread:', err);
+      error({ message: err?.message || 'Unable to create chat. Please try again.' });
+      setIsCreatingThread(false);
+    }
   };
 
   const handleInviteAgentSubmit = async () => {
@@ -6398,15 +6459,18 @@ export default function ChatBoxComponent(props: any) {
           <div className={`w-full md:basis-[25%] md:max-w-[25%] md:min-w-[25%] bg-white border-r ${showThreads ? "block" : "hidden md:block"} overflow-hidden`}>
             {/* Header */}
             <div className="p-4 border-b flex justify-between items-center">
-              <button
-                type="button"
-                onClick={() => router.push('/dashboard/buyer?tab=my-snapz')}
-                className="flex items-center gap-2 text-gray-800 hover:text-gray-600 transition-colors"
-                aria-label="Back to dashboard"
-              >
-                <ArrowLeft className="h-5 w-5" />
-                <h2 className="font-semibold text-lg">Messages</h2>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => router.push('/dashboard/buyer?tab=my-snapz')}
+                  className="flex items-center gap-2 text-gray-800 hover:text-gray-600 transition-colors"
+                  aria-label="Back to dashboard"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <h2 className="font-semibold text-lg text-gray-800">Messages</h2>
+                </button>
+              </div>
+
               <TooltipProvider delayDuration={120}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -7273,9 +7337,6 @@ export default function ChatBoxComponent(props: any) {
                                                               {`${isSender ? "You" : receiverFallbackName} shared ${fileEventName}`}
                                                             </p>
                                                           </div>
-                                                          <div className="text-xs text-gray-400 px-2 mt-1 text-right">
-                                                            {formattedTime}
-                                                          </div>
                                                         </div>
                                                       </div>
                                                     )}
@@ -7291,50 +7352,6 @@ export default function ChatBoxComponent(props: any) {
                             })()}
                           </div>
 
-                          {selectedFile && (
-                            <div className="mx-4 mt-2 mb-3 relative">
-                              <div className="bg-gray-100 rounded-lg p-3 pr-10">
-                                <div className="flex items-start">
-                                  {selectedFile.type && imageTypes.includes(selectedFile.type) ? (
-                                    <div className="mr-3">
-                                      <div className="w-16 h-16 sm:w-20 sm:h-20 relative bg-[#FAF9F5] rounded-md overflow-hidden">
-                                        <img
-                                          src={URL.createObjectURL(selectedFile) || "/placeholder.svg"}
-                                          alt="Preview"
-                                          className="w-full h-full object-cover"
-                                        />
-                                      </div>
-                                    </div>
-                                  ) : selectedFile.type && selectedFile.type.startsWith("video/") ? (
-                                    <div className="mr-3">
-                                      <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center bg-[#FAF9F5] rounded-md relative">
-                                        <Play className="w-8 h-8 text-gray-500" />
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="mr-3">
-                                      <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center bg-[#FAF9F5] rounded-md">
-                                        <FileText className="w-8 h-8 text-gray-500" />
-                                      </div>
-                                    </div>
-                                  )}
-                                  <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-sm truncate">{selectedFile.name}</p>
-                                    <p className="text-xs text-gray-500 mt-1">
-                                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                                    </p>
-                                    <p className="text-xs text-gray-500 capitalize">{selectedFile.type.split("/")[0]}</p>
-                                  </div>
-                                </div>
-                                <button
-                                  className="absolute top-3 right-3 p-1 rounded-full hover:bg-[#FAF9F5] text-gray-500"
-                                  onClick={() => setSelectedFile(null)}
-                                >
-                                  <X className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
-                          )}
                           <div ref={messagesEndRef} />
                         </ScrollArea>
 
@@ -7380,7 +7397,7 @@ export default function ChatBoxComponent(props: any) {
                         </div>
                       </div> */}
 
-                      <div className="p-2 sm:p-4 border-t relative bg-white">
+                      <div className="px-2 sm:px-4 py-1 sm:py-1 border-t relative bg-white">
                         {fileErrorMsg && (
                           <div className="absolute -top-10 left-0 right-0 bg-red-100 text-red-600 p-2 text-xs sm:text-sm text-center">
                             {fileErrorMsg}
@@ -7495,7 +7512,7 @@ export default function ChatBoxComponent(props: any) {
 
                           {/* Message Input */}
                           <form
-                            className="flex-1 py-1 sm:py-2 px-2 sm:px-4"
+                            className="flex-1"
                             onSubmit={(e) => {
                               e.preventDefault();
                               if (shouldLockChatInput) {
@@ -7504,20 +7521,46 @@ export default function ChatBoxComponent(props: any) {
                               handleSendMessage();
                             }}
                           >
-                            <Input
-                              id="chat-message-input"
-                              name="chat-message-input"
-                              className="flex-1 py-1 sm:py-2 px-2 sm:px-4 text-xs sm:text-sm border rounded-lg focus:outline-none"
-                              placeholder={shouldLockChatInput
-                                ? normalizedNegotiationStatus === "DECLINED"
-                                  ? "Negotiation declined. Chat is locked."
-                                  : "Finish negotiation to chat..."
-                                : "Type a message..."}
-                              value={message}
-                              onChange={handleInputChange}
-                              disabled={shouldLockChatInput}
-                            />
-
+                            <div className="flex items-center gap-2 rounded-full py-0.5 sm:py-1.5 px-2 sm:px-4 bg-white">
+                              {selectedFile && (
+                                <div className="flex items-center gap-2 rounded-full bg-gray-100 px-2 py-1 max-w-[65%]">
+                                  {selectedFile.type && imageTypes.includes(selectedFile.type) ? (
+                                    <img
+                                      src={URL.createObjectURL(selectedFile) || "/placeholder.svg"}
+                                      alt="Preview"
+                                      className="h-8 w-8 rounded-full object-cover shrink-0"
+                                    />
+                                  ) : selectedFile.type && selectedFile.type.startsWith("video/") ? (
+                                    <div className="h-8 w-8 rounded-full bg-[#FAF9F5] flex items-center justify-center shrink-0">
+                                      <Play className="h-4 w-4 text-gray-500" />
+                                    </div>
+                                  ) : (
+                                    <div className="h-8 w-8 rounded-full bg-[#FAF9F5] flex items-center justify-center shrink-0">
+                                      <FileText className="h-4 w-4 text-gray-500" />
+                                    </div>
+                                  )}
+                                  <div className="min-w-0">
+                                    <p className="text-xs text-gray-700 truncate">{selectedFile.name}</p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="p-1 rounded-full hover:bg-[#FAF9F5] text-gray-500 shrink-0"
+                                    onClick={() => setSelectedFile(null)}
+                                    aria-label="Remove selected file"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )}
+                              <Input
+                                id="chat-message-input"
+                                name="chat-message-input"
+                                className="flex-1 min-w-0 border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none px-0 text-xs sm:text-sm"
+                                placeholder="Type a message..."
+                                value={message}
+                                onChange={handleInputChange}
+                              />
+                            </div>
                           </form>
 
                           {/* Send Button */}

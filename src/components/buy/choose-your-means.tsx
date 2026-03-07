@@ -6,6 +6,7 @@ type ChooseYourMeansProps = {
   yourAgentDescription?: string;
   ourAgentDescription?: string;
   ctaLabel?: string;
+  onCtaClick?: () => void;
 };
 
 const ChooseYourMeans = ({
@@ -14,7 +15,16 @@ const ChooseYourMeans = ({
   yourAgentDescription = 'Onboard or invite your personal agent',
   ourAgentDescription = 'Choose from our vetted list of agents',
   ctaLabel = 'Get Started',
+  onCtaClick,
 }: ChooseYourMeansProps) => {
+  const handleCtaClick = () => {
+    if (onCtaClick) {
+      onCtaClick();
+      return;
+    }
+    window.location.href = "https://preprod.snaphomz.com/agents";
+  };
+
   return (
     <section className="home-choose-section bg-[#FFF6EC] pt-8 pb-8 sm:pt-10 sm:pb-10 px-4 sm:px-8 lg:px-12 text-center">
       <div className="home-choose-container max-w-6xl mx-auto text-center">

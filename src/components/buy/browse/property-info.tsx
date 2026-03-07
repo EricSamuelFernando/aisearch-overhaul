@@ -179,8 +179,8 @@ function PropertyBrowseView({ }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const query = searchParams.get('q');
-  const [isMlsMode, setIsMlsMode] = useState(false);
   const [isMlsMode, setIsMlsMode] = useState(() => isMlsBypassModeEnabled());
+  const [isSearchModeReady, setIsSearchModeReady] = useState(false);
 
   useEffect(() => {
     const handleBypassChange = (event: Event) => {
@@ -487,144 +487,145 @@ function PropertyBrowseView({ }: Props) {
       <>
         <section className="relative mb-0 flex-1 min-h-0 w-full px-4 pb-0 md:px-6">
           <div className="relative h-full min-h-0 w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-          <div ref={mapRef} className="absolute inset-0">
-            <CustomMap
-              width="100%"
-              coord={coordinates}
-              zoom={13}
-              properties={displayedProperties}
-              height="100%"
-              searchQuery={query ?? ''}
-              showDistricts={mapOverlay === 'schools'}
-              overlayValue={mapOverlay}
-              onOverlayChange={setMapOverlay}
-              onMarkerClick={(id: string) => setSelectedProperty(id)}
-              onDrawFilterChange={(ids) => {
-                setDrawFilteredPropertyIds(ids);
-                if (!ids || ids.length === 0) return;
-                if (selectedProperty && !ids.includes(String(selectedProperty))) {
-                  setSelectedProperty('');
-                }
-              }}
-              clearDrawSignal={clearDrawSignal}
-              useOverlayResultsRail
-              onMapMove={(center) => {
-              if (isMlsMode) return;
-                sendSearchRequest({ latitude: center.lat, longitude: center.lng });
-              }}
-            />
-          </div>
 
-          <div className="pointer-events-none absolute inset-y-0 left-0 z-20 hidden w-[620px] max-w-[44vw] lg:block">
-            <div className="pointer-events-auto relative flex h-full flex-col border-r border-gray-200 bg-[#f7f7f7]">
-              <div className="border-b border-gray-200 bg-white px-4 py-3">
-                <form onSubmit={handleTopSearchSubmit} className="relative z-30 flex items-center gap-2">
-                  <div className="relative min-w-0 flex-1 rounded-2xl border border-gray-300 bg-white shadow-sm ring-1 ring-black/5 transition focus-within:border-gray-400 focus-within:ring-2 focus-within:ring-orange-200">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <SpeechInput
-                      value={topSearchValue}
-                      setValue={setTopSearchValue}
-                      searchType={isMlsMode ? 'address' : 'nlp'}
-                      placeholderText={topSearchAnimatedPlaceholder}
-                      className="w-full"
-                      inputClassName="h-11 w-full rounded-2xl border-0 bg-transparent pl-10 pr-28 text-sm text-gray-900 shadow-none outline-none ring-0 placeholder:text-gray-400 focus-visible:ring-0"
-                    />
-                    <button
-                      type="button"
-                      onClick={toggleSearchMode}
-                      title={isMlsMode ? 'MLS mode active. Click to switch to AI search.' : 'AI search active. Click to switch to MLS search.'}
-                      className={cn(
-                        'absolute right-10 top-1/2 -translate-y-1/2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition',
-                        isMlsMode
-                          ? 'bg-gray-100 text-gray-600 ring-1 ring-gray-200 hover:bg-gray-200'
-                          : 'bg-orange-50 text-orange-700 ring-1 ring-orange-200 hover:bg-orange-100'
-                      )}
-                    >
-                      {isMlsMode ? 'AI OFF' : 'AI ON'}
-                    </button>
-                    {topSearchValue ? (
+            {/* <div ref={mapRef} className="absolute inset-0">
+              <CustomMap
+                width="100%"
+                coord={coordinates}
+                zoom={13}
+                properties={displayedProperties}
+                height="100%"
+                searchQuery={query ?? ''}
+                showDistricts={mapOverlay === 'schools'}
+                overlayValue={mapOverlay}
+                onOverlayChange={setMapOverlay}
+                onMarkerClick={(id: string) => setSelectedProperty(id)}
+                onDrawFilterChange={(ids) => {
+                  setDrawFilteredPropertyIds(ids);
+                  if (!ids || ids.length === 0) return;
+                  if (selectedProperty && !ids.includes(String(selectedProperty))) {
+                    setSelectedProperty('');
+                  }
+                }}
+                clearDrawSignal={clearDrawSignal}
+                useOverlayResultsRail
+                onMapMove={(center) => {
+                  if (isMlsMode) return;
+                  sendSearchRequest({ latitude: center.lat, longitude: center.lng });
+                }}
+              />
+            </div>
+
+            <div className="pointer-events-none absolute inset-y-0 left-0 z-20 hidden w-[620px] max-w-[44vw] lg:block">
+              <div className="pointer-events-auto relative flex h-full flex-col border-r border-gray-200 bg-[#f7f7f7]">
+                <div className="border-b border-gray-200 bg-white px-4 py-3">
+                  <form onSubmit={handleTopSearchSubmit} className="relative z-30 flex items-center gap-2">
+                    <div className="relative min-w-0 flex-1 rounded-2xl border border-gray-300 bg-white shadow-sm ring-1 ring-black/5 transition focus-within:border-gray-400 focus-within:ring-2 focus-within:ring-orange-200">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                      <SpeechInput
+                        value={topSearchValue}
+                        setValue={setTopSearchValue}
+                        searchType={isMlsMode ? 'address' : 'nlp'}
+                        placeholderText={topSearchAnimatedPlaceholder}
+                        className="w-full"
+                        inputClassName="h-11 w-full rounded-2xl border-0 bg-transparent pl-10 pr-28 text-sm text-gray-900 shadow-none outline-none ring-0 placeholder:text-gray-400 focus-visible:ring-0"
+                      />
                       <button
                         type="button"
-                        onClick={() => setTopSearchValue('')}
-                        className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                        aria-label="Clear search"
+                        onClick={toggleSearchMode}
+                        title={isMlsMode ? 'MLS mode active. Click to switch to AI search.' : 'AI search active. Click to switch to MLS search.'}
+                        className={cn(
+                          'absolute right-10 top-1/2 -translate-y-1/2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition',
+                          isMlsMode
+                            ? 'bg-gray-100 text-gray-600 ring-1 ring-gray-200 hover:bg-gray-200'
+                            : 'bg-orange-50 text-orange-700 ring-1 ring-orange-200 hover:bg-orange-100'
+                        )}
                       >
-                        <X className="h-3.5 w-3.5" />
+                        {isMlsMode ? 'AI OFF' : 'AI ON'}
                       </button>
-                    ) : null}
-                  </div>
-                  <button
-                    type="submit"
-                    className="h-11 shrink-0 rounded-2xl bg-ocOrange px-4 text-sm font-semibold text-white shadow-sm hover:brightness-95"
-                  >
-                    Search
-                  </button>
-                </form>
+                      {topSearchValue ? (
+                        <button
+                          type="button"
+                          onClick={() => setTopSearchValue('')}
+                          className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                          aria-label="Clear search"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      ) : null}
+                    </div>
+                    <button
+                      type="submit"
+                      className="h-11 shrink-0 rounded-2xl bg-ocOrange px-4 text-sm font-semibold text-white shadow-sm hover:brightness-95"
+                    >
+                      Search
+                    </button>
+                  </form>
 
-                <div className="mt-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                  <MapPinned className="h-3.5 w-3.5" />
-                  {query ? `Results for ${query}` : 'Search Results'}
-                  <span className="normal-case tracking-normal text-gray-400">•</span>
-                  <span className="normal-case tracking-normal text-gray-600">
-                    {resultCount.toLocaleString()} result{resultCount === 1 ? '' : 's'}
-                  </span>
-                </div>
-
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setShowCompactFilters((prev) => !prev)}
-                    className={cn(
-                      'inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition',
-                      showCompactFilters
-                        ? 'border-gray-300 bg-gray-900 text-white'
-                        : 'border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200',
-                    )}
-                  >
-                    Filter
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => savePropertyView('map')}
-                    className={cn(
-                      'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium',
-                      currentView === 'map'
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-                    )}
-                  >
-                    <Map className="h-3.5 w-3.5" />
-                    Map
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => savePropertyView('grid')}
-                    className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
-                  >
-                    <Grid2X2 className="h-3.5 w-3.5" />
-                    Grid
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCompareMode(!isCompareMode);
-                      if (isCompareMode) clearCompareProperties();
-                    }}
-                    className={cn(
-                      'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium',
-                      isCompareMode
-                        ? 'bg-ocOrange text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-                    )}
-                  >
-                    {isCompareMode ? 'Cancel Compare' : 'Compare'}
-                  </button>
-                  {isCompareMode ? (
-                    <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-700">
-                      {selectedCompareProperties.length} selected
+                  <div className="mt-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                    <MapPinned className="h-3.5 w-3.5" />
+                    {query ? `Results for ${query}` : 'Search Results'}
+                    <span className="normal-case tracking-normal text-gray-400">•</span>
+                    <span className="normal-case tracking-normal text-gray-600">
+                      {resultCount.toLocaleString()} result{resultCount === 1 ? '' : 's'}
                     </span>
-                  ) : null}
-                  {hasDrawFilter ? (
+                  </div>
+
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setShowCompactFilters((prev) => !prev)}
+                      className={cn(
+                        'inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition',
+                        showCompactFilters
+                          ? 'border-gray-300 bg-gray-900 text-white'
+                          : 'border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200',
+                      )}
+                    >
+                      Filter
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => savePropertyView('map')}
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium',
+                        currentView === 'map'
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+                      )}
+                    >
+                      <Map className="h-3.5 w-3.5" />
+                      Map
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => savePropertyView('grid')}
+                      className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
+                    >
+                      <Grid2X2 className="h-3.5 w-3.5" />
+                      Grid
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCompareMode(!isCompareMode);
+                        if (isCompareMode) clearCompareProperties();
+                      }}
+                      className={cn(
+                        'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium',
+                        isCompareMode
+                          ? 'bg-ocOrange text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+                      )}
+                    >
+                      {isCompareMode ? 'Cancel Compare' : 'Compare'}
+                    </button>
+                    {isCompareMode ? (
+                      <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-700">
+                        {selectedCompareProperties.length} selected
+                      </span>
+                    ) : null}
+                    {hasDrawFilter ? (
                     <button
                       type="button"
                       onClick={() => savePropertyView('map')}
@@ -725,7 +726,8 @@ function PropertyBrowseView({ }: Props) {
                   </div>
                 ) : null}
               </div>
-            </div>
+            </div> */}
+
             <div ref={mapRef} className="absolute inset-0">
               <CustomMap
                 width="100%"
@@ -968,6 +970,7 @@ function PropertyBrowseView({ }: Props) {
                     selectedProperty={selectedProperty}
                     propertiesOverride={displayedProperties}
                     overlayMode
+                    onOpenCompareModal={() => setShowCompareModal(true)}
                   />
                 </div>
 
@@ -1024,17 +1027,9 @@ function PropertyBrowseView({ }: Props) {
                 selectedProperty={selectedProperty}
                 propertiesOverride={displayedProperties}
                 overlayMode
+                onOpenCompareModal={() => setShowCompareModal(true)}
               />
             </div>
-          </div>
-          <div className="max-h-[60vh] overflow-y-auto overscroll-contain">
-            <BuyPropertyCards
-              selectedProperty={selectedProperty}
-              propertiesOverride={displayedProperties}
-              overlayMode
-              onOpenCompareModal={() => setShowCompareModal(true)}
-            />
-          </div>
           </div>
         </section>
         <PropertyComparisonModal
@@ -1050,22 +1045,7 @@ function PropertyBrowseView({ }: Props) {
       <section
         className="relative mb-20 mx-auto w-full md:grid grid-cols-5 max-w-[1600px] gap-x-8 pl-12 pr-8 md:pl-16 md:pr-12"
       >
-      {/* Property Cards */}
-      <div
-        ref={divRef}
-        // className={cn(
-        //   'px-4 md:px-8',
-        //   currentView === 'map' ? 'col-span-3 px-[3.12rem]' : 'col-span-5',
-        // )}
-        className={cn(
-          currentView === 'grid' ? 'px-0' : 'px-4 md:px-6',
-          'col-span-5',
-        )}
-      >
-        <BuyPropertyCards selectedProperty={selectedProperty} propertiesOverride={displayedProperties} />
-      </div>
-
-      {currentView !== 'grid' ? (
+        {/* Property Cards */}
         <div
           ref={divRef}
           // className={cn(
@@ -1073,7 +1053,7 @@ function PropertyBrowseView({ }: Props) {
           //   currentView === 'map' ? 'col-span-3 px-[3.12rem]' : 'col-span-5',
           // )}
           className={cn(
-            'px-4 md:px-6',
+            currentView === 'grid' ? 'px-0' : 'px-4 md:px-6',
             'col-span-5',
           )}
         >
@@ -1116,7 +1096,6 @@ function PropertyBrowseView({ }: Props) {
           </div>
         ) : null}
 
-        {/* Fixed Map on Right */}
       </section>
       <PropertyComparisonModal
         isOpen={showCompareModal}

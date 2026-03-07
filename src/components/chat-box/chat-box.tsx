@@ -1709,7 +1709,7 @@
 //                                                 {/* Message container taking full width */}
 //                                                 <div className={`w-full flex ${isSender ? "justify-end" : "justify-start"}`}>
 //                                                   <div
-//                                                     className={`p-3 sm:p-4 bg-black text-white  font-medium rounded-2xl shadow-md text-xs sm:text-sm max-w-full sm:max-w-[90%] 
+//                                                     className={`p-3 sm:p-4 bg-black text-white  font-medium rounded-2xl shadow-md text-xs sm:text-sm max-w-full sm:max-w-[90%]
 //       `}
 //                                                   >
 //                                                     {/* Text message */}
@@ -2337,7 +2337,6 @@ import {
   Maximize,
   ArrowLeft,
   ArrowDown,
-  ArrowLeft,
 } from "lucide-react"
 import "swiper/css"
 import "swiper/css/navigation"
@@ -6471,7 +6470,7 @@ export default function ChatBoxComponent(props: any) {
                   <h2 className="font-semibold text-lg text-gray-800">Messages</h2>
                 </button>
               </div>
-       
+
               <TooltipProvider delayDuration={120}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -7327,34 +7326,17 @@ export default function ChatBoxComponent(props: any) {
                                                       )}
                                                     </div>
 
-                                                  {isSender && (
-                                                    <div className="w-7 h-7 mt-4 sm:w-10 sm:h-10 rounded-full border border-white/70 bg-[#FBB785] overflow-hidden flex items-center justify-center text-xs sm:text-sm font-semibold shrink-0 text-white">
-                                                      {senderImage ? (
-                                                        <Image
-                                                          src={senderImage}
-                                                          alt="You"
-                                                          width={40}
-                                                          height={40}
-                                                          className="h-full w-full object-cover"
-                                                          unoptimized
-                                                        />
-                                                      ) : (
-                                                        getInitials(senderFallbackName) || 'NA'
-                                                      )}
-                                                    </div>
-                                                  )}
-                                                  </div>
-
-                                                  {shouldShowInlineFileEvent && (
-                                                    <div className="flex justify-center rounded-xl text-center w-full pt-2 p-3">
-                                                      <div
-                                                        className={`shadow-md rounded-full w-fit px-8 py-3 ${isSender ? "bg-gray-200" : "bg-white"}`}
-                                                      >
-                                                        <div className="flex gap-2 items-center justify-center">
-                                                          <MdNotificationAdd size={20} />
-                                                          <p className="whitespace-pre-wrap break-words text-sm">
-                                                            {`${isSender ? "You" : receiverFallbackName} shared ${fileEventName}`}
-                                                          </p>
+                                                    {shouldShowInlineFileEvent && (
+                                                      <div className="flex justify-center rounded-xl text-center w-full pt-2 p-3">
+                                                        <div
+                                                          className={`shadow-md rounded-full w-fit px-8 py-3 ${isSender ? "bg-gray-200" : "bg-white"}`}
+                                                        >
+                                                          <div className="flex gap-2 items-center justify-center">
+                                                            <MdNotificationAdd size={20} />
+                                                            <p className="whitespace-pre-wrap break-words text-sm">
+                                                              {`${isSender ? "You" : receiverFallbackName} shared ${fileEventName}`}
+                                                            </p>
+                                                          </div>
                                                         </div>
                                                       </div>
                                                     )}

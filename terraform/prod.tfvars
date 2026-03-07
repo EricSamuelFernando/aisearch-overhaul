@@ -41,12 +41,15 @@ lambda_env_variables = {
 
   NEXT_PUBLIC_AGENT_URL = "https://agent.snaphomz.com",
 
-  NEXT_PUBLIC_COGNITO_USER_POOL_ID = "us-east-1_XP9jpI8bY"
-  NEXT_PUBLIC_COGNITO_CLIENT_ID    = "2ou8p18egu2jqb6ucq03vtjb70",
+  NEXT_PUBLIC_COGNITO_USER_POOL_ID = "us-east-1_HFskyqUnO"
+  NEXT_PUBLIC_COGNITO_CLIENT_ID    = "10a2kdoa42lc0enni43mnbj5an",
 
 
   NEXT_PUBLIC_GOOGLE_COGNITO_CLIENT_ID         = "972804820356-urh3bju8aopsuq2qkte96819rj3vnoko.apps.googleusercontent.com",
   NEXT_PUBLIC_GOOGLE_SECRET_COGNITO_SECRECT_ID = "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"
+
+  MLS_SNAPHOMZ_API = "SNAPHOMZMLSPRODUCTION-48b1-7fdf-af3e-e28c3199c5b4"
+  REALESTATE_API_BASE_URL = "https://api.realestateapi.com"
 
 
   NEXT_PUBLIC_COGNITO_DOMAIN = "https://us-east-1xp9jpi8by.auth.us-east-1.amazoncognito.com"

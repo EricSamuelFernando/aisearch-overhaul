@@ -316,9 +316,11 @@ const isLikelyStreetAddress = (query: string) => {
     if (!trimmed) return false;
 
     const tokens = trimmed.toLowerCase().match(/[a-z0-9]+/g) || [];
-    if (tokens.length < 2) return false;
-    if (!/^\d{1,6}$/.test(tokens[0])) return false;
-    if (ADDRESS_SECOND_TOKEN_DISALLOWED.has(tokens[1])) return false;
+    const firstToken = tokens[0];
+    const secondToken = tokens[1];
+    if (!firstToken || !secondToken) return false;
+    if (!/^\d{1,6}$/.test(firstToken)) return false;
+    if (ADDRESS_SECOND_TOKEN_DISALLOWED.has(secondToken)) return false;
 
     const hasZip = /\b\d{5}(?:-\d{4})?\b/.test(trimmed);
     const hasComma = trimmed.includes(",");

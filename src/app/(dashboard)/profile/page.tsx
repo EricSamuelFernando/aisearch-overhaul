@@ -529,7 +529,7 @@ function Profile() {
             }}
           />
         </div>
-      </section>
+      </section> */}
 
       <CustomModal
         isOpen={opened}

@@ -378,17 +378,30 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
                     {snap?.name || 'Collection'}
                   </span>
                 </div>
-                <Button
-                  className="flex-shrink-0 rounded-full bg-black px-6 py-2 text-sm font-medium text-white hover:bg-gray-800"
-                  onClick={() => {
-                    setSelectedSnap(snap);
-                    const fromBuyerDashboard = origin === 'buyer-dashboard';
-                    const suffix = fromBuyerDashboard ? '?from=buyer-dashboard' : '';
-                    router.push(`/account/collections/${snap.id}${suffix}`);
-                  }}
-                >
-                  View
-                </Button>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button
+                    className="flex-shrink-0 rounded-full bg-black px-6 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                    onClick={() => {
+                      setSelectedSnap(snap);
+                      const fromBuyerDashboard = origin === 'buyer-dashboard';
+                      const suffix = fromBuyerDashboard ? '?from=buyer-dashboard' : '';
+                      router.push(`/account/collections/${snap.id}${suffix}`);
+                    }}
+                  >
+                    View
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-shrink-0 rounded-full border-gray-300 text-gray-700 hover:bg-red-50 hover:text-red-500 hover:border-red-500 px-6 py-2 text-sm font-medium transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedSnap(snap);
+                      setIsDeleteModalOpen(true);
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </div>
               </div>
             ))
           ) : (

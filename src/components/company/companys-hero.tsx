@@ -7,32 +7,32 @@ export default function HeroLayout() {
       <MainNavPages />
 
       <section className="
-        relative bg-[#000000] text-white
-        min-h-[85vh] sm:min-h-[90vh]
-        pt-20 sm:pt-24 pb-20 sm:pb-24
+        relative bg-[#1A0700] text-white
+        min-h-screen sm:min-h-[90vh]
+        pt-24 sm:pt-24 pb-16 sm:pb-24
         flex items-center justify-center
         overflow-hidden
       ">
 
         {/* Background */}
-        <div className="absolute inset-0 bg-[#000000]" />
+        <div className="absolute inset-0 bg-[#1A0700]" />
 
         {/* CONTENT */}
         <div className="
           relative z-10
-          max-w-4xl mx-auto
+          max-w-[420px] sm:max-w-4xl mx-auto
           px-4 sm:px-6
           text-center
           flex flex-col justify-center
         ">
 
           {/* LINE 1 */}
-          <div className="flex items-baseline justify-center gap-3 sm:gap-4 mb-4 sm:mb-5">
+          <div className="flex items-end justify-center gap-3 sm:gap-4 mb-3 sm:mb-5">
             <h1 className="
-              text-3xl
-              sm:text-4xl
+              text-[14vw] sm:text-4xl
+              max-[430px]:text-[60px]
               md:text-6xl
-              font-medium leading-none
+              font-medium leading-[0.95] tracking-tight whitespace-nowrap
             ">
               We
             </h1>
@@ -40,7 +40,7 @@ export default function HeroLayout() {
             {/* Image 1 */}
             <div className="
               relative
-              w-20 h-14
+              w-[76px] h-[56px]
               sm:w-24 sm:h-16
               rounded-t-full rounded-b-md
               overflow-hidden translate-y-1
@@ -57,23 +57,23 @@ export default function HeroLayout() {
 
           {/* LINE 2 */}
           <h2 className="
-            text-3xl
+            text-[14vw] max-[430px]:text-[58px]
             sm:text-4xl
             md:text-6xl
             font-medium
-            mb-5 sm:mb-7
-            leading-tight
+            mb-4 sm:mb-7
+            leading-[0.92] tracking-tight whitespace-nowrap
           ">
             Are Redefining
           </h2>
 
           {/* LINE 3 */}
-          <div className="flex items-baseline justify-center gap-3 sm:gap-4 mb-3">
+          <div className="flex items-end justify-center gap-3 sm:gap-4 mb-3 sm:mb-3">
 
             {/* Image 2 */}
             <div className="
               relative
-              w-24 h-14
+              w-[96px] h-[50px]
               sm:w-28 sm:h-16
               rounded-xl
               overflow-hidden translate-y-1
@@ -88,22 +88,22 @@ export default function HeroLayout() {
             </div>
 
             <h2 className="
-              text-3xl
+              text-[13vw] max-[430px]:text-[56px]
               sm:text-4xl
               md:text-6xl
-              font-medium leading-none
+              font-medium leading-[0.95] tracking-tight whitespace-nowrap
             ">
               Real Estate
             </h2>
           </div>
 
           {/* LINE 4 */}
-          <div className="flex items-baseline justify-center gap-1 mb-3">
+          <div className="flex items-end justify-center gap-1 mb-0">
             <h2 className="
-              text-3xl
+              text-[12.5vw] max-[430px]:text-[58px]
               sm:text-4xl
               md:text-6xl
-              font-light italic leading-none
+              font-light italic leading-[0.95] tracking-tight whitespace-nowrap
             ">
               One Snap
             </h2>
@@ -111,7 +111,7 @@ export default function HeroLayout() {
             {/* SVG */}
             <div className="
               relative
-              w-24 h-16
+              w-[88px] h-[72px]
               sm:w-28 sm:h-20
               translate-y-1
             ">
@@ -120,7 +120,7 @@ export default function HeroLayout() {
                 alt="Snap Hand"
                 className="
                   relative z-10
-                  w-16 h-16
+                  w-[74px] h-[74px]
                   sm:w-20 sm:h-20
                   md:w-24 md:h-24
                   scale-110 sm:scale-125 md:scale-150
@@ -133,12 +133,12 @@ export default function HeroLayout() {
 
           {/* LINE 5 */}
           <h2 className="
-            text-3xl
+            text-[12.5vw] max-[430px]:text-[58px]
             sm:text-4xl
             md:text-6xl
             font-light italic
-            mb-6 sm:mb-10
-            leading-tight
+            mb-8 sm:mb-10
+            leading-[0.95] tracking-tight whitespace-nowrap
           ">
             at a Time
           </h2>
@@ -146,13 +146,13 @@ export default function HeroLayout() {
           {/* SUBTEXT */}
           <p className="
             max-w-2xl mx-auto
-            text-xs sm:text-sm md:text-base
+            text-[13px] sm:text-sm md:text-base
             text-[#E6D3C2]
             leading-relaxed
-            px-2
+            px-4
           ">
-            Simplifying the process for buyers, sellers, and agents through smart
-            design and seamless tech.
+            simplifying the process for buyers, sellers, and agents through smart
+            design, seamless tech, and a people-first approach
           </p>
 
         </div>

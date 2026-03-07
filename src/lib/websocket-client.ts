@@ -62,62 +62,35 @@ export class WebSocketClientImpl implements WebSocketClient {
   private messageQueue: MessagePacket[] = [];
   public id: string | null = null;
   public connected = false;
+  private isLambda: boolean = false;
 
   constructor(url: string) {
-    // // Convert http:// to ws:// and https:// to wss://
-    // // Detect if this is Lambda/API Gateway (contains execute-api.amazonaws.com or API Gateway patterns)
-    // // API Gateway WebSocket URLs typically look like: wss://{api-id}.execute-api.{region}.amazonaws.com/{stage}
-    // // Also check for common API Gateway patterns
-    // const isApiGatewayPattern = url.includes('execute-api.amazonaws.com') ||
-    //   url.includes('execute-api.') ||
-    //   /execute-api\.[a-z0-9-]+\.amazonaws\.com/i.test(url);
+    // const normalizedInput = (url || "").trim() || "http://localhost:4000";
+    // const normalizedLowerInput = normalizedInput.toLowerCase();
+    // const isApiGatewayPattern =
+    //   normalizedLowerInput.includes("execute-api.amazonaws.com") ||
+    //   normalizedLowerInput.includes("execute-api.") ||
+    //   /execute-api\.[a-z0-9-]+\.amazonaws\.com/i.test(normalizedLowerInput);
 
-    // // Force Lambda mode if URL contains execute-api (API Gateway WebSocket)
-    // // OR if environment variable explicitly indicates API Gateway
-    // this.isLambda = isApiGatewayPattern ||
-    //   process.env.NEXT_PUBLIC_USE_LAMBDA_WEBSOCKET === 'true' ||
-    //   url.includes('amazonaws.com');
+    // this.isLambda =
+    //   process.env.NEXT_PUBLIC_USE_LAMBDA_WEBSOCKET === "true" ||
+    //   isApiGatewayPattern;
 
-    // console.log('[WebSocket] URL detection:', {
-    //   originalUrl: url,
-    //   isLambda: this.isLambda,
-    //   containsExecuteApi: url.includes('execute-api'),
-    //   isApiGatewayPattern,
-    //   envFlag: process.env.NEXT_PUBLIC_USE_LAMBDA_WEBSOCKET
-    // });
+    // const wsBase = normalizedInput.startsWith("ws")
+    //   ? normalizedInput
+    //   : normalizedInput.replace(/^http/i, "ws");
 
     // if (this.isLambda) {
-    //   // API Gateway WebSocket format: wss://{api-id}.execute-api.{region}.amazonaws.com/{stage}
-    //   // Convert http/https to ws/wss
-    //   // IMPORTANT: Keep the stage path (e.g., /ws, /prod, /dev) as it's part of the API Gateway route
-    //   // Example: https://ge7k22aqak.execute-api.us-west-1.amazonaws.com/ws
-    //   //          becomes: wss://ge7k22aqak.execute-api.us-west-1.amazonaws.com/ws
-    //   this.url = url.startsWith('ws') ? url : url.replace(/^http/, 'ws');
-    //   // Do NOT remove /ws or any stage path - it's required for API Gateway routing
+    //   this.url = wsBase;
     // } else {
-    //   // Local NestJS backend uses /ws path
-    //   this.url = url.replace(/^http/, 'ws');
-    //   if (!this.url.endsWith('/ws')) {
-    //     this.url = this.url + '/ws';
-    //   }
+    //   this.url = wsBase.endsWith("/ws")
+    //     ? wsBase
+    //     : `${wsBase.replace(/\/+$/, "")}/ws`;
     // }
 
-    const isApiGatewayPattern =
-      url.includes('execute-api.amazonaws.com') ||
-      url.includes('execute-api.') ||
-      /execute-api\.[a-z0-9-]+\.amazonaws\.com/i.test(url);
+    this.url = url
 
-    this.url = url.startsWith('ws') ? url : url.replace(/^http/, 'ws');
-
-    console.log('[WebSocket] URL detection:', {
-      originalUrl: url,
-      containsExecuteApi: url.includes('execute-api'),
-      isApiGatewayPattern,
-    });
-
-    console.log('[WebSocket] Base URL:', url, '-> WebSocket URL:', this.url);
-
-
+    console.log("[WebSocket] Base URL:", url, "-> WebSocket URL:", this.url, "Lambda:", this.isLambda);
 
     const token: string | null = getAuthToken() ?? null;
     this.token = token;
@@ -161,7 +134,7 @@ export class WebSocketClientImpl implements WebSocketClient {
 
       this.ws.onopen = () => {
         console.log('[WebSocket] Connected', {
-          readyState: this.ws?.readyState,
+          readyState: this.ws?.readyState || 0,
           reconnectAttempts: this.reconnectAttempts,
         });
         this.connected = true;
@@ -299,14 +272,13 @@ export class WebSocketClientImpl implements WebSocketClient {
       'save_messages',
       'save_file',
       'typing',
-      'mark_as_read',
-      'userConnected',
       'recievedMessage'
     ];
 
     if (unsupportedEvents.includes(event)) {
       console.error(`[WebSocket] Blocked unsupported event: ${event}. This event is not supported by the backend WebSocket handler.`, {
         event,
+        supportedEvents: ['createOrJoinConversation', 'sendMessage', 'joinRoom', 'leaveRoom', 'ping', 'update_negotiation_status'],
         stack: new Error().stack
       });
       return;
@@ -465,3 +437,4 @@ export class WebSocketClientImpl implements WebSocketClient {
 export function createWebSocketClient(url: string): WebSocketClient {
   return new WebSocketClientImpl(url);
 }
+

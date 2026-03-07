@@ -27,23 +27,23 @@ const ChooseYourMeans = ({
   };
 
   return (
-    <section className="bg-[#FFF6EC] pt-16 pb-12 sm:pt-20 sm:pb-14 px-4 sm:px-8 lg:px-12 text-center">
+    <section className="home-choose-section bg-[#FFF6EC] pt-8 pb-6 sm:pt-10 sm:pb-8 px-4 sm:px-8 lg:px-12 text-center">
       {/* Choose Your Means Section */}
-      <div className="max-w-6xl mx-auto text-center">
-        <h2 className=" satoshi text-3xl sm:text-4xl font-semibold ">
+      <div className="home-choose-container max-w-6xl mx-auto text-center">
+        <h2 className="home-choose-title satoshi text-3xl sm:text-4xl font-semibold ">
           Choose How You <span className="font-light">Buy</span>
         </h2>
-        <p className="satoshi text-xs sm:text-sm text-[#8E8B8A] mb-8 sm:mb-12 max-w-[600px] mx-auto">
+        <p className="home-choose-subtitle satoshi text-xs sm:text-sm text-[#8E8B8A] mb-6 sm:mb-8 max-w-[600px] mx-auto">
           Take control of your home purchase with guided transactions, approval workflows, and transparent tracking, no matter how you like to work. 
         </p>
 
 
         {/* Card Grid Layout */}
         <div
-          className="flex flex-nowrap gap-6 overflow-x-auto pb-4 bg-transparent scrollbar-hide snap-x snap-mandatory sm:flex-wrap sm:justify-center sm:overflow-visible sm:snap-none"
+          className="home-choose-grid flex flex-nowrap gap-6 overflow-x-auto pb-2 bg-transparent scrollbar-hide snap-x snap-mandatory sm:flex-wrap sm:justify-center sm:overflow-visible sm:snap-none"
         >
           {/* Team member 1 */}
-          <div className="min-w-[240px] sm:min-w-0 rounded-2xl overflow-hidden relative cursor-pointer scale-[0.88] origin-top">
+          <div className="home-choose-card min-w-[240px] sm:min-w-0 rounded-2xl overflow-hidden relative cursor-pointer">
             <img
               src="/assets/images/landing-means.png"
               alt="Proper Name"
@@ -60,7 +60,7 @@ const ChooseYourMeans = ({
 
 
           {/* Team member 2 */}
-          <div className="min-w-[240px] sm:min-w-0 rounded-2xl overflow-hidden relative cursor-pointer scale-[0.88] origin-top">
+          <div className="home-choose-card min-w-[240px] sm:min-w-0 rounded-2xl overflow-hidden relative cursor-pointer">
             <img
               src="/assets/images/landing-means1.png"
               alt="Proper Name"

@@ -75,7 +75,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     manageMessageUnread
   } = useAuthActions();
 
-  const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql"
+  const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/auth/graphql"
 
   const MORTGAGE_FILE_UPLOAD = process.env.NEXT_PUBLIC_MORTGAGE_SERIVCE_URL || "http://localhost:4001"
 
@@ -201,18 +201,13 @@ export const useUserAuthApi = (handleCb?: () => void) => {
       }
       if (user.account_type === "seller") {
         router.push('/sell')
+      } else if (data?.isHome) {
+        // If explicitly requested to go home (e.g. from /login page)
+        router.push(`/`)
+      } else if (!redirect && !data?.isBack) {
+        // Otherwise, stay on current page and refresh data (like header changes)
+        router.refresh()
       }
-      if (data?.isHome) {
-        if (user.account_type === "seller") {
-          router.push('/sell')
-        } else
-          router.push(`/home`)
-      }
-      // if (searchTerm) {
-      //   router.push(`/buy/browse?q=${encodeURIComponent(searchTerm)}`);
-      // } else {
-      //   router.push(`/home`);
-      // }
       handleCb?.();
 
     },
@@ -323,7 +318,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     },
     onSuccess: () => {
       success({ message: 'Password has been reset successfully.' });
-      router.push('/home');
+      router.push('/');
     },
     onError: (err: any) => {
       const apiMessage = err?.response?.data?.errors?.[0]?.message || err?.message || '';
@@ -1049,14 +1044,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
             message
             participantId
             agentId
-            code
-            field
-            correlationId
-            emailDeliveryStatus
-            emailFailureReason
-            emailProviderMessageId
-            email_delivery_status
-            email_failure_reason
+            engagementId
           }
         }
       `;
@@ -1093,66 +1081,23 @@ export const useUserAuthApi = (handleCb?: () => void) => {
           return response.data?.data?.createExternalParticipant;
         }
 
-        if (isSchemaCompatibilityError(response?.data?.errors)) {
-          const fallbackResponse = await axios.post(
-            GRAPHQL_URI,
-            {
-              query: legacyQuery,
-              variables: { input: agentData },
-            },
-            requestConfig
-          );
-
-          if (fallbackResponse.status !== 200 || fallbackResponse?.data?.errors) {
-            const fallbackGraphQLError =
-              fallbackResponse?.data?.errors?.[0]?.message;
-            throw new Error(fallbackGraphQLError || "Failed to send invitation");
-          }
-
-          return fallbackResponse.data?.data?.createExternalParticipant;
+        if (response.data.errors) {
+          throw new Error(response.data.errors[0].message);
         }
 
-        const graphQLError = response?.data?.errors?.[0]?.message;
-        throw new Error(graphQLError || "Failed to send invitation");
-      } catch (err: any) {
-        if (isSchemaCompatibilityError(err?.response?.data?.errors)) {
-          try {
-            const fallbackResponse = await axios.post(
-              GRAPHQL_URI,
-              {
-                query: legacyQuery,
-                variables: { input: agentData },
-              },
-              requestConfig
-            );
-            if (fallbackResponse.status !== 200 || fallbackResponse?.data?.errors) {
-              const fallbackGraphQLError =
-                fallbackResponse?.data?.errors?.[0]?.message;
-              throw new Error(fallbackGraphQLError || "Failed to send invitation");
-            }
-            return fallbackResponse.data?.data?.createExternalParticipant;
-          } catch (fallbackErr: any) {
-            const fallbackMessage =
-              fallbackErr?.response?.data?.errors?.[0]?.message ||
-              fallbackErr?.message ||
-              "Failed to send invitation";
-            throw new Error(fallbackMessage);
-          }
-        }
-
-        const message =
-          err?.response?.data?.errors?.[0]?.message ||
-          err?.response?.data?.message ||
-          err?.message ||
-          "Failed to send invitation";
-        throw new Error(message);
+        return response.data?.data?.createExternalParticipant;
+      } catch (err) {
+        throw err;
       }
     },
     onSuccess: (data) => {
       console.log("Agent invited:", data);
     },
     onError: (err: any) => {
-      console.error("Error inviting agent: ", err);
+      console.error("Error inviting agent [Mutation]:", err);
+      if (err?.response?.data) {
+        console.log("Full Error Response Data:", err.response.data);
+      }
     },
   });
 
@@ -1594,7 +1539,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
 
       // Always perform local logout and redirect, regardless of backend response
       logout();
-      router.push('/home');
+      router.push('/');
     },
     onError: (err: any) => {
       // Even on unexpected errors, always perform local cleanup so the user isn't stuck
@@ -1605,7 +1550,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
 
       // Still clear local state and redirect
       logout();
-      router.push('/home');
+      router.push('/');
     },
   });
 
@@ -1754,7 +1699,7 @@ export const useTokenLoginMutation = (handleCb?: () => void) => {
         router.push(redirect);
         return;
       }
-      router.push(`/home`);
+      router.push(`/`);
       handleCb?.();
     },
 

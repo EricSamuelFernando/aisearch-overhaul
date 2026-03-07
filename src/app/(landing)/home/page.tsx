@@ -814,6 +814,7 @@ import { Radio } from '@mantine/core';
 import BuyOrRent from '@/components/buy/buy-or-rent';
 import FindPerfectMortgage from '@/components/buy/find-your-mortgage';
 import HomeDisclosure from '@/components/buy/home-disclosure';
+import Footer from '@/components/shared/footer';
 
 const questions = [
   {
@@ -958,7 +959,7 @@ const HOME_PAGE_TESTIMONIALS = [
 //                     key={i.toString()}
 //                     className={
 //                       "absolute w-[70px] h-[70px] min-[420px]:w-[90px] min-[420px]:h-[90px] md:w-[150px] md:h-[150px] " +
-//                       "left-[47%] min-[420px]:left-[46%] md:left-[43%] lg:left-[42%] " +
+//                       "left-[47%] min-[420px]:left-[46%] md:left-[43%] lg:left-1/2 " +
 //                       "transform -translate-x-1/2 -translate-y-1/2 " +
 //                       top
 //                     }
@@ -1217,18 +1218,16 @@ export default function Home() {
       <MainNavPages />
 
       {/* ================= HERO SECTION ================= */}
-      <section
-        ref={heroSectionRef}
-        className="relative -mt-24 min-h-[80vh] bg-[#170800] pt-28 text-white md:h-[695px] md:min-h-[695px] md:max-h-[695px] md:pt-24"
-      >
+      
+      <section  ref={heroSectionRef} className="home-hero relative -mt-24 min-h-[80vh] bg-[#170800] pt-28 text-white md:h-[695px] md:min-h-[695px] md:max-h-[695px] md:pt-24">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {/* ================= DESKTOP ARC ================= */}
 
           <div className="hidden md:flex w-full justify-center items-center overflow-visible">
-            <div className="absolute top-32 h-[850px] w-[1200px]">
+            <div className="home-hero-arc absolute left-1/2 top-32 h-[850px] w-[1200px] -translate-x-[54%]">
               {/* Image 1 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
+                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
                 style={{ transform: `rotate(0deg) translateX(430px)` }}
               >
                 <Image
@@ -1244,7 +1243,7 @@ export default function Home() {
 
               {/* Image 2 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
+                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
                 style={{ transform: `rotate(25.71deg) translateX(430px)` }}
               >
                 <Image
@@ -1260,7 +1259,7 @@ export default function Home() {
 
               {/* Image 3 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
+                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
                 style={{ transform: `rotate(51.43deg) translateX(430px)` }}
               >
                 <Image
@@ -1276,7 +1275,7 @@ export default function Home() {
 
               {/* Image 4 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
+                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
                 style={{ transform: `rotate(77.14deg) translateX(430px)` }}
               >
                 <Image
@@ -1292,7 +1291,7 @@ export default function Home() {
 
               {/* Image 5 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
+                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
                 style={{ transform: `rotate(102.86deg) translateX(430px)` }}
               >
                 <Image
@@ -1308,7 +1307,7 @@ export default function Home() {
 
               {/* Image 6 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
+                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
                 style={{ transform: `rotate(128.57deg) translateX(430px)` }}
               >
                 <Image
@@ -1324,7 +1323,7 @@ export default function Home() {
 
               {/* Image 7 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
+                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
                 style={{ transform: `rotate(154.29deg) translateX(430px)` }}
               >
                 <Image
@@ -1340,7 +1339,7 @@ export default function Home() {
 
               {/* Image 8 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
+                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
                 style={{ transform: `rotate(180deg) translateX(430px)` }}
               >
                 <Image
@@ -1357,7 +1356,7 @@ export default function Home() {
 
               {/* Image 9 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
+                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
                 style={{ transform: `rotate(205.71deg) translateX(430px)`, }}
               >
                 <Image
@@ -1373,7 +1372,7 @@ export default function Home() {
 
               {/* Image 10 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl relative"
+                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl relative"
                 style={{ transform: `rotate(231.43deg) translateX(430px)` }}
               >
 
@@ -1403,7 +1402,7 @@ export default function Home() {
 
               {/* Image 11 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
+                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
                 style={{ transform: `rotate(257.14deg) translateX(430px)` }}
               >
                 <Image
@@ -1419,7 +1418,7 @@ export default function Home() {
 
               {/* Image 12 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
+                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
                 style={{ transform: `rotate(282.86deg) translateX(430px)` }}
               >
                 <Image
@@ -1435,7 +1434,7 @@ export default function Home() {
 
               {/* Image 13 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform transform overflow-hidden rounded-3xl"
+                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform transform overflow-hidden rounded-3xl"
                 style={{ transform: `rotate(308.57deg) translateX(430px)` }}
               >
                 <Image
@@ -1451,7 +1450,7 @@ export default function Home() {
 
               {/* Image 14 */}
               <div
-                className="absolute left-[42%] top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
+                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
                 style={{ transform: `rotate(334.29deg) translateX(430px)` }}
               >
                 <Image
@@ -1510,15 +1509,13 @@ export default function Home() {
         </div>
 
 
-        <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pt-24 pb-16 text-center">
+        <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pt-24 pb-24 md:pb-28 text-center">
 
           {/* ================= TEXT + SEARCH ================= */}
-          <div
-            ref={heroContentRef}
-            className="relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-8 mt-24 md:mt-32"
-          >
+      
+          <div ref={heroContentRef} className="home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-8 mt-24 md:mt-24">
 
-            <h1 className="text-[2rem] font-medium leading-snug tracking-tight sm:text-[2.4rem] md:text-[3rem]">
+            <h1 className="home-hero-title text-[2rem] font-medium leading-snug tracking-tight sm:text-[2.4rem] md:text-[3rem]">
               <span className="block">Buying a home</span>
               <span className="block">
                 should be{' '}
@@ -1526,12 +1523,12 @@ export default function Home() {
               </span>
             </h1>
 
-            <p className="text-[1rem] font-medium text-[#CEB28B]">
+            <p className="home-hero-subtitle text-[1rem] font-medium text-[#CEB28B]">
               First end-to-end guided real estate platform
             </p>
 
             <div className="relative w-full flex justify-center text-black">
-              <div className="w-full max-w-[1500px]">
+              <div className="home-hero-search-wrap w-full max-w-[1500px]">
                 <HeroSearchForm
                 />
               </div>
@@ -1554,11 +1551,34 @@ export default function Home() {
               </div> */}
             </div>
 
-            <div
-              className={`text-[1rem] transition-colors ${isHomeSearchActive ? 'text-black' : 'text-white'}`}
-            >
-              <span className="font-medium">Conversational search, </span>
-              <span className="font-bold underline">powered by AI.</span>
+            <div className="mb-4 flex items-center gap-3 whitespace-nowrap md:mb-6">
+              <span
+                className={`text-[1rem] font-medium transition-colors ${isHomeSearchActive ? 'text-white md:text-[#2C211A]' : 'text-white'}`}
+              >
+                Conversational search,
+              </span>
+              <span
+                className={`text-[1rem] font-bold underline transition-colors ${isHomeSearchActive ? 'text-white md:text-[#2C211A]' : 'text-white'}`}
+              >
+                powered by Snaphomz AI.
+              </span>
+                <button className="uiverse">
+                  <div className="wrapper">
+                    <span>BETA</span>
+                    <div className="circle circle-12"></div>
+                    <div className="circle circle-11"></div>
+                    <div className="circle circle-10"></div>
+                    <div className="circle circle-9"></div>
+                    <div className="circle circle-8"></div>
+                    <div className="circle circle-7"></div>
+                    <div className="circle circle-6"></div>
+                    <div className="circle circle-5"></div>
+                    <div className="circle circle-4"></div>
+                    <div className="circle circle-3"></div>
+                    <div className="circle circle-2"></div>
+                    <div className="circle circle-1"></div>
+                  </div>
+                </button>
             </div>
           </div>
         </section>
@@ -1585,7 +1605,7 @@ export default function Home() {
         />
       )}
       <div
-        className="home-sections"
+        className="home-sections pt-8 md:pt-10"
         style={{ ['--home-section-gap' as any]: `${homeSectionGap}px` }}
       >
         <ChooseYourMeans
@@ -1596,10 +1616,8 @@ export default function Home() {
           ctaLabel="Get started"
           onCtaClick={handleGetStartedClick}
         />
-        <div className="home-section-gap-tight">
-          <WeMakeItEasy contentPreset="home" />
-        </div>
-        <section className="relative pt-8 md:pt-10">
+        <WeMakeItEasy contentPreset="home" />
+        <section className="relative pt-8 md:pt-10 home-info-carousel">
           <Carousel
             className="home-carousel"
             slideSize="100%"
@@ -1623,22 +1641,22 @@ export default function Home() {
             }}
           >
             <Carousel.Slide>
-              <div className="h-[560px] flex items-center">
+              <div className="h-[560px] xl:h-[620px] 2xl:h-[680px] flex items-center">
                 <GetReadyForCollege />
               </div>
             </Carousel.Slide>
             <Carousel.Slide>
-              <div className="h-[560px] flex items-start pt-0">
+              <div className="h-[560px] xl:h-[620px] 2xl:h-[680px] flex items-start pt-0">
                 <FindPerfectMortgage />
               </div>
             </Carousel.Slide>
             <Carousel.Slide>
-              <div className="h-[560px] flex items-center">
+              <div className="h-[560px] xl:h-[620px] 2xl:h-[680px] flex items-center">
                 <HomeDisclosure />
               </div>
             </Carousel.Slide>
             <Carousel.Slide>
-              <div className="h-[560px] flex items-center">
+              <div className="h-[560px] xl:h-[620px] 2xl:h-[680px] flex items-center">
                 <BuyOrRent />
               </div>
             </Carousel.Slide>
@@ -1652,6 +1670,8 @@ export default function Home() {
           testimonials={HOME_PAGE_TESTIMONIALS}
         />
       </div>
+
+      <Footer />
     </>
   );
 }

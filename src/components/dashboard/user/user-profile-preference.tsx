@@ -415,18 +415,17 @@ function UserPropfilePreference() {
     const { user } = useAuth();
     const [isLoaded, setIsLoaded] = useState(true);
     const { updatePropertyPreference } = useUpdatePropertyPreference(user?.email);
-    const { getPropertyPreferenceFromDB, getPropertyPreferenceFromAI } =
+    const { getPropertyPreferenceFromAI } =
         useGetPropertyPreference(user?.email);
 
     // Track whether we've already loaded preference data to prevent re-setting on refetch
     const hasLoadedPreferences = useRef(false);
 
-    // Refetch both DB and AI API preferences when component mounts to ensure fresh data
+    // Refetch AI API preferences when component mounts to ensure fresh data
     React.useEffect(() => {
         if (user?.email) {
             console.log('🔄 Refetching preferences on mount...');
             hasLoadedPreferences.current = false;
-            getPropertyPreferenceFromDB.refetch?.();
             getPropertyPreferenceFromAI.refetch?.();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -444,11 +443,10 @@ function UserPropfilePreference() {
 
     const autoCompleteRef = React.useRef<google.maps.places.Autocomplete | null>(null);
 
-    // Load preference data: Prefer DB if complete, otherwise use AI API
-    // If both are null/empty (user skipped), leave defaults (nothing selected)
+    // Load preference data from AI API
     useEffect(() => {
-        // Wait for both queries to finish loading
-        if (getPropertyPreferenceFromDB.isLoading || getPropertyPreferenceFromAI.isLoading) {
+        // Wait for query to finish loading
+        if (getPropertyPreferenceFromAI.isLoading) {
             console.log('⏳ Still loading preferences...');
             return;
         }
@@ -456,44 +454,11 @@ function UserPropfilePreference() {
         // Don't re-set if we've already loaded (prevents overwriting user edits)
         if (hasLoadedPreferences.current) return;
 
-        const dbPreference: any = getPropertyPreferenceFromDB.data;
         const aiResponse: any = getPropertyPreferenceFromAI.data;
 
-        // Check if DB has complete data
-        const dbIsComplete = Boolean(
-            dbPreference &&
-            dbPreference.propertyType &&
-            dbPreference.preferredPropertyAddress &&
-            dbPreference.spendAmount?.max
-        );
-
-        // If DB has complete data, use it
-        if (dbIsComplete) {
-            console.log('✅ Using GraphQL DB data (complete):', dbPreference);
-            const propertyType = dbPreference.propertyType || '';
-            const priceMax = Number(dbPreference.spendAmount?.max) || 0;
-            const priceMin = Number(dbPreference.spendAmount?.min) || 0;
-            const areaPreference = dbPreference.preferredPropertyAddress || '';
-
-            const normalizedPropertyType =
-                propertyType === 'Single Family' ? 'Single Family Home' : propertyType;
-
-            setPreferenceData({
-                areaPreference,
-                propertyTypePreference: normalizedPropertyType,
-                propertyPricePreference: {
-                    max: priceMax,
-                    min: priceMin
-                },
-            });
-            hasLoadedPreferences.current = true;
-            return;
-        }
-
-        // If DB is incomplete/missing, try AI API (only if no error)
-        if (aiResponse?.preference && !getPropertyPreferenceFromAI.isError) {
-            const aiPreference = aiResponse.preference;
-            console.log('📊 Using AI API data (DB incomplete/missing):', aiPreference);
+        if (aiResponse && !getPropertyPreferenceFromAI.isError) {
+            const aiPreference = aiResponse.preference || aiResponse;
+            console.log('📊 Using AI API data:', aiPreference);
 
             // Property type logic
             let propertyType = '';
@@ -536,8 +501,6 @@ function UserPropfilePreference() {
         hasLoadedPreferences.current = true;
         console.log('📋 Preferences loaded (may be empty if user never set them)');
     }, [
-        getPropertyPreferenceFromDB.data,
-        getPropertyPreferenceFromDB.isLoading,
         getPropertyPreferenceFromAI.data,
         getPropertyPreferenceFromAI.isLoading,
         getPropertyPreferenceFromAI.isError,
@@ -578,14 +541,12 @@ function UserPropfilePreference() {
             propertyType: propertyTypePreference || '',
             priceMin: priceMin,
             priceMax: priceMax,
-            onboardingCompleted: isComplete,
         }, {
             onSuccess: (data) => {
                 console.log('✅ Preferences updated successfully:', data);
                 // Show toast only on explicit user save
                 success({ message: "Property preference updated successfully" });
-                // Refetch both DB and AI API preferences after successful update
-                getPropertyPreferenceFromDB.refetch?.();
+                // Refetch AI API preferences after successful update
                 getPropertyPreferenceFromAI.refetch().then(() => {
                     // Update local state with the saved data to ensure UI reflects changes immediately
                     if (data) {
@@ -619,8 +580,8 @@ function UserPropfilePreference() {
         }));
     };
 
-    // Show loading state when both DB and AI data are still loading and we have no data yet
-    const isInitialLoading = (getPropertyPreferenceFromDB.isLoading || getPropertyPreferenceFromAI.isLoading) && !hasLoadedPreferences.current;
+    // Show loading state when AI data is still loading and we have no data yet
+    const isInitialLoading = getPropertyPreferenceFromAI.isLoading && !hasLoadedPreferences.current;
 
     if (isInitialLoading) {
         return (
@@ -849,21 +810,7 @@ function UserPropfilePreference() {
                             const optionMax = Number(value?.max) || 0;
                             const optionMin = Number(value?.min) || 0;
 
-                            const exactMatch =
-                                Math.abs(savedMax - optionMax) < 1 &&
-                                Math.abs(savedMin - optionMin) < 1;
-
-                            let rangeMatch = false;
-                            if (savedMax > 0) {
-                                if (optionMin === 0) {
-                                    rangeMatch = savedMax <= optionMax;
-                                } else {
-                                    rangeMatch =
-                                        savedMax > optionMin && savedMax <= optionMax;
-                                }
-                            }
-
-                            const isSelected = exactMatch || rangeMatch;
+                            const isSelected = savedMax === optionMax && savedMin === optionMin;
 
                             return (
                                 <Button

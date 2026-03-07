@@ -4,16 +4,16 @@ import Image from 'next/image';
 
 export default function GetReadyForCollege() {
   return (
-    <section className="w-full bg-[#FFF6EC] py-6 sm:py-8 lg:py-10 min-h-[560px]">
-      <div className="grid grid-cols-1 lg:grid-cols-2 min-h-auto lg:min-h-[560px] gap-0">
+    <section className="home-college-section w-full bg-[#FFF6EC] py-6 sm:py-8 lg:py-10 min-h-[560px]">
+      <div className="home-college-container mx-auto grid grid-cols-1 lg:grid-cols-2 min-h-auto lg:min-h-[560px] gap-0">
 
         {/* LEFT CONTENT */}
-        <div className="flex flex-col justify-center px-4 sm:px-6 md:px-10 lg:px-16 py-6 sm:py-8 lg:py-10">
+        <div className="flex flex-col justify-center px-4 sm:px-6 md:px-10 lg:px-16 xl:px-20 2xl:px-24 py-6 sm:py-8 lg:py-10">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#1F1F1F]">
             Get Ready For <span className="font-light">College</span>
           </h2>
 
-          <p className="mt-3 sm:mt-4 max-w-md text-xs sm:text-sm md:text-base text-[#6F6F6F] leading-relaxed">
+          <p className="mt-3 sm:mt-4 max-w-md xl:max-w-lg text-xs sm:text-sm md:text-base xl:text-[1.125rem] text-[#6F6F6F] leading-relaxed">
             SnapGrad is your personalized guide to the college journey,
             helping students seamlessly transition from high school to
             higher education.
@@ -43,7 +43,7 @@ export default function GetReadyForCollege() {
           <div className="absolute left-0 top-0 h-full w-[1px] bg-[#B9B9B9] hidden lg:block" />
 
           {/* Cards container */}
-          <div className="relative w-full max-w-sm lg:max-w-md px-2 sm:px-0">
+          <div className="relative w-full max-w-sm lg:max-w-md xl:max-w-xl px-2 sm:px-0">
 
             {/* BACK CARD (NEW YORK) */}
             <div
@@ -53,7 +53,7 @@ export default function GetReadyForCollege() {
                 px-4 sm:px-6 py-3 sm:py-4
                 shadow-lg
                 transform rotate-[2deg]
-                min-h-[180px] sm:min-h-[210px]
+                min-h-[180px] sm:min-h-[210px] xl:min-h-[240px]
                 hidden sm:block
               "
             >
@@ -69,7 +69,7 @@ export default function GetReadyForCollege() {
                 px-4 sm:px-6 py-3 sm:py-4
                 shadow-xl
                 transform sm:rotate-[7deg]
-                min-h-[180px] sm:min-h-[210px]
+                min-h-[180px] sm:min-h-[210px] xl:min-h-[240px]
               "
             >
               <CardContent withImage />

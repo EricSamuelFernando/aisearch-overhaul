@@ -52,7 +52,7 @@ const DashboardNav: React.FC<DashboardNavProps> = ({ navClass }) => {
         {/* Logo Section */}
         <div className="logo">
           {/* <Link href={user?.email ? "/dashboard" : "/home"}> */}
-          <Link href="/home">
+          <Link href="/">
             <Image
               src="/assets/images/snaphomz-logo-black.png"
               alt="logo"

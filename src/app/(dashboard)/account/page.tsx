@@ -348,7 +348,7 @@ export default function AccountPage() {
                 );
               })
             ) : (
-              <p>No agents found.</p>
+              <p className="col-span-4 whitespace-nowrap">No agents found.</p>
             )}
           </div>
 

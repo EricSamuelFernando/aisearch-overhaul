@@ -108,6 +108,14 @@ const isUuidLike = (value: string): boolean =>
     value,
   );
 
+const extractNumericId = (id: any): string => {
+  if (!id) return "";
+  const strId = String(id).trim();
+  // Strip common prefixes like 'noti_' or 'socket-'
+  const match = strId.match(/(\d+)$/);
+  return match ? match[1] : strId;
+};
+
 const resolveSenderName = (messageData: any): string => {
   const containers = [
     messageData,
@@ -396,8 +404,13 @@ function SocketProvider({ children }: { children: ReactNode }) {
       newSocket.connect();
       setSocket(newSocket);
 
+      const userId = user?.id;
       newSocket.on("connect", () => {
         console.log('[SocketContext] Connected!', newSocket.id);
+        if (userId) {
+          newSocket.emit('userConnected', { userId });
+          console.log('[SocketContext] Emitted userConnected for userId:', userId);
+        }
       });
 
       newSocket.on("connect_error", (err) => {
@@ -427,7 +440,7 @@ function SocketProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const commWsUrl = process.env.NEXT_PUBLIC_COMMUNICATION_SOCKET_URI;
     const baseAuthWsUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_SOCKET_URL;
-    const authServiceBaseUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL;
+    const authServiceBaseUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_SOCKET_URL;
     if (!isLogin || !effectiveToken) return;
 
     let resolvedAuthWsUrl = baseAuthWsUrl || authServiceBaseUrl;
@@ -437,12 +450,12 @@ function SocketProvider({ children }: { children: ReactNode }) {
       resolvedAuthWsUrl = authServiceBaseUrl;
     }
 
-    const trimmedBase = resolvedAuthWsUrl.replace(/\/$/, '');
-    const wsBase = trimmedBase.endsWith('/ws') ? trimmedBase : `${trimmedBase}/ws`;
-    const wsUrl = wsBase.startsWith('ws') ? wsBase : wsBase.replace(/^http/, 'ws');
+    // const trimmedBase = resolvedAuthWsUrl.replace(/\/$/, '');
+    // const wsBase = trimmedBase.endsWith('/ws') ? trimmedBase : `${trimmedBase}/ws`;
+    // const wsUrl = wsBase.startsWith('ws') ? wsBase : wsBase.replace(/^http/, 'ws');
     const encodedToken = encodeURIComponent(`Bearer ${effectiveToken}`);
-    const authWsUrl = `${wsUrl}?token=${encodedToken}&authorization=${encodedToken}`;
-
+    const authWsUrl = `${resolvedAuthWsUrl}?token=${encodedToken}&authorization=${encodedToken}`;
+    console.log("Websocket url is ", authWsUrl)
     const connectAuthWs = () => {
       if (authNotificationWsRef.current) return;
 
@@ -488,7 +501,7 @@ function SocketProvider({ children }: { children: ReactNode }) {
             },
             notifications: [
               {
-                id: data?.id || `socket-notification-${Date.now()}`,
+                id: extractNumericId(data?.id || data?._id) || `socket-notification-${Date.now()}`,
                 title: title || 'New notification',
                 body: body || '',
                 createdAt: data?.createdAt || new Date().toISOString(),
@@ -541,13 +554,16 @@ function SocketProvider({ children }: { children: ReactNode }) {
 
   // Hydrate bell notifications from API on load and refresh
   useEffect(() => {
-    const apiNotifications = notificationsQuery.data?.data?.data?.result?.result || [];
+    const rawApiData = notificationsQuery.data?.data as any;
+    const apiNotifications = Array.isArray(rawApiData)
+      ? rawApiData
+      : rawApiData?.data?.result?.result || rawApiData?.result || [];
     if (!Array.isArray(apiNotifications) || apiNotifications.length === 0) return;
 
     setState((prev: any) => {
       const existing = Array.isArray(prev.notifications) ? prev.notifications : [];
       const normalized = apiNotifications.map((item: any) => ({
-        id: item._id,
+        id: extractNumericId(item._id || item.id),
         title: item.title,
         body: item.body,
         createdAt: item.createdAt,
@@ -578,12 +594,14 @@ function SocketProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isLogin) return;
     notificationsQuery.refetch();
-  }, [pathname, isLogin, notificationsQuery]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, isLogin]);
 
   useEffect(() => {
     if (!isLogin) return;
     notificationsQuery.refetch();
-  }, [isLogin, effectiveToken, notificationsQuery]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLogin, effectiveToken]);
 
   useEffect(() => {
     const tab = searchParams?.get('tab');
@@ -603,7 +621,28 @@ function SocketProvider({ children }: { children: ReactNode }) {
     }
   }, [pathname, searchParams]);
 
-  // Removed userConnected event - not supported by backend WebSocket handler
+  // Re-emit userConnected whenever socket connects/reconnects or user ID becomes available
+  useEffect(() => {
+    if (!socket || !user?.id) return;
+    const userId = user.id;
+
+    // Emit immediately if already connected
+    if (socket.connected) {
+      socket.emit('userConnected', { userId });
+      console.log('[SocketContext] Re-emitted userConnected for userId:', userId);
+    }
+
+    // Also re-emit on every reconnect (socket object stays same, but connection resets)
+    const handleReconnect = () => {
+      socket.emit('userConnected', { userId });
+      console.log('[SocketContext] Reconnect — re-emitted userConnected for userId:', userId);
+    };
+    socket.on('connect', handleReconnect);
+
+    return () => {
+      socket.off('connect', handleReconnect);
+    };
+  }, [socket, user?.id]);
 
   // Handle incoming messages - only using backend-supported events
   useEffect(() => {
@@ -739,8 +778,26 @@ function SocketProvider({ children }: { children: ReactNode }) {
       const handleNewMessage = (messageData: any) => handleIncomingMessage(messageData, "newMessage");
       const handleRecievedMessage = (messageData: any) => handleIncomingMessage(messageData, "recievedMessage");
 
+      // Handle authoritative unread count pushed from backend
+      const handleUnreadCountUpdated = (data: any) => {
+        const threadId = data?.threadId;
+        const count = typeof data?.count === 'number' ? data.count : 0;
+        if (!threadId) return;
+        console.log(`[SocketContext] unread_count_updated: threadId=${threadId}, count=${count}`);
+        setState((prev: any) => ({
+          ...prev,
+          conversationUnreadCount: [
+            ...(Array.isArray(prev.conversationUnreadCount)
+              ? prev.conversationUnreadCount.filter((c: any) => c.threadId !== threadId)
+              : []),
+            { threadId, count },
+          ],
+        }));
+      };
+
       socket.on("newMessage", handleNewMessage);
       socket.on("recievedMessage", handleRecievedMessage);
+      socket.on("unread_count_updated", handleUnreadCountUpdated);
       socket.on("notification_created", (payload: any) => {
         console.log("[SocketContext] notification_created:", payload);
         queryClient.invalidateQueries({ queryKey: ["notifications"] });
@@ -767,23 +824,23 @@ function SocketProvider({ children }: { children: ReactNode }) {
             body: body || "",
             kind,
             channelId: threadId,
-              action: "navigate",
-              isVisible: true,
-              link,
+            action: "navigate",
+            isVisible: true,
+            link,
+          },
+          notifications: [
+            {
+              id: extractNumericId(data?.id || data?._id) || `socket-notification-${Date.now()}`,
+              title: title || "New notification",
+              body: body || "",
+              createdAt: data?.createdAt || new Date().toISOString(),
+              read: false,
+              kind: kind || "general",
+              link: link || undefined,
+              threadId: threadId || undefined,
+              snapId: snapId || undefined,
+              source: "socket",
             },
-            notifications: [
-              {
-                id: data?.id || `socket-notification-${Date.now()}`,
-                title: title || "New notification",
-                body: body || "",
-                createdAt: data?.createdAt || new Date().toISOString(),
-                read: false,
-                kind: kind || "general",
-                link: link || undefined,
-                threadId: threadId || undefined,
-                snapId: snapId || undefined,
-                source: "socket",
-              },
             ...(Array.isArray(prev.notifications) ? prev.notifications : []),
           ].slice(0, 50),
         }));
@@ -792,53 +849,12 @@ function SocketProvider({ children }: { children: ReactNode }) {
       });
 
       const handleRecentActivityUpdate = (payload: any) => {
-        const data = payload?.data || payload;
-        const snapId = getStringValue(data?.snapId, data?.snap_id);
-        if (!snapId) return;
-
-        const title =
-          getStringValue(data?.title, data?.heading) ||
-          "New comment in Snapz";
-        const body =
-          getStringValue(data?.body, data?.message, data?.text) ||
-          getStringValue(data?.comment, data?.content) ||
-          "";
-        const link = `/account/collections/${snapId}`;
-
-        console.log("[SocketContext] recent_activity_update received:", data);
-
-        setState((prev: any) => ({
-          ...prev,
-          notification: {
-            user: prev.notification?.user,
-            property: prev.notification?.property,
-            message: body || title,
-            title,
-            body,
-            kind: "comment",
-            channelId: null,
-            action: "navigate",
-            isVisible: true,
-            link,
-          },
-          notifications: [
-            {
-              id: data?.id || `socket-comment-${Date.now()}`,
-              title,
-              body,
-              createdAt: data?.createdAt || new Date().toISOString(),
-              read: false,
-              kind: "comment",
-              link,
-              snapId,
-              source: "socket",
-            },
-            ...(Array.isArray(prev.notifications) ? prev.notifications : []),
-          ].slice(0, 50),
-        }));
-
-        console.log("[SocketContext] Comment notification added to state");
-        queryClient.invalidateQueries({ queryKey: ["notifications"] });
+        // Do NOT create bell notifications here — this event is broadcast to
+        // all connected users. Instead, invalidate the notifications query so
+        // that only accepted/owner/creator participants (who have a DB record)
+        // will see the new notification after refetch.
+        console.log("[SocketContext] recent_activity_update received — refreshing notifications");
+        queryClient.invalidateQueries({ queryKey: ['notifications'] });
       };
 
       socket.on("recent_activity_update", handleRecentActivityUpdate);
@@ -866,6 +882,7 @@ function SocketProvider({ children }: { children: ReactNode }) {
         socket.off("new_offer_recieved");
         socket.off("newMessage", handleNewMessage);
         socket.off("recievedMessage", handleRecievedMessage);
+        socket.off("unread_count_updated", handleUnreadCountUpdated);
         socket.off("notification_created");
         socket.off("recent_activity_update", handleRecentActivityUpdate);
         socket.off("createOrJoinConversation_response");

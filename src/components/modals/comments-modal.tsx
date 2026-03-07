@@ -115,17 +115,20 @@ const CommentsModal: React.FC<CommentsModalProps> = ({ isOpen, onClose, property
                                         <h4 className="font-bold text-sm text-gray-900">{comment.userName}</h4>
                                         {comment.accountType && (
                                             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${comment.accountType.toLowerCase() === 'agent'
-                                                    ? 'bg-blue-100 text-blue-700'
-                                                    : comment.accountType.toLowerCase() === 'co-buyer'
-                                                        ? 'bg-purple-100 text-purple-700'
-                                                        : 'bg-green-100 text-green-700'
+                                                ? 'bg-blue-100 text-blue-700'
+                                                : comment.accountType.toLowerCase() === 'co-buyer'
+                                                    ? 'bg-purple-100 text-purple-700'
+                                                    : 'bg-green-100 text-green-700'
                                                 }`}>
                                                 {comment.accountType.toLowerCase() === 'agent' ? 'Agent' : comment.accountType.toLowerCase() === 'co-buyer' ? 'Co-Buyer' : 'Buyer'}
                                             </span>
                                         )}
                                     </div>
                                     <span className="text-xs text-gray-400">
-                                        {format(new Date(comment.createdAt), 'MMM dd, yyyy')}
+                                        {(() => {
+                                            const d = comment.createdAt ? new Date(comment.createdAt) : null;
+                                            return d && !isNaN(d.getTime()) ? format(d, 'MMM dd, yyyy') : 'Just now';
+                                        })()}
                                     </span>
                                 </div>
                                 <p className="text-sm text-gray-600 leading-relaxed font-sans break-words whitespace-pre-wrap">

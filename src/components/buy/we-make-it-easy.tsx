@@ -1,13 +1,11 @@
 ﻿'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Carousel } from '@mantine/carousel';
 import {
   Paper,
   Text,
   Group,
-  Container,
-  Title,
   SegmentedControl,
 } from '@mantine/core';
 import {
@@ -26,7 +24,7 @@ import Image from 'next/image';
 import guidline from '../../../public/assets/icons/Guided.svg';
 import reduced from '../../../public/assets/icons/Reduced.svg';
 import concierge from '../../../public/assets/icons/Concierge.svg';
-import { IconArrowLeft, IconArrowNarrowLeft, IconArrowNarrowRight, IconArrowRight } from '@tabler/icons-react';
+import { IconArrowNarrowLeft, IconArrowNarrowRight } from '@tabler/icons-react';
 
 type FeatureItem = {
   category: 'Transaction' | 'Technology' | 'Transparency';
@@ -255,6 +253,9 @@ const WeMakeItEasy = ({
   const effectiveFeatures = contentPreset === 'home' ? HOME_PAGE_FEATURES : features;
 
   const [activeCategory, setActiveCategory] = useState('Transaction');
+  const [embla, setEmbla] = useState<any>(null);
+  const [canScrollPrev, setCanScrollPrev] = useState(false);
+  const [canScrollNext, setCanScrollNext] = useState(false);
 
   // Responsive breakpoints for slide size
   // const isSmallScreen = useMediaQuery('(max-width: 768px)');
@@ -266,8 +267,9 @@ const WeMakeItEasy = ({
   //     : '33.3333%';
 
   const isSmallScreen = useMediaQuery('(max-width: 768px)');
+  const isLargeScreen = useMediaQuery('(min-width: 1536px)');
 
-  const slideSize = isSmallScreen ? '90%' : '33.3333%';
+  const slideSize = isSmallScreen ? '90%' : isLargeScreen ? '31.5%' : '33.3333%';
 
 
 
@@ -276,32 +278,51 @@ const WeMakeItEasy = ({
     (feature) => feature.category === activeCategory
   );
 
+  useEffect(() => {
+    if (!embla) return;
+
+    const syncButtons = () => {
+      setCanScrollPrev(embla.canScrollPrev());
+      setCanScrollNext(embla.canScrollNext());
+    };
+
+    syncButtons();
+    embla.on('select', syncButtons);
+    embla.on('reInit', syncButtons);
+
+    return () => {
+      embla.off('select', syncButtons);
+      embla.off('reInit', syncButtons);
+    };
+  }, [embla, activeCategory]);
+
   return (
-    <section className="bg-[#FFF6EC] pt-10 px-4 sm:px-6 lg:px-24 overflow-x-hidden">
-      <div className=" mx-auto text-center">
+    <section className="home-easy-section bg-[#FFF6EC] pt-8 md:pt-4 px-4 sm:px-6 lg:px-24 overflow-x-hidden">
+      <div className="home-easy-container mx-auto text-center">
         {/* Heading */}
-        <h2 className=" satoshi text-3xl sm:text-4xl font-semibold ">
+        <h2 className="home-easy-title satoshi text-3xl sm:text-4xl font-semibold ">
           {effectiveHeading}
         </h2>
-        <p className="satoshi text-xs sm:text-sm text-[#8E8B8A] mb-12 max-w-[600px] mx-auto">
+        <p className="home-easy-subtitle satoshi text-xs sm:text-sm text-[#8E8B8A] mb-12 max-w-[600px] mx-auto">
           {effectiveSubtitle}
         </p>
 
         {/* SegmentedControl (three tabs styled like the first screenshot) */}
-        <Container size="sm" className='mb-20' px={0} >
-          <SegmentedControl
-            value={activeCategory}
-            onChange={setActiveCategory}
-            color='#323131'
+        <div className='mb-8 w-full px-1 md:mb-10'>
+          <div className='home-easy-tabs mx-auto w-full max-w-[460px]'>
+            <SegmentedControl
+              value={activeCategory}
+              onChange={setActiveCategory}
+              color='#323131'
 
-            data={[
-              { label: 'Transaction', value: 'Transaction' },
-              { label: 'Technology', value: 'Technology' },
-              { label: 'Transparency', value: 'Transparency' },
-            ]}
-            radius="12px"
-            size="md"
-            styles={{
+              data={[
+                { label: 'Transaction', value: 'Transaction' },
+                { label: 'Technology', value: 'Technology' },
+                { label: 'Transparency', value: 'Transparency' },
+              ]}
+              radius="12px"
+              size="md"
+              styles={{
 
               root: {
                 backgroundColor: '#170800',   // dark container background
@@ -439,18 +460,20 @@ const WeMakeItEasy = ({
                   content: 'none',
                 },
               },
-            }}
-          />
-        </Container>
+              }}
+            />
+          </div>
+        </div>
 
 
         {/* Carousel */}
         <Carousel
+          getEmblaApi={setEmbla}
           slideSize={slideSize}
           align={isSmallScreen ? 'center' : 'start'}
           loop
           slideGap="lg"
-          height={isSmallScreen ? 'auto' : 400}
+          height={isSmallScreen ? 320 : isLargeScreen ? 430 : 400}
 
           // withControls={!isSmallScreen}   // ðŸ‘ˆ KEY LINE
           // nextControlIcon={<IconArrowNarrowRight size={36} stroke={1} />}
@@ -490,8 +513,8 @@ const WeMakeItEasy = ({
                 bg="#F4E5D0"
                 style={{
                   borderRadius: '14px',
-                  padding: isSmallScreen ? '18px' : '60px', // ðŸ‘ˆ slightly tighter
-                  height: '100%',
+                  padding: isSmallScreen ? '18px' : isLargeScreen ? '72px' : '60px',
+                  height: isSmallScreen ? '300px' : '100%',
                   maxWidth: isSmallScreen ? '320px' : '100%', // ðŸ‘ˆ KEY LINE
                   margin: '0 auto',
                   display: 'flex',
@@ -513,6 +536,43 @@ const WeMakeItEasy = ({
             </Carousel.Slide>
           ))}
         </Carousel>
+
+        <div
+          className="mx-auto mt-6 flex w-full items-center justify-end gap-2"
+          style={{
+            maxWidth: '100%',
+            paddingRight: isSmallScreen ? 8 : isLargeScreen ? 72 : 56,
+          }}
+        >
+          <button
+            type="button"
+            aria-label="Scroll previous cards"
+            disabled={!canScrollPrev}
+            onClick={() => embla?.scrollPrev()}
+            className={`flex items-center justify-center rounded-full transition-all duration-200 ${
+              isSmallScreen ? 'h-8 w-16' : 'h-10 w-16'
+            } ${canScrollPrev
+                ? 'bg-[#F5EBDF] text-[#4A3A2B] hover:bg-[#EFE2D2]'
+                : 'bg-[#F1E7DC] text-[#CFC3B5] cursor-not-allowed'
+              }`}
+          >
+            <IconArrowNarrowLeft size={20} stroke={2.2} />
+          </button>
+          <button
+            type="button"
+            aria-label="Scroll next cards"
+            disabled={!canScrollNext}
+            onClick={() => embla?.scrollNext()}
+            className={`flex items-center justify-center rounded-full transition-all duration-200 ${
+              isSmallScreen ? 'h-8 w-16' : 'h-10 w-16'
+            } ${canScrollNext
+                ? 'bg-[#F5EBDF] text-[#4A3A2B] hover:bg-[#EFE2D2]'
+                : 'bg-[#F1E7DC] text-[#CFC3B5] cursor-not-allowed'
+              }`}
+          >
+            <IconArrowNarrowRight size={20} stroke={2.2} />
+          </button>
+        </div>
       </div>
     </section>
   );

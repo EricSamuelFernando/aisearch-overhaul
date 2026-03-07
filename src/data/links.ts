@@ -1,7 +1,7 @@
 import { IFooterItems, MainNavItem } from '../interfaces/footer.interface';
 import { Facebook, Instagram, Linkedin } from 'lucide-react';
+import { FaTwitter } from 'react-icons/fa';
 import TikTokIcon from '@/components/icons/tiktok-icon';
-import XIcon from '@/components/icons/x-icon';
 
 export const footerLinks: Record<string, IFooterItems> = {
   company: {
@@ -99,10 +99,10 @@ export const socialLinks: MainNavItem[] = [
     icon: TikTokIcon,
   },
   {
-    title: 'x',
+    title: 'twitter',
     external: true,
-    href: 'https://x.com/snaphomz?s=20',
-    icon: XIcon,
+    href: 'https://twitter.com/snaphomz',
+    icon: FaTwitter,
   },
 ];
 
@@ -110,7 +110,7 @@ export const mainNavsLinks: MainNavItem[] = [
   {
     title: 'Buy',
     external: true,
-    href: '/home',
+    href: '/',
   },
   {
     title: 'Sell',
@@ -138,17 +138,17 @@ export const linksData = [
   {
     title: 'Buy a Home With',
     links: [
-      { name: 'Your Agent', href: '/home#agents' },
-      { name: 'Our Real Estate Agents', href: '/home#agents' },
-      // { name: 'Do it Yourself', href: '/home#agents' },
+      { name: 'Your Agent', href: '/#agents' },
+      { name: 'Our Real Estate Agents', href: '/#agents' },
+      // { name: 'Do it Yourself', href: '/#agents' },
     ],
   },
   {
     title: 'Resources',
     links: [
-      { name: 'How it Works', href: '/home#how-it-works' },
-      { name: 'Offer Strength Analyzer', href: '/home#strength-analyzer' },
-      { name: 'Testimonials', href: '/home#testimonials' },
+      { name: 'How it Works', href: '/#how-it-works' },
+      { name: 'Offer Strength Analyzer', href: '/#strength-analyzer' },
+      { name: 'Testimonials', href: '/#testimonials' },
     ],
   },
 ];

@@ -6,15 +6,21 @@ import axios from "axios";
 const ADD_PARTICIPANT_TO_THREAD = `
   mutation addParticipantsToThread(
     $threadId: String!,
-    $email: String!
+    $email: String!,
+    $role: InviteRole,
+    $invitedByUserId: String
   ) {
     add_participant_to_thread(
       threadId: $threadId,
-      email: $email
+      email: $email,
+      role: $role,
+      invitedByUserId: $invitedByUserId
     ) {
       id
       threadId
       userId
+      email
+      role
       approvalStatus
       joinDate
     }
@@ -24,15 +30,12 @@ const ADD_PARTICIPANT_TO_THREAD = `
 let hasLoggedInviteConfig = false;
 
 export const useUserAgentMessageApi = (handleCb?: () => void) => {
-  const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/auth/graphql";
-  if (!hasLoggedInviteConfig) {
-    console.info('[InviteConfig][Boot]', {
-      graphqlUrl: GRAPHQL_URI,
-      authServiceUrl: process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL || null,
-      nodeEnv: process.env.NODE_ENV,
-    });
-    hasLoggedInviteConfig = true;
-  }
+  const isLocalhostRuntime =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+  const GRAPHQL_URI = isLocalhostRuntime
+    ? "http://localhost:4000/auth/graphql"
+    : process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql";
 
   const createUserAgentThreadMutation = useMutation({
     mutationKey: ['create-user-agent-thread'],
@@ -65,14 +68,18 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
             },
           }
         );
-        // Check if the response is successful
-        if (response.status !== 200) {
-          throw new Error(response?.data?.errors?.[0]?.message || 'Failed to create thread');
+        // Check for GraphQL errors even if status is 200
+        if (response.data?.errors) {
+          throw new Error(response.data.errors[0]?.message || 'GraphQL Error');
         }
-        console.log(response.data)
+
+        if (!response.data?.data?.create_user_agent_thread) {
+          throw new Error('No data returned from server');
+        }
 
         return response.data.data.create_user_agent_thread;  // Return the created thread
-      } catch (error) {
+      } catch (error: any) {
+        console.error('Mutation error:', error);
         throw error;  // Re-throw error for handling in onError
       }
     },
@@ -149,6 +156,10 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
       if (!token) {
         throw new Error('No authentication token found');
       }
+      const userId = String(data?.userId || '').trim();
+      if (!userId) {
+        return { data: { get_user_and_agent_threads: [] } };
+      }
 
       const query = `
         query GetThreadsByUser($userId: String!) {
@@ -192,7 +203,7 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
           {
             query,
             variables: {
-              userId: data.userId,
+              userId,
               threadName: data.threadName,
               isRead: data.isRead
             },
@@ -261,7 +272,7 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
           }
         );
 
-        if (response.status !== 200) {
+        if (response.status !== 200 || response.data?.errors) {
           throw new Error(response?.data?.errors?.[0]?.message || 'Failed to fetch threads');
         }
 
@@ -298,6 +309,8 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
       const baseVariables = {
         threadId: data?.threadId,
         email: data?.email,
+        role: data?.role ? String(data.role).toUpperCase() : undefined,
+        invitedByUserId: data?.invitedByUserId,
       };
       const runInviteMutation = async (queryBody: string) =>
         axios.post(

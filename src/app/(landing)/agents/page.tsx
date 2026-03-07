@@ -83,13 +83,11 @@ const AgentsPage = async () => {
       {/* <FindPartner /> */}
       <AgentsWeMakeItEasy />
       {/* <MainTestimonial /> */}
-      <div className="home-section-gap">
-        <OurClients
-          bgColor="#FFF6EC"
-          subtitle="We value our agents' honest feedback on how Snaphomz supports their business."
-          testimonials={AGENTS_TESTIMONIALS}
-        />
-      </div>
+      <OurClients
+        bgColor="#FFF6EC"
+        subtitle="We value our agents' honest feedback on how Snaphomz supports their business."
+        testimonials={AGENTS_TESTIMONIALS}
+      />
     </main>
   );
 };

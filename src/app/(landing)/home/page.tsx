@@ -1504,7 +1504,7 @@ export default function Home() {
               </div> */}
             </div>
 
-            <div className="mb-4 flex items-center gap-3 whitespace-nowrap md:mb-6">
+            <div className="mb-4 flex flex-col md:flex-row md:flex-nowrap items-center gap-y-0.5 md:gap-x-3 md:mb-6 justify-center md:justify-start">
               <span
                 className={`text-[1rem] font-medium transition-colors ${isHomeSearchActive ? 'text-white md:text-[#2C211A]' : 'text-white'}`}
               >
@@ -1552,9 +1552,9 @@ export default function Home() {
         <ChooseYourMeans
           heading="Choose how you buy"
           subheading="Take control of your home purchase with guided transactions, approval workflows, and transparent tracking, no matter how you like to work."
-          yourAgentDescription="Bring the agent you already trust and manage everything together on Snaphomz."
-          ourAgentDescription="Match with a vetted local expert and handle your entire transaction in one place."
-          ctaLabel="Get started"
+          yourAgentDescription="Onboard or invite your personal agent"
+          ourAgentDescription="Choose from our vetted list of agents"
+          ctaLabel="Get Started"
         />
         <WeMakeItEasy contentPreset="home" />
         <section className="relative pt-8 md:pt-10 home-info-carousel">

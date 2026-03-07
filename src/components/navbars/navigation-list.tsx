@@ -11,6 +11,11 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
 } from '@/components/ui/navigation-menu';
+import { setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
+
+const handleStateMlsQuickSearch = () => {
+  setMlsBypassModeEnabled(true);
+};
 
 export function NavigationList({ dark = false }: any) {
   const textClass = dark ? 'text-white' : 'text-black';
@@ -30,10 +35,18 @@ export function NavigationList({ dark = false }: any) {
               <div className='flex flex-col space-y-4 pr-8'>
                 <h4 className={headingClass}>Buy a Home With</h4>
                 <div className='flex flex-col space-y-3'>
-                  <Link href='/home?q=California' className='hover:text-primary hover:underline'>
+                  <Link
+                    href='/buy/browse?q=California'
+                    className='hover:text-primary hover:underline'
+                    onClick={handleStateMlsQuickSearch}
+                  >
                     Homes in California
                   </Link>
-                  <Link href='/home?q=Texas' className='hover:text-primary hover:underline'>
+                  <Link
+                    href='/buy/browse?q=Texas'
+                    className='hover:text-primary hover:underline'
+                    onClick={handleStateMlsQuickSearch}
+                  >
                     Homes in Texas
                   </Link>
                   {/* <Link href='/login' className='hover:text-primary hover:underline'>

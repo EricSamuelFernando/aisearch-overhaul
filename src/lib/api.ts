@@ -8,7 +8,7 @@ const AI_BASE =
     process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI ?? API_BASE;
 
 const _COGNITO_CLIENT_ID =
-    process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID ?? "10a2kdoa42lc0enni43mnbj5an";
+    process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID ?? "6240jv1q945bmdv86kj7m1dqc4";
 const _COGNITO_STORAGE_KEY = `CognitoIdentityServiceProvider.${_COGNITO_CLIENT_ID}.LastAuthResult`;
 
 /** Returns { Authorization: "Bearer <accessToken>" } when logged in, or {} for anonymous */

@@ -174,13 +174,7 @@ function useCognitoGoogleAuth(handleCb?: () => void) {
         return;
       }
 
-      // Validate it's a Hosted UI domain format
-      if (!formattedDomain.includes('.auth.') || !formattedDomain.includes('.amazoncognito.com')) {
-        error({
-          message: 'Configuration Error: NEXT_PUBLIC_COGNITO_DOMAIN should be in format: your-domain.auth.region.amazoncognito.com. Please check your Cognito User Pool → App integration → Domain section.'
-        });
-        return;
-      }
+      // Allow custom Cognito domains (do not enforce .auth. and .amazoncognito.com checks)
 
       if (!formattedDomain.startsWith('http://') && !formattedDomain.startsWith('https://')) {
         formattedDomain = `https://${formattedDomain}`;

@@ -60,7 +60,7 @@ const InviteUserModal = ({
   const [inviteRole, setInviteRole] = useState<InviteRole>('buyer_agent');
   const [isEmailValid, setIsEmailValid] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [engagementId, setEngagementId] = useState<string | null>(null);
+  const [engagementId, setEngagementId] = useState<string | null>(initialEngagementId || null);
   const effectiveInviteRole: InviteRole = inviteRole;
   const shouldLogInviteDeliveryDebug =
     showLogger || process.env.NEXT_PUBLIC_INVITE_DELIVERY_DEBUG === 'true';

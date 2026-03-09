@@ -7,7 +7,7 @@ export default function HeroLayout() {
       <MainNavPages />
 
       <section className="
-        relative bg-[#1A0700] text-white
+        relative bg-black text-white
         min-h-screen sm:min-h-[90vh]
         pt-24 sm:pt-24 pb-16 sm:pb-24
         flex items-center justify-center
@@ -15,7 +15,7 @@ export default function HeroLayout() {
       ">
 
         {/* Background */}
-        <div className="absolute inset-0 bg-[#1A0700]" />
+        <div className="absolute inset-0 bg-black" />
 
         {/* CONTENT */}
         <div className="
@@ -147,7 +147,7 @@ export default function HeroLayout() {
           <p className="
             max-w-2xl mx-auto
             text-[13px] sm:text-sm md:text-base
-            text-[#E6D3C2]
+            text-gray-300
             leading-relaxed
             px-4
           ">

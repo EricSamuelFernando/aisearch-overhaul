@@ -2315,12 +2315,24 @@ const CustomMap: React.FC<Props> = ({
           const isMarkerVisible = markerVisibilityMap
             ? markerVisibilityMap.get(marker.markerKey) === true
             : true;
+          const isSelectedMarker = marker.markerKey === selectedMarker?.markerKey;
+          const isHoveredMapMarker = marker.markerKey === hoveredMarker?.markerKey;
           return (
           <Marker
             key={marker.markerKey}
             position={{ lat: marker.lat, lng: marker.lng }}
-            icon={createCustomMarker(marker.price, marker.markerKey === selectedMarker?.markerKey)}
+            icon={createCustomMarker(marker.price, isSelectedMarker, isHoveredMapMarker)}
             options={{ clickable: !drawMode && isMarkerVisible, visible: isMarkerVisible }}
+            onMouseOver={() => {
+              if (drawMode || !isMarkerVisible || isTouchDevice) return;
+              setHoveredMarker(marker);
+            }}
+            onMouseOut={() => {
+              if (isTouchDevice) return;
+              setHoveredMarker((prev: any) =>
+                prev?.markerKey === marker.markerKey ? null : prev,
+              );
+            }}
             onClick={() => {
               if (drawMode || !isMarkerVisible) return;
               const markerPos = { lat: marker.lat, lng: marker.lng };

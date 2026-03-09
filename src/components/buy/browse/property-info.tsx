@@ -9,7 +9,7 @@ import { usePropertyStore } from '@/store/use-property-store';
 import { incrementSearchCount } from '@/slices/onboarding/property-preference';
 import { setPropertyQuery } from '@/slices/property/property-slice';
 import { useAppDispatch, useAppSelector } from '@/lib/hook';
-import { error } from '@/components/alert/notify';
+import { error, warning } from '@/components/alert/notify';
 import SpeechInput from '@/components/speech-input';
 import { RootState } from '@/lib/store';
 import axios from 'axios';
@@ -430,7 +430,11 @@ function PropertyBrowseView({ }: Props) {
           dispatch(setPropertyQuery(response.data?.final_response || response.data?.search_query));
         } else {
           clearProperties();
-          console.log("No properties found for the current map view");
+          warning({
+            message: 'No properties found',
+            subtitle: 'Try searching for a location or address, e.g. "3 bedroom houses in San Jose".',
+            duration: 8000,
+          });
         }
       } catch (err: any) {
         console.error('Search request failed:', err);

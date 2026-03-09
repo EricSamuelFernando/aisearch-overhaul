@@ -1,17 +1,18 @@
 'use client';
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useRef, useState } from 'react';
-import { askQuestion, searchProperties, cancelActiveTask, fetchHistory, fetchSessionDetails, clearHistoryAPI, suggestAddresses } from '@/lib/api';
-import type { QuestionPayload, AddressSuggestion } from '@/lib/api';
+import { askQuestion, searchProperties, cancelActiveTask, fetchHistory, fetchSessionDetails, clearHistoryAPI, suggestAddresses, fetchThinkingProgress } from '@/lib/api';
+import type { QuestionPayload, AddressSuggestion, ThinkingProgressResponse } from '@/lib/api';
 import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { detectIntent } from '@/lib/chatRouting';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
-import { Sparkles, Paperclip, X, ArrowUp, Mic, Search as SearchIcon, FileText, Image as ImageIcon, ChevronDown, ChevronUp, MapPin, School, Shield, Footprints, Thermometer, CloudSun, BedDouble, Bath, Square, Scaling, Calendar, Clock, TrendingUp, GraduationCap, Trees, Plus, Lightbulb, Droplets } from 'lucide-react';
+import { Sparkles, Paperclip, X, ArrowUp, Mic, Search as SearchIcon, FileText, Image as ImageIcon, ChevronDown, ChevronUp, MapPin, School, Shield, Footprints, Thermometer, CloudSun, BedDouble, Bath, Square, Scaling, Calendar, Clock, TrendingUp, GraduationCap, Trees, Plus, Lightbulb, Droplets, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, ReferenceDot } from 'recharts';
 import SchoolMapPanel from '@/components/SchoolMapPanel';
 import InteractiveSchoolMapPanel from '@/components/InteractiveSchoolMapPanel';
+import ThinkingPanel from '@/components/main/ThinkingPanel';
+import type { ThinkingStep } from '@/components/main/ThinkingPanel';
 
 
 // Force refresh logic
@@ -44,6 +45,7 @@ interface ChatMessage {
   allProperties?: any[];  // All properties for pagination
   totalMatches?: number;  // Total number of matches
   relatedQuestions?: string[];
+  clarification?: string;
   showSchools?: boolean;
   relatedSchools?: {
     name: string;
@@ -477,11 +479,165 @@ const mapSnapProperties = (rawProperties: any[]) => {
   });
 };
 
+const autoFormatAnswerText = (rawText: string): string => {
+  if (!rawText) return '';
+
+  const hasStructuredMarkdown = /(^|\n)\s*(#{1,6}\s|[-*]\s+|\d+\.\s+|\|.+\|)/m.test(rawText);
+  if (hasStructuredMarkdown) return rawText;
+
+  const existingNonEmptyLines = rawText.split('\n').filter((line) => line.trim().length > 0).length;
+  if (existingNonEmptyLines >= 4) return rawText;
+
+  const normalized = rawText.replace(/\s+/g, ' ').trim();
+  if (!normalized) return '';
+
+  const sentenceChunks = normalized
+    .split(/(?<=[.!?])\s+(?=[A-Z])/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (sentenceChunks.length <= 2) return normalized;
+
+  const paragraphCueRegex =
+    /^(firstly|first,|secondly|thirdly|alternatively|on the other hand|the broader market|for families|notably|overall|in summary|key takeaway|these educational opportunities)/i;
+
+  const paragraphs: string[] = [];
+  let currentParagraph: string[] = [];
+
+  sentenceChunks.forEach((sentence) => {
+    const isCueSentence = paragraphCueRegex.test(sentence);
+    const paragraphIsLong = currentParagraph.length >= 2;
+
+    if (currentParagraph.length > 0 && (isCueSentence || paragraphIsLong)) {
+      paragraphs.push(currentParagraph.join(' '));
+      currentParagraph = [sentence];
+      return;
+    }
+
+    currentParagraph.push(sentence);
+  });
+
+  if (currentParagraph.length > 0) {
+    paragraphs.push(currentParagraph.join(' '));
+  }
+
+  return paragraphs.join('\n');
+};
+
+const sanitizeAssistantOutput = (rawText: string) => {
+  if (!rawText || typeof rawText !== 'string') {
+    return { cleanedText: '', extractedSuggestions: [] as string[] };
+  }
+
+  let cleaned = rawText;
+  const extractedSuggestions: string[] = [];
+  const actionSuggestionPattern = /^(show|find|compare|filter|explore|use|list|calculate|tell|what|help|focus)\b/i;
+
+  const suggestionsBlockRegex = /(?:^|\n)\s*-{2,}\s*SUGGESTIONS\s*-{2,}\s*([\s\S]*)$/i;
+  const suggestionsBlock = cleaned.match(suggestionsBlockRegex);
+  if (suggestionsBlock?.[1]) {
+    const suggestionLines = suggestionsBlock[1]
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    suggestionLines.forEach((line) => {
+      const item = line.replace(/^\d+[\).\-\s]+/, '').trim();
+      if (item) extractedSuggestions.push(item);
+    });
+
+    cleaned = cleaned.replace(suggestionsBlockRegex, '').trim();
+  }
+
+  // Extract actionable numbered suggestions even when no explicit SUGGESTIONS block exists.
+  rawText
+    .split('\n')
+    .map((line) => line.trim())
+    .forEach((line) => {
+      const numbered = line.match(/^\d+[\).\-\s]+(.+)$/);
+      if (numbered?.[1]) {
+        const candidate = numbered[1].trim();
+        if (candidate && actionSuggestionPattern.test(candidate)) {
+          extractedSuggestions.push(candidate);
+        }
+      }
+
+      const cta = line.match(/^want me to\s+(.+)\?$/i);
+      if (cta?.[1]) {
+        const normalized = cta[1]
+          .replace(/\s+or\s+/gi, ',')
+          .split(',')
+          .map((part) => part.trim())
+          .filter(Boolean);
+        normalized.forEach((part) => {
+          if (actionSuggestionPattern.test(part)) {
+            extractedSuggestions.push(part.charAt(0).toUpperCase() + part.slice(1));
+          }
+        });
+      }
+    });
+
+  // Remove templated sections that should not be shown directly to end users.
+  cleaned = cleaned.replace(
+    /(?:^|\n)\s*(?:\*\*|__)?\s*Context\s*:(?:\*\*|__)?\s*[\s\S]*?(?=\n\s*(?:\*\*|__)?\s*Closing CTA\s*:|$)/i,
+    '\n'
+  );
+  cleaned = cleaned.replace(
+    /(?:^|\n)\s*(?:\*\*|__)?\s*Closing CTA\s*:(?:\*\*|__)?\s*[\s\S]*$/i,
+    '\n'
+  );
+
+  // Line-based cleanup fallback to remove any lingering Context/CTA sections.
+  const cleanedLines = cleaned.split('\n');
+  const filteredLines: string[] = [];
+  let skipBlock = false;
+  for (const line of cleanedLines) {
+    const trimmed = line.trim();
+    const isContextHeader = /^(?:\*\*|__)?\s*Context\s*:(?:\*\*|__)?\s*$/i.test(trimmed);
+    const isCtaHeader = /^(?:\*\*|__)?\s*Closing CTA\s*:(?:\*\*|__)?\s*$/i.test(trimmed);
+
+    if (isContextHeader || isCtaHeader) {
+      skipBlock = true;
+      continue;
+    }
+    if (skipBlock) {
+      if (!trimmed) {
+        skipBlock = false;
+      }
+      continue;
+    }
+    filteredLines.push(line);
+  }
+  cleaned = filteredLines.join('\n');
+  cleaned = cleaned
+    .split('\n')
+    .filter((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return true;
+      if (/^---\s*SUGGESTIONS\s*---$/i.test(trimmed)) return false;
+      if (/^Want me to\s+.+\?$/i.test(trimmed)) return false;
+      const numbered = trimmed.match(/^\d+[\).\-\s]+(.+)$/);
+      if (numbered?.[1] && actionSuggestionPattern.test(numbered[1].trim())) return false;
+      return true;
+    })
+    .join('\n');
+
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
+  const uniqueSuggestions = Array.from(
+    new Set(
+      extractedSuggestions
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+    )
+  );
+  return { cleanedText: cleaned, extractedSuggestions: uniqueSuggestions };
+};
+
 // Helper to format AI response cleanly
 const formatMessageContent = (text: string) => {
   if (!text) return null;
 
-  const lines = text.split('\n');
+  const lines = autoFormatAnswerText(text).split('\n');
   const formattedElements: React.ReactNode[] = [];
   let currentListItems: React.ReactNode[] = [];
   let currentTableRows: string[] = [];
@@ -559,6 +715,80 @@ const formatMessageContent = (text: string) => {
   return formattedElements;
 };
 
+function AssistantResponseText({
+  text,
+  animate,
+  speedMs = 10,
+  onComplete,
+  onProgress,
+}: {
+  text: string;
+  animate: boolean;
+  speedMs?: number;
+  onComplete?: () => void;
+  onProgress?: () => void;
+}) {
+  const [displayedText, setDisplayedText] = useState('');
+  const onCompleteRef = useRef(onComplete);
+  const onProgressRef = useRef(onProgress);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
+    onProgressRef.current = onProgress;
+  }, [onProgress]);
+
+  useEffect(() => {
+    if (!text) {
+      setDisplayedText('');
+      return;
+    }
+
+    if (!animate) {
+      setDisplayedText(text);
+      onProgressRef.current?.();
+      return;
+    }
+
+    let index = 0;
+    setDisplayedText('');
+
+    const timer = setInterval(() => {
+      index += 1;
+      setDisplayedText(text.slice(0, index));
+      if (index % 3 === 0 || index >= text.length) {
+        onProgressRef.current?.();
+      }
+      if (index >= text.length) {
+        clearInterval(timer);
+        onCompleteRef.current?.();
+      }
+    }, speedMs);
+
+    return () => clearInterval(timer);
+  }, [text, animate, speedMs]);
+
+  const showCursor = animate && displayedText.length < text.length;
+
+  return (
+    <>
+      {formatMessageContent(displayedText)}
+      {showCursor && (
+        <motion.span
+          aria-hidden="true"
+          className="ml-[1px] inline-block text-[#F58634]"
+          animate={{ opacity: [1, 0, 1] }}
+          transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          |
+        </motion.span>
+      )}
+    </>
+  );
+}
+
 const normalizePoolValue = (value: any): boolean | null => {
   if (value === null || value === undefined) return null;
   if (typeof value === "boolean") return value;
@@ -613,6 +843,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
   const [isLoadingLocationSuggestions, setIsLoadingLocationSuggestions] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [currentQuery, setCurrentQuery] = useState('');
+  const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([]);
+  const [thinkingIntentHint, setThinkingIntentHint] = useState<string | undefined>(undefined);
+  const [latestThoughtDurationMs, setLatestThoughtDurationMs] = useState<number | null>(null);
+  const requestStartedAtRef = useRef<number | null>(null);
   // Controls expansion state (Collapsed Search Bar vs Expanded Chat UI)
   const [isExpanded, setIsExpanded] = useState(false);
   const [typedPlaceholder, setTypedPlaceholder] = useState("");
@@ -675,27 +910,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     };
   }, [isMenuOpen]);
 
-  // Dynamic Loading State
-  const [loadingStep, setLoadingStep] = useState(0);
-  const loadingMessages = [
-    "Analyzing your request...",
-    "Identifying target location...",
-    "Scanning property database...",
-    "Fetching school ratings...",
-    "Curating top matches..."
-  ];
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isSearching) {
-      setLoadingStep(0);
-      interval = setInterval(() => {
-        // Loop through messages instead of stopping at the last one
-        setLoadingStep((prev) => (prev + 1) % loadingMessages.length);
-      }, 3000); // Slower interval (3 seconds)
-    }
-    return () => clearInterval(interval);
-  }, [isSearching]);
+  // Loading state is now handled by <ThinkingPanel /> below
 
   // Chat History State (consolidated below)
 
@@ -773,6 +988,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   // --- State for Real Data ---
   const [properties, setProperties] = useState<any[]>([]); // Accumulates all properties
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]); // Stores conversation
+  const [completedAnswerAnimations, setCompletedAnswerAnimations] = useState<Record<string, boolean>>({});
   const [snapResultsShown, setSnapResultsShown] = useState(0);
   const [snapCachedProperties, setSnapCachedProperties] = useState<any[]>([]);
   const [snapResultsPage, setSnapResultsPage] = useState(0);
@@ -791,12 +1007,22 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   const [expandedSchoolLists, setExpandedSchoolLists] = useState<Record<string, boolean>>({});
   const [nearbySchoolsById, setNearbySchoolsById] = useState<Record<string, { status: 'idle' | 'loading' | 'ready' | 'error'; schools: any[]; error?: string; schoolType?: string; fallbackUsed?: boolean }>>({});
 
+  const scrollChatToBottom = React.useCallback((behavior: ScrollBehavior = 'auto') => {
+    const container = chatBottomRef.current?.parentElement;
+    if (!container) return;
+    container.scrollTo({ top: container.scrollHeight, behavior });
+  }, []);
+
   const startNewChat = React.useCallback((options?: { focusInput?: boolean }) => {
     setIsExpanded(true);
     setSearchTerm('');
     setChatHistory([]);
     setSessionId(null);
     setIsSearching(false);
+    setCurrentQuery('');
+    setThinkingSteps([]);
+    setThinkingIntentHint(undefined);
+    setLatestThoughtDurationMs(null);
     setIsMenuOpen(false);
     setSelectedPropertyId(null);
     setExpandedPropertyId(null);
@@ -1055,16 +1281,56 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     pendingImageRef.current = pendingImage;
   }, [pendingImage]);
 
-  // Auto-scroll to bottom when chat history changes
   useEffect(() => {
-    // Only scroll to bottom for USER messages so we see the 'Thinking...' state.
-    // When AI replies (long content), we STAY at the current position to read from the top.
+    if (!isSearching || !sessionId) return;
+
+    let cancelled = false;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const pollThinking = async () => {
+      try {
+        const progress: ThinkingProgressResponse = await fetchThinkingProgress(sessionId);
+        if (cancelled) return;
+        if (Array.isArray(progress?.steps) && progress.steps.length > 0) {
+          setThinkingSteps(progress.steps);
+        }
+        if (progress?.is_done && intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
+      } catch {
+        // Best-effort polling; silently ignore transient failures.
+      }
+    };
+
+    pollThinking();
+    intervalId = setInterval(pollThinking, 500);
+    return () => {
+      cancelled = true;
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isSearching, sessionId]);
+
+  // Auto-scroll to bottom when conversation updates.
+  useEffect(() => {
     const lastMsg = chatHistory[chatHistory.length - 1];
-    if (lastMsg?.role === 'user' && chatBottomRef.current?.parentElement) {
-      const container = chatBottomRef.current.parentElement;
-      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+    if (!lastMsg) return;
+
+    if (lastMsg.role === 'user') {
+      scrollChatToBottom('smooth');
+      return;
     }
-  }, [chatHistory.length, isSearching]);
+
+    if (lastMsg.role === 'assistant' || isSearching) {
+      scrollChatToBottom('auto');
+    }
+  }, [chatHistory, isSearching, scrollChatToBottom]);
+
+  // Keep the viewport pinned while thinking steps stream in.
+  useEffect(() => {
+    if (!isSearching || thinkingSteps.length === 0) return;
+    scrollChatToBottom('auto');
+  }, [thinkingSteps, isSearching, scrollChatToBottom]);
 
   // --- Helpers for Safe Info Extraction (from Assistant) ---
   const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -1264,7 +1530,21 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
       clearSnapSession();
     }
 
+    const activeSessionId =
+      sessionId ||
+      (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    if (!sessionId) {
+      setSessionId(activeSessionId);
+    }
+
     // 2. Set Loading & Reset Input
+    setCurrentQuery(queryToSearch);
+    setThinkingSteps([]);
+    setThinkingIntentHint(undefined);
+    setLatestThoughtDurationMs(null);
+    requestStartedAtRef.current = Date.now();
     setIsSearching(true);
     setSearchTerm('');
     setSelectedPropertyId(null);
@@ -1393,13 +1673,14 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
           /\b\d+(?:\.\d+)?\s*%\b/.test(normalizedQuery) ||
           hasRentAmountSignal);
       const effectiveIntent = intent === "general" && hasRvbFollowup ? "property" : intent;
+      setThinkingIntentHint(effectiveIntent);
 
       if (effectiveIntent === "general") {
         const selectedPropPayload =
           selectedPropertyId !== null ? properties.find((p) => p.id === selectedPropertyId) : null;
         const questionPayload: QuestionPayload = {
           question: queryToSearch,
-          session_id: sessionId
+          session_id: activeSessionId
         };
         if (selectedPropertyId !== null) {
           questionPayload.selected_property_id =
@@ -1417,6 +1698,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         if (data.session_id) {
           setSessionId(data.session_id);
         }
+        if (Array.isArray(data.thinking_steps) && data.thinking_steps.length > 0) {
+          setThinkingSteps(data.thinking_steps);
+        }
+        if (data.intent) {
+          setThinkingIntentHint(data.intent);
+        }
         lastIntentRef.current = data.intent || "question";
 
         const aiText =
@@ -1425,20 +1712,25 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
           data.summary ||
           data.response ||
           "I couldn't find a response for that question.";
+        const sanitized = sanitizeAssistantOutput(aiText);
 
-        const relatedQuestions =
+        const backendRelatedQuestions =
           data.suggestions ||
           data.suggested_actions ||
           data.recommendations ||
           data.suggested_questions ||
           data.related_questions ||
           [];
+        const relatedQuestions = Array.from(
+          new Set([...(Array.isArray(backendRelatedQuestions) ? backendRelatedQuestions : []), ...sanitized.extractedSuggestions])
+        );
 
         const aiMsg: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: aiText,
+          content: sanitized.cleanedText || aiText,
           relatedQuestions: relatedQuestions,
+          clarification: data.clarification || "",
           map: data.map,
           intent: data.intent || "question"
         };
@@ -1450,7 +1742,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
       console.log("Fetching properties for:", queryToSearch);
       const data = await searchProperties({
         query: queryToSearch,
-        session_id: sessionId
+        session_id: activeSessionId
       }, newController.signal);
       console.log("Backend Response:", data);
 
@@ -1459,6 +1751,10 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
       }
       if (data.intent) {
         lastIntentRef.current = data.intent;
+        setThinkingIntentHint(data.intent);
+      }
+      if (Array.isArray(data.thinking_steps) && data.thinking_steps.length > 0) {
+        setThinkingSteps(data.thinking_steps);
       }
 
       const rawProperties = data.properties || data.search_results || [];
@@ -1600,7 +1896,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
         // Add Assistant Response
         const aiMsgId = (Date.now() + 1).toString();
-        const relatedQuestions =
+        const backendRelatedQuestions =
           data.suggestions ||
           data.suggested_actions ||
           data.recommendations ||
@@ -1618,12 +1914,15 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         let isForecastMsg = false;
         let forecastPoints: ForecastPoint[] | undefined = undefined;
 
-        // Check for Forecast (avoid false positives like "top-rated")
+        // Check for Forecast — only trigger when user explicitly wants a chart/forecast/trend.
+        // "what is the interest rate today?" is a text question → NO chart.
+        // "show me mortgage rate forecast" / "rate forecast chart" → YES chart.
         const loweredQuery = queryToSearch.toLowerCase();
-        const isRateForecastQuery =
+        const hasExplicitForecastIntent =
           /\bforecast\b/.test(loweredQuery) ||
-          /\binterest rate(s)?\b/.test(loweredQuery) ||
-          (/\bmortgage\b/.test(loweredQuery) && /\brate(s)?\b/.test(loweredQuery));
+          /\brate\s+(trend|chart|graph|projection|predict)\b/.test(loweredQuery) ||
+          /\b(show|display|visuali[sz]e)\b.{0,20}\brate(s)?\b/.test(loweredQuery);
+        const isRateForecastQuery = hasExplicitForecastIntent;
         if (isRateForecastQuery) {
           isForecastMsg = true;
           forecastPoints = await fetchForecast(24);
@@ -1654,14 +1953,23 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
           }
         }
 
+        const sanitizedFinal = sanitizeAssistantOutput(finalContent);
+        const relatedQuestions = Array.from(
+          new Set([
+            ...(Array.isArray(backendRelatedQuestions) ? backendRelatedQuestions : []),
+            ...sanitizedFinal.extractedSuggestions
+          ])
+        );
+
         const aiMsg: ChatMessage = {
           id: aiMsgId,
           role: 'assistant',
-          content: finalContent,
+          content: sanitizedFinal.cleanedText || finalContent,
           query: queryToSearch,
           query_history_formatted: data.metadata?.query_history_formatted,
           relatedProperties: mappedProps,
           relatedQuestions: relatedQuestions,
+          clarification: data.clarification || "",
           showSchools: showSchools,
           relatedSchools: extractedSchools,
           schoolAddress: extractedAddress,
@@ -1675,20 +1983,28 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
       } else {
         // Empty results
         const aiMsgId = (Date.now() + 1).toString();
-        const relatedQuestions =
+        const backendRelatedQuestions =
           data.suggestions ||
           data.suggested_actions ||
           data.recommendations ||
           data.suggested_questions ||
           data.related_questions ||
           [];
+        const sanitizedEmpty = sanitizeAssistantOutput(aiText || "I couldn't find any properties matching that search right now.");
+        const relatedQuestions = Array.from(
+          new Set([
+            ...(Array.isArray(backendRelatedQuestions) ? backendRelatedQuestions : []),
+            ...sanitizedEmpty.extractedSuggestions
+          ])
+        );
 
         const aiMsg: ChatMessage = {
           id: aiMsgId,
           role: 'assistant',
-          content: aiText || "I couldn't find any properties matching that search right now.",
+          content: sanitizedEmpty.cleanedText || aiText || "I couldn't find any properties matching that search right now.",
           relatedProperties: [],
           relatedQuestions: relatedQuestions,
+          clarification: data.clarification || "",
           intent: data.intent
         };
         setChatHistory(prev => [...prev, aiMsg]);
@@ -1706,6 +2022,10 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         content: "Sorry, I encountered an error while searching. Please try again."
       }]);
     } finally {
+      if (requestStartedAtRef.current) {
+        setLatestThoughtDurationMs(Math.max(0, Date.now() - requestStartedAtRef.current));
+        requestStartedAtRef.current = null;
+      }
       setIsSearching(false);
     }
   };
@@ -2227,6 +2547,31 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     }
   };
 
+  const latestVisibleAssistantMessageId = chatHistory
+    .slice()
+    .reverse()
+    .find((message) =>
+      message.role === 'assistant' &&
+      (
+        (typeof message.content === 'string' && message.content.trim().length > 0) ||
+        (Array.isArray(message.relatedProperties) && message.relatedProperties.length > 0) ||
+        (Array.isArray(message.relatedSchools) && message.relatedSchools.length > 0) ||
+        Boolean(message.isForecast)
+      )
+    )?.id;
+  const latestAssistantTextMessageId = chatHistory
+    .slice()
+    .reverse()
+    .find((message) => message.role === 'assistant' && typeof message.content === 'string' && message.content.trim().length > 0)?.id;
+  const hasCompletedThinkingForCurrentTurn = thinkingSteps.length > 0 || latestThoughtDurationMs !== null;
+  const shouldShowThinkingForLatestAssistant =
+    !isSearching &&
+    Boolean(latestVisibleAssistantMessageId) &&
+    hasCompletedThinkingForCurrentTurn;
+  const showStandaloneThinkingPanel =
+    isSearching ||
+    (hasCompletedThinkingForCurrentTurn && !latestVisibleAssistantMessageId);
+
   // --- Render ---
   return (
     <div className="relative w-full z-20 text-black">
@@ -2238,6 +2583,15 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 .no-scrollbar {
                     -ms-overflow-style: none;
                     scrollbar-width: none;
+                }
+                @media (max-width: 639px) {
+                    .mobile-no-scrollbar::-webkit-scrollbar {
+                        display: none;
+                    }
+                    .mobile-no-scrollbar {
+                        -ms-overflow-style: none;
+                        scrollbar-width: none;
+                    }
                 }
             `}</style>
 
@@ -2501,18 +2855,18 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 <div className="relative">
                   <div
                     onClick={() => setIsMenuOpen(!isMenuOpen)}
-                    className="bg-black text-white pl-1 pr-4 py-1 rounded-full flex items-center gap-3 shadow-md hover:bg-gray-800 transition-colors cursor-pointer group active:scale-95 duration-200 select-none"
+                    className="bg-black text-white h-[44px] w-[183px] pl-[17px] pr-[12px] py-[8px] rounded-full border border-white/15 flex items-center gap-2 shadow-[0_4px_10px_rgba(0,0,0,0.28)] hover:bg-[#0A0A0A] transition-colors cursor-pointer group duration-200 select-none"
                   >
-                    <div className="relative w-8 h-8 flex-shrink-0">
+                    <div className="relative w-7 h-7 flex-shrink-0 ">
                       <Image
-                        src="/assets/images/snaphomz-icon-thick.png"
-                        alt="SnapHomz AI"
+                        src="/assets/images/Group14455(1).svg"
+                        alt="Snaphomz AI"
                         fill
                         className="object-contain"
                       />
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm tracking-wide">SnapHomz AI</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-medium text-sm tracking-normal whitespace-nowrap">Snaphomz AI</span>
                       <ChevronDown className={`w-4 h-4 text-gray-400 group-hover:text-white transition-transform duration-300 ${isMenuOpen ? 'rotate-180' : ''}`} />
                     </div>
                   </div>
@@ -2700,7 +3054,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
               {/* 2) AI Logic Section */}
               {/* Chat History Loop */}
-              <div className={`flex flex-col gap-8 w-full min-h-0 overflow-y-auto pr-0 sm:pr-2 pb-20 sm:pb-8 transition-all duration-500
+              <div className={`mobile-no-scrollbar flex flex-col gap-8 w-full min-h-0 overflow-y-auto overflow-x-hidden pr-0 sm:pr-2 pb-20 sm:pb-8 transition-all duration-500
               ${isExpanded ? 'h-[56vh] sm:h-[600px] md:h-[700px] lg:h-[750px]' : 'h-auto'}`}
                 style={{ overflowAnchor: 'none' }}>
                 {chatHistory.map((msg) => (
@@ -2730,74 +3084,128 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     ) : (
                       <div className="flex flex-col gap-6 w-full animate-in fade-in slide-in-from-bottom-2 duration-500">
                         {msg.relatedProperties && msg.relatedProperties.length > 0 && (
-                          <div className="order-1 flex items-start gap-5 px-1">
-                            <div className="flex-shrink-0 mt-1 w-11 h-11 rounded-xl bg-[#140800] ring-1 ring-[#F58634]/35 shadow-sm flex items-center justify-center">
+                          <div className="order-1 flex items-start gap-3 sm:gap-5 px-1">
+                            <div className="flex-shrink-0 mt-1 w-[45px] h-[45.18px] flex items-center justify-center">
                               <Image
-                                src="/assets/images/snaphomz-icon-thick.png"
-                                alt="SnapHomz AI"
-                                width={32}
-                                height={32}
-                                className="w-8 h-8 object-contain"
+                                src="/assets/images/Group14455(1).svg"
+                                alt="Snaphomz AI"
+                                width={45}
+                                height={45}
+                                className="w-[45px] h-[45.18px] object-contain"
                               />
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
-                                <span className="font-bold text-black text-sm tracking-tight">SnapHomz AI</span>
+                                <span className="font-bold text-black text-sm tracking-tight">Snaphomz AI</span>
                               </div>
+                              {msg.id === latestVisibleAssistantMessageId && shouldShowThinkingForLatestAssistant && (
+                                <div className="mt-3 self-start w-full">
+                                  <ThinkingPanel
+                                    isThinking={isSearching}
+                                    query={msg.query || currentQuery}
+                                    intentHint={thinkingIntentHint}
+                                    backendSteps={thinkingSteps.length > 0 ? thinkingSteps : undefined}
+                                    forceDoneMs={latestThoughtDurationMs ?? (!isSearching ? 1200 : undefined)}
+                                    embedded
+                                  />
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}
 
                         {/* AI Avatar & Message */}
-                        <div className={`flex items-start gap-5 px-1 ${msg.relatedProperties?.length ? 'order-4' : ''}`}>
+                        <div className={`flex items-start gap-3 sm:gap-5 px-1 ${msg.relatedProperties?.length ? 'order-4' : ''}`}>
                           {!msg.relatedProperties?.length && (
-                            <div className="flex-shrink-0 mt-1 w-11 h-11 rounded-xl bg-[#140800] ring-1 ring-[#F58634]/35 shadow-sm flex items-center justify-center">
+                            <div className="flex-shrink-0 mt-1 w-[45px] h-[45.18px] flex items-center justify-center">
                               <Image
-                                src="/assets/images/snaphomz-icon-thick.png"
-                                alt="SnapHomz AI"
-                                width={32}
-                                height={32}
-                                className="w-8 h-8 object-contain"
+                                src="/assets/images/Group14455(1).svg"
+                                alt="Snaphomz AI"
+                                width={45}
+                                height={45}
+                                className="w-[45px] h-[45.18px] object-contain"
                               />
                             </div>
                           )}
-                          <div className="flex-1 min-w-0 space-y-3">
+                          <div className="flex-1 min-w-0 space-y-2 sm:space-y-3">
                             {!msg.relatedProperties?.length && (
                               <div className="flex items-center gap-2">
-                                <span className="font-bold text-black text-sm tracking-tight">SnapHomz AI</span>
+                                <span className="font-bold text-black text-sm tracking-tight">Snaphomz AI</span>
                               </div>
                             )}
 
-
-                            <div className="text-gray-600 text-[15px] sm:text-[17px] leading-relaxed text-left font-normal break-words">
-                              {formatMessageContent(msg.content || '')}
-                            </div>
-
-                            {msg.relatedQuestions && msg.relatedQuestions.length > 0 && (
-                              <div className="mt-6 mb-2">
-                                <div className="flex items-center gap-2 mb-3">
-                                  <Lightbulb className="w-5 h-5 text-[#F58634]" />
-                                  <h3 className="text-lg font-bold text-gray-900">Related questions</h3>
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                  {msg.relatedQuestions.map((q, idx) => (
-                                    <button
-                                      key={idx}
-                                      onClick={() => {
-                                        setSearchTerm(q);
-                                        handleSearchSubmit(q);
-                                      }}
-                                      className="px-4 py-2 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 rounded-full text-sm font-medium text-gray-700 hover:text-gray-900 transition-all text-left shadow-sm whitespace-normal"
-                                    >
-                                      {q}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
+                            {msg.id === latestVisibleAssistantMessageId && shouldShowThinkingForLatestAssistant && !msg.relatedProperties?.length && (
+                              <ThinkingPanel
+                                isThinking={isSearching}
+                                query={msg.query || currentQuery}
+                                intentHint={thinkingIntentHint}
+                                backendSteps={thinkingSteps.length > 0 ? thinkingSteps : undefined}
+                                forceDoneMs={latestThoughtDurationMs ?? (!isSearching ? 1200 : undefined)}
+                                embedded
+                              />
                             )}
 
-                            {/* Forecast Chart Card */}
-                            {msg.isForecast && msg.forecastData && (
+
+                            {(() => {
+                              const sanitizedMessage = sanitizeAssistantOutput(msg.content || '');
+                              const relatedQuestionCandidates =
+                                msg.relatedQuestions && msg.relatedQuestions.length > 0
+                                  ? msg.relatedQuestions
+                                  : sanitizedMessage.extractedSuggestions;
+                              const displayRelatedQuestions = Array.from(new Set(relatedQuestionCandidates || []));
+
+                              return (
+                                <>
+                                  <div className="text-gray-600 text-[15px] sm:text-[17px] leading-relaxed text-left font-normal break-words">
+                                    <AssistantResponseText
+                                      text={sanitizedMessage.cleanedText || msg.content || ''}
+                                      animate={msg.id === latestAssistantTextMessageId}
+                                      speedMs={8}
+                                      onProgress={msg.id === latestAssistantTextMessageId ? () => scrollChatToBottom('auto') : undefined}
+                                      onComplete={() =>
+                                        setCompletedAnswerAnimations((prev) =>
+                                          prev[msg.id] ? prev : { ...prev, [msg.id]: true }
+                                        )
+                                      }
+                                    />
+                                  </div>
+
+                                  {msg.clarification && (
+                                    <div className="mt-4 mb-2 p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-3">
+                                      <HelpCircle className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                                      <p className="text-sm text-blue-800 font-medium leading-relaxed">{msg.clarification}</p>
+                                    </div>
+                                  )}
+
+                                  {(msg.id !== latestAssistantTextMessageId || completedAnswerAnimations[msg.id]) &&
+                                    displayRelatedQuestions.length > 0 && (
+                                    <div className="mt-6 mb-2">
+                                      <div className="flex items-center gap-2 mb-3">
+                                        <Lightbulb className="w-5 h-5 text-[#F58634]" />
+                                        <h3 className="text-lg font-bold text-gray-900">Related questions</h3>
+                                      </div>
+                                      <div className="flex flex-wrap gap-2">
+                                        {displayRelatedQuestions.map((q, idx) => (
+                                          <button
+                                            key={idx}
+                                            onClick={() => {
+                                              setSearchTerm(q);
+                                              handleSearchSubmit(q);
+                                            }}
+                                            className="px-4 py-2 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 rounded-full text-sm font-medium text-gray-700 hover:text-gray-900 transition-all text-left shadow-sm whitespace-normal"
+                                          >
+                                            {q}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
+
+                            {/* Forecast Chart Card — only render when we have actual data points */}
+                            {msg.isForecast && msg.forecastData && msg.forecastData.length > 0 && (
                               <div className="w-full mt-4 max-w-2xl bg-white border border-gray-200 rounded-2xl p-4 lg:p-6 flex flex-col h-full shadow-sm">
                                 {/* Header */}
                                 <div className="flex items-center justify-between mb-4">
@@ -2962,10 +3370,14 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                         {msg.relatedProperties && msg.relatedProperties.length > 0 && (
                           <div className={`w-full max-w-full ${msg.relatedProperties?.length ? 'order-2' : ''}`}>
                             <div className="flex flex-col sm:flex-row items-stretch sm:items-center overflow-visible sm:overflow-x-auto gap-2 sm:gap-4 md:gap-6 px-0 sm:px-4 md:px-6 py-3 sm:py-5 md:py-6 sm:snap-x sm:snap-mandatory no-scrollbar" style={{ scrollBehavior: 'smooth' }}>
-                              {msg.relatedProperties.map((property: any) => {
+                              {msg.relatedProperties.map((property: any, idx: number) => {
                                 const isActive = selectedPropertyId === property.id;
                                 const isExpandedCard = expandedPropertyId === property.id;
                                 const isAnySelected = selectedPropertyId !== null;
+                                const listingNumber =
+                                  Number.isFinite(Number(property.displayIndex))
+                                    ? Number(property.displayIndex)
+                                    : idx + 1;
                                 const poolLabel =
                                   property.hasPool === true
                                     ? "Yes"
@@ -3012,6 +3424,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                       />
                                       <div className="absolute top-3 left-3 bg-black/60 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg backdrop-blur-md">
                                         {property.type}
+                                      </div>
+                                      <div className="absolute top-3 right-3 bg-white/90 text-gray-900 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-white/80 shadow-sm backdrop-blur-md">
+                                        #{listingNumber}
                                       </div>
                                     </div>
 
@@ -3097,7 +3512,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                     onClick={handleSnapYesResponse}
                                     className="px-5 py-3 rounded-full bg-[#F58634] text-white text-sm font-semibold shadow-sm hover:bg-[#E07224] transition-colors"
                                   >
-                                    Yes, that's the one
+                                    Yes, that&apos;s the one
                                   </button>
                                   <button
                                     type="button"
@@ -3344,36 +3759,15 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                   </div>
                 ))}
 
-                {/* Loading State */}
-                {isSearching && (
-                  <div className="flex items-start gap-4 mt-6 ml-1">
-                    <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-[#140800] ring-1 ring-[#F58634]/35 shadow-sm flex items-center justify-center">
-                      <Image
-                        src="/assets/images/snaphomz-icon-thick.png"
-                        alt="SnapHomz AI"
-                        width={32}
-                        height={32}
-                        className="w-8 h-8 object-contain"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-3 pt-1 w-full max-w-md">
-                      <div className="flex items-center gap-3 animate-pulse">
-                        {/* Custom Curvy Sparkles Icon matching Figma */}
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 drop-shadow-[0_0_12px_rgba(245,134,52,0.7)]">
-                          <path d="M14.5 4C14.5 4 15.5 10 20 12C15.5 14 14.5 20 14.5 20C14.5 20 13.5 14 9 12C13.5 10 14.5 4 14.5 4Z" fill="#F58634" />
-                          <path d="M5.5 6C5.5 6 6 9 8 10C6 11 5.5 14 5.5 14C5.5 14 5 11 3 10C5 9 5.5 6 5.5 6Z" fill="#F58634" />
-                          <path d="M5 16C5 16 5.5 18 7 19C5.5 20 5 22 5 22C5 22 4.5 20 3 19C4.5 18 5 16 5 16Z" fill="#F58634" />
-                        </svg>
-                        <span className="text-lg font-medium text-black">
-                          {loadingMessages[loadingStep]}
-                        </span>
-                      </div>
-                      <div className="space-y-3 opacity-40 animate-pulse">
-                        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                        <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                      </div>
-                    </div>
-                  </div>
+                {/* Thinking Panel — agent-transparent loading state */}
+                {showStandaloneThinkingPanel && (
+                  <ThinkingPanel
+                    isThinking={isSearching}
+                    query={currentQuery}
+                    intentHint={thinkingIntentHint}
+                    backendSteps={thinkingSteps.length > 0 ? thinkingSteps : undefined}
+                    forceDoneMs={latestThoughtDurationMs ?? undefined}
+                  />
                 )}
 
                 <div ref={chatBottomRef} className="h-2" />

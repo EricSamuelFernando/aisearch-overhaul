@@ -893,7 +893,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
             className={cn(
               'pt-16 pb-2 border-b border-gray-200',
               currentView === 'map' ? 'px-0' : 'px-6',
-              currentView === 'grid' ? 'text-center' : '',
+              // currentView === 'grid' ? 'text-center' : '',
             )}
           >
             <h2 className="text-xl font-semibold text-gray-800">Start a New Search</h2>

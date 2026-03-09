@@ -7,6 +7,10 @@ const API_BASE =
 const AI_BASE =
     process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI ?? API_BASE;
 
+const _COGNITO_CLIENT_ID =
+    process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID ?? "6240jv1q945bmdv86kj7m1dqc4";
+const _COGNITO_STORAGE_KEY = `CognitoIdentityServiceProvider.${_COGNITO_CLIENT_ID}.LastAuthResult`;
+
 /** Returns { Authorization: "Bearer <accessToken>" } when logged in, or {} for anonymous */
 function getAuthHeaders(): Record<string, string> {
     try {
@@ -23,6 +27,8 @@ function getAuthHeaders(): Record<string, string> {
 export type SearchPayload = {
     query: string;
     session_id?: string | null;  //  Added for conversation memory
+    system_prompt?: string | null;
+    assistant_mode?: string | null;
     state?: string | null;
     city?: string | null;
     zip_code?: string | null;
@@ -46,6 +52,8 @@ export type RentVsBuyPayload = {
 export type QuestionPayload = {
     question: string;
     session_id?: string | null;
+    system_prompt?: string | null;
+    assistant_mode?: string | null;
     selected_property_id?: string | number | null;
     selected_property_index?: number | null;
 };
@@ -96,10 +104,14 @@ export async function searchProperties(payload: SearchPayload, signal?: AbortSig
 
     console.log('[API] Search Request:', {
         query: payload.query,
-        session_id: payload.session_id
+        session_id: payload.session_id,
+        assistant_mode: payload.assistant_mode
     });
 
-    const res = await fetch(`${API_BASE}/api/search`, {
+    // Use the local Next.js proxy to bypass CORS (hits our src/app/api/search/route.ts)
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    // const res = await fetch(`${baseUrl}/api/search`, {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/search`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -108,7 +120,9 @@ export async function searchProperties(payload: SearchPayload, signal?: AbortSig
         },
         body: JSON.stringify({
             query: payload.query,
-            session_id: payload.session_id  //  Send session ID to backend
+            session_id: payload.session_id,  //  Send session ID to backend
+            system_prompt: payload.system_prompt,
+            assistant_mode: payload.assistant_mode,
         }),
         signal, // Pass signal to fetch
     });
@@ -171,7 +185,8 @@ export async function askQuestion(payload: QuestionPayload, signal?: AbortSignal
     // Use /question endpoint (not /api/question)
     console.log('[API] Question Request:', {
         question: payload.question,
-        session_id: payload.session_id
+        session_id: payload.session_id,
+        assistant_mode: payload.assistant_mode
     });
 
     const res = await fetch(`${API_BASE}/question`, {

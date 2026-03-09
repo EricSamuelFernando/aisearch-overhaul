@@ -3,7 +3,8 @@ name: Deploying microservices frontend DEMO ENV using lambda in AWS
 on:
   push:
     branches:
-      - demo-deploy
+      # - demo-deploy
+      - release
 
     paths-ignore:
       - "terraform/**"
@@ -14,6 +15,7 @@ on:
       - ".gitignore"
       - ".env.development"
       - ".env.production"
+      - ".env.prod"
       - "docker-compose.yml"
 
 env:
@@ -60,7 +62,7 @@ jobs:
         run: |
           export NODE_OPTIONS="--max-old-space-size=4096"
           npx next telemetry disable
-          yarn build --no-lint
+          yarn build:demo --no-lint
           echo "NextJS app built successfully"
 
       - name: Configure AWS credentials

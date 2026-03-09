@@ -155,6 +155,13 @@ const RecentCommentsSidebar = ({ properties = [], snapId, refreshTrigger = 0, on
         fetchRecentComments(); // Initial fetch
 
         if (socket) {
+            // Join the snap room so we receive new_comment broadcasts from Lambda
+            const room = snapId ? `snap-${snapId}` : null;
+            if (room) {
+                console.log(`[RecentComments] Joining room: ${room}`);
+                socket.emit('joinRoom', { roomId: room });
+            }
+
             const handleNewActivity = (comment: any) => {
                 console.log('[RecentComments] New activity received via socket:', comment);
 
@@ -174,8 +181,8 @@ const RecentCommentsSidebar = ({ properties = [], snapId, refreshTrigger = 0, on
 
                 // Add comment directly to state instead of refetching
                 setComments((prev) => {
-                    // Prevent duplicates
-                    if (prev.some(c => c.id === comment.id)) {
+                    // Prevent duplicates by id or by text+user
+                    if (prev.some(c => c.id === comment.id || (c.text === comment.text && c.userName === comment.userName))) {
                         console.log('[RecentComments] Duplicate comment, skipping');
                         return prev;
                     }
@@ -186,13 +193,41 @@ const RecentCommentsSidebar = ({ properties = [], snapId, refreshTrigger = 0, on
                 });
             };
 
-            socket.on('recent_activity_update', handleNewActivity);
+            // Re-join room on reconnect (e.g. after Lambda redeployment disconnects clients)
+            const handleConnect = () => {
+                if (room) {
+                    console.log(`[RecentComments] Reconnected — re-joining room: ${room}`);
+                    socket.emit('joinRoom', { roomId: room });
+                }
+            };
+
+            const handleRecentActivityUpdate = (data: any) => {
+                console.log('[RecentComments] Global recent activity update:', data);
+
+                // If a comment was added to THIS snap, refresh everything
+                if (data.action === 'comment_added' && data.snapId === snapId) {
+                    console.log('[RecentComments] New comment detected in current snap, refreshing all data.');
+                    fetchRecentComments();
+                    if (typeof onNewComment === 'function') {
+                        onNewComment();
+                    }
+                }
+            };
+
+            socket.on('new_comment', handleNewActivity);
+            socket.on('recent_activity_update', handleRecentActivityUpdate);
+            socket.on('connect', handleConnect);
 
             return () => {
-                socket.off('recent_activity_update', handleNewActivity);
+                socket.off('new_comment', handleNewActivity);
+                socket.off('recent_activity_update', handleRecentActivityUpdate);
+                socket.off('connect', handleConnect);
+                if (room) {
+                    socket.emit('leaveRoom', { roomId: room });
+                }
             };
         }
-    }, [refreshTrigger, socket]);
+    }, [refreshTrigger, socket, snapId]);
 
     return (
         <div className="w-full h-full bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex flex-col">

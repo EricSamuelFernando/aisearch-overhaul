@@ -97,7 +97,7 @@ export default function RegisterModal({
   const navigateUser = useCallback(
     () => {
       if (activeUserType === 'agent' && typeof window !== 'undefined') {
-        window.location.href = 'https://agents.snaphomz.com';
+        window.location.href = 'https://agents.snaphomz.com/signUp';
       } else {
         selectAccountType(activeUserType as UserType);
         handleSetView('send-code');

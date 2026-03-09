@@ -14,6 +14,24 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
   const searchParams = useSearchParams();
   const { close } = useAuthModalActions();
   const { user } = useAuth();
+  const agentSnapsGraphqlUrl = process.env.NEXT_PUBLIC_AGENTS_SERIVCE_GRAPHQL_URL?.trim();
+
+  const resolveSnapsGraphqlBaseURL = () => {
+    const accountType = String(user?.account_type || "").toLowerCase();
+    if (accountType === "agent" && agentSnapsGraphqlUrl) {
+      return agentSnapsGraphqlUrl;
+    }
+    return undefined;
+  };
+
+  const executeSnapsGraphql = async <T = any>(body: {
+    query: string;
+    variables?: Record<string, any>;
+  }): Promise<T> => {
+    return API.graphql<T>(body, {
+      baseURL: resolveSnapsGraphqlBaseURL(),
+    });
+  };
 
   const createNewSnap = useMutation({
     mutationKey: ["createSnap"],
@@ -33,7 +51,7 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
       }
 
       try {
-        const data = await API.graphql({
+        const data = await executeSnapsGraphql({
           query: `
             mutation CreateSnap($createSnapsInput: CreateSnapsInput!) {
               createSnap(createSnapsInput: $createSnapsInput) {
@@ -67,7 +85,7 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
       }
 
       try {
-        const data = await API.graphql({
+        const data = await executeSnapsGraphql({
           query: `
             query findAllByUserId($userId: String!) {
               snaps(userId: $userId) {
@@ -120,7 +138,7 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
       }
 
       try {
-        const data = await API.graphql({
+        const data = await executeSnapsGraphql({
           query: `
             query findAllBySnap($snapId: String!) {
               favourites(snapId: $snapId) {
@@ -170,7 +188,7 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
     mutationKey: ["markPropertyAsRead"],
     mutationFn: async ({ snapId, propertyId }: { snapId: string; propertyId: string }) => {
       try {
-        const data = await API.graphql({
+        const data = await executeSnapsGraphql({
           query: `
             mutation markPropertyAsRead($snapId: String!, $propertyId: String!) {
               markPropertyAsRead(snapId: $snapId, propertyId: $propertyId)
@@ -196,7 +214,7 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
     mutationKey: ["createFavourite"],
     mutationFn: async (createFavouritesInput: any) => {
       try {
-        const data = await API.graphql({
+        const data = await executeSnapsGraphql({
           query: `
             mutation createFavourite($createFavouritesInput: CreateFavouritesInput!) {
               createFavourite(createFavouritesInput: $createFavouritesInput) {
@@ -222,7 +240,7 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
     mutationKey: ["create_participents"],
     mutationFn: async (createSnapsParticipantsInput: any) => {
       try {
-        const data = await API.graphql({
+        const data = await executeSnapsGraphql({
           query: `
             mutation createSnapsParticipant($createSnapsParticipantsInput: CreateSnapsParticipantsInput!) {
               createSnapsParticipant(createSnapsParticipantsInput: $createSnapsParticipantsInput) {
@@ -248,7 +266,7 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
     mutationKey: ["getAllAgents"],
     mutationFn: async ({ limit, offset }: { limit: number; offset: number }) => {
       try {
-        const data = await API.graphql({
+        const data = await executeSnapsGraphql({
           query: `
             mutation findAllAgents($limit: Float!, $offset: Float!) {
               findAllAgents(limit: $limit, offset: $offset) {
@@ -292,7 +310,7 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
     mutationKey: ["delete_snap"],
     mutationFn: async (id: string) => {
       try {
-        const data = await API.graphql({
+        const data = await executeSnapsGraphql({
           query: `
             mutation removeSnap($id: String!) {
               removeSnap(id: $id)
@@ -329,7 +347,7 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
     mutationKey: ["update_snap"],
     mutationFn: async (updateSnapsInput: any) => {
       try {
-        const data = await API.graphql({
+        const data = await executeSnapsGraphql({
           query: `
             mutation updateSnap($updateSnapsInput: UpdateSnapsInput!) {
               updateSnap(updateSnapsInput: $updateSnapsInput) {
@@ -369,7 +387,7 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
     mutationKey: ["sendPartnerInvitation"],
     mutationFn: async ({ email, partnerEmail }: { email: string; partnerEmail: string }) => {
       try {
-        const data = await API.graphql({
+        const data = await executeSnapsGraphql({
           query: `
             mutation SendPartnerInvitation($email: String!, $partnerEmail: String!) {
               sendPartnerInvitation(email: $email, partnerEmail: $partnerEmail)
@@ -416,7 +434,7 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
       createFavouritesInput?: any;
     }) => {
       // API instance handles token injection and refresh automatically
-      const data = await API.graphql({
+      const data = await executeSnapsGraphql({
         query: `
           mutation toggleFavourite(
             $snapId: String!, 
@@ -443,7 +461,7 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
     mutationKey: ["getSnapById"],
     mutationFn: async (snapId: string) => {
       try {
-        const data = await API.graphql({
+        const data = await executeSnapsGraphql({
           query: `
             query GetSnap($id: String!) {
               snap(id: $id) {
@@ -452,9 +470,11 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
                 link
                 userId
                 participants {
-                  userId
-                  email
-                  accountType
+                  participant {
+                    id
+                    email
+                    accountType
+                  }
                 }
               }
             }
@@ -476,7 +496,7 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
   const reclaimMySnaps = useMutation({
     mutationKey: ["reclaimMySnaps"],
     mutationFn: async () => {
-      const data = await API.graphql({
+      const data = await executeSnapsGraphql({
         query: `
           mutation ReclaimMySnaps {
             reclaimMySnaps

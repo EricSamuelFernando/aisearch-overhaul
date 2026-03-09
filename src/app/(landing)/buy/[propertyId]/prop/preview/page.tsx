@@ -20,7 +20,7 @@
 
 
 import { PropertyPreview } from '@/components/buy/preview';
-import Footer from '@/components/footer/Footer';
+import Footer from '@/components/shared/footer';
 
 function Page() {
   return (

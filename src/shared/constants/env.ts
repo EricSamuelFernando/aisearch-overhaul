@@ -21,7 +21,11 @@ export const APP_PUBLIC_ROUTE = [
   '/signup',
   '/forgot-password',
   '/not-supported',
-  '/home',
+  '/',
+  '/agents-how-it-works',
+  '/buyer-how-it-works',
+  '/seller-how-it-works',
+  '/mortgage-graph',
   '/sell',
   '/agents',
   '/buy/browse',
@@ -70,7 +74,8 @@ export const COMMUNICATION_SERVICE_URI = process.env.NEXT_PUBLIC_COMMUNICATION_S
 
 export const GET_MESSAGE_PROPERTY_MESSAGE_THREADS = `${COMMUNICATION_SERVICE_URI}/conversations/threads`
 
-export const deploymentEnv = process.env.NEXT_PUBLIC_AUTH_SERIVCE_SOCKET_URL || "http://localhost:4000";
+export const deploymentEnv = process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL || "http://localhost:4000";
+export const notificationServiceUrl = process.env.NEXT_PUBLIC_NOTIFICATION_SERVICE_URL || "http://localhost:4000";
 
 export const AGENT_APPLICATIONS = process.env.NEXT_PUBLIC_AGENT_URL;
 

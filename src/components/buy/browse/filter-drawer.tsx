@@ -189,6 +189,7 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
     const bathParam = searchParams.get('bathRooms') || '';
     const priceMinParam = searchParams.get('priceMin') || '';
     const priceMaxParam = searchParams.get('priceMax') || '';
+    const propertyType = searchParams.get('propertyType') || '';
     return {
       priceMin: priceMinParam || (inferred.priceMin ? String(inferred.priceMin) : ''),
       priceMax: priceMaxParam || (inferred.priceMax ? String(inferred.priceMax) : ''),
@@ -197,6 +198,7 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
       sqTfMin: searchParams.get('sqTfMin') || '',
       sqTfMax: searchParams.get('sqTfMax') || '',
       listing_property_type: selectedSort.value,
+      propertyType: searchParams.get('propertyType') || ''
     };
   });
 
@@ -247,6 +249,7 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
       sqTfMin: searchParams.get('sqTfMin') || '',
       sqTfMax: searchParams.get('sqTfMax') || '',
       listing_property_type: selectedSort.value,
+      propertyType: searchParams.get('propertyType') || ''
     };
 
     setLocalFilters(nextLocal);

@@ -56,7 +56,7 @@ export default function FindPerfectMortgage({
   headingClassName?: string;
 }) {
   return (
-    <section className="w-full h-full bg-[#FFF6EC] px-4 sm:px-10 lg:px-20 flex flex-col">
+    <section className="home-mortgage-section w-full h-full bg-[#FFF6EC] px-4 sm:px-10 lg:px-20 xl:px-24 2xl:px-28 flex flex-col">
 
       {/* Heading */}
       <div className="max-w-5xl mx-auto text-center mb-2">
@@ -70,10 +70,10 @@ export default function FindPerfectMortgage({
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-start gap-16">
+      <div className="home-mortgage-container max-w-7xl 2xl:max-w-[1600px] mx-auto flex flex-col lg:flex-row items-start gap-16 xl:gap-20">
 
         {/* LEFT CARD (CHART) */}
-        <div className="w-full lg:w-1/2 bg-[#F6E9D8] rounded-3xl p-8 sm:p-10 scale-[0.7] origin-top mt-8">
+        <div className="w-full lg:w-1/2 bg-[#F6E9D8] rounded-3xl p-8 sm:p-10 xl:p-12 2xl:p-14 scale-100 mt-8">
 
           <div className="mb-6">
             <h2 className="text-lg font-bold text-[#2C1F18] mb-1">
@@ -87,7 +87,7 @@ export default function FindPerfectMortgage({
           </div>
 
           {/* Chart */}
-          <div className="h-[200px] sm:h-[220px] mb-10 max-w-md">
+          <div className="h-[200px] sm:h-[220px] xl:h-[260px] mb-10 max-w-md xl:max-w-lg">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={chartData}
@@ -151,7 +151,7 @@ export default function FindPerfectMortgage({
 
         {/* RIGHT IMAGE */}
         <div className="w-full lg:w-1/2 flex justify-center">
-          <div className="relative w-[260px] sm:w-[320px] md:w-[380px] lg:w-[420px] scale-[0.7] origin-center -mt-14">
+          <div className="relative w-[260px] sm:w-[320px] md:w-[380px] lg:w-[420px] xl:w-[520px] 2xl:w-[600px] scale-100 origin-center -mt-4 xl:-mt-2">
             <Image
               src="/assets/images/buyer-home_mortgage.png"
               alt="Mortgage illustration"

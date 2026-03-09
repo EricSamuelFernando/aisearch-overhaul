@@ -68,6 +68,13 @@ const iconByKind: Record<NotificationKind, IconComponent> = {
   general: CircleDot,
 };
 
+const extractNumericId = (id: any): string => {
+  if (!id) return "";
+  const strId = String(id).trim();
+  const match = strId.match(/(\d+)$/);
+  return match ? match[1] : strId;
+};
+
 const normalizeKind = (type?: string): NotificationKind => {
   const value = (type || '').toLowerCase();
   if (!value) return 'general';
@@ -110,8 +117,10 @@ export default function NotificationDropdown() {
   } = useNotificationApi();
   const router = useRouter();
   const { state, setState } = useContext(SocketContext);
-  const apiNotifications =
-    notificationsQuery.data?.data.data.result.result || [];
+  const rawApiData = notificationsQuery.data?.data as any;
+  const apiNotifications = Array.isArray(rawApiData)
+    ? rawApiData
+    : rawApiData?.data?.result?.result || rawApiData?.result || [];
 
   const notifications = useMemo(() => {
     const socketNotifications = Array.isArray(state?.notifications) ? state.notifications : [];
@@ -121,7 +130,7 @@ export default function NotificationDropdown() {
       source: item.source || 'socket',
     }));
 
-    const normalizedApi: UINotification[] = apiNotifications.map((item) => {
+    const normalizedApi: UINotification[] = apiNotifications.map((item: any) => {
       const threadId = (item as { threadId?: string }).threadId;
       const snapId = (item as { snapId?: string }).snapId;
       const link =
@@ -129,7 +138,7 @@ export default function NotificationDropdown() {
         (snapId ? `/account/collections/${snapId}` : undefined) ||
         (threadId ? `/dashboard/buyer?tab=messages&threadId=${threadId}` : undefined);
       return {
-        id: item._id,
+        id: extractNumericId(item._id || item.id),
         title: item.title,
         body: item.body,
         createdAt: item.createdAt,
@@ -159,7 +168,8 @@ export default function NotificationDropdown() {
   useEffect(() => {
     if (!state?.notification?.isVisible && !state?.newMessage) return;
     notificationsQuery.refetch();
-  }, [notificationsQuery, state?.notification?.isVisible, state?.newMessage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.notification?.isVisible, state?.newMessage]);
 
   useEffect(() => {
     const activeThreadId = state?.selectedChannel?.id;
@@ -168,8 +178,8 @@ export default function NotificationDropdown() {
       ...prev,
       notifications: Array.isArray(prev.notifications)
         ? prev.notifications.map((item: UINotification) =>
-            item.threadId === activeThreadId ? { ...item, read: true } : item,
-          )
+          item.threadId === activeThreadId ? { ...item, read: true } : item,
+        )
         : prev.notifications,
     }));
   }, [state?.selectedChannel?.id]);
@@ -186,8 +196,8 @@ export default function NotificationDropdown() {
           ...prev,
           notifications: Array.isArray(prev.notifications)
             ? prev.notifications.map((item: UINotification) =>
-                item.id === notification.id ? { ...item, read: true } : item,
-              )
+              item.id === notification.id ? { ...item, read: true } : item,
+            )
             : prev.notifications,
         }));
       }
@@ -212,7 +222,7 @@ export default function NotificationDropdown() {
   return (
     <Menu shadow="md" radius={'lg'} width={280} position="bottom-end">
       <Menu.Target>
-        <UnstyledButton>
+        <UnstyledButton onClick={() => notificationsQuery.refetch()}>
           <Indicator color="red" size={12} disabled={!unreadCount}>
             <BellDot size={24} />
           </Indicator>

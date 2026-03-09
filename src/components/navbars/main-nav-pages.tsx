@@ -39,7 +39,7 @@ function MainNavPages() {
 
   // Determine text color based on route
   const getTextColor = () => {
-    if (pathname?.startsWith('/home') || pathname === '/home' || pathname === '/home/buy') {
+    if (pathname === '/' || pathname?.startsWith('/home') || pathname === '/home' || pathname === '/home/buy') {
       return 'text-white';
     } else if (pathname?.startsWith('/buy')) {
       return 'text-black';
@@ -56,7 +56,7 @@ function MainNavPages() {
 
   // Determine background color based on route for scrolled state
   const getBackgroundColor = () => {
-    if (pathname?.startsWith('/home') || pathname === '/home' || pathname === '/home/buy') {
+    if (pathname === '/' || pathname?.startsWith('/home') || pathname === '/home' || pathname === '/home/buy') {
       return 'bg-black';
     } else if (pathname?.startsWith('/buy')) {
       return 'bg-white';
@@ -88,7 +88,7 @@ function MainNavPages() {
     if (!isScrolled) return 'bg-transparent';
 
     // Inline the background color logic to ensure pathname is used correctly
-    if (pathname?.startsWith('/home') || pathname === '/home' || pathname === '/home/buy') {
+    if (pathname === '/' || pathname?.startsWith('/home') || pathname === '/home' || pathname === '/home/buy') {
       return 'bg-black';
     } else if (pathname?.startsWith('/buy')) {
       return 'bg-black';
@@ -205,7 +205,7 @@ function MainNavPages() {
 
         {/* Logo - Left side on mobile, center on desktop */}
         <Link
-          href="/home"
+          href="/"
           className="flex items-center justify-center md:absolute md:inset-y-0 md:left-1/2 md:transform md:-translate-x-1/2"
         >
           <Image
@@ -215,7 +215,7 @@ function MainNavPages() {
             unoptimized
             alt="logo"
             className={`transition-all duration-300 object-contain ${isScrolled
-              ? 'h-9 w-28 md:h-10 md:w-32'
+              ? 'h-10 w-32 md:h-10 md:w-32'
               : 'h-10 w-32 md:h-12 md:w-36'
               }`}
           />

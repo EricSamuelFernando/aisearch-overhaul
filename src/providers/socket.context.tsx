@@ -795,10 +795,7 @@ function SocketProvider({ children }: { children: ReactNode }) {
         }));
       };
 
-      socket.on("newMessage", handleNewMessage);
-      socket.on("recievedMessage", handleRecievedMessage);
-      socket.on("unread_count_updated", handleUnreadCountUpdated);
-      socket.on("notification_created", (payload: any) => {
+      const handleNotificationCreated = (payload: any) => {
         console.log("[SocketContext] notification_created:", payload);
         queryClient.invalidateQueries({ queryKey: ["notifications"] });
         const data = payload?.data || payload;
@@ -846,7 +843,7 @@ function SocketProvider({ children }: { children: ReactNode }) {
         }));
 
         console.log("[SocketContext] Notification added to state");
-      });
+      };
 
       const handleRecentActivityUpdate = (payload: any) => {
         // Do NOT create bell notifications here — this event is broadcast to
@@ -857,38 +854,62 @@ function SocketProvider({ children }: { children: ReactNode }) {
         queryClient.invalidateQueries({ queryKey: ['notifications'] });
       };
 
-      socket.on("recent_activity_update", handleRecentActivityUpdate);
+      const handleInvitationUpdated = (payload: any) => {
+        console.log("[SocketContext] invitation_updated:", payload);
+        queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      };
 
-      // Handle websocket response events
-      socket.on("createOrJoinConversation_response", (response: any) => {
+      const handleNewOfferRecieved = (payload: any) => {
+        console.log("[SocketContext] new_offer_recieved:", payload);
+        queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      };
+
+      const handleMarkAsReadResponse = (payload: any) => {
+        console.log("[SocketContext] thread_marked_as_read received:", payload);
+      };
+
+      const handleCreateOrJoinResponse = (response: any) => {
         console.log('[SocketContext] createOrJoinConversation_response:', response);
-      });
+      };
 
-      socket.on("sendMessage_response", (response: any) => {
+      const handleSendMessageResponse = (response: any) => {
         console.log('[SocketContext] sendMessage_response:', response);
-      });
+      };
 
-      socket.on("joinRoom_response", (response: any) => {
+      const handleJoinRoomResponse = (response: any) => {
         console.log('[SocketContext] joinRoom_response:', response);
-      });
+      };
 
-      socket.on("leaveRoom_response", (response: any) => {
+      const handleLeaveRoomResponse = (response: any) => {
         console.log('[SocketContext] leaveRoom_response:', response);
-      });
+      };
+
+      socket.on("newMessage", handleNewMessage);
+      socket.on("recievedMessage", handleRecievedMessage);
+      socket.on("unread_count_updated", handleUnreadCountUpdated);
+      socket.on("notification_created", handleNotificationCreated);
+      socket.on("recent_activity_update", handleRecentActivityUpdate);
+      socket.on("invitation_updated", handleInvitationUpdated);
+      socket.on("new_offer_recieved", handleNewOfferRecieved);
+      socket.on("thread_marked_as_read", handleMarkAsReadResponse);
+      socket.on("createOrJoinConversation_response", handleCreateOrJoinResponse);
+      socket.on("sendMessage_response", handleSendMessageResponse);
+      socket.on("joinRoom_response", handleJoinRoomResponse);
+      socket.on("leaveRoom_response", handleLeaveRoomResponse);
 
       return () => {
-        socket.off("recievedMessage");
-        socket.off("invitation_updated");
-        socket.off("new_offer_recieved");
         socket.off("newMessage", handleNewMessage);
         socket.off("recievedMessage", handleRecievedMessage);
         socket.off("unread_count_updated", handleUnreadCountUpdated);
-        socket.off("notification_created");
+        socket.off("notification_created", handleNotificationCreated);
         socket.off("recent_activity_update", handleRecentActivityUpdate);
-        socket.off("createOrJoinConversation_response");
-        socket.off("sendMessage_response");
-        socket.off("joinRoom_response");
-        socket.off("leaveRoom_response");
+        socket.off("invitation_updated", handleInvitationUpdated);
+        socket.off("new_offer_recieved", handleNewOfferRecieved);
+        socket.off("thread_marked_as_read", handleMarkAsReadResponse);
+        socket.off("createOrJoinConversation_response", handleCreateOrJoinResponse);
+        socket.off("sendMessage_response", handleSendMessageResponse);
+        socket.off("joinRoom_response", handleJoinRoomResponse);
+        socket.off("leaveRoom_response", handleLeaveRoomResponse);
       };
     }
   }, [messageThreads, socket, user?.id, queryClient]);

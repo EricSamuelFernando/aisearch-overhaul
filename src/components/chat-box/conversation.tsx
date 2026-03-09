@@ -200,6 +200,82 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
   const [showDetails, setShowDetails] = useState(false); // Added state variable
   const [propertyData, setPropertyData] = useState<any>(null);
   const [allMessages, setAllMessages] = useState<Message[]>([]);
+
+  // Robust field resolution helpers (replicated from chat-box.tsx for standalone use)
+  const pickFirstString = (...values: any[]): string => {
+    for (const val of values) {
+      if (typeof val === 'string' && val.trim()) return val.trim();
+      if (typeof val === 'number') return String(val);
+    }
+    return '';
+  };
+
+  const normalizeIsoTimestamp = (value?: string): string => {
+    if (!value) return '';
+    const timestamp = new Date(value);
+    if (Number.isNaN(timestamp.getTime())) return '';
+    // Reject Epoch (0) or very near it (Jan 1, 1970) as it's usually a placeholder
+    if (timestamp.getTime() < 100000) return '';
+    return timestamp.toISOString();
+  };
+
+  const resolveMessageId = (message: any): string =>
+    pickFirstString(
+      message?.id,
+      message?.messageId,
+      message?.message_id,
+      message?._id,
+      message?.data?.id,
+      message?.data?.messageId,
+      message?.payload?.id,
+    );
+
+  const resolveMessageCreatedAt = (message: any): string =>
+    normalizeIsoTimestamp(
+      pickFirstString(
+        message?.createdAt,
+        message?.created_at,
+        message?.timestamp,
+        message?.date,
+        message?.dateCreated,
+        message?.date_created,
+        message?.data?.createdAt,
+        message?.payload?.createdAt,
+      ),
+    );
+
+  const mergeUniqueMessages = (newMessages: any[], existingMessages: any[]) => {
+    const deduped = new Map<string, Message>();
+
+    // Process existing messages first
+    existingMessages.forEach(msg => {
+      const id = resolveMessageId(msg) || (msg as any).id;
+      if (id) deduped.set(String(id), msg);
+    });
+
+    // Merge new messages
+    newMessages.forEach(raw => {
+      const id = resolveMessageId(raw);
+      const createdAt = resolveMessageCreatedAt(raw);
+      const msg: Message = {
+        ...raw,
+        id: id || raw.id || `temp-${Date.now()}-${Math.random()}`,
+        createdAt: createdAt || raw.createdAt || new Date().toISOString(),
+        message: raw.message || raw.content || raw.text || '',
+      };
+      if (id) {
+        deduped.set(String(id), msg);
+      } else {
+        // If no ID, use a composite key to at least try to deduplicate
+        const compositeKey = `${createdAt}-${msg.message.substring(0, 20)}`;
+        if (!deduped.has(compositeKey)) deduped.set(compositeKey, msg);
+      }
+    });
+
+    return Array.from(deduped.values()).sort(
+      (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+  };
   const [selectedThread, setSelectedThread] = useState('');
   const [conversationLoading, setConversationLoading] = useState(false);
   const debounce = useDebounce();
@@ -542,16 +618,8 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
       setAllMessages([]);
       getAllConversationMessagesMutation.mutate(threadId, {
         onSuccess: (data) => {
-          const messages = data?.data?.conversationsByThread || [];
-          const decryptedMessages = messages?.map((message: Message) => {
-            // const decryptedMessage = decryptMessage(message.message);
-            const decryptedMessage = message.message;
-            return {
-              ...message,
-              message: decryptedMessage,
-            };
-          });
-          setAllMessages(decryptedMessages || []);
+          const rawMessages = data?.data?.conversationsByThread || [];
+          setAllMessages((prev) => mergeUniqueMessages(rawMessages, []));
           setConversationLoading(false);
         },
         onError: (error) => {
@@ -932,33 +1000,46 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
           setAllMessages(updatedMessages);
         }
       });
-      socket.on('recievedMessage', (newMessage: Message) => {
-        // Only add message if it's for the current thread
-        if (newMessage.threadId === selectedThread) {
-          setShowNewMessageTag(true);
-          setAllMessages((prevMessages) => [newMessage, ...prevMessages]);
-        }
-      });
-
-      // Handle newMessage event from websocket backend (Lambda/API Gateway)
       const handleIncomingMessage = (messageData: any, source: string) => {
         console.log(`[conversation] Received ${source}:`, messageData);
-        const threadId = messageData.threadId || messageData.thread_id;
+        const incomingThreadId = String(messageData.threadId || messageData.thread_id || messageData.channelId || messageData.conversationId || messageData.conversation_id || '').trim();
+        const currentSel = String(selectedThread || '').trim();
 
         // Only add message if it's for the current thread
-        if (threadId === selectedThread) {
+        if (incomingThreadId && currentSel && incomingThreadId === currentSel) {
           setShowNewMessageTag(true);
-          setAllMessages((prevMessages) => [{
+          const incoming: Message = {
             ...messageData,
-            threadId: threadId,
-            message: messageData.message || messageData.content,
-          }, ...prevMessages]);
+            threadId: incomingThreadId,
+            message: messageData.message || messageData.content || messageData.text,
+            createdAt: messageData.createdAt || messageData.created_at || messageData.timestamp || messageData.date,
+          };
+          setAllMessages((prevMessages) => {
+            const incomingId = resolveMessageId(messageData) || `temp-${Date.now()}`;
+            const rawDate = resolveMessageCreatedAt(messageData);
+
+            const normalizedIncoming: Message = {
+              ...incoming,
+              id: incomingId,
+              message: incoming.message || (messageData as any).content || (messageData as any).text || "",
+              createdAt: rawDate || new Date().toISOString()
+            };
+
+            // Deduplicate: don't add if a message with the same ID already exists
+            if (incomingId && prevMessages.some((m) => String(m.id || "").trim() === incomingId)) {
+              console.log("[conversation] Duplicate message ignored:", incomingId);
+              return prevMessages;
+            }
+            return [normalizedIncoming, ...prevMessages];
+          });
         }
       };
 
       const handleNewMessage = (messageData: any) => handleIncomingMessage(messageData, 'newMessage');
+      const handleRecievedMessage = (messageData: any) => handleIncomingMessage(messageData, 'recievedMessage');
 
       socket.on('newMessage', handleNewMessage);
+      socket.on('recievedMessage', handleRecievedMessage);
 
       socket.on('typingStatus', (typing: boolean) => {
         setIsTyping(typing);
@@ -975,9 +1056,8 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
 
       const interval = setInterval(saveAllMessages, 5000);
       return () => {
-        socket.off('recievedMessage');
+        socket.off('recievedMessage', handleRecievedMessage);
         socket.off('newMessage', handleNewMessage);
-        socket.off('thread_marked_as_read');
         socket.off('createOrJoinConversation_response');
         socket.off('joinRoom_response');
         clearInterval(interval);
@@ -987,36 +1067,11 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
     return () => {
       // Cleanup when component unmounts or thread changes
     };
-  }, [socket, selectedThread, allMessages]);
+  }, [socket, selectedThread]);
 
-  useEffect(() => {
-    if (state?.newMessage) {
-      setShowNewMessageTag(true);
-      setTimeout(() => {
-        setAllMessages((prevMessages) => [
-          {
-            ...state.newMessage,
-            message: state.newMessage.message,
-            // message: decryptMessage(state.newMessage.message),
-          },
-          ...prevMessages,
-        ]);
-      }, 2000);
-      setState((prev: any) => ({
-        ...prev,
-        newMessage: null,
-      }));
-      if (socket) {
-        socket?.on('thread_marked_as_read', (data: any) => {
-          console.log('thread : ', data);
-        });
-
-        if (selectedThread === state?.newMessage?.threadId) {
-          socket.emit('mark_as_read', { threadId: selectedThread });
-        }
-      }
-    }
-  }, [state.newMessage]);
+  // NOTE: state.newMessage handler removed to avoid duplicate messages.
+  // Messages are directly added by the socket.on('newMessage') listener above.
+  // The SocketContext still updates state.newMessage, but this component ignores it.
 
   useEffect(() => {
     if (state?.isReadThreadId === selectedThread) {
@@ -1291,9 +1346,14 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
 
   const groupedMessages: { [date: string]: Message[] } = allMessages.reduce(
     (acc: { [date: string]: Message[] }, message) => {
-      const date = format(new Date(message?.createdAt ?? 0), 'yyyy-MM-dd');
-      if (!acc[date]) acc[date] = [];
-      acc[date].push(message);
+      const rawDate = resolveMessageCreatedAt(message);
+      // If date is invalid, don't default to Jan 1. Use 'Unknown' or filter it.
+      // Filtering duplicates with invalid dates out of the grouping keeps the UI clean.
+      if (!rawDate) return acc;
+
+      const dateKey = format(new Date(rawDate), 'yyyy-MM-dd');
+      if (!acc[dateKey]) acc[dateKey] = [];
+      acc[dateKey].push(message);
       return acc;
     },
     {},

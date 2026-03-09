@@ -3764,10 +3764,29 @@ export default function ChatBoxComponent(props: any) {
 
   const normalizeIsoTimestamp = (value?: string): string => {
     if (!value) return ""
+    // Handle Epoch or very old dates which are often placeholders for missing data
     const timestamp = new Date(value)
     if (Number.isNaN(timestamp.getTime())) return ""
+
+    // If it's effectively Epoch (0) or very near it, treat as missing to allow fallback
+    if (timestamp.getTime() < 100000) return ""
+
     return timestamp.toISOString()
   }
+
+  const resolveMessageId = (message: any): string =>
+    pickFirstString(
+      message?.id,
+      message?.messageId,
+      message?.message_id,
+      message?._id,
+      message?.data?.id,
+      message?.data?.messageId,
+      message?.data?.message_id,
+      message?.payload?.id,
+      message?.payload?.messageId,
+      message?.payload?.message_id,
+    )
 
   const resolveMessageSenderId = (message: any): string =>
     pickFirstString(
@@ -3820,6 +3839,7 @@ export default function ChatBoxComponent(props: any) {
       message?.conversation_id,
       message?.channelId,
       message?.channel_id,
+      message?.thread?.id,
       message?.data?.threadId,
       message?.data?.thread_id,
       message?.payload?.threadId,
@@ -3832,12 +3852,17 @@ export default function ChatBoxComponent(props: any) {
         message?.createdAt,
         message?.created_at,
         message?.timestamp,
+        message?.date,
+        message?.dateCreated,
+        message?.date_created,
         message?.data?.createdAt,
         message?.data?.created_at,
         message?.data?.timestamp,
+        message?.data?.date,
         message?.payload?.createdAt,
         message?.payload?.created_at,
         message?.payload?.timestamp,
+        message?.payload?.date,
       ),
     )
 
@@ -3907,6 +3932,7 @@ export default function ChatBoxComponent(props: any) {
 
     return {
       ...message,
+      id: resolveMessageId(messageAny) || message.id,
       threadId: resolveMessageThreadId(messageAny) || message.threadId,
       senderId: resolveMessageSenderId(messageAny) || message.senderId,
       receiverId: resolveMessageReceiverId(messageAny) || message.receiverId,
@@ -3926,17 +3952,18 @@ export default function ChatBoxComponent(props: any) {
       .flatMap((collection) => (Array.isArray(collection) ? collection : []))
       .filter(Boolean)
       .map((rawMessage: any) =>
-        normalizeMessage(rawMessage, { fallbackCreatedAtToNow: true }),
+        normalizeMessage(rawMessage, { fallbackCreatedAtToNow: false }),
       )
 
     const dedupedMessages = new Map<string, Message>()
     mergedMessages.forEach((message: any) => {
+      const msgId = resolveMessageId(message) || String(message?.id || "").trim()
       const dedupeKey =
-        String(message?.id || "").trim() ||
+        msgId ||
         [
           resolveMessageCreatedAt(message),
-          resolveMessageSenderId(message),
-          resolveMessageReceiverId(message),
+          normalizeComparableId(resolveMessageSenderId(message)),
+          normalizeComparableId(resolveMessageReceiverId(message)),
           String(message?.message || "").trim(),
           String(message?.messageType || "").trim(),
           String(message?.fileUrl || "").trim(),
@@ -4382,32 +4409,32 @@ export default function ChatBoxComponent(props: any) {
     setRecieverId(String(resolvedReceiver?.id || ""));
     setRecieverDetail(resolvedReceiver || {});
 
-    if (Array.isArray((thread as any)?.messages) && (thread as any).messages.length > 0) {
-      const scopedThreadIds = new Set(
-        [
-          thread?.id,
-          (thread as any)?.threadId,
-          (thread as any)?.thread_id,
-          (thread as any)?.roomId,
-          (thread as any)?.room_id,
-        ]
-          .map((value) => normalizeComparableId(value))
-          .filter(Boolean),
-      );
+    const scopedThreadIds = new Set(
+      [
+        thread?.id,
+        (thread as any)?.threadId,
+        (thread as any)?.thread_id,
+        (thread as any)?.roomId,
+        (thread as any)?.room_id,
+      ]
+        .map((value) => normalizeComparableId(value))
+        .filter(Boolean),
+    );
 
-      setMessages((prevMessages: any) => {
-        const scopedPrevMessages = Array.isArray(prevMessages)
-          ? prevMessages.filter((rawMessage: any) => {
-            const messageThreadId = normalizeComparableId(
-              resolveMessageThreadId(rawMessage),
-            );
-            return !messageThreadId || scopedThreadIds.has(messageThreadId);
-          })
-          : [];
+    setMessages((prevMessages: any) => {
+      const scopedPrevMessages = Array.isArray(prevMessages)
+        ? prevMessages.filter((rawMessage: any) => {
+          const messageThreadId = normalizeComparableId(
+            resolveMessageThreadId(rawMessage),
+          );
+          return !!messageThreadId && scopedThreadIds.has(messageThreadId);
+        })
+        : [];
 
-        return mergeUniqueMessages((thread as any).messages, scopedPrevMessages);
-      });
-    }
+      return Array.isArray((thread as any)?.messages) && (thread as any).messages.length > 0
+        ? mergeUniqueMessages((thread as any).messages, scopedPrevMessages)
+        : scopedPrevMessages;
+    });
 
     // if (TYPE === "messages") {
     getAllThreadMessage(thread?.id)
@@ -4665,7 +4692,10 @@ export default function ChatBoxComponent(props: any) {
         const payload = settledResult.value;
         const rows = payload?.data?.[key];
         if (!Array.isArray(rows)) return [];
-        return rows.map((message: Message) => normalizeMessage(message));
+        return rows.map((message: Message) => normalizeMessage({
+          ...message,
+          threadId: message.threadId || message.roomId || normalizedThreadId
+        }));
       };
 
       const userAgentMessages = readSettledMessages(
@@ -4729,7 +4759,7 @@ export default function ChatBoxComponent(props: any) {
             const messageThreadId = normalizeComparableId(
               resolveMessageThreadId(rawMessage),
             );
-            return !messageThreadId || scopedThreadIds.has(messageThreadId);
+            return !!messageThreadId && scopedThreadIds.has(messageThreadId);
           })
           : [];
 
@@ -5641,7 +5671,7 @@ export default function ChatBoxComponent(props: any) {
 
       socket.on('newMessage', handleNewMessage);
       socket.on('recievedMessage', handleRecievedMessage);
-      socket.on('thread_marked_as_read', (data: any) => {
+      const handleThreadMarkedAsReadStatus = (data: any) => {
         const resolvedThreadId = data?.threadId || data?.thread_id;
         if (!resolvedThreadId) return;
 
@@ -5669,28 +5699,25 @@ export default function ChatBoxComponent(props: any) {
             )
             : prev.conversationUnreadCount,
         }));
-      });
+      };
 
-      // Handle websocket response events
-      socket.on('createOrJoinConversation_response', (response: any) => {
+      const handleJoinResponse = (response: any) => {
         console.log('[ChatBox] createOrJoinConversation_response:', response);
-      });
+      };
 
-      socket.on('joinRoom_response', (response: any) => {
+      const handleJoinRoomResponse = (response: any) => {
         console.log('[ChatBox] joinRoom_response:', response);
-      });
+      };
 
-      socket.on('sendMessage_response', (response: any) => {
+      const handleSendMessageResponse = (response: any) => {
         console.log('[ChatBox] sendMessage_response:', response);
-      });
+      };
 
-      // Listen for WebSocket errors
-      socket.on("error", (errorData: any) => {
+      const handleSocketError = (errorData: any) => {
         console.error("[ChatBox] WebSocket error:", errorData);
-      });
+      };
 
-      // Listen for connection status
-      socket.on("connect", () => {
+      const handleSocketConnect = () => {
         console.log("[ChatBox] Socket connected");
         // Rejoin room when reconnected
         if (currentThreadId) {
@@ -5700,24 +5727,46 @@ export default function ChatBoxComponent(props: any) {
             socket.emit("joinRoom", { roomId: currentThreadId });
           }
         }
-      });
+      };
 
-      socket.on("disconnect", () => {
+      const handleSocketDisconnect = () => {
         console.warn("[ChatBox] Socket disconnected");
-      });
+      };
+
+      const handleTypingStatus = (typing: boolean) => {
+        // Handle typing status if needed
+        console.log("[ChatBox] typingStatus:", typing);
+      }
+
+      socket.on('newMessage', handleNewMessage);
+      socket.on('recievedMessage', handleRecievedMessage);
+      socket.on('thread_marked_as_read', handleThreadMarkedAsReadStatus);
+      socket.on('createOrJoinConversation_response', handleJoinResponse);
+      socket.on('joinRoom_response', handleJoinRoomResponse);
+      socket.on('sendMessage_response', handleSendMessageResponse);
+      socket.on('error', handleSocketError);
+      socket.on('connect', handleSocketConnect);
+      socket.on('disconnect', handleSocketDisconnect);
+      socket.on('typingStatus', handleTypingStatus);
+
+      socket.on('negotiation_status_updated', handleNegotiationStatusUpdated);
+      socket.on('negotiation_offer_sent', handleNegotiationOfferSent);
+      socket.on('negotiation_accepted', handleNegotiationAccepted);
+      socket.on('negotiation_declined', handleNegotiationDeclined);
 
       return () => {
         console.log("[ChatBox] Cleaning up real-time listeners");
         socket.off("newMessage", handleNewMessage);
         socket.off("recievedMessage", handleRecievedMessage);
-        socket.off("thread_marked_as_read");
-        socket.off("typingStatus");
-        socket.off("error");
-        socket.off("connect");
-        socket.off("disconnect");
-        socket.off("createOrJoinConversation_response");
-        socket.off("joinRoom_response");
-        socket.off("sendMessage_response");
+        socket.off("thread_marked_as_read", handleThreadMarkedAsReadStatus);
+        socket.off("createOrJoinConversation_response", handleJoinResponse);
+        socket.off("joinRoom_response", handleJoinRoomResponse);
+        socket.off("sendMessage_response", handleSendMessageResponse);
+        socket.off("error", handleSocketError);
+        socket.off("connect", handleSocketConnect);
+        socket.off("disconnect", handleSocketDisconnect);
+        socket.off("typingStatus", handleTypingStatus);
+
         socket.off("negotiation_status_updated", handleNegotiationStatusUpdated);
         socket.off("negotiation_offer_sent", handleNegotiationOfferSent);
         socket.off("negotiation_accepted", handleNegotiationAccepted);
@@ -5760,29 +5809,8 @@ export default function ChatBoxComponent(props: any) {
   }, [socket]
   );
 
-  useEffect(() => {
-    if (state?.newMessage) {
-      const normalized = normalizeMessage(state?.newMessage, {
-        fallbackCreatedAtToNow: true,
-      });
-      const currentThreadId =
-        state?.selectedChannel?.id || selectedThreadDetail?.id || selectedThread || threadId;
-      const normalizedThreadId = normalized?.threadId;
-      const handledByActiveSocketListener =
-        !!socket &&
-        !!currentThreadId &&
-        (normalizedThreadId === currentThreadId || normalizedThreadId === selectedThreadDetail?.id);
-
-      if (!handledByActiveSocketListener) {
-        appendIncomingMessage(normalized);
-      }
-      syncThreadMessage(normalized);
-      setState((prev: any) => ({
-        ...prev,
-        newMessage: null
-      }));
-    }
-  }, [appendIncomingMessage, setState, socket, state?.newMessage, state?.selectedChannel?.id, selectedThread, selectedThreadDetail?.id, threadId]);
+  // Removed `state.newMessage` observer to prevent duplicate message processing.
+  // The direct `socket.on` listener (processIncomingMessage) now handles appending and syncing messages properly.
 
   useEffect(() => {
     const normalizedRouteThreadId = String(threadId || "").trim();
@@ -7014,11 +7042,11 @@ export default function ChatBoxComponent(props: any) {
                                 Agent declined your negotiation offer. Chat is locked for this thread.
                               </div>
                             )}
-                            {normalizedNegotiationStatus === "ACCEPTED" && (
+                            {/* {normalizedNegotiationStatus === "ACCEPTED" && (
                               <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 shadow-sm">
                                 Negotiation accepted. Chat is now unlocked.
                               </div>
-                            )}
+                            )} */}
 
                             {(() => {
                               const existingSystemFileEvents = new Set<string>(
@@ -7053,7 +7081,11 @@ export default function ChatBoxComponent(props: any) {
 
                                       <div className="space-y-4">
                                         {[...dayMessages]
-                                          .sort((a, b) => new Date(a.createdAt ?? 0).getTime() - new Date(b?.createdAt ?? 0).getTime())
+                                          .sort((a, b) => {
+                                            const timeA = new Date(resolveMessageCreatedAt(a) || a.createdAt || 0).getTime();
+                                            const timeB = new Date(resolveMessageCreatedAt(b) || b.createdAt || 0).getTime();
+                                            return timeA - timeB;
+                                          })
                                           .map((message, index) => {
                                             const resolvedMessageSenderId = pickFirstString(
                                               message?.senderId,
@@ -7066,7 +7098,8 @@ export default function ChatBoxComponent(props: any) {
                                               normalizeComparableId(resolvedMessageSenderId) ===
                                               normalizeComparableId(userData?.id || user?.id);
                                             const isLastMessage = index === dayMessages?.length - 1;
-                                            const formattedTime = format(new Date(message?.createdAt ?? 0), "hh:mm a");
+                                            const resolvedTime = resolveMessageCreatedAt(message) || message.createdAt;
+                                            const formattedTime = resolvedTime ? format(new Date(resolvedTime), "hh:mm a") : format(new Date(), "hh:mm a");
                                             const receiver = threadParticipants.find(
                                               (p: any) => {
                                                 const participantId = pickFirstString(

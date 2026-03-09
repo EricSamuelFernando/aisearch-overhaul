@@ -165,6 +165,7 @@ function PropertyBrowseView({ }: Props) {
     setSearchedQuery,
     clearProperties,
     setIsLoading,
+    setLastSearchKey,
     isCompareMode,
     setCompareMode,
     selectedCompareProperties,
@@ -221,9 +222,9 @@ function PropertyBrowseView({ }: Props) {
 
   const coordinates = allProperties?.map((property: any) => ({
     id: resolveListingId(property),
-    price: property?.listing?.listPriceLow,
-    lat: property?.public?.latitude,
-    lng: property?.public?.longitude,
+    price: property?.listing?.listPriceLow ?? property?._raw_listing?.listPriceLow ?? property?.price,
+    lat: property?.public?.latitude ?? property?._raw_public?.latitude ?? property?._raw_listing?.property?.latitude ?? property?.latitude,
+    lng: property?.public?.longitude ?? property?._raw_public?.longitude ?? property?._raw_listing?.property?.longitude ?? property?.longitude,
   })).filter(coord => coord.lat && coord.lng);
 
   const resultCount = Array.isArray(displayedProperties) ? displayedProperties.length : 0;
@@ -373,6 +374,8 @@ function PropertyBrowseView({ }: Props) {
   const sendSearchRequest = useCallback(
     debounce(async (body: Record<string, any>) => {
       if (isSearchingRef.current) return;
+      // Stable key that identifies query + mode + filters (no lat/lng — those are map-move only)
+      const querySearchKey = `${isMlsMode ? 'mls' : 'ai'}||${query?.trim() ?? ''}||${activeSearchFiltersKey}`;
       const fingerprint = JSON.stringify({
         mode: isMlsMode ? 'mls' : 'ai',
         query: query ?? '',
@@ -406,13 +409,14 @@ function PropertyBrowseView({ }: Props) {
           ...activeSearchFilters,
           ...body,
           query,
-          radius: 20
+          radius: 20,
+          from_browse: true,
         });
 
-        const newProperties = response?.data?.records || response?.data?.result?.records;
+        const newProperties = response?.data?.properties || response?.data?.records || response?.data?.result?.records;
 
         if (Array.isArray(newProperties) && newProperties.length > 0) {
-          // Only clear if we are not moving the map (i.e. no latitude/longitude in body) 
+          // Only clear if we are not moving the map (i.e. no latitude/longitude in body)
           // or if we really want a fresh set. For map moves, we usually want to append or replace smoothly.
           // For now, let's keep the logic but ensure we don't trigger unnecessary re-renders.
           if (body.latitude && body.longitude) {
@@ -421,8 +425,9 @@ function PropertyBrowseView({ }: Props) {
 
           setSearchedQuery(JSON.stringify(newProperties));
           addProperties(newProperties);
+          setLastSearchKey(querySearchKey);
           dispatch(incrementSearchCount());
-          dispatch(setPropertyQuery(response.data.search_query));
+          dispatch(setPropertyQuery(response.data?.final_response || response.data?.search_query));
         } else {
           clearProperties();
           console.log("No properties found for the current map view");
@@ -438,7 +443,7 @@ function PropertyBrowseView({ }: Props) {
         setIsLoading(false);
       }
     }, 1000),
-    [query, activeSearchFiltersKey, clearProperties, addProperties, setSearchedQuery, setIsLoading, dispatch, isMlsMode],
+    [query, activeSearchFiltersKey, clearProperties, addProperties, setSearchedQuery, setLastSearchKey, setIsLoading, dispatch, isMlsMode],
   );
 
   useEffect(() => {
@@ -461,8 +466,19 @@ function PropertyBrowseView({ }: Props) {
     if (!isSearchModeReady) return;
     if (!query?.trim()) return;
 
+    // Back-navigation cache check: if we already have results for this exact
+    // query + mode + filters in the Zustand store, show them instantly without
+    // hitting the backend at all.  usePropertyStore.getState() gives the latest
+    // store values without stale-closure issues.
+    const querySearchKey = `${isMlsMode ? 'mls' : 'ai'}||${query.trim()}||${activeSearchFiltersKey}`;
+    const { lastSearchKey, allProperties: cachedProps } = usePropertyStore.getState();
+    if (cachedProps.length > 0 && lastSearchKey === querySearchKey) {
+      setIsLoading(false); // clear the store's initial isLoading:true
+      return;
+    }
+
     sendSearchRequest({});
-  }, [currentView, isSearchModeReady, query, activeSearchFiltersKey, sendSearchRequest]);
+  }, [currentView, isSearchModeReady, query, activeSearchFiltersKey, sendSearchRequest, isMlsMode, setIsLoading]);
 
   if (currentView === 'map') {
     return (
@@ -491,7 +507,9 @@ function PropertyBrowseView({ }: Props) {
               clearDrawSignal={clearDrawSignal}
               useOverlayResultsRail
               onMapMove={(center) => {
-              if (isMlsMode) return;
+                // AI search is query-based — map panning should not re-fetch (properties already loaded)
+                // Only MLS mode is geo-based and needs map-move re-requests
+                if (!isMlsMode) return;
                 sendSearchRequest({ latitude: center.lat, longitude: center.lng });
               }}
             />
@@ -796,7 +814,7 @@ function PropertyBrowseView({ }: Props) {
             }}
             clearDrawSignal={clearDrawSignal}
             onMapMove={(center) => {
-              if (isMlsMode) return;
+                if (!isMlsMode) return;
               sendSearchRequest({ latitude: center.lat, longitude: center.lng });
             }}
           />

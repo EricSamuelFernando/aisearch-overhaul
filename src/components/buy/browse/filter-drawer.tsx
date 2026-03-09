@@ -356,12 +356,13 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
           // num_records: process.env.SEARCH_RECORDS || 10,
           listing_property_type: selectedSort.value || searchFilters.propertyType || undefined,
           public_land_use: searchFilters.subType || undefined,
+          from_browse: true,
         }
       );
       clearProperties();
       dispatch(incrementSearchCount());
-      const responseRecords = response.data?.result?.records || response.data?.records || [];
-      dispatch(setPropertyQuery(response.data?.result?.search_query || response.data?.search_query || searchQuery));
+      const responseRecords = response.data?.properties || response.data?.result?.records || response.data?.records || [];
+      dispatch(setPropertyQuery(response.data?.final_response || response.data?.result?.search_query || response.data?.search_query || searchQuery));
       setSearchedQuery(responseRecords);
       addProperties(responseRecords);
       setLoading(false)

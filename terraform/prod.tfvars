@@ -13,8 +13,8 @@ acm_certificate_arn = "arn:aws:acm:us-east-1:075502422618:certificate/5502616a-c
 cloudfront_aliases = ["snaphomz.com", "www.snaphomz.com", "waitlist.snaphomz.com"]
 
 lambda_env_variables = {
-  Environment = "prod"
-    NEXT_PUBLIC_GOOGLE_CLIENT_ID    = "448512456564-p64marq9uat5onc9ncj0mr69uol806s4.apps.googleusercontent.com",
+  Environment                     = "prod"
+  NEXT_PUBLIC_GOOGLE_CLIENT_ID    = "448512456564-p64marq9uat5onc9ncj0mr69uol806s4.apps.googleusercontent.com",
   NEXT_PUBLIC_SEARCH_RECORDS      = 10,
   CONVERSATION_ENC_DEC_KEY        = "developers_at_OBI_family",
   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = "AIzaSyB16d5_QU7x9Ry8dqt1XxOYO-bfi6Vr5dU",
@@ -42,13 +42,13 @@ lambda_env_variables = {
   NEXT_PUBLIC_AGENT_URL = "https://agent.snaphomz.com",
 
   NEXT_PUBLIC_COGNITO_USER_POOL_ID = "us-east-1_HFskyqUnO"
-  NEXT_PUBLIC_COGNITO_CLIENT_ID    = "10a2kdoa42lc0enni43mnbj5an",
+  NEXT_PUBLIC_COGNITO_CLIENT_ID    = "6240jv1q945bmdv86kj7m1dqc4",
 
 
   NEXT_PUBLIC_GOOGLE_COGNITO_CLIENT_ID         = "972804820356-urh3bju8aopsuq2qkte96819rj3vnoko.apps.googleusercontent.com",
   NEXT_PUBLIC_GOOGLE_SECRET_COGNITO_SECRECT_ID = "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"
 
-  MLS_SNAPHOMZ_API = "SNAPHOMZMLSPRODUCTION-48b1-7fdf-af3e-e28c3199c5b4"
+  MLS_SNAPHOMZ_API        = "SNAPHOMZMLSPRODUCTION-48b1-7fdf-af3e-e28c3199c5b4"
   REALESTATE_API_BASE_URL = "https://api.realestateapi.com"
 
 

@@ -338,9 +338,11 @@ function ItemNav({ cardRef }: Props) {
             <Link
               key={item.hash}
               href={item.hash}
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
                 if (typeof window !== 'undefined') {
-                  window.location.hash = item.hash;
+                  window.history.pushState(null, '', item.hash);
+                  setHash(item.hash);
                   window.dispatchEvent(new CustomEvent('preview-nav', { detail: item.hash }));
                 }
               }}

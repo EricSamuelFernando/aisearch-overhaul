@@ -1,7 +1,11 @@
 'use client';
+import Link from "next/link";
+import type { ReactNode } from 'react';
+import { cn } from '@/lib/utils';
 
 type ChooseYourMeansProps = {
-  heading?: string;
+  heading?: ReactNode;
+  headingClassName?: string;
   subheading?: string;
   yourAgentDescription?: string;
   ourAgentDescription?: string;
@@ -10,7 +14,8 @@ type ChooseYourMeansProps = {
 };
 
 const ChooseYourMeans = ({
-  heading = 'Choose Your Means',
+  heading,
+  headingClassName,
   subheading = 'Gain unprecedented control with guided transactions, approval',
   yourAgentDescription = 'Onboard or invite your personal agent',
   ourAgentDescription = 'Choose from our vetted list of agents',
@@ -26,10 +31,15 @@ const ChooseYourMeans = ({
   };
 
   return (
-    <section className="home-choose-section bg-[#FFF6EC] pt-8 pb-8 sm:pt-10 sm:pb-10 px-4 sm:px-8 lg:px-12 text-center">
-      <div className="home-choose-container max-w-6xl mx-auto text-center">
-        <h2 className="home-choose-title satoshi text-3xl sm:text-4xl font-semibold">
-          Choose How You <span className="font-light">Buy</span>
+    <section className="bg-[#FFF6EC] pt-16 pb-12 sm:pt-20 sm:pb-14 px-4 sm:px-8 lg:px-12 text-center">
+      {/* Choose Your Means Section */}
+      <div className="max-w-6xl mx-auto text-center">
+        <h2 className={cn('satoshi text-3xl sm:text-4xl font-medium', headingClassName)}>
+          {heading ?? (
+            <>
+              Choose How You <span className="font-light">Buy</span>
+            </>
+          )}
         </h2>
         <p className="home-choose-subtitle satoshi text-xs sm:text-sm text-[#8E8B8A] mb-6 sm:mb-8 max-w-[600px] mx-auto">
           Take control of your home purchase with guided transactions, approval workflows, and transparent tracking, no matter how you like to work.

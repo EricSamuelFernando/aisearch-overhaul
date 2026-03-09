@@ -17,6 +17,7 @@ import {
   FaLock,
 } from 'react-icons/fa';
 import { useMediaQuery } from '@mantine/hooks';
+import { cn } from '@/lib/utils';
 
 import '@mantine/core/styles.css';
 import '@mantine/carousel/styles.css';
@@ -37,6 +38,7 @@ type WeMakeItEasyProps = {
   heading?: React.ReactNode;
   subtitle?: string;
   contentPreset?: 'default' | 'home';
+  headingClassName?: string;
 };
 
 const features: FeatureItem[] = [
@@ -237,11 +239,14 @@ const WeMakeItEasy = ({
   heading,
   subtitle,
   contentPreset = 'default',
+  headingClassName,
 }: WeMakeItEasyProps) => {
   const effectiveHeading =
     heading ??
     (contentPreset === 'home' ? (
-      <>We Make Homebuying Easy</>
+      <>
+        We Make Homebuying <span className="font-light">Easy</span>
+      </>
     ) : (
       DEFAULT_HEADING
     ));
@@ -300,7 +305,7 @@ const WeMakeItEasy = ({
     <section className="home-easy-section bg-[#FFF6EC] pt-8 md:pt-4 px-4 sm:px-6 lg:px-24 overflow-x-hidden">
       <div className="home-easy-container mx-auto text-center">
         {/* Heading */}
-        <h2 className="home-easy-title satoshi text-3xl sm:text-4xl font-semibold ">
+        <h2 className={cn('satoshi text-3xl sm:text-4xl font-medium', headingClassName)}>
           {effectiveHeading}
         </h2>
         <p className="home-easy-subtitle satoshi text-xs sm:text-sm text-[#8E8B8A] mb-12 max-w-[600px] mx-auto">

@@ -1,4 +1,4 @@
-﻿//  CONFIRMED BACKEND CONTRACT (IMMUTABLE)
+//  CONFIRMED BACKEND CONTRACT (IMMUTABLE)
 // Backend Base URL (set NEXT_PUBLIC_API_BASE_URL in production)
 import { isMlsBypassModeEnabled } from './mls-bypass-mode';
 
@@ -15,13 +15,11 @@ const _COGNITO_STORAGE_KEY = `CognitoIdentityServiceProvider.${_COGNITO_CLIENT_I
 function getAuthHeaders(): Record<string, string> {
     try {
         if (typeof window === "undefined") return {};
-        const stored = localStorage.getItem(_COGNITO_STORAGE_KEY);
-        if (stored) {
-            const { accessToken } = JSON.parse(stored);
-            if (accessToken) return { Authorization: `Bearer ${accessToken}` };
-        }
+        // Token stored by useUserAuthApi after login
+        const accessToken = localStorage.getItem("userAccessToken");
+        if (accessToken) return { Authorization: `Bearer ${accessToken}` };
     } catch {
-        // no token â€” anonymous request
+        // no token - anonymous request
     }
     return {};
 }
@@ -58,6 +56,28 @@ export type QuestionPayload = {
     assistant_mode?: string | null;
     selected_property_id?: string | number | null;
     selected_property_index?: number | null;
+};
+
+export type ThinkingEvent = {
+    id?: string;
+    label?: string;
+    title?: string;
+    detail?: string;
+    bullets?: string[];
+    status?: 'pending' | 'active' | 'done' | 'error';
+    source?: string;
+    metrics?: Record<string, string | number | boolean>;
+    started_at?: string | null;
+    ended_at?: string | null;
+    durationMs?: number;
+    agentName?: string;
+};
+
+export type ThinkingProgressResponse = {
+    session_id?: string;
+    steps: ThinkingEvent[];
+    is_done: boolean;
+    updated_at?: number;
 };
 
 export async function searchProperties(payload: SearchPayload, signal?: AbortSignal) {
@@ -250,7 +270,29 @@ export async function clearHistoryAPI() {
     }
 }
 
-// â”€â”€â”€ Address Autocomplete â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+export async function fetchThinkingProgress(sessionId: string): Promise<ThinkingProgressResponse> {
+    if (!sessionId) return { steps: [], is_done: true };
+    try {
+        const res = await fetch(`${API_BASE}/api/thinking/${encodeURIComponent(sessionId)}`, {
+            headers: {
+                "Accept": "application/json",
+                ...getAuthHeaders(),
+            },
+        });
+        if (!res.ok) return { steps: [], is_done: false };
+        const payload = await res.json();
+        return {
+            session_id: payload?.session_id,
+            steps: Array.isArray(payload?.steps) ? payload.steps : [],
+            is_done: Boolean(payload?.is_done),
+            updated_at: payload?.updated_at,
+        };
+    } catch {
+        return { steps: [], is_done: false };
+    }
+}
+
+// --- Address Autocomplete ---------------------------------------------------
 
 export type AddressSuggestion = {
     address: string;

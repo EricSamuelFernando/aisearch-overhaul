@@ -1,3 +1,5 @@
+orimport Image from "next/image";
+
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
@@ -7,12 +9,12 @@ export default function HomeDisclosure({
   headingClassName?: string;
 }) {
   return (
-    <section className="home-disclosure-section w-full h-auto md:h-full bg-[#170800] text-white
+    <section className="w-full h-auto md:h-full bg-[#170800] text-white
   px-6 md:px-12 lg:px-24
   flex flex-col md:flex-row
   justify-start md:justify-center
   items-start md:items-center
-  py-8 sm:py-10 md:py-0 xl:px-28 2xl:px-32
+  py-8 sm:py-10 md:py-0
   gap-8 sm:gap-10 md:gap-20">
 
       {/* Left Side */}
@@ -122,10 +124,10 @@ export default function HomeDisclosure({
 
 
       {/* Right Side */}
-      <div className="w-full md:w-1/2 flex flex-col gap-5 sm:gap-6 md:gap-8 xl:max-w-[640px]">
+      <div className="w-full md:w-1/2 flex flex-col gap-5 sm:gap-6 md:gap-8">
         {/* Heading / Description */}
         <div>
-          <h2 className={cn('text-3xl md:text-4xl font-medium leading-tight', headingClassName)}>
+          <h2 className={cn('text-3xl md:text-4xl font-semibold leading-tight', headingClassName)}>
             Understand Home <br /> Disclosures <span className='font-light'>In Seconds</span>
           </h2>
           <p className="mt-4 text-sm md:text-base text-[#CEB28B] max-w-md">

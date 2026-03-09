@@ -57,16 +57,16 @@ export const MORTGAGE_APPLICATION_URL = process.env.NEXT_PUBLIC_MORTGAGE_FRONTEN
 
 export const AI_BACKEND_BASE_URI = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI
 
-// export const PROPERTY_SEARCH_AI_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/search` || "http://13.60.114.186:9000/api/search";
-export const PROPERTY_SEARCH_AI_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/search` || "http://13.60.114.186:9000/api/search";
+// All search URLs now use NEXT_PUBLIC_API_BASE_URL (new AI search backend — Neo4j + MLS)
+export const PROPERTY_SEARCH_AI_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:5000'}/api/search`;
 
-export const PROPERTY_DETAIL_SEARCH_AI_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/get_data` || 'http://13.60.114.186:9000/api/get_data'
+export const PROPERTY_DETAIL_SEARCH_AI_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:5000'}/api/get_data`;
 
-export const PROPERTY_SEARCH_PREFERENCE_AI_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/search/preference` || 'http://13.60.114.186:9000/api/search/preference'
+export const PROPERTY_SEARCH_PREFERENCE_AI_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:5000'}/api/search/preference`;
 
 export const PROPERTY_SEARCH_DATA_LIMIT_AI_URL = process.env.SEARCH_RECORDS || 10;
 
-export const GET_PROPERTY_SEARCH_PREFERENCE_AI_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/preference` || 'http://13.60.114.186:9000/api/preference'
+export const GET_PROPERTY_SEARCH_PREFERENCE_AI_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:5000'}/api/preference`;
 
 export const COMMUNICATION_SOCKET_URI = process.env.NEXT_PUBLIC_COMMUNICATION_SOCKET_URI
 

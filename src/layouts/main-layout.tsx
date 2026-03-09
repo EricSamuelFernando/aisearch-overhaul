@@ -59,6 +59,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 
 import MainNav from '@/components/navbars/main-nav';
+import MainNavPages from '@/components/navbars/main-nav-pages';
 import Footer from '@/components/shared/footer';
 import { useTokenLoginMutation } from '@/hooks/api/auth/useUserAuthApi';
 import PropertyPreferenceModal from '@/components/modals/property-preference-modal';
@@ -158,6 +159,7 @@ function MainLayout({ children }: Readonly<Props>) {
   const shouldHideHeaderFooter = ['sell', 'agents', 'company', 'home', 'privacy-policy'].some(
     (path) => pathname.includes(path),
   );
+  const shouldUseHomeNav = ['browse', 'preview'].some((path) => pathname.includes(path));
 
   return (
     <>
@@ -178,7 +180,8 @@ function MainLayout({ children }: Readonly<Props>) {
         }}
       />
       {/* Conditionally render MainNav (Header) based on the route */}
-      {!shouldHideHeaderFooter && <MainNav />}
+      {!shouldHideHeaderFooter && !shouldUseHomeNav && <MainNav />}
+      {!shouldHideHeaderFooter && shouldUseHomeNav && <MainNavPages />}
 
       <main>{children}</main>
 

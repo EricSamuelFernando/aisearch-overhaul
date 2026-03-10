@@ -13,7 +13,7 @@ const WhoWeCompany = () => {
         <div className="absolute inset-0 bg-[#f7e9d5a5] opacity-50" />
 
         <div className="relative max-w-4xl text-center text-[#1B1B1B]">
-          <h2 className="mb-5 text-[2.35rem] font-semibold sm:mb-6 sm:text-[2.75rem] md:text-[3.35rem]">
+          <h2 className="mb-5 text-3xl font-bold sm:mb-6 sm:text-4xl">
             Who We <span className="font-normal">Are</span>
           </h2>
 
@@ -41,9 +41,9 @@ const WhoWeCompany = () => {
         className="relative flex w-full justify-center px-4 pb-20 pt-16 sm:px-6 lg:px-6 lg:pb-56 lg:pt-20"
         style={{
           backgroundImage: `url('/assets/images/company-whowe.jpg')`,
-          backgroundSize: '100% 100%',
+          backgroundSize: 'cover',
           backgroundRepeat: 'no-repeat',
-          backgroundPosition: 'center',
+          backgroundPosition: 'top center',
         }}
       >
         <div className="absolute inset-0 bg-black/10" />

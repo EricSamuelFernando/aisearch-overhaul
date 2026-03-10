@@ -120,7 +120,7 @@ const AgentsWeMakeItEasy = () => {
     <section className="bg-[#FFF6EC] pt-20 px-4 sm:px-6 lg:px-24 overflow-x-hidden">
       <div className=" mx-auto text-center">
         {/* Heading */}
-        <h2 className="satoshi text-[2.35rem] sm:text-[2.75rem] md:text-[3.35rem] font-medium">
+        <h2 className=" satoshi text-3xl sm:text-4xl font-semibold ">
           We Make It <span className="font-light">Easy</span>
         </h2>
         <p className="satoshi text-xs sm:text-sm text-[#8E8B8A] mb-12 max-w-[600px] mx-auto">

@@ -343,8 +343,8 @@ export const useGetPropertyPreference = (email?: string) => {
 }
 
 export const useUpdatePropertyPreference = (email?: string) => {
-  const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql";
-  const PROPERTY_SEARCH_PREFERENCE_AI_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:5000'}/api/search/preference`;
+  const PROPERTY_SEARCH_PREFERENCE_AI_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/search/preference` || 'http://13.60.114.186:9000/api/search/preference';
+  const GET_PROPERTY_SEARCH_PREFERENCE_AI_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/preference` || 'http://13.60.114.186:9000/api/preference';
   const queryClientHook = useQueryClient();
 
   const updatePropertyPreference = useMutation({

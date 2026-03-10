@@ -368,11 +368,11 @@ import { RootState } from '@/lib/store';
 import { success, error } from '../alert/notify';
 import { usePropertyStore } from '@/store/use-property-store';
 import { PROPERTY_SEARCH_AI_URL } from '@/shared/constants/env';
-import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
+import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { setPropertyQuery } from '@/slices/property/property-slice';
+import { Input } from '../ui/input';
 import { cn } from '@/lib/utils';
 import { useProperty } from '@/shared/hooks/useProperty';
-import { Search, X } from 'lucide-react';
 
 let globalLastAutoSearch: string | null = null;
 
@@ -485,11 +485,6 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
   const toggleButtonRef = React.useRef<HTMLButtonElement>(null);
   const [isFooterVisible, setIsFooterVisible] = React.useState(false);
   const lastAutoSearchRef = React.useRef<string | null>(null);
-  const [isMlsMode, setIsMlsMode] = React.useState(false);
-  const [searchAnimatedPlaceholder, setSearchAnimatedPlaceholder] = React.useState('');
-  const [searchPromptIndex, setSearchPromptIndex] = React.useState(0);
-  const [searchCharIndex, setSearchCharIndex] = React.useState(0);
-  const [searchDeleting, setSearchDeleting] = React.useState(false);
 
   const { user } = useAuth()
   const { email } = useRegister()
@@ -584,84 +579,6 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [showInputBox, isHiddenInMapMode]);
-
-  React.useEffect(() => {
-    if (isHiddenInMapMode) return;
-    setIsMlsMode(isMlsBypassModeEnabled());
-
-    const handleBypassChange = (event: Event) => {
-      const customEvent = event as CustomEvent<boolean>;
-      if (typeof customEvent.detail === 'boolean') {
-        setIsMlsMode(customEvent.detail);
-        return;
-      }
-      setIsMlsMode(isMlsBypassModeEnabled());
-    };
-
-    window.addEventListener('snaphomz:mls-bypass-changed', handleBypassChange as EventListener);
-    return () => {
-      window.removeEventListener('snaphomz:mls-bypass-changed', handleBypassChange as EventListener);
-    };
-  }, [isHiddenInMapMode]);
-
-  React.useEffect(() => {
-    if (searchString.trim().length > 0) {
-      setSearchAnimatedPlaceholder('');
-      return;
-    }
-
-    const prompts = isMlsMode
-      ? [
-          'Enter an address, city, neighborhood, or ZIP',
-          'Try: Manhattan Beach, CA',
-          'Try: Los Angeles, CA 90049',
-        ]
-      : [
-          'Show me homes in Los Angeles under 2M',
-          'Find 3-bedroom homes in Manhattan Beach',
-          'Homes near top-rated schools in Irvine',
-        ];
-
-    const prompt = prompts[searchPromptIndex % prompts.length];
-    const doneTyping = searchCharIndex >= prompt.length;
-    const doneDeleting = searchCharIndex <= 0;
-
-    const delay = searchDeleting
-      ? 45
-      : doneTyping
-        ? 900
-        : 70;
-
-    const timer = setTimeout(() => {
-      if (!searchDeleting && !doneTyping) {
-        setSearchCharIndex((n) => n + 1);
-        return;
-      }
-
-      if (!searchDeleting && doneTyping) {
-        setSearchDeleting(true);
-        return;
-      }
-
-      if (searchDeleting && !doneDeleting) {
-        setSearchCharIndex((n) => Math.max(0, n - 1));
-        return;
-      }
-
-      setSearchDeleting(false);
-      setSearchPromptIndex((n) => (n + 1) % prompts.length);
-    }, delay);
-
-    setSearchAnimatedPlaceholder(prompt.slice(0, searchCharIndex));
-
-    return () => clearTimeout(timer);
-  }, [searchString, searchPromptIndex, searchCharIndex, searchDeleting, isMlsMode]);
-
-  const toggleSearchMode = React.useCallback(() => {
-    const next = !isMlsMode;
-    setMlsBypassModeEnabled(next);
-    setIsMlsMode(next);
-  }, [isMlsMode]);
 
   // Hide the floating button when the footer enters view.
   React.useEffect(() => {
@@ -768,10 +685,9 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
           ref={toggleButtonRef}
           style={{
             height: '48px',
-            padding: showInputBox ? 0 : '0 18px',
-            width: showInputBox ? '48px' : 'auto',
+            padding: '0 18px',
             borderRadius: '9999px',
-            backgroundColor: showInputBox ? '#ff6600' : '#ff6600',
+            backgroundColor: '#ff6600',
             color: '#fff',
             boxShadow: '0 6px 14px rgba(0,0,0,0.18)',
             fontSize: '0.95rem',
@@ -783,77 +699,9 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
             whiteSpace: 'nowrap',
           }}
         >
-          {showInputBox ? <X className="h-6 w-6" /> : 'Continue Search'}
+          Continue Search
         </button>
       </div>
-      {showInputBox && (
-        <div
-          className="buy-floating-search-popup"
-          ref={popupRef}
-          style={{
-            position: 'fixed',
-            bottom: '88px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 10001,
-          }}
-        >
-          <div
-            className="animate-advanced"
-            style={{
-              width: '90vw',
-              maxWidth: '28rem',
-              borderRadius: '0.75rem',
-              backgroundColor: '#fff',
-              boxShadow: '0 10px 15px rgba(0,0,0,0.1)',
-              padding: '0.6rem',
-            }}
-          >
-            <form onSubmit={handleSubmit} className="relative z-30 flex items-center gap-2">
-              <div className="relative min-w-0 flex-1 rounded-2xl border border-gray-300 bg-white shadow-sm ring-1 ring-black/5 transition focus-within:border-gray-400 focus-within:ring-2 focus-within:ring-orange-200">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <SpeechInput
-                  value={searchString}
-                  setValue={setSearchString}
-                  searchType={isMlsMode ? 'address' : 'nlp'}
-                  placeholderText={searchAnimatedPlaceholder}
-                  className="w-full"
-                  inputClassName="h-11 w-full rounded-2xl border-0 bg-transparent pl-10 pr-28 text-sm text-gray-900 shadow-none outline-none ring-0 placeholder:text-gray-400 focus-visible:ring-0"
-                />
-                <button
-                  type="button"
-                  onClick={toggleSearchMode}
-                  title={isMlsMode ? 'MLS mode active. Click to switch to AI search.' : 'AI search active. Click to switch to MLS search.'}
-                  className={cn(
-                    'absolute right-10 top-1/2 -translate-y-1/2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition',
-                    isMlsMode
-                      ? 'bg-gray-100 text-gray-600 ring-1 ring-gray-200 hover:bg-gray-200'
-                      : 'bg-orange-50 text-orange-700 ring-1 ring-orange-200 hover:bg-orange-100'
-                  )}
-                >
-                  {isMlsMode ? 'AI OFF' : 'AI ON'}
-                </button>
-                {searchString ? (
-                  <button
-                    type="button"
-                    onClick={() => setSearchString('')}
-                    className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                    aria-label="Clear search"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                ) : null}
-              </div>
-              <button
-                type="submit"
-                className="h-11 shrink-0 rounded-2xl bg-ocOrange px-4 text-sm font-semibold text-white shadow-sm hover:brightness-95"
-              >
-                Search
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
       <style jsx global>{`
   @keyframes advancedSlideIn {
     0% {
@@ -884,6 +732,66 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
     display: none !important;
   }
 `}</style>
+
+
+      {showInputBox && (
+        <div
+          className="buy-floating-search-popup"
+          ref={popupRef}
+          style={{
+            position: 'fixed',
+            bottom: '88px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 40,
+          }}
+        >
+          <div
+            className="animate-advanced"
+            style={{
+              width: '90vw',
+              maxWidth: '28rem',
+              borderRadius: '0.75rem',
+              backgroundColor: '#fff',
+              boxShadow: '0 10px 15px rgba(0,0,0,0.1)',
+              padding: '1.5rem',
+            }}
+          >
+            <form
+              id="buyer-search-hero-form"
+              className="flex w-full items-center gap-2 rounded-xl bg-white p-2 border border-gray-200"
+              onSubmit={handleSubmit}
+            >
+              <div className="relative flex min-w-0 flex-1 items-center gap-2">
+                {searchString === '' && <StarIcon />}
+                <SpeechInput
+                  value={searchString}
+                  setValue={setSearchString}
+                  inputClassName="w-full border-none outline-none bg-transparent"
+                  className="w-full min-w-0"
+                />
+              </div>
+              <Button
+                type="submit"
+                size="lg"
+                className="shrink-0 rounded-xl bg-[#F07639] font-bold hover:bg-orange-700 px-4"
+              >
+                <div className="flex items-center gap-2">
+                  {isSearching && (
+                    <div
+                      className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-e-transparent"
+                      role="status"
+                    >
+                      <span className="sr-only">Loading...</span>
+                    </div>
+                  )}
+                  <span className="whitespace-nowrap">New search</span>
+                </div>
+              </Button>
+            </form>
+          </div>
+        </div>
+      )}
 
 
       <div id="map-unpin-sentinel" className="h-px" />

@@ -1077,11 +1077,6 @@ export default function Home() {
   const [isOpen, setIsOpen] = useState(false);
   const [searchMethod, setSearchMethod] = useState('');
   const [isHomeSearchActive, setIsHomeSearchActive] = useState(false);
-  const [homeSectionsOffset, setHomeSectionsOffset] = useState(0);
-  const homeSectionGap = 80;
-  const heroSectionRef = useRef<HTMLElement | null>(null);
-  const heroContentRef = useRef<HTMLDivElement | null>(null);
-  const heroHeadingSize = 'text-[2.35rem] sm:text-[2.75rem] md:text-[3.35rem]';
   const dispatch = useAppDispatch();
   const { email } = useRegister();
   const [carouselEmbla, setCarouselEmbla] = useState<any>(null);
@@ -1472,7 +1467,7 @@ export default function Home() {
           {/* ================= TEXT + SEARCH ================= */}
           <div className="home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-8 mt-24 md:mt-24">
 
-            <h1 className={`${heroHeadingSize} font-medium leading-snug tracking-tight`}>
+            <h1 className="home-hero-title text-[2rem] font-medium leading-snug tracking-tight sm:text-[2.4rem] md:text-[3rem]">
               <span className="block">Buying a home</span>
               <span className="block">
                 should be{' '}
@@ -1555,21 +1550,14 @@ export default function Home() {
       {/* ================= OTHER SECTIONS ================= */}
       <div className="home-sections pt-8 md:pt-10">
         <ChooseYourMeans
-          heading={
-            <>
-              Choose How You <span className="font-light">Buy</span>
-            </>
-          }
-          headingClassName={heroHeadingSize}
+          heading="Choose how you buy"
           subheading="Take control of your home purchase with guided transactions, approval workflows, and transparent tracking, no matter how you like to work."
           yourAgentDescription="Onboard or invite your personal agent"
           ourAgentDescription="Choose from our vetted list of agents"
           ctaLabel="Get Started"
         />
-        <div className="home-section-gap-tight">
-          <WeMakeItEasy contentPreset="home" headingClassName={heroHeadingSize} />
-        </div>
-        <section className="relative pt-8 md:pt-10">
+        <WeMakeItEasy contentPreset="home" />
+        <section className="relative pt-8 md:pt-10 home-info-carousel">
           <Carousel
             className="home-carousel"
             slideSize="100%"
@@ -1593,23 +1581,23 @@ export default function Home() {
             }}
           >
             <Carousel.Slide>
-              <div className="h-[560px] flex items-center">
-                <GetReadyForCollege headingClassName={heroHeadingSize} />
+              <div className="h-[560px] xl:h-[620px] 2xl:h-[680px] flex items-center">
+                <GetReadyForCollege />
               </div>
             </Carousel.Slide>
             <Carousel.Slide>
-              <div className="h-[560px] flex items-start pt-0">
-                <FindPerfectMortgage headingClassName={heroHeadingSize} />
+              <div className="h-[560px] xl:h-[620px] 2xl:h-[680px] flex items-start pt-0">
+                <FindPerfectMortgage />
               </div>
             </Carousel.Slide>
             <Carousel.Slide>
-              <div className="h-[560px] flex items-center">
-                <HomeDisclosure headingClassName={heroHeadingSize} />
+              <div className="h-[560px] xl:h-[620px] 2xl:h-[680px] flex items-center">
+                <HomeDisclosure />
               </div>
             </Carousel.Slide>
             <Carousel.Slide>
-              <div className="h-[560px] flex items-center">
-                <BuyOrRent headingClassName={heroHeadingSize} />
+              <div className="h-[560px] xl:h-[620px] 2xl:h-[680px] flex items-center">
+                <BuyOrRent />
               </div>
             </Carousel.Slide>
           </Carousel>
@@ -1618,7 +1606,6 @@ export default function Home() {
         {/* <OfferStrengthAnalyzer /> */}
         <OurClients
           bgColor="#FFF6EC"
-          headingClassName={heroHeadingSize}
           subtitle="We value our agents' honest feedback on how Snaphomz supports their business."
           testimonials={HOME_PAGE_TESTIMONIALS}
         />

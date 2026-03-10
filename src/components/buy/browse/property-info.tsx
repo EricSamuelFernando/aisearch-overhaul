@@ -19,7 +19,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import debounce from 'lodash.debounce';
 import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { Building2, Droplets, Grid2X2, Map, MapPinned, Search, ShipWheel, TreePine, Waves, X } from 'lucide-react';
-import PropertyComparisonModal from '../property-comparison-model';
+import PropertyComparisonModal from '../property-comparison-modal';
 
 type Props = {};
 

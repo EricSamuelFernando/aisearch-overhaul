@@ -47,18 +47,40 @@ export const usePropertyStore = create<PropertyStore>((set) => ({
   setAllProperties: (properties) => set({ allProperties: properties }),
 
   addProperties: (properties) =>
-    set((state) => ({
-      allProperties: [...properties],
+    set((state) => {
+      const existingIds = new Set(
+        state.allProperties.map((p: any) => {
+          const d = p.data || p;
+          return d.id || d._id || d.ListingKey || d.listingId || d.ListingId;
+        }).filter(Boolean)
+      );
 
-      allCoordinates: properties
-        .filter((obj: any) => typeof obj.latitude === 'string' && typeof obj.longitude === 'string')
-        .map((obj: any) => ({
-          id: obj.id,
-          price: obj.mostRecentPriceAmount,
-          lat: parseFloat(obj.latitude)!,
-          lng: parseFloat(obj.longitude)!,
-        }))
-    })),
+      const newUniqueProperties = properties.filter((p: any) => {
+        const d = p.data || p;
+        const id = d.id || d._id || d.ListingKey || d.listingId || d.ListingId;
+        return !id || !existingIds.has(id);
+      });
+
+      const updatedProperties = [...state.allProperties, ...newUniqueProperties];
+
+      return {
+        allProperties: updatedProperties,
+        allCoordinates: updatedProperties
+          .filter((obj: any) => {
+            const d = obj.data || obj;
+            return typeof d.latitude === 'string' && typeof d.longitude === 'string';
+          })
+          .map((obj: any) => {
+            const d = obj.data || obj;
+            return {
+              id: d.id || d.listingId || d.ListingKey || d.ListingId,
+              price: d.mostRecentPriceAmount || d.ListPrice || d.price,
+              lat: parseFloat(d.latitude)!,
+              lng: parseFloat(d.longitude)!,
+            };
+          }),
+      };
+    }),
   setSearchedQuery: (query: string) => set({
     searchQuery: query
   }),

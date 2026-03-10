@@ -3,10 +3,12 @@
 import { Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { X } from 'lucide-react';
-import { usePropertyStore } from '@/store/use-property-store';
+import { usePropertyStore } from '../../store/use-property-store';
 import Image from 'next/image';
-import { formatCurrency } from '@/lib/utils';
-import { imageLoader } from '@/utils/image-loader';
+import { formatCurrency } from '../../lib/utils';
+import { imageLoader } from '../../utils/image-loader';
+import { UnifiedLandingPropertiesType, IProperty } from '../../interfaces/property.interface';
+import { MlsPropertyListing } from '../../interfaces/mls-data.interface';
 
 interface PropertyComparisonModalProps {
     isOpen: boolean;
@@ -19,7 +21,7 @@ export default function PropertyComparisonModal({
 }: PropertyComparisonModalProps) {
     const { selectedCompareProperties } = usePropertyStore();
 
-    const properties = selectedCompareProperties.map((p) => p.data);
+    const properties = selectedCompareProperties.map((p: UnifiedLandingPropertiesType<IProperty | MlsPropertyListing>) => p.data);
 
     // Helper to safely get nested data regardless of property type (IProperty vs MLS)
     const getValue = (property: any, key: string, fallback: string = '—') => {
@@ -55,69 +57,82 @@ export default function PropertyComparisonModal({
 
         switch (key) {
             case 'price':
-                const price = find(['listPriceLow']) ||
+                const price = find(['listPrice']) ||
+                    find(['price']) ||
+                    find(['listPriceLow']) ||
                     find(['ListPrice']) ||
                     find(['price', 'amount']) ||
                     find(['data', 'price', 'amount']); // Fallback
                 return price ? formatCurrency(price, 'USD') : fallback;
 
             case 'address':
-                return find(['address', 'unparsedAddress']) ||
+                return find(['address']) ||
+                    find(['unparsedAddress']) ||
+                    find(['address', 'unparsedAddress']) ||
                     find(['UnparsedAddress']) ||
                     find(['propertyAddressDetails', 'formattedAddress']) ||
                     fallback;
 
             case 'city':
-                return find(['address', 'city']) ||
+                return find(['city']) ||
+                    find(['address', 'city']) ||
                     find(['City']) ||
                     find(['propertyAddressDetails', 'city']) ||
                     fallback;
 
             case 'zip':
-                return find(['address', 'zipCode']) ||
+                return find(['zipCode']) ||
+                    find(['zipcode']) ||
+                    find(['address', 'zipCode']) ||
                     find(['PostalCode']) ||
                     find(['propertyAddressDetails', 'postalCode']) ||
                     fallback;
 
             case 'beds':
-                return find(['property', 'bedroomsTotal']) ||
+                return find(['bedroomTotal']) ||
+                    find(['property', 'bedroomsTotal']) ||
                     find(['BedroomsTotal']) ||
                     find(['numBedroom']) ||
                     fallback;
 
             case 'baths':
-                return find(['property', 'bathroomsTotal']) ||
+                return find(['bathroomTotal']) ||
+                    find(['property', 'bathroomsTotal']) ||
                     find(['BathroomsTotalInteger']) ||
                     find(['numBathroom']) ||
                     fallback;
 
             case 'sqft':
-                return find(['property', 'livingArea']) ||
+                return find(['livingArea']) ||
+                    find(['property', 'livingArea']) ||
                     find(['LivingArea']) ||
                     find(['lotSizeValue']) ||
                     fallback;
 
             case 'year':
-                return find(['property', 'yearBuilt']) ||
+                return find(['yearBuilt']) ||
+                    find(['property', 'yearBuilt']) ||
                     find(['YearBuilt']) ||
                     find(['yearBuild']) ||
                     fallback;
 
             case 'type':
-                return find(['property', 'propertyType']) ||
+                return find(['homeType']) ||
+                    find(['property', 'propertyType']) ||
                     find(['PropertyType']) ||
                     find(['propertyType']) ||
                     fallback;
 
             case 'lot':
-                return find(['property', 'lotSizeArea']) ||
+                return find(['lotSize']) ||
+                    find(['property', 'lotSizeArea']) ||
                     find(['LotSizeArea']) ||
                     find(['lotSizeValue']) ||
                     fallback;
 
             case 'pricePerSqft':
-                const p = find(['listPriceLow']) || find(['ListPrice']) || find(['price', 'amount']);
-                const s = find(['property', 'livingArea']) || find(['LivingArea']);
+                const p = find(['listPrice']) || find(['price']) || find(['listPriceLow']) || find(['ListPrice']) || find(['price', 'amount']);
+                const s = find(['livingArea']) || find(['property', 'livingArea']) || find(['LivingArea']);
                 if (p && s) {
                     return formatCurrency(Math.round(p / s), 'USD');
                 }
@@ -144,10 +159,11 @@ export default function PropertyComparisonModal({
                 return fireplace && fireplace > 0 ? 'Yes' : 'No';
 
             case 'pool':
-                const pool = find(['property', 'poolPrivate']) ||
+                const pool = find(['hasPool']) ||
+                    find(['has_pool']) ||
+                    find(['property', 'poolPrivate']) ||
                     find(['PoolPrivateYN']) ||
-                    find(['property', 'hasPool']) ||
-                    find(['hasPool']);
+                    find(['property', 'hasPool']);
                 return pool ? 'Yes' : 'No';
 
             case 'tax':
@@ -157,7 +173,7 @@ export default function PropertyComparisonModal({
             case 'monthlyPayment':
                 // Simple estimation: Principal & Interest for 30yr fixed @ 6.5%
                 // M = P [ i(1 + i)^n ] / [ (1 + i)^n – 1 ]
-                const pVal = find(['listPriceLow']) || find(['ListPrice']) || find(['price', 'amount']);
+                const pVal = find(['listPrice']) || find(['price']) || find(['listPriceLow']) || find(['ListPrice']) || find(['price', 'amount']);
                 if (pVal) {
                     const principal = Number(pVal);
                     const rate = 0.065 / 12; // 6.5% annual
@@ -176,6 +192,8 @@ export default function PropertyComparisonModal({
         // manual find for image
         const candidates = [property, property.listing, property.data].filter(Boolean);
         for (const c of candidates) {
+            if (c?.primaryListingImageUrl) return c.primaryListingImageUrl;
+            if (c?.primaryImage) return c.primaryImage;
             if (c?.media?.primaryListingImageUrl) return c.media.primaryListingImageUrl;
             if (c?.Media?.[0]?.MediaURL) return c.Media[0].MediaURL;
             if (c?.images?.[0]?.url) return c.images[0].url;

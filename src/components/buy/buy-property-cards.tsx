@@ -12,6 +12,7 @@ import { PropCardLoader } from './buy-property-card-loader';
 import PropertyCards from './browse/property-card';
 import { usePropertyStore } from '@/store/use-property-store';
 import { useUserSnapAPIs } from '@/hooks/api/auth/snaps.API';
+import PropertyComponents from './browse/property-components';
 
 type MyComponentRef = RefObject<HTMLDivElement>;
 
@@ -28,15 +29,18 @@ const INITIAL_VISIBLE = 50;
 const LOAD_MORE_STEP = 50;
 
 const resolveListingId = (item: any): string | undefined => {
+  const data = item?.data || item;
   const raw =
-    item?.id ??
-    item?.listingId ??
-    item?.listing_id ??
-    item?.listing?.id ??
-    item?.listing?.listingId ??
-    item?.mlsId ??
-    item?.mls_id ??
-    item?.propertyId;
+    data?.id ??
+    data?.listingId ??
+    data?.listing_id ??
+    data?.listing?.id ??
+    data?.listing?.listingId ??
+    data?.ListingKey ??
+    data?.ListingId ??
+    data?.mlsId ??
+    data?.mls_id ??
+    data?.propertyId;
   if (raw === undefined || raw === null || raw === '') return undefined;
   return String(raw);
 };
@@ -194,7 +198,7 @@ function BuyPropertyCards({
                         'transition duration-300 ease-in-out',
                       )}
                     >
-                      <PropertyCards
+                      <PropertyComponents
                         {...prop}
                         snaps={snaps}
                         fetchSnaps={fetchSnaps}

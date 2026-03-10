@@ -709,12 +709,18 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
           query: resolvedQuery,
         }
       );
+      const searchType = isMlsBypassModeEnabled() ? 'mls' : 'property';
+      const records = response.data?.result?.records ?? response.data?.records ?? [];
+      const transformedProperties = records.map((p: any) => ({
+        data: p,
+        type: searchType
+      }));
+
       clearProperties();
       dispatch(incrementSearchCount());
       dispatch(setPropertyQuery(response.data?.result?.search_query ?? response.data?.search_query ?? resolvedQuery));
-      const records = response.data?.result?.records ?? response.data?.records ?? [];
-      setSearchedQuery(records);
-      addProperties(records);
+      setSearchedQuery(transformedProperties);
+      addProperties(transformedProperties);
 
     } catch (err: any) {
 

@@ -5,7 +5,7 @@ const WeBelive = () => {
       <section className="bg-[#FFF6EC] px-4 py-16 text-center sm:px-6 sm:py-20 lg:px-8 xl:px-12">
         {/* WHAT WE BELIEVE */}
         <div className="mx-auto mb-24 max-w-6xl sm:mb-32">
-          <h2 className="mb-2 text-[2.35rem] font-medium sm:text-[2.75rem] md:text-[3.35rem]">
+          <h2 className="mb-2 text-3xl font-bold sm:text-4xl">
             What We <span className="font-normal">Believe</span>
           </h2>
 
@@ -50,7 +50,7 @@ const WeBelive = () => {
 
         {/* MEET THE TEAM */}
         <div className="mx-auto mt-20 max-w-7xl text-center sm:mt-24">
-          <h2 className="mb-2 text-[2.35rem] font-medium sm:text-[2.75rem] md:text-[3.35rem]">
+          <h2 className="mb-2 text-3xl font-bold sm:text-4xl">
             Meet The <span className="font-normal">Team</span>
           </h2>
 

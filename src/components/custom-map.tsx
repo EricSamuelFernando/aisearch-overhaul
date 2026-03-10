@@ -177,13 +177,7 @@ const CustomMap: React.FC<Props> = ({
 
   const districtPolygonCacheRef = React.useRef<Map<string, DistrictPolygonCacheEntry>>(new Map());
   const drawPolygonRef = React.useRef<google.maps.Polygon | null>(null);
-  const lastDrawFilterIdsRef = React.useRef<string[] | null>(null);
   const freehandDrawingActiveRef = React.useRef(false);
-
-  // Always-current refs so callbacks can have stable identities (empty/minimal deps)
-  // without stale-closure bugs. Updated inline on every render.
-  const onDrawFilterChangeRef = React.useRef(onDrawFilterChange);
-  onDrawFilterChangeRef.current = onDrawFilterChange;
   const freehandPathRef = React.useRef<google.maps.LatLngLiteral[]>([]);
   const freehandPreviewLineRef = React.useRef<google.maps.Polyline | null>(null);
 
@@ -342,13 +336,13 @@ const CustomMap: React.FC<Props> = ({
         id: resolveListingId(prop),
         markerKey: toMarkerKey(
           resolveListingId(prop),
-          Number(prop.public?.latitude ?? prop.latitude),
-          Number(prop.public?.longitude ?? prop.longitude),
+          Number(prop.public?.latitude),
+          Number(prop.public?.longitude),
           index,
         ),
-        lat: prop.public?.latitude ?? prop.latitude,
-        lng: prop.public?.longitude ?? prop.longitude,
-        price: prop?.listing?.listPriceLow?.toString() ?? prop?.listPrice?.toString() ?? prop?.price?.toString() ?? '',
+        lat: prop.public?.latitude,
+        lng: prop.public?.longitude,
+        price: prop?.listing?.listPriceLow?.toString() ?? '',
         originalData: prop,
       }))
       : coord.map((c, index) => ({
@@ -390,32 +384,16 @@ const CustomMap: React.FC<Props> = ({
     (polygon: google.maps.Polygon | null) => {
       if (!polygon) {
         setDrawFilteredMarkerIds(null);
-        if (lastDrawFilterIdsRef.current !== null) {
-          lastDrawFilterIdsRef.current = null;
-          onDrawFilterChangeRef.current?.(null);
-        }
+        onDrawFilterChange?.(null);
         return;
       }
 
       const filtered = computeMarkersInsideDrawPolygon(polygon);
       const ids = filtered?.propertyIds ?? [];
       setDrawFilteredMarkerIds(ids);
-
-      // Only notify parent when IDs actually changed — prevents infinite re-render loop
-      // where onDrawFilterChange → parent re-render → new markers → this effect fires again
-      const prev = lastDrawFilterIdsRef.current;
-      const changed =
-        prev === null ||
-        prev.length !== ids.length ||
-        ids.some((id, i) => id !== prev[i]);
-      if (changed) {
-        lastDrawFilterIdsRef.current = ids;
-        onDrawFilterChangeRef.current?.(ids);
-      }
+      onDrawFilterChange?.(ids);
     },
-    // onDrawFilterChange intentionally omitted — accessed via ref to keep this callback stable
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [computeMarkersInsideDrawPolygon],
+    [computeMarkersInsideDrawPolygon, onDrawFilterChange],
   );
 
   const clearDrawPolygon = useCallback(() => {
@@ -429,18 +407,11 @@ const CustomMap: React.FC<Props> = ({
       drawPolygonRef.current.setMap(null);
     }
     drawPolygonRef.current = null;
-    lastDrawFilterIdsRef.current = null;
     setDrawPolygon(null);
     setDrawFilteredMarkerIds(null);
-    onDrawFilterChangeRef.current?.(null);
+    onDrawFilterChange?.(null);
     setDrawMode(false);
-    // onDrawFilterChange accessed via ref → empty deps → stable reference.
-    // This is critical: the clearDrawSignal effect depends on clearDrawPolygon, and if
-    // clearDrawPolygon were recreated on every parent render (because onDrawFilterChange is
-    // an inline prop), the effect would fire on every render after clearDrawSignal is set,
-    // repeatedly cancelling any active draw.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [onDrawFilterChange]);
 
   const handlePolygonComplete = useCallback((polygon: google.maps.Polygon) => {
     freehandDrawingActiveRef.current = false;
@@ -471,12 +442,6 @@ const CustomMap: React.FC<Props> = ({
     setDrawMode(false);
     applyDrawFilterFromPolygon(polygon);
   }, [applyDrawFilterFromPolygon]);
-
-  // Always-current ref so the draw-mode effect can call the latest handlePolygonComplete
-  // without listing it as a dependency (which would cause the effect to re-run — and
-  // reset freehandDrawingActiveRef — whenever markers change during an active draw).
-  const handlePolygonCompleteRef = React.useRef(handlePolygonComplete);
-  handlePolygonCompleteRef.current = handlePolygonComplete;
 
   useEffect(() => {
     if (drawMode) return;
@@ -580,7 +545,7 @@ const CustomMap: React.FC<Props> = ({
         map: mapInstance,
       });
 
-      handlePolygonCompleteRef.current(polygon);
+      handlePolygonComplete(polygon);
     };
 
     listeners.push(
@@ -638,10 +603,7 @@ const CustomMap: React.FC<Props> = ({
         freehandPreviewLineRef.current = null;
       }
     };
-  // handlePolygonComplete intentionally omitted from deps — accessed via ref so the effect
-  // doesn't re-run (and reset freehandDrawingActiveRef) when markers change mid-draw.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoaded, mapInstance, drawMode]);
+  }, [isLoaded, mapInstance, drawMode, handlePolygonComplete]);
 
   useEffect(() => {
     if (!drawPolygonRef.current) return;
@@ -1871,17 +1833,13 @@ const CustomMap: React.FC<Props> = ({
       if (userMovedMapRef.current && lastAutoFitQueryRef.current === currentQueryKey) {
         return;
       }
-      const validMarkers = markers.filter(
-        ({ lat, lng }) => typeof lat === 'number' && typeof lng === 'number' && isFinite(lat) && isFinite(lng),
-      );
-      if (validMarkers.length === 0) return;
-      if (validMarkers.length === 1) {
-        const { lat, lng } = validMarkers[0];
+      if (markers.length === 1) {
+        const { lat, lng } = markers[0];
         mapInstance.setCenter({ lat, lng });
         mapInstance.setZoom(zoom);
       } else {
         const bounds = new window.google.maps.LatLngBounds();
-        validMarkers.forEach(({ lat, lng }) => bounds.extend({ lat, lng }));
+        markers.forEach(({ lat, lng }) => bounds.extend({ lat, lng }));
         mapInstance.fitBounds(bounds, 50);
       }
       lastAutoFitQueryRef.current = currentQueryKey;
@@ -2214,18 +2172,13 @@ const CustomMap: React.FC<Props> = ({
               title="Draw Area"
               onClick={(e) => {
                 e.stopPropagation();
-                if (drawMode) {
-                  // User is actively drawing — cancel and close panel
+                if (drawMode || !!drawPolygon) {
                   clearDrawPolygon();
+                  setDrawMode(false);
                   setActiveToolPanel((prev) => (prev === 'draw' ? null : prev));
                   return;
                 }
-                if (!!drawPolygon) {
-                  // Polygon already drawn — clear it and immediately start a fresh draw
-                  // React batches the setDrawMode(false) inside clearDrawPolygon with the
-                  // setDrawMode(true) below, so the final state will be drawMode = true
-                  clearDrawPolygon();
-                }
+
                 setMeasureMode(false);
                 resetMeasure();
                 setActiveToolPanel((prev) => (prev === 'measure' ? null : prev));

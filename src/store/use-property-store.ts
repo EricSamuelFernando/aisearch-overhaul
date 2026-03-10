@@ -11,9 +11,6 @@ interface PropertyStore {
 
   searchQuery: string;
   allCoordinates: any;
-  /** Identifies the query+mode+filters that produced the current allProperties.
-   *  Used to skip redundant API calls on back-navigation. */
-  lastSearchKey: string | null;
   setAllProperties: (
     properties: UnifiedLandingPropertiesType<IProperty | MlsPropertyListing>[],
   ) => void;
@@ -21,7 +18,6 @@ interface PropertyStore {
     properties: UnifiedLandingPropertiesType<IProperty | MlsPropertyListing>[],
   ) => void;
   setSearchedQuery: (query: string) => void;
-  setLastSearchKey: (key: string | null) => void;
   clearProperties: () => void;
   setIsLoading: (isLoading: boolean) => void;
 
@@ -38,7 +34,6 @@ export const usePropertyStore = create<PropertyStore>((set) => ({
   isLoading: true,
   searchQuery: "",
   allCoordinates: [],
-  lastSearchKey: null,
 
   // Comparison Feature State
   isCompareMode: false,
@@ -62,8 +57,7 @@ export const usePropertyStore = create<PropertyStore>((set) => ({
   setSearchedQuery: (query: string) => set({
     searchQuery: query
   }),
-  setLastSearchKey: (key) => set({ lastSearchKey: key }),
-  clearProperties: () => set({ allProperties: [], lastSearchKey: null }),
+  clearProperties: () => set({ allProperties: [] }),
   setIsLoading: (isLoading) => set({ isLoading }),
 
   setCompareMode: (isCompareMode: boolean) => set({ isCompareMode }),

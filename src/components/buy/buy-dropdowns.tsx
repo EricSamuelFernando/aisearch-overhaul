@@ -126,30 +126,30 @@ export const ViewSelection = () => {
     setPropertyView(view);
   };
   return (
-    <div className='flex items-center space-x-0'>
+    <div className='col-span-1 flex items-center justify-end space-x-2'>
       <p
         onClick={() => {
           handleSwitch('map');
         }}
         className={cn(
-          'flex cursor-pointer items-center gap-x-0.5 px-1 py-1.5 font-semibold leading-none translate-y-[1px]',
+          'flex cursor-pointer items-center gap-x-1',
           currentView === 'map' ? 'text-black' : 'text-[#a7a7a7]',
         )}
       >
         <span>Map</span>
-        <Map className="h-7 w-7" />
+        <Map />
       </p>
       <p
         onClick={() => {
           handleSwitch('grid');
         }}
         className={cn(
-          'flex cursor-pointer items-center gap-x-0.5 px-1 py-1.5 font-semibold leading-none translate-y-[1px]',
+          'flex cursor-pointer items-center gap-x-1',
           currentView === 'grid' ? 'text-black' : 'text-[#a7a7a7]',
         )}
       >
         <span>Grid</span>
-        <Grid className="h-7 w-7" />
+        <Grid />
       </p>
     </div>
   );

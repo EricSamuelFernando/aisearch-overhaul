@@ -64,9 +64,9 @@ function Footer() {
       </div>
 
       {/* New footer layout */}
-      <section className="mx-auto w-full px-4 sm:px-6 lg:px-12 py-10">
-        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-12 lg:gap-10 items-start">
-          <div className="flex flex-col gap-4 sm:col-span-2 lg:col-span-3">
+      <section className="home-footer mx-auto w-full max-w-[1900px] px-4 sm:px-6 lg:px-12 xl:px-16 2xl:px-20 py-10 xl:py-12">
+        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 xl:grid-cols-12 xl:gap-10 items-start">
+          <div className="flex flex-col gap-4 sm:col-span-2 xl:col-span-3">
             <Link href="/" className="inline-flex items-center gap-3">
               <Image
                 src="/assets/images/logo-main.png"
@@ -99,7 +99,7 @@ function Footer() {
             </div>
           </div>
 
-          <div className="lg:col-span-2">
+          <div className="xl:col-span-2">
             <h3 className="mb-4 text-sm font-semibold">Company</h3>
             <ul className="space-y-3 text-sm text-white/80">
               {footerLinks.company.links
@@ -133,7 +133,7 @@ function Footer() {
             </ul>
           </div>
 
-          <div className="lg:col-span-2">
+          <div className="xl:col-span-2">
             <h3 className="mb-4 text-sm font-semibold">Legal</h3>
             <ul className="space-y-3 text-sm text-white/80">
               {footerLinks.legal.links.map((item) => (
@@ -146,7 +146,7 @@ function Footer() {
             </ul>
           </div>
 
-          <div className="sm:col-span-2 lg:col-span-5 mt-2 sm:mt-0">
+          <div className="sm:col-span-2 xl:col-span-5 mt-2 sm:mt-0">
             <div className="text-sm text-white/80 leading-relaxed max-w-none xl:max-w-[750px]">
               <p>
                 <span className="font-semibold text-white">Disclaimer:</span> Information, tools, and calculators provided on Snaphomz are for informational and illustrative purposes only. Outputs are based on assumptions and user-provided inputs and do not constitute financial, legal, tax, or lending advice. Actual costs, interest rates, terms, and eligibility may differ from any figures shown. Snaphomz is not a lender, broker, or financial advisor. Before making any real estate or financing decisions, please consult a licensed mortgage professional, financial advisor, and/or tax professional

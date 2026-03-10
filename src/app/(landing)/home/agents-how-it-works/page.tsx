@@ -127,7 +127,7 @@ function HowItWorksPage({ defaultTab }: Props) {
                 </div>
               </button>
             </div>
-            <h2 className="mt-8 text-[2.35rem] font-bold text-black sm:text-[2.75rem] md:text-[3.35rem]">
+            <h2 className="mt-8 text-5xl font-bold text-black">
               Here's How it Works
             </h2>
             <p className="mt-4 text-lg text-gray-600 leading-relaxed">

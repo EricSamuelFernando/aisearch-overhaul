@@ -1,17 +1,15 @@
 import Image from 'next/image';
 import MainNavPages from '../navbars/main-nav-pages';
 
-const heroHeadingSize = 'text-[2.35rem] sm:text-[2.75rem] md:text-[3.35rem]';
-
 export default function HeroLayout() {
   return (
     <>
       <MainNavPages />
 
       <section className="
-        relative bg-[#000000] text-white
-        min-h-[36rem] md:min-h-[42rem] lg:min-h-[48rem]
-        pt-16 sm:pt-20 pb-12 sm:pb-16
+        relative bg-black text-white
+        min-h-screen sm:min-h-[90vh]
+        pt-24 sm:pt-24 pb-16 sm:pb-24
         flex items-center justify-center
         overflow-hidden
       ">
@@ -29,8 +27,13 @@ export default function HeroLayout() {
         ">
 
           {/* LINE 1 */}
-          <div className="flex items-baseline justify-center gap-3 sm:gap-4 mb-1 sm:mb-2">
-            <h1 className={`${heroHeadingSize} font-medium leading-snug tracking-tight`}>
+          <div className="flex items-end justify-center gap-3 sm:gap-4 mb-3 sm:mb-5">
+            <h1 className="
+              text-[14vw] sm:text-4xl
+              max-[430px]:text-[60px]
+              md:text-6xl
+              font-medium leading-[0.95] tracking-tight whitespace-nowrap
+            ">
               We
             </h1>
 
@@ -47,16 +50,20 @@ export default function HeroLayout() {
                 alt="Nature"
                 fill
                 className="object-cover"
-                sizes="(min-width: 768px) 6rem, 5rem"
-                quality={100}
-                unoptimized
               />
               <div className="absolute inset-0 bg-black/20" />
             </div>
           </div>
 
           {/* LINE 2 */}
-          <h2 className={`${heroHeadingSize} font-medium leading-snug tracking-tight mb-1.5 sm:mb-2.5`}>
+          <h2 className="
+            text-[14vw] max-[430px]:text-[58px]
+            sm:text-4xl
+            md:text-6xl
+            font-medium
+            mb-4 sm:mb-7
+            leading-[0.92] tracking-tight whitespace-nowrap
+          ">
             Are Redefining
           </h2>
 
@@ -76,21 +83,28 @@ export default function HeroLayout() {
                 alt="House"
                 fill
                 className="object-cover object-top"
-                sizes="(min-width: 768px) 7rem, 6rem"
-                quality={100}
-                unoptimized
               />
               <div className="absolute inset-0 bg-[#908884] opacity-40" />
             </div>
 
-            <h2 className={`${heroHeadingSize} font-medium leading-snug tracking-tight`}>
+            <h2 className="
+              text-[13vw] max-[430px]:text-[56px]
+              sm:text-4xl
+              md:text-6xl
+              font-medium leading-[0.95] tracking-tight whitespace-nowrap
+            ">
               Real Estate
             </h2>
           </div>
 
           {/* LINE 4 */}
-          <div className="flex items-baseline justify-center gap-1 mb-1">
-            <h2 className={`${heroHeadingSize} font-light italic leading-snug tracking-tight`}>
+          <div className="flex items-end justify-center gap-1 mb-0">
+            <h2 className="
+              text-[12.5vw] max-[430px]:text-[58px]
+              sm:text-4xl
+              md:text-6xl
+              font-light italic leading-[0.95] tracking-tight whitespace-nowrap
+            ">
               One Snap
             </h2>
 
@@ -118,7 +132,14 @@ export default function HeroLayout() {
           </div>
 
           {/* LINE 5 */}
-          <h2 className={`${heroHeadingSize} font-light italic leading-snug tracking-tight mb-2.5 sm:mb-4`}>
+          <h2 className="
+            text-[12.5vw] max-[430px]:text-[58px]
+            sm:text-4xl
+            md:text-6xl
+            font-light italic
+            mb-8 sm:mb-10
+            leading-[0.95] tracking-tight whitespace-nowrap
+          ">
             at a Time
           </h2>
 

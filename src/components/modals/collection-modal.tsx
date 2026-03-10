@@ -468,15 +468,14 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
     const input = {
       snapId,
       name: propertyData?.listing?.courtesyOf || propertyData?.name || propertyData?.courtesyOf || "Property Name",
-      address: propertyData?.listing?.address?.unparsedAddress || propertyData?.address?.unparsedAddress || propertyData?.unparsedAddress || propertyData?.address || "Address not available",
+      address: propertyData?.listing?.address?.unparsedAddress || propertyData?.address?.unparsedAddress || propertyData?.address || "Address not available",
       city: propertyData?.listing?.address?.city || propertyData?.address?.city || propertyData?.city,
-      // GraphQL expects String — Neo4j returns zipCode as a number, so always stringify
-      zipCode: String(propertyData?.listing?.address?.zipCode || propertyData?.address?.zipCode || propertyData?.zipCode || ''),
+      zipCode: propertyData?.listing?.address?.zipCode || propertyData?.address?.zipCode || propertyData?.zipCode,
       price: +propertyData?.listing?.listPriceLow || +propertyData?.listPrice || +propertyData?.price || 0,
-      image: propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.primaryListingImageUrl || propertyData?.primaryImage || propertyData?.public?.imageUrl || propertyData?.image || propertyData?.primaryPhoto,
-      bedRooms: +propertyData?.listing?.property?.bedroomsTotal || +propertyData?.property?.bedroomsTotal || +propertyData?.bedroomTotal || +propertyData?.bedrooms || 0,
-      bathRooms: "" + (+propertyData?.listing?.property?.bathroomsTotal || +propertyData?.property?.bathroomsTotal || +propertyData?.bathroomTotal || +propertyData?.bathrooms || 0),
-      sqft: "" + (+propertyData?.listing?.property?.livingArea || +propertyData?.property?.livingArea || +propertyData?.livingArea || +propertyData?.sqft || 0),
+      image: propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.public?.imageUrl || propertyData?.image || propertyData?.primaryPhoto,
+      bedRooms: +propertyData?.listing?.property?.bedroomsTotal || +propertyData?.property?.bedroomsTotal || +propertyData?.bedrooms || 0,
+      bathRooms: "" + (propertyData?.listing?.property?.bathroomsTotal || propertyData?.property?.bathroomsTotal || propertyData?.bathrooms || 0),
+      sqft: "" + (propertyData?.listing?.property?.livingArea || propertyData?.property?.livingArea || propertyData?.sqft || 0),
       listingId: resolvedListingId,
       propertyId: resolvedPropertyId,
     };

@@ -1,11 +1,6 @@
-import Image from 'next/image';
-import { cn } from '@/lib/utils';
+import Image from "next/image";
 
-export default function HomeDisclosure({
-  headingClassName,
-}: {
-  headingClassName?: string;
-}) {
+export default function HomeDisclosure() {
   return (
     <section className="home-disclosure-section w-full h-auto md:h-full bg-[#170800] text-white
   px-6 md:px-12 lg:px-24
@@ -125,7 +120,7 @@ export default function HomeDisclosure({
       <div className="w-full md:w-1/2 flex flex-col gap-5 sm:gap-6 md:gap-8 xl:max-w-[640px]">
         {/* Heading / Description */}
         <div>
-          <h2 className={cn('text-3xl md:text-4xl font-medium leading-tight', headingClassName)}>
+          <h2 className="text-3xl md:text-4xl xl:text-5xl font-semibold leading-tight">
             Understand Home <br /> Disclosures <span className='font-light'>In Seconds</span>
           </h2>
           <p className="mt-4 text-sm md:text-base text-[#CEB28B] max-w-md">

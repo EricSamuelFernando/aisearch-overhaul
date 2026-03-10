@@ -9,7 +9,6 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { cn } from '@/lib/utils';
 
 /* ---------------- Chart Data ---------------- */
 
@@ -50,17 +49,13 @@ const chartData = [
 
 /* ---------------- Main Section ---------------- */
 
-export default function FindPerfectMortgage({
-  headingClassName,
-}: {
-  headingClassName?: string;
-}) {
+export default function FindPerfectMortgage() {
   return (
     <section className="home-mortgage-section w-full h-full bg-[#FFF6EC] px-4 sm:px-10 lg:px-20 xl:px-24 2xl:px-28 flex flex-col">
 
       {/* Heading */}
-      <div className="max-w-5xl mx-auto text-center mb-2">
-        <h1 className={cn('text-3xl sm:text-4xl md:text-5xl font-medium text-[#2C1F18]', headingClassName)}>
+      <div className="max-w-5xl 2xl:max-w-6xl mx-auto text-center mb-2">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-semibold text-[#2C1F18]">
           Find Your Perfect <span className="font-light">Mortgage</span>
         </h1>
         <p className="mt-2 text-sm sm:text-base text-[#6E645A] max-w-2xl mx-auto">

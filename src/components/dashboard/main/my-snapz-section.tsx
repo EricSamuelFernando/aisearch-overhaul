@@ -58,6 +58,7 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
   const [isCreateSnapModalOpen, setIsCreateSnapModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSnapzLoading, setIsSnapzLoading] = useState(true);
 
   const {
     createNewSnap,
@@ -125,7 +126,12 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
   };
 
   const getAllCollections = () => {
-    if (!userData?.id) return;
+    if (!userData?.id) {
+      setIsSnapzLoading(false);
+      return;
+    }
+
+    setIsSnapzLoading(true);
 
     getAllSnaps.mutate(userData.id, {
       onSuccess: (ownedSnaps: SnapCollection[]) => {
@@ -138,10 +144,14 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
           .catch((err: any) => {
             console.error('Error fetching shared snaps', err);
             if (ownedSnaps) setSnaps(ownedSnaps);
+          })
+          .finally(() => {
+            setIsSnapzLoading(false);
           });
       },
       onError: (err) => {
         console.error('Error fetching collections: ', err);
+        setIsSnapzLoading(false);
       },
     });
   };
@@ -326,6 +336,21 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
       </div>
       <div className="p-0">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {isSnapzLoading ? (
+            Array.from({ length: 6 }).map((_, index) => (
+              <div
+                key={`snap-skeleton-${index}`}
+                className="flex animate-pulse items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+              >
+                <div className="flex items-center gap-4">
+                  <div className={`h-16 w-16 flex-shrink-0 rounded-xl ${index === 0 ? 'bg-orange-200' : 'bg-gray-200'}`} />
+                  <div className="h-4 w-32 rounded bg-gray-200 sm:w-44" />
+                </div>
+                <div className="h-9 w-20 rounded-full bg-gray-200" />
+              </div>
+            ))
+          ) : (
+            <>
           {/* Pinned "My Favourite" card — always first */}
           <div className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
             <div className="flex items-center gap-4">
@@ -406,6 +431,8 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
             ))
           ) : (
             <p className="text-sm text-gray-500">No Snap Collections Found</p>
+          )}
+            </>
           )}
         </div>
       </div>

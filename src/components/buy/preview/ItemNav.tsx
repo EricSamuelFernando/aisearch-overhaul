@@ -289,7 +289,7 @@ function ItemNav({ cardRef }: Props) {
   return (
     <div
       ref={navSection}
-      className="fixed left-0 top-[70px] z-20 w-full bg-white px-4 py-3 sm:px-6 md:px-8 shadow-sm mt-[10px] md:mt-0"
+      className="w-full bg-white px-4 py-3 sm:px-6 md:px-8 shadow-sm"
     >
       {/* MOBILE: Two rows  */}
       <div className='flex flex-col gap-2 md:flex-row md:items-center md:justify-between'>
@@ -298,7 +298,7 @@ function ItemNav({ cardRef }: Props) {
         <div className='flex items-center justify-between w-full md:w-auto'>
           {/* Back */}
           <button
-            onClick={() => router.push('/')}
+            onClick={() => router.back()}
             className='flex items-center gap-1 text-sm font-medium text-black hover:opacity-80'
           >
             <ChevronLeft className='h-4 w-4' />
@@ -338,9 +338,11 @@ function ItemNav({ cardRef }: Props) {
             <Link
               key={item.hash}
               href={item.hash}
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
                 if (typeof window !== 'undefined') {
-                  window.location.hash = item.hash;
+                  window.history.pushState(null, '', item.hash);
+                  setHash(item.hash);
                   window.dispatchEvent(new CustomEvent('preview-nav', { detail: item.hash }));
                 }
               }}

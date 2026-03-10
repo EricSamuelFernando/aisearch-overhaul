@@ -9,7 +9,7 @@ import { usePropertyStore } from '@/store/use-property-store';
 import { incrementSearchCount } from '@/slices/onboarding/property-preference';
 import { setPropertyQuery } from '@/slices/property/property-slice';
 import { useAppDispatch, useAppSelector } from '@/lib/hook';
-import { error } from '@/components/alert/notify';
+import { error, warning } from '@/components/alert/notify';
 import SpeechInput from '@/components/speech-input';
 import { RootState } from '@/lib/store';
 import axios from 'axios';
@@ -18,10 +18,138 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import debounce from 'lodash.debounce';
 import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
-import { Grid2X2, Map, MapPinned, Search, X } from 'lucide-react';
+import { Building2, Droplets, Grid2X2, Map, MapPinned, Search, ShipWheel, TreePine, Waves, X } from 'lucide-react';
 import PropertyComparisonModal from '../property-comparison-model';
 
 type Props = {};
+
+type ParsedQueryFilters = {
+  bedRooms?: number;
+  bathRooms?: number;
+  priceMin?: number;
+  priceMax?: number;
+};
+
+const parseQueryFilters = (query: string): ParsedQueryFilters => {
+  const text = query.toLowerCase();
+  if (!text) return {};
+
+  const toNumber = (raw: string): number | undefined => {
+    const clean = raw.toLowerCase().replace(/,/g, '').trim();
+    let value: number;
+    if (clean.endsWith('m')) value = parseFloat(clean) * 1_000_000;
+    else if (clean.endsWith('k')) value = parseFloat(clean) * 1_000;
+    else if (clean.endsWith('b') || clean.endsWith('bn')) value = parseFloat(clean) * 1_000_000_000;
+    else if (clean.includes('billion')) value = parseFloat(clean) * 1_000_000_000;
+    else if (clean.includes('million')) value = parseFloat(clean) * 1_000_000;
+    else value = parseFloat(clean.replace(/[^\d.]/g, ''));
+    return Number.isFinite(value) ? Math.round(value) : undefined;
+  };
+
+  const bedMatch = text.match(/(\d+)\s*[- ]*(?:bed|bedroom)s?\b/i);
+  const bathMatch = text.match(/(\d+)\s*[- ]*(?:bath|bathroom)s?\b/i);
+
+  const base = {
+    bedRooms: bedMatch ? Number(bedMatch[1]) : undefined,
+    bathRooms: bathMatch ? Number(bathMatch[1]) : undefined,
+  };
+
+  const between = text.match(
+    /between\s+\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)\s+and\s+\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
+  );
+  if (between) {
+    const a = toNumber(between[1]);
+    const b = toNumber(between[2]);
+    if (a !== undefined && b !== undefined) {
+      return { ...base, priceMin: Math.min(a, b), priceMax: Math.max(a, b) };
+    }
+    return base;
+  }
+
+  const dash = text.match(
+    /\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)\s*-\s*\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
+  );
+  if (dash) {
+    const a = toNumber(dash[1]);
+    const b = toNumber(dash[2]);
+    if (a !== undefined && b !== undefined) {
+      return { ...base, priceMin: Math.min(a, b), priceMax: Math.max(a, b) };
+    }
+    return base;
+  }
+
+  const fromTo = text.match(
+    /from\s+\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)\s+(?:to|through|until|till)\s+\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
+  );
+  if (fromTo) {
+    const a = toNumber(fromTo[1]);
+    const b = toNumber(fromTo[2]);
+    if (a !== undefined && b !== undefined) {
+      return { ...base, priceMin: Math.min(a, b), priceMax: Math.max(a, b) };
+    }
+  }
+
+  const maxCue = text.match(
+    /\b(at\s*most|atmost|under|below|less than|up to|max(?:imum)?|no more than|not more than|not exceeding|<=|<)\b[^$\d]*\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
+  );
+  const minCue = text.match(
+    /\b(at\s*least|atleast|over|above|more than|no less than|min(?:imum)?|starting\s*(?:at|from)|from|>=|>)\b[^$\d]*\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
+  );
+  const aroundCue = text.match(
+    /\baround\b[^$\d]{0,24}\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
+  );
+  const budgetCue = text.match(
+    /\b(budget|approximately|about|roughly|circa)\b[^$\d]{0,24}\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
+  );
+
+  const minValue = minCue ? toNumber(minCue[2]) : undefined;
+  const maxValue = maxCue ? toNumber(maxCue[2]) : budgetCue ? toNumber(budgetCue[2]) : undefined;
+
+  const aroundValue = aroundCue ? toNumber(aroundCue[1]) : undefined;
+  if (aroundValue !== undefined) {
+    return {
+      ...base,
+      priceMin: Math.max(0, aroundValue - 50_000),
+      priceMax: aroundValue + 50_000,
+    };
+  }
+
+  if (minValue !== undefined || maxValue !== undefined) {
+    return { ...base, priceMin: minValue, priceMax: maxValue };
+  }
+
+  const singlePriceKeyword = text.match(
+    /\b(for|at|priced(?:\s+at)?|price(?:d)?(?:\s+at)?|costing|listed(?:\s+at)?)\b[^$\d]{0,12}\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
+  );
+  const singlePriceKeywordPlain = text.match(
+    /\b(for|at|priced(?:\s+at)?|price(?:d)?(?:\s+at)?|costing|listed(?:\s+at)?)\b[^$\d]{0,12}(\d{5,})(?:\b|$)/i,
+  );
+  const singlePriceDollar = text.match(
+    /\$\s*([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
+  );
+  const singlePriceComma = text.match(
+    /\b(\d{1,3}(?:,\d{3})+(?:\.\d+)?)(?:\s*(?:m|k|b|bn|million|billion))?\b/i,
+  );
+
+  const singleRaw = singlePriceKeyword?.[2] ?? singlePriceKeywordPlain?.[2] ?? singlePriceDollar?.[1] ?? singlePriceComma?.[1];
+  const singleValue = singleRaw ? toNumber(singleRaw) : undefined;
+
+  return { ...base, priceMax: singleValue };
+};
+
+const resolveListingId = (item: any): string | undefined => {
+  const raw =
+    item?.id ??
+    item?.listingId ??
+    item?.listing_id ??
+    item?.listing?.id ??
+    item?.listing?.listingId ??
+    item?.mlsId ??
+    item?.mls_id ??
+    item?.propertyId;
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  return String(raw);
+};
 
 function PropertyBrowseView({ }: Props) {
   const { currentView } = useProperty();
@@ -37,6 +165,7 @@ function PropertyBrowseView({ }: Props) {
     setSearchedQuery,
     clearProperties,
     setIsLoading,
+    setLastSearchKey,
     isCompareMode,
     setCompareMode,
     selectedCompareProperties,
@@ -52,6 +181,7 @@ function PropertyBrowseView({ }: Props) {
   const pathname = usePathname();
   const query = searchParams.get('q');
   const [isMlsMode, setIsMlsMode] = useState(() => isMlsBypassModeEnabled());
+  const [isSearchModeReady, setIsSearchModeReady] = useState(false);
 
   useEffect(() => {
     const handleBypassChange = (event: Event) => {
@@ -98,28 +228,134 @@ function PropertyBrowseView({ }: Props) {
   const [topSearchDeleting, setTopSearchDeleting] = useState(false);
   const [showCompareModal, setShowCompareModal] = useState(false);
 
+  const subCategories = [
+    {
+      title: 'Pool',
+      value: 'has_pool',
+      propertyKey: 'hasPool',
+      keywords: ['pool'],
+      icon: <Waves className="h-3.5 w-3.5" />
+    },
+    {
+      title: 'Park View',
+      value: 'is_park_view',
+      propertyKey: 'isParkView',
+      keywords: ['park view', 'park views', 'overlooking park'],
+      icon: <TreePine className="h-3.5 w-3.5" />
+    },
+    {
+      title: 'Water View',
+      value: 'is_water_view',
+      propertyKey: 'isWaterView',
+      keywords: ['water view', 'water views', 'ocean view', 'bay view', 'lake view', 'river view'],
+      icon: <Droplets className="h-3.5 w-3.5" />
+    },
+    {
+      title: 'City View',
+      value: 'is_city_view',
+      propertyKey: 'isCityView',
+      keywords: ['city view', 'city views', 'skyline view', 'downtown view'],
+      icon: <Building2 className="h-3.5 w-3.5" />
+    },
+    {
+      title: 'Waterfront',
+      value: 'is_water_front',
+      propertyKey: 'isWaterFront',
+      keywords: ['waterfront', 'water front', 'oceanfront', 'beachfront'],
+      icon: <ShipWheel className="h-3.5 w-3.5" />
+    },
+  ];
+
+  const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>([]);
+
+  const toggleSubCategory = (subcategory: string) => {
+    setSelectedSubCategories((prev) => (
+      prev.includes(subcategory)
+        ? prev.filter((item) => item !== subcategory)
+        : [...prev, subcategory]
+    ));
+  };
+
+  const subCategoryAvailability = useMemo(() => {
+    const availability: Record<string, boolean> = {};
+    if (!allProperties || allProperties.length === 0) {
+      subCategories.forEach((sub) => {
+        availability[sub.title] = false;
+      });
+      return availability;
+    }
+
+    subCategories.forEach((sub) => {
+      const hasFeature = allProperties.some((p: any) => {
+        const listing = p?.listing || p?.data?.listing || p;
+        const props = listing?.property || listing?.data || {};
+        const remarks = listing?.publicRemarks;
+
+        if (props[sub.propertyKey]) return true;
+
+        if (remarks && sub.keywords && sub.keywords.length > 0) {
+          const lowerRemarks = remarks.toLowerCase();
+          return sub.keywords.some(k => lowerRemarks.includes(k));
+        }
+
+        return false;
+      });
+
+      availability[sub.title] = hasFeature;
+    });
+
+    return availability;
+  }, [allProperties, subCategories]);
+
   const displayedProperties = Array.isArray(drawFilteredPropertyIds)
     ? (Array.isArray(allProperties)
-      ? allProperties.filter((p: any) => drawFilteredPropertyIds.includes(String(p?.id)))
+      ? allProperties.filter((p: any) => {
+        const listingId = resolveListingId(p);
+        return !!listingId && drawFilteredPropertyIds.includes(listingId);
+      })
       : [])
     : allProperties;
 
+  const featureFilteredProperties = useMemo(() => {
+    if (!selectedSubCategories.length) return displayedProperties;
+    return (displayedProperties || []).filter((p: any) => {
+      return selectedSubCategories.every((subCat) => {
+        const sub = subCategories.find((s) => s.title === subCat);
+        if (!sub) return true;
+
+        const listing = p?.listing || p?.data?.listing || p;
+        const props = listing?.property || listing?.data || {};
+        const remarks = listing?.publicRemarks;
+
+        if (props[sub.propertyKey]) return true;
+
+        if (remarks && sub.keywords && sub.keywords.length > 0) {
+          const lowerRemarks = remarks.toLowerCase();
+          return sub.keywords.some((k) => lowerRemarks.includes(k));
+        }
+
+        return false;
+      });
+    });
+  }, [displayedProperties, selectedSubCategories, subCategories]);
+
   const coordinates = allProperties?.map((property: any) => ({
-    id: property.id,
-    price: property?.listing?.listPriceLow,
-    lat: property?.public?.latitude,
-    lng: property?.public?.longitude,
+    id: resolveListingId(property),
+    price: property?.listing?.listPriceLow ?? property?._raw_listing?.listPriceLow ?? property?.price,
+    lat: property?.public?.latitude ?? property?._raw_public?.latitude ?? property?._raw_listing?.property?.latitude ?? property?.latitude,
+    lng: property?.public?.longitude ?? property?._raw_public?.longitude ?? property?._raw_listing?.property?.longitude ?? property?.longitude,
   })).filter(coord => coord.lat && coord.lng);
 
-  const resultCount = Array.isArray(displayedProperties) ? displayedProperties.length : 0;
+  const resultCount = Array.isArray(featureFilteredProperties) ? featureFilteredProperties.length : 0;
   const hasDrawFilter = Array.isArray(drawFilteredPropertyIds);
 
   useEffect(() => {
+    const inferred = parseQueryFilters(query ?? '');
     setTopSearchValue(query ?? '');
-    setDraftPriceMin(searchParams.get('priceMin') || '');
-    setDraftPriceMax(searchParams.get('priceMax') || '');
-    setDraftBeds(searchParams.get('bedRooms') || '');
-    setDraftBaths(searchParams.get('bathRooms') || '');
+    setDraftPriceMin(searchParams.get('priceMin') || (inferred.priceMin ? String(inferred.priceMin) : ''));
+    setDraftPriceMax(searchParams.get('priceMax') || (inferred.priceMax ? String(inferred.priceMax) : ''));
+    setDraftBeds(searchParams.get('bedRooms') || (inferred.bedRooms ? String(inferred.bedRooms) : ''));
+    setDraftBaths(searchParams.get('bathRooms') || (inferred.bathRooms ? String(inferred.bathRooms) : ''));
   }, [query, searchParams]);
 
   useEffect(() => {
@@ -181,6 +417,31 @@ function PropertyBrowseView({ }: Props) {
     }
   }, []);
 
+  useEffect(() => {
+    setIsMlsMode(isMlsBypassModeEnabled());
+    setIsSearchModeReady(true);
+
+    const handleBypassChange = (event: Event) => {
+      const customEvent = event as CustomEvent<boolean>;
+      if (typeof customEvent.detail === 'boolean') {
+        setIsMlsMode(customEvent.detail);
+        return;
+      }
+      setIsMlsMode(isMlsBypassModeEnabled());
+    };
+
+    window.addEventListener('snaphomz:mls-bypass-changed', handleBypassChange as EventListener);
+    return () => {
+      window.removeEventListener('snaphomz:mls-bypass-changed', handleBypassChange as EventListener);
+    };
+  }, []);
+
+  const toggleSearchMode = useCallback(() => {
+    const next = !isMlsMode;
+    setMlsBypassModeEnabled(next);
+    setIsMlsMode(next);
+  }, [isMlsMode]);
+
   const pushBrowseParams = useCallback((mutator: (params: URLSearchParams) => void) => {
     const params = new URLSearchParams(searchParams.toString());
     mutator(params);
@@ -232,6 +493,8 @@ function PropertyBrowseView({ }: Props) {
   const sendSearchRequest = useCallback(
     debounce(async (body: Record<string, any>) => {
       if (isSearchingRef.current) return;
+      // Stable key that identifies query + mode + filters (no lat/lng — those are map-move only)
+      const querySearchKey = `${isMlsMode ? 'mls' : 'ai'}||${query?.trim() ?? ''}||${activeSearchFiltersKey}`;
       const fingerprint = JSON.stringify({
         mode: isMlsMode ? 'mls' : 'ai',
         query: query ?? '',
@@ -266,10 +529,11 @@ function PropertyBrowseView({ }: Props) {
           ...body,
           query,
           radius: 20,
+          from_browse: true,
           user: user?.id
         });
 
-        const newProperties = response?.data?.records || response?.data?.result?.records;
+        const newProperties = response?.data?.properties || response?.data?.records || response?.data?.result?.records;
 
         if (Array.isArray(newProperties) && newProperties.length > 0) {
           // Only clear if we are not moving the map (i.e. no latitude/longitude in body) 
@@ -281,11 +545,16 @@ function PropertyBrowseView({ }: Props) {
 
           setSearchedQuery(JSON.stringify(newProperties));
           addProperties(newProperties);
+          setLastSearchKey(querySearchKey);
           dispatch(incrementSearchCount());
-          dispatch(setPropertyQuery(response.data.search_query));
+          dispatch(setPropertyQuery(response.data?.final_response || response.data?.search_query));
         } else {
           clearProperties();
-          console.log("No properties found for the current map view");
+          warning({
+            message: 'No properties found',
+            subtitle: 'Try searching for a location or address, e.g. "3 bedroom houses in San Jose".',
+            duration: 8000,
+          });
         }
       } catch (err: any) {
         console.error('Search request failed:', err);
@@ -297,9 +566,15 @@ function PropertyBrowseView({ }: Props) {
         setIsSearching(false);
         setIsLoading(false);
       }
-    }, 3000),
-    [query, activeSearchFiltersKey, isMlsMode, clearProperties, addProperties, setSearchedQuery, setIsLoading, dispatch],
+    }, 1000),
+    [query, activeSearchFiltersKey, clearProperties, addProperties, setSearchedQuery, setLastSearchKey, setIsLoading, dispatch, isMlsMode],
   );
+
+  useEffect(() => {
+    return () => {
+      (sendSearchRequest as unknown as { cancel?: () => void }).cancel?.();
+    };
+  }, [sendSearchRequest]);
 
   useEffect(() => {
     const handlePinState = () => setIsMapPinned(true);
@@ -312,23 +587,113 @@ function PropertyBrowseView({ }: Props) {
 
   useEffect(() => {
     if (currentView !== 'map') return;
+    if (!isSearchModeReady) return;
     if (!query?.trim()) return;
 
+    // Back-navigation cache check: if we already have results for this exact
+    // query + mode + filters in the Zustand store, show them instantly without
+    // hitting the backend at all.  usePropertyStore.getState() gives the latest
+    // store values without stale-closure issues.
+    const querySearchKey = `${isMlsMode ? 'mls' : 'ai'}||${query.trim()}||${activeSearchFiltersKey}`;
+    const { lastSearchKey, allProperties: cachedProps } = usePropertyStore.getState();
+    if (cachedProps.length > 0 && lastSearchKey === querySearchKey) {
+      setIsLoading(false); // clear the store's initial isLoading:true
+      return;
+    }
+
     sendSearchRequest({});
-  }, [currentView, query, activeSearchFiltersKey, sendSearchRequest]);
+  }, [currentView, isSearchModeReady, query, activeSearchFiltersKey, sendSearchRequest, isMlsMode, setIsLoading]);
 
   if (currentView === 'map') {
     return (
       <>
         <section className="relative mb-0 flex-1 min-h-0 w-full px-4 pb-0 md:px-6">
           <div className="relative h-full min-h-0 w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-            <div className="pointer-events-none absolute left-0 right-0 top-0 z-30 px-3 py-3 lg:hidden">
-              <div className="pointer-events-auto rounded-xl border border-gray-200 bg-white/95 p-2 shadow-sm backdrop-blur">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                    {resultCount} result{resultCount === 1 ? '' : 's'}
+
+            {/* <div ref={mapRef} className="absolute inset-0">
+              <CustomMap
+                width="100%"
+                coord={coordinates}
+                zoom={13}
+                properties={displayedProperties}
+                height="100%"
+                searchQuery={query ?? ''}
+                showDistricts={mapOverlay === 'schools'}
+                overlayValue={mapOverlay}
+                onOverlayChange={setMapOverlay}
+                onMarkerClick={(id: string) => setSelectedProperty(id)}
+                onDrawFilterChange={(ids) => {
+                  setDrawFilteredPropertyIds(ids);
+                  if (!ids || ids.length === 0) return;
+                  if (selectedProperty && !ids.includes(String(selectedProperty))) {
+                    setSelectedProperty('');
+                  }
+                }}
+                clearDrawSignal={clearDrawSignal}
+                useOverlayResultsRail
+                onMapMove={(center) => {
+                  if (isMlsMode) return;
+                  sendSearchRequest({ latitude: center.lat, longitude: center.lng });
+                }}
+              />
+            </div>
+
+            <div className="pointer-events-none absolute inset-y-0 left-0 z-20 hidden w-[620px] max-w-[44vw] lg:block">
+              <div className="pointer-events-auto relative flex h-full flex-col border-r border-gray-200 bg-[#f7f7f7]">
+                <div className="border-b border-gray-200 bg-white px-4 py-3">
+                  <form onSubmit={handleTopSearchSubmit} className="relative z-30 flex items-center gap-2">
+                    <div className="relative min-w-0 flex-1 rounded-2xl border border-gray-300 bg-white shadow-sm ring-1 ring-black/5 transition focus-within:border-gray-400 focus-within:ring-2 focus-within:ring-orange-200">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                      <SpeechInput
+                        value={topSearchValue}
+                        setValue={setTopSearchValue}
+                        searchType={isMlsMode ? 'address' : 'nlp'}
+                        placeholderText={topSearchAnimatedPlaceholder}
+                        className="w-full"
+                        inputClassName="h-11 w-full rounded-2xl border-0 bg-transparent pl-10 pr-28 text-sm text-gray-900 shadow-none outline-none ring-0 placeholder:text-gray-400 focus-visible:ring-0"
+                      />
+                      <button
+                        type="button"
+                        onClick={toggleSearchMode}
+                        title={isMlsMode ? 'MLS mode active. Click to switch to AI search.' : 'AI search active. Click to switch to MLS search.'}
+                        className={cn(
+                          'absolute right-10 top-1/2 -translate-y-1/2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition',
+                          isMlsMode
+                            ? 'bg-gray-100 text-gray-600 ring-1 ring-gray-200 hover:bg-gray-200'
+                            : 'bg-orange-50 text-orange-700 ring-1 ring-orange-200 hover:bg-orange-100'
+                        )}
+                      >
+                        {isMlsMode ? 'AI OFF' : 'AI ON'}
+                      </button>
+                      {topSearchValue ? (
+                        <button
+                          type="button"
+                          onClick={() => setTopSearchValue('')}
+                          className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                          aria-label="Clear search"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      ) : null}
+                    </div>
+                    <button
+                      type="submit"
+                      className="h-11 shrink-0 rounded-2xl bg-ocOrange px-4 text-sm font-semibold text-white shadow-sm hover:brightness-95"
+                    >
+                      Search
+                    </button>
+                  </form>
+
+                  <div className="mt-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                    <MapPinned className="h-3.5 w-3.5" />
+                    {query ? `Results for ${query}` : 'Search Results'}
+                    <span className="normal-case tracking-normal text-gray-400">•</span>
+                    <span className="normal-case tracking-normal text-gray-600">
+                      {resultCount.toLocaleString()} result{resultCount === 1 ? '' : 's'}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2">
+
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                     <button
                       type="button"
                       onClick={() => setShowCompactFilters((prev) => !prev)}
@@ -341,6 +706,48 @@ function PropertyBrowseView({ }: Props) {
                     >
                       Filter
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => savePropertyView('map')}
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium',
+                        currentView === 'map'
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+                      )}
+                    >
+                      <Map className="h-3.5 w-3.5" />
+                      Map
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => savePropertyView('grid')}
+                      className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
+                    >
+                      <Grid2X2 className="h-3.5 w-3.5" />
+                      Grid
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCompareMode(!isCompareMode);
+                        if (isCompareMode) clearCompareProperties();
+                      }}
+                      className={cn(
+                        'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium',
+                        isCompareMode
+                          ? 'bg-ocOrange text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+                      )}
+                    >
+                      {isCompareMode ? 'Cancel Compare' : 'Compare'}
+                    </button>
+                    {isCompareMode ? (
+                      <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-700">
+                        {selectedCompareProperties.length} selected
+                      </span>
+                    ) : null}
+                    {hasDrawFilter ? (
                     <button
                       type="button"
                       onClick={() => savePropertyView('map')}
@@ -441,7 +848,8 @@ function PropertyBrowseView({ }: Props) {
                   </div>
                 ) : null}
               </div>
-            </div>
+            </div> */}
+
             <div ref={mapRef} className="absolute inset-0">
               <CustomMap
                 width="100%"
@@ -464,10 +872,153 @@ function PropertyBrowseView({ }: Props) {
                 clearDrawSignal={clearDrawSignal}
                 useOverlayResultsRail
                 onMapMove={(center) => {
-                  if (isMlsMode) return;
+                  // AI search is query-based — map panning should not re-fetch (properties already loaded)
+                  // Only MLS mode is geo-based and needs map-move re-requests
+                  if (!isMlsMode) return;
                   sendSearchRequest({ latitude: center.lat, longitude: center.lng });
                 }}
               />
+            </div>
+
+            <div className="absolute left-3 right-3 top-3 z-30 lg:hidden">
+              <div className="rounded-xl border border-gray-200 bg-white/95 p-2 shadow-sm backdrop-blur">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setShowCompactFilters((prev) => !prev)}
+                    className={cn(
+                      'inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition',
+                      showCompactFilters
+                        ? 'border-gray-300 bg-gray-900 text-white'
+                        : 'border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200',
+                    )}
+                  >
+                    Filter
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => savePropertyView('map')}
+                    className={cn(
+                      'inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium',
+                      currentView === 'map'
+                        ? 'bg-gray-900 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+                    )}
+                  >
+                    <Map className="h-3.5 w-3.5" />
+                    Map
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => savePropertyView('grid')}
+                    className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200"
+                  >
+                    <Grid2X2 className="h-3.5 w-3.5" />
+                    Grid
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCompareMode(!isCompareMode);
+                      if (isCompareMode) clearCompareProperties();
+                    }}
+                    className={cn(
+                      'inline-flex items-center rounded-full px-2.5 py-1.5 text-xs font-medium',
+                      isCompareMode
+                        ? 'bg-ocOrange text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+                    )}
+                  >
+                    {isCompareMode ? 'Cancel Compare' : 'Compare'}
+                  </button>
+                </div>
+              </div>
+
+              {showCompactFilters ? (
+                <div className="mt-2 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="flex flex-col gap-1">
+                      <span className="px-1 text-[11px] font-medium text-gray-500">Min price</span>
+                      <input
+                        inputMode="numeric"
+                        value={draftPriceMin}
+                        onChange={(e) => setDraftPriceMin(e.target.value.replace(/[^\d]/g, ''))}
+                        placeholder="$ Min"
+                        className="block w-full appearance-none rounded-full border border-gray-300 bg-white px-3 text-sm text-gray-900 shadow-sm outline-none placeholder:text-gray-400 focus:border-gray-400"
+                        style={{ height: 40, minHeight: 40, lineHeight: '40px' }}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="px-1 text-[11px] font-medium text-gray-500">Max price</span>
+                      <input
+                        inputMode="numeric"
+                        value={draftPriceMax}
+                        onChange={(e) => setDraftPriceMax(e.target.value.replace(/[^\d]/g, ''))}
+                        placeholder="$ Max"
+                        className="block w-full appearance-none rounded-full border border-gray-300 bg-white px-3 text-sm text-gray-900 shadow-sm outline-none placeholder:text-gray-400 focus:border-gray-400"
+                        style={{ height: 40, minHeight: 40, lineHeight: '40px' }}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="px-1 text-[11px] font-medium text-gray-500">Beds (min)</span>
+                      <select
+                        value={draftBeds}
+                        onChange={(e) => setDraftBeds(e.target.value)}
+                        className="block w-full appearance-none rounded-full border border-gray-300 bg-white px-3 pr-8 text-sm text-gray-900 shadow-sm outline-none focus:border-gray-400"
+                        style={{ height: 40, minHeight: 40 }}
+                      >
+                        <option value="">Beds+</option>
+                        <option value="1">1+</option>
+                        <option value="2">2+</option>
+                        <option value="3">3+</option>
+                        <option value="4">4+</option>
+                        <option value="5">5+</option>
+                      </select>
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="px-1 text-[11px] font-medium text-gray-500">Baths (min)</span>
+                      <select
+                        value={draftBaths}
+                        onChange={(e) => setDraftBaths(e.target.value)}
+                        className="block w-full appearance-none rounded-full border border-gray-300 bg-white px-3 pr-8 text-sm text-gray-900 shadow-sm outline-none focus:border-gray-400"
+                        style={{ height: 40, minHeight: 40 }}
+                      >
+                        <option value="">Baths+</option>
+                        <option value="1">1+</option>
+                        <option value="2">2+</option>
+                        <option value="3">3+</option>
+                        <option value="4">4+</option>
+                        <option value="5">5+</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={clearCompactFilters}
+                      className="text-xs font-medium text-gray-500 hover:text-gray-700"
+                    >
+                      Clear all
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowCompactFilters(false)}
+                        className="rounded-full border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        Close
+                      </button>
+                      <button
+                        type="button"
+                        onClick={applyCompactFilters}
+                        className="rounded-full bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-800"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <div className="pointer-events-none absolute inset-y-0 left-0 z-20 hidden w-[620px] max-w-[44vw] lg:block">
@@ -684,10 +1235,11 @@ function PropertyBrowseView({ }: Props) {
                     selectedProperty={selectedProperty}
                     propertiesOverride={displayedProperties}
                     overlayMode
+                    onOpenCompareModal={() => setShowCompareModal(true)}
                   />
                 </div>
 
-                {isCompareMode ? (
+                {/* {isCompareMode ? (
                   <div className="pointer-events-none absolute bottom-52 left-1/2 z-40 -translate-x-1/2">
                     <button
                       type="button"
@@ -711,7 +1263,16 @@ function PropertyBrowseView({ }: Props) {
                       </span>
                     </button>
                   </div>
-                ) : null}
+                ) : null} */}
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-hidden p-3">
+                <BuyPropertyCards
+                  selectedProperty={selectedProperty}
+                  propertiesOverride={displayedProperties}
+                  overlayMode
+                  onOpenCompareModal={() => setShowCompareModal(true)}
+                />
               </div>
             </div>
           </div>
@@ -723,14 +1284,175 @@ function PropertyBrowseView({ }: Props) {
               </div>
               <div className="mt-1 text-xs text-gray-600">
                 {resultCount} listing{resultCount === 1 ? '' : 's'}
-                {hasDrawFilter ? ` • Draw Area: ${drawFilteredPropertyIds?.length ?? 0}` : ''}
+                {hasDrawFilter ? ` - Draw Area: ${drawFilteredPropertyIds?.length ?? 0}` : ''}
               </div>
             </div>
+
+            <div className="sticky top-2 z-30 mb-2 space-y-2">
+              <div className="rounded-xl border border-gray-200 bg-white/95 p-2 shadow-sm backdrop-blur">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setShowCompactFilters((prev) => !prev)}
+                    className={cn(
+                      'inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition',
+                      showCompactFilters
+                        ? 'border-gray-300 bg-gray-900 text-white'
+                        : 'border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200',
+                    )}
+                  >
+                    Filter
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => savePropertyView('map')}
+                    className={cn(
+                      'inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium',
+                      currentView === 'map'
+                        ? 'bg-gray-900 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+                    )}
+                  >
+                    <Map className="h-3.5 w-3.5" />
+                    Map
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => savePropertyView('grid')}
+                    className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200"
+                  >
+                    <Grid2X2 className="h-3.5 w-3.5" />
+                    Grid
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCompareMode(!isCompareMode);
+                      if (isCompareMode) clearCompareProperties();
+                    }}
+                    className={cn(
+                      'inline-flex items-center rounded-full px-2.5 py-1.5 text-xs font-medium',
+                      isCompareMode
+                        ? 'bg-ocOrange text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+                    )}
+                  >
+                    {isCompareMode ? 'Cancel Compare' : 'Compare'}
+                  </button>
+                  {isCompareMode ? (
+                    <span className="rounded-full bg-gray-100 px-2.5 py-1.5 text-xs text-gray-700">
+                      {selectedCompareProperties.length} selected
+                    </span>
+                  ) : null}
+                </div>
+
+                {hasDrawFilter ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDrawFilteredPropertyIds(null);
+                      setClearDrawSignal((prev) => prev + 1);
+                    }}
+                    className="mt-2 rounded-full bg-orange-50 px-2.5 py-1 text-xs text-orange-700 hover:bg-orange-100"
+                  >
+                    Draw Area: {drawFilteredPropertyIds?.length ?? 0} (Clear)
+                  </button>
+                ) : null}
+              </div>
+
+              {showCompactFilters ? (
+                <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="flex flex-col gap-1">
+                      <span className="px-1 text-[11px] font-medium text-gray-500">Min price</span>
+                      <input
+                        inputMode="numeric"
+                        value={draftPriceMin}
+                        onChange={(e) => setDraftPriceMin(e.target.value.replace(/[^\d]/g, ''))}
+                        placeholder="$ Min"
+                        className="block w-full appearance-none rounded-full border border-gray-300 bg-white px-3 text-sm text-gray-900 shadow-sm outline-none placeholder:text-gray-400 focus:border-gray-400"
+                        style={{ height: 40, minHeight: 40, lineHeight: '40px' }}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="px-1 text-[11px] font-medium text-gray-500">Max price</span>
+                      <input
+                        inputMode="numeric"
+                        value={draftPriceMax}
+                        onChange={(e) => setDraftPriceMax(e.target.value.replace(/[^\d]/g, ''))}
+                        placeholder="$ Max"
+                        className="block w-full appearance-none rounded-full border border-gray-300 bg-white px-3 text-sm text-gray-900 shadow-sm outline-none placeholder:text-gray-400 focus:border-gray-400"
+                        style={{ height: 40, minHeight: 40, lineHeight: '40px' }}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="px-1 text-[11px] font-medium text-gray-500">Beds (min)</span>
+                      <select
+                        value={draftBeds}
+                        onChange={(e) => setDraftBeds(e.target.value)}
+                        className="block w-full appearance-none rounded-full border border-gray-300 bg-white px-3 pr-8 text-sm text-gray-900 shadow-sm outline-none focus:border-gray-400"
+                        style={{ height: 40, minHeight: 40 }}
+                      >
+                        <option value="">Beds+</option>
+                        <option value="1">1+</option>
+                        <option value="2">2+</option>
+                        <option value="3">3+</option>
+                        <option value="4">4+</option>
+                        <option value="5">5+</option>
+                      </select>
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="px-1 text-[11px] font-medium text-gray-500">Baths (min)</span>
+                      <select
+                        value={draftBaths}
+                        onChange={(e) => setDraftBaths(e.target.value)}
+                        className="block w-full appearance-none rounded-full border border-gray-300 bg-white px-3 pr-8 text-sm text-gray-900 shadow-sm outline-none focus:border-gray-400"
+                        style={{ height: 40, minHeight: 40 }}
+                      >
+                        <option value="">Baths+</option>
+                        <option value="1">1+</option>
+                        <option value="2">2+</option>
+                        <option value="3">3+</option>
+                        <option value="4">4+</option>
+                        <option value="5">5+</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={clearCompactFilters}
+                      className="text-xs font-medium text-gray-500 hover:text-gray-700"
+                    >
+                      Clear all
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowCompactFilters(false)}
+                        className="rounded-full border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        Close
+                      </button>
+                      <button
+                        type="button"
+                        onClick={applyCompactFilters}
+                        className="rounded-full bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-800"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
             <div className="max-h-[60vh] overflow-y-auto overscroll-contain">
               <BuyPropertyCards
                 selectedProperty={selectedProperty}
                 propertiesOverride={displayedProperties}
                 overlayMode
+                onOpenCompareModal={() => setShowCompareModal(true)}
               />
             </div>
           </div>
@@ -746,7 +1468,7 @@ function PropertyBrowseView({ }: Props) {
   return (
     <>
       <section
-        className="relative mb-20 mx-auto grid w-full max-w-[1600px] grid-cols-5 gap-x-8"
+        className="relative mb-20 mx-auto w-full md:grid grid-cols-5 max-w-[1600px] gap-x-8 pl-12 pr-8 md:pl-16 md:pr-12"
       >
         {/* Property Cards */}
         <div
@@ -756,7 +1478,7 @@ function PropertyBrowseView({ }: Props) {
           //   currentView === 'map' ? 'col-span-3 px-[3.12rem]' : 'col-span-5',
           // )}
           className={cn(
-            'px-4 md:px-6',
+            currentView === 'grid' ? 'px-0' : 'px-4 md:px-6',
             'col-span-5',
           )}
         >
@@ -776,7 +1498,7 @@ function PropertyBrowseView({ }: Props) {
               width="100%"
               coord={coordinates}
               zoom={13}
-              properties={displayedProperties}
+              properties={featureFilteredProperties}
               height="100%"
               searchQuery={query ?? ''}
               showDistricts={mapOverlay === 'schools'}
@@ -792,14 +1514,298 @@ function PropertyBrowseView({ }: Props) {
               }}
               clearDrawSignal={clearDrawSignal}
               onMapMove={(center) => {
-                if (isMlsMode) return;
+                // AI search is query-based — map panning should not re-fetch (properties already loaded)
+                // Only MLS mode is geo-based and needs map-move re-requests
+                if (!isMlsMode) return;
                 sendSearchRequest({ latitude: center.lat, longitude: center.lng });
               }}
             />
           </div>
         ) : null}
 
-        {/* Fixed Map on Right */}
+        {/* </section>
+      <PropertyComparisonModal
+        isOpen={showCompareModal}
+        closeModal={() => setShowCompareModal(false)}
+      />
+    </>
+  ); */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 z-20 hidden w-[620px] max-w-[44vw] lg:block">
+          <div className="pointer-events-auto relative flex h-full flex-col border-r border-gray-200 bg-[#f7f7f7]">
+            <div className="border-b border-gray-200 bg-white px-4 py-3">
+              <form onSubmit={handleTopSearchSubmit} className="relative z-30 flex items-center gap-2">
+                <div className="relative min-w-0 flex-1 rounded-2xl border border-gray-300 bg-white shadow-sm ring-1 ring-black/5 transition focus-within:border-gray-400 focus-within:ring-2 focus-within:ring-orange-200">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <SpeechInput
+                    value={topSearchValue}
+                    setValue={setTopSearchValue}
+                    searchType={isMlsMode ? 'address' : 'nlp'}
+                    placeholderText={topSearchAnimatedPlaceholder}
+                    className="w-full"
+                    inputClassName="h-11 w-full rounded-2xl border-0 bg-transparent pl-10 pr-28 text-sm text-gray-900 shadow-none outline-none ring-0 placeholder:text-gray-400 focus-visible:ring-0"
+                  />
+                  <button
+                    type="button"
+                    onClick={toggleSearchMode}
+                    title={isMlsMode ? 'MLS mode active. Click to switch to AI search.' : 'AI search active. Click to switch to MLS search.'}
+                    className={cn(
+                      'absolute right-10 top-1/2 -translate-y-1/2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition',
+                      isMlsMode
+                        ? 'bg-gray-100 text-gray-600 ring-1 ring-gray-200 hover:bg-gray-200'
+                        : 'bg-orange-50 text-orange-700 ring-1 ring-orange-200 hover:bg-orange-100'
+                    )}
+                  >
+                    {isMlsMode ? 'AI OFF' : 'AI ON'}
+                  </button>
+                  {topSearchValue ? (
+                    <button
+                      type="button"
+                      onClick={() => setTopSearchValue('')}
+                      className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                      aria-label="Clear search"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+                <button
+                  type="submit"
+                  className="h-11 shrink-0 rounded-2xl bg-ocOrange px-4 text-sm font-semibold text-white shadow-sm hover:brightness-95"
+                >
+                  Search
+                </button>
+              </form>
+
+              <div className="mt-3 flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-2 whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                  <MapPinned className="h-3.5 w-3.5" />
+                  <span className="truncate max-w-[340px]">
+                    {query ? `Results for ${query}` : 'Search Results'}
+                  </span>
+                  <span className="normal-case tracking-normal text-gray-400">•</span>
+                  <span className="shrink-0 normal-case tracking-normal text-gray-600">
+                    {resultCount.toLocaleString()} result{resultCount === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <div className="ml-auto flex items-center gap-2 whitespace-nowrap text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setShowCompactFilters((prev) => !prev)}
+                    className={cn(
+                      'inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition',
+                      showCompactFilters
+                        ? 'border-gray-300 bg-gray-900 text-white'
+                        : 'border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200',
+                    )}
+                  >
+                    Filter
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => savePropertyView('map')}
+                    className={cn(
+                      'inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition',
+                      // currentView === 'map'
+                      //   ? 'border-gray-300 bg-gray-900 text-white'
+                      //   : 'border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200',
+                    )}
+                  >
+                    <Map className="h-3.5 w-3.5" />
+                    Map
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => savePropertyView('grid')}
+                    className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-200"
+                  >
+                    <Grid2X2 className="h-3.5 w-3.5" />
+                    Grid
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCompareMode(!isCompareMode);
+                      if (isCompareMode) clearCompareProperties();
+                    }}
+                    className={cn(
+                      'inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition',
+                      isCompareMode
+                        ? 'border-ocOrange bg-ocOrange text-white'
+                        : 'border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200',
+                    )}
+                  >
+                    {isCompareMode ? 'Cancel Compare' : 'Compare'}
+                  </button>
+                  {isCompareMode ? (
+                    <span className="rounded-full border border-gray-200 bg-gray-100 px-3 py-1.5 text-gray-700">
+                      {selectedCompareProperties.length} selected
+                    </span>
+                  ) : null}
+                  {hasDrawFilter ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDrawFilteredPropertyIds(null);
+                        setClearDrawSignal((prev) => prev + 1);
+                      }}
+                      className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1.5 text-orange-700 hover:bg-orange-100"
+                    >
+                      Draw Area: {drawFilteredPropertyIds?.length ?? 0} (Clear)
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                {subCategories.map((sub) => {
+                  const isSelected = selectedSubCategories.includes(sub.title);
+                  const isAvailable = subCategoryAvailability[sub.title] ?? true;
+                  const isDisabled = !isAvailable && !isSelected;
+                  return (
+                    <button
+                      key={sub.title}
+                      type="button"
+                      onClick={() => {
+                        if (isDisabled) return;
+                        toggleSubCategory(sub.title);
+                      }}
+                      aria-disabled={isDisabled}
+                      title={isDisabled ? 'Results do not contain this feature.' : ''}
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition',
+                        isSelected
+                          ? 'border-ocOrange bg-ocOrange text-white shadow-sm'
+                          : isDisabled
+                            ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'border-gray-300 bg-white text-gray-700 hover:text-ocOrange hover:border-ocOrange hover:shadow-sm'
+                      )}
+                    >
+                      <span className={cn(isSelected ? 'text-white' : isDisabled ? 'text-gray-400' : 'text-gray-600')}>
+                        {sub.icon}
+                      </span>
+                      {sub.title}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {showCompactFilters ? (
+                <div className="mt-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="flex flex-col gap-1">
+                      <span className="px-1 text-[11px] font-medium text-gray-500">Min price</span>
+                      <input
+                        inputMode="numeric"
+                        value={draftPriceMin}
+                        onChange={(e) => setDraftPriceMin(e.target.value.replace(/[^\d]/g, ''))}
+                        placeholder="$ Min"
+                        className="block w-full appearance-none rounded-full border border-gray-300 bg-white px-3 text-sm text-gray-900 shadow-sm outline-none placeholder:text-gray-400 focus:border-gray-400"
+                        style={{ height: 40, minHeight: 40, lineHeight: '40px' }}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="px-1 text-[11px] font-medium text-gray-500">Max price</span>
+                      <input
+                        inputMode="numeric"
+                        value={draftPriceMax}
+                        onChange={(e) => setDraftPriceMax(e.target.value.replace(/[^\d]/g, ''))}
+                        placeholder="$ Max"
+                        className="block w-full appearance-none rounded-full border border-gray-300 bg-white px-3 text-sm text-gray-900 shadow-sm outline-none placeholder:text-gray-400 focus:border-gray-400"
+                        style={{ height: 40, minHeight: 40, lineHeight: '40px' }}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="px-1 text-[11px] font-medium text-gray-500">Beds (min)</span>
+                      <select
+                        value={draftBeds}
+                        onChange={(e) => setDraftBeds(e.target.value)}
+                        className="block w-full appearance-none rounded-full border border-gray-300 bg-white px-3 pr-8 text-sm text-gray-900 shadow-sm outline-none focus:border-gray-400"
+                        style={{ height: 40, minHeight: 40 }}
+                      >
+                        <option value="">Beds+</option>
+                        <option value="1">1+</option>
+                        <option value="2">2+</option>
+                        <option value="3">3+</option>
+                        <option value="4">4+</option>
+                        <option value="5">5+</option>
+                      </select>
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="px-1 text-[11px] font-medium text-gray-500">Baths (min)</span>
+                      <select
+                        value={draftBaths}
+                        onChange={(e) => setDraftBaths(e.target.value)}
+                        className="block w-full appearance-none rounded-full border border-gray-300 bg-white px-3 pr-8 text-sm text-gray-900 shadow-sm outline-none focus:border-gray-400"
+                        style={{ height: 40, minHeight: 40 }}
+                      >
+                        <option value="">Baths+</option>
+                        <option value="1">1+</option>
+                        <option value="2">2+</option>
+                        <option value="3">3+</option>
+                        <option value="4">4+</option>
+                        <option value="5">5+</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={clearCompactFilters}
+                      className="text-xs font-medium text-gray-500 hover:text-gray-700"
+                    >
+                      Clear all
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowCompactFilters(false)}
+                        className="rounded-full border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        Close
+                      </button>
+                      <button
+                        type="button"
+                        onClick={applyCompactFilters}
+                        className="rounded-full bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-800"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-hidden p-3">
+              <BuyPropertyCards
+                selectedProperty={selectedProperty}
+                propertiesOverride={featureFilteredProperties}
+                overlayMode
+                onOpenCompareModal={() => setShowCompareModal(true)}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 lg:hidden">
+          <div className="mb-2 rounded-xl border border-gray-200 bg-white px-3 py-2">
+            <div className="text-sm font-semibold text-gray-900">
+              {query ? `Results for ${query}` : 'Listings'}
+            </div>
+            <div className="mt-1 text-xs text-gray-600">
+              {resultCount} listing{resultCount === 1 ? '' : 's'}
+              {hasDrawFilter ? ` • Draw Area: ${drawFilteredPropertyIds?.length ?? 0}` : ''}
+            </div>
+          </div>
+          <div className="max-h-[60vh] overflow-y-auto overscroll-contain">
+            <BuyPropertyCards
+              selectedProperty={selectedProperty}
+              propertiesOverride={featureFilteredProperties}
+              overlayMode
+              onOpenCompareModal={() => setShowCompareModal(true)}
+            />
+          </div>
+        </div>
       </section>
       <PropertyComparisonModal
         isOpen={showCompareModal}

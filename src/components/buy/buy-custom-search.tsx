@@ -368,11 +368,12 @@ import { RootState } from '@/lib/store';
 import { success, error } from '../alert/notify';
 import { usePropertyStore } from '@/store/use-property-store';
 import { PROPERTY_SEARCH_AI_URL } from '@/shared/constants/env';
-import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
+import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { setPropertyQuery } from '@/slices/property/property-slice';
 import { Input } from '../ui/input';
 import { cn } from '@/lib/utils';
 import { useProperty } from '@/shared/hooks/useProperty';
+import { Search, X } from 'lucide-react';
 
 let globalLastAutoSearch: string | null = null;
 
@@ -404,8 +405,9 @@ const BuyBreadCrumb = ({ }: Props) => {
   return (
     <div
       className={cn(
-        'sticky w-full px-4 pb-4 pt-10 md:px-6',
-        currentView === 'grid' ? 'max-w-[1600px] mx-auto' : '',
+        currentView === 'grid'
+          ? 'sticky w-full max-w-[1600px] mx-auto pl-12 pr-8 pb-4 pt-10 md:pl-16 md:pr-12'
+          : 'sticky w-full px-4 pb-4 pt-10 md:px-6',
       )}
     >
       <div className='flex items-center gap-x-2 font-medium'>
@@ -484,6 +486,11 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
   const toggleButtonRef = React.useRef<HTMLButtonElement>(null);
   const [isFooterVisible, setIsFooterVisible] = React.useState(false);
   const lastAutoSearchRef = React.useRef<string | null>(null);
+  const [isMlsMode, setIsMlsMode] = React.useState(false);
+  const [searchAnimatedPlaceholder, setSearchAnimatedPlaceholder] = React.useState('');
+  const [searchPromptIndex, setSearchPromptIndex] = React.useState(0);
+  const [searchCharIndex, setSearchCharIndex] = React.useState(0);
+  const [searchDeleting, setSearchDeleting] = React.useState(false);
 
   const { user } = useAuth()
   const { email } = useRegister()
@@ -578,6 +585,84 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [showInputBox, isHiddenInMapMode]);
+
+  React.useEffect(() => {
+    if (isHiddenInMapMode) return;
+    setIsMlsMode(isMlsBypassModeEnabled());
+
+    const handleBypassChange = (event: Event) => {
+      const customEvent = event as CustomEvent<boolean>;
+      if (typeof customEvent.detail === 'boolean') {
+        setIsMlsMode(customEvent.detail);
+        return;
+      }
+      setIsMlsMode(isMlsBypassModeEnabled());
+    };
+
+    window.addEventListener('snaphomz:mls-bypass-changed', handleBypassChange as EventListener);
+    return () => {
+      window.removeEventListener('snaphomz:mls-bypass-changed', handleBypassChange as EventListener);
+    };
+  }, [isHiddenInMapMode]);
+
+  React.useEffect(() => {
+    if (searchString.trim().length > 0) {
+      setSearchAnimatedPlaceholder('');
+      return;
+    }
+
+    const prompts = isMlsMode
+      ? [
+        'Enter an address, city, neighborhood, or ZIP',
+        'Try: Manhattan Beach, CA',
+        'Try: Los Angeles, CA 90049',
+      ]
+      : [
+        'Show me homes in Los Angeles under 2M',
+        'Find 3-bedroom homes in Manhattan Beach',
+        'Homes near top-rated schools in Irvine',
+      ];
+
+    const prompt = prompts[searchPromptIndex % prompts.length];
+    const doneTyping = searchCharIndex >= prompt.length;
+    const doneDeleting = searchCharIndex <= 0;
+
+    const delay = searchDeleting
+      ? 45
+      : doneTyping
+        ? 900
+        : 70;
+
+    const timer = setTimeout(() => {
+      if (!searchDeleting && !doneTyping) {
+        setSearchCharIndex((n) => n + 1);
+        return;
+      }
+
+      if (!searchDeleting && doneTyping) {
+        setSearchDeleting(true);
+        return;
+      }
+
+      if (searchDeleting && !doneDeleting) {
+        setSearchCharIndex((n) => Math.max(0, n - 1));
+        return;
+      }
+
+      setSearchDeleting(false);
+      setSearchPromptIndex((n) => (n + 1) % prompts.length);
+    }, delay);
+
+    setSearchAnimatedPlaceholder(prompt.slice(0, searchCharIndex));
+
+    return () => clearTimeout(timer);
+  }, [searchString, searchPromptIndex, searchCharIndex, searchDeleting, isMlsMode]);
+
+  const toggleSearchMode = React.useCallback(() => {
+    const next = !isMlsMode;
+    setMlsBypassModeEnabled(next);
+    setIsMlsMode(next);
+  }, [isMlsMode]);
 
   // Hide the floating button when the footer enters view.
   React.useEffect(() => {
@@ -684,9 +769,10 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
           ref={toggleButtonRef}
           style={{
             height: '48px',
-            padding: '0 18px',
+            padding: showInputBox ? 0 : '0 18px',
+            width: showInputBox ? '48px' : 'auto',
             borderRadius: '9999px',
-            backgroundColor: '#ff6600',
+            backgroundColor: showInputBox ? '#ff6600' : '#ff6600',
             color: '#fff',
             boxShadow: '0 6px 14px rgba(0,0,0,0.18)',
             fontSize: '0.95rem',
@@ -698,9 +784,110 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
             whiteSpace: 'nowrap',
           }}
         >
-          Continue Search
+          {showInputBox ? <X className="h-6 w-6" /> : 'Continue Search'}
         </button>
       </div>
+      {/* <style jsx global>{`
+  @keyframes advancedSlideIn {
+    0% {
+      opacity: 0;
+      transform: translateX(-60px) scale(0.95) rotate(-2deg);
+      filter: blur(2px);
+    }
+    40% {
+      opacity: 1;
+      transform: translateX(20px) scale(1.03) rotate(1deg);
+      filter: blur(0);
+    }
+    70% {
+      transform: translateX(-5px) scale(1) rotate(0deg);
+    }
+    100% {
+      transform: translateX(0) scale(1) rotate(0deg);
+    }
+  }
+
+  .animate-advanced {
+    animation: advancedSlideIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    will-change: transform, opacity;
+  }
+
+  body[data-mobile-drawer-open='true'] .buy-floating-search,
+  body[data-mobile-drawer-open='true'] .buy-floating-search-popup {
+    display: none !important;
+  }
+`}</style> */}
+
+
+      {showInputBox && (
+        <div
+          className="buy-floating-search-popup"
+          ref={popupRef}
+          style={{
+            position: 'fixed',
+            bottom: '88px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 10001,
+          }}
+        >
+          <div
+            className="animate-advanced"
+            style={{
+              width: '90vw',
+              maxWidth: '28rem',
+              borderRadius: '0.75rem',
+              backgroundColor: '#fff',
+              boxShadow: '0 10px 15px rgba(0,0,0,0.1)',
+              padding: '0.6rem',
+            }}
+          >
+            <form onSubmit={handleSubmit} className="relative z-30 flex items-center gap-2">
+              <div className="relative min-w-0 flex-1 rounded-2xl border border-gray-300 bg-white shadow-sm ring-1 ring-black/5 transition focus-within:border-gray-400 focus-within:ring-2 focus-within:ring-orange-200">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <SpeechInput
+                  value={searchString}
+                  setValue={setSearchString}
+                  searchType={isMlsMode ? 'address' : 'nlp'}
+                  placeholderText={searchAnimatedPlaceholder}
+                  className="w-full"
+                  inputClassName="h-11 w-full rounded-2xl border-0 bg-transparent pl-10 pr-28 text-sm text-gray-900 shadow-none outline-none ring-0 placeholder:text-gray-400 focus-visible:ring-0"
+                />
+                <button
+                  type="button"
+                  onClick={toggleSearchMode}
+                  title={isMlsMode ? 'MLS mode active. Click to switch to AI search.' : 'AI search active. Click to switch to MLS search.'}
+                  className={cn(
+                    'absolute right-10 top-1/2 -translate-y-1/2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition',
+                    isMlsMode
+                      ? 'bg-gray-100 text-gray-600 ring-1 ring-gray-200 hover:bg-gray-200'
+                      : 'bg-orange-50 text-orange-700 ring-1 ring-orange-200 hover:bg-orange-100'
+                  )}
+                >
+                  {isMlsMode ? 'AI OFF' : 'AI ON'}
+                </button>
+                {searchString ? (
+                  <button
+                    type="button"
+                    onClick={() => setSearchString('')}
+                    className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                    aria-label="Clear search"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                ) : null}
+              </div>
+              <Button
+                type="submit"
+                className="h-11 shrink-0 rounded-2xl bg-ocOrange px-4 text-sm font-semibold text-white shadow-sm hover:brightness-95"
+              >
+                Search
+              </Button>
+            </form>
+          </div>
+        </div>
+      )}
+
       <style jsx global>{`
   @keyframes advancedSlideIn {
     0% {
@@ -732,143 +919,84 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
   }
 `}</style>
 
-
-      {showInputBox && (
-        <div
-          className="buy-floating-search-popup"
-          ref={popupRef}
-          style={{
-            position: 'fixed',
-            bottom: '88px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 40,
-          }}
-        >
+      <div id="map-unpin-sentinel" className="h-px" />
+      {currentView === 'grid' ? null : (
+        <div id="buy-custom-search" className="w-full">
           <div
-            className="animate-advanced"
+            className={cn(
+              'pt-16 pb-2 border-b border-gray-200',
+              currentView === 'map' ? 'px-0' : 'px-6',
+              // currentView === 'grid' ? 'text-center' : '',
+            )}
+          >
+            <h2 className="text-xl font-semibold text-gray-800">Start a New Search</h2>
+            <p>Snaphomz Conversational Search is Powered By A Custom AI Model</p>
+          </div>
+
+          <form
+            id='buyer-search-hero-form'
+            className={cn(
+              'border-t border-gray-100 py-6',
+              currentView === 'map'
+                ? 'relative top-2 z-20 flex items-center gap-2 rounded-xl bg-white p-2 shadow-md mb-[2px] mr-auto ml-0'
+                : 'flex items-center gap-2 rounded-xl bg-white p-2 shadow-md mx-auto',
+            )}
+            onSubmit={handleSubmit}
             style={{
-              width: '90vw',
-              maxWidth: '28rem',
-              borderRadius: '0.75rem',
-              backgroundColor: '#fff',
-              boxShadow: '0 10px 15px rgba(0,0,0,0.1)',
-              padding: '1.5rem',
+              width: currentView === 'map' ? '100%' : 'calc(100% - 3rem)',
             }}
           >
-            <form
-              id="buyer-search-hero-form"
-              className="flex w-full items-center gap-2 rounded-xl bg-white p-2 border border-gray-200"
-              onSubmit={handleSubmit}
+            <div
+              className={cn(
+                'flex h-12 w-full items-center transition-colors duration-300',
+                currentView === 'map' || currentView === 'grid'
+                  ? 'min-w-0 flex-1 gap-2 bg-transparent h-12'
+                  : 'rounded-lg bg-gray-100 pl-4 hover:bg-white focus-within:bg-white',
+              )}
             >
-              <div className="relative flex min-w-0 flex-1 items-center gap-2">
-                {searchString === '' && <StarIcon />}
-                <SpeechInput
-                  value={searchString}
-                  setValue={setSearchString}
-                  inputClassName="w-full border-none outline-none bg-transparent"
-                  className="w-full min-w-0"
-                />
+              {(currentView === 'map' || currentView === 'grid') && searchString === '' ? (
+                <StarIcon />
+              ) : null}
+              <SpeechInput
+                value={searchString}
+                setValue={setSearchString}
+                inputClassName={cn(
+                  'w-full border-none outline-none hover:border-none hover:outline-none hover:ring-0 focus:border-none focus:outline-none focus:ring-0',
+                  currentView === 'map' || currentView === 'grid'
+                    ? 'bg-transparent'
+                    : 'bg-transparent group-hover:bg-white',
+                )}
+                className={cn('w-full', currentView === 'map' ? 'min-w-0' : '')}
+              />
+            </div>
+
+            <Button
+              type='submit'
+              size='lg'
+              className={cn(
+                'font-bold text-center',
+                currentView === 'map'
+                  ? 'shrink-0 rounded-xl bg-[#F07639] hover:bg-orange-700 px-4 h-10'
+                  : currentView === 'grid'
+                    ? 'shrink-0 rounded-xl bg-[#F07639] hover:bg-orange-700 px-4 h-10'
+                    : 'w-full md:w-auto rounded-lg bg-ocOrange hover:bg-ocOrange-dark',
+              )}
+            >
+              <div className='flex w-full items-center justify-between gap-2 text-center'>
+                {isSearching ? (
+                  <div
+                    className='text-surface inline-block h-5 w-5 animate-spin rounded-full border-2 border-solid border-current border-e-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite] dark:text-white'
+                    role='status'
+                  >
+                    <span className='sr-only'>Loading...</span>
+                  </div>
+                ) : null}
+                <span>{currentView === 'map' || currentView === 'grid' ? 'Enter' : 'New search'}</span>
               </div>
-              <Button
-                type="submit"
-                size="lg"
-                className="shrink-0 rounded-xl bg-[#F07639] font-bold hover:bg-orange-700 px-4"
-              >
-                <div className="flex items-center gap-2">
-                  {isSearching && (
-                    <div
-                      className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-e-transparent"
-                      role="status"
-                    >
-                      <span className="sr-only">Loading...</span>
-                    </div>
-                  )}
-                  <span className="whitespace-nowrap">New search</span>
-                </div>
-              </Button>
-            </form>
-          </div>
+            </Button>
+          </form>
         </div>
       )}
-
-
-      <div id="map-unpin-sentinel" className="h-px" />
-      <div id="buy-custom-search" className={cn(currentView === 'grid' ? 'max-w-[1440px] mx-auto w-full' : 'w-full hidden')}>
-        <div
-          className={cn(
-            'pt-16 pb-2 border-b border-gray-200',
-            currentView === 'map' ? 'px-0' : 'px-6',
-            currentView === 'grid' ? 'text-center' : '',
-          )}
-        >
-          <h2 className="text-xl font-semibold text-gray-800">Start a New Search</h2>
-          <p>Snaphomz Conversational Search is Powered By A Custom AI Model</p>
-        </div>
-
-        <form
-          id='buyer-search-hero-form'
-          className={cn(
-            'border-t border-gray-100 py-6',
-            currentView === 'map'
-              ? 'relative top-2 z-20 flex items-center gap-2 rounded-xl bg-white p-2 shadow-md mb-[2px] mr-auto ml-0'
-              : 'flex items-center gap-2 rounded-xl bg-white p-2 shadow-md mx-auto',
-          )}
-          onSubmit={handleSubmit}
-          style={{
-            width: currentView === 'map' ? '100%' : 'calc(100% - 3rem)',
-          }}
-        >
-          <div
-            className={cn(
-              'flex h-12 w-full items-center transition-colors duration-300',
-              currentView === 'map' || currentView === 'grid'
-                ? 'min-w-0 flex-1 gap-2 bg-transparent h-12'
-                : 'rounded-lg bg-gray-100 pl-4 hover:bg-white focus-within:bg-white',
-            )}
-          >
-            {(currentView === 'map' || currentView === 'grid') && searchString === '' ? (
-              <StarIcon />
-            ) : null}
-            <SpeechInput
-              value={searchString}
-              setValue={setSearchString}
-              inputClassName={cn(
-                'w-full border-none outline-none hover:border-none hover:outline-none hover:ring-0 focus:border-none focus:outline-none focus:ring-0',
-                currentView === 'map' || currentView === 'grid'
-                  ? 'bg-transparent'
-                  : 'bg-transparent group-hover:bg-white',
-              )}
-              className={cn('w-full', currentView === 'map' ? 'min-w-0' : '')}
-            />
-          </div>
-
-          <Button
-            type='submit'
-            size='lg'
-            className={cn(
-              'font-bold text-center',
-              currentView === 'map'
-                ? 'shrink-0 rounded-xl bg-[#F07639] hover:bg-orange-700 px-4 h-10'
-                : currentView === 'grid'
-                  ? 'shrink-0 rounded-xl bg-[#F07639] hover:bg-orange-700 px-4 h-10'
-                  : 'w-full md:w-auto rounded-lg bg-ocOrange hover:bg-ocOrange-dark',
-            )}
-          >
-            <div className='flex w-full items-center justify-between gap-2 text-center'>
-              {isSearching ? (
-                <div
-                  className='text-surface inline-block h-5 w-5 animate-spin rounded-full border-2 border-solid border-current border-e-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite] dark:text-white'
-                  role='status'
-                >
-                  <span className='sr-only'>Loading...</span>
-                </div>
-              ) : null}
-              <span>{currentView === 'map' || currentView === 'grid' ? 'Enter' : 'New search'}</span>
-            </div>
-          </Button>
-        </form>
-      </div>
 
     </>
 

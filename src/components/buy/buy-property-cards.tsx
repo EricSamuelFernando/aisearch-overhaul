@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { RefObject, useEffect, useMemo, useState } from 'react';
+import { RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import { nanoid } from 'nanoid';
-import { useInView } from 'react-intersection-observer';
+// import { useInView } from 'react-intersection-observer';
 import { useSelector } from 'react-redux';
 
 import { cn } from '@/lib/utils';
@@ -20,26 +20,55 @@ type Props = {
   selectedProperty: string;
   propertiesOverride?: any[] | null;
   overlayMode?: boolean;
+  onOpenCompareModal?: () => void;
 };
 
-const ITEMS_PER_PAGE = 10;
+// How many cards to show initially and how many to reveal per scroll trigger
+const INITIAL_VISIBLE = 50;
+const LOAD_MORE_STEP = 50;
+
+const resolveListingId = (item: any): string | undefined => {
+  const raw =
+    item?.id ??
+    item?.listingId ??
+    item?.listing_id ??
+    item?.listing?.id ??
+    item?.listing?.listingId ??
+    item?.mlsId ??
+    item?.mls_id ??
+    item?.propertyId;
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  return String(raw);
+};
 
 function BuyPropertyCards({
   forwardedRef,
   selectedProperty,
   propertiesOverride,
   overlayMode = false,
+  onOpenCompareModal,
 }: Props) {
   const { currentView } = useProperty();
-  const { ref } = useInView();
-  const { allProperties, isLoading } = usePropertyStore();
-  const sourceProperties = Array.isArray(propertiesOverride)
-    ? propertiesOverride
-    : allProperties;
+  // const { ref } = useInView();
+  const { allProperties, isLoading, isCompareMode, selectedCompareProperties } = usePropertyStore();
+  const sourceProperties = Array.isArray(propertiesOverride) ? propertiesOverride : allProperties;
+  const normalizedProperties = useMemo(
+    () =>
+      Array.isArray(sourceProperties)
+        ? sourceProperties.filter((prop) => prop !== null && prop !== undefined)
+        : [],
+    [sourceProperties],
+  );
   const userData = useSelector((state: any) => state.auth.user);
   const { getAllSnaps } = useUserSnapAPIs();
   const [snaps, setSnaps] = useState<any[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
+  // How many cards are currently revealed (grows as user scrolls)
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
+
+  // Sentinel div at bottom of list — when it enters viewport, reveal next batch
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  // Scroll container ref for overlayMode (overflow-y-auto div is the scroll root)
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const fetchSnaps = () => {
     if (userData?.id) {
@@ -55,45 +84,52 @@ function BuyPropertyCards({
     fetchSnaps();
   }, [userData?.id]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [sourceProperties?.length]);
-
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil((sourceProperties?.length || 0) / ITEMS_PER_PAGE)),
-    [sourceProperties],
-  );
-
-  const paginatedProperties = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    const end = start + ITEMS_PER_PAGE;
-    return Array.isArray(sourceProperties) ? sourceProperties.slice(start, end) : [];
-  }, [sourceProperties, currentPage]);
+  // const itemsPerPage = useMemo(() => {
+  //   if (overlayMode) return MAP_ITEMS_PER_PAGE;
+  //   if (currentView === 'map') return MAP_ITEMS_PER_PAGE;
+  //   return GRID_ITEMS_PER_PAGE;
+  // }, [currentView, overlayMode]);
 
   useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [totalPages, currentPage]);
+    setVisibleCount(INITIAL_VISIBLE);
+  }, [normalizedProperties.length]);
 
-  const pageNumbers = useMemo(() => {
-    if (totalPages <= 5) {
-      return Array.from({ length: totalPages }, (_, i) => i + 1);
-    }
-    const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
-    const end = Math.min(totalPages, start + 4);
-    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
-  }, [totalPages, currentPage]);
+  // const totalPages = useMemo(
+  //   () => Math.max(1, Math.ceil(normalizedProperties.length / itemsPerPage)),
+  //   [normalizedProperties.length, itemsPerPage],
+  // );
+
+  // IntersectionObserver on sentinel — reveals next LOAD_MORE_STEP cards when near bottom
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    // In overlay mode the scroll container is the inner div, not the window
+    const root = overlayMode ? scrollContainerRef.current : null;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => {
+            const next = Math.min(prev + LOAD_MORE_STEP, normalizedProperties.length);
+            return next > prev ? next : prev;
+          });
+        }
+      },
+      { root, rootMargin: '400px', threshold: 0 },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [overlayMode, normalizedProperties.length]);
 
   useEffect(() => {
-    if (!selectedProperty || !Array.isArray(sourceProperties)) return;
-    const idx = sourceProperties.findIndex((p: any) => String(p?.id) === String(selectedProperty));
-    if (idx === -1) return;
-    const targetPage = Math.floor(idx / ITEMS_PER_PAGE) + 1;
-    if (targetPage !== currentPage) {
-      setCurrentPage(targetPage);
+    if (!selectedProperty || !normalizedProperties.length) return;
+    const idx = normalizedProperties.findIndex(
+      (p: any) => resolveListingId(p) === String(selectedProperty),
+    );
+    if (idx !== -1 && idx >= visibleCount) {
+      setVisibleCount(idx + 1);
     }
-  }, [selectedProperty, sourceProperties, currentPage]);
+  }, [selectedProperty, normalizedProperties, visibleCount]);
   useEffect(() => {
     if (!selectedProperty) return;
     const raf = requestAnimationFrame(() => {
@@ -103,133 +139,119 @@ function BuyPropertyCards({
       }
     });
     return () => cancelAnimationFrame(raf);
-  }, [selectedProperty, currentPage]);
+  }, [selectedProperty, visibleCount]);
+
+  const visibleProperties = useMemo(
+    () => normalizedProperties.slice(0, visibleCount),
+    [normalizedProperties, visibleCount],
+  );
+
+  const totalCount = normalizedProperties.length;
+  const hasMore = visibleCount < totalCount;
+
+  const gridClass = overlayMode
+    ? 'grid grid-cols-1 gap-3 xl:grid-cols-2'
+    : currentView === 'map'
+      ? 'grid grid-cols-1 gap-y-4 gap-x-8 md:grid-cols-2 md:gap-x-6 md:gap-y-6 lg:grid-cols-2'
+      : 'grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4 lg:grid-cols-4 lg:gap-x-6 xl:gap-x-8';
+
   return (
     <div
       ref={forwardedRef}
-      className={cn(
-        'flex h-full flex-col',
-        overlayMode ? 'min-h-0' : '',
-      )}
+      className={cn('flex h-full flex-col', overlayMode ? 'min-h-0' : '')}
     >
-      <div className={cn('flex-auto', overlayMode ? 'min-h-0 overflow-y-auto overscroll-contain pr-1' : '')}>
-        <div
-          className={cn(
-            currentView === 'grid' ? 'max-w-[1450px] mx-auto w-full' : 'w-full',
-            overlayMode ? 'max-w-none' : '',
-          )}
-        >
-          <div
-            className={cn(
-              'w-full',
-              overlayMode
-                ? 'grid grid-cols-1 gap-3 xl:grid-cols-2'
-                : currentView === 'map'
-                  ? 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2'
-                  : 'grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4 lg:grid-cols-[repeat(4,360px)] lg:gap-x-8 lg:justify-center xl:grid-cols-[repeat(4,380px)]',
-            )}
-          >
+      {/* Scrollable card area */}
+      <div
+        ref={scrollContainerRef}
+        className={cn(
+          'flex-auto',
+          overlayMode ? 'min-h-0 overflow-y-auto overscroll-contain pr-1 pb-3' : '',
+        )}
+      >
+        <div className={cn('w-full', overlayMode ? 'max-w-none' : '')}>
+          <div className={cn('w-full', gridClass)}>
             {isLoading ? (
               <>
-                {Array.from({ length: 10 }).map(() => (
+                {Array.from({ length: 8 }).map(() => (
                   <PropCardLoader key={nanoid()} />
                 ))}
               </>
             ) : (
               <>
-                {Array.isArray(sourceProperties) && sourceProperties.length > 0
-                  ? paginatedProperties.map((prop: any) => {
-                      const isSelected = String(prop?.id) === String(selectedProperty);
-                      return (
-                        <div
-                          ref={ref}
-                          key={prop.id}
-                          id={String(prop.id)}
-                          className={cn(
-                            isSelected
-                              ? overlayMode
-                                ? "relative rounded-xl shadow-md before:pointer-events-none before:absolute before:inset-0 before:rounded-xl before:ring-2 before:ring-inset before:ring-orange-400 before:content-[''] before:z-20"
-                                : 'bg-white p-1 bg-orange-500 rounded-2xl shadow-xl'
-                              : '',
-                            'transition duration-300 ease-in-out',
-                            currentView === 'grid' && !overlayMode ? 'w-[320px]' : '',
-                          )}
-                        >
-                          <PropertyCards
-                            {...prop}
-                            snaps={snaps}
-                            fetchSnaps={fetchSnaps}
-                            overlayMode={overlayMode}
-                          />
-                        </div>
-                      );
-                    })
-                  : null}
+                {visibleProperties.map((prop: any, index: number) => {
+                  const listingId = resolveListingId(prop) ?? `listing-${index}`;
+                  const isSelected = String(listingId) === String(selectedProperty);
+                  return (
+                    <div
+                      key={listingId}
+                      id={String(listingId)}
+                      className={cn(
+                        isSelected
+                          ? overlayMode
+                            ? "relative rounded-xl shadow-md before:pointer-events-none before:absolute before:inset-0 before:rounded-xl before:ring-2 before:ring-inset before:ring-orange-400 before:content-[''] before:z-20"
+                            : 'bg-white p-1 bg-orange-500 rounded-2xl shadow-xl'
+                          : '',
+                        'transition duration-300 ease-in-out',
+                      )}
+                    >
+                      <PropertyCards
+                        {...prop}
+                        snaps={snaps}
+                        fetchSnaps={fetchSnaps}
+                        overlayMode={overlayMode}
+                      />
+                    </div>
+                  );
+                })}
               </>
             )}
           </div>
+          {/* Sentinel — sits below the last rendered card; observer fires ~400px before it */}
+          <div ref={sentinelRef} className="h-1 w-full" aria-hidden />
         </div>
       </div>
 
-      {totalPages > 1 ? (
+      {/* Footer: compare button (when active) + homes count */}
+      {!isLoading && totalCount > 0 ? (
         <div
           className={cn(
-            'flex flex-col items-center gap-3',
+            'relative flex flex-col items-center gap-2',
             overlayMode
-              ? 'mt-1 shrink-0 border-t border-gray-200 bg-white px-2 pt-2 pb-2'
+              ? 'mt-1 shrink-0 border-t border-gray-200 bg-white px-2 pt-14 pb-2'
               : 'mt-6',
           )}
         >
-          <div className="flex items-center gap-3">
+          {overlayMode && isCompareMode ? (
             <button
+              type="button"
+              onClick={onOpenCompareModal}
+              disabled={selectedCompareProperties.length < 2}
               className={cn(
-                'h-10 w-10 rounded-full border text-base font-medium transition',
-                currentPage === 1
-                  ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                  : 'bg-white text-gray-700 border-gray-200 shadow hover:shadow-md',
+                'absolute left-1/2 top-2 z-[80] -translate-x-1/2 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-lg transition',
+                selectedCompareProperties.length >= 2
+                  ? 'bg-ocOrange text-white hover:brightness-95'
+                  : 'cursor-not-allowed bg-white text-gray-400 ring-1 ring-gray-200'
               )}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              aria-label="Previous page"
             >
-              {'<'}
+              Compare
+              <span
+                className={cn(
+                  'rounded-full px-2 py-0.5 text-[11px] font-semibold',
+                  selectedCompareProperties.length >= 2
+                    ? 'bg-white/20 text-white'
+                    : 'bg-gray-100 text-gray-500',
+                )}
+              >
+                {selectedCompareProperties.length}
+              </span>
             </button>
+          ) : null}
 
-            <div className="flex items-center gap-3">
-              {pageNumbers.map((num) => (
-                <button
-                  key={num}
-                  onClick={() => setCurrentPage(num)}
-                  className={cn(
-                    'h-10 w-10 rounded-full text-sm font-medium transition',
-                    num === currentPage
-                      ? 'bg-black text-white shadow'
-                      : 'bg-white text-gray-700 border border-gray-200 hover:shadow-md',
-                  )}
-                >
-                  {num}
-                </button>
-              ))}
-            </div>
-
-            <button
-              className={cn(
-                'h-10 w-10 rounded-full border text-base font-medium transition',
-                currentPage === totalPages
-                  ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                  : 'bg-white text-gray-700 border-gray-200 shadow hover:shadow-md',
-              )}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              aria-label="Next page"
-            >
-              {'>'}
-            </button>
-          </div>
-
-          <div className={cn('text-sm text-gray-600', overlayMode ? 'text-center text-xs font-medium' : '')}>
-            {`${sourceProperties?.length || 0} homes found (showing ${(currentPage - 1) * ITEMS_PER_PAGE + 1}-${Math.min(sourceProperties?.length || 0, currentPage * ITEMS_PER_PAGE)})`}
-          </div>
+          <p className={cn('text-sm text-gray-500', overlayMode ? 'text-center text-xs font-medium' : '')}>
+            {hasMore
+              ? `Showing ${visibleCount} of ${totalCount} homes`
+              : `${totalCount} home${totalCount === 1 ? '' : 's'} found`}
+          </p>
         </div>
       ) : null}
 

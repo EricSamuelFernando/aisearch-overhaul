@@ -204,9 +204,15 @@ async function graphqlRequest<T = any>(
     query: string;
     variables?: Record<string, any>;
   },
-  headers?: Record<string, string>
+  options?: {
+    headers?: Record<string, string>;
+    baseURL?: string;
+  }
 ): Promise<T> {
-  const response = await API.post('', body, { headers });
+  const response = await API.post('', body, {
+    headers: options?.headers,
+    baseURL: options?.baseURL,
+  });
   if (response.data.errors) {
     if (response.data.errors[0].message === 'Unauthorized') {
       throw new Error(response.data.errors[0].message);

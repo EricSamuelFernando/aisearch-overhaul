@@ -18,7 +18,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Eye, FileText, MoreVertical } from 'lucide-react';
+import { ArrowLeft, Eye, FileText, MoreVertical } from 'lucide-react';
 import ProfileCircle from '@/components/dashboard/user/profile-circle';
 import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
 import { error, success } from '@/components/alert/notify';
@@ -169,9 +169,19 @@ export default function AccountPage() {
 
   return (
     <main className='mx-auto flex min-h-[90vh] w-full max-w-screen-2xl flex-col bg-[#F4F9F5] px-4 pb-8 sm:px-6 lg:px-12 lg:pb-10'>
-      <h1 className='py-6 text-3xl font-bold leading-tight sm:py-8 sm:text-4xl 2xl:text-[2.875rem]'>
-        Account
-      </h1>
+      <div className='pt-6 sm:pt-8'>
+        <Button
+          variant='ghost'
+          className='mb-2 flex items-center gap-1 px-0 text-sm text-gray-600 hover:bg-transparent hover:text-black'
+          onClick={() => router.back()}
+        >
+          <ArrowLeft className='h-4 w-4' />
+          Back
+        </Button>
+        <h1 className='pb-6 text-3xl font-bold leading-tight sm:pb-8 sm:text-4xl 2xl:text-[2.875rem]'>
+          Account
+        </h1>
+      </div>
 
       <Tabs defaultValue='my-snapz' className='space-y-6 sm:space-y-8'>
         <ScrollArea className='w-full whitespace-nowrap'>

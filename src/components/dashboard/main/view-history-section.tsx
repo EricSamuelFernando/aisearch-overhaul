@@ -43,9 +43,18 @@ const ViewHistorySection = () => {
 
   const items = useMemo(() => {
     const raw = data?.items ?? [];
-    const filtered = user?.id
+    let filtered = user?.id
       ? raw.filter((item) => item.userId === user.id || item.userId === 'local')
       : raw;
+
+    // Filter out properties if beds, baths, or sqft evaluate to 0, null, undefined, or "0"
+    filtered = filtered.filter((item) => {
+      const beds = Number(item.bedroomsTotal || 0);
+      const baths = Number(item.bathroomsTotal || 0);
+      const sqft = Number(item.livingArea || 0);
+      return beds > 0 && baths > 0 && sqft > 0;
+    });
+
     // Dedup by listingId/propertyId, keep most recent viewedAt
     const dedup = new Map<string, any>();
     filtered.forEach((item) => {

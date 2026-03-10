@@ -29,7 +29,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { NewFeatureCard } from './multi-feature-card';
 import { PROPERTY_DETAIL_SEARCH_AI_URL } from "@/shared/constants/env"
-import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
+import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 
 import { useSelector } from 'react-redux';
 import CategorizedPhotosModal from '../CategorizedPhotosModal'; // Import the new modal
@@ -123,11 +123,11 @@ const AskAiLogo = ({ className = '' }: { className?: string }) => {
     <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
       <path d="M15.0645 1C22.8233 0.998533 29.122 7.31736 29.1221 15.1211V25.0967C29.1221 26.201 28.6985 27.1986 28.0068 27.9336L28.0049 27.9355C27.2517 28.7409 26.1847 29.2393 25.001 29.2393H5.12109C2.85069 29.2393 1 27.3893 1 25.0986V15.123C1 7.31903 7.30043 1 15.0645 1Z" fill="black" stroke={`url(#${gradientId})`} strokeWidth="2" />
       <mask id={mask1Id} fill="white">
-      <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" />
+        <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" />
       </mask>
       <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" fill="white" stroke="white" strokeWidth="4" mask={`url(#${mask1Id})`} />
       <mask id={mask2Id} fill="white">
-      <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" />
+        <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" />
       </mask>
       <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" fill="white" stroke="white" strokeWidth="4" mask={`url(#${mask2Id})`} />
       <defs>
@@ -267,6 +267,7 @@ const PropertyPreview: React.FC = () => {
   const propertyId = searchParams.get('propertyId') || "";
   const listingId = searchParams.get('listingId') || "";
   const mostRecentStatus = searchParams.get('mostRecentStatus') || ""
+  const initialPreviewQuery = searchParams.get('q') || [city, province].filter(Boolean).join(', ');
   const { getSingleProperty: { isFetching } } = useGetSingleProperty(id!);
   const propertyData = useSelector((state: any) => state.property.property)
   const engagedProperty = useSelector((state: any) => state.property.engagedProperty);
@@ -301,6 +302,8 @@ const PropertyPreview: React.FC = () => {
     () => normalizeAuthServiceRestBaseUrl(process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL),
     []
   );
+  const [previewSearchValue, setPreviewSearchValue] = React.useState(initialPreviewQuery);
+  const [previewIsMlsMode, setPreviewIsMlsMode] = React.useState(false);
 
   // Neo4j schools API integration
   const [nearbySchools, setNearbySchools] = React.useState<any[]>([]);
@@ -333,6 +336,41 @@ const PropertyPreview: React.FC = () => {
       }
     });
   };
+
+  React.useEffect(() => {
+    setPreviewIsMlsMode(isMlsBypassModeEnabled());
+
+    const handleBypassChange = (event: Event) => {
+      const customEvent = event as CustomEvent<boolean>;
+      if (typeof customEvent.detail === 'boolean') {
+        setPreviewIsMlsMode(customEvent.detail);
+        return;
+      }
+      setPreviewIsMlsMode(isMlsBypassModeEnabled());
+    };
+
+    window.addEventListener('snaphomz:mls-bypass-changed', handleBypassChange as EventListener);
+    return () => {
+      window.removeEventListener('snaphomz:mls-bypass-changed', handleBypassChange as EventListener);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    setPreviewSearchValue(initialPreviewQuery);
+  }, [initialPreviewQuery]);
+
+  const togglePreviewSearchMode = React.useCallback(() => {
+    const next = !previewIsMlsMode;
+    setMlsBypassModeEnabled(next);
+    setPreviewIsMlsMode(next);
+  }, [previewIsMlsMode]);
+
+  const handlePreviewSearchSubmit = React.useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    const nextQuery = previewSearchValue.trim();
+    if (!nextQuery) return;
+    router.push(`/buy/browse?q=${encodeURIComponent(nextQuery)}`);
+  }, [previewSearchValue, router]);
 
   React.useEffect(() => {
     if (id) {
@@ -1819,12 +1857,13 @@ const PropertyPreview: React.FC = () => {
     setOpenSection(target.section);
 
     // After the accordion opens, scroll to the content area for that section.
+    // Wait 400ms to ensure the duration-300 accordion expansion animation completes
     window.requestAnimationFrame(() => {
       window.setTimeout(() => {
         const el = document.getElementById(target.scrollId);
         if (!el) return;
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 150);
+      }, 400);
     });
   }, []);
 
@@ -2005,6 +2044,46 @@ const PropertyPreview: React.FC = () => {
     <div>
       <ItemNav cardRef={cardRef} />
       <div className='mt-14 sm:mt-12 md:mt-12 lg:mt-14' />
+      <div className="mx-auto mb-4 w-full max-w-7xl px-2 sm:px-4 md:px-6 lg:px-0">
+        <form onSubmit={handlePreviewSearchSubmit} className="flex items-center gap-2">
+          <div className="relative min-w-0 flex-1 rounded-2xl border border-gray-300 bg-white shadow-sm ring-1 ring-black/5">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              value={previewSearchValue}
+              onChange={(e) => setPreviewSearchValue(e.target.value)}
+              placeholder={previewIsMlsMode ? 'Enter address, city, neighborhood, or ZIP' : 'Ask anything about homes, neighborhoods, schools'}
+              className="h-11 w-full rounded-2xl border-0 bg-transparent pl-10 pr-28 text-sm text-gray-900 shadow-none outline-none ring-0 placeholder:text-gray-400 focus-visible:ring-0"
+            />
+            <button
+              type="button"
+              onClick={togglePreviewSearchMode}
+              title={previewIsMlsMode ? 'MLS search active. Click to switch to AI search.' : 'AI search active. Click to switch to MLS search.'}
+              className={`absolute right-10 top-1/2 -translate-y-1/2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition ${previewIsMlsMode
+                ? 'bg-gray-100 text-gray-600 ring-1 ring-gray-200 hover:bg-gray-200'
+                : 'bg-orange-50 text-orange-700 ring-1 ring-orange-200 hover:bg-orange-100'
+                }`}
+            >
+              {previewIsMlsMode ? 'AI OFF' : 'AI ON'}
+            </button>
+            {previewSearchValue ? (
+              <button
+                type="button"
+                onClick={() => setPreviewSearchValue('')}
+                className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                aria-label="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
+          </div>
+          <button
+            type="submit"
+            className="h-11 shrink-0 rounded-2xl bg-ocOrange px-4 text-sm font-semibold text-white shadow-sm hover:brightness-95"
+          >
+            Search
+          </button>
+        </form>
+      </div>
       <div id="overview" className="scroll-mt-28" />
 
       {/* Contact Agent Dialog */}

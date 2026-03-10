@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Check, ChevronLeft, ChevronRight, ExternalLink, Loader2, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, ExternalLink, Loader2, Pause, Play, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { useUserSnapAPIs } from '@/hooks/api/auth/snaps.API';
 import { useAuth } from '@/shared/hooks/useAuth';
 import API from '@/lib/api/axios';
@@ -906,6 +906,7 @@ export default function SnapzAIReel({ properties, snapId, onPropertyAdded }: Pro
   const [previewData,       setPreviewData]       = useState<PreviewData | null>(null);
   const [hoveredId,         setHoveredId]         = useState<string | null>(null);
   const [isAnyCardHovered,  setIsAnyCardHovered]  = useState(false);
+  const [isManuallyPaused,  setIsManuallyPaused]  = useState(false);
 
   // Close timer — bridges the gap between card and preview so it doesn't flicker closed
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -997,7 +998,7 @@ export default function SnapzAIReel({ properties, snapId, onPropertyAdded }: Pro
   // Only autoscroll when there are more than 8 recommendations — fewer cards just sit still
   const shouldMarquee = visibleProperties.length > 8;
   // Pause when: preview is open OR any card is hovered (including over action buttons)
-  const isPaused      = !shouldMarquee || previewData !== null || isAnyCardHovered;
+  const isPaused      = !shouldMarquee || previewData !== null || isAnyCardHovered || isManuallyPaused;
 
   const renderCard = (property: any, idx: number, isClone: boolean) => {
     const listingId = getListingId(property);
@@ -1022,6 +1023,34 @@ export default function SnapzAIReel({ properties, snapId, onPropertyAdded }: Pro
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: REEL_CSS }} />
+
+      {shouldMarquee ? (
+        <div className="mb-2 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setIsManuallyPaused((prev) => !prev)}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors ${
+              isManuallyPaused
+                ? 'border-orange-200 bg-orange-50 text-[#F58634] hover:bg-orange-100'
+                : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+            aria-label={isManuallyPaused ? 'Resume carousel autoplay' : 'Pause carousel autoplay'}
+            title={isManuallyPaused ? 'Resume carousel' : 'Pause carousel'}
+          >
+            {isManuallyPaused ? (
+              <>
+                <Play className="h-3.5 w-3.5" />
+                Play
+              </>
+            ) : (
+              <>
+                <Pause className="h-3.5 w-3.5" />
+                Stop
+              </>
+            )}
+          </button>
+        </div>
+      ) : null}
 
       {visibleProperties.length === 0 ? (
         <div className="py-10 text-center">

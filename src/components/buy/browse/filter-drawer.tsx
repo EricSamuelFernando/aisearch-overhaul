@@ -42,15 +42,9 @@ type ParsedQueryFilters = {
   bathRooms?: number;
   priceMin?: number;
   priceMax?: number;
-  propertyType?: string;
 };
 
-const normalizeText = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-const parseQueryFilters = (
-  query: string,
-  typeOptions: Array<{ name: string; value: string }>,
-): ParsedQueryFilters => {
+const parseQueryFilters = (query: string): ParsedQueryFilters => {
   const text = query.toLowerCase();
   if (!text) return {};
 
@@ -69,30 +63,9 @@ const parseQueryFilters = (
   const bedMatch = text.match(/(\d+)\s*[- ]*(?:bed|bedroom)s?\b/i);
   const bathMatch = text.match(/(\d+)\s*[- ]*(?:bath|bathroom)s?\b/i);
 
-  const normalizedQuery = normalizeText(query);
-  let inferredType: string | undefined;
-  if (normalizedQuery && typeOptions?.length) {
-    let bestScore = 0;
-    typeOptions.forEach((opt) => {
-      if (!opt.value) return;
-      const nameNorm = normalizeText(opt.name);
-      const valueNorm = normalizeText(opt.value);
-      const matched =
-        (nameNorm && normalizedQuery.includes(nameNorm)) ||
-        (valueNorm && normalizedQuery.includes(valueNorm));
-      if (!matched) return;
-      const score = Math.max(nameNorm.length, valueNorm.length);
-      if (score > bestScore) {
-        bestScore = score;
-        inferredType = opt.value;
-      }
-    });
-  }
-
   const base = {
     bedRooms: bedMatch ? Number(bedMatch[1]) : undefined,
     bathRooms: bathMatch ? Number(bathMatch[1]) : undefined,
-    propertyType: inferredType,
   };
 
   const between = text.match(
@@ -136,14 +109,46 @@ const parseQueryFilters = (
   const minCue = text.match(
     /\b(at\s*least|atleast|over|above|more than|no less than|min(?:imum)?|starting\s*(?:at|from)|from|>=|>)\b[^$\d]*\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
   );
+  const aroundCue = text.match(
+    /\baround\b[^$\d]{0,24}\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
+  );
   const budgetCue = text.match(
-    /\b(budget|around|approximately|about|roughly|circa)\b[^$\d]{0,24}\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
+    /\b(budget|approximately|about|roughly|circa)\b[^$\d]{0,24}\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
   );
 
   const minValue = minCue ? toNumber(minCue[2]) : undefined;
   const maxValue = maxCue ? toNumber(maxCue[2]) : budgetCue ? toNumber(budgetCue[2]) : undefined;
 
-  return { ...base, priceMin: minValue, priceMax: maxValue };
+  const aroundValue = aroundCue ? toNumber(aroundCue[1]) : undefined;
+  if (aroundValue !== undefined) {
+    return {
+      ...base,
+      priceMin: Math.max(0, aroundValue - 50_000),
+      priceMax: aroundValue + 50_000,
+    };
+  }
+
+  if (minValue !== undefined || maxValue !== undefined) {
+    return { ...base, priceMin: minValue, priceMax: maxValue };
+  }
+
+  const singlePriceKeyword = text.match(
+    /\b(for|at|priced(?:\s+at)?|price(?:d)?(?:\s+at)?|costing|listed(?:\s+at)?)\b[^$\d]{0,12}\$?([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
+  );
+  const singlePriceKeywordPlain = text.match(
+    /\b(for|at|priced(?:\s+at)?|price(?:d)?(?:\s+at)?|costing|listed(?:\s+at)?)\b[^$\d]{0,12}(\d{5,})(?:\b|$)/i,
+  );
+  const singlePriceDollar = text.match(
+    /\$\s*([\d.,]+(?:\.\d+)?\s*(?:m|k|b|bn|million|billion)?)/i,
+  );
+  const singlePriceComma = text.match(
+    /\b(\d{1,3}(?:,\d{3})+(?:\.\d+)?)(?:\s*(?:m|k|b|bn|million|billion))?\b/i,
+  );
+
+  const singleRaw = singlePriceKeyword?.[2] ?? singlePriceKeywordPlain?.[2] ?? singlePriceDollar?.[1] ?? singlePriceComma?.[1];
+  const singleValue = singleRaw ? toNumber(singleRaw) : undefined;
+
+  return { ...base, priceMax: singleValue };
 };
 
 const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCategories, selectedSubCategories }: FilterDrawerProps) => {
@@ -179,21 +184,21 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
   const searchQuery = searchParams.get("q") || ""
   const searchFilters = useSelector((state: RootState) => state.property.filters);
   const [localFilters, setLocalFilters] = useState(() => {
-    const inferred = parseQueryFilters(searchQuery, sortOptions);
+    const inferred = parseQueryFilters(searchQuery);
     const bedParam = searchParams.get('bedRooms') || '';
     const bathParam = searchParams.get('bathRooms') || '';
     const priceMinParam = searchParams.get('priceMin') || '';
     const priceMaxParam = searchParams.get('priceMax') || '';
-    const propertyTypeParam = searchParams.get('propertyType') || '';
+    const propertyType = searchParams.get('propertyType') || '';
     return {
-      priceMin: priceMinParam || (filters.minPrice ? String(filters.minPrice) : inferred.priceMin ? String(inferred.priceMin) : ''),
-      priceMax: priceMaxParam || (filters.maxPrice ? String(filters.maxPrice) : inferred.priceMax ? String(inferred.priceMax) : ''),
-      bedRooms: bedParam || (filters.bedrooms ? String(filters.bedrooms) : inferred.bedRooms ? String(inferred.bedRooms) : ''),
-      bathRooms: bathParam || (filters.bathrooms ? String(filters.bathrooms) : inferred.bathRooms ? String(inferred.bathRooms) : ''),
+      priceMin: priceMinParam || (inferred.priceMin ? String(inferred.priceMin) : ''),
+      priceMax: priceMaxParam || (inferred.priceMax ? String(inferred.priceMax) : ''),
+      bedRooms: bedParam || (inferred.bedRooms ? String(inferred.bedRooms) : ''),
+      bathRooms: bathParam || (inferred.bathRooms ? String(inferred.bathRooms) : ''),
       sqTfMin: searchParams.get('sqTfMin') || '',
       sqTfMax: searchParams.get('sqTfMax') || '',
-      propertyType: propertyTypeParam || inferred.propertyType || '',
       listing_property_type: selectedSort.value,
+      propertyType: searchParams.get('propertyType') || ''
     };
   });
 
@@ -230,12 +235,11 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
 
   // Pre-select filters from query string so the UI matches the applied search.
   useEffect(() => {
-    const inferred = parseQueryFilters(searchQuery, sortOptions);
+    const inferred = parseQueryFilters(searchQuery);
     const bedParam = searchParams.get('bedRooms') || '';
     const bathParam = searchParams.get('bathRooms') || '';
     const priceMinParam = searchParams.get('priceMin') || '';
     const priceMaxParam = searchParams.get('priceMax') || '';
-    const propertyTypeParam = searchParams.get('propertyType') || '';
 
     const nextLocal = {
       priceMin: priceMinParam || (inferred.priceMin ? String(inferred.priceMin) : ''),
@@ -244,8 +248,8 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
       bathRooms: bathParam || (inferred.bathRooms ? String(inferred.bathRooms) : ''),
       sqTfMin: searchParams.get('sqTfMin') || '',
       sqTfMax: searchParams.get('sqTfMax') || '',
-      propertyType: propertyTypeParam || inferred.propertyType || '',
       listing_property_type: selectedSort.value,
+      propertyType: searchParams.get('propertyType') || ''
     };
 
     setLocalFilters(nextLocal);
@@ -256,15 +260,7 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
       bathrooms: nextLocal.bathRooms ? Number(nextLocal.bathRooms) : undefined,
       minPrice: nextLocal.priceMin ? Number(nextLocal.priceMin) : undefined,
       maxPrice: nextLocal.priceMax ? Number(nextLocal.priceMax) : undefined,
-      propertyType: nextLocal.propertyType || prev.propertyType,
     }));
-
-    if (nextLocal.propertyType) {
-      const matched = sortOptions.find((opt) => opt.value === nextLocal.propertyType);
-      if (matched && matched.value !== selectedSort.value) {
-        setSelectedSort(matched);
-      }
-    }
   }, [searchQuery, searchParams, setFilters]);
 
   const handleBedSelection = (selectedBed: number | string) => {
@@ -363,12 +359,13 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
           // num_records: process.env.SEARCH_RECORDS || 10,
           listing_property_type: selectedSort.value || searchFilters.propertyType || undefined,
           public_land_use: searchFilters.subType || undefined,
+          from_browse: true,
         }
       );
       clearProperties();
       dispatch(incrementSearchCount());
-      const responseRecords = response.data?.result?.records || response.data?.records || [];
-      dispatch(setPropertyQuery(response.data?.result?.search_query || response.data?.search_query || searchQuery));
+      const responseRecords = response.data?.properties || response.data?.result?.records || response.data?.records || [];
+      dispatch(setPropertyQuery(response.data?.final_response || response.data?.result?.search_query || response.data?.search_query || searchQuery));
       setSearchedQuery(responseRecords);
       addProperties(responseRecords);
       setLoading(false)
@@ -417,7 +414,7 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
         <button
-          className='z-20 flex h-full cursor-pointer items-center gap-x-2 px-4 font-semibold'
+          className='z-20 flex h-full cursor-pointer items-center gap-x-1 px-1 font-semibold'
           onClick={() => setIsOpen(true)}
         >
           <span>

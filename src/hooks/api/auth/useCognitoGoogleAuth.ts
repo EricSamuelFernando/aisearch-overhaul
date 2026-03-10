@@ -155,26 +155,26 @@ function useCognitoGoogleAuth(handleCb?: () => void) {
         return;
       }
 
-      // Ensure cognitoDomain is properly formatted (should be like https://your-domain.auth.region.amazoncognito.com)
+      // Allow both Cognito default domains and custom domains
       let formattedDomain = cognitoDomain.trim();
 
-      // Validate domain format - should NOT be the API endpoint
+      // Disallow API endpoint (cognito-idp) as domain
       if (formattedDomain.includes('cognito-idp.') && formattedDomain.includes('.amazonaws.com')) {
         error({
-          message: 'Configuration Error: NEXT_PUBLIC_COGNITO_DOMAIN should be your Cognito Hosted UI domain (e.g., your-domain.auth.us-east-1.amazoncognito.com), not the API endpoint (cognito-idp.us-east-1.amazonaws.com). Please check your Cognito User Pool → App integration → Domain section.'
+          message: 'Configuration Error: NEXT_PUBLIC_COGNITO_DOMAIN should be your Cognito Hosted UI domain (e.g., your-domain.auth.us-east-1.amazoncognito.com) or a valid custom domain, not the API endpoint (cognito-idp.us-east-1.amazonaws.com). Please check your Cognito User Pool → App integration → Domain section.'
         });
         return;
       }
 
-      // Validate domain doesn't contain "cognito-idp.auth" (common mistake)
-      if (formattedDomain.includes('cognito-idp.auth')) {
+      // Allow custom domains (e.g., https://auth.snaphomz.com) and Cognito default domains
+      const isCognitoDefault = formattedDomain.includes('.auth.') && formattedDomain.includes('.amazoncognito.com');
+      const isCustomDomain = /^https?:\/\/[a-zA-Z0-9.-]+$/.test(formattedDomain);
+      if (!isCognitoDefault && !isCustomDomain) {
         error({
-          message: 'Configuration Error: Domain contains "cognito-idp.auth" which is incorrect. The correct format is: your-domain.auth.region.amazoncognito.com (without "cognito-idp"). Please check your Cognito User Pool → App integration → Domain section for the correct Hosted UI domain.'
+          message: 'Configuration Error: NEXT_PUBLIC_COGNITO_DOMAIN should be a valid Cognito Hosted UI domain (your-domain.auth.region.amazoncognito.com) or a valid custom domain (e.g., https://auth.snaphomz.com). Please check your Cognito User Pool → App integration → Domain section.'
         });
         return;
       }
-
-      // Allow custom Cognito domains (do not enforce .auth. and .amazoncognito.com checks)
 
       if (!formattedDomain.startsWith('http://') && !formattedDomain.startsWith('https://')) {
         formattedDomain = `https://${formattedDomain}`;

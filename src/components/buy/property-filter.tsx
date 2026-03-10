@@ -637,7 +637,7 @@ import { Listbox } from '@headlessui/react';
 import { RootState } from '@/lib/store';
 import { useProperty } from '@/shared/hooks/useProperty';
 import { cn } from '@/lib/utils';
-import PropertyComparisonModal from './property-comparison-model';
+import PropertyComparisonModal from './property-comparison-modal';
 
 
 // Dummy property data for testing
@@ -964,6 +964,12 @@ function PropertyFilter() {
         });
       }
 
+      const searchType = isMlsBypassModeEnabled() ? 'mls' : 'property';
+      const transformedProperties = properties.map((p: any) => ({
+        data: p,
+        type: searchType
+      }));
+
       clearProperties();
       dispatch(setSearchFilters({
         ...searchFilters,
@@ -972,8 +978,8 @@ function PropertyFilter() {
       }))
       dispatch(incrementSearchCount());
       dispatch(setPropertyQuery(response.data.search_query));
-      setSearchedQuery(properties);
-      addProperties(properties);
+      setSearchedQuery(transformedProperties);
+      addProperties(transformedProperties);
 
     } catch (err: any) {
       console.error("Search request failed:", err);

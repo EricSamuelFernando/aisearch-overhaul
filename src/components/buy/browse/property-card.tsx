@@ -30,27 +30,18 @@ const PropertyCards = (props: any) => {
   // Comparison Store
   const { isCompareMode, toggleCompareProperty, selectedCompareProperties } = usePropertyStore();
 
+  // Unified prop unwrap
+  const d = props.data || props;
+
   const isSelectedForCompare = selectedCompareProperties.some((p: any) => {
     // Robust ID check
-    const pId = p.data.id || p.data._id || p.data.ListingKey;
-    // props might be wrapped (props.data) or unwrapped (props)
-    const propData = props.data || props;
-    const myId = propData.id || propData._id || propData.listingId || propData.listing?.listingId;
+    const pId = p.data?.id || p.data?._id || p.data?.ListingKey || p.data?.listingId || p.data?.ListingId;
+    const myId = d.id || d._id || d.listingId || d.listing?.listingId || d.ListingKey || d.ListingId;
     return pId == myId; // loose equality
   });
 
-  // Helper to get nested property data if props is wrapped
-  const getProp = (path: string[]) => {
-    let current = props.data || props;
-    for (const key of path) {
-      if (current === undefined || current === null) return undefined;
-      current = current[key];
-    }
-    return current;
-  };
-
   // Parse Neo4j photoList (stored as a JSON string in Neo4j, or already an array from MLS)
-  const _rawPhotoList = props?.photoList;
+  const _rawPhotoList = d?.photoList;
   const _parsedPhotoList: any[] | null = (() => {
     if (Array.isArray(_rawPhotoList)) return _rawPhotoList;
     if (typeof _rawPhotoList === 'string') {
@@ -61,9 +52,9 @@ const PropertyCards = (props: any) => {
 
   // Unified photo list: MLS nested → MLS flat → Neo4j parsed string
   const _photosList =
-    props?.listing?.media?.photosList ??
-    props?._raw_listing?.media?.photosList ??
-    props?.photos ??
+    d?.listing?.media?.photosList ??
+    d?._raw_listing?.media?.photosList ??
+    d?.photos ??
     _parsedPhotoList;
   const slides = _photosList?.slice(0, 6)?.map((image: any, idx: number) => {
     // Support both {lowRes: "url"} objects (Neo4j) and plain URL strings (MLS flat)
@@ -150,44 +141,39 @@ const PropertyCards = (props: any) => {
     return null;
   };
 
-  // const statusInfo = getStatusInfo(props?.listing);
-  // Support both nested format (props.listing) and flat format with _raw_listing (new AI backend)
-  const listing = props?.listing ?? props?._raw_listing ?? props?.data?.listing ?? {};
+  const listing = d?.listing ?? d?._raw_listing ?? d;
   // Merge Neo4j top-level homeStatus / status into statusObj so getStatusInfo can read it
   const statusObj = {
     ...listing,
-    standardStatus: listing?.standardStatus ?? listing?.status ?? props?.homeStatus ?? props?.status,
+    standardStatus: listing?.standardStatus ?? listing?.status ?? d?.homeStatus ?? d?.status,
   };
   const statusInfo = getStatusInfo(statusObj);
-  const propertyId = props?.id ?? props?.propertyId ?? props?.listingId;
-  // const listing = props?.listing ?? props?.data?.listing ?? {};
+  const propertyId = d?.id ?? d?.propertyId ?? d?.listingId ?? d?.ListingKey ?? d?.ListingId;
+
   const address = listing?.address ?? {};
   const property = listing?.property ?? {};
   const primaryImage =
     listing?.media?.primaryListingImageUrl ||
-    props?.primaryListingImageUrl ||
-    props?.primaryImage ||
-    props?.public?.imageUrl ||
-    props?._raw_public?.imageUrl ||
-    props?.image_url ||
-    props?.image ||
+    d?.primaryListingImageUrl ||
+    d?.primaryImage ||
+    d?.public?.imageUrl ||
+    d?._raw_public?.imageUrl ||
+    d?.image_url ||
+    d?.image ||
     '/assets/images/placeholder.svg';
-  // const priceText = formatCurrency(listing?.listPriceLow || listing?.listPrice || 0, 'USD').replace('$', '$');
-  // const beds = property?.bedroomsTotal ?? 0;
-  // const baths = property?.bathroomsTotal ?? 0;
-  // const sqft = property?.livingArea ?? 0;
-  const priceText = formatCurrency(listing?.listPriceLow || listing?.listPrice || props?.price || 0, 'USD').replace('$', '$');
-  // Flat-format fallbacks: props.beds / props.baths from MLS; bedroomTotal / bathroomTotal from Neo4j
-  const beds = property?.bedroomsTotal ?? props?.bedroomTotal ?? props?.beds ?? props?.bedrooms ?? 0;
-  const baths = property?.bathroomsTotal ?? props?.bathroomTotal ?? props?.baths ?? props?.bathrooms ?? 0;
-  const sqft = property?.livingArea ?? props?.sqft ?? props?.livingArea ?? 0;
+
+  const priceText = formatCurrency(listing?.listPriceLow || listing?.listPrice || d?.price || 0, 'USD').replace('$', '$');
+  // Flat-format fallbacks: d.beds / d.baths from MLS; bedroomTotal / bathroomTotal from Neo4j
+  const beds = property?.bedroomsTotal ?? d?.bedroomTotal ?? d?.beds ?? d?.bedrooms ?? 0;
+  const baths = property?.bathroomsTotal ?? d?.bathroomTotal ?? d?.baths ?? d?.bathrooms ?? 0;
+  const sqft = property?.livingArea ?? d?.sqft ?? d?.livingArea ?? 0;
   const propertyTypeLabel =
     listing?.propertyType ||
     property?.propertyType ||
     property?.propertySubType ||
-    props?.homeType ||
-    props?.property_type ||
-    props?.home_type ||
+    d?.homeType ||
+    d?.property_type ||
+    d?.home_type ||
     'House';
   const compactStatusLabel =
     statusInfo?.label === 'Active'
@@ -210,7 +196,7 @@ const PropertyCards = (props: any) => {
     const isAvailable = snapsList.some((snap: any) =>
       snap?.favourites?.some((favourite: any) => {
         const propertyIdMatch = favourite?.propertyId == propertyId;
-        const listingIdMatch = favourite?.listingId == props?.listingId;
+        const listingIdMatch = favourite?.listingId == d?.listingId || favourite?.listingId == d?.ListingKey;
         return propertyIdMatch || listingIdMatch;
       })
     );
@@ -236,8 +222,9 @@ const PropertyCards = (props: any) => {
     }
 
     if (!carouselEvent) {
-      saveCurrenctProperty(props);
-      router.push(`/buy/${props.listingId}/prop/preview`);
+      saveCurrenctProperty(d);
+      const targetId = d?.listingId || d?.id || d?.ListingKey || d?._id;
+      router.push(`/buy/${targetId}/prop/preview`);
     }
   };
 
@@ -255,7 +242,7 @@ const PropertyCards = (props: any) => {
           }`}
       >
         {isCompareMode && (
-          <div className="absolute left-3 top-3 z-50">
+          <div className="absolute left-3 top-3 z-50 flex items-center gap-2">
             <button
               disabled={selectedCompareProperties.length >= 4 && !isSelectedForCompare}
               onClick={(e) => {
@@ -263,13 +250,23 @@ const PropertyCards = (props: any) => {
                 const realData = props.data || props;
                 toggleCompareProperty({ data: realData, type: 'property' });
               }}
-              className={`rounded-full p-1.5 shadow ${isSelectedForCompare
+              className={`rounded-full p-1.5 shadow transition-all duration-200 ${isSelectedForCompare
                 ? 'bg-orange-500 text-white'
                 : 'bg-white/90 text-gray-600'
                 }`}
             >
               {isSelectedForCompare ? <CheckSquare size={18} /> : <Square size={18} />}
             </button>
+            <span
+              className={`px-2 py-0.5 rounded-md text-[10px] font-bold shadow-sm transition-all duration-200 ${isSelectedForCompare
+                ? 'bg-orange-500 text-white'
+                : selectedCompareProperties.length >= 4
+                  ? 'bg-white/80 text-gray-400'
+                  : 'bg-white/90 text-black'
+                }`}
+            >
+              {isSelectedForCompare ? 'Selected' : selectedCompareProperties.length >= 4 ? 'Limit Reached' : 'Compare'}
+            </span>
           </div>
         )}
 
@@ -447,25 +444,27 @@ const PropertyCards = (props: any) => {
           <h3 className="text-2xl font-bold text-white group-hover:text-ocOrange transition-colors duration-300 mb-0">
             {formatCurrency(listing?.listPriceLow ?? listing?.listPrice ?? props?.price ?? 0, 'USD').replace('$', '$ ')}
           </h3>
-          <SnapzHeartButton
-            isActive={isFavored}
-            size={20}
-            onClick={(event) => {
-              event.stopPropagation();
-              if (isLoggedIn) {
-                saveCurrenctProperty(props);
-                const propertyImage =
-                  props?.listing?.media?.primaryListingImageUrl ||
-                  props?.public?.imageUrl ||
-                  props?.image ||
-                  '/assets/images/property-placeholder.jpg';
-                openCollectionModal(propertyId?.toString(), propertyImage, fetchSnaps);
-              } else {
-                router.push('/login');
-              }
-            }}
-            className="text-white"
-          />
+          {!isCompareMode && (
+            <SnapzHeartButton
+              isActive={isFavored}
+              size={20}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (isLoggedIn) {
+                  saveCurrenctProperty(props);
+                  const propertyImage =
+                    props?.listing?.media?.primaryListingImageUrl ||
+                    props?.public?.imageUrl ||
+                    props?.image ||
+                    '/assets/images/property-placeholder.jpg';
+                  openCollectionModal(propertyId?.toString(), propertyImage, fetchSnaps);
+                } else {
+                  router.push('/login');
+                }
+              }}
+              className="text-white"
+            />
+          )}
         </div>
 
         {/* Address */}

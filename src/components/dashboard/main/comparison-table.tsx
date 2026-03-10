@@ -47,16 +47,16 @@ const ComparisonTable = ({
     const normalizedSlots = [0, 1, 2, 3].map(index => slotProperties[index] || null);
     const selectedCount = normalizedSlots.filter(Boolean).length;
 
-    const prices = normalizedSlots.map(property => (property ? Number(property?.price) || null : null));
-    const beds = normalizedSlots.map(property => (property ? Number(property?.bedRooms) || null : null));
-    const baths = normalizedSlots.map(property => (property ? Number(property?.bathRooms) || null : null));
+    const prices = normalizedSlots.map(property => (property ? Number(property?.price || property?.listPrice || property?.listing?.listPriceLow) || null : null));
+    const beds = normalizedSlots.map(property => (property ? Number(property?.bedroomTotal || property?.bedRooms || property?.listing?.property?.bedroomsTotal) || null : null));
+    const baths = normalizedSlots.map(property => (property ? Number(property?.bathroomTotal || property?.bathRooms || property?.listing?.property?.bathroomsTotal) || null : null));
     const sqfts = normalizedSlots.map(property =>
-        property ? Number(property?.livingArea || property?.sqft) || null : null
+        property ? Number(property?.livingArea || property?.sqft || property?.listing?.property?.livingArea) || null : null
     );
     const pricePerSqft = normalizedSlots.map(property => {
         if (!property) return null;
-        const price = Number(property?.price);
-        const area = Number(property?.livingArea || property?.sqft);
+        const price = Number(property?.price || property?.listPrice || property?.listing?.listPriceLow);
+        const area = Number(property?.livingArea || property?.sqft || property?.listing?.property?.livingArea);
         return price && area ? Math.round(price / area) : null;
     });
 
@@ -79,7 +79,9 @@ const ComparisonTable = ({
                 },
                 {
                     label: 'Status',
-                    values: normalizedSlots.map(property => property?.listing?.standardStatus || property?.status || null),
+                    values: normalizedSlots.map(property =>
+                        property?.homeStatus || property?.status || property?.listing?.standardStatus || null
+                    ),
                     bestIdx: -1,
                 },
             ],
@@ -87,13 +89,14 @@ const ComparisonTable = ({
         {
             title: 'Location',
             rows: [
-                { label: 'Address', values: normalizedSlots.map(property => property?.address || null), bestIdx: -1 },
+                { label: 'Address', values: normalizedSlots.map(property => property?.unparsedAddress || property?.address || null), bestIdx: -1 },
                 { label: 'City', values: normalizedSlots.map(property => property?.city || null), bestIdx: -1 },
                 {
                     label: 'State / Zip',
                     values: normalizedSlots.map(property => {
-                        const state = getStateFromZip(property?.zipCode);
-                        return [state, property?.zipCode].filter(Boolean).join(' ') || null;
+                        const zip = property?.zipCode || property?.zipcode;
+                        const state = getStateFromZip(zip);
+                        return [state, zip].filter(Boolean).join(' ') || null;
                     }),
                     bestIdx: -1,
                 },
@@ -151,11 +154,10 @@ const ComparisonTable = ({
                                         type="button"
                                         key={`slot-empty-${index}`}
                                         onClick={() => onSelectSlot(index)}
-                                        className={`group min-w-[220px] flex-1 max-w-[360px] rounded-2xl border-2 border-dashed px-4 py-6 text-center transition-all duration-200 ${
-                                            isActive
+                                        className={`group min-w-[220px] flex-1 max-w-[360px] rounded-2xl border-2 border-dashed px-4 py-6 text-center transition-all duration-200 ${isActive
                                                 ? 'border-[#FF8700] bg-orange-50 shadow-[0_6px_24px_rgba(255,135,0,0.12)]'
                                                 : 'border-gray-200 bg-gray-50 hover:-translate-y-0.5 hover:border-[#FF8700]/70 hover:shadow-[0_6px_20px_rgba(0,0,0,0.06)]'
-                                        }`}
+                                            }`}
                                     >
                                         <p className="text-4xl font-semibold text-gray-400 transition-transform duration-200 group-hover:-translate-y-0.5">
                                             {index + 1}
@@ -170,18 +172,17 @@ const ComparisonTable = ({
                             }
 
                             const displayCity = property?.city;
-                            const displayState = getStateFromZip(property?.zipCode);
-                            const image = property?.listing?.media?.photosList?.[0]?.lowRes || property?.image;
+                            const zip = property?.zipCode || property?.zipcode;
+                            const displayState = getStateFromZip(zip);
+                            const image = property?.primaryListingImageUrl || property?.primaryImage || property?.listing?.media?.photosList?.[0]?.lowRes || property?.image;
 
                             return (
                                 <div
                                     key={property?.id || `slot-filled-${index}`}
                                     onClick={() => onSelectSlot(index)}
-                                    className={`min-w-[220px] flex-1 max-w-[360px] cursor-pointer overflow-hidden rounded-2xl border border-gray-100 shadow-sm transition-all duration-300 hover:shadow-md ${
-                                        isActive ? 'ring-2 ring-[#FF8700]' : ''
-                                    } ${
-                                        isRecentlyFilled ? 'scale-[1.015] shadow-[0_10px_28px_rgba(255,135,0,0.22)]' : ''
-                                    } ${isBestPrice ? 'border-[#FF8700]/40' : ''}`}
+                                    className={`min-w-[220px] flex-1 max-w-[360px] cursor-pointer overflow-hidden rounded-2xl border border-gray-100 shadow-sm transition-all duration-300 hover:shadow-md ${isActive ? 'ring-2 ring-[#FF8700]' : ''
+                                        } ${isRecentlyFilled ? 'scale-[1.015] shadow-[0_10px_28px_rgba(255,135,0,0.22)]' : ''
+                                        } ${isBestPrice ? 'border-[#FF8700]/40' : ''}`}
                                 >
                                     <div className="relative w-full bg-gray-100" style={{ aspectRatio: '16 / 9' }}>
                                         {image ? (
@@ -220,7 +221,7 @@ const ComparisonTable = ({
                                                 <p className="truncate text-sm font-semibold text-gray-800">{property?.address || '-'}</p>
                                                 <p className="mt-0.5 truncate text-xs text-gray-400">
                                                     {[displayCity, displayState].filter(Boolean).join(', ')}
-                                                    {property?.zipCode ? ` ${property.zipCode}` : ''}
+                                                    {zip ? ` ${zip}` : ''}
                                                 </p>
                                             </div>
                                             <button
@@ -266,15 +267,13 @@ const ComparisonTable = ({
                                         return (
                                             <div
                                                 key={`${row.label}-${columnIndex}`}
-                                                className={`flex min-w-[220px] flex-1 items-center justify-center border-r border-gray-100 px-4 py-3.5 text-center last:border-0 max-w-[360px] ${
-                                                    isActive ? 'bg-orange-50/20' : ''
-                                                }`}
+                                                className={`flex min-w-[220px] flex-1 items-center justify-center border-r border-gray-100 px-4 py-3.5 text-center last:border-0 max-w-[360px] ${isActive ? 'bg-orange-50/20' : ''
+                                                    }`}
                                             >
                                                 {value ? (
                                                     <span
-                                                        className={`flex items-center gap-0.5 text-sm font-medium ${
-                                                            isBest ? 'font-bold text-[#FF8700]' : 'text-gray-800'
-                                                        }`}
+                                                        className={`flex items-center gap-0.5 text-sm font-medium ${isBest ? 'font-bold text-[#FF8700]' : 'text-gray-800'
+                                                            }`}
                                                     >
                                                         {value}
                                                         {isBest && <Badge />}

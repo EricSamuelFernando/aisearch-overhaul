@@ -159,7 +159,9 @@ function MainLayout({ children }: Readonly<Props>) {
   const shouldHideHeaderFooter = ['sell', 'agents', 'company', 'home', 'privacy-policy'].some(
     (path) => pathname.includes(path),
   );
-  const shouldUseHomeNav = ['browse', 'preview'].some((path) => pathname.includes(path));
+  const shouldUseHomeNav = ['browse', 'preview', 'privacy-policy'].some((path) =>
+    pathname.includes(path),
+  );
 
   return (
     <>

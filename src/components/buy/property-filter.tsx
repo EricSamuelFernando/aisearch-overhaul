@@ -1056,7 +1056,7 @@ function PropertyFilter() {
         currentView === 'map' ? 'hidden md:justify-between' : '',
       )}>
         {/* Left Side: Title & Filter Drawer */}
-        <div className="flex min-w-0 select-none flex-col md:flex-row md:items-center gap-4 md:gap-6">
+        <div className="flex min-w-0 select-none flex-col md:flex-row md:items-center gap-1 md:gap-2">
           {currentView !== 'map' ? (
             <h2 className="min-w-0 text-lg font-bold leading-6 text-black md:text-xl">
               {allProperties.length > 0
@@ -1065,24 +1065,36 @@ function PropertyFilter() {
             </h2>
           ) : null}
 
-          <FilterDrawer
-
-            FeatureSelectorComponent={FeatureSelector}
-            FeatureBathroomSelector={FeatureBathroomSelector}
-            selectedSubCategories={selectedSubCategories}
-            subCategories={subCategories}
-          />
-          {currentView !== 'grid' ? (
-            <div className="flex items-start gap-4 whitespace-nowrap">
-              <ViewSelection />
-            </div>
-          ) : null}
-        </div>
-        {currentView === 'grid' ? (
-          <div className="flex items-start gap-4 whitespace-nowrap md:ml-auto">
-            <ViewSelection />
+          <div className="flex items-center gap-0 whitespace-nowrap">
+            <FilterDrawer
+              FeatureSelectorComponent={FeatureSelector}
+              FeatureBathroomSelector={FeatureBathroomSelector}
+              selectedSubCategories={selectedSubCategories}
+              subCategories={subCategories}
+            />
+            {currentView === 'grid' ? (
+              <div className="flex items-center gap-1 whitespace-nowrap">
+                <ViewSelection />
+                <button
+                  onClick={() => {
+                    setCompareMode(!isCompareMode);
+                    if (isCompareMode) clearCompareProperties();
+                  }}
+                  className={`flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-full border transition-all duration-300 ${isCompareMode
+                    ? 'bg-ocOrange text-white border-ocOrange shadow-md transform hover:scale-105'
+                    : 'bg-white text-gray-700 hover:text-ocOrange hover:border-ocOrange hover:shadow-sm border-gray-300'
+                    }`}
+                >
+                  {isCompareMode ? 'Cancel Compare' : 'Compare'}
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-0 whitespace-nowrap">
+                <ViewSelection />
+              </div>
+            )}
           </div>
-        ) : null}
+        </div>
 
         {currentView === 'map' ? null : null}
       </div>
@@ -1101,18 +1113,20 @@ function PropertyFilter() {
 
         {/* Comparison Mode Toggle */}
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => {
-              setCompareMode(!isCompareMode);
-              if (isCompareMode) clearCompareProperties();
-            }}
-            className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${isCompareMode
-              ? 'bg-ocOrange text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-          >
-            {isCompareMode ? 'Cancel Compare' : 'Compare'}
-          </button>
+          {currentView !== 'grid' ? (
+            <button
+              onClick={() => {
+                setCompareMode(!isCompareMode);
+                if (isCompareMode) clearCompareProperties();
+              }}
+              className={`flex items-center gap-1 px-4 py-2 text-sm rounded-full border transition-all duration-300 ${isCompareMode
+                ? 'bg-ocOrange text-white border-ocOrange shadow-md transform hover:scale-105'
+                : 'bg-white text-gray-700 hover:text-ocOrange hover:border-ocOrange hover:shadow-sm border-gray-300'
+                }`}
+            >
+              {isCompareMode ? 'Cancel Compare' : 'Compare'}
+            </button>
+          ) : null}
 
           {isCompareMode && (
             <div className="ml-0 flex flex-wrap items-center gap-2 sm:ml-2">
@@ -1215,44 +1229,44 @@ function PropertyFilter() {
       </div> */}
 
       {currentView !== 'map' ? (
-      <div className="space-y-4">
-        {/* Always show filters */}
-        <div className="flex flex-wrap gap-2">
-          {subCategories.map((sub) => {
-            const isSelected = selectedSubCategories.includes(sub.title);
-            const isAvailable = subCategoryAvailability[sub.title] ?? true;
-            const isDisabled = !isAvailable && !isSelected;
-            return (
-              <button
-                key={nanoid()}
-                onClick={() => {
-                  if (isDisabled) return;
-                  toggleSubCategory(sub.title);
-                }}
-                title={isDisabled ? 'Results do not contain this feature.' : ''}
-                aria-disabled={isDisabled}
-                className={`flex items-center gap-1 px-4 py-2 text-sm rounded-full border transition-all duration-300
+        <div className="space-y-4">
+          {/* Always show filters */}
+          <div className="flex flex-wrap gap-2">
+            {subCategories.map((sub) => {
+              const isSelected = selectedSubCategories.includes(sub.title);
+              const isAvailable = subCategoryAvailability[sub.title] ?? true;
+              const isDisabled = !isAvailable && !isSelected;
+              return (
+                <button
+                  key={nanoid()}
+                  onClick={() => {
+                    if (isDisabled) return;
+                    toggleSubCategory(sub.title);
+                  }}
+                  title={isDisabled ? 'Results do not contain this feature.' : ''}
+                  aria-disabled={isDisabled}
+                  className={`flex items-center gap-1 px-4 py-2 text-sm rounded-full border transition-all duration-300
               ${isSelected
-                    ? 'bg-ocOrange text-white border-ocOrange shadow-md transform hover:scale-105'
-                    : isDisabled
-                      ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                      : 'bg-white text-gray-700 hover:text-ocOrange hover:border-ocOrange hover:shadow-sm border-gray-300'
-                  }`}
-              >
-                <span className={`transition-colors duration-300 ${isSelected ? 'text-white' : isDisabled ? 'text-gray-400' : 'text-gray-600'}`}>
-                  {sub.icon}
-                </span>
-                <span className="font-medium">{sub.title}</span>
-                {isSelected && (
-                  <svg className="w-3 h-3 ml-1 text-white" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"></path>
-                  </svg>
-                )}
-              </button>
-            );
-          })}
+                      ? 'bg-ocOrange text-white border-ocOrange shadow-md transform hover:scale-105'
+                      : isDisabled
+                        ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                        : 'bg-white text-gray-700 hover:text-ocOrange hover:border-ocOrange hover:shadow-sm border-gray-300'
+                    }`}
+                >
+                  <span className={`transition-colors duration-300 ${isSelected ? 'text-white' : isDisabled ? 'text-gray-400' : 'text-gray-600'}`}>
+                    {sub.icon}
+                  </span>
+                  <span className="font-medium">{sub.title}</span>
+                  {isSelected && (
+                    <svg className="w-3 h-3 ml-1 text-white" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"></path>
+                    </svg>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
       ) : null}
 
       {/* Property Results or Suggested Locations */}

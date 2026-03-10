@@ -17,6 +17,7 @@ import {
   FaLock,
 } from 'react-icons/fa';
 import { useMediaQuery } from '@mantine/hooks';
+import { cn } from '@/lib/utils';
 
 import '@mantine/core/styles.css';
 import '@mantine/carousel/styles.css';
@@ -37,6 +38,7 @@ type WeMakeItEasyProps = {
   heading?: React.ReactNode;
   subtitle?: string;
   contentPreset?: 'default' | 'home';
+  headingClassName?: string;
 };
 
 const features: FeatureItem[] = [
@@ -237,11 +239,14 @@ const WeMakeItEasy = ({
   heading,
   subtitle,
   contentPreset = 'default',
+  headingClassName,
 }: WeMakeItEasyProps) => {
   const effectiveHeading =
     heading ??
     (contentPreset === 'home' ? (
-      <>We Make Homebuying Easy</>
+      <>
+        We Make Homebuying <span className="font-light">Easy</span>
+      </>
     ) : (
       DEFAULT_HEADING
     ));
@@ -300,7 +305,7 @@ const WeMakeItEasy = ({
     <section className="home-easy-section bg-[#FFF6EC] pt-8 md:pt-4 px-4 sm:px-6 lg:px-24 overflow-x-hidden">
       <div className="home-easy-container mx-auto text-center">
         {/* Heading */}
-        <h2 className="home-easy-title satoshi text-3xl sm:text-4xl font-semibold ">
+        <h2 className={cn('satoshi text-3xl sm:text-4xl font-medium', headingClassName)}>
           {effectiveHeading}
         </h2>
         <p className="home-easy-subtitle satoshi text-xs sm:text-sm text-[#8E8B8A] mb-12 max-w-[600px] mx-auto">
@@ -324,142 +329,142 @@ const WeMakeItEasy = ({
               size="md"
               styles={{
 
-              root: {
-                backgroundColor: '#170800',   // dark container background
-                borderRadius: '12px',          // rounded corners
-                overflow: 'hidden',
-                overflowX: 'auto',             // enable horizontal scrolling
-                display: 'flex',
-                width: '100%',                 // full width
-                margin: '0 auto',
-                padding: '4px',
-                gap: '4px',
-                scrollbarWidth: 'none',        // hide scrollbar for Firefox
-                '&::-webkit-scrollbar': {
-                  display: 'none',             // hide scrollbar for Chrome/Safari
-                },
-                '@media (min-width: 640px)': {
-                  maxWidth: '380px',           // constrain width on larger screens
-                },
-              },
-
-
-              control: ({ checked }: { checked: boolean }) => ({
-                flex: '0 0 auto',              // don't shrink, allow scroll
-                minWidth: '110px',             // minimum width for readability
-                padding: '10px 16px',
-                border: 'none !important',
-                borderLeft: 'none !important',
-                borderRight: 'none !important',
-                borderTop: 'none !important',
-                borderBottom: 'none !important',
-                outline: 'none',
-                cursor: 'pointer',
-                fontSize: '0.75rem',
-                fontWeight: 500,
-                transition: 'all 0.2s ease',
-                minHeight: '40px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: 'none',
-                whiteSpace: 'nowrap',
-
-                '@media (min-width: 640px)': {
-                  flex: 1,                     // allow equal flex on larger screens
-                  minWidth: 'auto',
-                  padding: '10px 24px',
-                  fontSize: '0.9rem',
+                root: {
+                  backgroundColor: '#170800',   // dark container background
+                  borderRadius: '12px',          // rounded corners
+                  overflow: 'hidden',
+                  overflowX: 'auto',             // enable horizontal scrolling
+                  display: 'flex',
+                  width: '100%',                 // full width
+                  margin: '0 auto',
+                  padding: '4px',
+                  gap: '4px',
+                  scrollbarWidth: 'none',        // hide scrollbar for Firefox
+                  '&::-webkit-scrollbar': {
+                    display: 'none',             // hide scrollbar for Chrome/Safari
+                  },
+                  '@media (min-width: 640px)': {
+                    maxWidth: '380px',           // constrain width on larger screens
+                  },
                 },
 
-                // Active button (checked): Dark gray background with white text
-                backgroundColor: checked ? '#323131' : 'transparent', // Transparent for inactive
-                color: checked ? '#ffffff' : '#F0F0F0',           // White text for active, very light gray for inactive tabs (Technology & Transparency)
 
-                borderRadius: '8px',  // Rounded corners
-                position: 'relative',
-
-                // Remove any borders or dividers
-                '&::before': {
-                  display: 'none !important',
-                  content: 'none',
-                },
-                '&::after': {
-                  display: 'none !important',
-                  content: 'none',
-                },
-
-                // Remove any adjacent borders that create divider lines
-                '& + &': {
-                  borderLeft: 'none !important',
-                  marginLeft: 0,
-                },
-
-                // Ensure proper spacing with gap
-                margin: 0,
-
-                // Hover effect - clear visibility for inactive tabs
-                '&:hover': {
-                  backgroundColor: checked
-                    ? '#323131'
-                    : '#323131',  // Dark gray background on hover for inactive tabs
-                  color: '#ffffff !important', // Always white text on hover for better visibility
+                control: ({ checked }: { checked: boolean }) => ({
+                  flex: '0 0 auto',              // don't shrink, allow scroll
+                  minWidth: '110px',             // minimum width for readability
+                  padding: '10px 16px',
                   border: 'none !important',
-                  fontWeight: 600, // Slightly bolder on hover for better visibility
-                },
-
-                // Target label text on hover
-                '&:hover label': {
-                  color: '#ffffff !important',
-                  fontWeight: 600,
-                },
-
-                '&:hover .mantine-SegmentedControl-label': {
-                  color: '#ffffff !important',
-                  fontWeight: 600,
-                },
-
-                // Active focus state for accessibility
-                '&:focus': {
-                  backgroundColor: '#323131',
-                  color: '#ffffff !important',
-                  outline: 'none',
-                  border: 'none !important',
-                },
-
-                // Rounded corners for the first and last buttons
-                '&:first-of-type': {
-                  borderTopLeftRadius: '8px',
-                  borderBottomLeftRadius: '8px',
                   borderLeft: 'none !important',
-                },
-
-                '&:last-of-type': {
-                  borderTopRightRadius: '8px',
-                  borderBottomRightRadius: '8px',
                   borderRight: 'none !important',
-                },
-              }),
+                  borderTop: 'none !important',
+                  borderBottom: 'none !important',
+                  outline: 'none',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  fontWeight: 500,
+                  transition: 'all 0.2s ease',
+                  minHeight: '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: 'none',
+                  whiteSpace: 'nowrap',
 
-              // Remove any indicator or divider elements
-              indicator: {
-                display: 'none !important',
-              },
+                  '@media (min-width: 640px)': {
+                    flex: 1,                     // allow equal flex on larger screens
+                    minWidth: 'auto',
+                    padding: '10px 24px',
+                    fontSize: '0.9rem',
+                  },
 
-              label: {
-                position: 'relative',
-                border: 'none !important',
-                color: 'inherit !important', // Inherit from control: white for active, #D9CFC2 for inactive (matching second image)
-                transition: 'color 0.2s ease',
-                '&::before': {
+                  // Active button (checked): Dark gray background with white text
+                  backgroundColor: checked ? '#323131' : 'transparent', // Transparent for inactive
+                  color: checked ? '#ffffff' : '#F0F0F0',           // White text for active, very light gray for inactive tabs (Technology & Transparency)
+
+                  borderRadius: '8px',  // Rounded corners
+                  position: 'relative',
+
+                  // Remove any borders or dividers
+                  '&::before': {
+                    display: 'none !important',
+                    content: 'none',
+                  },
+                  '&::after': {
+                    display: 'none !important',
+                    content: 'none',
+                  },
+
+                  // Remove any adjacent borders that create divider lines
+                  '& + &': {
+                    borderLeft: 'none !important',
+                    marginLeft: 0,
+                  },
+
+                  // Ensure proper spacing with gap
+                  margin: 0,
+
+                  // Hover effect - clear visibility for inactive tabs
+                  '&:hover': {
+                    backgroundColor: checked
+                      ? '#323131'
+                      : '#323131',  // Dark gray background on hover for inactive tabs
+                    color: '#ffffff !important', // Always white text on hover for better visibility
+                    border: 'none !important',
+                    fontWeight: 600, // Slightly bolder on hover for better visibility
+                  },
+
+                  // Target label text on hover
+                  '&:hover label': {
+                    color: '#ffffff !important',
+                    fontWeight: 600,
+                  },
+
+                  '&:hover .mantine-SegmentedControl-label': {
+                    color: '#ffffff !important',
+                    fontWeight: 600,
+                  },
+
+                  // Active focus state for accessibility
+                  '&:focus': {
+                    backgroundColor: '#323131',
+                    color: '#ffffff !important',
+                    outline: 'none',
+                    border: 'none !important',
+                  },
+
+                  // Rounded corners for the first and last buttons
+                  '&:first-of-type': {
+                    borderTopLeftRadius: '8px',
+                    borderBottomLeftRadius: '8px',
+                    borderLeft: 'none !important',
+                  },
+
+                  '&:last-of-type': {
+                    borderTopRightRadius: '8px',
+                    borderBottomRightRadius: '8px',
+                    borderRight: 'none !important',
+                  },
+                }),
+
+                // Remove any indicator or divider elements
+                indicator: {
                   display: 'none !important',
-                  content: 'none',
                 },
-                '&::after': {
-                  display: 'none !important',
-                  content: 'none',
+
+                label: {
+                  position: 'relative',
+                  border: 'none !important',
+                  color: 'inherit !important', // Inherit from control: white for active, #D9CFC2 for inactive (matching second image)
+                  transition: 'color 0.2s ease',
+                  '&::before': {
+                    display: 'none !important',
+                    content: 'none',
+                  },
+                  '&::after': {
+                    display: 'none !important',
+                    content: 'none',
+                  },
                 },
-              },
               }}
             />
           </div>
@@ -549,9 +554,8 @@ const WeMakeItEasy = ({
             aria-label="Scroll previous cards"
             disabled={!canScrollPrev}
             onClick={() => embla?.scrollPrev()}
-            className={`flex items-center justify-center rounded-full transition-all duration-200 ${
-              isSmallScreen ? 'h-8 w-16' : 'h-10 w-16'
-            } ${canScrollPrev
+            className={`flex items-center justify-center rounded-full transition-all duration-200 ${isSmallScreen ? 'h-8 w-16' : 'h-10 w-16'
+              } ${canScrollPrev
                 ? 'bg-[#F5EBDF] text-[#4A3A2B] hover:bg-[#EFE2D2]'
                 : 'bg-[#F1E7DC] text-[#CFC3B5] cursor-not-allowed'
               }`}
@@ -563,9 +567,8 @@ const WeMakeItEasy = ({
             aria-label="Scroll next cards"
             disabled={!canScrollNext}
             onClick={() => embla?.scrollNext()}
-            className={`flex items-center justify-center rounded-full transition-all duration-200 ${
-              isSmallScreen ? 'h-8 w-16' : 'h-10 w-16'
-            } ${canScrollNext
+            className={`flex items-center justify-center rounded-full transition-all duration-200 ${isSmallScreen ? 'h-8 w-16' : 'h-10 w-16'
+              } ${canScrollNext
                 ? 'bg-[#F5EBDF] text-[#4A3A2B] hover:bg-[#EFE2D2]'
                 : 'bg-[#F1E7DC] text-[#CFC3B5] cursor-not-allowed'
               }`}
@@ -579,4 +582,3 @@ const WeMakeItEasy = ({
 };
 
 export { WeMakeItEasy };
-

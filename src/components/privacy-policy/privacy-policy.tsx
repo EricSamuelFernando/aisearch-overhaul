@@ -1,4 +1,5 @@
-import MainNavPages from '@/components/navbars/main-nav-pages';
+'use client';
+
 import Footer from '@/components/shared/footer';
 import React from 'react';
 import { privacyTerms } from './policy-data';
@@ -6,8 +7,6 @@ import { privacyTerms } from './policy-data';
 function PrivacyPolicy() {
   return (
     <>
-      <MainNavPages />
-
       {/* Hero */}
       <section className="bg-[#170800] text-white min-h-[600px] relative pt-12 -mt-24 overflow-hidden flex items-center justify-center">
         <div className="max-w-4xl mx-auto text-center mt-12">

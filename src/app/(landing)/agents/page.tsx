@@ -24,6 +24,8 @@ const GRAPHQL_URI =
   process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
   'http://localhost:4000/auth/graphql';
 
+const sectionHeadingSize = 'text-[2.35rem] sm:text-[2.75rem] md:text-[3.35rem]';
+
 async function fetchAgents() {
   const response = await fetch(GRAPHQL_URI, {
     method: 'POST',
@@ -79,18 +81,20 @@ const AgentsPage = async () => {
   return (
     <main>
       <AgentsHero agents={agents} />
-     {/* <FindAgent />*/}
+      {/* <FindAgent />*/}
       {/* <FindPartner /> */}
       <AgentsWeMakeItEasy />
       {/* <MainTestimonial /> */}
-      <OurClients
-        bgColor="#FFF6EC"
-        subtitle="We value our agents' honest feedback on how Snaphomz supports their business."
-        testimonials={AGENTS_TESTIMONIALS}
-      />
+      <div className="home-section-gap">
+        <OurClients
+          bgColor="#FFF6EC"
+          headingClassName={sectionHeadingSize}
+          subtitle="We value our agents' honest feedback on how Snaphomz supports their business."
+          testimonials={AGENTS_TESTIMONIALS}
+        />
+      </div>
     </main>
   );
 };
 
 export default AgentsPage;
-

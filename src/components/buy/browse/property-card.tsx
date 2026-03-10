@@ -39,22 +39,6 @@ const PropertyCards = (props: any) => {
     return pId == myId; // loose equality
   });
 
-
-  const slides = props?.listing?.media?.photosList?.slice(0, 6)?.map((image: any, idx: number) => {
-    if (!image?.lowRes) return null;
-    return (
-      <div key={idx} className="relative w-full h-full aspect-video min-h-[200px]">
-        <NImage
-          src={image.lowRes}
-          alt="snaphomz-property-image"
-          fill
-          unoptimized
-          className="object-cover"
-        />
-      </div>
-    );
-  });
-
   // Helper to get nested property data if props is wrapped
   const getProp = (path: string[]) => {
     let current = props.data || props;
@@ -65,11 +49,56 @@ const PropertyCards = (props: any) => {
     return current;
   };
 
-  // NOTE: Existing code uses props.listing directly. 
-  // If props is wrapped, this fails. 
-  // But we are only fixing Comparison logic here.
+  // Parse Neo4j photoList (stored as a JSON string in Neo4j, or already an array from MLS)
+  const _rawPhotoList = props?.photoList;
+  const _parsedPhotoList: any[] | null = (() => {
+    if (Array.isArray(_rawPhotoList)) return _rawPhotoList;
+    if (typeof _rawPhotoList === 'string') {
+      try { return JSON.parse(_rawPhotoList); } catch { return null; }
+    }
+    return null;
+  })();
 
-  const hasCarousel = Array.isArray(props?.listing?.media?.photosList) && props.listing.media.photosList.length > 0;
+  // Unified photo list: MLS nested → MLS flat → Neo4j parsed string
+  const _photosList =
+    props?.listing?.media?.photosList ??
+    props?._raw_listing?.media?.photosList ??
+    props?.photos ??
+    _parsedPhotoList;
+  const slides = _photosList?.slice(0, 6)?.map((image: any, idx: number) => {
+    // Support both {lowRes: "url"} objects (Neo4j) and plain URL strings (MLS flat)
+    const src = typeof image === 'string' ? image : image?.lowRes;
+    if (!src) return null;
+    return (
+      <div key={idx} className="relative w-full h-full aspect-video min-h-[200px]">
+        <NImage
+          src={src}
+          alt="snaphomz-property-image"
+          fill
+          unoptimized
+          className="object-cover"
+        />
+      </div>
+    );
+  });
+
+  // // Helper to get nested property data if props is wrapped
+  // const getProp = (path: string[]) => {
+  //   let current = props.data || props;
+  //   for (const key of path) {
+  //     if (current === undefined || current === null) return undefined;
+  //     current = current[key];
+  //   }
+  //   return current;
+  // };
+
+  // // NOTE: Existing code uses props.listing directly. 
+  // // If props is wrapped, this fails. 
+  // // But we are only fixing Comparison logic here.
+
+  // const hasCarousel = Array.isArray(props?.listing?.media?.photosList) && props.listing.media.photosList.length > 0;
+
+  const hasCarousel = Array.isArray(slides) && slides.some(s => s !== null);
 
   const getStatusInfo = (listing: any) => {
     const rawStatus =
@@ -121,24 +150,44 @@ const PropertyCards = (props: any) => {
     return null;
   };
 
-  const statusInfo = getStatusInfo(props?.listing);
+  // const statusInfo = getStatusInfo(props?.listing);
+  // Support both nested format (props.listing) and flat format with _raw_listing (new AI backend)
+  const listing = props?.listing ?? props?._raw_listing ?? props?.data?.listing ?? {};
+  // Merge Neo4j top-level homeStatus / status into statusObj so getStatusInfo can read it
+  const statusObj = {
+    ...listing,
+    standardStatus: listing?.standardStatus ?? listing?.status ?? props?.homeStatus ?? props?.status,
+  };
+  const statusInfo = getStatusInfo(statusObj);
   const propertyId = props?.id ?? props?.propertyId ?? props?.listingId;
-  const listing = props?.listing ?? props?.data?.listing ?? {};
+  // const listing = props?.listing ?? props?.data?.listing ?? {};
   const address = listing?.address ?? {};
   const property = listing?.property ?? {};
   const primaryImage =
     listing?.media?.primaryListingImageUrl ||
+    props?.primaryListingImageUrl ||
+    props?.primaryImage ||
     props?.public?.imageUrl ||
+    props?._raw_public?.imageUrl ||
+    props?.image_url ||
     props?.image ||
     '/assets/images/placeholder.svg';
-  const priceText = formatCurrency(listing?.listPriceLow || listing?.listPrice || 0, 'USD').replace('$', '$');
-  const beds = property?.bedroomsTotal ?? 0;
-  const baths = property?.bathroomsTotal ?? 0;
-  const sqft = property?.livingArea ?? 0;
+  // const priceText = formatCurrency(listing?.listPriceLow || listing?.listPrice || 0, 'USD').replace('$', '$');
+  // const beds = property?.bedroomsTotal ?? 0;
+  // const baths = property?.bathroomsTotal ?? 0;
+  // const sqft = property?.livingArea ?? 0;
+  const priceText = formatCurrency(listing?.listPriceLow || listing?.listPrice || props?.price || 0, 'USD').replace('$', '$');
+  // Flat-format fallbacks: props.beds / props.baths from MLS; bedroomTotal / bathroomTotal from Neo4j
+  const beds = property?.bedroomsTotal ?? props?.bedroomTotal ?? props?.beds ?? props?.bedrooms ?? 0;
+  const baths = property?.bathroomsTotal ?? props?.bathroomTotal ?? props?.baths ?? props?.bathrooms ?? 0;
+  const sqft = property?.livingArea ?? props?.sqft ?? props?.livingArea ?? 0;
   const propertyTypeLabel =
     listing?.propertyType ||
     property?.propertyType ||
     property?.propertySubType ||
+    props?.homeType ||
+    props?.property_type ||
+    props?.home_type ||
     'House';
   const compactStatusLabel =
     statusInfo?.label === 'Active'
@@ -202,9 +251,8 @@ const PropertyCards = (props: any) => {
     return (
       <div
         onClick={handleClick}
-        className={`relative flex h-full min-h-[260px] w-full cursor-pointer flex-col overflow-hidden rounded-xl border bg-white shadow-sm transition-all duration-200 hover:shadow-md ${
-          isSelectedForCompare ? 'border-orange-400' : 'border-gray-200'
-        }`}
+        className={`relative flex h-full min-h-[260px] w-full cursor-pointer flex-col overflow-hidden rounded-xl border bg-white shadow-sm transition-all duration-200 hover:shadow-md ${isSelectedForCompare ? 'border-orange-400' : 'border-gray-200'
+          }`}
       >
         {isCompareMode && (
           <div className="absolute left-3 top-3 z-50">
@@ -215,11 +263,10 @@ const PropertyCards = (props: any) => {
                 const realData = props.data || props;
                 toggleCompareProperty({ data: realData, type: 'property' });
               }}
-              className={`rounded-full p-1.5 shadow ${
-                isSelectedForCompare
-                  ? 'bg-orange-500 text-white'
-                  : 'bg-white/90 text-gray-600'
-              }`}
+              className={`rounded-full p-1.5 shadow ${isSelectedForCompare
+                ? 'bg-orange-500 text-white'
+                : 'bg-white/90 text-gray-600'
+                }`}
             >
               {isSelectedForCompare ? <CheckSquare size={18} /> : <Square size={18} />}
             </button>
@@ -296,9 +343,15 @@ const PropertyCards = (props: any) => {
           </div>
 
           <div className="mt-1.5 min-h-[2rem] line-clamp-2 text-[12px] leading-4 text-gray-800">
-            {[address?.unparsedAddress, address?.city && `${address.city},`, address?.stateOrProvince, address?.zipCode]
+            {/* {[address?.unparsedAddress, address?.city && `${address.city},`, address?.stateOrProvince, address?.zipCode]
               .filter(Boolean)
-              .join(' ')}
+              .join(' ')} */}
+            {[
+              address?.unparsedAddress ?? props?.unparsedAddress,
+              (address?.city ?? props?.city) ? `${address?.city ?? props?.city},` : null,
+              address?.stateOrProvince ?? props?.state,
+              address?.zipCode ?? props?.zipCode,
+            ].filter(Boolean).join(' ')}
           </div>
 
           <div className="mt-1.5 truncate text-[10px] uppercase tracking-wide text-gray-400">
@@ -369,11 +422,7 @@ const PropertyCards = (props: any) => {
               fill
               loader={imageLoader}
               alt="snaphomz-property-image"
-              src={
-                props?.listing?.media?.primaryListingImageUrl
-                  ? props?.listing?.media?.primaryListingImageUrl
-                  : '/assets/images/placeholder.svg'
-              }
+              src={primaryImage}
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 target.src = '/assets/images/placeholder.svg';
@@ -396,7 +445,7 @@ const PropertyCards = (props: any) => {
         {/* Price + Snapz icon */}
         <div className="flex items-start justify-between">
           <h3 className="text-2xl font-bold text-white group-hover:text-ocOrange transition-colors duration-300 mb-0">
-            {formatCurrency(props?.listing?.listPriceLow || 0, 'USD').replace('$', '$ ')}
+            {formatCurrency(listing?.listPriceLow ?? listing?.listPrice ?? props?.price ?? 0, 'USD').replace('$', '$ ')}
           </h3>
           <SnapzHeartButton
             isActive={isFavored}
@@ -422,10 +471,10 @@ const PropertyCards = (props: any) => {
         {/* Address */}
         <div className="text-sm text-white mb-0.5 leading-tight">
           <p>
-            {props?.listing?.address?.unparsedAddress}
-            {props?.listing?.address?.unparsedAddress ? ', ' : ''}
-            {props?.listing?.address?.city}, {props?.listing?.address?.stateOrProvince}{' '}
-            {props?.listing?.address?.zipCode}
+            {address?.unparsedAddress ?? props?.unparsedAddress}
+            {(address?.unparsedAddress ?? props?.unparsedAddress) ? ', ' : ''}
+            {address?.city ?? props?.city}, {address?.stateOrProvince ?? props?.state}{' '}
+            {address?.zipCode ?? props?.zipCode}
           </p>
         </div>
 
@@ -434,7 +483,7 @@ const PropertyCards = (props: any) => {
           <div className="flex flex-col items-center gap-2.5">
             <BedDouble className="w-6 h-6 text-white/80" />
             <span className="text-white text-lg font-semibold">
-              {props?.listing?.property?.bedroomsTotal || 0} Bed
+              {beds} Bed
             </span>
           </div>
 
@@ -458,7 +507,7 @@ const PropertyCards = (props: any) => {
               className="h-6 w-6"
             />
             <span className="text-white text-lg font-semibold">
-              {props?.listing?.property?.livingArea || 0} sqft
+              {sqft} sqft
             </span>
           </div>
         </div>

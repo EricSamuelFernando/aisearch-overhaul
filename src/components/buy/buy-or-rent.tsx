@@ -1,12 +1,16 @@
 import Image from 'next/image';
+import { cn } from '@/lib/utils';
 
-export default function BuyOrRent() {
+export default function BuyOrRent({
+  headingClassName,
+}: {
+  headingClassName?: string;
+}) {
   return (
     <section className='home-rent-section flex w-full min-h-full flex-col items-center justify-start gap-6 bg-[#FFF6EC] px-4 py-6 text-[#1b120d] sm:justify-center sm:gap-12 sm:px-6 sm:py-0 md:px-12 lg:px-24 xl:px-28 2xl:px-32'>
       {/* Heading */}
-      <div className='max-w-2xl xl:max-w-3xl text-center'>
-        <h1 className='text-2xl font-semibold leading-tight text-[#2C1F18] sm:text-4xl md:text-5xl xl:text-6xl'>
-          Buy <span className='font-light'>Or</span> Rent?
+      <div className='max-w-2xl text-center'>
+        <h1 className={cn('text-3xl font-medium leading-tight text-[#2C1F18] sm:text-4xl md:text-5xl', headingClassName)}>Buy <span className='font-light'>Or</span> Rent?
         </h1>
         <p className='mt-2 max-w-xl text-xs leading-relaxed text-[#6E645A] sm:mt-6 sm:text-base md:text-lg'>
           Find out which option builds your wealth faster — factoring in rent

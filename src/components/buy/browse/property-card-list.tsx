@@ -82,7 +82,7 @@ export default function PropertyCardLists() {
         setLoadingMore(false);
       } else {
         console.error('Error fetching MLS data:', mlsData.error);
-       // clearProperties();
+        // clearProperties();
         setHasMore(false);
         setLoadingMore(false);
       }
@@ -119,10 +119,10 @@ export default function PropertyCardLists() {
 
   useEffect(() => {
     setPage(1);
-    // clearProperties();
+    clearProperties();
     setHasMore(true);
     setLoadingMore(false);
-    
+
   }, [
     query,
     priceMin,
@@ -142,7 +142,7 @@ export default function PropertyCardLists() {
   //     </div>
   //   );
   // }
-  console.log(allProperties )
+  console.log(allProperties)
 
   return (
     <div className='flex h-full w-full flex-col pb-4 pt-4'>

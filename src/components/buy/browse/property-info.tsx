@@ -307,14 +307,14 @@ function PropertyBrowseView({ }: Props) {
     return availability;
   }, [allProperties, subCategories]);
 
-  const displayedProperties = Array.isArray(drawFilteredPropertyIds)
-    ? (Array.isArray(allProperties)
-      ? allProperties.filter((p: any) => {
-        const listingId = resolveListingId(p);
-        return !!listingId && drawFilteredPropertyIds.includes(listingId);
-      })
-      : [])
-    : allProperties;
+  const displayedProperties = useMemo(() => {
+    if (!Array.isArray(drawFilteredPropertyIds)) return allProperties;
+
+    return allProperties.filter((p: any) => {
+      const listingId = resolveListingId(p);
+      return !!listingId && drawFilteredPropertyIds.includes(listingId);
+    });
+  }, [allProperties, drawFilteredPropertyIds]);
 
   const featureFilteredProperties = useMemo(() => {
     if (!selectedSubCategories.length) return displayedProperties;
@@ -339,14 +339,18 @@ function PropertyBrowseView({ }: Props) {
     });
   }, [displayedProperties, selectedSubCategories, subCategories]);
 
-  const coordinates = allProperties?.map((property: any) => ({
-    id: resolveListingId(property),
-    price: property?.listing?.listPriceLow ?? property?._raw_listing?.listPriceLow ?? property?.price,
-    lat: property?.public?.latitude ?? property?._raw_public?.latitude ?? property?._raw_listing?.property?.latitude ?? property?.latitude,
-    lng: property?.public?.longitude ?? property?._raw_public?.longitude ?? property?._raw_listing?.property?.longitude ?? property?.longitude,
-  })).filter(coord => coord.lat && coord.lng);
+  const coordinates = allProperties?.map((property: any) => {
+    const lat = property?.public?.latitude ?? property?._raw_public?.latitude ?? property?._raw_listing?.property?.latitude ?? property?.latitude ?? property?.lat;
+    const lng = property?.public?.longitude ?? property?._raw_public?.longitude ?? property?._raw_listing?.property?.longitude ?? property?.longitude ?? property?.lon;
+    return {
+      id: resolveListingId(property),
+      price: property?.listing?.listPriceLow ?? property?._raw_listing?.listPriceLow ?? property?.price,
+      lat: typeof lat === 'number' ? lat : parseFloat(lat),
+      lng: typeof lng === 'number' ? lng : parseFloat(lng),
+    };
+  }).filter(coord => Number.isFinite(coord.lat) && Number.isFinite(coord.lng));
 
-  const resultCount = Array.isArray(featureFilteredProperties) ? featureFilteredProperties.length : 0;
+  const resultCount = displayedProperties.length;
   const hasDrawFilter = Array.isArray(drawFilteredPropertyIds);
 
   useEffect(() => {

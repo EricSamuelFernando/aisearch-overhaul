@@ -2,11 +2,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { askQuestion, searchProperties, cancelActiveTask, fetchHistory, fetchSessionDetails, clearHistoryAPI, suggestAddresses, fetchThinkingProgress } from '@/lib/api';
 import type { QuestionPayload, AddressSuggestion, ThinkingProgressResponse } from '@/lib/api';
-import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
+import { getMlsBypassStorageKey, isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { detectIntent } from '@/lib/chatRouting';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
-import { Sparkles, Paperclip, X, ArrowUp, Mic, Search as SearchIcon, FileText, Image as ImageIcon, ChevronDown, ChevronUp, MapPin, School, Shield, Footprints, Thermometer, CloudSun, BedDouble, Bath, Square, Scaling, Calendar, Clock, TrendingUp, GraduationCap, Trees, Plus, Lightbulb, Droplets, HelpCircle } from 'lucide-react';
+import { Sparkles, Paperclip, X, ArrowUp, Mic, Search as SearchIcon, FileText, Image as ImageIcon, Camera, ChevronDown, ChevronUp, MapPin, School, Shield, Footprints, Thermometer, CloudSun, BedDouble, Bath, Square, Scaling, Calendar, Clock, TrendingUp, GraduationCap, Trees, Plus, Lightbulb, Droplets, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, ReferenceDot } from 'recharts';
 import SchoolMapPanel from '@/components/SchoolMapPanel';
@@ -150,6 +150,17 @@ const SNAP_YES_KEYWORDS = [
     'y',
     'yes please'
 ];
+
+const AI_MODE_TIPS = [
+    'Let AI help you find the perfect home.',
+    'Ask AI about nearby schools and neighborhoods.',
+    'Ask AI about mortgage options and affordability.',
+    'Snap a photo to find similar homes instantly.',
+    'Ask AI whether renting or buying is better for you.',
+    'Ask AI about current home loan interest rates.',
+    'Ask AI anything about buying or renting a home.'
+];
+const AI_MODE_TIP_LAST_INDEX_STORAGE_KEY = 'snaphomz:ai-mode-tip:last-index';
 
 const DEFAULT_MAIN_SITE_URL = 'https://demo.snaphomz.com';
 
@@ -868,7 +879,22 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     // Session State for Conversation Persistence
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [recentSessions, setRecentSessions] = useState<any[]>([]);
-    const [mlsBypassMode, setMlsBypassMode] = useState(false);
+    const getInitialMlsBypassMode = () => {
+        if (typeof window === 'undefined') return true;
+        try {
+            const stored = localStorage.getItem(getMlsBypassStorageKey());
+            if (stored === null) return true; // default AI OFF on first load
+            return stored === '1';
+        } catch {
+            return true;
+        }
+    };
+    const [mlsBypassMode, setMlsBypassMode] = useState(getInitialMlsBypassMode);
+    const [aiModeActive, setAiModeActive] = useState(() => !getInitialMlsBypassMode());
+    const aiModeTipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const hasShownInitialAiTipRef = useRef(false);
+    const [showAiModeTip, setShowAiModeTip] = useState(false);
+    const [aiModeTipIndex, setAiModeTipIndex] = useState(0);
     const [pendingLocationImage, setPendingLocationImage] = useState<File | null>(null);
     const [pendingImage, setPendingImage] = useState<File | null>(null);
     const [pendingImagePreview, setPendingImagePreview] = useState<string | null>(null);
@@ -880,7 +906,15 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     // Rent Vs Buy State
 
     useEffect(() => {
-        setMlsBypassMode(isMlsBypassModeEnabled());
+        try {
+            const storageKey = getMlsBypassStorageKey();
+            const stored = localStorage.getItem(storageKey);
+            if (stored !== null) {
+                setMlsBypassMode(isMlsBypassModeEnabled());
+            }
+        } catch {
+            // no-op
+        }
 
         const handleBypassChange = (event: Event) => {
             const customEvent = event as CustomEvent<boolean>;
@@ -918,6 +952,57 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             cancelled = true;
         };
     }, [isMenuOpen]);
+
+    const getNextAiTipIndex = React.useCallback(() => {
+        if (typeof window === 'undefined') return 0;
+
+        try {
+            const lastRaw = localStorage.getItem(AI_MODE_TIP_LAST_INDEX_STORAGE_KEY);
+            const last = lastRaw !== null ? Number(lastRaw) : -1;
+            const next = Number.isFinite(last)
+                ? (Math.trunc(last) + 1 + AI_MODE_TIPS.length) % AI_MODE_TIPS.length
+                : 0;
+
+            localStorage.setItem(AI_MODE_TIP_LAST_INDEX_STORAGE_KEY, String(next));
+            return next;
+        } catch {
+            return 0;
+        }
+    }, []);
+
+    const showMobileAiModeTip = React.useCallback(() => {
+        setAiModeTipIndex(getNextAiTipIndex());
+        setShowAiModeTip(true);
+        if (aiModeTipTimerRef.current) {
+            clearTimeout(aiModeTipTimerRef.current);
+        }
+        aiModeTipTimerRef.current = setTimeout(() => {
+            setShowAiModeTip(false);
+        }, 5500);
+    }, [getNextAiTipIndex]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const tryShowInitialTip = () => {
+            if (hasShownInitialAiTipRef.current) return;
+            const isMobileViewport = window.matchMedia('(max-width: 767px)').matches;
+            if (!isMobileViewport) return;
+            if (isExpanded) return;
+            hasShownInitialAiTipRef.current = true;
+            showMobileAiModeTip();
+        };
+
+        const timer = window.setTimeout(tryShowInitialTip, 650);
+        window.addEventListener('resize', tryShowInitialTip);
+        window.addEventListener('orientationchange', tryShowInitialTip);
+
+        return () => {
+            window.clearTimeout(timer);
+            window.removeEventListener('resize', tryShowInitialTip);
+            window.removeEventListener('orientationchange', tryShowInitialTip);
+        };
+    }, [isExpanded, showMobileAiModeTip]);
 
     // Typing effect for placeholder
     useEffect(() => {
@@ -1016,12 +1101,50 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const [selectedPropertyId, setSelectedPropertyId] = useState<string | number | null>(null);
     const [expandedPropertyId, setExpandedPropertyId] = useState<string | number | null>(null);
 
-    const handleAttachmentClick = (type: 'image' | 'pdf') => {
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-            fileInputRef.current.accept = type === 'image' ? "image/*" : "application/pdf";
-            fileInputRef.current.click();
+    const openHiddenFileInput = (type: 'image' | 'pdf', options?: { capture?: 'environment' | 'user' }) => {
+        if (!fileInputRef.current) return;
+        fileInputRef.current.value = '';
+        fileInputRef.current.accept = type === 'image' ? 'image/*' : 'application/pdf';
+
+        if (options?.capture && type === 'image') {
+            fileInputRef.current.setAttribute('capture', options.capture);
+        } else {
+            fileInputRef.current.removeAttribute('capture');
         }
+
+        fileInputRef.current.click();
+    };
+
+    const requestLocationAccess = async () => {
+        if (typeof navigator === 'undefined' || !('geolocation' in navigator)) return;
+
+        await new Promise<void>((resolve) => {
+            let settled = false;
+            const finish = () => {
+                if (settled) return;
+                settled = true;
+                resolve();
+            };
+
+            navigator.geolocation.getCurrentPosition(
+                () => finish(),
+                () => finish(),
+                { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 }
+            );
+
+            // Guard in case callback does not return.
+            setTimeout(() => finish(), 11000);
+        });
+    };
+
+    const handleAttachmentClick = (type: 'image' | 'pdf') => {
+        openHiddenFileInput(type);
+        setShowAttachMenu(false);
+    };
+
+    const handleMobileCameraClick = async () => {
+        await requestLocationAccess();
+        openHiddenFileInput('image', { capture: 'environment' });
         setShowAttachMenu(false);
     };
 
@@ -1062,6 +1185,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     }, []);
 
     const startNewChat = React.useCallback((options?: { focusInput?: boolean }) => {
+        setShowAiModeTip(false);
+        if (aiModeTipTimerRef.current) {
+            clearTimeout(aiModeTipTimerRef.current);
+            aiModeTipTimerRef.current = null;
+        }
         setIsExpanded(true);
         setSearchTerm('');
         setChatHistory([]);
@@ -1104,18 +1232,54 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             if (locationSuggestDebounceRef.current) {
                 clearTimeout(locationSuggestDebounceRef.current);
             }
+            if (aiModeTipTimerRef.current) {
+                clearTimeout(aiModeTipTimerRef.current);
+            }
         };
     }, []);
 
     const toggleMlsBypass = () => {
-        const next = !mlsBypassMode;
-        setMlsBypassModeEnabled(next);
-        setMlsBypassMode(next);
-        if (next) {
+        setMlsBypassMode((prev) => {
+            const next = !prev;
+            const nextAiModeActive = !next;
+            setAiModeActive(nextAiModeActive);
+            setShowSuggestions(nextAiModeActive && !searchTerm.trim() && !isExpanded);
+            if (nextAiModeActive && !isExpanded) {
+                showMobileAiModeTip();
+            } else {
+                setShowAiModeTip(false);
+                if (aiModeTipTimerRef.current) {
+                    clearTimeout(aiModeTipTimerRef.current);
+                    aiModeTipTimerRef.current = null;
+                }
+            }
+            return next;
+        });
+    };
+
+    useEffect(() => {
+        setAiModeActive(!mlsBypassMode);
+    }, [mlsBypassMode]);
+
+    useEffect(() => {
+        if (isExpanded) {
+            setShowAiModeTip(false);
+        }
+    }, [isExpanded]);
+
+    useEffect(() => {
+        if (!aiModeActive) {
+            setShowAiModeTip(false);
+        }
+    }, [aiModeActive]);
+
+    useEffect(() => {
+        setMlsBypassModeEnabled(mlsBypassMode);
+        if (mlsBypassMode) {
             setSessionId(null);
             setRecentSessions([]);
         }
-    };
+    }, [mlsBypassMode]);
 
     const appendAssistantMessage = (content: string) => {
         const msgId = (Date.now() + Math.random()).toString();
@@ -1137,20 +1301,39 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
     const renderPendingImageChip = (variant: 'collapsed' | 'expanded') => {
         if (!pendingImage && !pendingImagePreview) return null;
+
+        if (variant === 'expanded') {
+            return (
+                <div className="flex items-start">
+                    <div className="relative h-[72px] w-[108px] sm:h-20 sm:w-28 rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 shadow-[0_8px_24px_rgba(15,23,42,0.12)]">
+                        {pendingImagePreview ? (
+                            <img src={pendingImagePreview} alt="Selected upload" className="object-cover w-full h-full" />
+                        ) : (
+                            <ImageIcon className="w-5 h-5 text-gray-500 absolute inset-0 m-auto" />
+                        )}
+                        <button
+                            type="button"
+                            onClick={resetPendingImageSelection}
+                            className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/75 text-white flex items-center justify-center hover:bg-black transition-colors"
+                            aria-label="Remove selected image"
+                        >
+                            <X className="w-3 h-3" />
+                        </button>
+                        {pendingImageStatus === 'processing' && (
+                            <div className="absolute inset-0 bg-white/75 backdrop-blur-[1px] flex items-center justify-center">
+                                <span className="text-[10px] font-semibold text-gray-700">Preparing...</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
         const statusText = pendingImageStatus === 'processing' ? 'Preparing image...' : 'Add location and send';
-        const isExpandedVariant = variant === 'expanded';
-        const padding = isExpandedVariant ? 'pl-3 pr-2 py-2' : 'pl-2.5 pr-2 py-1.5';
-        const thumbSize = isExpandedVariant ? 'w-10 h-10' : 'w-9 h-9';
-        const textClass = isExpandedVariant ? 'text-sm' : 'text-xs';
-        const statusClass = isExpandedVariant ? 'text-xs' : 'text-[11px]';
-        const gap = isExpandedVariant ? 'gap-3' : 'gap-2';
-        const maxWidth = isExpandedVariant ? 'max-w-[130px] sm:max-w-[220px]' : 'max-w-[180px] sm:max-w-[210px]';
 
         return (
-            <div
-                className={`flex items-center ${gap} bg-white border border-gray-200 rounded-3xl shadow-[0_6px_16px_rgba(15,23,42,0.08)] ${padding} ${maxWidth}`}
-            >
-                <div className={`relative ${thumbSize} rounded-2xl overflow-hidden border border-gray-100 bg-gray-100`}>
+            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-3xl shadow-[0_6px_16px_rgba(15,23,42,0.08)] pl-2.5 pr-2 py-1.5 max-w-[180px] sm:max-w-[210px]">
+                <div className="relative w-9 h-9 rounded-2xl overflow-hidden border border-gray-100 bg-gray-100">
                     {pendingImagePreview ? (
                         <img src={pendingImagePreview} alt="Selected upload" className="object-cover w-full h-full" />
                     ) : (
@@ -1158,10 +1341,10 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     )}
                 </div>
                 <div className="flex flex-col min-w-0 leading-tight">
-                    <span className={`${textClass} font-semibold text-gray-900 truncate`}>
+                    <span className="text-xs font-semibold text-gray-900 truncate">
                         {pendingImage?.name || 'Attached'}
                     </span>
-                    <span className={`${statusClass} text-gray-400`}>{statusText}</span>
+                    <span className="text-[11px] text-gray-400">{statusText}</span>
                 </div>
                 <button
                     type="button"
@@ -2091,6 +2274,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         setSearchTerm(text);
         handleSearchSubmit(text);
         setShowSuggestions(false);
+        setShowAiModeTip(false);
+        if (aiModeTipTimerRef.current) {
+            clearTimeout(aiModeTipTimerRef.current);
+            aiModeTipTimerRef.current = null;
+        }
     };
 
     // ─── Address autocomplete helpers ──────────────────────────────────────────
@@ -2641,6 +2829,49 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     -ms-overflow-style: none;
                     scrollbar-width: none;
                 }
+                .ai-mode-shell {
+                    position: relative;
+                    border-radius: 999px;
+                    border: 1px solid #f2cfb0;
+                    background: linear-gradient(180deg, #fffaf4 0%, #fff3e7 100%);
+                    box-shadow: 0 6px 14px rgba(240, 118, 57, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+                    overflow: hidden;
+                    isolation: isolate;
+                }
+                .ai-mode-shell::before {
+                    content: '';
+                    position: absolute;
+                    inset: -30%;
+                    border-radius: inherit;
+                    background: conic-gradient(
+                        from 0deg,
+                        transparent 0deg 286deg,
+                        #ffd5af 302deg,
+                        #f8a86b 324deg,
+                        #f07639 344deg,
+                        #ffd9b7 360deg
+                    );
+                    animation: ai-mode-snake-orbit 1.8s linear infinite;
+                    pointer-events: none;
+                    z-index: 0;
+                }
+                .ai-mode-shell::after {
+                    content: '';
+                    position: absolute;
+                    inset: 1.2px;
+                    border-radius: inherit;
+                    background: linear-gradient(180deg, #fffaf5 0%, #fff3e8 100%);
+                    z-index: 1;
+                    pointer-events: none;
+                }
+                @keyframes ai-mode-snake-orbit {
+                    0% {
+                        transform: rotate(0deg);
+                    }
+                    100% {
+                        transform: rotate(360deg);
+                    }
+                }
                 @media (max-width: 639px) {
                     .mobile-no-scrollbar::-webkit-scrollbar {
                         display: none;
@@ -2648,6 +2879,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     .mobile-no-scrollbar {
                         -ms-overflow-style: none;
                         scrollbar-width: none;
+                    }
+                }
+                @media (prefers-reduced-motion: reduce) {
+                    .ai-mode-shell::before {
+                        animation: none !important;
                     }
                 }
             `}</style>
@@ -2705,8 +2941,6 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             </defs>
                                         </svg>
                                     </div>
-                                    <div className="mx-2 h-9 w-px bg-[#8A6444]/45 md:hidden" />
-
                                     {/* Input Field */}
                                     <div className="flex-1 min-w-0 flex items-center gap-3">
                                         {renderPendingImageChip('collapsed')}
@@ -2716,31 +2950,99 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             onChange={(e) => {
                                                 const val = e.target.value;
                                                 setSearchTerm(val);
+                                                setShowAiModeTip(false);
+                                                if (aiModeTipTimerRef.current) {
+                                                    clearTimeout(aiModeTipTimerRef.current);
+                                                    aiModeTipTimerRef.current = null;
+                                                }
                                                 fetchAddressSuggestions(val);
                                             }}
-                                            onFocus={() => { setShowSuggestions(true); onSuggestionsOpen?.(true); }}
+                                            onFocus={() => {
+                                                setShowSuggestions(false);
+                                                onSuggestionsOpen?.(false);
+                                                setShowAiModeTip(false);
+                                                if (aiModeTipTimerRef.current) {
+                                                    clearTimeout(aiModeTipTimerRef.current);
+                                                    aiModeTipTimerRef.current = null;
+                                                }
+                                            }}
                                             onBlur={() => setTimeout(() => {
                                                 setShowSuggestions(false);
                                                 setShowAddressSuggestions(false);
                                                 setShowLocationSuggestions(false);
                                                 onSuggestionsOpen?.(false);
                                             }, 200)}
-                                            placeholder={pendingImage ? '' : (placeholderText || typedPlaceholder)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                    e.preventDefault();
+                                                    if (pendingImage) {
+                                                        if (pendingImageStatus === 'ready') {
+                                                            submitPendingImage();
+                                                        }
+                                                        return;
+                                                    }
+                                                    handleSearchSubmit(searchTerm);
+                                                }
+                                            }}
+                                            placeholder={pendingImage ? 'Add city, ZIP, or coordinates for this image' : (placeholderText || typedPlaceholder)}
                                             className="flex-1 min-w-0 bg-transparent outline-none px-3 md:px-4 py-2 text-gray-700 placeholder-gray-400 text-sm md:text-sm font-medium"
                                         />
                                     </div>
 
-                                    {/* Mobile AI Search pill */}
+                                    {/* Mobile AI Toggle Icon */}
+                                    <div className="md:hidden relative flex-shrink-0">
+                                        <button
+                                            type="button"
+                                            onMouseDown={(event) => {
+                                                event.preventDefault();
+                                                event.stopPropagation();
+                                            }}
+                                            onClick={toggleMlsBypass}
+                                            aria-pressed={aiModeActive}
+                                            title={aiModeActive ? 'AI Search is ON' : 'AI Search is OFF'}
+                                            className={`relative h-[36px] transition-all duration-300 ${aiModeActive
+                                                ? 'w-[96px] ai-mode-shell'
+                                                : 'w-[96px] rounded-full border border-[#D8DDE6] bg-[#F3F5F8] text-[#4B4B4B]'
+                                                }`}
+                                        >
+                                            <span className={`relative z-[2] flex h-full w-full items-center justify-center gap-1.5 rounded-full px-2 text-[10px] font-semibold tracking-wide ${aiModeActive ? 'text-[#5A2B13]' : 'text-[#4B4B4B]'}`}>
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    viewBox="0 0 24 24"
+                                                    width="24"
+                                                    height="24"
+                                                    fill="#000000"
+                                                    style={{ opacity: 1 }}
+                                                    className="h-3.5 w-3.5"
+                                                >
+                                                    <path d="M8.037 3.167a1.44 1.44 0 0 0 .482 1.43A5.001 5.001 0 0 0 9.5 14.5a5 5 0 0 0 4.748-3.435l.027.083c.1.25.26.461.48.622c.22.149.478.228.747.229l-.005.001h.004a6.5 6.5 0 0 1-.905 1.535l3.434 3.435a.75.75 0 0 1-.976 1.133l-.084-.073l-3.435-3.434A6.5 6.5 0 1 1 8.037 3.167M15.484 6a.3.3 0 0 1 .286.201l.249.766a1.58 1.58 0 0 0 .999.998l.765.248l.015.004a.303.303 0 0 1 .146.46a.3.3 0 0 1-.146.11l-.765.248a1.58 1.58 0 0 0-.999.998l-.249.766a.302.302 0 0 1-.57 0l-.25-.766a1.58 1.58 0 0 0-.998-1.002l-.765-.248a.303.303 0 0 1-.146-.46a.3.3 0 0 1 .146-.11l.765-.248a1.58 1.58 0 0 0 .984-.998L15.2 6.2a.3.3 0 0 1 .284-.2M12.48 0a.42.42 0 0 1 .399.282l.348 1.072a2.2 2.2 0 0 0 1.398 1.396l1.072.349l.022.005a.424.424 0 0 1 0 .797l-1.072.349a2.2 2.2 0 0 0-1.399 1.396L12.9 6.718a.423.423 0 0 1-.643.204l-.02-.015a.43.43 0 0 1-.135-.19l-.348-1.07a2.22 2.22 0 0 0-1.399-1.403l-1.072-.348a.423.423 0 0 1 0-.797l1.072-.349a2.21 2.21 0 0 0 1.377-1.396L12.08.282a.42.42 0 0 1 .4-.282" />
+                                                </svg>
+                                                <span>AI MODE</span>
+                                            </span>
+                                        </button>
+                                        <AnimatePresence>
+                                            {showAiModeTip && !isExpanded && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                    exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                                                    transition={{ duration: 0.2 }}
+                                                    className="absolute bottom-full right-0 mb-3 w-[220px] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl z-[75]"
+                                                >
+                                                    <p className="text-[11px] font-semibold text-[#5A2B13]">AI Tip</p>
+                                                    <p className="mt-1 text-[11px] leading-relaxed text-gray-700">{AI_MODE_TIPS[aiModeTipIndex]}</p>
+                                                    <span className="absolute -bottom-1 right-6 h-2 w-2 rotate-45 border-r border-b border-[#f2cfb0] bg-white" />
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
                                     <button
                                         type="button"
-                                        onClick={toggleMlsBypass}
-                                        title={!mlsBypassMode ? 'AI Search is ON' : 'AI Search is OFF'}
-                                        className={`md:hidden h-10 rounded-full px-4 text-[13px] font-semibold transition-colors border-2 ${!mlsBypassMode
-                                            ? 'bg-[#FFFBEF] text-[#94661E] border-[#E7D293]'
-                                            : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-                                            }`}
+                                        onClick={handleMobileCameraClick}
+                                        title="Upload image"
+                                        className="md:hidden h-10 w-10 text-[#1E1E1E] flex items-center justify-center transition-colors hover:text-black"
                                     >
-                                        Ai Search
+                                        <Camera className="h-[18px] w-[18px]" />
                                     </button>
 
                                     {/* Right Actions */}
@@ -2806,19 +3108,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                         </Button>
                                     </div>
                                 </div>
-                                {/* Mobile Search Button */}
-                                <Button
-                                    type='submit'
-                                    disabled={!!pendingImage && pendingImageStatus !== 'ready'}
-                                    className="md:hidden bg-[#F58634] hover:bg-[#E07224] text-white rounded-[14px] w-10 h-10 flex items-center justify-center transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634] p-0 shadow-none"
-                                >
-                                    <SearchIcon className="w-5 h-5" />
-                                </Button>
                             </motion.form>
 
                             {/* Integrated Suggestions Dropdown */}
                             <AnimatePresence>
-                                {!searchTerm && showSuggestions && (
+                                {!searchTerm && showSuggestions && aiModeActive && (
                                     <motion.div
                                         initial={{ opacity: 0, height: 0 }}
                                         animate={{ opacity: 1, height: 'auto' }}
@@ -2837,7 +3131,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                         onMouseDown={() => handleSuggestionClick(suggestion.text)}
                                                         className="flex items-center gap-3 p-3 hover:bg-orange-50/50 rounded-xl cursor-pointer group transition-all"
                                                     >
-                                                        <SearchIcon className="w-4 h-4 text-gray-300 group-hover:text-[#F58634] transition-colors" />
+                                                        <SearchIcon
+                                                            className="w-4 h-4 flex-shrink-0 text-gray-400 group-hover:text-[#F58634] transition-colors"
+                                                            strokeWidth={2.25}
+                                                            absoluteStrokeWidth
+                                                        />
                                                         <span className="text-gray-600 group-hover:text-gray-900 font-medium text-sm transition-colors leading-snug">
                                                             {suggestion.text}
                                                         </span>
@@ -3904,102 +4202,116 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                     </div>
 
                                     {/* Search Input */}
-                                    <div className={`relative min-w-0 ${pendingImage || pendingImagePreview ? 'w-full sm:flex-1' : 'flex-1'}`}>
-                                        {(pendingImage || pendingImagePreview) && (
-                                            <div className="absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 z-10">
-                                                {renderPendingImageChip('expanded')}
-                                            </div>
-                                        )}
-                                        <textarea
-                                            ref={searchInputRef}
-                                            value={searchTerm}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                setSearchTerm(val);
-                                                fetchAddressSuggestions(val);
-                                                e.target.style.height = 'auto';
-                                                e.target.style.height = e.target.scrollHeight + 'px';
-                                            }}
-                                            onFocus={() => { setShowSuggestions(true); onSuggestionsOpen?.(true); }}
-                                            onBlur={() => setTimeout(() => {
-                                                setShowSuggestions(false);
-                                                setShowAddressSuggestions(false);
-                                                setShowLocationSuggestions(false);
-                                                onSuggestionsOpen?.(false);
-                                            }, 200)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' && !e.shiftKey) {
-                                                    e.preventDefault();
-                                                    if (pendingImage) {
-                                                        if (pendingImageStatus === 'ready') {
-                                                            submitPendingImage();
-                                                        }
-                                                    } else {
-                                                        handleSearchSubmit(searchTerm);
-                                                    }
-                                                    // Reset height on submit
-                                                    if (searchInputRef.current) {
-                                                        searchInputRef.current.style.height = 'auto';
-                                                    }
-                                                }
-                                            }}
-                                            placeholder={pendingImage ? "" : typedPlaceholder}
-                                            rows={1}
-                                            className={`w-full bg-white text-gray-900 rounded-2xl sm:rounded-3xl min-h-[64px] sm:min-h-[68px] max-h-32 sm:max-h-40 overflow-y-hidden resize-none py-4 sm:py-[22px] ${pendingImage || pendingImagePreview ? 'pl-36 sm:pl-[19rem]' : 'pl-4 sm:pl-5'} pr-28 sm:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-[14px] sm:text-base placeholder:text-gray-400 font-normal leading-relaxed`}
-                                        />
-                                        <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 sm:gap-4">
-
-                                            {/* Attach Icon & Menu */}
-                                            <div className="relative">
-                                                <div
-                                                    className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
-                                                    onClick={() => setShowAttachMenu(!showAttachMenu)}
-                                                >
-                                                    <Paperclip className="w-5 h-5 sm:w-5 sm:h-5" />
+                                    <div className="flex-1 min-w-0">
+                                        <div className="relative min-w-0">
+                                            {(pendingImage || pendingImagePreview) && (
+                                                <div className="absolute left-3 top-3 z-10 md:hidden">
+                                                    {renderPendingImageChip('expanded')}
                                                 </div>
-
-                                                {/* Dropdown Menu (Opens Upwards) */}
-                                                <AnimatePresence>
-                                                    {showAttachMenu && (
-                                                        <motion.div
-                                                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                                                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                                                            transition={{ duration: 0.2 }}
-                                                            className="absolute bottom-full right-0 mb-2 w-32 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200 ring-1 ring-black/5 overflow-hidden z-[70]"
+                                            )}
+                                            {(pendingImage || pendingImagePreview) && (
+                                                <div className="hidden md:block absolute left-4 top-1/2 -translate-y-1/2 z-10">
+                                                    {renderPendingImageChip('collapsed')}
+                                                </div>
+                                            )}
+                                            <textarea
+                                                ref={searchInputRef}
+                                                value={searchTerm}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setSearchTerm(val);
+                                                    fetchAddressSuggestions(val);
+                                                    e.target.style.height = 'auto';
+                                                    e.target.style.height = e.target.scrollHeight + 'px';
+                                                }}
+                                                onFocus={() => setShowSuggestions(true)}
+                                                onBlur={() => setTimeout(() => {
+                                                    setShowSuggestions(false);
+                                                    setShowAddressSuggestions(false);
+                                                    setShowLocationSuggestions(false);
+                                                }, 200)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                                        e.preventDefault();
+                                                        if (pendingImage) {
+                                                            if (pendingImageStatus === 'ready') {
+                                                                submitPendingImage();
+                                                            }
+                                                        } else {
+                                                            handleSearchSubmit(searchTerm);
+                                                        }
+                                                        // Reset height on submit
+                                                        if (searchInputRef.current) {
+                                                            searchInputRef.current.style.height = 'auto';
+                                                        }
+                                                    }
+                                                }}
+                                                placeholder={pendingImage ? "Type city, ZIP, or coordinates for this image" : ""}
+                                                rows={1}
+                                                className={`w-full bg-white text-gray-900 rounded-2xl sm:rounded-3xl overflow-y-hidden resize-none pl-4 sm:pl-5 ${pendingImage || pendingImagePreview ? 'min-h-[128px] max-h-48 sm:max-h-56 pt-[88px] pb-3 md:min-h-[68px] md:max-h-40 md:pt-4 md:pb-[22px] md:pl-[14rem]' : 'min-h-[64px] sm:min-h-[68px] max-h-32 sm:max-h-40 py-4 sm:py-[22px]'} pr-24 sm:pr-24 md:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-[14px] sm:text-base placeholder:text-gray-400 font-normal leading-relaxed`}
+                                            />
+                                            <div className={`absolute right-2 sm:right-3 flex items-center gap-1.5 sm:gap-4 ${(pendingImage || pendingImagePreview) ? 'bottom-2 md:top-1/2 md:-translate-y-1/2' : 'top-1/2 -translate-y-1/2'}`}>
+                                                <div className="hidden md:flex items-center gap-1.5 sm:gap-4">
+                                                    {/* Attach Icon & Menu */}
+                                                    <div className="relative">
+                                                        <div
+                                                            className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
+                                                            onClick={() => setShowAttachMenu(!showAttachMenu)}
                                                         >
-                                                            <div className="flex flex-col p-1.5 gap-1">
-                                                                <button
-                                                                    onClick={() => handleAttachmentClick('image')}
-                                                                    type="button"
-                                                                    className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
+                                                            <Paperclip className="w-5 h-5 sm:w-5 sm:h-5" />
+                                                        </div>
+
+                                                        {/* Dropdown Menu (Opens Upwards) */}
+                                                        <AnimatePresence>
+                                                            {showAttachMenu && (
+                                                                <motion.div
+                                                                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                                    transition={{ duration: 0.2 }}
+                                                                    className="absolute bottom-full right-0 mb-2 w-32 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200 ring-1 ring-black/5 overflow-hidden z-[70]"
                                                                 >
-                                                                    <ImageIcon className="w-4 h-4 text-blue-500" />
-                                                                    <span>Image</span>
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleAttachmentClick('pdf')}
-                                                                    type="button"
-                                                                    className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
-                                                                >
-                                                                    <FileText className="w-4 h-4 text-red-500" />
-                                                                    <span>PDF</span>
-                                                                </button>
-                                                            </div>
-                                                        </motion.div>
-                                                    )}
-                                                </AnimatePresence>
-                                            </div>
+                                                                    <div className="flex flex-col p-1.5 gap-1">
+                                                                        <button
+                                                                            onClick={() => handleAttachmentClick('image')}
+                                                                            type="button"
+                                                                            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
+                                                                        >
+                                                                            <ImageIcon className="w-4 h-4 text-blue-500" />
+                                                                            <span>Image</span>
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => handleAttachmentClick('pdf')}
+                                                                            type="button"
+                                                                            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
+                                                                        >
+                                                                            <FileText className="w-4 h-4 text-red-500" />
+                                                                            <span>PDF</span>
+                                                                        </button>
+                                                                    </div>
+                                                                </motion.div>
+                                                            )}
+                                                        </AnimatePresence>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={toggleMlsBypass}
+                                                        title={mlsBypassMode ? 'AI Mode is OFF' : 'AI Mode is ON'}
+                                                        className={`h-7 sm:h-8 rounded-full px-2.5 sm:px-3 text-[10px] sm:text-[11px] font-semibold border transition-colors ${!mlsBypassMode
+                                                            ? 'bg-orange-50 text-[#F58634] border-orange-200 hover:bg-orange-100'
+                                                            : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
+                                                            }`}
+                                                    >
+                                                        AI Mode
+                                                    </button>
+                                                </div>
                                             <button
                                                 type="button"
-                                                onClick={toggleMlsBypass}
-                                                title={mlsBypassMode ? 'AI Mode is OFF' : 'AI Mode is ON'}
-                                                className={`h-7 sm:h-8 rounded-full px-2.5 sm:px-3 text-[10px] sm:text-[11px] font-semibold border transition-colors ${!mlsBypassMode
-                                                    ? 'bg-orange-50 text-[#F58634] border-orange-200 hover:bg-orange-100'
-                                                    : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
-                                                    }`}
+                                                onClick={handleMobileCameraClick}
+                                                title="Upload image"
+                                                className="md:hidden h-10 w-10 text-[#1E1E1E] flex items-center justify-center transition-colors hover:text-black"
                                             >
-                                                AI Mode
+                                                <Camera className="h-[21px] w-[21px]" />
                                             </button>
 
                                             <button
@@ -4009,6 +4321,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             >
                                                 {isSearching ? <Square className="w-4 h-4 fill-white" /> : <ArrowUp className="w-4.5 h-4.5 sm:w-5 sm:h-5" />}
                                             </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -4033,7 +4346,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                             onMouseDown={() => handleSuggestionClick(suggestion.text)}
                                                             className="flex items-center gap-3 p-3 hover:bg-orange-50/50 rounded-xl cursor-pointer group transition-all"
                                                         >
-                                                            <SearchIcon className="w-4 h-4 text-gray-300 group-hover:text-[#F58634] transition-colors" />
+                                                            <SearchIcon
+                                                                className="w-4 h-4 flex-shrink-0 text-gray-400 group-hover:text-[#F58634] transition-colors"
+                                                                strokeWidth={2.25}
+                                                                absoluteStrokeWidth
+                                                            />
                                                             <span className="text-gray-600 group-hover:text-gray-900 font-medium text-sm transition-colors leading-snug">
                                                                 {suggestion.text}
                                                             </span>

@@ -4537,7 +4537,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { askQuestion, searchProperties, cancelActiveTask, fetchHistory, fetchSessionDetails, clearHistoryAPI, suggestAddresses } from '@/lib/api';
 import type { QuestionPayload, AddressSuggestion } from '@/lib/api';
-import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
+import { getMlsBypassStorageKey, isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { detectIntent } from '@/lib/chatRouting';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
@@ -5175,7 +5175,18 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   // Session State for Conversation Persistence
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [recentSessions, setRecentSessions] = useState<any[]>([]);
-  const [mlsBypassMode, setMlsBypassMode] = useState(false);
+  const getInitialMlsBypassMode = () => {
+    if (typeof window === 'undefined') return true;
+    try {
+      const stored = localStorage.getItem(getMlsBypassStorageKey());
+      if (stored === null) return true; // default AI OFF on first load
+      return stored === '1';
+    } catch {
+      return true;
+    }
+  };
+  const [mlsBypassMode, setMlsBypassMode] = useState(getInitialMlsBypassMode);
+  const [aiModeActive, setAiModeActive] = useState(() => !getInitialMlsBypassMode());
   const [pendingLocationImage, setPendingLocationImage] = useState<File | null>(null);
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const [pendingImagePreview, setPendingImagePreview] = useState<string | null>(null);
@@ -5187,7 +5198,15 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   // Rent Vs Buy State
 
   useEffect(() => {
-    setMlsBypassMode(isMlsBypassModeEnabled());
+    try {
+      const storageKey = getMlsBypassStorageKey();
+      const stored = localStorage.getItem(storageKey);
+      if (stored !== null) {
+        setMlsBypassMode(isMlsBypassModeEnabled());
+      }
+    } catch {
+      // no-op
+    }
 
     const handleBypassChange = (event: Event) => {
       const customEvent = event as CustomEvent<boolean>;
@@ -5394,14 +5413,24 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
   }, []);
 
   const toggleMlsBypass = () => {
-    const next = !mlsBypassMode;
-    setMlsBypassModeEnabled(next);
-    setMlsBypassMode(next);
-    if (next) {
+    setMlsBypassMode((prev) => {
+      const next = !prev;
+      setAiModeActive(!next);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    setAiModeActive(!mlsBypassMode);
+  }, [mlsBypassMode]);
+
+  useEffect(() => {
+    setMlsBypassModeEnabled(mlsBypassMode);
+    if (mlsBypassMode) {
       setSessionId(null);
       setRecentSessions([]);
     }
-  };
+  }, [mlsBypassMode]);
 
   const appendAssistantMessage = (content: string) => {
     const msgId = (Date.now() + Math.random()).toString();
@@ -6897,6 +6926,18 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                         setShowAddressSuggestions(false);
                         setShowLocationSuggestions(false);
                       }, 200)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          if (pendingImage) {
+                            if (pendingImageStatus === 'ready') {
+                              submitPendingImage();
+                            }
+                            return;
+                          }
+                          handleSearchSubmit(searchTerm);
+                        }
+                      }}
                       placeholder={
                         pendingImage
                           ? 'Add city, ZIP, or coordinates\nfor this image'
@@ -6924,17 +6965,29 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     />
                   </div>
 
-                  {/* Mobile AI Search pill */}
+                  {/* Mobile AI Toggle Icon */}
                   <button
                     type="button"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }}
                     onClick={toggleMlsBypass}
-                    title={!mlsBypassMode ? 'AI Search is ON' : 'AI Search is OFF'}
-                    className={`md:hidden h-10 rounded-full px-4 text-[13px] font-semibold transition-colors border-2 ${!mlsBypassMode
-                      ? 'bg-[#FFFBEF] text-[#94661E] border-[#E7D293]'
-                      : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                    aria-pressed={aiModeActive}
+                    title={aiModeActive ? 'AI Search is ON' : 'AI Search is OFF'}
+                    className={`md:hidden flex-shrink-0 w-10 h-10 flex items-center justify-center transition-colors p-0 bg-transparent ${aiModeActive
+                      ? 'text-[#F58634]'
+                      : 'text-[#4B4B4B]'
                       }`}
                   >
-                    Ai Search
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      className="w-7 h-7"
+                    >
+                      <path d="M8.037 3.167a1.44 1.44 0 0 0 .482 1.43A5.001 5.001 0 0 0 9.5 14.5a5 5 0 0 0 4.748-3.435l.027.083c.1.25.26.461.48.622c.22.149.478.228.747.229l-.005.001h.004a6.5 6.5 0 0 1-.905 1.535l3.434 3.435a.75.75 0 0 1-.976 1.133l-.084-.073l-3.435-3.434A6.5 6.5 0 1 1 8.037 3.167M15.484 6a.3.3 0 0 1 .286.201l.249.766a1.58 1.58 0 0 0 .999.998l.765.248l.015.004a.303.303 0 0 1 .146.46a.3.3 0 0 1-.146.11l-.765.248a1.58 1.58 0 0 0-.999.998l-.249.766a.302.302 0 0 1-.57 0l-.25-.766a1.58 1.58 0 0 0-.998-1.002l-.765-.248a.303.303 0 0 1-.146-.46a.3.3 0 0 1 .146-.11l.765-.248a1.58 1.58 0 0 0 .984-.998L15.2 6.2a.3.3 0 0 1 .284-.2M12.48 0a.42.42 0 0 1 .399.282l.348 1.072a2.2 2.2 0 0 0 1.398 1.396l1.072.349l.022.005a.424.424 0 0 1 0 .797l-1.072.349a2.2 2.2 0 0 0-1.399 1.396L12.9 6.718a.423.423 0 0 1-.643.204l-.02-.015a.43.43 0 0 1-.135-.19l-.348-1.07a2.22 2.22 0 0 0-1.399-1.403l-1.072-.348a.423.423 0 0 1 0-.797l1.072-.349a2.21 2.21 0 0 0 1.377-1.396L12.08.282a.42.42 0 0 1 .4-.282" />
+                    </svg>
                   </button>
 
                   {/* Right Actions */}
@@ -7001,14 +7054,6 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                   </div>
                 </div>
 
-                {/* Mobile Search Button */}
-                <Button
-                  type='submit'
-                  disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
-                  className="md:hidden bg-[#F58634] hover:bg-[#E07224] text-white rounded-[14px] w-10 h-10 flex items-center justify-center transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634] p-0 shadow-none"
-                >
-                  <SearchIcon className="w-5 h-5" />
-                </Button>
               </motion.form>
 
               {/* Integrated Suggestions Dropdown */}

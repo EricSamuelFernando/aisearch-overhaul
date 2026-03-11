@@ -1511,10 +1511,10 @@ export default function Home() {
             </div>
 
             <div className={`-mt-3 flex flex-col md:flex-row md:flex-nowrap items-center gap-y-0.5 md:gap-x-3 justify-center transition-all duration-200 ${isSearchSuggestionsOpen ? 'invisible opacity-0' : 'visible opacity-100'}`}>
-              <span className="text-[1rem] font-medium text-white transition-colors">
+              <span className={`text-[1rem] font-medium transition-colors ${isHomeSearchActive ? 'text-[#111827]' : 'text-white'}`}>
                 Conversational Search,
               </span>
-              <span className="text-[1rem] font-bold underline text-white transition-colors">
+              <span className={`text-[1rem] font-bold underline transition-colors ${isHomeSearchActive ? 'text-[#111827]' : 'text-white'}`}>
                 Powered by Snaphomz AI.
               </span>
               <button className="uiverse">

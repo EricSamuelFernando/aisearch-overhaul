@@ -1177,7 +1177,7 @@ export default function Home() {
       <MainNavPages />
 
       {/* ================= HERO SECTION ================= */}
-      <section className="home-hero relative -mt-24 min-h-[80vh] bg-[#170800] pt-28 text-white md:h-[695px] md:min-h-[695px] md:max-h-[695px] md:pt-24">
+      <section className="home-hero relative -mt-24 min-h-[80vh] bg-[#170800] pt-28 text-white md:h-[760px] md:min-h-[760px] md:max-h-[760px] md:pt-24">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {/* ================= DESKTOP ARC ================= */}
 
@@ -1467,7 +1467,7 @@ export default function Home() {
         </div>
 
 
-        <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pt-24 pb-24 md:pb-28 text-center">
+        <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pt-24 pb-24 md:pb-36 text-center">
 
           {/* ================= TEXT + SEARCH ================= */}
           <div className="home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-8 mt-24 md:mt-24">
@@ -1509,7 +1509,7 @@ export default function Home() {
               </div> */}
             </div>
 
-            <div className="mb-4 flex flex-col md:flex-row md:flex-nowrap items-center gap-y-0.5 md:gap-x-3 md:mb-6 justify-center md:justify-start">
+            <div className="mb-4 flex flex-col md:flex-row md:flex-nowrap items-center gap-y-0.5 md:gap-x-3 md:mb-6 md:mt-2 justify-center md:justify-start">
               <span
                 className={`text-[1rem] font-medium transition-colors ${isHomeSearchActive ? 'text-white md:text-[#2C211A]' : 'text-white'}`}
               >

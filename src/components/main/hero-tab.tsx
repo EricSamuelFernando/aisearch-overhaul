@@ -6,7 +6,7 @@ import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypas
 import { detectIntent } from '@/lib/chatRouting';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
-import { Sparkles, Paperclip, X, ArrowUp, Mic, Search as SearchIcon, FileText, Image as ImageIcon, ChevronDown, ChevronUp, MapPin, School, Shield, Footprints, Thermometer, CloudSun, BedDouble, Bath, Square, Scaling, Calendar, Clock, TrendingUp, GraduationCap, Trees, Plus, Lightbulb, Droplets, HelpCircle } from 'lucide-react';
+import { Sparkles, Paperclip, X, ArrowUp, Mic, Search as SearchIcon, FileText, Image as ImageIcon, Camera, ChevronDown, ChevronUp, MapPin, School, Shield, Footprints, Thermometer, CloudSun, BedDouble, Bath, Square, Scaling, Calendar, Clock, TrendingUp, GraduationCap, Trees, Plus, Lightbulb, Droplets, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, ReferenceDot } from 'recharts';
 import SchoolMapPanel from '@/components/SchoolMapPanel';
@@ -1016,12 +1016,50 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const [selectedPropertyId, setSelectedPropertyId] = useState<string | number | null>(null);
     const [expandedPropertyId, setExpandedPropertyId] = useState<string | number | null>(null);
 
-    const handleAttachmentClick = (type: 'image' | 'pdf') => {
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-            fileInputRef.current.accept = type === 'image' ? "image/*" : "application/pdf";
-            fileInputRef.current.click();
+    const openHiddenFileInput = (type: 'image' | 'pdf', options?: { capture?: 'environment' | 'user' }) => {
+        if (!fileInputRef.current) return;
+        fileInputRef.current.value = '';
+        fileInputRef.current.accept = type === 'image' ? 'image/*' : 'application/pdf';
+
+        if (options?.capture && type === 'image') {
+            fileInputRef.current.setAttribute('capture', options.capture);
+        } else {
+            fileInputRef.current.removeAttribute('capture');
         }
+
+        fileInputRef.current.click();
+    };
+
+    const requestLocationAccess = async () => {
+        if (typeof navigator === 'undefined' || !('geolocation' in navigator)) return;
+
+        await new Promise<void>((resolve) => {
+            let settled = false;
+            const finish = () => {
+                if (settled) return;
+                settled = true;
+                resolve();
+            };
+
+            navigator.geolocation.getCurrentPosition(
+                () => finish(),
+                () => finish(),
+                { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 }
+            );
+
+            // Guard in case callback does not return.
+            setTimeout(() => finish(), 11000);
+        });
+    };
+
+    const handleAttachmentClick = (type: 'image' | 'pdf') => {
+        openHiddenFileInput(type);
+        setShowAttachMenu(false);
+    };
+
+    const handleMobileCameraClick = async () => {
+        await requestLocationAccess();
+        openHiddenFileInput('image', { capture: 'environment' });
         setShowAttachMenu(false);
     };
 
@@ -2714,8 +2752,6 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             </defs>
                                         </svg>
                                     </div>
-                                    <div className="mx-2 h-9 w-px bg-[#8A6444]/45 md:hidden" />
-
                                     {/* Input Field */}
                                     <div className="flex-1 min-w-0 flex items-center gap-3">
                                         {renderPendingImageChip('collapsed')}
@@ -2749,6 +2785,14 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             }`}
                                     >
                                         Ai Search
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleMobileCameraClick}
+                                        title="Upload image"
+                                        className="md:hidden h-10 w-10 text-[#1E1E1E] flex items-center justify-center transition-colors hover:text-black"
+                                    >
+                                        <Camera className="h-[18px] w-[18px]" />
                                     </button>
 
                                     {/* Right Actions */}
@@ -2814,14 +2858,6 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                         </Button>
                                     </div>
                                 </div>
-                                {/* Mobile Search Button */}
-                                <Button
-                                    type='submit'
-                                    disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
-                                    className="md:hidden bg-[#F58634] hover:bg-[#E07224] text-white rounded-[14px] w-10 h-10 flex items-center justify-center transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634] p-0 shadow-none"
-                                >
-                                    <SearchIcon className="w-5 h-5" />
-                                </Button>
                             </motion.form>
 
                             {/* Integrated Suggestions Dropdown */}
@@ -2845,7 +2881,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                         onMouseDown={() => handleSuggestionClick(suggestion.text)}
                                                         className="flex items-center gap-3 p-3 hover:bg-orange-50/50 rounded-xl cursor-pointer group transition-all"
                                                     >
-                                                        <SearchIcon className="w-4 h-4 text-gray-300 group-hover:text-[#F58634] transition-colors" />
+                                                        <SearchIcon
+                                                            className="w-4 h-4 flex-shrink-0 text-gray-400 group-hover:text-[#F58634] transition-colors"
+                                                            strokeWidth={2.25}
+                                                            absoluteStrokeWidth
+                                                        />
                                                         <span className="text-gray-600 group-hover:text-gray-900 font-medium text-sm transition-colors leading-snug">
                                                             {suggestion.text}
                                                         </span>
@@ -4040,7 +4080,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                             onMouseDown={() => handleSuggestionClick(suggestion.text)}
                                                             className="flex items-center gap-3 p-3 hover:bg-orange-50/50 rounded-xl cursor-pointer group transition-all"
                                                         >
-                                                            <SearchIcon className="w-4 h-4 text-gray-300 group-hover:text-[#F58634] transition-colors" />
+                                                            <SearchIcon
+                                                                className="w-4 h-4 flex-shrink-0 text-gray-400 group-hover:text-[#F58634] transition-colors"
+                                                                strokeWidth={2.25}
+                                                                absoluteStrokeWidth
+                                                            />
                                                             <span className="text-gray-600 group-hover:text-gray-900 font-medium text-sm transition-colors leading-snug">
                                                                 {suggestion.text}
                                                             </span>

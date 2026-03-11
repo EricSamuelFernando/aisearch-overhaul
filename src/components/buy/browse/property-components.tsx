@@ -5,7 +5,6 @@ import { LandingPropertyListingShuffledSet } from '@/interfaces/property.interfa
 import PropertyCards from './property-card';
 
 const PropertyComponents = (props: any) => {
-  console.log(props);
   return props.type === 'mls' ? (
     <NewMLSPropertyCard {...props.data} />
   ) : (

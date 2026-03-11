@@ -5245,6 +5245,37 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     };
   }, [isMenuOpen]);
 
+  useEffect(() => {
+    if (!onSearchStateChange) return;
+
+    const isSearchUiActive =
+      isExpanded ||
+      isMenuOpen ||
+      showAttachMenu ||
+      showSuggestions ||
+      showAddressSuggestions ||
+      showLocationSuggestions ||
+      isLoadingAddressSuggestions ||
+      isLoadingLocationSuggestions ||
+      !!pendingImage ||
+      !!pendingLocationImage;
+
+    onSearchStateChange(isSearchUiActive, searchTerm);
+  }, [
+    isExpanded,
+    isMenuOpen,
+    showAttachMenu,
+    showSuggestions,
+    showAddressSuggestions,
+    showLocationSuggestions,
+    isLoadingAddressSuggestions,
+    isLoadingLocationSuggestions,
+    pendingImage,
+    pendingLocationImage,
+    searchTerm,
+    onSearchStateChange,
+  ]);
+
   // Dynamic Loading State
   const [loadingStep, setLoadingStep] = useState(0);
   const loadingMessages = [

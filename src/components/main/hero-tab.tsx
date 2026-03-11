@@ -837,7 +837,7 @@ export default function HeroTab() {
     );
 }
 
-export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchActive }: { placeholderText?: string, onSearchStateChange?: (isActive: boolean, searchTerm: string) => void, isSearchActive?: boolean, searchType?: string, showOutline?: boolean, disableAutoExpand?: boolean }) => {
+export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchActive, onSuggestionsOpen }: { placeholderText?: string, onSearchStateChange?: (isActive: boolean, searchTerm: string) => void, isSearchActive?: boolean, searchType?: string, showOutline?: boolean, disableAutoExpand?: boolean, onSuggestionsOpen?: (open: boolean) => void }) => {
     // --- Hooks & State ---
     // Mocked state
     const searchCount = 0;
@@ -2670,7 +2670,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     padding: isExpanded ? 16 : 8, // keep expanded layout comfortable on mobile
                 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full ${isExpanded ? 'max-w-[1200px]' : 'max-w-[620px]'
+                className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full ${isExpanded ? 'max-w-[1200px]' : 'max-w-[860px]'
                     }`}
             >
                 <input
@@ -2727,11 +2727,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                 setSearchTerm(val);
                                                 fetchAddressSuggestions(val);
                                             }}
-                                            onFocus={() => setShowSuggestions(true)}
+                                            onFocus={() => { setShowSuggestions(true); onSuggestionsOpen?.(true); }}
                                             onBlur={() => setTimeout(() => {
                                                 setShowSuggestions(false);
                                                 setShowAddressSuggestions(false);
                                                 setShowLocationSuggestions(false);
+                                                onSuggestionsOpen?.(false);
                                             }, 200)}
                                             placeholder={pendingImage ? 'Add city, ZIP, or coordinates for this image' : (placeholderText || typedPlaceholder)}
                                             className="flex-1 min-w-0 bg-transparent outline-none px-3 md:px-4 py-2 text-gray-700 placeholder-gray-400 text-sm md:text-sm font-medium"
@@ -3928,11 +3929,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                 e.target.style.height = 'auto';
                                                 e.target.style.height = e.target.scrollHeight + 'px';
                                             }}
-                                            onFocus={() => setShowSuggestions(true)}
+                                            onFocus={() => { setShowSuggestions(true); onSuggestionsOpen?.(true); }}
                                             onBlur={() => setTimeout(() => {
                                                 setShowSuggestions(false);
                                                 setShowAddressSuggestions(false);
                                                 setShowLocationSuggestions(false);
+                                                onSuggestionsOpen?.(false);
                                             }, 200)}
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter' && !e.shiftKey) {

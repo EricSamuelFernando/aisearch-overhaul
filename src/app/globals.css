@@ -1584,6 +1584,11 @@ input:-webkit-autofill {
   background-color: #FFF6EC;
 }
 
+.home-hero-arc {
+  --home-hero-arc-radius: 430px;
+  --home-hero-card-size: 150px;
+}
+
 @media (min-width: 768px) {
   .home-sections>*+* {
     margin-top: 3.5rem;
@@ -1598,9 +1603,12 @@ input:-webkit-autofill {
   }
 
   .home-hero-arc {
+    --home-hero-arc-radius: 450px;
+    --home-hero-card-size: 136px;
     width: 1400px !important;
     height: 980px !important;
     top: 7rem !important;
+    margin-left: -64px;
   }
 
   .home-hero-content {
@@ -1694,9 +1702,12 @@ input:-webkit-autofill {
   }
 
   .home-hero-arc {
+    --home-hero-arc-radius: 480px;
+    --home-hero-card-size: 140px;
     width: 1520px !important;
     height: 1060px !important;
     top: 6.8rem !important;
+    margin-left: -72px;
   }
 
   .home-hero-title {

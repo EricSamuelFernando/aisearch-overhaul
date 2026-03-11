@@ -970,7 +970,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         }
     }, []);
 
-    const showMobileAiModeTip = React.useCallback(() => {
+    const showAiModeTipBubble = React.useCallback(() => {
         setAiModeTipIndex(getNextAiTipIndex());
         setShowAiModeTip(true);
         if (aiModeTipTimerRef.current) {
@@ -986,11 +986,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
         const tryShowInitialTip = () => {
             if (hasShownInitialAiTipRef.current) return;
-            const isMobileViewport = window.matchMedia('(max-width: 767px)').matches;
-            if (!isMobileViewport) return;
             if (isExpanded) return;
             hasShownInitialAiTipRef.current = true;
-            showMobileAiModeTip();
+            showAiModeTipBubble();
         };
 
         const timer = window.setTimeout(tryShowInitialTip, 650);
@@ -1002,7 +1000,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             window.removeEventListener('resize', tryShowInitialTip);
             window.removeEventListener('orientationchange', tryShowInitialTip);
         };
-    }, [isExpanded, showMobileAiModeTip]);
+    }, [isExpanded, showAiModeTipBubble]);
 
     // Typing effect for placeholder
     useEffect(() => {
@@ -1245,7 +1243,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             setAiModeActive(nextAiModeActive);
             setShowSuggestions(nextAiModeActive && !searchTerm.trim() && !isExpanded);
             if (nextAiModeActive && !isExpanded) {
-                showMobileAiModeTip();
+                showAiModeTipBubble();
             } else {
                 setShowAiModeTip(false);
                 if (aiModeTipTimerRef.current) {
@@ -1256,6 +1254,55 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             return next;
         });
     };
+
+    const renderAiModeToggle = () => (
+        <div className="relative flex-shrink-0">
+            <button
+                type="button"
+                onMouseDown={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }}
+                onClick={toggleMlsBypass}
+                aria-pressed={aiModeActive}
+                title={aiModeActive ? 'AI Search is ON' : 'AI Search is OFF'}
+                className={`relative h-[36px] w-[96px] transition-all duration-300 ${aiModeActive
+                    ? 'ai-mode-shell'
+                    : 'rounded-full border border-[#D8DDE6] bg-[#F3F5F8] text-[#4B4B4B]'
+                    }`}
+            >
+                <span className={`relative z-[2] flex h-full w-full items-center justify-center gap-1.5 rounded-full px-2 text-[10px] font-semibold tracking-wide ${aiModeActive ? 'text-[#5A2B13]' : 'text-[#4B4B4B]'}`}>
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        width="24"
+                        height="24"
+                        fill="#000000"
+                        style={{ opacity: 1 }}
+                        className="h-3.5 w-3.5"
+                    >
+                        <path d="M8.037 3.167a1.44 1.44 0 0 0 .482 1.43A5.001 5.001 0 0 0 9.5 14.5a5 5 0 0 0 4.748-3.435l.027.083c.1.25.26.461.48.622c.22.149.478.228.747.229l-.005.001h.004a6.5 6.5 0 0 1-.905 1.535l3.434 3.435a.75.75 0 0 1-.976 1.133l-.084-.073l-3.435-3.434A6.5 6.5 0 1 1 8.037 3.167M15.484 6a.3.3 0 0 1 .286.201l.249.766a1.58 1.58 0 0 0 .999.998l.765.248l.015.004a.303.303 0 0 1 .146.46a.3.3 0 0 1-.146.11l-.765.248a1.58 1.58 0 0 0-.999.998l-.249.766a.302.302 0 0 1-.57 0l-.25-.766a1.58 1.58 0 0 0-.998-1.002l-.765-.248a.303.303 0 0 1-.146-.46a.3.3 0 0 1 .146-.11l.765-.248a1.58 1.58 0 0 0 .984-.998L15.2 6.2a.3.3 0 0 1 .284-.2M12.48 0a.42.42 0 0 1 .399.282l.348 1.072a2.2 2.2 0 0 0 1.398 1.396l1.072.349l.022.005a.424.424 0 0 1 0 .797l-1.072.349a2.2 2.2 0 0 0-1.399 1.396L12.9 6.718a.423.423 0 0 1-.643.204l-.02-.015a.43.43 0 0 1-.135-.19l-.348-1.07a2.22 2.22 0 0 0-1.399-1.403l-1.072-.348a.423.423 0 0 1 0-.797l1.072-.349a2.21 2.21 0 0 0 1.377-1.396L12.08.282a.42.42 0 0 1 .4-.282" />
+                    </svg>
+                    <span>AI MODE</span>
+                </span>
+            </button>
+            <AnimatePresence>
+                {showAiModeTip && !isExpanded && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute bottom-full right-0 mb-3 w-[220px] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl z-[75]"
+                    >
+                        <p className="text-[11px] font-semibold text-[#5A2B13]">AI Tip</p>
+                        <p className="mt-1 text-[11px] leading-relaxed text-gray-700">{AI_MODE_TIPS[aiModeTipIndex]}</p>
+                        <span className="absolute -bottom-1 right-6 h-2 w-2 rotate-45 border-r border-b border-[#f2cfb0] bg-white" />
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
 
     useEffect(() => {
         setAiModeActive(!mlsBypassMode);
@@ -2989,52 +3036,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                         />
                                     </div>
 
-                                    {/* Mobile AI Toggle Icon */}
-                                    <div className="md:hidden relative flex-shrink-0">
-                                        <button
-                                            type="button"
-                                            onMouseDown={(event) => {
-                                                event.preventDefault();
-                                                event.stopPropagation();
-                                            }}
-                                            onClick={toggleMlsBypass}
-                                            aria-pressed={aiModeActive}
-                                            title={aiModeActive ? 'AI Search is ON' : 'AI Search is OFF'}
-                                            className={`relative h-[36px] transition-all duration-300 ${aiModeActive
-                                                ? 'w-[96px] ai-mode-shell'
-                                                : 'w-[96px] rounded-full border border-[#D8DDE6] bg-[#F3F5F8] text-[#4B4B4B]'
-                                                }`}
-                                        >
-                                            <span className={`relative z-[2] flex h-full w-full items-center justify-center gap-1.5 rounded-full px-2 text-[10px] font-semibold tracking-wide ${aiModeActive ? 'text-[#5A2B13]' : 'text-[#4B4B4B]'}`}>
-                                                <svg
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 24 24"
-                                                    width="24"
-                                                    height="24"
-                                                    fill="#000000"
-                                                    style={{ opacity: 1 }}
-                                                    className="h-3.5 w-3.5"
-                                                >
-                                                    <path d="M8.037 3.167a1.44 1.44 0 0 0 .482 1.43A5.001 5.001 0 0 0 9.5 14.5a5 5 0 0 0 4.748-3.435l.027.083c.1.25.26.461.48.622c.22.149.478.228.747.229l-.005.001h.004a6.5 6.5 0 0 1-.905 1.535l3.434 3.435a.75.75 0 0 1-.976 1.133l-.084-.073l-3.435-3.434A6.5 6.5 0 1 1 8.037 3.167M15.484 6a.3.3 0 0 1 .286.201l.249.766a1.58 1.58 0 0 0 .999.998l.765.248l.015.004a.303.303 0 0 1 .146.46a.3.3 0 0 1-.146.11l-.765.248a1.58 1.58 0 0 0-.999.998l-.249.766a.302.302 0 0 1-.57 0l-.25-.766a1.58 1.58 0 0 0-.998-1.002l-.765-.248a.303.303 0 0 1-.146-.46a.3.3 0 0 1 .146-.11l.765-.248a1.58 1.58 0 0 0 .984-.998L15.2 6.2a.3.3 0 0 1 .284-.2M12.48 0a.42.42 0 0 1 .399.282l.348 1.072a2.2 2.2 0 0 0 1.398 1.396l1.072.349l.022.005a.424.424 0 0 1 0 .797l-1.072.349a2.2 2.2 0 0 0-1.399 1.396L12.9 6.718a.423.423 0 0 1-.643.204l-.02-.015a.43.43 0 0 1-.135-.19l-.348-1.07a2.22 2.22 0 0 0-1.399-1.403l-1.072-.348a.423.423 0 0 1 0-.797l1.072-.349a2.21 2.21 0 0 0 1.377-1.396L12.08.282a.42.42 0 0 1 .4-.282" />
-                                                </svg>
-                                                <span>AI MODE</span>
-                                            </span>
-                                        </button>
-                                        <AnimatePresence>
-                                            {showAiModeTip && !isExpanded && (
-                                                <motion.div
-                                                    initial={{ opacity: 0, y: 6, scale: 0.98 }}
-                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                                    exit={{ opacity: 0, y: 4, scale: 0.98 }}
-                                                    transition={{ duration: 0.2 }}
-                                                    className="absolute bottom-full right-0 mb-3 w-[220px] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl z-[75]"
-                                                >
-                                                    <p className="text-[11px] font-semibold text-[#5A2B13]">AI Tip</p>
-                                                    <p className="mt-1 text-[11px] leading-relaxed text-gray-700">{AI_MODE_TIPS[aiModeTipIndex]}</p>
-                                                    <span className="absolute -bottom-1 right-6 h-2 w-2 rotate-45 border-r border-b border-[#f2cfb0] bg-white" />
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
+                                    {/* AI Toggle */}
+                                    <div className="md:hidden">
+                                        {renderAiModeToggle()}
                                     </div>
                                     <button
                                         type="button"
@@ -3047,17 +3051,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
                                     {/* Right Actions */}
                                     <div className="hidden md:flex items-center gap-2 flex-shrink-0 pr-1">
-                                        <button
-                                            type="button"
-                                            onClick={toggleMlsBypass}
-                                            title={!mlsBypassMode ? 'AI Search is ON' : 'AI Search is OFF'}
-                                            className={`h-9 md:h-10 rounded-full px-4 text-sm font-semibold transition-colors border ${!mlsBypassMode
-                                                ? 'bg-orange-50 text-[#F58634] border-orange-200'
-                                                : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-                                                }`}
-                                        >
-                                            Ai Search
-                                        </button>
+                                        {renderAiModeToggle()}
                                         <div className="relative">
                                             <div
                                                 className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
@@ -4293,17 +4287,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                             )}
                                                         </AnimatePresence>
                                                     </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={toggleMlsBypass}
-                                                        title={mlsBypassMode ? 'AI Mode is OFF' : 'AI Mode is ON'}
-                                                        className={`h-7 sm:h-8 rounded-full px-2.5 sm:px-3 text-[10px] sm:text-[11px] font-semibold border transition-colors ${!mlsBypassMode
-                                                            ? 'bg-orange-50 text-[#F58634] border-orange-200 hover:bg-orange-100'
-                                                            : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
-                                                            }`}
-                                                    >
-                                                        AI Mode
-                                                    </button>
+                                                    {renderAiModeToggle()}
                                                 </div>
                                             <button
                                                 type="button"

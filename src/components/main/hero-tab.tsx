@@ -919,6 +919,37 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         };
     }, [isMenuOpen]);
 
+    useEffect(() => {
+        if (!onSearchStateChange) return;
+
+        const isSearchUiActive =
+            isExpanded ||
+            isMenuOpen ||
+            showAttachMenu ||
+            showSuggestions ||
+            showAddressSuggestions ||
+            showLocationSuggestions ||
+            isLoadingAddressSuggestions ||
+            isLoadingLocationSuggestions ||
+            !!pendingImage ||
+            !!pendingLocationImage;
+
+        onSearchStateChange(isSearchUiActive, searchTerm);
+    }, [
+        isExpanded,
+        isMenuOpen,
+        showAttachMenu,
+        showSuggestions,
+        showAddressSuggestions,
+        showLocationSuggestions,
+        isLoadingAddressSuggestions,
+        isLoadingLocationSuggestions,
+        pendingImage,
+        pendingLocationImage,
+        searchTerm,
+        onSearchStateChange,
+    ]);
+
     // Typing effect for placeholder
     useEffect(() => {
         const text = "Ask anything about homes, neighborhoods, schools";

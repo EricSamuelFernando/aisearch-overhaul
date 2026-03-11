@@ -1509,7 +1509,12 @@ export default function Home() {
               </div> */}
             </div>
 
-            <div className="mb-4 flex flex-col md:flex-row md:flex-nowrap items-center gap-y-0.5 md:gap-x-3 md:mb-6 md:mt-2 justify-center md:justify-start">
+            <div
+              className={`relative mb-4 flex flex-col md:flex-row md:flex-nowrap items-center gap-y-0.5 md:gap-x-3 md:mb-6 md:mt-2 justify-center md:justify-start rounded-full px-4 py-2 md:px-5 transition-all ${isHomeSearchActive
+                ? 'z-40 md:bg-[#FFF6EC] md:shadow-[0_8px_24px_rgba(44,33,26,0.12)]'
+                : 'md:bg-transparent md:shadow-none'
+                }`}
+            >
               <span
                 className={`text-[1rem] font-medium transition-colors ${isHomeSearchActive ? 'text-white md:text-[#2C211A]' : 'text-white'}`}
               >

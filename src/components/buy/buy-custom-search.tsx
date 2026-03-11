@@ -554,7 +554,10 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
     setSearchString(normalizedQuery);
     if (globalLastAutoSearch === normalizedQuery) return;
     globalLastAutoSearch = normalizedQuery;
+    // Redundant search logic removed to avoid store clearing race conditions
+    /*
     sendSearchRequest(normalizedQuery);
+    */
   }, [searchParams, searchTerm, isHiddenInMapMode]);
 
 

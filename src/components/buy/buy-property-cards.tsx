@@ -25,8 +25,8 @@ type Props = {
 };
 
 // How many cards to show initially and how many to reveal per scroll trigger
-const INITIAL_VISIBLE = 50;
-const LOAD_MORE_STEP = 50;
+const INITIAL_VISIBLE = 12;
+const LOAD_MORE_STEP = 12;
 
 const resolveListingId = (item: any): string | undefined => {
   const data = item?.data || item;

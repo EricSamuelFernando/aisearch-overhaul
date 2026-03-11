@@ -23,6 +23,7 @@ const PropertyCards = (props: any) => {
   const { saveCurrenctProperty } = usePropertyActions();
   const router = useRouter();
   const [carouselEvent, setCarouselEvent] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const { openCollectionModal } = useCollectionModal();
   const { isLoggedIn } = useAuth();
   const userData = useSelector((state: any) => state.auth.user);
@@ -66,7 +67,7 @@ const PropertyCards = (props: any) => {
           src={src}
           alt="snaphomz-property-image"
           fill
-          unoptimized
+          loader={imageLoader}
           className="object-cover"
         />
       </div>
@@ -238,6 +239,8 @@ const PropertyCards = (props: any) => {
     return (
       <div
         onClick={handleClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
         className={`relative flex h-full min-h-[260px] w-full cursor-pointer flex-col overflow-hidden rounded-xl border bg-white shadow-sm transition-all duration-200 hover:shadow-md ${isSelectedForCompare ? 'border-orange-400' : 'border-gray-200'
           }`}
       >
@@ -271,7 +274,7 @@ const PropertyCards = (props: any) => {
         )}
 
         <div className="relative aspect-[16/9] w-full overflow-hidden bg-gray-100">
-          {hasCarousel && slides?.length ? (
+          {hasCarousel && slides?.length && isHovered ? (
             <div className="relative h-full">
               <EmblaCarousel
                 slides={slides}
@@ -362,6 +365,8 @@ const PropertyCards = (props: any) => {
   return (
     <div
       onClick={handleClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       className={`relative w-full min-h-[380px] cursor-pointer overflow-hidden rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-[1.02] border 
       ${isSelectedForCompare ? 'border-4 border-ocOrange' : 'border-gray-800 hover:border-ocOrange'} group`}
     >
@@ -404,7 +409,7 @@ const PropertyCards = (props: any) => {
 
       {/* Full Image Background */}
       <div className="absolute inset-0 w-full h-full">
-        {hasCarousel && slides?.length ? (
+        {hasCarousel && slides?.length && isHovered ? (
           <div className="relative h-full">
             <EmblaCarousel
               slides={slides}
@@ -491,7 +496,7 @@ const PropertyCards = (props: any) => {
           <div className="flex flex-col items-center gap-2.5">
             <Bath className="w-6 h-6 text-white/80" />
             <span className="text-white text-lg font-semibold">
-              {props?.listing?.property?.bathroomsTotal || 0} Bath
+              {baths} Bath
             </span>
           </div>
 

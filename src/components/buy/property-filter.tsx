@@ -765,6 +765,7 @@ function PropertyFilter() {
 
   const isInitialSortMount = useRef(true);
 
+  /*
   useEffect(() => {
     if (isInitialSortMount.current) {
       isInitialSortMount.current = false;
@@ -773,6 +774,7 @@ function PropertyFilter() {
     if (selectedSort.value || selectedPropertyType.value)
       sendSearchRequest()
   }, [selectedSort, selectedPropertyType]);
+  */
   const categories = [
     { title: 'Condo', icon: <SchoolIcon /> },
     { title: 'Duplex', icon: <PoolIcon /> },
@@ -992,6 +994,8 @@ function PropertyFilter() {
   const isInitialFilterMount = useRef(true);
   const initializedFiltersRef = useRef(false);
 
+  // Duplicate search logic removed to avoid store clearing race conditions with PropertyBrowseView
+  /*
   useEffect(() => {
     // If it's the very first render, skip it
     if (isInitialFilterMount.current) {
@@ -1007,6 +1011,7 @@ function PropertyFilter() {
 
     sendSearchRequest();
   }, [selectedCategories, selectedSubCategories]);
+  */
 
 
   const items = categories.map(({ title, icon }) => (

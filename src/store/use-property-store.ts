@@ -44,21 +44,83 @@ export const usePropertyStore = create<PropertyStore>((set) => ({
   isCompareMode: false,
   selectedCompareProperties: [],
 
-  setAllProperties: (properties) => set({ allProperties: properties }),
+  setAllProperties: (properties) => set({
+    allProperties: (() => {
+      const uniqueBatch: any[] = [];
+      const seenSignatures = new Set<string>();
+
+      properties.forEach((p: any) => {
+        const d = p.data || p;
+        const listing = p?.listing || p?.data?.listing || d?.listing || d;
+        const props = listing?.property || listing?.data || d?.property || d;
+
+        // Extract values using same logic as card for consistency, plus MLS caps
+        const beds = props?.BedroomsTotal ?? props?.bedroomsTotal ?? d?.bedroomTotal ?? d?.beds ?? d?.bedrooms ?? props?.bedroomTotal ?? 0;
+        const baths = props?.BathroomsTotalInteger ?? props?.bathroomsTotal ?? d?.bathroomTotal ?? d?.baths ?? d?.bathrooms ?? props?.bathroomTotal ?? 0;
+        const sqft = props?.LivingArea ?? props?.livingArea ?? d?.sqft ?? d?.livingArea ?? props?.sqft ?? 0;
+
+        const bVal = Number(beds);
+        const baVal = Number(baths);
+        const sVal = Number(sqft);
+
+        // Filter: any zero or invalid value counts as "junk" for this residential view
+        if (isNaN(bVal) || bVal <= 0 || isNaN(baVal) || baVal <= 0 || isNaN(sVal) || sVal <= 0) return;
+
+        // Deduplication signature: Address + Price + City (normalized)
+        const addr = (listing?.address?.unparsedAddress ?? d?.UnparsedAddress ?? d?.unparsedAddress ?? d?.address ?? "").toString().toLowerCase().trim();
+        const city = (listing?.address?.city ?? d?.City ?? d?.city ?? "").toString().toLowerCase().trim();
+        const price = listing?.listPriceLow ?? listing?.ListPrice ?? listing?.listPrice ?? d?.price ?? 0;
+        const signature = `${addr}|${city}|${price}`;
+
+        if (signature && !seenSignatures.has(signature)) {
+          uniqueBatch.push(p);
+          seenSignatures.add(signature);
+        }
+      });
+      return uniqueBatch;
+    })()
+  }),
 
   addProperties: (properties) =>
     set((state) => {
-      const existingIds = new Set(
+      const existingSignatures = new Set(
         state.allProperties.map((p: any) => {
           const d = p.data || p;
-          return d.id || d._id || d.ListingKey || d.listingId || d.ListingId;
-        }).filter(Boolean)
+          const listing = p?.listing || p?.data?.listing || d?.listing || d;
+          const addr = (listing?.address?.unparsedAddress ?? d?.UnparsedAddress ?? d?.unparsedAddress ?? d?.address ?? "").toString().toLowerCase().trim();
+          const city = (listing?.address?.city ?? d?.City ?? d?.city ?? "").toString().toLowerCase().trim();
+          const price = listing?.listPriceLow ?? listing?.ListPrice ?? listing?.listPrice ?? d?.price ?? 0;
+          return `${addr}|${city}|${price}`;
+        })
       );
 
-      const newUniqueProperties = properties.filter((p: any) => {
+      const newUniqueProperties: any[] = [];
+      const seenInBatch = new Set<string>();
+
+      properties.forEach((p: any) => {
         const d = p.data || p;
-        const id = d.id || d._id || d.ListingKey || d.listingId || d.ListingId;
-        return !id || !existingIds.has(id);
+        const listing = p?.listing || p?.data?.listing || d?.listing || d;
+        const props = listing?.property || listing?.data || d?.property || d;
+
+        const beds = props?.BedroomsTotal ?? props?.bedroomsTotal ?? d?.bedroomTotal ?? d?.beds ?? d?.bedrooms ?? props?.bedroomTotal ?? 0;
+        const baths = props?.BathroomsTotalInteger ?? props?.bathroomsTotal ?? d?.bathroomTotal ?? d?.baths ?? d?.bathrooms ?? props?.bathroomTotal ?? 0;
+        const sqft = props?.LivingArea ?? props?.livingArea ?? d?.sqft ?? d?.livingArea ?? props?.sqft ?? 0;
+
+        const bVal = Number(beds);
+        const baVal = Number(baths);
+        const sVal = Number(sqft);
+
+        if (isNaN(bVal) || bVal <= 0 || isNaN(baVal) || baVal <= 0 || isNaN(sVal) || sVal <= 0) return;
+
+        const addr = (listing?.address?.unparsedAddress ?? d?.UnparsedAddress ?? d?.unparsedAddress ?? d?.address ?? "").toString().toLowerCase().trim();
+        const city = (listing?.address?.city ?? d?.City ?? d?.city ?? "").toString().toLowerCase().trim();
+        const price = listing?.listPriceLow ?? listing?.ListPrice ?? listing?.listPrice ?? d?.price ?? 0;
+        const signature = `${addr}|${city}|${price}`;
+
+        if (signature && !existingSignatures.has(signature) && !seenInBatch.has(signature)) {
+          newUniqueProperties.push(p);
+          seenInBatch.add(signature);
+        }
       });
 
       const updatedProperties = [...state.allProperties, ...newUniqueProperties];
@@ -68,15 +130,19 @@ export const usePropertyStore = create<PropertyStore>((set) => ({
         allCoordinates: updatedProperties
           .filter((obj: any) => {
             const d = obj.data || obj;
-            return typeof d.latitude === 'string' && typeof d.longitude === 'string';
+            const lat = d.latitude ?? d.lat;
+            const lng = d.longitude ?? d.lon;
+            return (typeof lat === 'number' || typeof lat === 'string') && (typeof lng === 'number' || typeof lng === 'string');
           })
           .map((obj: any) => {
             const d = obj.data || obj;
+            const lat = d.latitude ?? d.lat;
+            const lng = d.longitude ?? d.lon;
             return {
               id: d.id || d.listingId || d.ListingKey || d.ListingId,
               price: d.mostRecentPriceAmount || d.ListPrice || d.price,
-              lat: parseFloat(d.latitude)!,
-              lng: parseFloat(d.longitude)!,
+              lat: typeof lat === 'number' ? lat : parseFloat(lat)!,
+              lng: typeof lng === 'number' ? lng : parseFloat(lng)!,
             };
           }),
       };

@@ -283,6 +283,10 @@ const WeMakeItEasy = ({
     (feature) => feature.category === activeCategory
   );
 
+  // Show arrows only when cards overflow the visible area
+  const cardsPerView = isSmallScreen ? 1 : 3;
+  const shouldShowArrows = filteredFeatures.length > cardsPerView;
+
   useEffect(() => {
     if (!embla) return;
 
@@ -543,7 +547,7 @@ const WeMakeItEasy = ({
         </Carousel>
 
         <div
-          className="mx-auto mt-6 flex w-full items-center justify-end gap-2"
+          className={`mx-auto mt-6 flex w-full items-center justify-end gap-2 ${!shouldShowArrows ? 'hidden' : ''}`}
           style={{
             maxWidth: '100%',
             paddingRight: isSmallScreen ? 8 : isLargeScreen ? 72 : 56,

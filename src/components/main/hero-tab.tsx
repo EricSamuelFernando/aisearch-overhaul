@@ -848,7 +848,7 @@ export default function HeroTab() {
     );
 }
 
-export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchActive }: { placeholderText?: string, onSearchStateChange?: (isActive: boolean, searchTerm: string) => void, isSearchActive?: boolean, searchType?: string, showOutline?: boolean, disableAutoExpand?: boolean }) => {
+export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchActive, onSuggestionsOpen }: { placeholderText?: string, onSearchStateChange?: (isActive: boolean, searchTerm: string) => void, isSearchActive?: boolean, searchType?: string, showOutline?: boolean, disableAutoExpand?: boolean, onSuggestionsOpen?: (open: boolean) => void }) => {
     // --- Hooks & State ---
     // Mocked state
     const searchCount = 0;
@@ -2569,15 +2569,6 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         const file = pendingImage;
         const preview = pendingImagePreview;
         const caption = searchTerm.trim();
-        if (!caption) {
-            setIsExpanded(true);
-            setChatHistory(prev => [...prev, {
-                id: Date.now().toString(),
-                role: 'assistant',
-                content: 'Please add a city, state, ZIP code, or coordinates with your image so I can search the right location.'
-            }]);
-            return;
-        }
 
         const userMsgId = Date.now().toString();
         const userMessage: ChatMessage = {
@@ -2601,7 +2592,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         setIsSearching(true);
         setSnapSearchInProgress(true);
 
-        await performSnapImageSearch(file, caption);
+        await performSnapImageSearch(file, caption || undefined);
     };
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2906,7 +2897,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     padding: isExpanded ? 16 : 8, // keep expanded layout comfortable on mobile
                 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full ${isExpanded ? 'max-w-[1200px]' : 'max-w-[620px]'
+                className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full ${isExpanded ? 'max-w-[1200px]' : 'max-w-[860px]'
                     }`}
             >
                 <input
@@ -2968,6 +2959,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             }}
                                             onFocus={() => {
                                                 setShowSuggestions(false);
+                                                onSuggestionsOpen?.(false);
                                                 setShowAiModeTip(false);
                                                 if (aiModeTipTimerRef.current) {
                                                     clearTimeout(aiModeTipTimerRef.current);
@@ -2978,6 +2970,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                 setShowSuggestions(false);
                                                 setShowAddressSuggestions(false);
                                                 setShowLocationSuggestions(false);
+                                                onSuggestionsOpen?.(false);
                                             }, 200)}
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -3108,7 +3101,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                         {/* Desktop Begin Journey Button */}
                                         <Button
                                             type='submit'
-                                            disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
+                                            disabled={!!pendingImage && pendingImageStatus !== 'ready'}
                                             className="hidden md:flex bg-[#F58634] hover:bg-[#E07224] text-white rounded-xl px-8 py-3 font-semibold text-sm md:text-base items-center transition-all shadow-md hover:shadow-lg h-full disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634]"
                                         >
                                             Begin Journey
@@ -4323,8 +4316,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
                                             <button
                                                 onClick={() => pendingImage ? submitPendingImage() : handleSearchSubmit(searchTerm)}
-                                                disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
-                                                className={`bg-black text-white w-10 h-10 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shadow-md ${pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim()) ? 'opacity-50 cursor-not-allowed hover:scale-100' : 'hover:bg-gray-800'}`}
+                                                disabled={!!pendingImage && pendingImageStatus !== 'ready'}
+                                                className={`bg-black text-white w-10 h-10 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shadow-md ${pendingImage && pendingImageStatus !== 'ready' ? 'opacity-50 cursor-not-allowed hover:scale-100' : 'hover:bg-gray-800'}`}
                                             >
                                                 {isSearching ? <Square className="w-4 h-4 fill-white" /> : <ArrowUp className="w-4.5 h-4.5 sm:w-5 sm:h-5" />}
                                             </button>

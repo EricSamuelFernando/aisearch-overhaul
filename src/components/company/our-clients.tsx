@@ -68,6 +68,7 @@ export default function OurClients({
   }, [embla]);
 
   const slideSize = isMobile ? '100%' : '50%';
+  const needsNavigation = testimonials.length > (isMobile ? 1 : 2);
 
   return (
     <section
@@ -89,7 +90,7 @@ export default function OurClients({
           slideSize={slideSize}
           slideGap={isMobile ? 'md' : 'xl'}
           align="start"
-          loop
+          loop={needsNavigation}
           withIndicators={false}
           withControls={false}
           getEmblaApi={setEmbla}
@@ -122,8 +123,8 @@ export default function OurClients({
           ))}
         </Carousel>
 
-        {/* Pagination arrows — same design as WeMakeItEasy */}
-        <div
+        {/* Pagination arrows — only shown when more testimonials exist than visible slides */}
+        {needsNavigation && <div
           className="mt-6 flex items-center justify-end gap-2"
           style={{ paddingRight: isMobile ? 0 : 8 }}
         >
@@ -153,7 +154,7 @@ export default function OurClients({
           >
             <IconArrowNarrowRight size={20} stroke={2.2} />
           </button>
-        </div>
+        </div>}
       </div>
     </section>
   );

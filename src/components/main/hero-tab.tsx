@@ -13,12 +13,10 @@ import SchoolMapPanel from '@/components/SchoolMapPanel';
 import InteractiveSchoolMapPanel from '@/components/InteractiveSchoolMapPanel';
 import ThinkingPanel from '@/components/main/ThinkingPanel';
 import type { ThinkingStep } from '@/components/main/ThinkingPanel';
+import { warning as showWarning } from '@/components/alert/notify';
 
 
 // Force refresh logic
-// Mock notifications
-const success = (msg: { message: string }) => console.log('Success:', msg.message);
-const error = (msg: { message: string }) => console.error('Error:', msg.message);
 
 // --- Types & Interfaces ---
 interface Suggestion {
@@ -64,6 +62,131 @@ interface ChatMessage {
 }
 
 type ForecastPoint = { date: string; rate: number };
+
+const US_STATE_ABBREVIATIONS = new Set([
+    'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA',
+    'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK',
+    'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC',
+]);
+
+const US_STATE_NAMES = [
+    'alabama', 'alaska', 'arizona', 'arkansas', 'california', 'colorado', 'connecticut', 'delaware', 'florida',
+    'georgia', 'hawaii', 'idaho', 'illinois', 'indiana', 'iowa', 'kansas', 'kentucky', 'louisiana', 'maine',
+    'maryland', 'massachusetts', 'michigan', 'minnesota', 'mississippi', 'missouri', 'montana', 'nebraska',
+    'nevada', 'new hampshire', 'new jersey', 'new mexico', 'new york', 'north carolina', 'north dakota', 'ohio',
+    'oklahoma', 'oregon', 'pennsylvania', 'rhode island', 'south carolina', 'south dakota', 'tennessee', 'texas',
+    'utah', 'vermont', 'virginia', 'washington', 'west virginia', 'wisconsin', 'wyoming', 'district of columbia',
+];
+
+const LOCATION_INTENT_KEYWORDS = [
+    'buy', 'rent', 'mortgage', 'loan', 'price', 'budget', 'under', 'over', 'around', 'approx', 'afford', 'payment',
+    'bed', 'beds', 'bedroom', 'bedrooms', 'bath', 'baths', 'bathroom', 'bathrooms', 'sqft', 'square', 'feet',
+    'garage', 'pool', 'yard', 'school', 'schools', 'district', 'condo', 'condos', 'townhome', 'townhomes',
+    'apartment', 'apartments', 'house', 'houses', 'home', 'homes', 'property', 'properties', 'listing', 'listings',
+    'near', 'nearby', 'with', 'without', 'looking', 'look', 'find', 'show', 'recommend', 'compare', 'explain',
+    'calculate', 'what', 'why', 'how', 'can', 'should', 'tell', 'need', 'want', 'best', 'cheapest', 'expensive',
+    'cheap', 'luxury', 'open', 'tour',
+];
+
+const STREET_SUFFIXES = [
+    'st', 'street', 'ave', 'avenue', 'rd', 'road', 'blvd', 'boulevard', 'dr', 'drive', 'ln', 'lane', 'ct', 'court',
+    'cir', 'circle', 'pl', 'place', 'ter', 'terrace', 'pkwy', 'parkway', 'way', 'hwy', 'highway', 'trl', 'trail',
+    'sq', 'square', 'loop', 'pike', 'aly', 'alley', 'route', 'rt',
+];
+
+const normalizeLocationInput = (value: string) =>
+    value.trim().replace(/\s+/g, ' ');
+
+const hasStateToken = (value: string) => {
+    const cleaned = value.replace(/[^a-zA-Z\s]/g, ' ').toLowerCase();
+    const tokens = cleaned.split(/\s+/).filter(Boolean);
+    if (tokens.some((token) => US_STATE_ABBREVIATIONS.has(token.toUpperCase()))) return true;
+    const padded = ` ${cleaned} `;
+    return US_STATE_NAMES.some((name) => padded.includes(` ${name} `));
+};
+
+const hasStreetAddressPattern = (value: string) => {
+    const lowered = value.toLowerCase();
+    if (!/^\s*\d{1,6}\s+/.test(lowered)) return false;
+    const suffixPattern = new RegExp(`\\b(${STREET_SUFFIXES.join('|')})\\b`, 'i');
+    return suffixPattern.test(lowered);
+};
+
+const hasLocationCues = (value: string) => {
+    if (/\b\d{5}(?:-\d{4})?\b/.test(value)) return true;
+    if (/^\s*-?\d{1,3}\.\d+\s*[,\\s]+-?\d{1,3}\.\d+\s*$/.test(value)) return true;
+    if (hasStreetAddressPattern(value)) return true;
+    if (hasStateToken(value)) return true;
+    return false;
+};
+
+const hasLocationIntentKeywords = (value: string) => {
+    const lower = value.toLowerCase();
+    if (/[?$]/.test(lower)) return true;
+    return LOCATION_INTENT_KEYWORDS.some((keyword) => new RegExp(`\\b${keyword}\\b`, 'i').test(lower));
+};
+
+const classifyLocationQuery = (value: string) => {
+    const normalized = normalizeLocationInput(value);
+    if (!normalized) return 'invalid';
+
+    const locationCues = hasLocationCues(normalized);
+    const intentKeywords = hasLocationIntentKeywords(normalized);
+
+    if (!locationCues && intentKeywords) return 'invalid';
+    if (locationCues && !intentKeywords) return 'valid';
+    if (locationCues && intentKeywords) return 'invalid';
+    return 'borderline';
+};
+
+const geocodeValidateLocation = (value: string) =>
+    new Promise<boolean>((resolve) => {
+        if (typeof window === 'undefined' || !window.google?.maps?.Geocoder) {
+            resolve(true);
+            return;
+        }
+
+        const geocoder = new window.google.maps.Geocoder();
+        geocoder.geocode(
+            {
+                address: value,
+                componentRestrictions: { country: 'us' },
+            },
+            (results, status) => {
+                if (status !== 'OK' || !results || results.length === 0) {
+                    resolve(false);
+                    return;
+                }
+
+                const allowedTypes = new Set([
+                    'street_address',
+                    'route',
+                    'premise',
+                    'subpremise',
+                    'locality',
+                    'neighborhood',
+                    'sublocality',
+                    'postal_code',
+                    'administrative_area_level_1',
+                    'administrative_area_level_2',
+                ]);
+
+                const match = results.some((result) =>
+                    Array.isArray(result.types) && result.types.some((t) => allowedTypes.has(t))
+                );
+                resolve(match);
+            }
+        );
+    });
+
+const showLocationValidationToast = () => {
+    showWarning({
+        message: 'Enter a valid location',
+        subtitle: 'Please enter a city, state, or full address in the U.S.',
+        id: 'mls-location-validation',
+        duration: 4000,
+    });
+};
 
 // Helper to bold text
 const renderTextWithBold = (text: string) => {
@@ -874,8 +997,10 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const [isExpanded, setIsExpanded] = useState(false);
     const [typedPlaceholder, setTypedPlaceholder] = useState("");
     const [showAttachMenu, setShowAttachMenu] = useState(false);
+    const attachMenuRef = useRef<HTMLDivElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const pendingImageRef = useRef<File | null>(null);
+    const chatLayoutRef = useRef<HTMLDivElement | null>(null);
     // Menu State for AI Badge
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     // Session State for Conversation Persistence
@@ -906,6 +1031,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const [submittedImage, setSubmittedImage] = useState<File | null>(null);
     const [snapSearchInProgress, setSnapSearchInProgress] = useState(false);
     const [isClearingHistory, setIsClearingHistory] = useState(false);
+    const [carouselEdges, setCarouselEdges] = useState<Record<string, { atStart: boolean; atEnd: boolean }>>({});
+    const suggestionsVisible = !isExpanded && aiModeActive && !searchTerm.trim() && showSuggestions;
+    const anySuggestionsVisible = !isExpanded && (
+        suggestionsVisible ||
+        (!!searchTerm.trim() && (showAddressSuggestions || isLoadingAddressSuggestions || showLocationSuggestions || isLoadingLocationSuggestions))
+    );
 
     // Rent Vs Buy State
 
@@ -1008,7 +1139,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
     // Typing effect for placeholder
     useEffect(() => {
-        const text = "Ask anything about homes, neighborhoods, schools";
+        const text = aiModeActive
+            ? "Ask anything about homes, neighborhoods, schools"
+            : "Enter city, state, neighborhood, or address";
         let i = 0;
         let isDeleting = false;
         let timeoutId: NodeJS.Timeout;
@@ -1037,13 +1170,14 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             }
         };
 
+        setTypedPlaceholder('');
         timeoutId = setTimeout(tick, 500);
 
         return () => {
             mounted = false;
             clearTimeout(timeoutId);
         };
-    }, []);
+    }, [aiModeActive]);
 
     // Loading state is now handled by <ThinkingPanel /> below
 
@@ -1244,6 +1378,101 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         };
     }, []);
 
+    useEffect(() => {
+        onSuggestionsOpen?.(anySuggestionsVisible);
+    }, [onSuggestionsOpen, anySuggestionsVisible]);
+
+    const updateCarouselEdges = (id: string, el: HTMLElement | null) => {
+        if (!el) return;
+        const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
+        const atStart = el.scrollLeft <= 4;
+        const atEnd = el.scrollLeft >= maxScroll - 4;
+        setCarouselEdges((prev) => {
+            const current = prev[id];
+            if (current && current.atStart === atStart && current.atEnd === atEnd) return prev;
+            return { ...prev, [id]: { atStart, atEnd } };
+        });
+    };
+
+    useEffect(() => {
+        if (!isExpanded) return;
+        const scrollToChat = () => {
+            const el = chatLayoutRef.current;
+            if (!el) return;
+            const scrollContainer = (document.querySelector('main') as HTMLElement | null) || document.scrollingElement || document.documentElement;
+            if (!scrollContainer) return;
+            el.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+            const containerRect = scrollContainer.getBoundingClientRect();
+            const rect = el.getBoundingClientRect();
+            const padding = 20;
+            const availableHeight = containerRect.height - padding * 2;
+            const delta = rect.top - containerRect.top - padding;
+            const desiredTop = scrollContainer.scrollTop + delta * 0.75;
+
+            if (rect.height <= availableHeight) {
+                scrollContainer.scrollTo({
+                    top: Math.max(0, desiredTop),
+                    behavior: 'smooth',
+                });
+                return;
+            }
+
+            const bottomOverflow = rect.bottom - (containerRect.bottom - padding);
+            const topOverflow = rect.top - (containerRect.top + padding);
+
+            if (bottomOverflow > 0) {
+                scrollContainer.scrollTo({
+                    top: scrollContainer.scrollTop + bottomOverflow,
+                    behavior: 'smooth',
+                });
+            } else if (topOverflow < 0) {
+                scrollContainer.scrollTo({
+                    top: scrollContainer.scrollTop + topOverflow,
+                    behavior: 'smooth',
+                });
+            }
+        };
+
+        let attempts = 0;
+        const attemptScroll = () => {
+            attempts += 1;
+            if (chatLayoutRef.current) {
+                scrollToChat();
+                return;
+            }
+            if (attempts < 8) {
+                window.setTimeout(attemptScroll, 120);
+            }
+        };
+
+        const t1 = window.setTimeout(attemptScroll, 120);
+        const t2 = window.setTimeout(attemptScroll, 320);
+
+        return () => {
+            window.clearTimeout(t1);
+            window.clearTimeout(t2);
+        };
+    }, [isExpanded]);
+
+    useEffect(() => {
+        if (!showAttachMenu) return;
+
+        const handleOutsideClick = (event: MouseEvent | TouchEvent) => {
+            const target = event.target as Node | null;
+            if (!attachMenuRef.current || !target) return;
+            if (!attachMenuRef.current.contains(target)) {
+                setShowAttachMenu(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleOutsideClick);
+        document.addEventListener('touchstart', handleOutsideClick);
+        return () => {
+            document.removeEventListener('mousedown', handleOutsideClick);
+            document.removeEventListener('touchstart', handleOutsideClick);
+        };
+    }, [showAttachMenu]);
+
     const toggleMlsBypass = () => {
         setMlsBypassMode((prev) => {
             const next = !prev;
@@ -1303,8 +1532,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                         transition={{ duration: 0.2 }}
                         className="absolute bottom-full right-0 mb-3 w-[220px] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl z-[75]"
                     >
-                        <p className="text-[11px] font-semibold text-[#5A2B13]">AI Tip</p>
-                        <p className="mt-1 text-[11px] leading-relaxed text-gray-700">{AI_MODE_TIPS[aiModeTipIndex]}</p>
+                        <p className="text-[11px] font-semibold leading-relaxed text-[#5A2B13]">
+                            Click here to ask AI about {activeAiModeTip}
+                        </p>
                         <span className="absolute -bottom-1 right-6 h-2 w-2 rotate-45 border-r border-b border-[#f2cfb0] bg-white" />
                     </motion.div>
                 )}
@@ -1354,7 +1584,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         }
     };
 
-    const renderPendingImageChip = (variant: 'collapsed' | 'expanded') => {
+    const renderPendingImageChip = (variant: 'collapsed' | 'expanded' | 'desktop') => {
         if (!pendingImage && !pendingImagePreview) return null;
 
         if (variant === 'expanded') {
@@ -1370,6 +1600,33 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                             type="button"
                             onClick={resetPendingImageSelection}
                             className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/75 text-white flex items-center justify-center hover:bg-black transition-colors"
+                            aria-label="Remove selected image"
+                        >
+                            <X className="w-3 h-3" />
+                        </button>
+                        {pendingImageStatus === 'processing' && (
+                            <div className="absolute inset-0 bg-white/75 backdrop-blur-[1px] flex items-center justify-center">
+                                <span className="text-[10px] font-semibold text-gray-700">Preparing...</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        if (variant === 'desktop') {
+            return (
+                <div className="flex items-start">
+                    <div className="relative h-12 w-20 rounded-xl overflow-hidden border border-gray-200 bg-gray-100 shadow-[0_6px_16px_rgba(15,23,42,0.12)]">
+                        {pendingImagePreview ? (
+                            <img src={pendingImagePreview} alt="Selected upload" className="object-cover w-full h-full" />
+                        ) : (
+                            <ImageIcon className="w-4 h-4 text-gray-500 absolute inset-0 m-auto" />
+                        )}
+                        <button
+                            type="button"
+                            onClick={resetPendingImageSelection}
+                            className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/75 text-white flex items-center justify-center hover:bg-black transition-colors"
                             aria-label="Remove selected image"
                         >
                             <X className="w-3 h-3" />
@@ -1778,12 +2035,30 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
         // Direct MLS mode should behave like a normal search bar:
         // skip chat expansion/conversation and route to the listings page.
-        if (mlsBypassMode && !pendingLocationImage) {
-            const destination = `/buy/browse?q=${encodeURIComponent(queryToSearch.trim())}`;
-            if (typeof window !== 'undefined') {
-                window.location.assign(destination);
+        let allowMlsRoute = mlsBypassMode && !pendingLocationImage;
+        if (allowMlsRoute) {
+            const trimmedQuery = normalizeLocationInput(queryToSearch);
+            const classification = classifyLocationQuery(trimmedQuery);
+
+            if (classification === 'invalid') {
+                allowMlsRoute = false;
+            } else if (classification === 'borderline') {
+                const geocodedValid = await geocodeValidateLocation(trimmedQuery);
+                if (!geocodedValid) {
+                    allowMlsRoute = false;
+                }
             }
-            return;
+
+            if (allowMlsRoute) {
+                const destination = `/buy/browse?q=${encodeURIComponent(queryToSearch.trim())}`;
+                if (typeof window !== 'undefined') {
+                    window.location.assign(destination);
+                }
+                return;
+            }
+
+            setMlsBypassMode(false);
+            setMlsBypassModeEnabled(false);
         }
         setIsExpanded(true); // Immediate UI response
         if (onSearchStateChange) {
@@ -3039,7 +3314,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                     handleSearchSubmit(searchTerm);
                                                 }
                                             }}
-                                            placeholder={pendingImage ? 'Add city, ZIP, or coordinates for this image' : (placeholderText || typedPlaceholder)}
+                                            placeholder={!aiModeActive ? typedPlaceholder : (placeholderText || typedPlaceholder)}
                                             className="flex-1 min-w-0 bg-transparent outline-none px-3 md:px-4 py-2 text-gray-700 placeholder-gray-400 text-sm md:text-sm font-medium"
                                         />
                                     </div>
@@ -3123,7 +3398,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                     {/* Right Actions */}
                                     <div className="hidden md:flex items-center gap-2 flex-shrink-0 pr-1">
                                         {renderAiModeToggle()}
-                                        <div className="relative">
+                                        <div className="relative" ref={attachMenuRef}>
                                             <div
                                                 className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
                                                 onClick={() => setShowAttachMenu(!showAttachMenu)}
@@ -3139,17 +3414,32 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                         animate={{ opacity: 1, scale: 1, y: 0 }}
                                                         exit={{ opacity: 0, scale: 0.95, y: 10 }}
                                                         transition={{ duration: 0.2 }}
-                                                        className="absolute bottom-full right-0 mb-2 w-32 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200 ring-1 ring-black/5 overflow-hidden z-[70]"
+                                                        className="absolute bottom-full right-0 mb-2 w-32 overflow-visible z-[70]"
                                                     >
-                                                        <div className="flex flex-col p-1.5 gap-1">
-                                                            <button
-                                                                onClick={() => handleAttachmentClick('image')}
-                                                                type="button"
-                                                                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
-                                                            >
-                                                                <ImageIcon className="w-4 h-4 text-blue-500" />
-                                                                <span>Image</span>
-                                                            </button>
+                                                        <div className="rounded-xl bg-white/95 backdrop-blur-sm shadow-xl border border-gray-200 ring-1 ring-black/5 overflow-visible">
+                                                            <div className="flex flex-col p-1.5 gap-1">
+                                                            <div className="relative">
+                                                                <button
+                                                                    onClick={() => handleAttachmentClick('image')}
+                                                                    type="button"
+                                                                    className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left w-full"
+                                                                >
+                                                                    <ImageIcon className="w-4 h-4 text-blue-500" />
+                                                                    <span>Image</span>
+                                                                </button>
+                                                                <motion.div
+                                                                    initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                                    exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                                                                    transition={{ duration: 0.2 }}
+                                                                    className="absolute left-full top-1/2 ml-3 mt-[-20px] w-[170px] -translate-y-[72%] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl z-[90]"
+                                                                >
+                                                                    <p className="text-[11px] font-semibold leading-relaxed text-[#5A2B13]">
+                                                                        Search homes with a photo
+                                                                    </p>
+                                                                    <span className="absolute left-[-4px] top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 border-l border-b border-[#f2cfb0] bg-white" />
+                                                                </motion.div>
+                                                            </div>
                                                             <button
                                                                 onClick={() => handleAttachmentClick('pdf')}
                                                                 type="button"
@@ -3158,6 +3448,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                                 <FileText className="w-4 h-4 text-red-500" />
                                                                 <span>PDF</span>
                                                             </button>
+                                                            </div>
                                                         </div>
                                                     </motion.div>
                                                 )}
@@ -3308,11 +3599,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     ) : (
                         /* State 2: Expanded Chat UI */
                         <motion.div
+                            ref={chatLayoutRef}
                             key="chat-ui"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ duration: 0.2, delay: 0.1 }}
-                            className="flex flex-col gap-6 w-full"
+                            className="flex flex-col gap-6 w-full h-[560px] sm:h-[580px] md:h-[600px] lg:h-[600px] overflow-hidden"
                         >
                             <div className="flex justify-between items-center w-full px-1 relative z-50">
 
@@ -3320,6 +3612,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                 <button
                                     onClick={() => {
                                         setIsExpanded(false);
+                                        resetPendingImageSelection();
+                                        setSearchTerm('');
+                                        setShowSuggestions(false);
+                                        setShowAddressSuggestions(false);
+                                        setShowLocationSuggestions(false);
                                         if (onSearchStateChange) onSearchStateChange(false, '');
                                     }}
                                     className="p-2 -mr-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-all"
@@ -3333,9 +3630,10 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
                             {/* 2) AI Logic Section */}
                             {/* Chat History Loop */}
-                            <div className={`mobile-no-scrollbar flex flex-col gap-8 w-full min-h-0 overflow-y-auto overflow-x-hidden pr-0 sm:pr-2 pb-20 sm:pb-8 transition-all duration-500
-              ${isExpanded ? 'h-[56vh] sm:h-[600px] md:h-[700px] lg:h-[750px]' : 'h-auto'}`}
-                                style={{ overflowAnchor: 'none' }}>
+                            <div
+                                className="mobile-no-scrollbar flex flex-col gap-8 w-full min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-0 sm:pr-2 pb-20 sm:pb-8"
+                                style={{ overflowAnchor: 'none' }}
+                            >
                                 {chatHistory.map((msg) => (
                                     <div key={msg.id} className={`flex flex-col w-full min-w-0 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                                         {msg.role === 'user' ? (
@@ -3648,40 +3946,59 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                 {/* Properties Carousel */}
                                                 {msg.relatedProperties && msg.relatedProperties.length > 0 && (
                                                     <div className={`w-full max-w-full ${msg.relatedProperties?.length ? 'order-2' : ''} relative group`}>
+                                                        {(() => {
+                                                            const edges = carouselEdges[msg.id] || { atStart: true, atEnd: false };
+                                                            return (
+                                                                <>
 
                                                         {/* Left Scroll Arrow */}
                                                         <button
                                                             type="button"
                                                             onClick={() => {
+                                                                if (edges.atStart) return;
                                                                 const container = document.getElementById(`carousel-${msg.id}`);
                                                                 if (container) {
                                                                     container.scrollBy({ left: -360, behavior: 'smooth' });
+                                                                    setTimeout(() => updateCarouselEdges(msg.id, container), 260);
                                                                 }
                                                             }}
-                                                            className="absolute left-1 sm:left-4 top-[50%] -translate-y-1/2 z-30 hidden sm:flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#F58634] to-[#FF9E5E] shadow-[0_4px_12px_rgba(245,134,52,0.4)] text-white hover:scale-[1.1] hover:shadow-[0_8px_24px_rgba(245,134,52,0.6)] transition-all duration-300 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto active:scale-95 group/btn"
+                                                            className={`absolute left-1 sm:left-4 top-[50%] -translate-y-1/2 z-30 hidden sm:flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full transition-all duration-300 opacity-0 group-hover:opacity-100 active:scale-95 group/btn ${
+                                                                edges.atStart
+                                                                    ? 'bg-gray-200 text-gray-400 shadow-none pointer-events-none'
+                                                                    : 'bg-gradient-to-br from-[#F58634] to-[#FF9E5E] shadow-[0_4px_12px_rgba(245,134,52,0.4)] text-white hover:scale-[1.1] hover:shadow-[0_8px_24px_rgba(245,134,52,0.6)] pointer-events-none group-hover:pointer-events-auto'
+                                                            }`}
                                                             aria-label="Scroll Left"
+                                                            aria-disabled={edges.atStart}
                                                         >
-                                                            <ChevronDown className="w-5 h-5 sm:w-6 sm:h-6 rotate-90 stroke-[3] transition-transform duration-300 group-hover/btn:-translate-y-0.5 group-hover/btn:-translate-x-0.5" />
+                                                            <ChevronDown className={`w-5 h-5 sm:w-6 sm:h-6 rotate-90 stroke-[3] transition-transform duration-300 ${edges.atStart ? '' : 'group-hover/btn:-translate-y-0.5 group-hover/btn:-translate-x-0.5'}`} />
                                                         </button>
 
                                                         {/* Right Scroll Arrow */}
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                const container = document.getElementById(`carousel-${msg.id}`);
-                                                                if (container) {
-                                                                    container.scrollBy({ left: 360, behavior: 'smooth' });
-                                                                }
-                                                            }}
-                                                            className="absolute right-1 sm:right-4 top-[50%] -translate-y-1/2 z-30 hidden sm:flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#F58634] to-[#FF9E5E] shadow-[0_4px_12px_rgba(245,134,52,0.4)] text-white hover:scale-[1.1] hover:shadow-[0_8px_24px_rgba(245,134,52,0.6)] transition-all duration-300 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto active:scale-95 group/btn"
-                                                            aria-label="Scroll Right"
-                                                        >
-                                                            <ChevronDown className="w-5 h-5 sm:w-6 sm:h-6 -rotate-90 stroke-[3] transition-transform duration-300 group-hover/btn:-translate-y-0.5 group-hover/btn:translate-x-0.5" />
-                                                        </button>
+                                                        {!edges.atEnd && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const container = document.getElementById(`carousel-${msg.id}`);
+                                                                    if (container) {
+                                                                        container.scrollBy({ left: 360, behavior: 'smooth' });
+                                                                        setTimeout(() => updateCarouselEdges(msg.id, container), 260);
+                                                                    }
+                                                                }}
+                                                                className="absolute right-1 sm:right-4 top-[50%] -translate-y-1/2 z-30 hidden sm:flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#F58634] to-[#FF9E5E] shadow-[0_4px_12px_rgba(245,134,52,0.4)] text-white hover:scale-[1.1] hover:shadow-[0_8px_24px_rgba(245,134,52,0.6)] transition-all duration-300 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto active:scale-95 group/btn"
+                                                                aria-label="Scroll Right"
+                                                            >
+                                                                <ChevronDown className="w-5 h-5 sm:w-6 sm:h-6 -rotate-90 stroke-[3] transition-transform duration-300 group-hover/btn:-translate-y-0.5 group-hover/btn:translate-x-0.5" />
+                                                            </button>
+                                                        )}
+                                                                </>
+                                                            );
+                                                        })()}
                                                         <div
                                                             id={`carousel-${msg.id}`}
                                                             className="flex flex-row items-stretch sm:items-center overflow-x-auto gap-4 sm:gap-5 md:gap-6 px-4 sm:px-8 md:px-10 py-4 sm:py-6 md:py-8 snap-x snap-mandatory no-scrollbar"
                                                             style={{ scrollBehavior: 'smooth' }}
+                                                            onScroll={(event) => updateCarouselEdges(msg.id, event.currentTarget)}
+                                                            ref={(el) => updateCarouselEdges(msg.id, el)}
                                                         >
                                                             {msg.relatedProperties.map((property: any, idx: number) => {
                                                                 const isActive = selectedPropertyId === property.id;
@@ -4087,7 +4404,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                             </div>
 
                             {/* Footer / Related Questions & Search */}
-                            <div className="mt-2 border-t border-gray-100/70 sticky bottom-0 bg-white/95 backdrop-blur-md z-30 px-3 pt-3 pb-[max(env(safe-area-inset-bottom),0.9rem)] sm:px-0 sm:pt-2 sm:pb-4">
+                            <div className="mt-2 border-t border-gray-100/70 bg-white/95 backdrop-blur-md z-30 px-3 pt-3 pb-[max(env(safe-area-inset-bottom),0.9rem)] sm:px-0 sm:pt-2 sm:pb-4">
                                 {/* 1. Related Questions (Removed - now dynamic per message) */}
 
                                 {/* 2. New Large Search Bar + Controls */}
@@ -4097,13 +4414,25 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             onClick={() => setIsMenuOpen(!isMenuOpen)}
                                             className="bg-black text-white pl-3 pr-3 py-2 rounded-full flex items-center gap-2.5 shadow-md hover:bg-gray-800 transition-colors group active:scale-95 duration-200 select-none"
                                         >
-                                            <Image
-                                                src="/assets/images/snaphomz-icon-thick.png"
-                                                alt="Snaphomz AI"
-                                                width={22}
-                                                height={22}
-                                                className="w-[22px] h-[22px] object-contain"
-                                            />
+                                            <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-5 h-5">
+                                                <path d="M15.0645 1C22.8233 0.998533 29.122 7.31736 29.1221 15.1211V25.0967C29.1221 26.201 28.6985 27.1986 28.0068 27.9336L28.0049 27.9355C27.2517 28.7409 26.1847 29.2393 25.001 29.2393H5.12109C2.85069 29.2393 1 27.3893 1 25.0986V15.123C1 7.31903 7.30043 1 15.0645 1Z" fill="black" stroke="url(#askAiGradient)" strokeWidth="2" />
+                                                <mask id="askAiMask1" fill="white">
+                                                    <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" />
+                                                </mask>
+                                                <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" fill="white" stroke="white" strokeWidth="4" mask="url(#askAiMask1)" />
+                                                <mask id="askAiMask2" fill="white">
+                                                    <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" />
+                                                </mask>
+                                                <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" fill="white" stroke="white" strokeWidth="4" mask="url(#askAiMask2)" />
+                                                <defs>
+                                                    <linearGradient id="askAiGradient" x1="15.061" y1="0" x2="15.061" y2="30.2391" gradientUnits="userSpaceOnUse">
+                                                        <stop stopColor="#E8804C" />
+                                                        <stop offset="0.5" stopColor="#E84C85" />
+                                                        <stop offset="0.75" stopColor="#A64EBA" />
+                                                        <stop offset="1" stopColor="#654FEF" />
+                                                    </linearGradient>
+                                                </defs>
+                                            </svg>
                                             <span className="font-semibold text-[14px] tracking-wide">New Chat</span>
                                             <ChevronDown className={`w-4 h-4 text-gray-400 group-hover:text-white transition-transform duration-300 ${isMenuOpen ? 'rotate-180' : ''}`} />
                                         </button>
@@ -4274,9 +4603,17 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                     {renderPendingImageChip('expanded')}
                                                 </div>
                                             )}
+                                            {(pendingImage || pendingImagePreview) && !searchTerm && (
+                                                <span
+                                                    aria-hidden="true"
+                                                    className="md:hidden absolute left-4 top-[88px] text-[12px] text-gray-400 pointer-events-none"
+                                                >
+                                                    Upload image to discover similar homes
+                                                </span>
+                                            )}
                                             {(pendingImage || pendingImagePreview) && (
-                                                <div className="hidden md:block absolute left-4 top-1/2 -translate-y-1/2 z-10">
-                                                    {renderPendingImageChip('collapsed')}
+                                                <div className="hidden md:block absolute left-4 top-3 z-10">
+                                                    {renderPendingImageChip('desktop')}
                                                 </div>
                                             )}
                                             <textarea
@@ -4311,14 +4648,14 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                         }
                                                     }
                                                 }}
-                                                placeholder={pendingImage ? "Type city, ZIP, or coordinates for this image" : ""}
+                                                placeholder=""
                                                 rows={1}
-                                                className={`w-full bg-white text-gray-900 rounded-2xl sm:rounded-3xl overflow-y-hidden resize-none pl-4 sm:pl-5 ${pendingImage || pendingImagePreview ? 'min-h-[128px] max-h-48 sm:max-h-56 pt-[88px] pb-3 md:min-h-[68px] md:max-h-40 md:pt-4 md:pb-[22px] md:pl-[14rem]' : 'min-h-[64px] sm:min-h-[68px] max-h-32 sm:max-h-40 py-4 sm:py-[22px]'} pr-24 sm:pr-24 md:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-[14px] sm:text-base placeholder:text-gray-400 font-normal leading-relaxed`}
+                                                className={`w-full bg-white text-gray-900 rounded-2xl sm:rounded-3xl overflow-y-hidden resize-none pl-4 sm:pl-5 ${pendingImage || pendingImagePreview ? 'min-h-[128px] max-h-48 sm:max-h-56 pt-[88px] pb-3 md:min-h-[120px] md:max-h-48 md:pt-[84px] md:pb-4 md:pl-5' : 'min-h-[64px] sm:min-h-[68px] max-h-32 sm:max-h-40 py-4 sm:py-[22px]'} pr-24 sm:pr-24 md:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-[14px] sm:text-base placeholder:text-gray-400 font-normal leading-relaxed`}
                                             />
                                             <div className={`absolute right-2 sm:right-3 flex items-center gap-1.5 sm:gap-4 ${(pendingImage || pendingImagePreview) ? 'bottom-2 md:top-1/2 md:-translate-y-1/2' : 'top-1/2 -translate-y-1/2'}`}>
                                                 <div className="hidden md:flex items-center gap-1.5 sm:gap-4">
                                                     {/* Attach Icon & Menu */}
-                                                    <div className="relative">
+                                                    <div className="relative" ref={attachMenuRef}>
                                                         <div
                                                             className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
                                                             onClick={() => setShowAttachMenu(!showAttachMenu)}
@@ -4334,31 +4671,47 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                                     animate={{ opacity: 1, scale: 1, y: 0 }}
                                                                     exit={{ opacity: 0, scale: 0.95, y: 10 }}
                                                                     transition={{ duration: 0.2 }}
-                                                                    className="absolute bottom-full right-0 mb-2 w-32 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200 ring-1 ring-black/5 overflow-hidden z-[70]"
+                                                                    className="absolute bottom-full right-0 mb-2 w-32 overflow-visible z-[70]"
                                                                 >
-                                                                    <div className="flex flex-col p-1.5 gap-1">
-                                                                        <button
-                                                                            onClick={() => handleAttachmentClick('image')}
-                                                                            type="button"
-                                                                            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
-                                                                        >
-                                                                            <ImageIcon className="w-4 h-4 text-blue-500" />
-                                                                            <span>Image</span>
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => handleAttachmentClick('pdf')}
-                                                                            type="button"
-                                                                            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
-                                                                        >
-                                                                            <FileText className="w-4 h-4 text-red-500" />
-                                                                            <span>PDF</span>
-                                                                        </button>
+                                                                    <div className="rounded-xl bg-white/95 backdrop-blur-sm shadow-xl border border-gray-200 ring-1 ring-black/5 overflow-visible">
+                                                                        <div className="flex flex-col p-1.5 gap-1">
+                                                                            <div className="relative">
+                                                                                <button
+                                                                                    onClick={() => handleAttachmentClick('image')}
+                                                                                    type="button"
+                                                                                    className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left w-full"
+                                                                >
+                                                                    <ImageIcon className="w-4 h-4 text-blue-500" />
+                                                                    <span>Image</span>
+                                                                </button>
+                                                                <motion.div
+                                                                    initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                                    exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                                                                    transition={{ duration: 0.2 }}
+                                                                    className="absolute left-full top-1/2 ml-3 mt-[-20px] w-[170px] -translate-y-[72%] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl z-[90]"
+                                                                >
+                                                                    <p className="text-[11px] font-semibold leading-relaxed text-[#5A2B13]">
+                                                                        Search homes with a photo
+                                                                    </p>
+                                                                    <span className="absolute left-[-4px] top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 border-l border-b border-[#f2cfb0] bg-white" />
+                                                                </motion.div>
+                                                            </div>
+                                                                            <button
+                                                                                onClick={() => handleAttachmentClick('pdf')}
+                                                                                type="button"
+                                                                                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
+                                                                            >
+                                                                                <FileText className="w-4 h-4 text-red-500" />
+                                                                                <span>PDF</span>
+                                                                            </button>
+                                                                        </div>
                                                                     </div>
                                                                 </motion.div>
                                                             )}
                                                         </AnimatePresence>
                                                     </div>
-                                                    {renderAiModeToggle()}
+                                                    {/* AI toggle hidden in expanded (chat) view on desktop */}
                                                 </div>
                                             <button
                                                 type="button"

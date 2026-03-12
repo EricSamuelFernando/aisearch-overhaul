@@ -169,8 +169,9 @@ function BuyPropertyCards({
         ref={scrollContainerRef}
         className={cn(
           'flex-auto',
-          overlayMode ? 'min-h-0 overflow-y-auto overscroll-contain pr-1 pb-3' : '',
+          overlayMode ? 'min-h-0 overflow-y-auto overscroll-contain px-2 pb-0' : '',
         )}
+        style={overlayMode ? { touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' } : undefined}
       >
         <div className={cn('w-full', overlayMode ? 'max-w-none' : '')}>
           <div className={cn('w-full', gridClass)}>
@@ -212,11 +213,33 @@ function BuyPropertyCards({
           </div>
           {/* Sentinel — sits below the last rendered card; observer fires ~400px before it */}
           <div ref={sentinelRef} className="h-1 w-full" aria-hidden />
+          {overlayMode && !isLoading && totalCount > 0 && !hasMore ? (
+            <div className="mt-3 border-t border-gray-200 bg-white px-3 py-2 text-[10px] leading-5 text-gray-600">
+              <div className="mb-1 font-semibold text-gray-800">Snaphomz</div>
+              <div className="flex flex-wrap gap-x-3 gap-y-1">
+                <Link href="/terms-and-conditions" className="hover:text-gray-900">
+                  Terms
+                </Link>
+                <Link href="/privacy-policy" className="hover:text-gray-900">
+                  Privacy
+                </Link>
+                <Link href="/cookie-policy" className="hover:text-gray-900">
+                  Cookies
+                </Link>
+                <Link href="/disclosure" className="hover:text-gray-900">
+                  Disclosure
+                </Link>
+              </div>
+              <div className="mt-2 text-[10px] text-gray-500">
+                Results and tools are for informational purposes only.
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 
       {/* Footer: compare button (when active) + homes count */}
-      {!isLoading && totalCount > 0 ? (
+      {!isLoading && totalCount > 0 && (!overlayMode || isCompareMode) ? (
         <div
           className={cn(
             'relative flex flex-col items-center gap-2',
@@ -251,36 +274,16 @@ function BuyPropertyCards({
             </button>
           ) : null}
 
-          <p className={cn('text-sm text-gray-500', overlayMode ? 'text-center text-xs font-medium' : '')}>
-            {hasMore
-              ? `Showing ${visibleCount} of ${totalCount} homes`
-              : `${totalCount} home${totalCount === 1 ? '' : 's'} found`}
-          </p>
+          {!overlayMode ? (
+            <p className="text-sm text-gray-500">
+              {hasMore
+                ? `Showing ${visibleCount} of ${totalCount} homes`
+                : `${totalCount} home${totalCount === 1 ? '' : 's'} found`}
+            </p>
+          ) : null}
         </div>
       ) : null}
 
-      {overlayMode ? (
-        <div className="shrink-0 border-t border-gray-200 bg-white px-3 py-2 text-[10px] leading-5 text-gray-600">
-          <div className="mb-1 font-semibold text-gray-800">Snaphomz</div>
-          <div className="flex flex-wrap gap-x-3 gap-y-1">
-            <Link href="/terms-and-conditions" className="hover:text-gray-900">
-              Terms
-            </Link>
-            <Link href="/privacy-policy" className="hover:text-gray-900">
-              Privacy
-            </Link>
-            <Link href="/cookie-policy" className="hover:text-gray-900">
-              Cookies
-            </Link>
-            <Link href="/disclosure" className="hover:text-gray-900">
-              Disclosure
-            </Link>
-          </div>
-          <div className="mt-2 text-[10px] text-gray-500">
-            Results and tools are for informational purposes only.
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

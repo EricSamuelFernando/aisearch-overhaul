@@ -781,7 +781,7 @@ function PropertyBrowseView({ }: Props) {
 
             {!mobileMeasureState.active ? (
               <div className="absolute inset-x-0 top-0 z-40 px-3 pt-3 lg:hidden">
-                <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white/95 shadow-md backdrop-blur">
+                <div className="overflow-visible rounded-2xl border border-gray-200 bg-white/95 shadow-md backdrop-blur">
                   <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2.5">
                     <button
                       type="button"

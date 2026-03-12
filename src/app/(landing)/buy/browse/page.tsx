@@ -17,7 +17,7 @@ export default function BrowsePage() {
     <section
       className={
         currentView === 'map'
-          ? 'visible flex h-[calc(100vh-90px)] min-h-0 md:h-[calc(100vh-80px)] flex-col space-y-0 overflow-hidden bg-primary-100 transition-all pb-0'
+          ? 'visible flex h-[calc(100dvh-90px+env(safe-area-inset-bottom))] min-h-0 md:h-[calc(100dvh-80px)] flex-col space-y-0 overflow-hidden bg-primary-100 transition-all pb-0'
           : 'visible flex min-h-screen flex-col space-y-3 bg-primary-100 transition-all pb-0'
       }
     >

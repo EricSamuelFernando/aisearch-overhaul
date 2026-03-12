@@ -36,8 +36,15 @@ type Props = {
     bounds: google.maps.LatLngBounds
   ) => void;
   onDrawFilterChange?: (filteredIds: string[] | null) => void;
+  onMeasureStateChange?: (state: {
+    active: boolean;
+    duration: string | null;
+    distance: string | null;
+    error: string | null;
+  }) => void;
   clearDrawSignal?: number;
   useOverlayResultsRail?: boolean;
+  hideControls?: boolean;
 };
 
 const DEFAULT_COORD = { lat: 36.778, lng: -119.417 };
@@ -115,8 +122,10 @@ const CustomMap: React.FC<Props> = ({
   onMarkerClick,
   onMapMove,
   onDrawFilterChange,
+  onMeasureStateChange,
   clearDrawSignal = 0,
   useOverlayResultsRail = false,
+  hideControls = false,
 }) => {
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
@@ -150,9 +159,11 @@ const CustomMap: React.FC<Props> = ({
   const [exploreSearchInput, setExploreSearchInput] = useState('');
   const [activeCategoryKeys, setActiveCategoryKeys] = useState<string[]>([]);
   const [exploreFeedback, setExploreFeedback] = useState<string | null>(null);
+  const [mobileToolsExpanded, setMobileToolsExpanded] = useState(false);
   const [drawMode, setDrawMode] = useState(false);
   const [drawPolygon, setDrawPolygon] = useState<google.maps.Polygon | null>(null);
   const [drawFilteredMarkerIds, setDrawFilteredMarkerIds] = useState<string[] | null>(null);
+  const shouldHideControls = hideControls && isTouchDevice;
   const featureLayersRef = React.useRef<{
     state?: google.maps.FeatureLayer;
     county?: google.maps.FeatureLayer;
@@ -179,6 +190,10 @@ const CustomMap: React.FC<Props> = ({
   const drawPolygonRef = React.useRef<google.maps.Polygon | null>(null);
   const lastDrawFilterIdsRef = React.useRef<string[] | null>(null);
   const freehandDrawingActiveRef = React.useRef(false);
+  const mobileTapDrawPointsRef = React.useRef<google.maps.LatLngLiteral[]>([]);
+  const projectionOverlayRef = React.useRef<google.maps.OverlayView | null>(null);
+  const touchDrawPointerActiveRef = React.useRef(false);
+  const controlsDockRef = React.useRef<HTMLDivElement | null>(null);
 
   // Always-current refs so callbacks can have stable identities (empty/minimal deps)
   // without stale-closure bugs. Updated inline on every render.
@@ -203,6 +218,16 @@ const CustomMap: React.FC<Props> = ({
     setMeasureError(null);
   }, []);
 
+  const adjustMapZoom = useCallback(
+    (delta: number) => {
+      if (!mapInstance) return;
+      const currentZoom = mapInstance.getZoom() ?? zoom;
+      const nextZoom = Math.max(3, Math.min(21, currentZoom + delta));
+      mapInstance.setZoom(nextZoom);
+    },
+    [mapInstance, zoom],
+  );
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const media = window.matchMedia('(hover: none), (pointer: coarse)');
@@ -221,6 +246,15 @@ const CustomMap: React.FC<Props> = ({
   useEffect(() => {
     measureModeRef.current = measureMode;
   }, [measureMode]);
+
+  useEffect(() => {
+    onMeasureStateChange?.({
+      active: measureMode,
+      duration: measureDuration,
+      distance: measureDistance,
+      error: measureError,
+    });
+  }, [measureMode, measureDuration, measureDistance, measureError, onMeasureStateChange]);
 
   useEffect(() => {
     measureStartRef.current = measureStart;
@@ -368,7 +402,7 @@ const CustomMap: React.FC<Props> = ({
         !isNaN(m.lat) &&
         !isNaN(m.lng)
     );
-  }, [properties, coord]);
+  }, [properties, coord, useOverlayResultsRail]);
 
   const computeMarkersInsideDrawPolygon = useCallback(
     (polygon: google.maps.Polygon | null) => {
@@ -421,6 +455,7 @@ const CustomMap: React.FC<Props> = ({
   const clearDrawPolygon = useCallback(() => {
     freehandDrawingActiveRef.current = false;
     freehandPathRef.current = [];
+    mobileTapDrawPointsRef.current = [];
     if (freehandPreviewLineRef.current) {
       freehandPreviewLineRef.current.setMap(null);
       freehandPreviewLineRef.current = null;
@@ -441,6 +476,43 @@ const CustomMap: React.FC<Props> = ({
     // repeatedly cancelling any active draw.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!isLoaded || !mapInstance) return;
+    const overlay = new google.maps.OverlayView();
+    overlay.onAdd = () => { };
+    overlay.draw = () => { };
+    overlay.onRemove = () => { };
+    overlay.setMap(mapInstance);
+    projectionOverlayRef.current = overlay;
+    return () => {
+      if (projectionOverlayRef.current === overlay) {
+        projectionOverlayRef.current = null;
+      }
+      overlay.setMap(null);
+    };
+  }, [isLoaded, mapInstance]);
+
+  const finalizeMobileTapDraw = useCallback(() => {
+    if (!isTouchDevice || !drawMode) return;
+    const path = [...mobileTapDrawPointsRef.current];
+    mobileTapDrawPointsRef.current = [];
+    if (freehandPreviewLineRef.current) {
+      freehandPreviewLineRef.current.setMap(null);
+      freehandPreviewLineRef.current = null;
+    }
+
+    if (!mapInstance || path.length < 3) {
+      setDrawMode(false);
+      return;
+    }
+
+    const polygon = new google.maps.Polygon({
+      paths: path,
+      map: mapInstance,
+    });
+    handlePolygonCompleteRef.current(polygon);
+  }, [isTouchDevice, drawMode, mapInstance]);
 
   const handlePolygonComplete = useCallback((polygon: google.maps.Polygon) => {
     freehandDrawingActiveRef.current = false;
@@ -478,10 +550,120 @@ const CustomMap: React.FC<Props> = ({
   const handlePolygonCompleteRef = React.useRef(handlePolygonComplete);
   handlePolygonCompleteRef.current = handlePolygonComplete;
 
+  const mapClientToLatLng = useCallback(
+    (clientX: number, clientY: number): google.maps.LatLngLiteral | null => {
+      if (!mapInstance) return null;
+      const overlay = projectionOverlayRef.current;
+      const projection = overlay?.getProjection?.();
+      if (!projection) return null;
+      const rect = mapInstance.getDiv()?.getBoundingClientRect?.();
+      if (!rect) return null;
+      const pixelPoint = new google.maps.Point(clientX - rect.left, clientY - rect.top);
+      const latLng = projection.fromContainerPixelToLatLng(pixelPoint);
+      return latLng ? latLng.toJSON() : null;
+    },
+    [mapInstance],
+  );
+
+  const pushTouchFreehandPoint = useCallback((point: google.maps.LatLngLiteral) => {
+    if (!mapInstance) return;
+    const path = freehandPathRef.current;
+    const last = path[path.length - 1];
+    if (last && google?.maps?.geometry?.spherical) {
+      const dist = google.maps.geometry.spherical.computeDistanceBetween(
+        new google.maps.LatLng(last.lat, last.lng),
+        new google.maps.LatLng(point.lat, point.lng),
+      );
+      if (dist < 6) return;
+    }
+    path.push(point);
+    if (!freehandPreviewLineRef.current) {
+      freehandPreviewLineRef.current = new google.maps.Polyline({
+        map: mapInstance,
+        path,
+        clickable: false,
+        strokeColor: '#F57F2E',
+        strokeOpacity: 0.95,
+        strokeWeight: 2,
+        zIndex: 50,
+      });
+      return;
+    }
+    freehandPreviewLineRef.current.setPath(path);
+  }, [mapInstance]);
+
+  const finalizeTouchFreehand = useCallback(() => {
+    if (!freehandDrawingActiveRef.current) return;
+    freehandDrawingActiveRef.current = false;
+    const path = [...freehandPathRef.current];
+    freehandPathRef.current = [];
+    if (freehandPreviewLineRef.current) {
+      freehandPreviewLineRef.current.setMap(null);
+      freehandPreviewLineRef.current = null;
+    }
+    if (!mapInstance || path.length < 3) return;
+    const polygon = new google.maps.Polygon({
+      paths: path,
+      map: mapInstance,
+    });
+    handlePolygonCompleteRef.current(polygon);
+  }, [mapInstance]);
+
+  const handleTouchDrawPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (!isTouchDevice || !drawMode) return;
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      const point = mapClientToLatLng(event.clientX, event.clientY);
+      if (!point) return;
+      event.preventDefault();
+      touchDrawPointerActiveRef.current = true;
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {
+        // ignore pointer capture errors
+      }
+      freehandDrawingActiveRef.current = true;
+      freehandPathRef.current = [];
+      if (freehandPreviewLineRef.current) {
+        freehandPreviewLineRef.current.setMap(null);
+        freehandPreviewLineRef.current = null;
+      }
+      pushTouchFreehandPoint(point);
+    },
+    [isTouchDevice, drawMode, mapClientToLatLng, pushTouchFreehandPoint],
+  );
+
+  const handleTouchDrawPointerMove = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (!touchDrawPointerActiveRef.current || !drawMode) return;
+      const point = mapClientToLatLng(event.clientX, event.clientY);
+      if (!point) return;
+      event.preventDefault();
+      pushTouchFreehandPoint(point);
+    },
+    [drawMode, mapClientToLatLng, pushTouchFreehandPoint],
+  );
+
+  const handleTouchDrawPointerUp = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (!touchDrawPointerActiveRef.current) return;
+      touchDrawPointerActiveRef.current = false;
+      try {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      } catch {
+        // ignore pointer capture errors
+      }
+      finalizeTouchFreehand();
+    },
+    [finalizeTouchFreehand],
+  );
+
   useEffect(() => {
     if (drawMode) return;
+    touchDrawPointerActiveRef.current = false;
     freehandDrawingActiveRef.current = false;
     freehandPathRef.current = [];
+    mobileTapDrawPointsRef.current = [];
     if (freehandPreviewLineRef.current) {
       freehandPreviewLineRef.current.setMap(null);
       freehandPreviewLineRef.current = null;
@@ -633,6 +815,7 @@ const CustomMap: React.FC<Props> = ({
       window.removeEventListener('mouseup', handleWindowMouseUp);
       freehandDrawingActiveRef.current = false;
       freehandPathRef.current = [];
+      mobileTapDrawPointsRef.current = [];
       if (freehandPreviewLineRef.current) {
         freehandPreviewLineRef.current.setMap(null);
         freehandPreviewLineRef.current = null;
@@ -1714,6 +1897,26 @@ const CustomMap: React.FC<Props> = ({
   // The recentDataClickRef guard prevents it from clearing a name that was
   // just set by the Data layer click above.
   const handleMapClick = useCallback((event?: google.maps.MapMouseEvent) => {
+    if (drawMode && isTouchDevice && event?.latLng) {
+      const point = event.latLng.toJSON();
+      mobileTapDrawPointsRef.current.push(point);
+      if (!mapInstance) return;
+      if (!freehandPreviewLineRef.current) {
+        freehandPreviewLineRef.current = new google.maps.Polyline({
+          map: mapInstance,
+          path: mobileTapDrawPointsRef.current,
+          clickable: false,
+          strokeColor: '#F57F2E',
+          strokeOpacity: 0.95,
+          strokeWeight: 2,
+          zIndex: 50,
+        });
+      } else {
+        freehandPreviewLineRef.current.setPath(mobileTapDrawPointsRef.current);
+      }
+      return;
+    }
+
     if (!recentDataClickRef.current) {
       setClickedDistrictName(null);
     }
@@ -1738,7 +1941,7 @@ const CustomMap: React.FC<Props> = ({
     }
 
     setMeasureEnd(point);
-  }, [measureMode, measureStart, measureEnd, onMarkerClick]);
+  }, [measureMode, measureStart, measureEnd, onMarkerClick, drawMode, isTouchDevice, mapInstance]);
 
   useEffect(() => {
     if (!isLoaded || !mapInstance) return;
@@ -1753,12 +1956,41 @@ const CustomMap: React.FC<Props> = ({
     };
   }, [isLoaded, mapInstance]);
 
-  const centerOnMarker = (position: google.maps.LatLngLiteral) => {
-    if (mapInstance) {
-      mapInstance.panTo(position);
+  const panMarkerIntoVisibleArea = useCallback((position: google.maps.LatLngLiteral) => {
+    if (!mapInstance) return;
+    mapInstance.panTo(position);
+    if (isTouchDevice && useOverlayResultsRail) {
+      window.setTimeout(() => {
+        try {
+          const overlay = projectionOverlayRef.current;
+          const projection = overlay?.getProjection?.();
+          if (!projection) return;
+          const mapDiv = mapInstance.getDiv();
+          const mapHeight = mapDiv?.clientHeight ?? 0;
+          if (!mapHeight) return;
+          const markerPixel = projection.fromLatLngToContainerPixel(
+            new google.maps.LatLng(position.lat, position.lng),
+          );
+          if (!markerPixel) return;
+          const targetY = mapHeight * 0.34;
+          const deltaY = markerPixel.y - targetY;
+          if (Math.abs(deltaY) > 8) {
+            mapInstance.panBy(0, deltaY);
+          }
+        } catch {
+          // no-op
+        }
+      }, 0);
+    }
+  }, [isTouchDevice, mapInstance, useOverlayResultsRail]);
+
+  const centerOnMarker = useCallback((position: google.maps.LatLngLiteral) => {
+    if (!mapInstance) return;
+    panMarkerIntoVisibleArea(position);
+    if (!measureMode && !measureModeRef.current) {
       mapInstance.setZoom(Math.max(zoom, 21));
     }
-  };
+  }, [mapInstance, panMarkerIntoVisibleArea, zoom, measureMode]);
 
   const isSameMarker = useCallback((a: any, b: any) => {
     if (!a || !b) return false;
@@ -1766,10 +1998,12 @@ const CustomMap: React.FC<Props> = ({
     return a.lat === b.lat && a.lng === b.lng;
   }, []);
 
-  const previewAnchorMarker = useMemo(
-    () => hoveredMarker || (isTouchDevice ? selectedMarker : null),
-    [hoveredMarker, isTouchDevice, selectedMarker],
-  );
+  const previewAnchorMarker = useMemo(() => {
+    const allowHoverPreview = !isTouchDevice || !useOverlayResultsRail;
+    const allowTouchPreview = isTouchDevice && !useOverlayResultsRail;
+    const hoverAnchor = allowHoverPreview ? hoveredMarker : null;
+    return hoverAnchor || (allowTouchPreview ? selectedMarker : null);
+  }, [hoveredMarker, isTouchDevice, selectedMarker, useOverlayResultsRail]);
 
   const hoverPreview = useMemo(() => {
     if (!previewAnchorMarker) return null;
@@ -1867,6 +2101,11 @@ const CustomMap: React.FC<Props> = ({
       return;
     }
     if (mapInstance && markers.length > 0) {
+      // In overlay-results map mode (mobile/desktop split view), aggressively fitting
+      // to every marker causes jarring zoom-outs (often country-level) on refresh.
+      // Keep current viewport stable and let query/place focus logic drive centering.
+      if (useOverlayResultsRail) return;
+
       const currentQueryKey = (searchQuery || '').trim().toLowerCase() || '__no_query__';
       if (userMovedMapRef.current && lastAutoFitQueryRef.current === currentQueryKey) {
         return;
@@ -1886,7 +2125,7 @@ const CustomMap: React.FC<Props> = ({
       }
       lastAutoFitQueryRef.current = currentQueryKey;
     }
-  }, [mapInstance, markers, zoom, drawMode, hasActiveDrawPolygon, searchQuery]);
+  }, [mapInstance, markers, zoom, drawMode, hasActiveDrawPolygon, searchQuery, useOverlayResultsRail]);
 
   const submitExploreSearch = useCallback(() => {
     const query = exploreSearchInput.trim();
@@ -1929,6 +2168,25 @@ const CustomMap: React.FC<Props> = ({
     };
   }, [clearAllExploreMarkers]);
 
+  useEffect(() => {
+    if (shouldHideControls) {
+      setMobileToolsExpanded(false);
+      setActiveToolPanel(null);
+    }
+  }, [shouldHideControls]);
+
+  useEffect(() => {
+    if (!isTouchDevice || activeToolPanel !== 'explore') return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (controlsDockRef.current?.contains(target)) return;
+      setActiveToolPanel(null);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [isTouchDevice, activeToolPanel]);
+
 
 
   return isLoaded ? (
@@ -1940,10 +2198,19 @@ const CustomMap: React.FC<Props> = ({
           </div>
         </div>
       )}
-      <div className="absolute right-3 top-3 z-20 pointer-events-auto sm:right-4 sm:top-4">
+      <div
+        ref={controlsDockRef}
+        className={cn(
+          'absolute z-30 pointer-events-auto',
+          shouldHideControls ? 'hidden' : '',
+          isTouchDevice
+            ? 'right-3 bottom-[132px]'
+            : 'right-3 top-3 sm:right-4 sm:top-4',
+        )}
+      >
         <div className="flex items-start gap-2">
-          {activeToolPanel === 'measure' && (
-            <div className="w-[220px] rounded-xl border border-gray-200 bg-white p-3 shadow-lg">
+          {!isTouchDevice && activeToolPanel === 'measure' && (
+            <div className="w-[220px] max-w-[72vw] rounded-xl border border-gray-200 bg-white p-3 shadow-lg">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Measure</span>
                 <button
@@ -1993,8 +2260,8 @@ const CustomMap: React.FC<Props> = ({
             </div>
           )}
 
-          {activeToolPanel === 'draw' && (
-            <div className="w-[220px] rounded-xl border border-gray-200 bg-white p-3 shadow-lg">
+          {!isTouchDevice && activeToolPanel === 'draw' && (
+            <div className="w-[220px] max-w-[72vw] rounded-xl border border-gray-200 bg-white p-3 shadow-lg">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Draw Area</span>
                 <button
@@ -2039,7 +2306,10 @@ const CustomMap: React.FC<Props> = ({
           )}
 
           {activeToolPanel === 'explore' && (
-            <div className="w-[280px] rounded-xl border border-gray-200 bg-white p-3 shadow-lg">
+            <div className={cn(
+              'rounded-xl border border-gray-200 bg-white p-3 shadow-lg',
+              isTouchDevice ? 'w-[260px] max-w-[72vw]' : 'w-[280px] max-w-[80vw]',
+            )}>
               <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
                 Explore Search
               </div>
@@ -2164,11 +2434,72 @@ const CustomMap: React.FC<Props> = ({
             </div>
           )}
 
-          <div className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-white p-1.5 shadow-lg">
+          <div
+            className={cn(
+              'flex flex-col border border-gray-200 bg-white/95 shadow-lg backdrop-blur',
+              isTouchDevice ? 'overflow-hidden rounded-md p-0' : 'gap-2 rounded-xl p-1.5',
+            )}
+          >
+            {isTouchDevice ? (
+              <button
+                type="button"
+                title="Map tools"
+                onClick={() => setMobileToolsExpanded((prev) => !prev)}
+                className={cn(
+                  'flex h-10 w-10 items-center justify-center bg-white text-gray-700 hover:bg-gray-50',
+                  'border-b border-gray-200',
+                )}
+                aria-label="Toggle map tools"
+              >
+                {mobileToolsExpanded ? (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6 6 18" stroke="#374151" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                ) : (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M4 7h16M4 12h16M4 17h16" stroke="#374151" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                )}
+              </button>
+            ) : null}
+
+            {isTouchDevice ? (
+              <>
+                <button
+                  type="button"
+                  title="Zoom in"
+                  onClick={() => adjustMapZoom(1)}
+                  className="flex h-10 w-10 items-center justify-center border-b border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                  aria-label="Zoom in"
+                >
+                  <span className="text-2xl leading-none">+</span>
+                </button>
+                <button
+                  type="button"
+                  title="Zoom out"
+                  onClick={() => adjustMapZoom(-1)}
+                  className="flex h-10 w-10 items-center justify-center border-b border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                  aria-label="Zoom out"
+                >
+                  <span className="text-3xl leading-none">-</span>
+                </button>
+              </>
+            ) : null}
+
+            {(!isTouchDevice || mobileToolsExpanded) ? (
+              <>
             <button
               type="button"
               title="Measure Time"
-              onClick={() =>
+              onClick={() => {
+                if (isTouchDevice) {
+                  const next = !measureMode;
+                  setMeasureMode(next);
+                  setDrawMode(false);
+                  if (!next) resetMeasure();
+                  setActiveToolPanel(next ? 'measure' : null);
+                  return;
+                }
                 setActiveToolPanel((prev) => {
                   const nextPanel = prev === 'measure' ? null : 'measure';
                   if (nextPanel === 'measure') {
@@ -2179,34 +2510,36 @@ const CustomMap: React.FC<Props> = ({
                     resetMeasure();
                   }
                   return nextPanel;
-                })
-              }
+                });
+              }}
               className={cn(
-                'flex h-10 w-10 items-center justify-center rounded-lg border text-[11px] font-semibold',
+                'flex items-center justify-center text-[11px] font-semibold',
+                isTouchDevice ? 'h-10 w-10 border-b border-gray-200' : 'h-10 w-10 rounded-lg border',
                 activeToolPanel === 'measure' || measureMode
                   ? 'border-black bg-black text-white'
-                  : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50',
+                  : 'bg-white text-gray-700 hover:bg-gray-50',
               )}
             >
               <svg
-                width="20"
-                height="20"
+                width="18"
+                height="18"
                 viewBox="0 0 24 24"
                 fill="none"
                 aria-hidden="true"
               >
                 <path
-                  d="M4.5 14.8 14.8 4.5a2 2 0 0 1 2.8 0l1.9 1.9a2 2 0 0 1 0 2.8L9.2 19.5a2 2 0 0 1-2.8 0l-1.9-1.9a2 2 0 0 1 0-2.8Z"
+                  d="M12 4a8 8 0 1 1 0 16a8 8 0 0 1 0-16Z"
                   stroke={activeToolPanel === 'measure' || measureMode ? '#fff' : '#6b7280'}
                   strokeWidth="1.8"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M13 6.3l1.7 1.7M10.8 8.5l.9.9M9 10.3l1.7 1.7M6.8 12.5l.9.9M5 14.3l1.7 1.7M14.8 11.5l.9.9"
-                  stroke={activeToolPanel === 'measure' || measureMode ? '#fff' : '#6b7280'}
-                  strokeWidth="1.4"
                   strokeLinecap="round"
                 />
+                <path
+                  d="M12 12l4-2.5"
+                  stroke={activeToolPanel === 'measure' || measureMode ? '#fff' : '#6b7280'}
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+                <circle cx="12" cy="12" r="1.2" fill={activeToolPanel === 'measure' || measureMode ? '#fff' : '#6b7280'} />
               </svg>
             </button>
             <button
@@ -2215,32 +2548,39 @@ const CustomMap: React.FC<Props> = ({
               onClick={(e) => {
                 e.stopPropagation();
                 if (drawMode) {
-                  // User is actively drawing — cancel and close panel
+                  if (isTouchDevice) {
+                    finalizeMobileTapDraw();
+                    setActiveToolPanel(null);
+                    return;
+                  }
                   clearDrawPolygon();
                   setActiveToolPanel((prev) => (prev === 'draw' ? null : prev));
                   return;
                 }
                 if (!!drawPolygon) {
-                  // Polygon already drawn — clear it and immediately start a fresh draw
-                  // React batches the setDrawMode(false) inside clearDrawPolygon with the
-                  // setDrawMode(true) below, so the final state will be drawMode = true
                   clearDrawPolygon();
+                  setActiveToolPanel((prev) => (prev === 'draw' ? null : prev));
+                  return;
                 }
                 setMeasureMode(false);
                 resetMeasure();
                 setActiveToolPanel((prev) => (prev === 'measure' ? null : prev));
                 setDrawMode(true);
+                if (isTouchDevice) {
+                  mobileTapDrawPointsRef.current = [];
+                }
               }}
               className={cn(
-                'flex h-10 w-10 items-center justify-center rounded-lg border text-[11px] font-semibold',
+                'flex items-center justify-center text-[11px] font-semibold',
+                isTouchDevice ? 'h-10 w-10 border-b border-gray-200' : 'h-10 w-10 rounded-lg border',
                 activeToolPanel === 'draw' || drawMode || !!drawPolygon
                   ? 'border-black bg-black text-white'
-                  : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50',
+                  : 'bg-white text-gray-700 hover:bg-gray-50',
               )}
             >
               <svg
-                width="19"
-                height="19"
+                width="18"
+                height="18"
                 viewBox="0 0 24 24"
                 fill="none"
                 aria-hidden="true"
@@ -2266,23 +2606,51 @@ const CustomMap: React.FC<Props> = ({
             <button
               type="button"
               title="Explore Search"
-              onClick={() => setActiveToolPanel((prev) => (prev === 'explore' ? null : 'explore'))}
+              onClick={() => {
+                if (isTouchDevice) {
+                  const next = activeToolPanel !== 'explore';
+                  if (!next) {
+                    setActiveToolPanel(null);
+                    return;
+                  }
+                  setMeasureMode(false);
+                  resetMeasure();
+                  setDrawMode(false);
+                  setActiveToolPanel('explore');
+                  setExploreFeedback(null);
+                  return;
+                }
+                setActiveToolPanel((prev) => (prev === 'explore' ? null : 'explore'));
+              }}
               className={cn(
-                'flex h-10 w-10 items-center justify-center rounded-lg border',
+                'flex items-center justify-center',
+                isTouchDevice ? 'h-10 w-10 border-b border-gray-200' : 'h-10 w-10 rounded-lg border',
                 activeToolPanel === 'explore'
                   ? 'border-black bg-black'
-                  : 'border-gray-200 bg-white hover:bg-gray-50',
+                  : 'bg-white hover:bg-gray-50',
               )}
               aria-label="Explore places"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14Zm0 2a5 5 0 1 1 0 10a5 5 0 0 1 0-10Z" fill={activeToolPanel === 'explore' ? '#fff' : '#6b7280'} />
                 <path d="M15.8 15.8l3.9 3.9" stroke={activeToolPanel === 'explore' ? '#fff' : '#6b7280'} strokeWidth="2" strokeLinecap="round" />
               </svg>
             </button>
+            </>
+            ) : null}
           </div>
         </div>
       </div>
+
+      {isTouchDevice && drawMode && !shouldHideControls ? (
+        <div
+          className="absolute inset-0 z-20 touch-none"
+          onPointerDown={handleTouchDrawPointerDown}
+          onPointerMove={handleTouchDrawPointerMove}
+          onPointerUp={handleTouchDrawPointerUp}
+          onPointerCancel={handleTouchDrawPointerUp}
+        />
+      ) : null}
 
       <GoogleMap
         mapContainerStyle={containerStyle}
@@ -2316,10 +2684,10 @@ const CustomMap: React.FC<Props> = ({
           mapTypeControl: false,
           rotateControl: false,
           clickableIcons: false,
-          zoomControl: true,
+          zoomControl: !shouldHideControls && !isTouchDevice,
           draggable: !drawMode,
           scrollwheel: true,
-          gestureHandling: 'cooperative',
+          gestureHandling: isTouchDevice ? 'greedy' : 'cooperative',
           draggableCursor: drawMode ? 'crosshair' : undefined,
           mapId: googleMapsMapId,
           zoomControlOptions: {
@@ -2383,7 +2751,9 @@ const CustomMap: React.FC<Props> = ({
               onClick={() => {
                 if (drawMode || !isMarkerVisible) return;
                 const markerPos = { lat: marker.lat, lng: marker.lng };
-                if (measureModeRef.current) {
+                const measureSelectionActive = measureMode || measureModeRef.current;
+                if (measureSelectionActive) {
+                  panMarkerIntoVisibleArea(markerPos);
                   applyMeasurePointFromMarker(markerPos, 'listing');
                   if (marker.id && onMarkerClick) onMarkerClick(marker.id);
                   return;
@@ -2668,3 +3038,6 @@ const CustomMap: React.FC<Props> = ({
 };
 
 export default React.memo(CustomMap);
+
+
+

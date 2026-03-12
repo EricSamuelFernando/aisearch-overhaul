@@ -2,6 +2,7 @@ type AnyRecord = Record<string, any>;
 
 const RE_API_BASE = process.env.REALESTATE_API_BASE_URL || 'https://api.realestateapi.com';
 const US_SUFFIX_RE = /\s*,\s*(?:usa|u\.s\.a\.|united states(?: of america)?)\s*$/i;
+const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const parseLooseNumber = (value: unknown): number | null => {
   if (value === null || value === undefined || value === '') return null;
@@ -145,8 +146,31 @@ const extractCity = (query: string, state?: string | null, zip?: string | null) 
     !Object.keys(STATE_MAP).includes(plain.toLowerCase()) &&
     !Object.values(STATE_MAP).includes(plain.toUpperCase())
   ) {
-    // Remove a trailing state token if present: "Los Angeles CA"
-    const withoutState = state ? plain.replace(new RegExp(`\\b${state}\\b$`, 'i'), '').trim().replace(/[,\s]+$/, '') : plain;
+    // Remove trailing state token if present: "Los Angeles CA", "Los Angeles, California"
+    let withoutState = plain;
+    if (state) {
+      withoutState = withoutState
+        .replace(new RegExp(`(?:,\\s*)?\\b${escapeRegex(state)}\\b$`, 'i'), '')
+        .trim()
+        .replace(/[,\s]+$/, '');
+
+      const trailingStateName = Object.keys(STATE_MAP)
+        .filter((name) => STATE_MAP[name] === state)
+        .sort((a, b) => b.length - a.length)
+        .find((name) => {
+          const spaced = name.trim().split(/\s+/).map(escapeRegex).join('\\s+');
+          return new RegExp(`(?:,\\s*)?\\b${spaced}\\b$`, 'i').test(withoutState);
+        });
+
+      if (trailingStateName) {
+        const spaced = trailingStateName.trim().split(/\s+/).map(escapeRegex).join('\\s+');
+        withoutState = withoutState
+          .replace(new RegExp(`(?:,\\s*)?\\b${spaced}\\b$`, 'i'), '')
+          .trim()
+          .replace(/[,\s]+$/, '');
+      }
+    }
+
     if (withoutState.length > 1) return withoutState;
   }
 

@@ -604,7 +604,6 @@ function PropertyBrowseView({ }: Props) {
   const sendSearchRequest = useCallback(
     debounce(async (body: Record<string, any>) => {
       const queryText = query.trim();
-      if (isSearchingRef.current) return;
       if (isMlsMode && !queryText) return;
       if (isMlsMode && !isLikelyAddressQuery(queryText)) {
         const normalized = queryText.toLowerCase();

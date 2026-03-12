@@ -874,6 +874,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const [isExpanded, setIsExpanded] = useState(false);
     const [typedPlaceholder, setTypedPlaceholder] = useState("");
     const [showAttachMenu, setShowAttachMenu] = useState(false);
+    const attachMenuRef = useRef<HTMLDivElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const pendingImageRef = useRef<File | null>(null);
     // Menu State for AI Badge
@@ -1244,6 +1245,25 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         };
     }, []);
 
+    useEffect(() => {
+        if (!showAttachMenu) return;
+
+        const handleOutsideClick = (event: MouseEvent | TouchEvent) => {
+            const target = event.target as Node | null;
+            if (!attachMenuRef.current || !target) return;
+            if (!attachMenuRef.current.contains(target)) {
+                setShowAttachMenu(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleOutsideClick);
+        document.addEventListener('touchstart', handleOutsideClick);
+        return () => {
+            document.removeEventListener('mousedown', handleOutsideClick);
+            document.removeEventListener('touchstart', handleOutsideClick);
+        };
+    }, [showAttachMenu]);
+
     const toggleMlsBypass = () => {
         setMlsBypassMode((prev) => {
             const next = !prev;
@@ -1303,8 +1323,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                         transition={{ duration: 0.2 }}
                         className="absolute bottom-full right-0 mb-3 w-[220px] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl z-[75]"
                     >
-                        <p className="text-[11px] font-semibold text-[#5A2B13]">AI Tip</p>
-                        <p className="mt-1 text-[11px] leading-relaxed text-gray-700">{AI_MODE_TIPS[aiModeTipIndex]}</p>
+                        <p className="text-[11px] font-semibold leading-relaxed text-[#5A2B13]">
+                            Click here to ask AI about {activeAiModeTip}
+                        </p>
                         <span className="absolute -bottom-1 right-6 h-2 w-2 rotate-45 border-r border-b border-[#f2cfb0] bg-white" />
                     </motion.div>
                 )}
@@ -1325,6 +1346,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     useEffect(() => {
         if (!aiModeActive) {
             setShowAiModeTip(false);
+            setShowAttachMenu(false);
         }
     }, [aiModeActive]);
 
@@ -1354,7 +1376,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         }
     };
 
-    const renderPendingImageChip = (variant: 'collapsed' | 'expanded') => {
+    const renderPendingImageChip = (variant: 'collapsed' | 'expanded' | 'desktop') => {
         if (!pendingImage && !pendingImagePreview) return null;
 
         if (variant === 'expanded') {
@@ -1370,6 +1392,33 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                             type="button"
                             onClick={resetPendingImageSelection}
                             className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/75 text-white flex items-center justify-center hover:bg-black transition-colors"
+                            aria-label="Remove selected image"
+                        >
+                            <X className="w-3 h-3" />
+                        </button>
+                        {pendingImageStatus === 'processing' && (
+                            <div className="absolute inset-0 bg-white/75 backdrop-blur-[1px] flex items-center justify-center">
+                                <span className="text-[10px] font-semibold text-gray-700">Preparing...</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        if (variant === 'desktop') {
+            return (
+                <div className="flex items-start">
+                    <div className="relative h-12 w-20 rounded-xl overflow-hidden border border-gray-200 bg-gray-100 shadow-[0_6px_16px_rgba(15,23,42,0.12)]">
+                        {pendingImagePreview ? (
+                            <img src={pendingImagePreview} alt="Selected upload" className="object-cover w-full h-full" />
+                        ) : (
+                            <ImageIcon className="w-4 h-4 text-gray-500 absolute inset-0 m-auto" />
+                        )}
+                        <button
+                            type="button"
+                            onClick={resetPendingImageSelection}
+                            className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/75 text-white flex items-center justify-center hover:bg-black transition-colors"
                             aria-label="Remove selected image"
                         >
                             <X className="w-3 h-3" />
@@ -3123,46 +3172,48 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                     {/* Right Actions */}
                                     <div className="hidden md:flex items-center gap-2 flex-shrink-0 pr-1">
                                         {renderAiModeToggle()}
-                                        <div className="relative">
-                                            <div
-                                                className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
-                                                onClick={() => setShowAttachMenu(!showAttachMenu)}
-                                            >
-                                                <Paperclip className="w-5 h-5" />
-                                            </div>
+                                        {aiModeActive && (
+                                            <div className="relative" ref={attachMenuRef}>
+                                                <div
+                                                    className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
+                                                    onClick={() => setShowAttachMenu(!showAttachMenu)}
+                                                >
+                                                    <Paperclip className="w-5 h-5" />
+                                                </div>
 
-                                            {/* Dropdown Menu */}
-                                            <AnimatePresence>
-                                                {showAttachMenu && (
-                                                    <motion.div
-                                                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                                                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                                                        transition={{ duration: 0.2 }}
-                                                        className="absolute bottom-full right-0 mb-2 w-32 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200 ring-1 ring-black/5 overflow-hidden z-[70]"
-                                                    >
-                                                        <div className="flex flex-col p-1.5 gap-1">
-                                                            <button
-                                                                onClick={() => handleAttachmentClick('image')}
-                                                                type="button"
-                                                                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
-                                                            >
-                                                                <ImageIcon className="w-4 h-4 text-blue-500" />
-                                                                <span>Image</span>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleAttachmentClick('pdf')}
-                                                                type="button"
-                                                                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
-                                                            >
-                                                                <FileText className="w-4 h-4 text-red-500" />
-                                                                <span>PDF</span>
-                                                            </button>
-                                                        </div>
-                                                    </motion.div>
-                                                )}
-                                            </AnimatePresence>
-                                        </div>
+                                                {/* Dropdown Menu */}
+                                                <AnimatePresence>
+                                                    {showAttachMenu && (
+                                                        <motion.div
+                                                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                            transition={{ duration: 0.2 }}
+                                                            className="absolute bottom-full right-0 mb-2 w-32 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200 ring-1 ring-black/5 overflow-hidden z-[70]"
+                                                        >
+                                                            <div className="flex flex-col p-1.5 gap-1">
+                                                                <button
+                                                                    onClick={() => handleAttachmentClick('image')}
+                                                                    type="button"
+                                                                    className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
+                                                                >
+                                                                    <ImageIcon className="w-4 h-4 text-blue-500" />
+                                                                    <span>Image</span>
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleAttachmentClick('pdf')}
+                                                                    type="button"
+                                                                    className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
+                                                                >
+                                                                    <FileText className="w-4 h-4 text-red-500" />
+                                                                    <span>PDF</span>
+                                                                </button>
+                                                            </div>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
+                                            </div>
+                                        )}
                                         {/* Desktop Begin Journey Button */}
                                         <Button
                                             type='submit'
@@ -4275,8 +4326,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                 </div>
                                             )}
                                             {(pendingImage || pendingImagePreview) && (
-                                                <div className="hidden md:block absolute left-4 top-1/2 -translate-y-1/2 z-10">
-                                                    {renderPendingImageChip('collapsed')}
+                                                <div className="hidden md:block absolute left-4 top-3 z-10">
+                                                    {renderPendingImageChip('desktop')}
                                                 </div>
                                             )}
                                             <textarea
@@ -4313,52 +4364,54 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                 }}
                                                 placeholder={pendingImage ? "Type city, ZIP, or coordinates for this image" : ""}
                                                 rows={1}
-                                                className={`w-full bg-white text-gray-900 rounded-2xl sm:rounded-3xl overflow-y-hidden resize-none pl-4 sm:pl-5 ${pendingImage || pendingImagePreview ? 'min-h-[128px] max-h-48 sm:max-h-56 pt-[88px] pb-3 md:min-h-[68px] md:max-h-40 md:pt-4 md:pb-[22px] md:pl-[14rem]' : 'min-h-[64px] sm:min-h-[68px] max-h-32 sm:max-h-40 py-4 sm:py-[22px]'} pr-24 sm:pr-24 md:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-[14px] sm:text-base placeholder:text-gray-400 font-normal leading-relaxed`}
+                                                className={`w-full bg-white text-gray-900 rounded-2xl sm:rounded-3xl overflow-y-hidden resize-none pl-4 sm:pl-5 ${pendingImage || pendingImagePreview ? 'min-h-[128px] max-h-48 sm:max-h-56 pt-[88px] pb-3 md:min-h-[120px] md:max-h-48 md:pt-[84px] md:pb-4 md:pl-5' : 'min-h-[64px] sm:min-h-[68px] max-h-32 sm:max-h-40 py-4 sm:py-[22px]'} pr-24 sm:pr-24 md:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-[14px] sm:text-base placeholder:text-gray-400 font-normal leading-relaxed`}
                                             />
                                             <div className={`absolute right-2 sm:right-3 flex items-center gap-1.5 sm:gap-4 ${(pendingImage || pendingImagePreview) ? 'bottom-2 md:top-1/2 md:-translate-y-1/2' : 'top-1/2 -translate-y-1/2'}`}>
                                                 <div className="hidden md:flex items-center gap-1.5 sm:gap-4">
                                                     {/* Attach Icon & Menu */}
-                                                    <div className="relative">
-                                                        <div
-                                                            className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
-                                                            onClick={() => setShowAttachMenu(!showAttachMenu)}
-                                                        >
-                                                            <Paperclip className="w-5 h-5 sm:w-5 sm:h-5" />
-                                                        </div>
+                                                    {aiModeActive && (
+                                                        <div className="relative" ref={attachMenuRef}>
+                                                            <div
+                                                                className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
+                                                                onClick={() => setShowAttachMenu(!showAttachMenu)}
+                                                            >
+                                                                <Paperclip className="w-5 h-5 sm:w-5 sm:h-5" />
+                                                            </div>
 
-                                                        {/* Dropdown Menu (Opens Upwards) */}
-                                                        <AnimatePresence>
-                                                            {showAttachMenu && (
-                                                                <motion.div
-                                                                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                                                                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                                                                    transition={{ duration: 0.2 }}
-                                                                    className="absolute bottom-full right-0 mb-2 w-32 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200 ring-1 ring-black/5 overflow-hidden z-[70]"
-                                                                >
-                                                                    <div className="flex flex-col p-1.5 gap-1">
-                                                                        <button
-                                                                            onClick={() => handleAttachmentClick('image')}
-                                                                            type="button"
-                                                                            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
-                                                                        >
-                                                                            <ImageIcon className="w-4 h-4 text-blue-500" />
-                                                                            <span>Image</span>
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => handleAttachmentClick('pdf')}
-                                                                            type="button"
-                                                                            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
-                                                                        >
-                                                                            <FileText className="w-4 h-4 text-red-500" />
-                                                                            <span>PDF</span>
-                                                                        </button>
-                                                                    </div>
-                                                                </motion.div>
-                                                            )}
-                                                        </AnimatePresence>
-                                                    </div>
-                                                    {renderAiModeToggle()}
+                                                            {/* Dropdown Menu (Opens Upwards) */}
+                                                            <AnimatePresence>
+                                                                {showAttachMenu && (
+                                                                    <motion.div
+                                                                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                                        transition={{ duration: 0.2 }}
+                                                                        className="absolute bottom-full right-0 mb-2 w-32 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200 ring-1 ring-black/5 overflow-hidden z-[70]"
+                                                                    >
+                                                                        <div className="flex flex-col p-1.5 gap-1">
+                                                                            <button
+                                                                                onClick={() => handleAttachmentClick('image')}
+                                                                                type="button"
+                                                                                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
+                                                                            >
+                                                                                <ImageIcon className="w-4 h-4 text-blue-500" />
+                                                                                <span>Image</span>
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => handleAttachmentClick('pdf')}
+                                                                                type="button"
+                                                                                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
+                                                                            >
+                                                                                <FileText className="w-4 h-4 text-red-500" />
+                                                                                <span>PDF</span>
+                                                                            </button>
+                                                                        </div>
+                                                                    </motion.div>
+                                                                )}
+                                                            </AnimatePresence>
+                                                        </div>
+                                                    )}
+                                                    {/* AI toggle hidden in expanded (chat) view on desktop */}
                                                 </div>
                                             <button
                                                 type="button"

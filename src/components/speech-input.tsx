@@ -209,7 +209,7 @@ function MemoizedSpeechInput({
 
       {/* Autocomplete Dropdown */}
       {showSuggestions && limitedSuggestions.length > 0 && (
-        <ul className="absolute z-[99999] bottom-full left-0 right-0 mb-1 max-h-40 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-2xl ring-1 ring-black/5">
+        <ul className="absolute z-[99999] top-full left-0 right-0 mt-2 max-h-60 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl ring-1 ring-black/5 animate-in fade-in slide-in-from-top-2 duration-200">
           {limitedSuggestions.map((city, index) => (
             <li
               key={index}

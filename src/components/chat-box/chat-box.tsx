@@ -2540,7 +2540,6 @@ export default function ChatBoxComponent(props: any) {
 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
   const [showUnreadOnly, setShowUnreadOnly] = useState(false)
   const toggleDropdown = () => setIsDropdownOpen((prev) => !prev)
   const closeDropdown = () => setIsDropdownOpen(false)
@@ -5907,22 +5906,13 @@ export default function ChatBoxComponent(props: any) {
       ) {
         setShowEmojiPicker(false);
       }
-
-      // Header dropdown
-      if (
-        isDropdownOpen &&
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsDropdownOpen(false);
-      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showUploadMenu, showEmojiPicker, isDropdownOpen]);
+  }, [showUploadMenu, showEmojiPicker]);
 
   console.log("Thread Data: ", threads);
   console.log("[chat-box] Render state - showChat:", showChat, "selectedThread:", selectedThread, "selectedThreadDetail:", selectedThreadDetail?.id, "state.selectedChannel:", state.selectedChannel);
@@ -6841,14 +6831,14 @@ export default function ChatBoxComponent(props: any) {
                 <span className="font-semibold truncate">{state?.selectedChannel?.propertyName || ""}</span>
               </div>
 
-{/* <Button
+              <Button
                 variant="outline"
                 size="sm"
                 className="rounded-full"
                 onClick={() => setShowDetails(true)}
               >
                 Details
-              </Button> */}
+              </Button>
             </header>
             <div className="flex-1 flex bg-white">
               {(state.selectedChannel.id || selectedThreadDetail?.id || selectedThread) ? (
@@ -6919,7 +6909,7 @@ export default function ChatBoxComponent(props: any) {
                           </div>
                           */}
 
-                          <div className="relative" ref={dropdownRef}>
+                          <div className="relative">
                             <button className="p-2 rounded-full hover:bg-gray-100" onClick={toggleDropdown}>
                               <MoreVertical className="h-5 w-5" />
                             </button>
@@ -7005,7 +6995,7 @@ export default function ChatBoxComponent(props: any) {
                       <div className="relative bg-[#F7F2EB]">
                         <ScrollArea
                           ref={messageScrollAreaRef}
-                          className="ms-2 mb-2 sm:ms-5 scrollbar-hide sm:me-5 overflow-auto h-[calc(96vh-22rem)] sm:h-[calc(96vh-18rem)]"
+                          className="ms-2 mb-2 sm:ms-5 scrollbar-hide sm:me-5 overflow-auto h-[calc(96vh-16rem)] sm:h-[calc(96vh-18rem)]"
                         >
                           <div className="space-y-6 me-4">
                             {normalizedNegotiationStatus === "NEGOTIATION_PENDING" && (

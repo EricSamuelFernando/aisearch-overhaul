@@ -151,15 +151,17 @@ const SNAP_YES_KEYWORDS = [
     'yes please'
 ];
 
+const CAMERA_TIP_TOPIC_TEXT = 'finding similar homes instantly from a photo.';
 const AI_MODE_TIPS = [
-    'Let AI help you find the perfect home.',
-    'Ask AI about nearby schools and neighborhoods.',
-    'Ask AI about mortgage options and affordability.',
-    'Snap a photo to find similar homes instantly.',
-    'Ask AI whether renting or buying is better for you.',
-    'Ask AI about current home loan interest rates.',
-    'Ask AI anything about buying or renting a home.'
+    'finding the perfect home.',
+    'nearby schools and neighborhoods.',
+    'mortgage options and affordability.',
+    CAMERA_TIP_TOPIC_TEXT,
+    'whether renting or buying is better for you.',
+    'current home loan interest rates.',
+    'buying or renting a home.'
 ];
+const CAMERA_TIP_TEXT = `Click here to ask AI about ${CAMERA_TIP_TOPIC_TEXT}`;
 const AI_MODE_TIP_LAST_INDEX_STORAGE_KEY = 'snaphomz:ai-mode-tip:last-index';
 
 const DEFAULT_MAIN_SITE_URL = 'https://demo.snaphomz.com';
@@ -895,6 +897,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const hasShownInitialAiTipRef = useRef(false);
     const [showAiModeTip, setShowAiModeTip] = useState(false);
     const [aiModeTipIndex, setAiModeTipIndex] = useState(0);
+    const activeAiModeTip = AI_MODE_TIPS[aiModeTipIndex] || AI_MODE_TIPS[0];
+    const showCameraTipBubble = activeAiModeTip === CAMERA_TIP_TOPIC_TEXT;
     const [pendingLocationImage, setPendingLocationImage] = useState<File | null>(null);
     const [pendingImage, setPendingImage] = useState<File | null>(null);
     const [pendingImagePreview, setPendingImagePreview] = useState<string | null>(null);
@@ -1142,8 +1146,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         setShowAttachMenu(false);
     };
 
-    const handleMobileCameraClick = async () => {
-        await requestLocationAccess();
+    const handleMobileCameraClick = () => {
+        // iOS Safari blocks file input dialogs when click is triggered after await.
+        // Keep input.click() in the direct tap call stack.
+        requestLocationAccess().catch(() => {
+            // Location denied/unavailable should not block camera capture.
+        });
         openHiddenFileInput('image', { capture: 'environment' });
         setShowAttachMenu(false);
     };
@@ -3021,7 +3029,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             </span>
                                         </button>
                                         <AnimatePresence>
-                                            {showAiModeTip && !isExpanded && (
+                                            {showAiModeTip && !isExpanded && !showCameraTipBubble && (
                                                 <motion.div
                                                     initial={{ opacity: 0, y: 6, scale: 0.98 }}
                                                     animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -3029,21 +3037,41 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                     transition={{ duration: 0.2 }}
                                                     className="absolute bottom-full right-0 mb-3 w-[220px] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl z-[75]"
                                                 >
-                                                    <p className="text-[11px] font-semibold text-[#5A2B13]">AI Tip</p>
-                                                    <p className="mt-1 text-[11px] leading-relaxed text-gray-700">{AI_MODE_TIPS[aiModeTipIndex]}</p>
+                                                    <p className="text-[11px] font-semibold leading-relaxed text-[#5A2B13]">
+                                                        Click here to ask AI about {activeAiModeTip}
+                                                    </p>
                                                     <span className="absolute -bottom-1 right-6 h-2 w-2 rotate-45 border-r border-b border-[#f2cfb0] bg-white" />
                                                 </motion.div>
                                             )}
                                         </AnimatePresence>
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={handleMobileCameraClick}
-                                        title="Upload image"
-                                        className="md:hidden h-10 w-10 text-[#1E1E1E] flex items-center justify-center transition-colors hover:text-black"
-                                    >
-                                        <Camera className="h-[18px] w-[18px]" />
-                                    </button>
+                                    <div className="md:hidden relative flex-shrink-0">
+                                        <button
+                                            type="button"
+                                            onClick={handleMobileCameraClick}
+                                            title={CAMERA_TIP_TEXT}
+                                            aria-label={CAMERA_TIP_TEXT}
+                                            className="h-10 w-10 text-[#1E1E1E] flex items-center justify-center transition-colors hover:text-black"
+                                        >
+                                            <Camera className="h-[18px] w-[18px]" />
+                                        </button>
+                                        <AnimatePresence>
+                                            {showAiModeTip && !isExpanded && showCameraTipBubble && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                    exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                                                    transition={{ duration: 0.2 }}
+                                                    className="absolute bottom-full right-0 mb-3 w-[220px] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl z-[75]"
+                                                >
+                                                    <p className="text-[11px] font-semibold leading-relaxed text-[#5A2B13]">
+                                                        {CAMERA_TIP_TEXT}
+                                                    </p>
+                                                    <span className="absolute -bottom-1 right-3 h-2 w-2 rotate-45 border-r border-b border-[#f2cfb0] bg-white" />
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
 
                                     {/* Right Actions */}
                                     <div className="hidden md:flex items-center gap-2 flex-shrink-0 pr-1">
@@ -3645,8 +3673,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                                         onClick={() => handlePropertyClick(property.id)}
                                                                         className={`
                                                                 group relative flex flex-col
-                                                                w-full min-w-0 max-w-full sm:min-w-[300px] sm:w-[300px] md:min-w-[360px] md:w-[360px] md:max-w-[360px] lg:min-w-[320px] lg:w-[320px] lg:max-w-[320px]
-                                                                flex-shrink-0 rounded-2xl cursor-pointer sm:snap-center
+                                                                w-[86%] min-w-[86%] max-w-[86%] sm:min-w-[300px] sm:w-[300px] md:min-w-[360px] md:w-[360px] md:max-w-[360px] lg:min-w-[320px] lg:w-[320px] lg:max-w-[320px]
+                                                                flex-shrink-0 rounded-2xl cursor-pointer snap-start sm:snap-center
                                                                 transition-all duration-300 ease-out border bg-white overflow-hidden
                                                                 ${isAnySelected
                                                                                 ? isActive
@@ -3731,20 +3759,20 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                                     href={`${getMainSiteBaseUrl()}/buy/browse?q=${encodeURIComponent(msg.query_history_formatted || msg.query || '')}`}
                                                                     target="_blank"
                                                                     rel="noopener noreferrer"
-                                                                    className="group flex-shrink-0 sm:snap-start self-stretch sm:self-center relative flex h-14 sm:h-48 w-full sm:w-48 flex-row sm:flex-col items-center justify-center gap-2 sm:gap-0 rounded-2xl sm:rounded-full border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-orange-100 shadow-lg transition-all duration-300 hover:scale-[1.01] sm:hover:scale-105 hover:border-orange-500 hover:shadow-xl hover:shadow-orange-200/60 cursor-pointer"
+                                                                    className="group flex-shrink-0 snap-start sm:snap-start self-center relative flex h-40 w-40 sm:h-48 sm:w-48 flex-col items-center justify-center gap-0 rounded-full border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-orange-100 shadow-lg transition-all duration-300 hover:scale-105 hover:border-orange-500 hover:shadow-xl hover:shadow-orange-200/60 cursor-pointer"
                                                                 >
                                                                     {/* Outer ring on hover */}
-                                                                    <div className="pointer-events-none absolute inset-[-6px] rounded-2xl sm:rounded-full border-2 border-orange-200 opacity-0 transition-all duration-500 group-hover:opacity-100" />
+                                                                    <div className="pointer-events-none absolute inset-[-6px] rounded-full border-2 border-orange-200 opacity-0 transition-all duration-500 group-hover:opacity-100" />
 
                                                                     {/* Icon circle */}
-                                                                    <div className="sm:mb-3 flex h-9 w-9 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-orange-500 text-white shadow-md transition-transform duration-300 group-hover:scale-110">
+                                                                    <div className="mb-2 sm:mb-3 flex h-11 w-11 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-orange-500 text-white shadow-md transition-transform duration-300 group-hover:scale-110">
                                                                         <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                                                             <path d="M7 17L17 7" /><path d="M7 7h10v10" />
                                                                         </svg>
                                                                     </div>
 
                                                                     {/* Label */}
-                                                                    <span className="text-center text-xs sm:text-sm font-semibold leading-tight text-orange-600 px-2 sm:px-4">
+                                                                    <span className="text-center text-xs sm:text-sm font-semibold leading-tight text-orange-600 px-3 sm:px-4">
                                                                         Show More Properties
                                                                     </span>
                                                                 </a>
@@ -4308,7 +4336,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             <button
                                                 type="button"
                                                 onClick={handleMobileCameraClick}
-                                                title="Upload image"
+                                                title={CAMERA_TIP_TEXT}
+                                                aria-label={CAMERA_TIP_TEXT}
                                                 className="md:hidden h-10 w-10 text-[#1E1E1E] flex items-center justify-center transition-colors hover:text-black"
                                             >
                                                 <Camera className="h-[21px] w-[21px]" />

@@ -1077,11 +1077,18 @@ export default function Home() {
   const [isOpen, setIsOpen] = useState(false);
   const [searchMethod, setSearchMethod] = useState('');
   const [isHomeSearchActive, setIsHomeSearchActive] = useState(false);
+  const [isSearchSuggestionsOpen, setIsSearchSuggestionsOpen] = useState(false);
   const [homeSectionsOffset, setHomeSectionsOffset] = useState(0);
   const homeSectionGap = 80;
   const heroSectionRef = useRef<HTMLElement | null>(null);
   const heroContentRef = useRef<HTMLDivElement | null>(null);
   const heroHeadingSize = 'text-[2.35rem] sm:text-[2.75rem] md:text-[3.35rem]';
+  const heroMetaTextClass = isSearchSuggestionsOpen
+    ? 'text-white md:text-[#111827]'
+    : (isHomeSearchActive ? 'text-white md:text-[#111827]' : 'text-white');
+  const heroMetaAccentClass = isSearchSuggestionsOpen
+    ? 'text-white md:text-[#2C211A]'
+    : (isHomeSearchActive ? 'text-white md:text-[#2C211A]' : 'text-white');
   const dispatch = useAppDispatch();
   const { email } = useRegister();
   const [carouselEmbla, setCarouselEmbla] = useState<any>(null);
@@ -1150,6 +1157,33 @@ export default function Home() {
     };
   }, [carouselEmbla]);
 
+  useEffect(() => {
+    if (!heroSectionRef.current || !heroContentRef.current) return;
+
+    const updateOffset = () => {
+      if (!heroSectionRef.current || !heroContentRef.current) return;
+      if (!isHomeSearchActive && !isSearchSuggestionsOpen) {
+        setHomeSectionsOffset(0);
+        return;
+      }
+      const heroRect = heroSectionRef.current.getBoundingClientRect();
+      const contentRect = heroContentRef.current.getBoundingClientRect();
+      const overflow = Math.max(0, contentRect.bottom - heroRect.bottom);
+      setHomeSectionsOffset(Math.ceil(overflow));
+    };
+
+    updateOffset();
+
+    const resizeObserver = new ResizeObserver(updateOffset);
+    resizeObserver.observe(heroContentRef.current);
+    window.addEventListener('resize', updateOffset);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateOffset);
+    };
+  }, [isHomeSearchActive, isSearchSuggestionsOpen]);
+
   // Individual image rotation function
   const getImageRotation = (angle: number) => {
     return angle > 180 && angle < 360 ? 'rotate(358deg)' : 'rotate(0deg)';
@@ -1177,16 +1211,19 @@ export default function Home() {
       <MainNavPages />
 
       {/* ================= HERO SECTION ================= */}
-      <section className="home-hero relative -mt-24 min-h-[80vh] bg-[#170800] pt-28 text-white md:h-[760px] md:min-h-[760px] md:max-h-[760px] md:pt-24">
+      <section
+        ref={heroSectionRef}
+        className="home-hero relative -mt-24 min-h-[80vh] bg-[#170800] pt-28 text-white md:min-h-[695px] md:pt-24 xl:min-h-[740px] md:h-[695px] md:max-h-[695px] xl:h-[740px] xl:max-h-[740px]"
+      >
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {/* ================= DESKTOP ARC ================= */}
 
           <div className="hidden md:flex w-full justify-center items-center overflow-visible">
-            <div className="home-hero-arc absolute left-1/2 top-32 h-[850px] w-[1200px] -translate-x-[54%]">
+            <div className="home-hero-arc absolute left-1/2 top-32 h-[850px] w-[1200px] -translate-x-1/2">
               {/* Image 1 */}
               <div
-                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
-                style={{ transform: `rotate(0deg) translateX(430px)` }}
+                className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform"
+                style={{ transform: `rotate(0deg) translateX(var(--home-hero-arc-radius, 430px))` }}
               >
                 <Image
                   src="/assets/images/home-landing8.png"
@@ -1201,8 +1238,8 @@ export default function Home() {
 
               {/* Image 2 */}
               <div
-                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
-                style={{ transform: `rotate(25.71deg) translateX(430px)` }}
+                className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform"
+                style={{ transform: `rotate(25.71deg) translateX(var(--home-hero-arc-radius, 430px))` }}
               >
                 <Image
                   src="/assets/images/home-landing1.png"
@@ -1217,8 +1254,8 @@ export default function Home() {
 
               {/* Image 3 */}
               <div
-                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
-                style={{ transform: `rotate(51.43deg) translateX(430px)` }}
+                className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform"
+                style={{ transform: `rotate(51.43deg) translateX(var(--home-hero-arc-radius, 430px))` }}
               >
                 <Image
                   src="/assets/images/home-landing6.png"
@@ -1233,8 +1270,8 @@ export default function Home() {
 
               {/* Image 4 */}
               <div
-                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
-                style={{ transform: `rotate(77.14deg) translateX(430px)` }}
+                className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform"
+                style={{ transform: `rotate(77.14deg) translateX(var(--home-hero-arc-radius, 430px))` }}
               >
                 <Image
                   src="/assets/images/home-landing3.png"
@@ -1249,8 +1286,8 @@ export default function Home() {
 
               {/* Image 5 */}
               <div
-                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
-                style={{ transform: `rotate(102.86deg) translateX(430px)` }}
+                className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform"
+                style={{ transform: `rotate(102.86deg) translateX(var(--home-hero-arc-radius, 430px))` }}
               >
                 <Image
                   src="/assets/images/home-landing4.png"
@@ -1265,8 +1302,8 @@ export default function Home() {
 
               {/* Image 6 */}
               <div
-                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
-                style={{ transform: `rotate(128.57deg) translateX(430px)` }}
+                className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform"
+                style={{ transform: `rotate(128.57deg) translateX(var(--home-hero-arc-radius, 430px))` }}
               >
                 <Image
                   src="/assets/images/home-landing3.png"
@@ -1281,8 +1318,8 @@ export default function Home() {
 
               {/* Image 7 */}
               <div
-                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
-                style={{ transform: `rotate(154.29deg) translateX(430px)` }}
+                className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform"
+                style={{ transform: `rotate(154.29deg) translateX(var(--home-hero-arc-radius, 430px))` }}
               >
                 <Image
                   src="/assets/images/home-landing2.png"
@@ -1297,8 +1334,8 @@ export default function Home() {
 
               {/* Image 8 */}
               <div
-                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform"
-                style={{ transform: `rotate(180deg) translateX(430px)` }}
+                className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform"
+                style={{ transform: `rotate(180deg) translateX(var(--home-hero-arc-radius, 430px))` }}
               >
                 <Image
                   src="/assets/images/home-landing1.png"
@@ -1307,15 +1344,14 @@ export default function Home() {
                   height={120}
                   unoptimized
                   className="rounded-3xl w-full h-full"
-                  // style={{ objectFit: 'contain', transform: getImageRotation(180) }}
                   style={{ objectFit: 'contain', transform: 'rotate(531deg)' }}
                 />
               </div>
 
               {/* Image 9 */}
               <div
-                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
-                style={{ transform: `rotate(205.71deg) translateX(430px)`, }}
+                className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
+                style={{ transform: `rotate(205.71deg) translateX(var(--home-hero-arc-radius, 430px))`, }}
               >
                 <Image
                   src="/assets/images/home-landing2.png"
@@ -1330,8 +1366,8 @@ export default function Home() {
 
               {/* Image 10 */}
               <div
-                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl relative"
-                style={{ transform: `rotate(231.43deg) translateX(430px)` }}
+                className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl relative"
+                style={{ transform: `rotate(231.43deg) translateX(var(--home-hero-arc-radius, 430px))` }}
               >
 
                 <Image
@@ -1360,8 +1396,8 @@ export default function Home() {
 
               {/* Image 11 */}
               <div
-                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
-                style={{ transform: `rotate(257.14deg) translateX(430px)` }}
+                className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
+                style={{ transform: `rotate(257.14deg) translateX(var(--home-hero-arc-radius, 430px))` }}
               >
                 <Image
                   src="/assets/images/home-landing4.png"
@@ -1376,8 +1412,8 @@ export default function Home() {
 
               {/* Image 12 */}
               <div
-                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
-                style={{ transform: `rotate(282.86deg) translateX(430px)` }}
+                className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
+                style={{ transform: `rotate(282.86deg) translateX(var(--home-hero-arc-radius, 430px))` }}
               >
                 <Image
                   src="/assets/images/home-landing5.png"
@@ -1392,8 +1428,8 @@ export default function Home() {
 
               {/* Image 13 */}
               <div
-                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform transform overflow-hidden rounded-3xl"
-                style={{ transform: `rotate(308.57deg) translateX(430px)` }}
+                className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform transform overflow-hidden rounded-3xl"
+                style={{ transform: `rotate(308.57deg) translateX(var(--home-hero-arc-radius, 430px))` }}
               >
                 <Image
                   src="/assets/images/home-landing6.png"
@@ -1408,8 +1444,8 @@ export default function Home() {
 
               {/* Image 14 */}
               <div
-                className="absolute left-1/2 top-[46%] h-[150px] w-[150px] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
-                style={{ transform: `rotate(334.29deg) translateX(430px)` }}
+                className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
+                style={{ transform: `rotate(334.29deg) translateX(var(--home-hero-arc-radius, 430px))` }}
               >
                 <Image
                   src="/assets/images/home-landing7.png"
@@ -1467,10 +1503,13 @@ export default function Home() {
         </div>
 
 
-        <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pt-24 pb-24 md:pb-36 text-center">
+        <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pt-24 pb-10 md:pb-12 text-center">
 
           {/* ================= TEXT + SEARCH ================= */}
-          <div className="home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-8 mt-24 md:mt-24">
+          <div
+            ref={heroContentRef}
+            className="home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-5 mt-20 md:mt-20"
+          >
 
             <h1 className={`${heroHeadingSize} font-medium leading-snug tracking-tight`}>
               <span className="block">Buying a home</span>
@@ -1488,6 +1527,7 @@ export default function Home() {
               <div className="home-hero-search-wrap w-full max-w-[1500px]">
                 <HeroSearchForm
                   onSearchStateChange={(isActive) => setIsHomeSearchActive(isActive)}
+                  onSuggestionsOpen={(open) => setIsSearchSuggestionsOpen(open)}
                 />
               </div>
 
@@ -1509,46 +1549,42 @@ export default function Home() {
               </div> */}
             </div>
 
-            <div
-              className={`relative mb-4 flex flex-col md:flex-row md:flex-nowrap items-center gap-y-0.5 md:gap-x-3 md:mb-6 md:mt-2 justify-center md:justify-start rounded-full px-4 py-2 md:px-5 transition-all ${isHomeSearchActive
-                ? 'z-40 md:bg-[#FFF6EC] md:shadow-[0_8px_24px_rgba(44,33,26,0.12)]'
-                : 'md:bg-transparent md:shadow-none'
-                }`}
-            >
-              <span
-                className={`text-[1rem] font-medium transition-colors ${isHomeSearchActive ? 'text-white md:text-[#2C211A]' : 'text-white'}`}
-              >
-                Conversational search,
+            <div className="-mt-3 flex flex-col md:flex-row md:flex-nowrap items-center gap-y-0.5 md:gap-x-3 justify-center transition-all duration-200">
+              <span className={`text-[1rem] font-medium transition-colors ${heroMetaTextClass}`}>
+                Conversational Search,
               </span>
-              <span
-                className={`text-[1rem] font-bold underline transition-colors ${isHomeSearchActive ? 'text-white md:text-[#2C211A]' : 'text-white'}`}
-              >
-                powered by Snaphomz AI.
-              </span>
-              <button className="uiverse">
-                <div className="wrapper">
-                  <span>BETA</span>
-                  <div className="circle circle-12"></div>
-                  <div className="circle circle-11"></div>
-                  <div className="circle circle-10"></div>
-                  <div className="circle circle-9"></div>
-                  <div className="circle circle-8"></div>
-                  <div className="circle circle-7"></div>
-                  <div className="circle circle-6"></div>
-                  <div className="circle circle-5"></div>
-                  <div className="circle circle-4"></div>
-                  <div className="circle circle-3"></div>
-                  <div className="circle circle-2"></div>
-                  <div className="circle circle-1"></div>
-                </div>
-              </button>
+              <div className="flex items-center gap-2 md:contents">
+                <span
+                  className={`text-[1rem] font-bold underline transition-colors ${heroMetaAccentClass}`}
+                >
+                  Powered by Snaphomz AI.
+                </span>
+                <button className="uiverse">
+                  <div className="wrapper">
+                    <span>BETA</span>
+                    <div className="circle circle-12"></div>
+                    <div className="circle circle-11"></div>
+                    <div className="circle circle-10"></div>
+                    <div className="circle circle-9"></div>
+                    <div className="circle circle-8"></div>
+                    <div className="circle circle-7"></div>
+                    <div className="circle circle-6"></div>
+                    <div className="circle circle-5"></div>
+                    <div className="circle circle-4"></div>
+                    <div className="circle circle-3"></div>
+                    <div className="circle circle-2"></div>
+                    <div className="circle circle-1"></div>
+                  </div>
+                </button>
+              </div>
             </div>
+
           </div>
         </section>
 
         {/* bottom gradient */}
         <div
-          className="absolute bottom-0 h-36 w-full"
+          className="absolute bottom-0 h-20 w-full"
           style={{
             background:
               'linear-gradient(to bottom, rgba(25,7,0,0) 4.07%, #190700 55.92%)',
@@ -1556,6 +1592,13 @@ export default function Home() {
         />
       </section>
 
+
+      {homeSectionsOffset > 0 && (
+        <div
+          className="w-full bg-[#FFF6EC] transition-[height] duration-200"
+          style={{ height: `${homeSectionsOffset}px` }}
+        />
+      )}
 
       {/* ================= OTHER SECTIONS ================= */}
       <div className="home-sections pt-8 md:pt-10">

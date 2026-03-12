@@ -111,15 +111,25 @@ function MemoizedSpeechInput({
       setSelectedIndex((prevIndex) =>
         prevIndex === null ? 0 : Math.max(0, prevIndex - 1)
       );
-    } else if (e.key === 'Enter' && selectedIndex !== null) {
+    } else if (e.key === 'Enter') {
       e.preventDefault();
-      setValue(suggestions[selectedIndex]);
+      if (selectedIndex !== null && suggestions[selectedIndex]) {
+        if (effectiveSearchType === 'nlp') {
+          const words = value.trim().split(/\s+/);
+          words.pop();
+          setValue(`${words.join(' ')} ${suggestions[selectedIndex]}`.trim());
+        } else {
+          setValue(suggestions[selectedIndex]);
+        }
+      }
       setShowSuggestions(false);
-      const words = value.trim().split(/\s+/);
-      words.pop();
-      setValue(`${words.join(' ')} ${suggestions[selectedIndex]}`);
-      setShowSuggestions(false);
-      inputRef.current?.focus();
+      setSelectedIndex(null);
+      // Submit through the parent form so mobile "Enter/Go" reliably triggers search.
+      setTimeout(() => {
+        inputRef.current?.form?.requestSubmit();
+      }, 0);
+      // Blur so the dropdown doesn't immediately reopen after submit.
+      inputRef.current?.blur();
     } else if (e.key === 'Escape') {
       setShowSuggestions(false);
       setSelectedIndex(null);
@@ -209,7 +219,7 @@ function MemoizedSpeechInput({
 
       {/* Autocomplete Dropdown */}
       {showSuggestions && limitedSuggestions.length > 0 && (
-        <ul className="absolute z-[99999] bottom-full left-0 right-0 mb-1 max-h-40 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-2xl ring-1 ring-black/5">
+        <ul className="absolute z-[99999] top-full left-0 right-0 mt-2 max-h-60 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl ring-1 ring-black/5 animate-in fade-in slide-in-from-top-2 duration-200">
           {limitedSuggestions.map((city, index) => (
             <li
               key={index}

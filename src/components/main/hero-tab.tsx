@@ -2,23 +2,21 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { askQuestion, searchProperties, cancelActiveTask, fetchHistory, fetchSessionDetails, clearHistoryAPI, suggestAddresses, fetchThinkingProgress } from '@/lib/api';
 import type { QuestionPayload, AddressSuggestion, ThinkingProgressResponse } from '@/lib/api';
-import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
+import { getMlsBypassStorageKey, isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { detectIntent } from '@/lib/chatRouting';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
-import { Sparkles, Paperclip, X, ArrowUp, Mic, Search as SearchIcon, FileText, Image as ImageIcon, ChevronDown, ChevronUp, MapPin, School, Shield, Footprints, Thermometer, CloudSun, BedDouble, Bath, Square, Scaling, Calendar, Clock, TrendingUp, GraduationCap, Trees, Plus, Lightbulb, Droplets, HelpCircle } from 'lucide-react';
+import { Sparkles, Paperclip, X, ArrowUp, Mic, Search as SearchIcon, FileText, Image as ImageIcon, Camera, ChevronDown, ChevronUp, MapPin, School, Shield, Footprints, Thermometer, CloudSun, BedDouble, Bath, Square, Scaling, Calendar, Clock, TrendingUp, GraduationCap, Trees, Plus, Lightbulb, Droplets, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, ReferenceDot } from 'recharts';
 import SchoolMapPanel from '@/components/SchoolMapPanel';
 import InteractiveSchoolMapPanel from '@/components/InteractiveSchoolMapPanel';
 import ThinkingPanel from '@/components/main/ThinkingPanel';
 import type { ThinkingStep } from '@/components/main/ThinkingPanel';
+import { warning as showWarning } from '@/components/alert/notify';
 
 
 // Force refresh logic
-// Mock notifications
-const success = (msg: { message: string }) => console.log('Success:', msg.message);
-const error = (msg: { message: string }) => console.error('Error:', msg.message);
 
 // --- Types & Interfaces ---
 interface Suggestion {
@@ -64,6 +62,134 @@ interface ChatMessage {
 }
 
 type ForecastPoint = { date: string; rate: number };
+
+const US_STATE_ABBREVIATIONS = new Set([
+    'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA',
+    'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK',
+    'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC',
+]);
+
+const US_STATE_NAMES = [
+    'alabama', 'alaska', 'arizona', 'arkansas', 'california', 'colorado', 'connecticut', 'delaware', 'florida',
+    'georgia', 'hawaii', 'idaho', 'illinois', 'indiana', 'iowa', 'kansas', 'kentucky', 'louisiana', 'maine',
+    'maryland', 'massachusetts', 'michigan', 'minnesota', 'mississippi', 'missouri', 'montana', 'nebraska',
+    'nevada', 'new hampshire', 'new jersey', 'new mexico', 'new york', 'north carolina', 'north dakota', 'ohio',
+    'oklahoma', 'oregon', 'pennsylvania', 'rhode island', 'south carolina', 'south dakota', 'tennessee', 'texas',
+    'utah', 'vermont', 'virginia', 'washington', 'west virginia', 'wisconsin', 'wyoming', 'district of columbia',
+];
+
+const LOCATION_INTENT_KEYWORDS = [
+    'buy', 'rent', 'mortgage', 'loan', 'price', 'budget', 'under', 'over', 'around', 'approx', 'afford', 'payment',
+    'bed', 'beds', 'bedroom', 'bedrooms', 'bath', 'baths', 'bathroom', 'bathrooms', 'sqft', 'square', 'feet',
+    'garage', 'pool', 'yard', 'school', 'schools', 'district', 'condo', 'condos', 'townhome', 'townhomes',
+    'apartment', 'apartments', 'house', 'houses', 'home', 'homes', 'property', 'properties', 'listing', 'listings',
+    'near', 'nearby', 'with', 'without', 'looking', 'look', 'find', 'show', 'recommend', 'compare', 'explain',
+    'calculate', 'what', 'why', 'how', 'can', 'should', 'tell', 'need', 'want', 'best', 'cheapest', 'expensive',
+    'cheap', 'luxury', 'open', 'tour',
+];
+
+const STREET_SUFFIXES = [
+    'st', 'street', 'ave', 'avenue', 'rd', 'road', 'blvd', 'boulevard', 'dr', 'drive', 'ln', 'lane', 'ct', 'court',
+    'cir', 'circle', 'pl', 'place', 'ter', 'terrace', 'pkwy', 'parkway', 'way', 'hwy', 'highway', 'trl', 'trail',
+    'sq', 'square', 'loop', 'pike', 'aly', 'alley', 'route', 'rt',
+];
+
+const normalizeLocationInput = (value: string) =>
+    value.trim().replace(/\s+/g, ' ');
+
+const hasStateToken = (value: string) => {
+    const cleaned = value.replace(/[^a-zA-Z\s]/g, ' ').toLowerCase();
+    const tokens = cleaned.split(/\s+/).filter(Boolean);
+    if (tokens.some((token) => US_STATE_ABBREVIATIONS.has(token.toUpperCase()))) return true;
+    const padded = ` ${cleaned} `;
+    return US_STATE_NAMES.some((name) => padded.includes(` ${name} `));
+};
+
+const hasStreetAddressPattern = (value: string) => {
+    const lowered = value.toLowerCase();
+    if (!/^\s*\d{1,6}\s+/.test(lowered)) return false;
+    const suffixPattern = new RegExp(`\\b(${STREET_SUFFIXES.join('|')})\\b`, 'i');
+    return suffixPattern.test(lowered);
+};
+
+const hasLocationCues = (value: string) => {
+    if (/\b\d{5}(?:-\d{4})?\b/.test(value)) return true;
+    if (/^\s*-?\d{1,3}\.\d+\s*[,\\s]+-?\d{1,3}\.\d+\s*$/.test(value)) return true;
+    if (hasStreetAddressPattern(value)) return true;
+    if (hasStateToken(value)) return true;
+    return false;
+};
+
+const hasLocationIntentKeywords = (value: string) => {
+    const lower = value.toLowerCase();
+    if (/[?$]/.test(lower)) return true;
+    return LOCATION_INTENT_KEYWORDS.some((keyword) => new RegExp(`\\b${keyword}\\b`, 'i').test(lower));
+};
+
+const classifyLocationQuery = (value: string) => {
+    const normalized = normalizeLocationInput(value);
+    if (!normalized) return 'invalid';
+
+    const locationCues = hasLocationCues(normalized);
+    const intentKeywords = hasLocationIntentKeywords(normalized);
+
+    if (!locationCues && intentKeywords) return 'invalid';
+    if (locationCues && !intentKeywords) return 'valid';
+    if (locationCues && intentKeywords) return 'invalid';
+    return 'borderline';
+};
+
+const geocodeValidateLocation = (value: string) =>
+    new Promise<boolean>((resolve) => {
+        if (typeof window === 'undefined' || !window.google?.maps?.Geocoder) {
+            resolve(true);
+            return;
+        }
+
+        const geocoder = new window.google.maps.Geocoder();
+        geocoder.geocode(
+            {
+                address: value,
+                componentRestrictions: { country: 'us' },
+            },
+            (
+                results: google.maps.GeocoderResult[] | null,
+                status: google.maps.GeocoderStatus
+            ) => {
+                if (status !== 'OK' || !results || results.length === 0) {
+                    resolve(false);
+                    return;
+                }
+
+                const allowedTypes = new Set([
+                    'street_address',
+                    'route',
+                    'premise',
+                    'subpremise',
+                    'locality',
+                    'neighborhood',
+                    'sublocality',
+                    'postal_code',
+                    'administrative_area_level_1',
+                    'administrative_area_level_2',
+                ]);
+
+                const match = results.some((result) =>
+                    Array.isArray(result.types) && result.types.some((t) => allowedTypes.has(t))
+                );
+                resolve(match);
+            }
+        );
+    });
+
+const showLocationValidationToast = () => {
+    showWarning({
+        message: 'Enter a valid location',
+        subtitle: 'Please enter a city, state, or full address in the U.S.',
+        id: 'mls-location-validation',
+        duration: 4000,
+    });
+};
 
 // Helper to bold text
 const renderTextWithBold = (text: string) => {
@@ -150,6 +276,19 @@ const SNAP_YES_KEYWORDS = [
     'y',
     'yes please'
 ];
+
+const CAMERA_TIP_TOPIC_TEXT = 'finding similar homes instantly from a photo.';
+const AI_MODE_TIPS = [
+    'finding the perfect home.',
+    'nearby schools and neighborhoods.',
+    'mortgage options and affordability.',
+    CAMERA_TIP_TOPIC_TEXT,
+    'whether renting or buying is better for you.',
+    'current home loan interest rates.',
+    'buying or renting a home.'
+];
+const CAMERA_TIP_TEXT = `Click here to ask AI about ${CAMERA_TIP_TOPIC_TEXT}`;
+const AI_MODE_TIP_LAST_INDEX_STORAGE_KEY = 'snaphomz:ai-mode-tip:last-index';
 
 const DEFAULT_MAIN_SITE_URL = 'https://demo.snaphomz.com';
 
@@ -837,7 +976,7 @@ export default function HeroTab() {
     );
 }
 
-export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchActive }: { placeholderText?: string, onSearchStateChange?: (isActive: boolean, searchTerm: string) => void, isSearchActive?: boolean, searchType?: string, showOutline?: boolean, disableAutoExpand?: boolean }) => {
+export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchActive, onSuggestionsOpen }: { placeholderText?: string, onSearchStateChange?: (isActive: boolean, searchTerm: string) => void, isSearchActive?: boolean, searchType?: string, showOutline?: boolean, disableAutoExpand?: boolean, onSuggestionsOpen?: (open: boolean) => void }) => {
     // --- Hooks & State ---
     // Mocked state
     const searchCount = 0;
@@ -861,14 +1000,33 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const [isExpanded, setIsExpanded] = useState(false);
     const [typedPlaceholder, setTypedPlaceholder] = useState("");
     const [showAttachMenu, setShowAttachMenu] = useState(false);
+    const attachMenuRef = useRef<HTMLDivElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const pendingImageRef = useRef<File | null>(null);
+    const chatLayoutRef = useRef<HTMLDivElement | null>(null);
     // Menu State for AI Badge
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     // Session State for Conversation Persistence
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [recentSessions, setRecentSessions] = useState<any[]>([]);
-    const [mlsBypassMode, setMlsBypassMode] = useState(false);
+    const getInitialMlsBypassMode = () => {
+        if (typeof window === 'undefined') return true;
+        try {
+            const stored = localStorage.getItem(getMlsBypassStorageKey());
+            if (stored === null) return true; // default AI OFF on first load
+            return stored === '1';
+        } catch {
+            return true;
+        }
+    };
+    const [mlsBypassMode, setMlsBypassMode] = useState(getInitialMlsBypassMode);
+    const [aiModeActive, setAiModeActive] = useState(() => !getInitialMlsBypassMode());
+    const aiModeTipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const hasShownInitialAiTipRef = useRef(false);
+    const [showAiModeTip, setShowAiModeTip] = useState(false);
+    const [aiModeTipIndex, setAiModeTipIndex] = useState(0);
+    const activeAiModeTip = AI_MODE_TIPS[aiModeTipIndex] || AI_MODE_TIPS[0];
+    const showCameraTipBubble = activeAiModeTip === CAMERA_TIP_TOPIC_TEXT;
     const [pendingLocationImage, setPendingLocationImage] = useState<File | null>(null);
     const [pendingImage, setPendingImage] = useState<File | null>(null);
     const [pendingImagePreview, setPendingImagePreview] = useState<string | null>(null);
@@ -876,11 +1034,25 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const [submittedImage, setSubmittedImage] = useState<File | null>(null);
     const [snapSearchInProgress, setSnapSearchInProgress] = useState(false);
     const [isClearingHistory, setIsClearingHistory] = useState(false);
+    const [carouselEdges, setCarouselEdges] = useState<Record<string, { atStart: boolean; atEnd: boolean }>>({});
+    const suggestionsVisible = !isExpanded && aiModeActive && !searchTerm.trim() && showSuggestions;
+    const anySuggestionsVisible = !isExpanded && (
+        suggestionsVisible ||
+        (!!searchTerm.trim() && (showAddressSuggestions || isLoadingAddressSuggestions || showLocationSuggestions || isLoadingLocationSuggestions))
+    );
 
     // Rent Vs Buy State
 
     useEffect(() => {
-        setMlsBypassMode(isMlsBypassModeEnabled());
+        try {
+            const storageKey = getMlsBypassStorageKey();
+            const stored = localStorage.getItem(storageKey);
+            if (stored !== null) {
+                setMlsBypassMode(isMlsBypassModeEnabled());
+            }
+        } catch {
+            // no-op
+        }
 
         const handleBypassChange = (event: Event) => {
             const customEvent = event as CustomEvent<boolean>;
@@ -919,40 +1091,60 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         };
     }, [isMenuOpen]);
 
+    const getNextAiTipIndex = React.useCallback(() => {
+        if (typeof window === 'undefined') return 0;
+
+        try {
+            const lastRaw = localStorage.getItem(AI_MODE_TIP_LAST_INDEX_STORAGE_KEY);
+            const last = lastRaw !== null ? Number(lastRaw) : -1;
+            const next = Number.isFinite(last)
+                ? (Math.trunc(last) + 1 + AI_MODE_TIPS.length) % AI_MODE_TIPS.length
+                : 0;
+
+            localStorage.setItem(AI_MODE_TIP_LAST_INDEX_STORAGE_KEY, String(next));
+            return next;
+        } catch {
+            return 0;
+        }
+    }, []);
+
+    const showAiModeTipBubble = React.useCallback(() => {
+        setAiModeTipIndex(getNextAiTipIndex());
+        setShowAiModeTip(true);
+        if (aiModeTipTimerRef.current) {
+            clearTimeout(aiModeTipTimerRef.current);
+        }
+        aiModeTipTimerRef.current = setTimeout(() => {
+            setShowAiModeTip(false);
+        }, 5500);
+    }, [getNextAiTipIndex]);
+
     useEffect(() => {
-        if (!onSearchStateChange) return;
+        if (typeof window === 'undefined') return;
 
-        const isSearchUiActive =
-            isExpanded ||
-            isMenuOpen ||
-            showAttachMenu ||
-            showSuggestions ||
-            showAddressSuggestions ||
-            showLocationSuggestions ||
-            isLoadingAddressSuggestions ||
-            isLoadingLocationSuggestions ||
-            !!pendingImage ||
-            !!pendingLocationImage;
+        const tryShowInitialTip = () => {
+            if (hasShownInitialAiTipRef.current) return;
+            if (isExpanded) return;
+            hasShownInitialAiTipRef.current = true;
+            showAiModeTipBubble();
+        };
 
-        onSearchStateChange(isSearchUiActive, searchTerm);
-    }, [
-        isExpanded,
-        isMenuOpen,
-        showAttachMenu,
-        showSuggestions,
-        showAddressSuggestions,
-        showLocationSuggestions,
-        isLoadingAddressSuggestions,
-        isLoadingLocationSuggestions,
-        pendingImage,
-        pendingLocationImage,
-        searchTerm,
-        onSearchStateChange,
-    ]);
+        const timer = window.setTimeout(tryShowInitialTip, 650);
+        window.addEventListener('resize', tryShowInitialTip);
+        window.addEventListener('orientationchange', tryShowInitialTip);
+
+        return () => {
+            window.clearTimeout(timer);
+            window.removeEventListener('resize', tryShowInitialTip);
+            window.removeEventListener('orientationchange', tryShowInitialTip);
+        };
+    }, [isExpanded, showAiModeTipBubble]);
 
     // Typing effect for placeholder
     useEffect(() => {
-        const text = "Ask anything about homes, neighborhoods, schools";
+        const text = aiModeActive
+            ? "Ask anything about homes, neighborhoods, schools"
+            : "Enter city, state, neighborhood, or address";
         let i = 0;
         let isDeleting = false;
         let timeoutId: NodeJS.Timeout;
@@ -981,13 +1173,14 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             }
         };
 
+        setTypedPlaceholder('');
         timeoutId = setTimeout(tick, 500);
 
         return () => {
             mounted = false;
             clearTimeout(timeoutId);
         };
-    }, []);
+    }, [aiModeActive]);
 
     // Loading state is now handled by <ThinkingPanel /> below
 
@@ -1047,12 +1240,54 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const [selectedPropertyId, setSelectedPropertyId] = useState<string | number | null>(null);
     const [expandedPropertyId, setExpandedPropertyId] = useState<string | number | null>(null);
 
-    const handleAttachmentClick = (type: 'image' | 'pdf') => {
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-            fileInputRef.current.accept = type === 'image' ? "image/*" : "application/pdf";
-            fileInputRef.current.click();
+    const openHiddenFileInput = (type: 'image' | 'pdf', options?: { capture?: 'environment' | 'user' }) => {
+        if (!fileInputRef.current) return;
+        fileInputRef.current.value = '';
+        fileInputRef.current.accept = type === 'image' ? 'image/*' : 'application/pdf';
+
+        if (options?.capture && type === 'image') {
+            fileInputRef.current.setAttribute('capture', options.capture);
+        } else {
+            fileInputRef.current.removeAttribute('capture');
         }
+
+        fileInputRef.current.click();
+    };
+
+    const requestLocationAccess = async () => {
+        if (typeof navigator === 'undefined' || !('geolocation' in navigator)) return;
+
+        await new Promise<void>((resolve) => {
+            let settled = false;
+            const finish = () => {
+                if (settled) return;
+                settled = true;
+                resolve();
+            };
+
+            navigator.geolocation.getCurrentPosition(
+                () => finish(),
+                () => finish(),
+                { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 }
+            );
+
+            // Guard in case callback does not return.
+            setTimeout(() => finish(), 11000);
+        });
+    };
+
+    const handleAttachmentClick = (type: 'image' | 'pdf') => {
+        openHiddenFileInput(type);
+        setShowAttachMenu(false);
+    };
+
+    const handleMobileCameraClick = () => {
+        // iOS Safari blocks file input dialogs when click is triggered after await.
+        // Keep input.click() in the direct tap call stack.
+        requestLocationAccess().catch(() => {
+            // Location denied/unavailable should not block camera capture.
+        });
+        openHiddenFileInput('image', { capture: 'environment' });
         setShowAttachMenu(false);
     };
 
@@ -1093,6 +1328,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     }, []);
 
     const startNewChat = React.useCallback((options?: { focusInput?: boolean }) => {
+        setShowAiModeTip(false);
+        if (aiModeTipTimerRef.current) {
+            clearTimeout(aiModeTipTimerRef.current);
+            aiModeTipTimerRef.current = null;
+        }
         setIsExpanded(true);
         setSearchTerm('');
         setChatHistory([]);
@@ -1135,18 +1375,199 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             if (locationSuggestDebounceRef.current) {
                 clearTimeout(locationSuggestDebounceRef.current);
             }
+            if (aiModeTipTimerRef.current) {
+                clearTimeout(aiModeTipTimerRef.current);
+            }
         };
     }, []);
 
+    useEffect(() => {
+        onSuggestionsOpen?.(anySuggestionsVisible);
+    }, [onSuggestionsOpen, anySuggestionsVisible]);
+
+    const updateCarouselEdges = (id: string, el: HTMLElement | null) => {
+        if (!el) return;
+        const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
+        const atStart = el.scrollLeft <= 4;
+        const atEnd = el.scrollLeft >= maxScroll - 4;
+        setCarouselEdges((prev) => {
+            const current = prev[id];
+            if (current && current.atStart === atStart && current.atEnd === atEnd) return prev;
+            return { ...prev, [id]: { atStart, atEnd } };
+        });
+    };
+
+    useEffect(() => {
+        if (!isExpanded) return;
+        const scrollToChat = () => {
+            const el = chatLayoutRef.current;
+            if (!el) return;
+            const scrollContainer = (document.querySelector('main') as HTMLElement | null) || document.scrollingElement || document.documentElement;
+            if (!scrollContainer) return;
+            el.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+            const containerRect = scrollContainer.getBoundingClientRect();
+            const rect = el.getBoundingClientRect();
+            const padding = 20;
+            const availableHeight = containerRect.height - padding * 2;
+            const delta = rect.top - containerRect.top - padding;
+            const desiredTop = scrollContainer.scrollTop + delta * 0.75;
+
+            if (rect.height <= availableHeight) {
+                scrollContainer.scrollTo({
+                    top: Math.max(0, desiredTop),
+                    behavior: 'smooth',
+                });
+                return;
+            }
+
+            const bottomOverflow = rect.bottom - (containerRect.bottom - padding);
+            const topOverflow = rect.top - (containerRect.top + padding);
+
+            if (bottomOverflow > 0) {
+                scrollContainer.scrollTo({
+                    top: scrollContainer.scrollTop + bottomOverflow,
+                    behavior: 'smooth',
+                });
+            } else if (topOverflow < 0) {
+                scrollContainer.scrollTo({
+                    top: scrollContainer.scrollTop + topOverflow,
+                    behavior: 'smooth',
+                });
+            }
+        };
+
+        let attempts = 0;
+        const attemptScroll = () => {
+            attempts += 1;
+            if (chatLayoutRef.current) {
+                scrollToChat();
+                return;
+            }
+            if (attempts < 8) {
+                window.setTimeout(attemptScroll, 120);
+            }
+        };
+
+        const t1 = window.setTimeout(attemptScroll, 120);
+        const t2 = window.setTimeout(attemptScroll, 320);
+
+        return () => {
+            window.clearTimeout(t1);
+            window.clearTimeout(t2);
+        };
+    }, [isExpanded]);
+
+    useEffect(() => {
+        if (!showAttachMenu) return;
+
+        const handleOutsideClick = (event: MouseEvent | TouchEvent) => {
+            const target = event.target as Node | null;
+            if (!attachMenuRef.current || !target) return;
+            if (!attachMenuRef.current.contains(target)) {
+                setShowAttachMenu(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleOutsideClick);
+        document.addEventListener('touchstart', handleOutsideClick);
+        return () => {
+            document.removeEventListener('mousedown', handleOutsideClick);
+            document.removeEventListener('touchstart', handleOutsideClick);
+        };
+    }, [showAttachMenu]);
+
     const toggleMlsBypass = () => {
-        const next = !mlsBypassMode;
-        setMlsBypassModeEnabled(next);
-        setMlsBypassMode(next);
-        if (next) {
+        setMlsBypassMode((prev) => {
+            const next = !prev;
+            const nextAiModeActive = !next;
+            setAiModeActive(nextAiModeActive);
+            setShowSuggestions(nextAiModeActive && !searchTerm.trim() && !isExpanded);
+            if (nextAiModeActive && !isExpanded) {
+                showAiModeTipBubble();
+            } else {
+                setShowAiModeTip(false);
+                if (aiModeTipTimerRef.current) {
+                    clearTimeout(aiModeTipTimerRef.current);
+                    aiModeTipTimerRef.current = null;
+                }
+            }
+            return next;
+        });
+    };
+
+    const renderAiModeToggle = () => (
+        <div className="relative flex-shrink-0">
+            <button
+                type="button"
+                onMouseDown={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }}
+                onClick={toggleMlsBypass}
+                aria-pressed={aiModeActive}
+                title={aiModeActive ? 'AI Search is ON' : 'AI Search is OFF'}
+                className={`relative h-[36px] w-[96px] transition-all duration-300 ${aiModeActive
+                    ? 'ai-mode-shell'
+                    : 'rounded-full border border-[#D8DDE6] bg-[#F3F5F8] text-[#4B4B4B]'
+                    }`}
+            >
+                <span className={`relative z-[2] flex h-full w-full items-center justify-center gap-1.5 rounded-full px-2 text-[10px] font-semibold tracking-wide ${aiModeActive ? 'text-[#5A2B13]' : 'text-[#4B4B4B]'}`}>
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        width="24"
+                        height="24"
+                        fill="#000000"
+                        style={{ opacity: 1 }}
+                        className="h-3.5 w-3.5"
+                    >
+                        <path d="M8.037 3.167a1.44 1.44 0 0 0 .482 1.43A5.001 5.001 0 0 0 9.5 14.5a5 5 0 0 0 4.748-3.435l.027.083c.1.25.26.461.48.622c.22.149.478.228.747.229l-.005.001h.004a6.5 6.5 0 0 1-.905 1.535l3.434 3.435a.75.75 0 0 1-.976 1.133l-.084-.073l-3.435-3.434A6.5 6.5 0 1 1 8.037 3.167M15.484 6a.3.3 0 0 1 .286.201l.249.766a1.58 1.58 0 0 0 .999.998l.765.248l.015.004a.303.303 0 0 1 .146.46a.3.3 0 0 1-.146.11l-.765.248a1.58 1.58 0 0 0-.999.998l-.249.766a.302.302 0 0 1-.57 0l-.25-.766a1.58 1.58 0 0 0-.998-1.002l-.765-.248a.303.303 0 0 1-.146-.46a.3.3 0 0 1 .146-.11l.765-.248a1.58 1.58 0 0 0 .984-.998L15.2 6.2a.3.3 0 0 1 .284-.2M12.48 0a.42.42 0 0 1 .399.282l.348 1.072a2.2 2.2 0 0 0 1.398 1.396l1.072.349l.022.005a.424.424 0 0 1 0 .797l-1.072.349a2.2 2.2 0 0 0-1.399 1.396L12.9 6.718a.423.423 0 0 1-.643.204l-.02-.015a.43.43 0 0 1-.135-.19l-.348-1.07a2.22 2.22 0 0 0-1.399-1.403l-1.072-.348a.423.423 0 0 1 0-.797l1.072-.349a2.21 2.21 0 0 0 1.377-1.396L12.08.282a.42.42 0 0 1 .4-.282" />
+                    </svg>
+                    <span>AI MODE</span>
+                </span>
+            </button>
+            <AnimatePresence>
+                {showAiModeTip && !isExpanded && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute bottom-full right-0 mb-3 w-[220px] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl z-[75]"
+                    >
+                        <p className="text-[11px] font-semibold leading-relaxed text-[#5A2B13]">
+                            Click here to ask AI about {activeAiModeTip}
+                        </p>
+                        <span className="absolute -bottom-1 right-6 h-2 w-2 rotate-45 border-r border-b border-[#f2cfb0] bg-white" />
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+
+    useEffect(() => {
+        setAiModeActive(!mlsBypassMode);
+    }, [mlsBypassMode]);
+
+    useEffect(() => {
+        if (isExpanded) {
+            setShowAiModeTip(false);
+        }
+    }, [isExpanded]);
+
+    useEffect(() => {
+        if (!aiModeActive) {
+            setShowAiModeTip(false);
+        }
+    }, [aiModeActive]);
+
+    useEffect(() => {
+        setMlsBypassModeEnabled(mlsBypassMode);
+        if (mlsBypassMode) {
             setSessionId(null);
             setRecentSessions([]);
         }
-    };
+    }, [mlsBypassMode]);
 
     const appendAssistantMessage = (content: string) => {
         const msgId = (Date.now() + Math.random()).toString();
@@ -1166,22 +1587,68 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         }
     };
 
-    const renderPendingImageChip = (variant: 'collapsed' | 'expanded') => {
+    const renderPendingImageChip = (variant: 'collapsed' | 'expanded' | 'desktop') => {
         if (!pendingImage && !pendingImagePreview) return null;
+
+        if (variant === 'expanded') {
+            return (
+                <div className="flex items-start">
+                    <div className="relative h-[72px] w-[108px] sm:h-20 sm:w-28 rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 shadow-[0_8px_24px_rgba(15,23,42,0.12)]">
+                        {pendingImagePreview ? (
+                            <img src={pendingImagePreview} alt="Selected upload" className="object-cover w-full h-full" />
+                        ) : (
+                            <ImageIcon className="w-5 h-5 text-gray-500 absolute inset-0 m-auto" />
+                        )}
+                        <button
+                            type="button"
+                            onClick={resetPendingImageSelection}
+                            className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/75 text-white flex items-center justify-center hover:bg-black transition-colors"
+                            aria-label="Remove selected image"
+                        >
+                            <X className="w-3 h-3" />
+                        </button>
+                        {pendingImageStatus === 'processing' && (
+                            <div className="absolute inset-0 bg-white/75 backdrop-blur-[1px] flex items-center justify-center">
+                                <span className="text-[10px] font-semibold text-gray-700">Preparing...</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        if (variant === 'desktop') {
+            return (
+                <div className="flex items-start">
+                    <div className="relative h-12 w-20 rounded-xl overflow-hidden border border-gray-200 bg-gray-100 shadow-[0_6px_16px_rgba(15,23,42,0.12)]">
+                        {pendingImagePreview ? (
+                            <img src={pendingImagePreview} alt="Selected upload" className="object-cover w-full h-full" />
+                        ) : (
+                            <ImageIcon className="w-4 h-4 text-gray-500 absolute inset-0 m-auto" />
+                        )}
+                        <button
+                            type="button"
+                            onClick={resetPendingImageSelection}
+                            className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/75 text-white flex items-center justify-center hover:bg-black transition-colors"
+                            aria-label="Remove selected image"
+                        >
+                            <X className="w-3 h-3" />
+                        </button>
+                        {pendingImageStatus === 'processing' && (
+                            <div className="absolute inset-0 bg-white/75 backdrop-blur-[1px] flex items-center justify-center">
+                                <span className="text-[10px] font-semibold text-gray-700">Preparing...</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
         const statusText = pendingImageStatus === 'processing' ? 'Preparing image...' : 'Add location and send';
-        const isExpandedVariant = variant === 'expanded';
-        const padding = isExpandedVariant ? 'pl-3 pr-2 py-2' : 'pl-2.5 pr-2 py-1.5';
-        const thumbSize = isExpandedVariant ? 'w-10 h-10' : 'w-9 h-9';
-        const textClass = isExpandedVariant ? 'text-sm' : 'text-xs';
-        const statusClass = isExpandedVariant ? 'text-xs' : 'text-[11px]';
-        const gap = isExpandedVariant ? 'gap-3' : 'gap-2';
-        const maxWidth = isExpandedVariant ? 'max-w-[130px] sm:max-w-[220px]' : 'max-w-[180px] sm:max-w-[210px]';
 
         return (
-            <div
-                className={`flex items-center ${gap} bg-white border border-gray-200 rounded-3xl shadow-[0_6px_16px_rgba(15,23,42,0.08)] ${padding} ${maxWidth}`}
-            >
-                <div className={`relative ${thumbSize} rounded-2xl overflow-hidden border border-gray-100 bg-gray-100`}>
+            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-3xl shadow-[0_6px_16px_rgba(15,23,42,0.08)] pl-2.5 pr-2 py-1.5 max-w-[180px] sm:max-w-[210px]">
+                <div className="relative w-9 h-9 rounded-2xl overflow-hidden border border-gray-100 bg-gray-100">
                     {pendingImagePreview ? (
                         <img src={pendingImagePreview} alt="Selected upload" className="object-cover w-full h-full" />
                     ) : (
@@ -1189,10 +1656,10 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     )}
                 </div>
                 <div className="flex flex-col min-w-0 leading-tight">
-                    <span className={`${textClass} font-semibold text-gray-900 truncate`}>
+                    <span className="text-xs font-semibold text-gray-900 truncate">
                         {pendingImage?.name || 'Attached'}
                     </span>
-                    <span className={`${statusClass} text-gray-400`}>{statusText}</span>
+                    <span className="text-[11px] text-gray-400">{statusText}</span>
                 </div>
                 <button
                     type="button"
@@ -1571,12 +2038,30 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
         // Direct MLS mode should behave like a normal search bar:
         // skip chat expansion/conversation and route to the listings page.
-        if (mlsBypassMode && !pendingLocationImage) {
-            const destination = `/buy/browse?q=${encodeURIComponent(queryToSearch.trim())}`;
-            if (typeof window !== 'undefined') {
-                window.location.assign(destination);
+        let allowMlsRoute = mlsBypassMode && !pendingLocationImage;
+        if (allowMlsRoute) {
+            const trimmedQuery = normalizeLocationInput(queryToSearch);
+            const classification = classifyLocationQuery(trimmedQuery);
+
+            if (classification === 'invalid') {
+                allowMlsRoute = false;
+            } else if (classification === 'borderline') {
+                const geocodedValid = await geocodeValidateLocation(trimmedQuery);
+                if (!geocodedValid) {
+                    allowMlsRoute = false;
+                }
             }
-            return;
+
+            if (allowMlsRoute) {
+                const destination = `/buy/browse?q=${encodeURIComponent(queryToSearch.trim())}`;
+                if (typeof window !== 'undefined') {
+                    window.location.assign(destination);
+                }
+                return;
+            }
+
+            setMlsBypassMode(false);
+            setMlsBypassModeEnabled(false);
         }
         setIsExpanded(true); // Immediate UI response
         if (onSearchStateChange) {
@@ -2122,6 +2607,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         setSearchTerm(text);
         handleSearchSubmit(text);
         setShowSuggestions(false);
+        setShowAiModeTip(false);
+        if (aiModeTipTimerRef.current) {
+            clearTimeout(aiModeTipTimerRef.current);
+            aiModeTipTimerRef.current = null;
+        }
     };
 
     // ─── Address autocomplete helpers ──────────────────────────────────────────
@@ -2412,15 +2902,6 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         const file = pendingImage;
         const preview = pendingImagePreview;
         const caption = searchTerm.trim();
-        if (!caption) {
-            setIsExpanded(true);
-            setChatHistory(prev => [...prev, {
-                id: Date.now().toString(),
-                role: 'assistant',
-                content: 'Please add a city, state, ZIP code, or coordinates with your image so I can search the right location.'
-            }]);
-            return;
-        }
 
         const userMsgId = Date.now().toString();
         const userMessage: ChatMessage = {
@@ -2444,7 +2925,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         setIsSearching(true);
         setSnapSearchInProgress(true);
 
-        await performSnapImageSearch(file, caption);
+        await performSnapImageSearch(file, caption || undefined);
     };
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2681,6 +3162,49 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     -ms-overflow-style: none;
                     scrollbar-width: none;
                 }
+                .ai-mode-shell {
+                    position: relative;
+                    border-radius: 999px;
+                    border: 1px solid #f2cfb0;
+                    background: linear-gradient(180deg, #fffaf4 0%, #fff3e7 100%);
+                    box-shadow: 0 6px 14px rgba(240, 118, 57, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+                    overflow: hidden;
+                    isolation: isolate;
+                }
+                .ai-mode-shell::before {
+                    content: '';
+                    position: absolute;
+                    inset: -30%;
+                    border-radius: inherit;
+                    background: conic-gradient(
+                        from 0deg,
+                        transparent 0deg 286deg,
+                        #ffd5af 302deg,
+                        #f8a86b 324deg,
+                        #f07639 344deg,
+                        #ffd9b7 360deg
+                    );
+                    animation: ai-mode-snake-orbit 1.8s linear infinite;
+                    pointer-events: none;
+                    z-index: 0;
+                }
+                .ai-mode-shell::after {
+                    content: '';
+                    position: absolute;
+                    inset: 1.2px;
+                    border-radius: inherit;
+                    background: linear-gradient(180deg, #fffaf5 0%, #fff3e8 100%);
+                    z-index: 1;
+                    pointer-events: none;
+                }
+                @keyframes ai-mode-snake-orbit {
+                    0% {
+                        transform: rotate(0deg);
+                    }
+                    100% {
+                        transform: rotate(360deg);
+                    }
+                }
                 @media (max-width: 639px) {
                     .mobile-no-scrollbar::-webkit-scrollbar {
                         display: none;
@@ -2688,6 +3212,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     .mobile-no-scrollbar {
                         -ms-overflow-style: none;
                         scrollbar-width: none;
+                    }
+                }
+                @media (prefers-reduced-motion: reduce) {
+                    .ai-mode-shell::before {
+                        animation: none !important;
                     }
                 }
             `}</style>
@@ -2701,7 +3230,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     padding: isExpanded ? 16 : 8, // keep expanded layout comfortable on mobile
                 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full ${isExpanded ? 'max-w-[1200px]' : 'max-w-[620px]'
+                className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full ${isExpanded ? 'max-w-[1200px]' : 'max-w-[860px]'
                     }`}
             >
                 <input
@@ -2745,8 +3274,6 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             </defs>
                                         </svg>
                                     </div>
-                                    <div className="mx-2 h-9 w-px bg-[#8A6444]/45 md:hidden" />
-
                                     {/* Input Field */}
                                     <div className="flex-1 min-w-0 flex items-center gap-3">
                                         {renderPendingImageChip('collapsed')}
@@ -2756,46 +3283,125 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             onChange={(e) => {
                                                 const val = e.target.value;
                                                 setSearchTerm(val);
+                                                setShowAiModeTip(false);
+                                                if (aiModeTipTimerRef.current) {
+                                                    clearTimeout(aiModeTipTimerRef.current);
+                                                    aiModeTipTimerRef.current = null;
+                                                }
                                                 fetchAddressSuggestions(val);
                                             }}
-                                            onFocus={() => setShowSuggestions(true)}
+                                            onFocus={() => {
+                                                setShowSuggestions(false);
+                                                onSuggestionsOpen?.(false);
+                                                setShowAiModeTip(false);
+                                                if (aiModeTipTimerRef.current) {
+                                                    clearTimeout(aiModeTipTimerRef.current);
+                                                    aiModeTipTimerRef.current = null;
+                                                }
+                                            }}
                                             onBlur={() => setTimeout(() => {
                                                 setShowSuggestions(false);
                                                 setShowAddressSuggestions(false);
                                                 setShowLocationSuggestions(false);
+                                                onSuggestionsOpen?.(false);
                                             }, 200)}
-                                            placeholder={pendingImage ? 'Add city, ZIP, or coordinates for this image' : (placeholderText || typedPlaceholder)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                    e.preventDefault();
+                                                    if (pendingImage) {
+                                                        if (pendingImageStatus === 'ready') {
+                                                            submitPendingImage();
+                                                        }
+                                                        return;
+                                                    }
+                                                    handleSearchSubmit(searchTerm);
+                                                }
+                                            }}
+                                            placeholder={!aiModeActive ? typedPlaceholder : (placeholderText || typedPlaceholder)}
                                             className="flex-1 min-w-0 bg-transparent outline-none px-3 md:px-4 py-2 text-gray-700 placeholder-gray-400 text-sm md:text-sm font-medium"
                                         />
                                     </div>
 
-                                    {/* Mobile AI Search pill */}
-                                    <button
-                                        type="button"
-                                        onClick={toggleMlsBypass}
-                                        title={!mlsBypassMode ? 'AI Search is ON' : 'AI Search is OFF'}
-                                        className={`md:hidden h-10 rounded-full px-4 text-[13px] font-semibold transition-colors border-2 ${!mlsBypassMode
-                                            ? 'bg-[#FFFBEF] text-[#94661E] border-[#E7D293]'
-                                            : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-                                            }`}
-                                    >
-                                        Ai Search
-                                    </button>
+                                    {/* Mobile AI Toggle Icon */}
+                                    <div className="md:hidden relative flex-shrink-0">
+                                        <button
+                                            type="button"
+                                            onMouseDown={(event) => {
+                                                event.preventDefault();
+                                                event.stopPropagation();
+                                            }}
+                                            onClick={toggleMlsBypass}
+                                            aria-pressed={aiModeActive}
+                                            title={aiModeActive ? 'AI Search is ON' : 'AI Search is OFF'}
+                                            className={`relative h-[36px] transition-all duration-300 ${aiModeActive
+                                                ? 'w-[96px] ai-mode-shell'
+                                                : 'w-[96px] rounded-full border border-[#D8DDE6] bg-[#F3F5F8] text-[#4B4B4B]'
+                                                }`}
+                                        >
+                                            <span className={`relative z-[2] flex h-full w-full items-center justify-center gap-1.5 rounded-full px-2 text-[10px] font-semibold tracking-wide ${aiModeActive ? 'text-[#5A2B13]' : 'text-[#4B4B4B]'}`}>
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    viewBox="0 0 24 24"
+                                                    width="24"
+                                                    height="24"
+                                                    fill="#000000"
+                                                    style={{ opacity: 1 }}
+                                                    className="h-3.5 w-3.5"
+                                                >
+                                                    <path d="M8.037 3.167a1.44 1.44 0 0 0 .482 1.43A5.001 5.001 0 0 0 9.5 14.5a5 5 0 0 0 4.748-3.435l.027.083c.1.25.26.461.48.622c.22.149.478.228.747.229l-.005.001h.004a6.5 6.5 0 0 1-.905 1.535l3.434 3.435a.75.75 0 0 1-.976 1.133l-.084-.073l-3.435-3.434A6.5 6.5 0 1 1 8.037 3.167M15.484 6a.3.3 0 0 1 .286.201l.249.766a1.58 1.58 0 0 0 .999.998l.765.248l.015.004a.303.303 0 0 1 .146.46a.3.3 0 0 1-.146.11l-.765.248a1.58 1.58 0 0 0-.999.998l-.249.766a.302.302 0 0 1-.57 0l-.25-.766a1.58 1.58 0 0 0-.998-1.002l-.765-.248a.303.303 0 0 1-.146-.46a.3.3 0 0 1 .146-.11l.765-.248a1.58 1.58 0 0 0 .984-.998L15.2 6.2a.3.3 0 0 1 .284-.2M12.48 0a.42.42 0 0 1 .399.282l.348 1.072a2.2 2.2 0 0 0 1.398 1.396l1.072.349l.022.005a.424.424 0 0 1 0 .797l-1.072.349a2.2 2.2 0 0 0-1.399 1.396L12.9 6.718a.423.423 0 0 1-.643.204l-.02-.015a.43.43 0 0 1-.135-.19l-.348-1.07a2.22 2.22 0 0 0-1.399-1.403l-1.072-.348a.423.423 0 0 1 0-.797l1.072-.349a2.21 2.21 0 0 0 1.377-1.396L12.08.282a.42.42 0 0 1 .4-.282" />
+                                                </svg>
+                                                <span>AI MODE</span>
+                                            </span>
+                                        </button>
+                                        <AnimatePresence>
+                                            {showAiModeTip && !isExpanded && !showCameraTipBubble && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                    exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                                                    transition={{ duration: 0.2 }}
+                                                    className="absolute bottom-full right-0 mb-3 w-[220px] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl z-[75]"
+                                                >
+                                                    <p className="text-[11px] font-semibold leading-relaxed text-[#5A2B13]">
+                                                        Click here to ask AI about {activeAiModeTip}
+                                                    </p>
+                                                    <span className="absolute -bottom-1 right-6 h-2 w-2 rotate-45 border-r border-b border-[#f2cfb0] bg-white" />
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
+                                    <div className="md:hidden relative flex-shrink-0">
+                                        <button
+                                            type="button"
+                                            onClick={handleMobileCameraClick}
+                                            title={CAMERA_TIP_TEXT}
+                                            aria-label={CAMERA_TIP_TEXT}
+                                            className="h-10 w-10 text-[#1E1E1E] flex items-center justify-center transition-colors hover:text-black"
+                                        >
+                                            <Camera className="h-[18px] w-[18px]" />
+                                        </button>
+                                        <AnimatePresence>
+                                            {showAiModeTip && !isExpanded && showCameraTipBubble && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                    exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                                                    transition={{ duration: 0.2 }}
+                                                    className="absolute bottom-full right-0 mb-3 w-[220px] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl z-[75]"
+                                                >
+                                                    <p className="text-[11px] font-semibold leading-relaxed text-[#5A2B13]">
+                                                        {CAMERA_TIP_TEXT}
+                                                    </p>
+                                                    <span className="absolute -bottom-1 right-3 h-2 w-2 rotate-45 border-r border-b border-[#f2cfb0] bg-white" />
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
 
                                     {/* Right Actions */}
                                     <div className="hidden md:flex items-center gap-2 flex-shrink-0 pr-1">
-                                        <button
-                                            type="button"
-                                            onClick={toggleMlsBypass}
-                                            title={!mlsBypassMode ? 'AI Search is ON' : 'AI Search is OFF'}
-                                            className={`h-9 md:h-10 rounded-full px-4 text-sm font-semibold transition-colors border ${!mlsBypassMode
-                                                ? 'bg-orange-50 text-[#F58634] border-orange-200'
-                                                : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-                                                }`}
-                                        >
-                                            Ai Search
-                                        </button>
-                                        <div className="relative">
+                                        {renderAiModeToggle()}
+                                        <div className="relative" ref={attachMenuRef}>
                                             <div
                                                 className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
                                                 onClick={() => setShowAttachMenu(!showAttachMenu)}
@@ -2811,17 +3417,32 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                         animate={{ opacity: 1, scale: 1, y: 0 }}
                                                         exit={{ opacity: 0, scale: 0.95, y: 10 }}
                                                         transition={{ duration: 0.2 }}
-                                                        className="absolute bottom-full right-0 mb-2 w-32 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200 ring-1 ring-black/5 overflow-hidden z-[70]"
+                                                        className="absolute bottom-full right-0 mb-2 w-32 overflow-visible z-[70]"
                                                     >
-                                                        <div className="flex flex-col p-1.5 gap-1">
-                                                            <button
-                                                                onClick={() => handleAttachmentClick('image')}
-                                                                type="button"
-                                                                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
-                                                            >
-                                                                <ImageIcon className="w-4 h-4 text-blue-500" />
-                                                                <span>Image</span>
-                                                            </button>
+                                                        <div className="rounded-xl bg-white/95 backdrop-blur-sm shadow-xl border border-gray-200 ring-1 ring-black/5 overflow-visible">
+                                                            <div className="flex flex-col p-1.5 gap-1">
+                                                            <div className="relative">
+                                                                <button
+                                                                    onClick={() => handleAttachmentClick('image')}
+                                                                    type="button"
+                                                                    className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left w-full"
+                                                                >
+                                                                    <ImageIcon className="w-4 h-4 text-blue-500" />
+                                                                    <span>Image</span>
+                                                                </button>
+                                                                <motion.div
+                                                                    initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                                    exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                                                                    transition={{ duration: 0.2 }}
+                                                                    className="absolute left-full top-1/2 ml-3 mt-[-20px] w-[170px] -translate-y-[72%] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl z-[90]"
+                                                                >
+                                                                    <p className="text-[11px] font-semibold leading-relaxed text-[#5A2B13]">
+                                                                        Search homes with a photo
+                                                                    </p>
+                                                                    <span className="absolute left-[-4px] top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 border-l border-b border-[#f2cfb0] bg-white" />
+                                                                </motion.div>
+                                                            </div>
                                                             <button
                                                                 onClick={() => handleAttachmentClick('pdf')}
                                                                 type="button"
@@ -2830,6 +3451,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                                 <FileText className="w-4 h-4 text-red-500" />
                                                                 <span>PDF</span>
                                                             </button>
+                                                            </div>
                                                         </div>
                                                     </motion.div>
                                                 )}
@@ -2838,26 +3460,18 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                         {/* Desktop Begin Journey Button */}
                                         <Button
                                             type='submit'
-                                            disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
+                                            disabled={!!pendingImage && pendingImageStatus !== 'ready'}
                                             className="hidden md:flex bg-[#F58634] hover:bg-[#E07224] text-white rounded-xl px-8 py-3 font-semibold text-sm md:text-base items-center transition-all shadow-md hover:shadow-lg h-full disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634]"
                                         >
                                             Begin Journey
                                         </Button>
                                     </div>
                                 </div>
-                                {/* Mobile Search Button */}
-                                <Button
-                                    type='submit'
-                                    disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
-                                    className="md:hidden bg-[#F58634] hover:bg-[#E07224] text-white rounded-[14px] w-10 h-10 flex items-center justify-center transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634] p-0 shadow-none"
-                                >
-                                    <SearchIcon className="w-5 h-5" />
-                                </Button>
                             </motion.form>
 
                             {/* Integrated Suggestions Dropdown */}
                             <AnimatePresence>
-                                {!searchTerm && showSuggestions && (
+                                {!searchTerm && showSuggestions && aiModeActive && (
                                     <motion.div
                                         initial={{ opacity: 0, height: 0 }}
                                         animate={{ opacity: 1, height: 'auto' }}
@@ -2876,7 +3490,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                         onMouseDown={() => handleSuggestionClick(suggestion.text)}
                                                         className="flex items-center gap-3 p-3 hover:bg-orange-50/50 rounded-xl cursor-pointer group transition-all"
                                                     >
-                                                        <SearchIcon className="w-4 h-4 text-gray-300 group-hover:text-[#F58634] transition-colors" />
+                                                        <SearchIcon
+                                                            className="w-4 h-4 flex-shrink-0 text-gray-400 group-hover:text-[#F58634] transition-colors"
+                                                            strokeWidth={2.25}
+                                                            absoluteStrokeWidth
+                                                        />
                                                         <span className="text-gray-600 group-hover:text-gray-900 font-medium text-sm transition-colors leading-snug">
                                                             {suggestion.text}
                                                         </span>
@@ -2984,11 +3602,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     ) : (
                         /* State 2: Expanded Chat UI */
                         <motion.div
+                            ref={chatLayoutRef}
                             key="chat-ui"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ duration: 0.2, delay: 0.1 }}
-                            className="flex flex-col gap-6 w-full"
+                            className="flex flex-col gap-6 w-full h-[560px] sm:h-[580px] md:h-[600px] lg:h-[600px] overflow-hidden"
                         >
                             <div className="flex justify-between items-center w-full px-1 relative z-50">
 
@@ -2996,6 +3615,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                 <button
                                     onClick={() => {
                                         setIsExpanded(false);
+                                        resetPendingImageSelection();
+                                        setSearchTerm('');
+                                        setShowSuggestions(false);
+                                        setShowAddressSuggestions(false);
+                                        setShowLocationSuggestions(false);
                                         if (onSearchStateChange) onSearchStateChange(false, '');
                                     }}
                                     className="p-2 -mr-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-all"
@@ -3009,9 +3633,10 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
                             {/* 2) AI Logic Section */}
                             {/* Chat History Loop */}
-                            <div className={`mobile-no-scrollbar flex flex-col gap-8 w-full min-h-0 overflow-y-auto overflow-x-hidden pr-0 sm:pr-2 pb-20 sm:pb-8 transition-all duration-500
-              ${isExpanded ? 'h-[56vh] sm:h-[600px] md:h-[700px] lg:h-[750px]' : 'h-auto'}`}
-                                style={{ overflowAnchor: 'none' }}>
+                            <div
+                                className="mobile-no-scrollbar flex flex-col gap-8 w-full min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-0 sm:pr-2 pb-20 sm:pb-8"
+                                style={{ overflowAnchor: 'none' }}
+                            >
                                 {chatHistory.map((msg) => (
                                     <div key={msg.id} className={`flex flex-col w-full min-w-0 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                                         {msg.role === 'user' ? (
@@ -3324,40 +3949,59 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                 {/* Properties Carousel */}
                                                 {msg.relatedProperties && msg.relatedProperties.length > 0 && (
                                                     <div className={`w-full max-w-full ${msg.relatedProperties?.length ? 'order-2' : ''} relative group`}>
+                                                        {(() => {
+                                                            const edges = carouselEdges[msg.id] || { atStart: true, atEnd: false };
+                                                            return (
+                                                                <>
 
                                                         {/* Left Scroll Arrow */}
                                                         <button
                                                             type="button"
                                                             onClick={() => {
+                                                                if (edges.atStart) return;
                                                                 const container = document.getElementById(`carousel-${msg.id}`);
                                                                 if (container) {
                                                                     container.scrollBy({ left: -360, behavior: 'smooth' });
+                                                                    setTimeout(() => updateCarouselEdges(msg.id, container), 260);
                                                                 }
                                                             }}
-                                                            className="absolute left-1 sm:left-4 top-[50%] -translate-y-1/2 z-30 hidden sm:flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#F58634] to-[#FF9E5E] shadow-[0_4px_12px_rgba(245,134,52,0.4)] text-white hover:scale-[1.1] hover:shadow-[0_8px_24px_rgba(245,134,52,0.6)] transition-all duration-300 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto active:scale-95 group/btn"
+                                                            className={`absolute left-1 sm:left-4 top-[50%] -translate-y-1/2 z-30 hidden sm:flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full transition-all duration-300 opacity-0 group-hover:opacity-100 active:scale-95 group/btn ${
+                                                                edges.atStart
+                                                                    ? 'bg-gray-200 text-gray-400 shadow-none pointer-events-none'
+                                                                    : 'bg-gradient-to-br from-[#F58634] to-[#FF9E5E] shadow-[0_4px_12px_rgba(245,134,52,0.4)] text-white hover:scale-[1.1] hover:shadow-[0_8px_24px_rgba(245,134,52,0.6)] pointer-events-none group-hover:pointer-events-auto'
+                                                            }`}
                                                             aria-label="Scroll Left"
+                                                            aria-disabled={edges.atStart}
                                                         >
-                                                            <ChevronDown className="w-5 h-5 sm:w-6 sm:h-6 rotate-90 stroke-[3] transition-transform duration-300 group-hover/btn:-translate-y-0.5 group-hover/btn:-translate-x-0.5" />
+                                                            <ChevronDown className={`w-5 h-5 sm:w-6 sm:h-6 rotate-90 stroke-[3] transition-transform duration-300 ${edges.atStart ? '' : 'group-hover/btn:-translate-y-0.5 group-hover/btn:-translate-x-0.5'}`} />
                                                         </button>
 
                                                         {/* Right Scroll Arrow */}
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                const container = document.getElementById(`carousel-${msg.id}`);
-                                                                if (container) {
-                                                                    container.scrollBy({ left: 360, behavior: 'smooth' });
-                                                                }
-                                                            }}
-                                                            className="absolute right-1 sm:right-4 top-[50%] -translate-y-1/2 z-30 hidden sm:flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#F58634] to-[#FF9E5E] shadow-[0_4px_12px_rgba(245,134,52,0.4)] text-white hover:scale-[1.1] hover:shadow-[0_8px_24px_rgba(245,134,52,0.6)] transition-all duration-300 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto active:scale-95 group/btn"
-                                                            aria-label="Scroll Right"
-                                                        >
-                                                            <ChevronDown className="w-5 h-5 sm:w-6 sm:h-6 -rotate-90 stroke-[3] transition-transform duration-300 group-hover/btn:-translate-y-0.5 group-hover/btn:translate-x-0.5" />
-                                                        </button>
+                                                        {!edges.atEnd && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const container = document.getElementById(`carousel-${msg.id}`);
+                                                                    if (container) {
+                                                                        container.scrollBy({ left: 360, behavior: 'smooth' });
+                                                                        setTimeout(() => updateCarouselEdges(msg.id, container), 260);
+                                                                    }
+                                                                }}
+                                                                className="absolute right-1 sm:right-4 top-[50%] -translate-y-1/2 z-30 hidden sm:flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#F58634] to-[#FF9E5E] shadow-[0_4px_12px_rgba(245,134,52,0.4)] text-white hover:scale-[1.1] hover:shadow-[0_8px_24px_rgba(245,134,52,0.6)] transition-all duration-300 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto active:scale-95 group/btn"
+                                                                aria-label="Scroll Right"
+                                                            >
+                                                                <ChevronDown className="w-5 h-5 sm:w-6 sm:h-6 -rotate-90 stroke-[3] transition-transform duration-300 group-hover/btn:-translate-y-0.5 group-hover/btn:translate-x-0.5" />
+                                                            </button>
+                                                        )}
+                                                                </>
+                                                            );
+                                                        })()}
                                                         <div
                                                             id={`carousel-${msg.id}`}
                                                             className="flex flex-row items-stretch sm:items-center overflow-x-auto gap-4 sm:gap-5 md:gap-6 px-4 sm:px-8 md:px-10 py-4 sm:py-6 md:py-8 snap-x snap-mandatory no-scrollbar"
                                                             style={{ scrollBehavior: 'smooth' }}
+                                                            onScroll={(event) => updateCarouselEdges(msg.id, event.currentTarget)}
+                                                            ref={(el) => updateCarouselEdges(msg.id, el)}
                                                         >
                                                             {msg.relatedProperties.map((property: any, idx: number) => {
                                                                 const isActive = selectedPropertyId === property.id;
@@ -3386,8 +4030,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                                         onClick={() => handlePropertyClick(property.id)}
                                                                         className={`
                                                                 group relative flex flex-col
-                                                                w-full min-w-0 max-w-full sm:min-w-[300px] sm:w-[300px] md:min-w-[360px] md:w-[360px] md:max-w-[360px] lg:min-w-[320px] lg:w-[320px] lg:max-w-[320px]
-                                                                flex-shrink-0 rounded-2xl cursor-pointer sm:snap-center
+                                                                w-[86%] min-w-[86%] max-w-[86%] sm:min-w-[300px] sm:w-[300px] md:min-w-[360px] md:w-[360px] md:max-w-[360px] lg:min-w-[320px] lg:w-[320px] lg:max-w-[320px]
+                                                                flex-shrink-0 rounded-2xl cursor-pointer snap-start sm:snap-center
                                                                 transition-all duration-300 ease-out border bg-white overflow-hidden
                                                                 ${isAnySelected
                                                                                 ? isActive
@@ -3472,20 +4116,20 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                                     href={`${getMainSiteBaseUrl()}/buy/browse?q=${encodeURIComponent(msg.query_history_formatted || msg.query || '')}`}
                                                                     target="_blank"
                                                                     rel="noopener noreferrer"
-                                                                    className="group flex-shrink-0 sm:snap-start self-stretch sm:self-center relative flex h-14 sm:h-48 w-full sm:w-48 flex-row sm:flex-col items-center justify-center gap-2 sm:gap-0 rounded-2xl sm:rounded-full border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-orange-100 shadow-lg transition-all duration-300 hover:scale-[1.01] sm:hover:scale-105 hover:border-orange-500 hover:shadow-xl hover:shadow-orange-200/60 cursor-pointer"
+                                                                    className="group flex-shrink-0 snap-start sm:snap-start self-center relative flex h-40 w-40 sm:h-48 sm:w-48 flex-col items-center justify-center gap-0 rounded-full border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-orange-100 shadow-lg transition-all duration-300 hover:scale-105 hover:border-orange-500 hover:shadow-xl hover:shadow-orange-200/60 cursor-pointer"
                                                                 >
                                                                     {/* Outer ring on hover */}
-                                                                    <div className="pointer-events-none absolute inset-[-6px] rounded-2xl sm:rounded-full border-2 border-orange-200 opacity-0 transition-all duration-500 group-hover:opacity-100" />
+                                                                    <div className="pointer-events-none absolute inset-[-6px] rounded-full border-2 border-orange-200 opacity-0 transition-all duration-500 group-hover:opacity-100" />
 
                                                                     {/* Icon circle */}
-                                                                    <div className="sm:mb-3 flex h-9 w-9 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-orange-500 text-white shadow-md transition-transform duration-300 group-hover:scale-110">
+                                                                    <div className="mb-2 sm:mb-3 flex h-11 w-11 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-orange-500 text-white shadow-md transition-transform duration-300 group-hover:scale-110">
                                                                         <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                                                             <path d="M7 17L17 7" /><path d="M7 7h10v10" />
                                                                         </svg>
                                                                     </div>
 
                                                                     {/* Label */}
-                                                                    <span className="text-center text-xs sm:text-sm font-semibold leading-tight text-orange-600 px-2 sm:px-4">
+                                                                    <span className="text-center text-xs sm:text-sm font-semibold leading-tight text-orange-600 px-3 sm:px-4">
                                                                         Show More Properties
                                                                     </span>
                                                                 </a>
@@ -3763,7 +4407,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                             </div>
 
                             {/* Footer / Related Questions & Search */}
-                            <div className="mt-2 border-t border-gray-100/70 sticky bottom-0 bg-white/95 backdrop-blur-md z-30 px-3 pt-3 pb-[max(env(safe-area-inset-bottom),0.9rem)] sm:px-0 sm:pt-2 sm:pb-4">
+                            <div className="mt-2 border-t border-gray-100/70 bg-white/95 backdrop-blur-md z-30 px-3 pt-3 pb-[max(env(safe-area-inset-bottom),0.9rem)] sm:px-0 sm:pt-2 sm:pb-4">
                                 {/* 1. Related Questions (Removed - now dynamic per message) */}
 
                                 {/* 2. New Large Search Bar + Controls */}
@@ -3773,13 +4417,25 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             onClick={() => setIsMenuOpen(!isMenuOpen)}
                                             className="bg-black text-white pl-3 pr-3 py-2 rounded-full flex items-center gap-2.5 shadow-md hover:bg-gray-800 transition-colors group active:scale-95 duration-200 select-none"
                                         >
-                                            <Image
-                                                src="/assets/images/snaphomz-icon-thick.png"
-                                                alt="Snaphomz AI"
-                                                width={22}
-                                                height={22}
-                                                className="w-[22px] h-[22px] object-contain"
-                                            />
+                                            <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-5 h-5">
+                                                <path d="M15.0645 1C22.8233 0.998533 29.122 7.31736 29.1221 15.1211V25.0967C29.1221 26.201 28.6985 27.1986 28.0068 27.9336L28.0049 27.9355C27.2517 28.7409 26.1847 29.2393 25.001 29.2393H5.12109C2.85069 29.2393 1 27.3893 1 25.0986V15.123C1 7.31903 7.30043 1 15.0645 1Z" fill="black" stroke="url(#askAiGradient)" strokeWidth="2" />
+                                                <mask id="askAiMask1" fill="white">
+                                                    <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" />
+                                                </mask>
+                                                <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" fill="white" stroke="white" strokeWidth="4" mask="url(#askAiMask1)" />
+                                                <mask id="askAiMask2" fill="white">
+                                                    <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" />
+                                                </mask>
+                                                <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" fill="white" stroke="white" strokeWidth="4" mask="url(#askAiMask2)" />
+                                                <defs>
+                                                    <linearGradient id="askAiGradient" x1="15.061" y1="0" x2="15.061" y2="30.2391" gradientUnits="userSpaceOnUse">
+                                                        <stop stopColor="#E8804C" />
+                                                        <stop offset="0.5" stopColor="#E84C85" />
+                                                        <stop offset="0.75" stopColor="#A64EBA" />
+                                                        <stop offset="1" stopColor="#654FEF" />
+                                                    </linearGradient>
+                                                </defs>
+                                            </svg>
                                             <span className="font-semibold text-[14px] tracking-wide">New Chat</span>
                                             <ChevronDown className={`w-4 h-4 text-gray-400 group-hover:text-white transition-transform duration-300 ${isMenuOpen ? 'rotate-180' : ''}`} />
                                         </button>
@@ -3943,110 +4599,141 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                     </div>
 
                                     {/* Search Input */}
-                                    <div className={`relative min-w-0 ${pendingImage || pendingImagePreview ? 'w-full sm:flex-1' : 'flex-1'}`}>
-                                        {(pendingImage || pendingImagePreview) && (
-                                            <div className="absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 z-10">
-                                                {renderPendingImageChip('expanded')}
-                                            </div>
-                                        )}
-                                        <textarea
-                                            ref={searchInputRef}
-                                            value={searchTerm}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                setSearchTerm(val);
-                                                fetchAddressSuggestions(val);
-                                                e.target.style.height = 'auto';
-                                                e.target.style.height = e.target.scrollHeight + 'px';
-                                            }}
-                                            onFocus={() => setShowSuggestions(true)}
-                                            onBlur={() => setTimeout(() => {
-                                                setShowSuggestions(false);
-                                                setShowAddressSuggestions(false);
-                                                setShowLocationSuggestions(false);
-                                            }, 200)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' && !e.shiftKey) {
-                                                    e.preventDefault();
-                                                    if (pendingImage) {
-                                                        if (pendingImageStatus === 'ready') {
-                                                            submitPendingImage();
-                                                        }
-                                                    } else {
-                                                        handleSearchSubmit(searchTerm);
-                                                    }
-                                                    // Reset height on submit
-                                                    if (searchInputRef.current) {
-                                                        searchInputRef.current.style.height = 'auto';
-                                                    }
-                                                }
-                                            }}
-                                            placeholder={pendingImage ? "Type city, ZIP, or coordinates for this image" : typedPlaceholder}
-                                            rows={1}
-                                            className={`w-full bg-white text-gray-900 rounded-2xl sm:rounded-3xl min-h-[64px] sm:min-h-[68px] max-h-32 sm:max-h-40 overflow-y-hidden resize-none py-4 sm:py-[22px] ${pendingImage || pendingImagePreview ? 'pl-36 sm:pl-[19rem]' : 'pl-4 sm:pl-5'} pr-28 sm:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-[14px] sm:text-base placeholder:text-gray-400 font-normal leading-relaxed`}
-                                        />
-                                        <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 sm:gap-4">
-
-                                            {/* Attach Icon & Menu */}
-                                            <div className="relative">
-                                                <div
-                                                    className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
-                                                    onClick={() => setShowAttachMenu(!showAttachMenu)}
-                                                >
-                                                    <Paperclip className="w-5 h-5 sm:w-5 sm:h-5" />
+                                    <div className="flex-1 min-w-0">
+                                        <div className="relative min-w-0">
+                                            {(pendingImage || pendingImagePreview) && (
+                                                <div className="absolute left-3 top-3 z-10 md:hidden">
+                                                    {renderPendingImageChip('expanded')}
                                                 </div>
-
-                                                {/* Dropdown Menu (Opens Upwards) */}
-                                                <AnimatePresence>
-                                                    {showAttachMenu && (
-                                                        <motion.div
-                                                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                                                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                                                            transition={{ duration: 0.2 }}
-                                                            className="absolute bottom-full right-0 mb-2 w-32 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200 ring-1 ring-black/5 overflow-hidden z-[70]"
+                                            )}
+                                            {(pendingImage || pendingImagePreview) && !searchTerm && (
+                                                <span
+                                                    aria-hidden="true"
+                                                    className="md:hidden absolute left-4 top-[88px] text-[12px] text-gray-400 pointer-events-none"
+                                                >
+                                                    Upload image to discover similar homes
+                                                </span>
+                                            )}
+                                            {(pendingImage || pendingImagePreview) && (
+                                                <div className="hidden md:block absolute left-4 top-3 z-10">
+                                                    {renderPendingImageChip('desktop')}
+                                                </div>
+                                            )}
+                                            <textarea
+                                                ref={searchInputRef}
+                                                value={searchTerm}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setSearchTerm(val);
+                                                    fetchAddressSuggestions(val);
+                                                    e.target.style.height = 'auto';
+                                                    e.target.style.height = e.target.scrollHeight + 'px';
+                                                }}
+                                                onFocus={() => setShowSuggestions(true)}
+                                                onBlur={() => setTimeout(() => {
+                                                    setShowSuggestions(false);
+                                                    setShowAddressSuggestions(false);
+                                                    setShowLocationSuggestions(false);
+                                                }, 200)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                                        e.preventDefault();
+                                                        if (pendingImage) {
+                                                            if (pendingImageStatus === 'ready') {
+                                                                submitPendingImage();
+                                                            }
+                                                        } else {
+                                                            handleSearchSubmit(searchTerm);
+                                                        }
+                                                        // Reset height on submit
+                                                        if (searchInputRef.current) {
+                                                            searchInputRef.current.style.height = 'auto';
+                                                        }
+                                                    }
+                                                }}
+                                                placeholder=""
+                                                rows={1}
+                                                className={`w-full bg-white text-gray-900 rounded-2xl sm:rounded-3xl overflow-y-hidden resize-none pl-4 sm:pl-5 ${pendingImage || pendingImagePreview ? 'min-h-[128px] max-h-48 sm:max-h-56 pt-[88px] pb-3 md:min-h-[120px] md:max-h-48 md:pt-[84px] md:pb-4 md:pl-5' : 'min-h-[64px] sm:min-h-[68px] max-h-32 sm:max-h-40 py-4 sm:py-[22px]'} pr-24 sm:pr-24 md:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-[14px] sm:text-base placeholder:text-gray-400 font-normal leading-relaxed`}
+                                            />
+                                            <div className={`absolute right-2 sm:right-3 flex items-center gap-1.5 sm:gap-4 ${(pendingImage || pendingImagePreview) ? 'bottom-2 md:top-1/2 md:-translate-y-1/2' : 'top-1/2 -translate-y-1/2'}`}>
+                                                <div className="hidden md:flex items-center gap-1.5 sm:gap-4">
+                                                    {/* Attach Icon & Menu */}
+                                                    <div className="relative" ref={attachMenuRef}>
+                                                        <div
+                                                            className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
+                                                            onClick={() => setShowAttachMenu(!showAttachMenu)}
                                                         >
-                                                            <div className="flex flex-col p-1.5 gap-1">
-                                                                <button
-                                                                    onClick={() => handleAttachmentClick('image')}
-                                                                    type="button"
-                                                                    className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
+                                                            <Paperclip className="w-5 h-5 sm:w-5 sm:h-5" />
+                                                        </div>
+
+                                                        {/* Dropdown Menu (Opens Upwards) */}
+                                                        <AnimatePresence>
+                                                            {showAttachMenu && (
+                                                                <motion.div
+                                                                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                                    transition={{ duration: 0.2 }}
+                                                                    className="absolute bottom-full right-0 mb-2 w-32 overflow-visible z-[70]"
+                                                                >
+                                                                    <div className="rounded-xl bg-white/95 backdrop-blur-sm shadow-xl border border-gray-200 ring-1 ring-black/5 overflow-visible">
+                                                                        <div className="flex flex-col p-1.5 gap-1">
+                                                                            <div className="relative">
+                                                                                <button
+                                                                                    onClick={() => handleAttachmentClick('image')}
+                                                                                    type="button"
+                                                                                    className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left w-full"
                                                                 >
                                                                     <ImageIcon className="w-4 h-4 text-blue-500" />
                                                                     <span>Image</span>
                                                                 </button>
-                                                                <button
-                                                                    onClick={() => handleAttachmentClick('pdf')}
-                                                                    type="button"
-                                                                    className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
+                                                                <motion.div
+                                                                    initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                                    exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                                                                    transition={{ duration: 0.2 }}
+                                                                    className="absolute left-full top-1/2 ml-3 mt-[-20px] w-[170px] -translate-y-[72%] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl z-[90]"
                                                                 >
-                                                                    <FileText className="w-4 h-4 text-red-500" />
-                                                                    <span>PDF</span>
-                                                                </button>
+                                                                    <p className="text-[11px] font-semibold leading-relaxed text-[#5A2B13]">
+                                                                        Search homes with a photo
+                                                                    </p>
+                                                                    <span className="absolute left-[-4px] top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 border-l border-b border-[#f2cfb0] bg-white" />
+                                                                </motion.div>
                                                             </div>
-                                                        </motion.div>
-                                                    )}
-                                                </AnimatePresence>
-                                            </div>
+                                                                            <button
+                                                                                onClick={() => handleAttachmentClick('pdf')}
+                                                                                type="button"
+                                                                                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
+                                                                            >
+                                                                                <FileText className="w-4 h-4 text-red-500" />
+                                                                                <span>PDF</span>
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                </motion.div>
+                                                            )}
+                                                        </AnimatePresence>
+                                                    </div>
+                                                    {/* AI toggle hidden in expanded (chat) view on desktop */}
+                                                </div>
                                             <button
                                                 type="button"
-                                                onClick={toggleMlsBypass}
-                                                title={mlsBypassMode ? 'AI Mode is OFF' : 'AI Mode is ON'}
-                                                className={`h-7 sm:h-8 rounded-full px-2.5 sm:px-3 text-[10px] sm:text-[11px] font-semibold border transition-colors ${!mlsBypassMode
-                                                    ? 'bg-orange-50 text-[#F58634] border-orange-200 hover:bg-orange-100'
-                                                    : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
-                                                    }`}
+                                                onClick={handleMobileCameraClick}
+                                                title={CAMERA_TIP_TEXT}
+                                                aria-label={CAMERA_TIP_TEXT}
+                                                className="md:hidden h-10 w-10 text-[#1E1E1E] flex items-center justify-center transition-colors hover:text-black"
                                             >
-                                                AI Mode
+                                                <Camera className="h-[21px] w-[21px]" />
                                             </button>
 
                                             <button
                                                 onClick={() => pendingImage ? submitPendingImage() : handleSearchSubmit(searchTerm)}
-                                                disabled={!!pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim())}
-                                                className={`bg-black text-white w-10 h-10 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shadow-md ${pendingImage && (pendingImageStatus !== 'ready' || !searchTerm.trim()) ? 'opacity-50 cursor-not-allowed hover:scale-100' : 'hover:bg-gray-800'}`}
+                                                disabled={!!pendingImage && pendingImageStatus !== 'ready'}
+                                                className={`bg-black text-white w-10 h-10 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shadow-md ${pendingImage && pendingImageStatus !== 'ready' ? 'opacity-50 cursor-not-allowed hover:scale-100' : 'hover:bg-gray-800'}`}
                                             >
                                                 {isSearching ? <Square className="w-4 h-4 fill-white" /> : <ArrowUp className="w-4.5 h-4.5 sm:w-5 sm:h-5" />}
                                             </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -4071,7 +4758,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                             onMouseDown={() => handleSuggestionClick(suggestion.text)}
                                                             className="flex items-center gap-3 p-3 hover:bg-orange-50/50 rounded-xl cursor-pointer group transition-all"
                                                         >
-                                                            <SearchIcon className="w-4 h-4 text-gray-300 group-hover:text-[#F58634] transition-colors" />
+                                                            <SearchIcon
+                                                                className="w-4 h-4 flex-shrink-0 text-gray-400 group-hover:text-[#F58634] transition-colors"
+                                                                strokeWidth={2.25}
+                                                                absoluteStrokeWidth
+                                                            />
                                                             <span className="text-gray-600 group-hover:text-gray-900 font-medium text-sm transition-colors leading-snug">
                                                                 {suggestion.text}
                                                             </span>

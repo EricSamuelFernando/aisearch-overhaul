@@ -112,8 +112,8 @@ function MemoizedSpeechInput({
         prevIndex === null ? 0 : Math.max(0, prevIndex - 1)
       );
     } else if (e.key === 'Enter') {
+      e.preventDefault();
       if (selectedIndex !== null && suggestions[selectedIndex]) {
-        e.preventDefault();
         if (effectiveSearchType === 'nlp') {
           const words = value.trim().split(/\s+/);
           words.pop();
@@ -124,6 +124,10 @@ function MemoizedSpeechInput({
       }
       setShowSuggestions(false);
       setSelectedIndex(null);
+      // Submit through the parent form so mobile "Enter/Go" reliably triggers search.
+      setTimeout(() => {
+        inputRef.current?.form?.requestSubmit();
+      }, 0);
       // Blur so the dropdown doesn't immediately reopen after submit.
       inputRef.current?.blur();
     } else if (e.key === 'Escape') {

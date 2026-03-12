@@ -3598,7 +3598,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                                 <div className="flex items-center justify-between mb-6">
                                                                     <div className="flex items-center gap-3">
                                                                         <div className="">
-                                                                            <GraduationCap className="w-6 h-6 text-[#F58634]" />
+                                                                            <GraduationCap className="w-10 h-10 sm:w-6 sm:h-6 text-[#F58634]" />
                                                                         </div>
                                                                         <h3 className="text-xl font-bold text-gray-900">Schools Near <span className="text-[#F58634]">{msg.schoolAddress || 'Location'}</span></h3>
                                                                     </div>
@@ -3898,7 +3898,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                                                 <div className="bg-[#FFF9F5] border border-[#FFD8B4] rounded-[16px] sm:rounded-[20px] p-4 sm:p-8">
                                                                                     <div className="flex items-center justify-between mb-4 sm:mb-6">
                                                                                         <div className="flex items-center gap-3">
-                                                                                            <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6 text-[#F58634]" />
+                                                                                            <GraduationCap className="w-10 h-10 sm:w-6 sm:h-6 text-[#F58634]" />
                                                                                             <h3 className="text-base sm:text-xl font-bold text-gray-900">
                                                                                                 Schools Near <span className="text-[#F58634]">{selectedProp.address.split(',')[0]}</span>
                                                                                             </h3>
@@ -4360,23 +4360,23 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                     </div>
                                                     {renderAiModeToggle()}
                                                 </div>
-                                            <button
-                                                type="button"
-                                                onClick={handleMobileCameraClick}
-                                                title={CAMERA_TIP_TEXT}
-                                                aria-label={CAMERA_TIP_TEXT}
-                                                className="md:hidden h-10 w-10 text-[#1E1E1E] flex items-center justify-center transition-colors hover:text-black"
-                                            >
-                                                <Camera className="h-[21px] w-[21px]" />
-                                            </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleMobileCameraClick}
+                                                    title={CAMERA_TIP_TEXT}
+                                                    aria-label={CAMERA_TIP_TEXT}
+                                                    className="md:hidden h-10 w-10 text-[#1E1E1E] flex items-center justify-center transition-colors hover:text-black"
+                                                >
+                                                    <Camera className="h-[21px] w-[21px]" />
+                                                </button>
 
-                                            <button
-                                                onClick={() => pendingImage ? submitPendingImage() : handleSearchSubmit(searchTerm)}
-                                                disabled={!!pendingImage && pendingImageStatus !== 'ready'}
-                                                className={`bg-black text-white w-10 h-10 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shadow-md ${pendingImage && pendingImageStatus !== 'ready' ? 'opacity-50 cursor-not-allowed hover:scale-100' : 'hover:bg-gray-800'}`}
-                                            >
-                                                {isSearching ? <Square className="w-4 h-4 fill-white" /> : <ArrowUp className="w-4.5 h-4.5 sm:w-5 sm:h-5" />}
-                                            </button>
+                                                <button
+                                                    onClick={() => pendingImage ? submitPendingImage() : handleSearchSubmit(searchTerm)}
+                                                    disabled={!!pendingImage && pendingImageStatus !== 'ready'}
+                                                    className={`bg-black text-white w-10 h-10 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shadow-md ${pendingImage && pendingImageStatus !== 'ready' ? 'opacity-50 cursor-not-allowed hover:scale-100' : 'hover:bg-gray-800'}`}
+                                                >
+                                                    {isSearching ? <Square className="w-4 h-4 fill-white" /> : <ArrowUp className="w-4.5 h-4.5 sm:w-5 sm:h-5" />}
+                                                </button>
                                             </div>
                                         </div>
                                     </div>

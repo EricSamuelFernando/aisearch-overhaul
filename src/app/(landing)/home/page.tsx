@@ -1083,6 +1083,12 @@ export default function Home() {
   const heroSectionRef = useRef<HTMLElement | null>(null);
   const heroContentRef = useRef<HTMLDivElement | null>(null);
   const heroHeadingSize = 'text-[2.35rem] sm:text-[2.75rem] md:text-[3.35rem]';
+  const heroMetaTextClass = isSearchSuggestionsOpen
+    ? 'text-white md:text-[#111827]'
+    : (isHomeSearchActive ? 'text-white md:text-[#111827]' : 'text-white');
+  const heroMetaAccentClass = isSearchSuggestionsOpen
+    ? 'text-white md:text-[#2C211A]'
+    : (isHomeSearchActive ? 'text-white md:text-[#2C211A]' : 'text-white');
   const dispatch = useAppDispatch();
   const { email } = useRegister();
   const [carouselEmbla, setCarouselEmbla] = useState<any>(null);
@@ -1151,6 +1157,33 @@ export default function Home() {
     };
   }, [carouselEmbla]);
 
+  useEffect(() => {
+    if (!heroSectionRef.current || !heroContentRef.current) return;
+
+    const updateOffset = () => {
+      if (!heroSectionRef.current || !heroContentRef.current) return;
+      if (!isHomeSearchActive && !isSearchSuggestionsOpen) {
+        setHomeSectionsOffset(0);
+        return;
+      }
+      const heroRect = heroSectionRef.current.getBoundingClientRect();
+      const contentRect = heroContentRef.current.getBoundingClientRect();
+      const overflow = Math.max(0, contentRect.bottom - heroRect.bottom);
+      setHomeSectionsOffset(Math.ceil(overflow));
+    };
+
+    updateOffset();
+
+    const resizeObserver = new ResizeObserver(updateOffset);
+    resizeObserver.observe(heroContentRef.current);
+    window.addEventListener('resize', updateOffset);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateOffset);
+    };
+  }, [isHomeSearchActive, isSearchSuggestionsOpen]);
+
   // Individual image rotation function
   const getImageRotation = (angle: number) => {
     return angle > 180 && angle < 360 ? 'rotate(358deg)' : 'rotate(0deg)';
@@ -1178,7 +1211,10 @@ export default function Home() {
       <MainNavPages />
 
       {/* ================= HERO SECTION ================= */}
-      <section className="home-hero relative -mt-24 min-h-[80vh] bg-[#170800] pt-28 text-white md:h-[695px] md:min-h-[695px] md:max-h-[695px] md:pt-24 xl:h-[740px] xl:min-h-[740px] xl:max-h-[740px]">
+      <section
+        ref={heroSectionRef}
+        className="home-hero relative -mt-24 min-h-[80vh] bg-[#170800] pt-28 text-white md:min-h-[695px] md:pt-24 xl:min-h-[740px] md:h-[695px] md:max-h-[695px] xl:h-[740px] xl:max-h-[740px]"
+      >
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {/* ================= DESKTOP ARC ================= */}
 
@@ -1470,7 +1506,10 @@ export default function Home() {
         <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pt-24 pb-10 md:pb-12 text-center">
 
           {/* ================= TEXT + SEARCH ================= */}
-          <div className="home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-5 mt-20 md:mt-20">
+          <div
+            ref={heroContentRef}
+            className="home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-5 mt-20 md:mt-20"
+          >
 
             <h1 className={`${heroHeadingSize} font-medium leading-snug tracking-tight`}>
               <span className="block">Buying a home</span>
@@ -1510,13 +1549,13 @@ export default function Home() {
               </div> */}
             </div>
 
-            <div className={`-mt-3 flex flex-col md:flex-row md:flex-nowrap items-center gap-y-0.5 md:gap-x-3 justify-center transition-all duration-200 ${isSearchSuggestionsOpen ? 'invisible opacity-0' : 'visible opacity-100'}`}>
-              <span className={`text-[1rem] font-medium transition-colors ${isHomeSearchActive ? 'text-white md:text-[#111827]' : 'text-white'}`}>
+            <div className="-mt-3 flex flex-col md:flex-row md:flex-nowrap items-center gap-y-0.5 md:gap-x-3 justify-center transition-all duration-200">
+              <span className={`text-[1rem] font-medium transition-colors ${heroMetaTextClass}`}>
                 Conversational Search,
               </span>
               <div className="flex items-center gap-2 md:contents">
                 <span
-                  className={`text-[1rem] font-bold underline transition-colors ${isHomeSearchActive ? 'text-white md:text-[#2C211A]' : 'text-white'}`}
+                  className={`text-[1rem] font-bold underline transition-colors ${heroMetaAccentClass}`}
                 >
                   Powered by Snaphomz AI.
                 </span>
@@ -1553,6 +1592,13 @@ export default function Home() {
         />
       </section>
 
+
+      {homeSectionsOffset > 0 && (
+        <div
+          className="w-full bg-[#FFF6EC] transition-[height] duration-200"
+          style={{ height: `${homeSectionsOffset}px` }}
+        />
+      )}
 
       {/* ================= OTHER SECTIONS ================= */}
       <div className="home-sections pt-8 md:pt-10">

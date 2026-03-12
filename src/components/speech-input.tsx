@@ -111,15 +111,21 @@ function MemoizedSpeechInput({
       setSelectedIndex((prevIndex) =>
         prevIndex === null ? 0 : Math.max(0, prevIndex - 1)
       );
-    } else if (e.key === 'Enter' && selectedIndex !== null) {
-      e.preventDefault();
-      setValue(suggestions[selectedIndex]);
+    } else if (e.key === 'Enter') {
+      if (selectedIndex !== null && suggestions[selectedIndex]) {
+        e.preventDefault();
+        if (effectiveSearchType === 'nlp') {
+          const words = value.trim().split(/\s+/);
+          words.pop();
+          setValue(`${words.join(' ')} ${suggestions[selectedIndex]}`.trim());
+        } else {
+          setValue(suggestions[selectedIndex]);
+        }
+      }
       setShowSuggestions(false);
-      const words = value.trim().split(/\s+/);
-      words.pop();
-      setValue(`${words.join(' ')} ${suggestions[selectedIndex]}`);
-      setShowSuggestions(false);
-      inputRef.current?.focus();
+      setSelectedIndex(null);
+      // Blur so the dropdown doesn't immediately reopen after submit.
+      inputRef.current?.blur();
     } else if (e.key === 'Escape') {
       setShowSuggestions(false);
       setSelectedIndex(null);

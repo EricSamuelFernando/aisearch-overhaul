@@ -353,19 +353,19 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
             <>
           {/* Pinned "My Favourite" card — always first */}
           <div className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-1 min-w-0 items-center gap-4">
+            <div className="flex items-center gap-4">
               <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-xl bg-orange-500">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
                 </svg>
               </div>
-              <span className="truncate text-sm font-medium text-gray-900">
+              <span className="max-w-[160px] truncate text-sm font-medium text-gray-900 sm:max-w-[200px]">
                 My Favourite
               </span>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <Button
-                className="rounded-full bg-black px-4 sm:px-6 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                className="rounded-full bg-black px-6 py-2 text-sm font-medium text-white hover:bg-gray-800"
                 onClick={() => {
                   if (myFavSnap) {
                     router.push(`/account/collections/${myFavSnap.id}`);
@@ -385,7 +385,7 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
                 key={snap.id}
                 className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
               >
-                <div className="flex flex-1 min-w-0 items-center gap-4">
+                <div className="flex items-center gap-4">
                   {snap?.favourites?.length && snap?.favourites[0]?.image ? (
                     <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl">
                       <img
@@ -399,13 +399,13 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
                       {snap?.name ? snap.name.charAt(0).toUpperCase() : 'C'}
                     </div>
                   )}
-                  <span className="truncate text-sm font-medium text-gray-900">
+                  <span className="max-w-[160px] truncate text-sm font-medium text-gray-900 sm:max-w-[200px]">
                     {snap?.name || 'Collection'}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <Button
-                    className="flex-shrink-0 rounded-full bg-black px-4 sm:px-6 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                    className="flex-shrink-0 rounded-full bg-black px-6 py-2 text-sm font-medium text-white hover:bg-gray-800"
                     onClick={() => {
                       setSelectedSnap(snap);
                       const fromBuyerDashboard = origin === 'buyer-dashboard';
@@ -417,7 +417,7 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
                   </Button>
                   <Button
                     variant="outline"
-                    className="flex-shrink-0 rounded-full border-gray-300 text-gray-700 hover:bg-red-50 hover:text-red-500 hover:border-red-500 px-4 sm:px-6 py-2 text-sm font-medium transition-colors"
+                    className="flex-shrink-0 rounded-full border-gray-300 text-gray-700 hover:bg-red-50 hover:text-red-500 hover:border-red-500 px-6 py-2 text-sm font-medium transition-colors"
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedSnap(snap);

@@ -152,7 +152,10 @@ const geocodeValidateLocation = (value: string) =>
                 address: value,
                 componentRestrictions: { country: 'us' },
             },
-            (results, status) => {
+            (
+                results: google.maps.GeocoderResult[] | null,
+                status: google.maps.GeocoderStatus
+            ) => {
                 if (status !== 'OK' || !results || results.length === 0) {
                     resolve(false);
                     return;

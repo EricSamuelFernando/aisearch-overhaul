@@ -59,21 +59,21 @@ export default function FindPerfectMortgage({
     <section className="home-mortgage-section w-full h-full bg-[#FFF6EC] px-4 sm:px-10 lg:px-20 xl:px-24 2xl:px-28 flex flex-col">
 
       {/* Heading */}
-      <div className="max-w-5xl mx-auto text-center mb-2">
+      <div className="max-w-5xl mx-auto text-center mb-1 sm:mb-2">
         <h1 className={cn('text-3xl sm:text-4xl md:text-5xl font-medium text-[#2C1F18]', headingClassName)}>
           Find Your Perfect <span className="font-light">Mortgage</span>
         </h1>
-        <p className="mt-2 text-sm sm:text-base text-[#6E645A] max-w-2xl mx-auto">
+        <p className="mt-2 text-xs sm:text-base text-[#6E645A] max-w-2xl mx-auto">
           Whether you're a first-time buyer or experienced homeowner, we have
           mortgage solutions tailored to your specific needs.
         </p>
       </div>
 
       {/* Content */}
-      <div className="home-mortgage-container max-w-7xl 2xl:max-w-[1600px] mx-auto flex flex-col lg:flex-row items-start gap-16 xl:gap-20">
+      <div className="home-mortgage-container max-w-7xl 2xl:max-w-[1600px] mx-auto flex flex-col lg:flex-row items-start gap-6 sm:gap-10 lg:gap-16 xl:gap-20">
 
         {/* LEFT CARD (CHART) */}
-        <div className="w-full lg:w-1/2 bg-[#F6E9D8] rounded-3xl p-8 sm:p-10 xl:p-12 2xl:p-14 scale-100 mt-8">
+        <div className="w-full lg:w-1/2 bg-[#F6E9D8] rounded-3xl p-5 sm:p-10 xl:p-12 2xl:p-14 scale-100 mt-4 sm:mt-8">
 
           <div className="mb-6">
             <h2 className="text-lg font-bold text-[#2C1F18] mb-1">
@@ -87,7 +87,7 @@ export default function FindPerfectMortgage({
           </div>
 
           {/* Chart */}
-          <div className="h-[200px] sm:h-[220px] xl:h-[260px] mb-10 max-w-md xl:max-w-lg">
+          <div className="h-[160px] sm:h-[220px] xl:h-[260px] mb-6 sm:mb-10 max-w-md xl:max-w-lg">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={chartData}
@@ -143,7 +143,7 @@ export default function FindPerfectMortgage({
             href="https://snapinterest.snaphomz.com/"
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full bg-black text-white py-4 rounded-full text-sm font-semibold hover:opacity-90 transition block text-center"
+            className="w-full bg-black text-white py-3 sm:py-4 rounded-full text-xs sm:text-sm font-semibold hover:opacity-90 transition block text-center"
           >
             Calculate Rate
           </a>
@@ -151,7 +151,7 @@ export default function FindPerfectMortgage({
 
         {/* RIGHT IMAGE */}
         <div className="w-full lg:w-1/2 flex justify-center">
-          <div className="relative w-[260px] sm:w-[320px] md:w-[380px] lg:w-[420px] xl:w-[520px] 2xl:w-[600px] scale-100 origin-center -mt-4 xl:-mt-2">
+          <div className="relative w-[180px] sm:w-[260px] md:w-[380px] lg:w-[420px] xl:w-[520px] 2xl:w-[600px] scale-100 origin-center mt-0 sm:-mt-2 xl:-mt-2">
             <Image
               src="/assets/images/buyer-home_mortgage.png"
               alt="Mortgage illustration"

@@ -1524,7 +1524,7 @@ export default function Home() {
             </p>
 
             <div className="relative w-full flex justify-center text-black">
-              <div className="home-hero-search-wrap w-full max-w-[1500px]">
+              <div className="home-hero-search-wrap mx-auto w-full max-w-[860px] xl:max-w-[940px]">
                 <HeroSearchForm
                   onSearchStateChange={(isActive) => setIsHomeSearchActive(isActive)}
                   onSuggestionsOpen={(open) => setIsSearchSuggestionsOpen(open)}
@@ -1646,7 +1646,7 @@ export default function Home() {
               </div>
             </Carousel.Slide>
             <Carousel.Slide>
-              <div className="h-[560px] flex items-start pt-0">
+              <div className="h-[540px] md:h-[820px] xl:h-[900px] flex items-start pt-0">
                 <FindPerfectMortgage headingClassName={heroHeadingSize} />
               </div>
             </Carousel.Slide>

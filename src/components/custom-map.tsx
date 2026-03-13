@@ -2670,10 +2670,15 @@ const CustomMap: React.FC<Props> = ({
             suppressNextOnIdleRef.current = false;
             return;
           }
+          // Only emit map-move refreshes after a real user map interaction
+          // (drag/zoom). Prevents initial/programmatic idles from overriding
+          // a freshly typed location search with stale previous-area results.
+          if (!userMovedMapRef.current) return;
           if (mapInstance && onMapMove) {
             const center = mapInstance.getCenter();
             const bounds = mapInstance.getBounds();
             if (center && bounds) {
+              userMovedMapRef.current = false;
               onMapMove(
                 { lat: center.lat(), lng: center.lng() },
                 bounds

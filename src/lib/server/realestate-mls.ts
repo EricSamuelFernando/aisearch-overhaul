@@ -234,6 +234,10 @@ export const buildMlsSearchPayloadFromQuery = (query: string) => {
 
   if (address) payload.address = address;
   else if (streetNameOnly) payload.address = streetNameOnly;
+  // For city+state style queries (e.g. "Folsom CA"), provide an address-form
+  // fallback as well. MLS search supports geo radius with address and this
+  // helps stabilize location targeting across boards/environments.
+  else if (city && state) payload.address = `${city}, ${state}`;
   if (zip) payload.zip = zip;
   if (state) payload.state = state;
   if (city) payload.city = city;

@@ -104,10 +104,12 @@ function MemoizedSpeechInput({
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
+      if (suggestions.length === 0) return;
       setSelectedIndex((prevIndex) =>
         prevIndex === null ? 0 : Math.min(suggestions.length - 1, prevIndex + 1)
       );
     } else if (e.key === 'ArrowUp') {
+      if (suggestions.length === 0) return;
       setSelectedIndex((prevIndex) =>
         prevIndex === null ? 0 : Math.max(0, prevIndex - 1)
       );
@@ -116,7 +118,7 @@ function MemoizedSpeechInput({
       const selectedSuggestion =
         (selectedIndex !== null && suggestions[selectedIndex])
           ? suggestions[selectedIndex]
-          : (effectiveSearchType === 'address' && suggestions.length > 0 ? suggestions[0] : null);
+          : null;
 
       if (selectedSuggestion) {
         if (effectiveSearchType === 'nlp') {

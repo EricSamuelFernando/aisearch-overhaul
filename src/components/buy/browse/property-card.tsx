@@ -149,6 +149,8 @@ const PropertyCards = (props: any) => {
     standardStatus: listing?.standardStatus ?? listing?.status ?? d?.homeStatus ?? d?.status,
   };
   const statusInfo = getStatusInfo(statusObj);
+  const isActiveStatusBadge = (statusInfo?.label ?? '').toLowerCase() === 'active';
+  const statusBadgeBaseClass = statusInfo?.className ?? 'bg-gray-700 text-white';
   const propertyId = d?.id ?? d?.propertyId ?? d?.listingId ?? d?.ListingKey ?? d?.ListingId;
 
   const address = listing?.address ?? {};
@@ -241,7 +243,7 @@ const PropertyCards = (props: any) => {
         onClick={handleClick}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        className={`relative flex h-full min-h-[260px] w-full cursor-pointer flex-col overflow-hidden rounded-xl border bg-white shadow-sm transition-all duration-200 hover:shadow-md ${isSelectedForCompare ? 'border-orange-400' : 'border-gray-200'
+        className={`group relative flex h-full min-h-[260px] w-full cursor-pointer flex-col overflow-hidden rounded-xl border bg-white shadow-sm transition-all duration-200 hover:shadow-md ${isSelectedForCompare ? 'border-orange-400' : 'border-gray-200'
           }`}
       >
         {isCompareMode && (
@@ -280,6 +282,7 @@ const PropertyCards = (props: any) => {
                 slides={slides}
                 options={{ loop: true }}
                 onScrollButtonClick={handleCarouselButtonClick}
+                controlsVisibility="always"
               />
             </div>
           ) : (
@@ -297,8 +300,19 @@ const PropertyCards = (props: any) => {
           )}
 
           {!isCompareMode && statusInfo ? (
-            <div className={`absolute left-2 top-2 z-10 rounded-full px-2 py-0.5 text-[10px] font-semibold shadow-sm ${statusInfo.className}`}>
-              {statusInfo.label}
+            <div
+              className={`absolute left-2 top-2 z-10 text-[10px] font-semibold ${isActiveStatusBadge ? 'pointer-events-none' : `rounded-full px-2 py-0.5 shadow-sm ${statusBadgeBaseClass}`
+                }`}
+            >
+              {isActiveStatusBadge ? (
+                <NImage
+                  src="/assets/images/sale_1441375.svg"
+                  alt="For sale"
+                  width={192}
+                  height={192}
+                  className="sale-sign-badge h-11 w-11 md:h-12 md:w-12"
+                />
+              ) : statusInfo.label}
             </div>
           ) : null}
 
@@ -415,6 +429,7 @@ const PropertyCards = (props: any) => {
               slides={slides}
               options={{ loop: true }}
               onScrollButtonClick={handleCarouselButtonClick}
+              controlsVisibility="always"
             />
           </div>
         ) : (
@@ -436,9 +451,18 @@ const PropertyCards = (props: any) => {
 
       {!isCompareMode && statusInfo ? (
         <div
-          className={`absolute top-4 left-4 px-3 py-1 rounded-full text-sm font-semibold z-10 ${statusInfo.className}`}
+          className={`absolute top-3 left-3 text-sm font-semibold z-10 ${isActiveStatusBadge ? 'pointer-events-none' : `rounded-full px-3 py-1 ${statusBadgeBaseClass}`
+            }`}
         >
-          {statusInfo.label}
+          {isActiveStatusBadge ? (
+            <NImage
+              src="/assets/images/sale_1441375.svg"
+              alt="For sale"
+              width={224}
+              height={224}
+              className="sale-sign-badge h-12 w-12 md:h-14 md:w-14"
+            />
+          ) : statusInfo.label}
         </div>
       ) : null}
 

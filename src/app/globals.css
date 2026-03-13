@@ -1524,6 +1524,45 @@ input:-webkit-autofill {
   background-color: #FAF9F5 !important;
 }
 
+/* Ensure Snap Tools panel icons keep the orange accent on company page */
+.company-navbar .snap-tools-panel svg {
+  color: #f28e3d !important;
+}
+
+/* Snap Tools panel scrollbar */
+.snap-tools-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
+  overscroll-behavior: contain;
+}
+
+.snap-tools-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.snap-tools-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 999px;
+}
+
+.snap-tools-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+}
+
+/* White panel scrollbar */
+.snap-tools-panel.bg-white .snap-tools-scroll {
+  scrollbar-color: rgba(150, 150, 150, 0.7) #ffffff;
+}
+
+.snap-tools-panel.bg-white .snap-tools-scroll::-webkit-scrollbar-track {
+  background: #ffffff;
+}
+
+.snap-tools-panel.bg-white .snap-tools-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(150, 150, 150, 0.7);
+}
+
 /* ============================= */
 /* AGENTS PAGE NAVBAR OVERRIDE */
 /* ============================= */

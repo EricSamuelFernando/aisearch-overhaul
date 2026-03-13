@@ -275,6 +275,7 @@ function PropertyBrowseView({ }: Props) {
   const dragDeltaYRef = useRef(0);
   const ignoreNextHandleClickRef = useRef(false);
   const lastHandledSearchSubmitNonceRef = useRef(0);
+  const cancelDebouncedSearchRef = useRef<(() => void) | null>(null);
 
   const subCategories = [
     {
@@ -485,9 +486,12 @@ function PropertyBrowseView({ }: Props) {
   }, [pathname, router, searchParams]);
 
   const handleClearSearchQuery = useCallback(() => {
-    // Clear only the draft input. Keep URL query/results unchanged until submit.
-    // This preserves the current results and map state across refresh.
+    // Cancel any pending debounced request from the previous query so it
+    // cannot repopulate stale cards after the user starts a new search.
+    cancelDebouncedSearchRef.current?.();
     searchRequestVersionRef.current += 1;
+    lastSearchFingerprintRef.current = '';
+    lastSearchSentAtRef.current = 0;
     setTopSearchValue('');
     setIsLoading(false);
     if (typeof document !== 'undefined') {
@@ -501,10 +505,23 @@ function PropertyBrowseView({ }: Props) {
       (document.activeElement as HTMLElement | null)?.blur?.();
     }
     const nextQuery = topSearchValue.trim();
-    if (nextQuery && nextQuery === query.trim()) {
+    const currentQuery = query.trim();
+
+    // Cancel pending old-query debounce and invalidate in-flight responses.
+    cancelDebouncedSearchRef.current?.();
+    searchRequestVersionRef.current += 1;
+    lastSearchFingerprintRef.current = '';
+    lastSearchSentAtRef.current = 0;
+
+    if (nextQuery !== currentQuery) {
+      // Prevent stale cards from remaining visible while the new query loads.
+      clearProperties();
+      setSelectedProperty('');
+      if (nextQuery) setIsLoading(true);
+    }
+
+    if (nextQuery && nextQuery === currentQuery) {
       // Allow explicit "Search" on the same query to re-run MLS fetch.
-      lastSearchFingerprintRef.current = '';
-      lastSearchSentAtRef.current = 0;
       setSearchSubmitNonce((n) => n + 1);
       return;
     }
@@ -512,7 +529,7 @@ function PropertyBrowseView({ }: Props) {
       if (nextQuery) params.set('q', nextQuery);
       else params.delete('q');
     });
-  }, [pushBrowseParams, query, topSearchValue]);
+  }, [clearProperties, pushBrowseParams, query, setIsLoading, topSearchValue]);
 
   const applyCompactFilters = useCallback(() => {
     pushBrowseParams((params) => {
@@ -711,7 +728,11 @@ function PropertyBrowseView({ }: Props) {
   );
 
   useEffect(() => {
+    cancelDebouncedSearchRef.current = () => {
+      (sendSearchRequest as unknown as { cancel?: () => void }).cancel?.();
+    };
     return () => {
+      cancelDebouncedSearchRef.current = null;
       (sendSearchRequest as unknown as { cancel?: () => void }).cancel?.();
     };
   }, [sendSearchRequest]);

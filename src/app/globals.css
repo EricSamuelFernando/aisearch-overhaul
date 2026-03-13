@@ -1004,6 +1004,44 @@ body {
   display: none !important;
 }
 
+/* Listing card "For Sale" hanging sign behavior */
+.sale-sign-badge {
+  transform-origin: 50% 6%;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.28));
+  will-change: transform;
+}
+
+.group:hover .sale-sign-badge {
+  animation: sale-sign-sway 1.2s ease-out 1;
+}
+
+@keyframes sale-sign-sway {
+  0% {
+    transform: rotate(0deg);
+  }
+  14% {
+    transform: rotate(-15deg);
+  }
+  28% {
+    transform: rotate(12deg);
+  }
+  42% {
+    transform: rotate(-9deg);
+  }
+  56% {
+    transform: rotate(6deg);
+  }
+  70% {
+    transform: rotate(-4deg);
+  }
+  84% {
+    transform: rotate(2deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
 .snaphomz-toast__close {
   position: absolute;
   top: 8px;
@@ -1524,6 +1562,45 @@ input:-webkit-autofill {
   background-color: #FAF9F5 !important;
 }
 
+/* Ensure Snap Tools panel icons keep the orange accent on company page */
+.company-navbar .snap-tools-panel svg {
+  color: #f28e3d !important;
+}
+
+/* Snap Tools panel scrollbar */
+.snap-tools-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
+  overscroll-behavior: contain;
+}
+
+.snap-tools-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.snap-tools-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 999px;
+}
+
+.snap-tools-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+}
+
+/* White panel scrollbar */
+.snap-tools-panel.bg-white .snap-tools-scroll {
+  scrollbar-color: rgba(150, 150, 150, 0.7) #ffffff;
+}
+
+.snap-tools-panel.bg-white .snap-tools-scroll::-webkit-scrollbar-track {
+  background: #ffffff;
+}
+
+.snap-tools-panel.bg-white .snap-tools-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(150, 150, 150, 0.7);
+}
+
 /* ============================= */
 /* AGENTS PAGE NAVBAR OVERRIDE */
 /* ============================= */
@@ -1605,9 +1682,119 @@ input:-webkit-autofill {
   --home-hero-card-size: 150px;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 768px) and (max-width: 1279px) {
+  .home-hero {
+    min-height: 640px;
+    height: 640px;
+    max-height: 640px;
+  }
+
+  .home-hero-arc {
+    --home-hero-arc-radius: 320px;
+    --home-hero-card-size: 110px;
+    width: 920px !important;
+    height: 700px !important;
+    top: 5.8rem !important;
+  }
+
+  .home-hero-content {
+    max-width: 1100px !important;
+    margin-top: 4.75rem !important;
+    gap: 1.25rem !important;
+  }
+
+  .home-hero-subtitle {
+    font-size: 0.9rem;
+  }
+
+  .home-hero-search-wrap {
+    max-width: 760px;
+  }
+
   .home-sections>*+* {
     margin-top: 3.5rem;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1100px) {
+  .home-hero {
+    min-height: 560px;
+    height: 560px;
+    max-height: 560px;
+  }
+
+  .home-hero-arc {
+    --home-hero-arc-radius: 270px;
+    --home-hero-card-size: 92px;
+    width: 760px !important;
+    height: 560px !important;
+    top: 5rem !important;
+  }
+
+  .home-hero-content {
+    max-width: 900px !important;
+    margin-top: 3.75rem !important;
+    gap: 1rem !important;
+  }
+
+  .home-hero-subtitle {
+    font-size: 0.82rem;
+  }
+
+  .home-hero-search-wrap {
+    max-width: 520px !important;
+  }
+}
+
+@media (min-width: 1280px) {
+  .home-hero {
+    min-height: 740px;
+    height: 740px;
+    max-height: 740px;
+  }
+
+  .home-hero-arc {
+    --home-hero-arc-radius: 415px;
+    --home-hero-card-size: 142px;
+    width: 1180px !important;
+    height: 860px !important;
+    top: 7rem !important;
+  }
+
+  .home-hero-content {
+    max-width: 1500px !important;
+    margin-top: 7.75rem !important;
+    gap: 2rem !important;
+  }
+}
+
+@media (min-width: 1280px) and (max-width: 1400px) {
+  .home-hero {
+    min-height: 700px;
+    height: 700px;
+    max-height: 700px;
+  }
+
+  .home-hero-arc {
+    --home-hero-arc-radius: 390px;
+    --home-hero-card-size: 132px;
+    width: 1120px !important;
+    height: 800px !important;
+    top: 5.8rem !important;
+  }
+
+  .home-hero-content {
+    margin-top: 5.75rem !important;
+    gap: 1.5rem !important;
+    max-width: 1080px !important;
+  }
+
+  .home-hero-subtitle {
+    font-size: 0.88rem;
+  }
+
+  .home-hero-search-wrap {
+    max-width: 620px !important;
   }
 }
 

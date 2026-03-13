@@ -3286,7 +3286,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     padding: isExpanded ? 16 : 8, // keep expanded layout comfortable on mobile
                 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full ${isExpanded ? 'max-w-[1200px]' : 'max-w-[720px]'
+                className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full ${isExpanded ? 'max-w-[1200px]' : 'max-w-[460px] lg:max-w-[480px] xl:max-w-[820px]'
                     }`}
             >
                 <input

@@ -1082,7 +1082,7 @@ export default function Home() {
   const homeSectionGap = 80;
   const heroSectionRef = useRef<HTMLElement | null>(null);
   const heroContentRef = useRef<HTMLDivElement | null>(null);
-  const heroHeadingSize = 'text-[2.35rem] sm:text-[2.75rem] md:text-[3.35rem]';
+  const heroHeadingSize = 'text-[2.35rem] sm:text-[2.75rem] md:text-[2.15rem] lg:text-[2.35rem] xl:text-[3.3rem] 2xl:text-[3.45rem]';
   const heroMetaTextClass = isSearchSuggestionsOpen
     ? 'text-white md:text-[#111827]'
     : (isHomeSearchActive ? 'text-white md:text-[#111827]' : 'text-white');
@@ -1213,13 +1213,13 @@ export default function Home() {
       {/* ================= HERO SECTION ================= */}
       <section
         ref={heroSectionRef}
-        className="home-hero relative -mt-24 min-h-[80vh] bg-[#170800] pt-28 text-white md:min-h-[695px] md:pt-24 xl:min-h-[740px] md:h-[695px] md:max-h-[695px] xl:h-[740px] xl:max-h-[740px]"
+        className="home-hero relative -mt-24 min-h-[80vh] bg-[#170800] pt-28 text-white md:min-h-[620px] md:h-[620px] md:max-h-[620px] md:pt-24 lg:min-h-[680px] lg:h-[680px] lg:max-h-[680px] xl:min-h-[740px] xl:h-[740px] xl:max-h-[740px]"
       >
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {/* ================= DESKTOP ARC ================= */}
 
           <div className="hidden md:flex w-full justify-center items-center overflow-visible">
-            <div className="home-hero-arc absolute left-1/2 top-32 h-[850px] w-[1200px] -translate-x-1/2">
+            <div className="home-hero-arc absolute left-1/2 top-24 md:h-[700px] md:w-[880px] lg:top-28 lg:h-[780px] lg:w-[1040px] xl:top-32 xl:h-[850px] xl:w-[1200px] -translate-x-1/2">
               {/* Image 1 */}
               <div
                 className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform"
@@ -1462,28 +1462,28 @@ export default function Home() {
           </div>
           {/* ================= MOBILE ARC ================= */}
           <div className="relative w-full md:hidden pointer-events-none">
-            <div className="absolute left-1/2 top-52 h-[220px] w-full max-w-[460px]
+            <div className="absolute left-1/2 top-44 sm:top-52 h-[190px] sm:h-[220px] w-full max-w-[360px] sm:max-w-[460px]
                             -translate-x-1/2 overflow-visible">
               {[
-                { a: 175, r: 180, size: 95, idx: 0, rot: 18 },
-                { a: 211, r: 180, size: 95, idx: 1, rot: -55 },
-                { a: 247, r: 180, size: 95, idx: 2, rot: -20 },
-                { a: 285, r: 180, size: 95, idx: 3, rot: 18 },
-                { a: 324, r: 180, size: 95, idx: 4, rot: 55 },
-                { a: 363, r: 180, size: 95, idx: 5, rot: 85 },
+                { a: 175, r: 'clamp(118px, 34vw, 180px)', size: 'clamp(64px, 18vw, 95px)', idx: 0, rot: 18 },
+                { a: 211, r: 'clamp(118px, 34vw, 180px)', size: 'clamp(64px, 18vw, 95px)', idx: 1, rot: -55 },
+                { a: 247, r: 'clamp(118px, 34vw, 180px)', size: 'clamp(64px, 18vw, 95px)', idx: 2, rot: -20 },
+                { a: 285, r: 'clamp(118px, 34vw, 180px)', size: 'clamp(64px, 18vw, 95px)', idx: 3, rot: 18 },
+                { a: 324, r: 'clamp(118px, 34vw, 180px)', size: 'clamp(64px, 18vw, 95px)', idx: 4, rot: 55 },
+                { a: 363, r: 'clamp(118px, 34vw, 180px)', size: 'clamp(64px, 18vw, 95px)', idx: 5, rot: 85 },
               ].map((p, i) => (
                 <div
                   key={i}
                   className="absolute overflow-hidden rounded-2xl shadow-sm"
                   style={{
                     left: '50%',
-                    top: '110px',
-                    width: `${p.size}px`,
-                    height: `${p.size}px`,
+                    top: '96px',
+                    width: p.size,
+                    height: p.size,
                     transform: `
                       translate(-50%, -50%)
                       rotate(${p.a}deg)
-                      translateX(${p.r}px)
+                      translateX(${p.r})
                       rotate(${-p.a + p.rot}deg)
                     `,
                   }}
@@ -1491,8 +1491,8 @@ export default function Home() {
                   <Image
                     src={cardImages[p.idx]}
                     alt={`mobile-hero-${i}`}
-                    width={p.size}
-                    height={p.size}
+                    width={95}
+                    height={95}
                     className="h-full w-full object-cover"
                   />
                 </div>
@@ -1508,7 +1508,7 @@ export default function Home() {
           {/* ================= TEXT + SEARCH ================= */}
           <div
             ref={heroContentRef}
-            className="home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-5 mt-20 md:mt-20"
+            className="home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-4 md:gap-5 mt-14 md:mt-16 lg:mt-20"
           >
 
             <h1 className={`${heroHeadingSize} font-medium leading-snug tracking-tight`}>
@@ -1524,7 +1524,7 @@ export default function Home() {
             </p>
 
             <div className="relative w-full flex justify-center text-black">
-              <div className="home-hero-search-wrap mx-auto w-full max-w-[860px] xl:max-w-[940px]">
+              <div className="home-hero-search-wrap mx-auto w-full max-w-[520px] lg:max-w-[580px] xl:max-w-[940px]">
                 <HeroSearchForm
                   onSearchStateChange={(isActive) => setIsHomeSearchActive(isActive)}
                   onSuggestionsOpen={(open) => setIsSearchSuggestionsOpen(open)}

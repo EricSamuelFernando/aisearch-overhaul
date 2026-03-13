@@ -22,7 +22,9 @@ type InteractiveSchoolMapPanelProps = {
     listCount?: number;
 };
 
-const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+const GOOGLE_MAPS_API_KEY =
+    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
+    process.env.NEXT_PUBLIC_MAP_KEY;
 
 const loadGoogleMaps = () => {
     if (!GOOGLE_MAPS_API_KEY) return Promise.reject(new Error("Missing key"));

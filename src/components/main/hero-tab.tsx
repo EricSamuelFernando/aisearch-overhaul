@@ -1211,19 +1211,18 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         setForecastLoading(true);
         setForecastError(null);
         try {
-            const res = await fetch(`http://localhost:5000/api/forecast?horizon=${horizon}&ensemble=true`);
+            const res = await fetch(`/api/forecast/model-cache?horizon=${horizon}`);
+            if (!res.ok) {
+                throw new Error(`Failed to fetch forecast (${res.status})`);
+            }
             const data = await res.json();
-
-            // Transform logic
-            const f = data.forecast || {};
-            const dates = f.dates || [];
-            const rates = f.central || f.rates || []; // Prefer central
-
-            const points = dates.map((d: string, i: number) => ({
-                date: d,
-                rate: rates[i] || 0
-            }));
-            return points;
+            if (Array.isArray(data?.points)) {
+                return data.points.map((point: any) => ({
+                    date: String(point?.date ?? ''),
+                    rate: Number(point?.rate ?? 0),
+                }));
+            }
+            return [];
         } catch (e: any) {
             console.error(e);
             setForecastError(e.message);
@@ -1315,6 +1314,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const lastIntentRef = useRef<string | null>(null);
     const addressSuggestDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const locationSuggestDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const locationSuggestTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const locationSuggestRequestIdRef = useRef(0);
     const [expandedSchoolLists, setExpandedSchoolLists] = useState<Record<string, boolean>>({});
     const [nearbySchoolsById, setNearbySchoolsById] = useState<Record<string, { status: 'idle' | 'loading' | 'ready' | 'error'; schools: any[]; error?: string; schoolType?: string; fallbackUsed?: boolean }>>({});
 
@@ -1371,6 +1372,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             }
             if (locationSuggestDebounceRef.current) {
                 clearTimeout(locationSuggestDebounceRef.current);
+            }
+            if (locationSuggestTimeoutRef.current) {
+                clearTimeout(locationSuggestTimeoutRef.current);
             }
             if (aiModeTipTimerRef.current) {
                 clearTimeout(aiModeTipTimerRef.current);
@@ -2625,6 +2629,10 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         if (locationSuggestDebounceRef.current) {
             clearTimeout(locationSuggestDebounceRef.current);
         }
+        if (locationSuggestTimeoutRef.current) {
+            clearTimeout(locationSuggestTimeoutRef.current);
+            locationSuggestTimeoutRef.current = null;
+        }
 
         const trimmed = value.trim();
         // Address-like heuristics
@@ -2636,8 +2644,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         if (trimmed.length < 3) {
             setAddressSuggestions([]);
             setShowAddressSuggestions(false);
+            setIsLoadingAddressSuggestions(false);
             setLocationSuggestions([]);
             setShowLocationSuggestions(false);
+            setIsLoadingLocationSuggestions(false);
+            locationSuggestRequestIdRef.current += 1;
             return;
         }
 
@@ -2645,6 +2656,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             setLocationSuggestions([]);
             setShowLocationSuggestions(false);
             setIsLoadingLocationSuggestions(false);
+            locationSuggestRequestIdRef.current += 1;
 
             addressSuggestDebounceRef.current = setTimeout(async () => {
                 try {
@@ -2667,6 +2679,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         setIsLoadingAddressSuggestions(false);
 
         locationSuggestDebounceRef.current = setTimeout(() => {
+            const requestId = ++locationSuggestRequestIdRef.current;
             if (typeof window === 'undefined' || !window.google?.maps?.places) {
                 setLocationSuggestions([]);
                 setShowLocationSuggestions(false);
@@ -2676,6 +2689,13 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
             try {
                 setIsLoadingLocationSuggestions(true);
+                if (locationSuggestTimeoutRef.current) {
+                    clearTimeout(locationSuggestTimeoutRef.current);
+                }
+                locationSuggestTimeoutRef.current = setTimeout(() => {
+                    if (locationSuggestRequestIdRef.current !== requestId) return;
+                    setIsLoadingLocationSuggestions(false);
+                }, 3500);
                 const autocompleteService = new window.google.maps.places.AutocompleteService();
                 autocompleteService.getPlacePredictions(
                     {
@@ -2683,6 +2703,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                         componentRestrictions: { country: 'us' },
                     },
                     (predictions: any, status: any) => {
+                        if (locationSuggestRequestIdRef.current !== requestId) return;
+                        if (locationSuggestTimeoutRef.current) {
+                            clearTimeout(locationSuggestTimeoutRef.current);
+                            locationSuggestTimeoutRef.current = null;
+                        }
                         const isOk =
                             status === window.google.maps.places.PlacesServiceStatus.OK &&
                             Array.isArray(predictions);
@@ -2728,6 +2753,10 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 setLocationSuggestions([]);
                 setShowLocationSuggestions(false);
                 setIsLoadingLocationSuggestions(false);
+                if (locationSuggestTimeoutRef.current) {
+                    clearTimeout(locationSuggestTimeoutRef.current);
+                    locationSuggestTimeoutRef.current = null;
+                }
             }
         }, 300);
     };
@@ -3300,6 +3329,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                 setShowSuggestions(false);
                                                 setShowAddressSuggestions(false);
                                                 setShowLocationSuggestions(false);
+                                                setIsLoadingAddressSuggestions(false);
+                                                setIsLoadingLocationSuggestions(false);
                                                 onSuggestionsOpen?.(false);
                                             }, 200)}
                                             onKeyDown={(e) => {
@@ -4630,6 +4661,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                     setShowSuggestions(false);
                                                     setShowAddressSuggestions(false);
                                                     setShowLocationSuggestions(false);
+                                                    setIsLoadingAddressSuggestions(false);
+                                                    setIsLoadingLocationSuggestions(false);
                                                 }, 200)}
                                                 onKeyDown={(e) => {
                                                     if (e.key === 'Enter' && !e.shiftKey) {

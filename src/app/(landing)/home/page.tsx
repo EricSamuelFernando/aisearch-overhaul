@@ -1082,7 +1082,7 @@ export default function Home() {
   const homeSectionGap = 80;
   const heroSectionRef = useRef<HTMLElement | null>(null);
   const heroContentRef = useRef<HTMLDivElement | null>(null);
-  const heroHeadingSize = 'text-[2.35rem] sm:text-[2.75rem] md:text-[2.15rem] lg:text-[2.35rem] xl:text-[3.3rem] 2xl:text-[3.45rem]';
+  const heroHeadingSize = 'text-[2.2rem] sm:text-[2.55rem] md:text-[2.05rem] lg:text-[2.2rem] xl:text-[2.55rem] 2xl:text-[3.05rem]';
   const heroMetaTextClass = isSearchSuggestionsOpen
     ? 'text-white md:text-[#111827]'
     : (isHomeSearchActive ? 'text-white md:text-[#111827]' : 'text-white');
@@ -1503,12 +1503,12 @@ export default function Home() {
         </div>
 
 
-        <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pt-24 pb-10 md:pb-12 text-center">
+        <section className="relative z-30 flex h-full flex-col items-center justify-center px-4 pt-24 pb-10 md:pb-12 text-center">
 
           {/* ================= TEXT + SEARCH ================= */}
           <div
             ref={heroContentRef}
-            className="home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-4 md:gap-5 mt-14 md:mt-16 lg:mt-20"
+            className="home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-4 md:gap-5 md:-mt-2 lg:-mt-4 min-[1280px]:max-[1440px]:translate-x-20"
           >
 
             <h1 className={`${heroHeadingSize} font-medium leading-snug tracking-tight`}>
@@ -1524,7 +1524,7 @@ export default function Home() {
             </p>
 
             <div className="relative w-full flex justify-center text-black">
-              <div className="home-hero-search-wrap mx-auto w-full max-w-[520px] lg:max-w-[580px] xl:max-w-[940px]">
+              <div className="home-hero-search-wrap mx-auto w-full max-w-[390px] lg:max-w-[420px] xl:max-w-[500px] 2xl:max-w-[660px] min-[1280px]:max-[1440px]:max-w-[340px]">
                 <HeroSearchForm
                   onSearchStateChange={(isActive) => setIsHomeSearchActive(isActive)}
                   onSuggestionsOpen={(open) => setIsSearchSuggestionsOpen(open)}

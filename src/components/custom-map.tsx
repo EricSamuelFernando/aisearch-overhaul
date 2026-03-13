@@ -2463,28 +2463,32 @@ const CustomMap: React.FC<Props> = ({
               </button>
             ) : null}
 
-            {isTouchDevice ? (
-              <>
-                <button
-                  type="button"
-                  title="Zoom in"
-                  onClick={() => adjustMapZoom(1)}
-                  className="flex h-10 w-10 items-center justify-center border-b border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-                  aria-label="Zoom in"
-                >
-                  <span className="text-2xl leading-none">+</span>
-                </button>
-                <button
-                  type="button"
-                  title="Zoom out"
-                  onClick={() => adjustMapZoom(-1)}
-                  className="flex h-10 w-10 items-center justify-center border-b border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-                  aria-label="Zoom out"
-                >
-                  <span className="text-3xl leading-none">-</span>
-                </button>
-              </>
-            ) : null}
+            <>
+              <button
+                type="button"
+                title="Zoom in"
+                onClick={() => adjustMapZoom(1)}
+                className={cn(
+                  'flex h-10 w-10 items-center justify-center bg-white text-gray-700 hover:bg-gray-50',
+                  isTouchDevice ? 'border-b border-gray-200' : 'rounded-lg border',
+                )}
+                aria-label="Zoom in"
+              >
+                <span className="text-2xl leading-none">+</span>
+              </button>
+              <button
+                type="button"
+                title="Zoom out"
+                onClick={() => adjustMapZoom(-1)}
+                className={cn(
+                  'flex h-10 w-10 items-center justify-center bg-white text-gray-700 hover:bg-gray-50',
+                  isTouchDevice ? 'border-b border-gray-200' : 'rounded-lg border',
+                )}
+                aria-label="Zoom out"
+              >
+                <span className="text-3xl leading-none">-</span>
+              </button>
+            </>
 
             {(!isTouchDevice || mobileToolsExpanded) ? (
               <>
@@ -2684,7 +2688,9 @@ const CustomMap: React.FC<Props> = ({
           mapTypeControl: false,
           rotateControl: false,
           clickableIcons: false,
-          zoomControl: !shouldHideControls && !isTouchDevice,
+          // Use the app's custom zoom controls for consistent placement/styling
+          // across desktop + mobile overlays.
+          zoomControl: false,
           draggable: !drawMode,
           scrollwheel: true,
           gestureHandling: isTouchDevice ? 'greedy' : 'cooperative',

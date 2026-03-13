@@ -117,7 +117,7 @@ export const useSearchManager = () => {
                     if (!isMapRefresh) {
                         warning({
                             message: 'No properties found',
-                            subtitle: 'Try searching for a location or address, e.g. "3 bedroom houses in San Jose".',
+                            subtitle: 'Try a city, neighborhood, or ZIP, e.g. "Folsom, CA" or "Morgan Hill, CA".',
                             duration: 8000,
                         });
                     }

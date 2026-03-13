@@ -1,6 +1,7 @@
 'use client';
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -23,12 +24,17 @@ const ChooseYourMeans = ({
   ctaLabel = 'Get Started',
   onCtaClick,
 }: ChooseYourMeansProps) => {
-  const handleCtaClick = () => {
+  const router = useRouter();
+
+  const handleCtaClick = (e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
     if (onCtaClick) {
       onCtaClick();
       return;
     }
-    window.location.href = "https://preprod.snaphomz.com/agents";
+    router.push("/agents");
   };
 
   return (
@@ -49,7 +55,10 @@ const ChooseYourMeans = ({
         {/* Card Grid Layout */}
         <div className="home-choose-grid grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-10 max-w-[1120px] mx-auto">
           {/* Card 1 */}
-          <div className="home-choose-card rounded-[3.25rem] overflow-hidden relative cursor-pointer h-[380px] sm:h-[440px] lg:h-[520px]">
+          <div
+            onClick={() => handleCtaClick()}
+            className="home-choose-card rounded-[3.25rem] overflow-hidden relative cursor-pointer h-[380px] sm:h-[440px] lg:h-[520px]"
+          >
             <img
               src="/assets/images/landing-means.png"
               alt="Your Agent"
@@ -68,7 +77,7 @@ const ChooseYourMeans = ({
               <p className="font-bold text-[2.35rem] leading-none mb-3">Your Agent</p>
               <p className="text-[1.1rem] sm:text-[1.2rem] text-white/90 mb-7 leading-snug max-w-[280px] mx-auto">{yourAgentDescription}</p>
               <button
-                onClick={() => window.location.href = "https://preprod.snaphomz.com/agents"}
+                onClick={(e) => handleCtaClick(e)}
                 className="px-9 sm:px-10 py-3.5 bg-black text-white text-[1.1rem] font-semibold rounded-full transition duration-200 hover:bg-black/80 min-w-[170px]"
               >
                 {ctaLabel}
@@ -77,7 +86,10 @@ const ChooseYourMeans = ({
           </div>
 
           {/* Card 2 */}
-          <div className="home-choose-card rounded-[3.25rem] overflow-hidden relative cursor-pointer h-[380px] sm:h-[440px] lg:h-[520px]">
+          <div
+            onClick={() => handleCtaClick()}
+            className="home-choose-card rounded-[3.25rem] overflow-hidden relative cursor-pointer h-[380px] sm:h-[440px] lg:h-[520px]"
+          >
             <img
               src="/assets/images/landing-means1.png"
               alt="Our Agent"
@@ -96,7 +108,7 @@ const ChooseYourMeans = ({
               <p className="font-bold text-[2.35rem] leading-none mb-3">Our Agent</p>
               <p className="text-[1.1rem] sm:text-[1.2rem] text-white/90 mb-7 leading-snug max-w-[300px] mx-auto">{ourAgentDescription}</p>
               <button
-                onClick={() => window.location.href = "https://preprod.snaphomz.com/agents"}
+                onClick={(e) => handleCtaClick(e)}
                 className="px-9 sm:px-10 py-3.5 bg-black text-white text-[1.1rem] font-semibold rounded-full transition duration-200 hover:bg-black/80 min-w-[170px]"
               >
                 {ctaLabel}

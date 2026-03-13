@@ -39,7 +39,7 @@ type ChartPoint = {
   forecast?: number | null;
 };
 
-const ENDPOINT = 'https://snapinterest.snaphomz.com/model_cache.json';
+const ENDPOINT = '/api/forecast/model-cache';
 
 const HORIZONS: { key: HorizonKey; label: string }[] = [
   { key: '6m', label: '6 months' },
@@ -138,7 +138,7 @@ const InterestRateForecast: React.FC = () => {
       } catch (err: any) {
         if (err?.name !== 'AbortError') {
           setError(
-            'Unable to load forecast data. If this persists, the endpoint may be blocking browser access.',
+            'Unable to load forecast data. Please try again in a moment.',
           );
         }
       } finally {

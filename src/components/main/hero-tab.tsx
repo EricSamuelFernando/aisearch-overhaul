@@ -174,8 +174,8 @@ const geocodeValidateLocation = (value: string) =>
                     'administrative_area_level_2',
                 ]);
 
-                const match = results.some((result) =>
-                    Array.isArray(result.types) && result.types.some((t) => allowedTypes.has(t))
+                const match = results.some((result: any) =>
+                    Array.isArray(result.types) && result.types.some((t: any) => allowedTypes.has(t))
                 );
                 resolve(match);
             }
@@ -1214,19 +1214,18 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         setForecastLoading(true);
         setForecastError(null);
         try {
-            const res = await fetch(`http://localhost:5000/api/forecast?horizon=${horizon}&ensemble=true`);
+            const res = await fetch(`/api/forecast/model-cache?horizon=${horizon}`);
+            if (!res.ok) {
+                throw new Error(`Failed to fetch forecast (${res.status})`);
+            }
             const data = await res.json();
-
-            // Transform logic
-            const f = data.forecast || {};
-            const dates = f.dates || [];
-            const rates = f.central || f.rates || []; // Prefer central
-
-            const points = dates.map((d: string, i: number) => ({
-                date: d,
-                rate: rates[i] || 0
-            }));
-            return points;
+            if (Array.isArray(data?.points)) {
+                return data.points.map((point: any) => ({
+                    date: String(point?.date ?? ''),
+                    rate: Number(point?.rate ?? 0),
+                }));
+            }
+            return [];
         } catch (e: any) {
             console.error(e);
             setForecastError(e.message);
@@ -1318,6 +1317,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const lastIntentRef = useRef<string | null>(null);
     const addressSuggestDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const locationSuggestDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const locationSuggestTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const locationSuggestRequestIdRef = useRef(0);
     const [expandedSchoolLists, setExpandedSchoolLists] = useState<Record<string, boolean>>({});
     const [nearbySchoolsById, setNearbySchoolsById] = useState<Record<string, { status: 'idle' | 'loading' | 'ready' | 'error'; schools: any[]; error?: string; schoolType?: string; fallbackUsed?: boolean }>>({});
 
@@ -1374,6 +1375,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             }
             if (locationSuggestDebounceRef.current) {
                 clearTimeout(locationSuggestDebounceRef.current);
+            }
+            if (locationSuggestTimeoutRef.current) {
+                clearTimeout(locationSuggestTimeoutRef.current);
             }
             if (aiModeTipTimerRef.current) {
                 clearTimeout(aiModeTipTimerRef.current);
@@ -2628,6 +2632,10 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         if (locationSuggestDebounceRef.current) {
             clearTimeout(locationSuggestDebounceRef.current);
         }
+        if (locationSuggestTimeoutRef.current) {
+            clearTimeout(locationSuggestTimeoutRef.current);
+            locationSuggestTimeoutRef.current = null;
+        }
 
         const trimmed = value.trim();
         // Address-like heuristics
@@ -2639,8 +2647,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         if (trimmed.length < 3) {
             setAddressSuggestions([]);
             setShowAddressSuggestions(false);
+            setIsLoadingAddressSuggestions(false);
             setLocationSuggestions([]);
             setShowLocationSuggestions(false);
+            setIsLoadingLocationSuggestions(false);
+            locationSuggestRequestIdRef.current += 1;
             return;
         }
 
@@ -2648,6 +2659,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             setLocationSuggestions([]);
             setShowLocationSuggestions(false);
             setIsLoadingLocationSuggestions(false);
+            locationSuggestRequestIdRef.current += 1;
 
             addressSuggestDebounceRef.current = setTimeout(async () => {
                 try {
@@ -2670,6 +2682,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         setIsLoadingAddressSuggestions(false);
 
         locationSuggestDebounceRef.current = setTimeout(() => {
+            const requestId = ++locationSuggestRequestIdRef.current;
             if (typeof window === 'undefined' || !window.google?.maps?.places) {
                 setLocationSuggestions([]);
                 setShowLocationSuggestions(false);
@@ -2679,6 +2692,13 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
             try {
                 setIsLoadingLocationSuggestions(true);
+                if (locationSuggestTimeoutRef.current) {
+                    clearTimeout(locationSuggestTimeoutRef.current);
+                }
+                locationSuggestTimeoutRef.current = setTimeout(() => {
+                    if (locationSuggestRequestIdRef.current !== requestId) return;
+                    setIsLoadingLocationSuggestions(false);
+                }, 3500);
                 const autocompleteService = new window.google.maps.places.AutocompleteService();
                 autocompleteService.getPlacePredictions(
                     {
@@ -2686,6 +2706,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                         componentRestrictions: { country: 'us' },
                     },
                     (predictions: any, status: any) => {
+                        if (locationSuggestRequestIdRef.current !== requestId) return;
+                        if (locationSuggestTimeoutRef.current) {
+                            clearTimeout(locationSuggestTimeoutRef.current);
+                            locationSuggestTimeoutRef.current = null;
+                        }
                         const isOk =
                             status === window.google.maps.places.PlacesServiceStatus.OK &&
                             Array.isArray(predictions);
@@ -2731,6 +2756,10 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 setLocationSuggestions([]);
                 setShowLocationSuggestions(false);
                 setIsLoadingLocationSuggestions(false);
+                if (locationSuggestTimeoutRef.current) {
+                    clearTimeout(locationSuggestTimeoutRef.current);
+                    locationSuggestTimeoutRef.current = null;
+                }
             }
         }, 300);
     };
@@ -3303,6 +3332,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                 setShowSuggestions(false);
                                                 setShowAddressSuggestions(false);
                                                 setShowLocationSuggestions(false);
+                                                setIsLoadingAddressSuggestions(false);
+                                                setIsLoadingLocationSuggestions(false);
                                                 onSuggestionsOpen?.(false);
                                             }, 200)}
                                             onKeyDown={(e) => {
@@ -3421,36 +3452,36 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                     >
                                                         <div className="rounded-xl bg-white/95 backdrop-blur-sm shadow-xl border border-gray-200 ring-1 ring-black/5 overflow-visible">
                                                             <div className="flex flex-col p-1.5 gap-1">
-                                                            <div className="relative">
+                                                                <div className="relative">
+                                                                    <button
+                                                                        onClick={() => handleAttachmentClick('image')}
+                                                                        type="button"
+                                                                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left w-full"
+                                                                    >
+                                                                        <ImageIcon className="w-4 h-4 text-blue-500" />
+                                                                        <span>Image</span>
+                                                                    </button>
+                                                                    <motion.div
+                                                                        initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                                                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                                        exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                                                                        transition={{ duration: 0.2 }}
+                                                                        className="absolute left-full top-1/2 ml-3 mt-[-20px] w-[170px] -translate-y-[72%] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl z-[90]"
+                                                                    >
+                                                                        <p className="text-[11px] font-semibold leading-relaxed text-[#5A2B13]">
+                                                                            Search homes with a photo
+                                                                        </p>
+                                                                        <span className="absolute left-[-4px] top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 border-l border-b border-[#f2cfb0] bg-white" />
+                                                                    </motion.div>
+                                                                </div>
                                                                 <button
-                                                                    onClick={() => handleAttachmentClick('image')}
+                                                                    onClick={() => handleAttachmentClick('pdf')}
                                                                     type="button"
-                                                                    className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left w-full"
+                                                                    className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
                                                                 >
-                                                                    <ImageIcon className="w-4 h-4 text-blue-500" />
-                                                                    <span>Image</span>
+                                                                    <FileText className="w-4 h-4 text-red-500" />
+                                                                    <span>PDF</span>
                                                                 </button>
-                                                                <motion.div
-                                                                    initial={{ opacity: 0, y: 6, scale: 0.98 }}
-                                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                                                    exit={{ opacity: 0, y: 4, scale: 0.98 }}
-                                                                    transition={{ duration: 0.2 }}
-                                                                    className="absolute left-full top-1/2 ml-3 mt-[-20px] w-[170px] -translate-y-[72%] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl z-[90]"
-                                                                >
-                                                                    <p className="text-[11px] font-semibold leading-relaxed text-[#5A2B13]">
-                                                                        Search homes with a photo
-                                                                    </p>
-                                                                    <span className="absolute left-[-4px] top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 border-l border-b border-[#f2cfb0] bg-white" />
-                                                                </motion.div>
-                                                            </div>
-                                                            <button
-                                                                onClick={() => handleAttachmentClick('pdf')}
-                                                                type="button"
-                                                                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left"
-                                                            >
-                                                                <FileText className="w-4 h-4 text-red-500" />
-                                                                <span>PDF</span>
-                                                            </button>
                                                             </div>
                                                         </div>
                                                     </motion.div>
@@ -3899,7 +3930,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                                 <div className="flex items-center justify-between mb-6">
                                                                     <div className="flex items-center gap-3">
                                                                         <div className="">
-                                                                            <GraduationCap className="w-6 h-6 text-[#F58634]" />
+                                                                            <GraduationCap className="w-10 h-10 sm:w-6 sm:h-6 text-[#F58634]" />
                                                                         </div>
                                                                         <h3 className="text-xl font-bold text-gray-900">Schools Near <span className="text-[#F58634]">{msg.schoolAddress || 'Location'}</span></h3>
                                                                     </div>
@@ -3954,45 +3985,44 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                             return (
                                                                 <>
 
-                                                        {/* Left Scroll Arrow */}
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                if (edges.atStart) return;
-                                                                const container = document.getElementById(`carousel-${msg.id}`);
-                                                                if (container) {
-                                                                    container.scrollBy({ left: -360, behavior: 'smooth' });
-                                                                    setTimeout(() => updateCarouselEdges(msg.id, container), 260);
-                                                                }
-                                                            }}
-                                                            className={`absolute left-1 sm:left-4 top-[50%] -translate-y-1/2 z-30 hidden sm:flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full transition-all duration-300 opacity-0 group-hover:opacity-100 active:scale-95 group/btn ${
-                                                                edges.atStart
-                                                                    ? 'bg-gray-200 text-gray-400 shadow-none pointer-events-none'
-                                                                    : 'bg-gradient-to-br from-[#F58634] to-[#FF9E5E] shadow-[0_4px_12px_rgba(245,134,52,0.4)] text-white hover:scale-[1.1] hover:shadow-[0_8px_24px_rgba(245,134,52,0.6)] pointer-events-none group-hover:pointer-events-auto'
-                                                            }`}
-                                                            aria-label="Scroll Left"
-                                                            aria-disabled={edges.atStart}
-                                                        >
-                                                            <ChevronDown className={`w-5 h-5 sm:w-6 sm:h-6 rotate-90 stroke-[3] transition-transform duration-300 ${edges.atStart ? '' : 'group-hover/btn:-translate-y-0.5 group-hover/btn:-translate-x-0.5'}`} />
-                                                        </button>
+                                                                    {/* Left Scroll Arrow */}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            if (edges.atStart) return;
+                                                                            const container = document.getElementById(`carousel-${msg.id}`);
+                                                                            if (container) {
+                                                                                container.scrollBy({ left: -360, behavior: 'smooth' });
+                                                                                setTimeout(() => updateCarouselEdges(msg.id, container), 260);
+                                                                            }
+                                                                        }}
+                                                                        className={`absolute left-1 sm:left-4 top-[50%] -translate-y-1/2 z-30 hidden sm:flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full transition-all duration-300 opacity-0 group-hover:opacity-100 active:scale-95 group/btn ${edges.atStart
+                                                                            ? 'bg-gray-200 text-gray-400 shadow-none pointer-events-none'
+                                                                            : 'bg-gradient-to-br from-[#F58634] to-[#FF9E5E] shadow-[0_4px_12px_rgba(245,134,52,0.4)] text-white hover:scale-[1.1] hover:shadow-[0_8px_24px_rgba(245,134,52,0.6)] pointer-events-none group-hover:pointer-events-auto'
+                                                                            }`}
+                                                                        aria-label="Scroll Left"
+                                                                        aria-disabled={edges.atStart}
+                                                                    >
+                                                                        <ChevronDown className={`w-5 h-5 sm:w-6 sm:h-6 rotate-90 stroke-[3] transition-transform duration-300 ${edges.atStart ? '' : 'group-hover/btn:-translate-y-0.5 group-hover/btn:-translate-x-0.5'}`} />
+                                                                    </button>
 
-                                                        {/* Right Scroll Arrow */}
-                                                        {!edges.atEnd && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    const container = document.getElementById(`carousel-${msg.id}`);
-                                                                    if (container) {
-                                                                        container.scrollBy({ left: 360, behavior: 'smooth' });
-                                                                        setTimeout(() => updateCarouselEdges(msg.id, container), 260);
-                                                                    }
-                                                                }}
-                                                                className="absolute right-1 sm:right-4 top-[50%] -translate-y-1/2 z-30 hidden sm:flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#F58634] to-[#FF9E5E] shadow-[0_4px_12px_rgba(245,134,52,0.4)] text-white hover:scale-[1.1] hover:shadow-[0_8px_24px_rgba(245,134,52,0.6)] transition-all duration-300 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto active:scale-95 group/btn"
-                                                                aria-label="Scroll Right"
-                                                            >
-                                                                <ChevronDown className="w-5 h-5 sm:w-6 sm:h-6 -rotate-90 stroke-[3] transition-transform duration-300 group-hover/btn:-translate-y-0.5 group-hover/btn:translate-x-0.5" />
-                                                            </button>
-                                                        )}
+                                                                    {/* Right Scroll Arrow */}
+                                                                    {!edges.atEnd && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                const container = document.getElementById(`carousel-${msg.id}`);
+                                                                                if (container) {
+                                                                                    container.scrollBy({ left: 360, behavior: 'smooth' });
+                                                                                    setTimeout(() => updateCarouselEdges(msg.id, container), 260);
+                                                                                }
+                                                                            }}
+                                                                            className="absolute right-1 sm:right-4 top-[50%] -translate-y-1/2 z-30 hidden sm:flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#F58634] to-[#FF9E5E] shadow-[0_4px_12px_rgba(245,134,52,0.4)] text-white hover:scale-[1.1] hover:shadow-[0_8px_24px_rgba(245,134,52,0.6)] transition-all duration-300 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto active:scale-95 group/btn"
+                                                                            aria-label="Scroll Right"
+                                                                        >
+                                                                            <ChevronDown className="w-5 h-5 sm:w-6 sm:h-6 -rotate-90 stroke-[3] transition-transform duration-300 group-hover/btn:-translate-y-0.5 group-hover/btn:translate-x-0.5" />
+                                                                        </button>
+                                                                    )}
                                                                 </>
                                                             );
                                                         })()}
@@ -4218,7 +4248,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                                                 <div className="bg-[#FFF9F5] border border-[#FFD8B4] rounded-[16px] sm:rounded-[20px] p-4 sm:p-8">
                                                                                     <div className="flex items-center justify-between mb-4 sm:mb-6">
                                                                                         <div className="flex items-center gap-3">
-                                                                                            <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6 text-[#F58634]" />
+                                                                                            <GraduationCap className="w-10 h-10 sm:w-6 sm:h-6 text-[#F58634]" />
                                                                                             <h3 className="text-base sm:text-xl font-bold text-gray-900">
                                                                                                 Schools Near <span className="text-[#F58634]">{selectedProp.address.split(',')[0]}</span>
                                                                                             </h3>
@@ -4634,6 +4664,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                     setShowSuggestions(false);
                                                     setShowAddressSuggestions(false);
                                                     setShowLocationSuggestions(false);
+                                                    setIsLoadingAddressSuggestions(false);
+                                                    setIsLoadingLocationSuggestions(false);
                                                 }, 200)}
                                                 onKeyDown={(e) => {
                                                     if (e.key === 'Enter' && !e.shiftKey) {
@@ -4683,23 +4715,23 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                                                     onClick={() => handleAttachmentClick('image')}
                                                                                     type="button"
                                                                                     className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left w-full"
-                                                                >
-                                                                    <ImageIcon className="w-4 h-4 text-blue-500" />
-                                                                    <span>Image</span>
-                                                                </button>
-                                                                <motion.div
-                                                                    initial={{ opacity: 0, y: 6, scale: 0.98 }}
-                                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                                                    exit={{ opacity: 0, y: 4, scale: 0.98 }}
-                                                                    transition={{ duration: 0.2 }}
-                                                                    className="absolute left-full top-1/2 ml-3 mt-[-20px] w-[170px] -translate-y-[72%] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl z-[90]"
-                                                                >
-                                                                    <p className="text-[11px] font-semibold leading-relaxed text-[#5A2B13]">
-                                                                        Search homes with a photo
-                                                                    </p>
-                                                                    <span className="absolute left-[-4px] top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 border-l border-b border-[#f2cfb0] bg-white" />
-                                                                </motion.div>
-                                                            </div>
+                                                                                >
+                                                                                    <ImageIcon className="w-4 h-4 text-blue-500" />
+                                                                                    <span>Image</span>
+                                                                                </button>
+                                                                                <motion.div
+                                                                                    initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                                                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                                                    exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                                                                                    transition={{ duration: 0.2 }}
+                                                                                    className="absolute left-full top-1/2 ml-3 mt-[-20px] w-[170px] -translate-y-[72%] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl z-[90]"
+                                                                                >
+                                                                                    <p className="text-[11px] font-semibold leading-relaxed text-[#5A2B13]">
+                                                                                        Search homes with a photo
+                                                                                    </p>
+                                                                                    <span className="absolute left-[-4px] top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 border-l border-b border-[#f2cfb0] bg-white" />
+                                                                                </motion.div>
+                                                                            </div>
                                                                             <button
                                                                                 onClick={() => handleAttachmentClick('pdf')}
                                                                                 type="button"
@@ -4716,23 +4748,23 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                     </div>
                                                     {/* AI toggle hidden in expanded (chat) view on desktop */}
                                                 </div>
-                                            <button
-                                                type="button"
-                                                onClick={handleMobileCameraClick}
-                                                title={CAMERA_TIP_TEXT}
-                                                aria-label={CAMERA_TIP_TEXT}
-                                                className="md:hidden h-10 w-10 text-[#1E1E1E] flex items-center justify-center transition-colors hover:text-black"
-                                            >
-                                                <Camera className="h-[21px] w-[21px]" />
-                                            </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleMobileCameraClick}
+                                                    title={CAMERA_TIP_TEXT}
+                                                    aria-label={CAMERA_TIP_TEXT}
+                                                    className="md:hidden h-10 w-10 text-[#1E1E1E] flex items-center justify-center transition-colors hover:text-black"
+                                                >
+                                                    <Camera className="h-[21px] w-[21px]" />
+                                                </button>
 
-                                            <button
-                                                onClick={() => pendingImage ? submitPendingImage() : handleSearchSubmit(searchTerm)}
-                                                disabled={!!pendingImage && pendingImageStatus !== 'ready'}
-                                                className={`bg-black text-white w-10 h-10 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shadow-md ${pendingImage && pendingImageStatus !== 'ready' ? 'opacity-50 cursor-not-allowed hover:scale-100' : 'hover:bg-gray-800'}`}
-                                            >
-                                                {isSearching ? <Square className="w-4 h-4 fill-white" /> : <ArrowUp className="w-4.5 h-4.5 sm:w-5 sm:h-5" />}
-                                            </button>
+                                                <button
+                                                    onClick={() => pendingImage ? submitPendingImage() : handleSearchSubmit(searchTerm)}
+                                                    disabled={!!pendingImage && pendingImageStatus !== 'ready'}
+                                                    className={`bg-black text-white w-10 h-10 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shadow-md ${pendingImage && pendingImageStatus !== 'ready' ? 'opacity-50 cursor-not-allowed hover:scale-100' : 'hover:bg-gray-800'}`}
+                                                >
+                                                    {isSearching ? <Square className="w-4 h-4 fill-white" /> : <ArrowUp className="w-4.5 h-4.5 sm:w-5 sm:h-5" />}
+                                                </button>
                                             </div>
                                         </div>
                                     </div>

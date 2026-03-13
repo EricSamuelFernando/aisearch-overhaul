@@ -113,13 +113,18 @@ function MemoizedSpeechInput({
       );
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (selectedIndex !== null && suggestions[selectedIndex]) {
+      const selectedSuggestion =
+        (selectedIndex !== null && suggestions[selectedIndex])
+          ? suggestions[selectedIndex]
+          : (effectiveSearchType === 'address' && suggestions.length > 0 ? suggestions[0] : null);
+
+      if (selectedSuggestion) {
         if (effectiveSearchType === 'nlp') {
           const words = value.trim().split(/\s+/);
           words.pop();
-          setValue(`${words.join(' ')} ${suggestions[selectedIndex]}`.trim());
+          setValue(`${words.join(' ')} ${selectedSuggestion}`.trim());
         } else {
-          setValue(suggestions[selectedIndex]);
+          setValue(selectedSuggestion);
         }
       }
       setShowSuggestions(false);

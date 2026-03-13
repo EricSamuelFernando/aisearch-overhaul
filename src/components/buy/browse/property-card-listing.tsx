@@ -54,7 +54,7 @@ const PropertyCardBrows: React.FC<PropertyCardProps> = ({ listing }) => {
       {/* Carousel Section */}
       <div className="relative w-full  overflow-hidden">
         <div className="w-full h-[250px] bg-gray-900"> 
-            <EmblaCarousel slides={slides} options={{ loop: true }} />
+            <EmblaCarousel slides={slides} options={{ loop: true }} controlsVisibility="always" />
         </div>
         {listing?.leadTypes?.mlsType?.length ? (
           <div className="absolute top-5 left-5 bg-orange-600 text-white px-3 py-1 rounded text-sm font-medium">

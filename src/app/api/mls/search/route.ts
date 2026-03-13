@@ -66,6 +66,141 @@ const coerceString = (value: unknown) => {
   return s ? s : undefined;
 };
 
+const STATE_TO_ABBREV: Record<string, string> = {
+  alabama: 'AL', alaska: 'AK', arizona: 'AZ', arkansas: 'AR', california: 'CA', colorado: 'CO',
+  connecticut: 'CT', delaware: 'DE', florida: 'FL', georgia: 'GA', hawaii: 'HI', idaho: 'ID',
+  illinois: 'IL', indiana: 'IN', iowa: 'IA', kansas: 'KS', kentucky: 'KY', louisiana: 'LA',
+  maine: 'ME', maryland: 'MD', massachusetts: 'MA', michigan: 'MI', minnesota: 'MN', mississippi: 'MS',
+  missouri: 'MO', montana: 'MT', nebraska: 'NE', nevada: 'NV', 'new hampshire': 'NH', 'new jersey': 'NJ',
+  'new mexico': 'NM', 'new york': 'NY', 'north carolina': 'NC', 'north dakota': 'ND', ohio: 'OH',
+  oklahoma: 'OK', oregon: 'OR', pennsylvania: 'PA', 'rhode island': 'RI', 'south carolina': 'SC',
+  'south dakota': 'SD', tennessee: 'TN', texas: 'TX', utah: 'UT', vermont: 'VT', virginia: 'VA',
+  washington: 'WA', 'west virginia': 'WV', wisconsin: 'WI', wyoming: 'WY', dc: 'DC', 'district of columbia': 'DC',
+};
+
+const normalizeState = (value: string | undefined) => {
+  if (!value) return '';
+  const raw = value.trim();
+  if (!raw) return '';
+  if (raw.length === 2) return raw.toUpperCase();
+  return STATE_TO_ABBREV[raw.toLowerCase()] ?? raw.toUpperCase();
+};
+
+const normalizeText = (value: string | undefined) =>
+  (value ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const extractRecordAddressParts = (record: any) => {
+  const address = record?.listing?.address ?? record?.address ?? {};
+  const zip = String(address?.zipCode ?? record?.zipCode ?? record?.zip ?? '').trim();
+  const city = String(address?.city ?? record?.city ?? '').trim();
+  const state = String(address?.stateOrProvince ?? record?.stateOrProvince ?? record?.state ?? '').trim();
+  const unparsed = String(
+    address?.unparsedAddress ??
+    record?.address ??
+    record?.formattedAddress ??
+    record?.fullAddress ??
+    '',
+  ).trim();
+  return { zip, city, state, unparsed };
+};
+
+const shouldScopeByLocation = (payload: Record<string, any>, isMapViewportRefresh: boolean) => {
+  if (isMapViewportRefresh) return false;
+  return Boolean(
+    coerceString(payload?.zip) ||
+    coerceString(payload?.city) ||
+    coerceString(payload?.state) ||
+    coerceString(payload?.address),
+  );
+};
+
+const applyLocationScope = (
+  records: any[],
+  payload: Record<string, any>,
+  isMapViewportRefresh: boolean,
+) => {
+  if (!shouldScopeByLocation(payload, isMapViewportRefresh)) return records;
+
+  const queryZip = coerceString(payload?.zip);
+  const queryCityNorm = normalizeText(coerceString(payload?.city));
+  const queryStateNorm = normalizeState(coerceString(payload?.state));
+  const queryAddressHead = coerceString(payload?.address)?.split(',')[0]?.trim() ?? '';
+  const queryStreetWords = normalizeText(queryAddressHead)
+    .split(' ')
+    .filter((word) => word.length > 2)
+    .slice(0, 6);
+  const queryHasStreetNumber = /^\d/.test(queryAddressHead);
+
+  const scoped = records.filter((record) => {
+    const { zip, city, state, unparsed } = extractRecordAddressParts(record);
+    const recZip = zip.trim();
+    const recCityNorm = normalizeText(city);
+    const recStateNorm = normalizeState(state);
+    const recAddressNorm = normalizeText(unparsed);
+
+    if (queryZip) {
+      const normalizedQueryZip = queryZip.slice(0, 5);
+      const normalizedRecZip = recZip.slice(0, 5);
+      if (!normalizedRecZip || normalizedRecZip !== normalizedQueryZip) return false;
+    }
+
+    if (queryStateNorm) {
+      if (!recStateNorm || recStateNorm !== queryStateNorm) return false;
+    }
+
+    if (queryCityNorm) {
+      if (!recCityNorm) return false;
+      if (
+        recCityNorm !== queryCityNorm &&
+        !recCityNorm.includes(queryCityNorm) &&
+        !queryCityNorm.includes(recCityNorm)
+      ) {
+        return false;
+      }
+    }
+
+    if (queryHasStreetNumber && queryStreetWords.length >= 2) {
+      const streetMatch = queryStreetWords.every((word) => recAddressNorm.includes(word));
+      if (!streetMatch) return false;
+    }
+
+    return true;
+  });
+
+  return scoped.length > 0 ? scoped : records;
+};
+
+const dedupeListingKey = (rec: any, fallback: string) => {
+  const explicit = rec?.listing?.listingId ?? rec?.listingId ?? rec?.listing_id ?? rec?.id ?? rec?.mlsNumber;
+  if (explicit !== undefined && explicit !== null && explicit !== '') return String(explicit);
+
+  const address = rec?.listing?.address ?? rec?.address ?? {};
+  const unparsed = String(
+    address?.unparsedAddress ??
+    rec?.address ??
+    rec?.formattedAddress ??
+    rec?.fullAddress ??
+    '',
+  ).trim().toLowerCase();
+  const city = String(address?.city ?? rec?.city ?? '').trim().toLowerCase();
+  const state = String(address?.stateOrProvince ?? rec?.state ?? '').trim().toLowerCase();
+  const zip = String(address?.zipCode ?? rec?.zipCode ?? rec?.zip ?? '').trim();
+  const lat = Number(rec?.listing?.property?.latitude ?? rec?.property?.latitude ?? rec?.latitude ?? rec?.lat);
+  const lng = Number(rec?.listing?.property?.longitude ?? rec?.property?.longitude ?? rec?.longitude ?? rec?.lon ?? rec?.lng);
+  const price = String(rec?.listing?.listPrice ?? rec?.listPrice ?? rec?.price ?? '').trim();
+
+  const hasCompositeSignals = Boolean(unparsed || city || zip || price);
+  if (!hasCompositeSignals) return fallback;
+
+  const latKey = Number.isFinite(lat) ? lat.toFixed(6) : '';
+  const lngKey = Number.isFinite(lng) ? lng.toFixed(6) : '';
+  return [unparsed, city, state, zip, latKey, lngKey, price].join('|');
+};
+
 const textFields = (record: any) =>
   [
     record?.propertyType,
@@ -166,6 +301,10 @@ export async function POST(request: NextRequest) {
       listing_property_type: coerceString(body?.listing_property_type) ?? payload.listing_property_type,
       public_land_use: coerceString(body?.public_land_use) ?? payload.public_land_use,
       property_type: coerceString(body?.property_type) ?? payload.property_type,
+      // MLS docs: geo radius searches support latitude/longitude + radius.
+      latitude: coerceNumber(body?.latitude) ?? payload.latitude,
+      longitude: coerceNumber(body?.longitude) ?? payload.longitude,
+      radius: coerceNumber(body?.radius) ?? payload.radius,
       has_pool: typeof body?.has_pool === 'boolean' ? body.has_pool : payload.has_pool,
       additional_criteria:
         body?.additional_criteria && typeof body.additional_criteria === 'object'
@@ -242,14 +381,7 @@ export async function POST(request: NextRequest) {
       if (!pageRecords.length) break;
 
       for (const rec of pageRecords) {
-        const key = String(
-          rec?.listing?.listingId ??
-          rec?.listingId ??
-          rec?.listing_id ??
-          rec?.id ??
-          rec?.mlsNumber ??
-          `${resultIndex}-${aggregateRaw.length}`,
-        );
+        const key = dedupeListingKey(rec, `${resultIndex}-${aggregateRaw.length}`);
         if (seenKeys.has(key)) continue;
         seenKeys.add(key);
         aggregateRaw.push(rec);
@@ -262,7 +394,9 @@ export async function POST(request: NextRequest) {
       if (pagesFetched >= 10) break;
     }
 
-    const filteredRecords = aggregateRaw
+    const scopedRecords = applyLocationScope(aggregateRaw, mergedPayload, isMapViewportRefresh);
+
+    const filteredRecords = scopedRecords
       .filter(isActiveListing)
       .filter((r) => !isLeaseOrRentalLike(r))
       .filter((r) => !isDisallowedCategory(r));
@@ -309,6 +443,7 @@ export async function POST(request: NextRequest) {
             upstreamStatus: lastUpstream?.status,
             pagesFetched,
             aggregated: aggregateRaw.length,
+            scoped: scopedRecords.length,
             partialUpstreamFailure,
           }
           : undefined,

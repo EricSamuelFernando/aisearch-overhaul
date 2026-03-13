@@ -13,11 +13,12 @@ type PropType = {
   slides: React.ReactNode[];
   options?: EmblaOptionsType;
   onScrollButtonClick?: (e: any) => void;
+  controlsVisibility?: 'hover' | 'always';
 };
 
 
 const EmblaCarousel: React.FC<PropType> = (props) => {
-  const { slides, options } = props;
+  const { slides, options, controlsVisibility = 'hover' } = props;
   const [emblaRef, emblaApi] = useEmblaCarousel(options);
   const [carouselEvent, setCarouselEvent] = useState(false);
   const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
@@ -103,27 +104,29 @@ const EmblaCarousel: React.FC<PropType> = (props) => {
 
       </div>
 
-      {isHovering && (
-        <div className="absolute top-[24%] w-full">
+      {(controlsVisibility === 'always' || isHovering) && (
+        <div className="pointer-events-none absolute inset-0">
           <div
-            className="flex text-white justify-between"
+            className="pointer-events-auto absolute inset-x-0 top-1/2 flex -translate-y-1/2 items-center justify-between px-2 md:px-3"
             onMouseLeave={handleMouseLeave}
           >
             <PrevButton
               onClick={handlePrevButtonClick}
               onMouseEnter={handlePrevMouseEnter}
-              className="cursor-pointer bg-[#00000090] pl-3.5 w-11 h-11 transition-opacity duration-300 opacity-80 hover:opacity-100"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/55 bg-black/30 text-white shadow-[0_4px_16px_rgba(0,0,0,0.35)] backdrop-blur-sm transition-all duration-200 hover:scale-105 hover:bg-black/55 disabled:cursor-not-allowed disabled:opacity-35 md:h-10 md:w-10"
               disabled={prevBtnDisabled}
+              aria-label="Previous image"
             />
             <NextButton
               onClick={handleNextButtonClick}
               onMouseEnter={handleNextMouseEnter}
-              className="cursor-pointer bg-[#00000090] pl-3.5 w-11 h-11 transition-opacity duration-300 opacity-80 hover:opacity-100"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/55 bg-black/30 text-white shadow-[0_4px_16px_rgba(0,0,0,0.35)] backdrop-blur-sm transition-all duration-200 hover:scale-105 hover:bg-black/55 disabled:cursor-not-allowed disabled:opacity-35 md:h-10 md:w-10"
               disabled={nextBtnDisabled}
+              aria-label="Next image"
             />
           </div>
 
-          <div className="absolute z-100 flex gap-2 justify-center w-full top-32">
+          <div className="pointer-events-auto absolute bottom-3 z-10 flex w-full justify-center gap-2">
             {scrollSnaps.map((_, index) => (
               <DotButton
                 key={index}

@@ -46,12 +46,13 @@ const MapPropertyCards = (props: any) => {
       : 'N/A';
 
   const status = props?.listing?.status || 'Active';
+  const isActiveStatusBadge = String(status).trim().toLowerCase() === 'active';
   const daysOnMarket = props?.listing?.daysOnMarket || 'New';
 
   return (
     <div
       onClick={handleClick}
-      className="relative w-80 rounded-2xl overflow-hidden bg-black/70 backdrop-blur-lg border border-white/10 shadow-lg transition hover:scale-[1.015] hover:shadow-2xl cursor-pointer"
+      className="group relative w-80 rounded-2xl overflow-hidden bg-black/70 backdrop-blur-lg border border-white/10 shadow-lg transition hover:scale-[1.015] hover:shadow-2xl cursor-pointer"
     >
       {props.onClose ? (
         <button
@@ -80,9 +81,19 @@ const MapPropertyCards = (props: any) => {
           }
         />
         <div className="absolute top-0 w-full flex justify-between items-start bg-gradient-to-b from-black/70 to-transparent px-4 py-2">
-          <span className="text-sm font-medium text-black bg-[#78de2a] px-3 py-1 rounded-full">
-            {status}
-          </span>
+          {isActiveStatusBadge ? (
+            <NImage
+              src="/assets/images/sale_1441375.svg"
+              alt="For sale"
+              width={192}
+              height={192}
+              className="sale-sign-badge pointer-events-none h-12 w-12"
+            />
+          ) : (
+            <span className="text-sm font-medium px-3 py-1 rounded-full text-black bg-[#78de2a]">
+              {status}
+            </span>
+          )}
         </div>
       </div>
 

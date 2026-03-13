@@ -1004,6 +1004,44 @@ body {
   display: none !important;
 }
 
+/* Listing card "For Sale" hanging sign behavior */
+.sale-sign-badge {
+  transform-origin: 50% 6%;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.28));
+  will-change: transform;
+}
+
+.group:hover .sale-sign-badge {
+  animation: sale-sign-sway 1.2s ease-out 1;
+}
+
+@keyframes sale-sign-sway {
+  0% {
+    transform: rotate(0deg);
+  }
+  14% {
+    transform: rotate(-15deg);
+  }
+  28% {
+    transform: rotate(12deg);
+  }
+  42% {
+    transform: rotate(-9deg);
+  }
+  56% {
+    transform: rotate(6deg);
+  }
+  70% {
+    transform: rotate(-4deg);
+  }
+  84% {
+    transform: rotate(2deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
 .snaphomz-toast__close {
   position: absolute;
   top: 8px;

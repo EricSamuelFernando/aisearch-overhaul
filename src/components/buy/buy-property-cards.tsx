@@ -244,7 +244,7 @@ function BuyPropertyCards({
           className={cn(
             'relative flex flex-col items-center gap-2',
             overlayMode
-              ? 'mt-1 shrink-0 border-t border-gray-200 bg-white px-2 pt-14 pb-2'
+              ? 'mt-1 shrink-0 border-t border-gray-200 bg-white px-2 pt-3 pb-2'
               : 'mt-6',
           )}
         >

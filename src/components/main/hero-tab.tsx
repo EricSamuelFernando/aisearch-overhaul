@@ -2770,7 +2770,24 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         setAddressSuggestions([]);
         setShowLocationSuggestions(false);
         setLocationSuggestions([]);
-        setSearchTerm(suggestion.address || '');
+        const queryParts = [
+            suggestion.address,
+            suggestion.city,
+            suggestion.state,
+            suggestion.zip_code,
+        ]
+            .map((value) => String(value || '').trim())
+            .filter(Boolean);
+        const suggestionQuery = queryParts.join(', ');
+        setSearchTerm(suggestionQuery || suggestion.address || '');
+
+        const mainSiteBase = getMainSiteBaseUrl();
+        if (mlsBypassMode) {
+            window.location.href = `${mainSiteBase}/buy/browse?q=${encodeURIComponent(
+                suggestionQuery || suggestion.address || '',
+            )}`;
+            return;
+        }
 
         const url = toMainSitePropertyPreviewUrl({
             listingId: suggestion.listingId,
@@ -2779,7 +2796,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             state: suggestion.state,
             zip_code: suggestion.zip_code,
             address: suggestion.address,
-        });
+        }, suggestionQuery || suggestion.address || undefined);
         window.location.href = url;
     };
 

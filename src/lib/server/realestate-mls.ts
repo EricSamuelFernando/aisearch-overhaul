@@ -3,6 +3,8 @@ type AnyRecord = Record<string, any>;
 const RE_API_BASE = process.env.REALESTATE_API_BASE_URL || 'https://api.realestateapi.com';
 const US_SUFFIX_RE = /\s*,\s*(?:usa|u\.s\.a\.|united states(?: of america)?)\s*$/i;
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const STREET_SUFFIX_RE =
+  /\b(st|street|ave|avenue|rd|road|blvd|boulevard|dr|drive|ln|lane|ct|court|cir|circle|pl|place|ter|terrace|pkwy|parkway|way|hwy|highway|trl|trail|sq|square)\b/i;
 
 const parseLooseNumber = (value: unknown): number | null => {
   if (value === null || value === undefined || value === '') return null;
@@ -64,9 +66,19 @@ const extractZip = (query: string) => {
 const extractStreetAddress = (query: string) => {
   const trimmed = query.trim();
   // Common address-like input: "123 Main St, City, ST" or "123 Main St"
-  const match = trimmed.match(/^(\d+[A-Za-z0-9\s.#/-]*[A-Za-z])(?:,|$)/);
+  const match = trimmed.match(/^(\d+[A-Za-z0-9\s.#/-]*[A-Za-z0-9])(?:,|$)/);
   if (!match?.[1]) return null;
   return match[1].trim().replace(/\s+/g, ' ');
+};
+
+const extractStreetNameWithoutNumber = (query: string) => {
+  const cleaned = query.replace(US_SUFFIX_RE, '').trim();
+  if (!cleaned) return null;
+  const firstSegment = cleaned.split(',')[0]?.trim() || '';
+  if (!firstSegment) return null;
+  if (/^\d/.test(firstSegment)) return null;
+  if (!STREET_SUFFIX_RE.test(firstSegment)) return null;
+  return firstSegment.replace(/\s+/g, ' ');
 };
 
 const STATE_MAP: Record<string, string> = {
@@ -123,8 +135,28 @@ const extractCity = (query: string, state?: string | null, zip?: string | null) 
   const cityStateMatch = schoolStripped.match(
     /^\s*([A-Za-z .'-]+?)\s*,\s*([A-Za-z .'-]{2,})(?:\s+\d{5}(?:-\d{4})?)?(?:\s*,\s*(?:usa|u\.s\.a\.|united states(?: of america)?))?\s*$/i,
   );
-  if (cityStateMatch?.[1]) {
-    const candidate = cityStateMatch[1].trim().replace(/\s+/g, ' ');
+  if (cityStateMatch?.[1] && cityStateMatch?.[2]) {
+    const first = cityStateMatch[1].trim().replace(/\s+/g, ' ');
+    const second = cityStateMatch[2].trim().replace(/\s+/g, ' ');
+    const secondAsState =
+      (second.length === 2 && Object.values(STATE_MAP).includes(second.toUpperCase())) ||
+      Object.prototype.hasOwnProperty.call(STATE_MAP, second.toLowerCase());
+
+    // "Marina Blvd, San Francisco" => street + city
+    if (STREET_SUFFIX_RE.test(first) && !/^\d/.test(first) && !secondAsState) {
+      if (second.length > 1) return second;
+    }
+
+    // Default "City, State" behavior.
+    if (first.length > 1) return first;
+  }
+
+  // Full-address shape: "123 Main St, San Francisco, CA 94102"
+  const addressCityMatch = schoolStripped.match(
+    /^\s*\d[^,]*,\s*([A-Za-z .'-]+?)(?:,\s*([A-Za-z]{2}|[A-Za-z .'-]+))?(?:\s+\d{5}(?:-\d{4})?)?\s*$/i,
+  );
+  if (addressCityMatch?.[1]) {
+    const candidate = addressCityMatch[1].trim().replace(/\s+/g, ' ');
     if (candidate.length > 1) return candidate;
   }
 
@@ -135,8 +167,6 @@ const extractCity = (query: string, state?: string | null, zip?: string | null) 
       return candidate;
     }
   }
-  if (zip) return null;
-
   // Plain city fallback: "Los Angeles", "Manhattan Beach"
   const plain = schoolStripped.trim();
   if (
@@ -182,7 +212,11 @@ export const buildMlsSearchPayloadFromQuery = (query: string) => {
     .trim()
     .replace(US_SUFFIX_RE, '');
 
-  const address = extractStreetAddress(normalizedQuery);
+  const fullAddressLike =
+    /^\d/.test(normalizedQuery) &&
+    /,/.test(normalizedQuery);
+  const address = fullAddressLike ? normalizedQuery : extractStreetAddress(normalizedQuery);
+  const streetNameOnly = extractStreetNameWithoutNumber(normalizedQuery);
   const zip = extractZip(normalizedQuery);
   const state = extractState(normalizedQuery);
   const city = extractCity(normalizedQuery, state, zip);
@@ -199,6 +233,7 @@ export const buildMlsSearchPayloadFromQuery = (query: string) => {
   };
 
   if (address) payload.address = address;
+  else if (streetNameOnly) payload.address = streetNameOnly;
   if (zip) payload.zip = zip;
   if (state) payload.state = state;
   if (city) payload.city = city;

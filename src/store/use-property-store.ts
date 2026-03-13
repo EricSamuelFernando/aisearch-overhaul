@@ -5,6 +5,35 @@ import {
 } from '@/interfaces/property.interface';
 import { MlsPropertyListing } from '@/interfaces/mls-data.interface';
 
+const toMetricNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const shouldExcludeZeroBedZeroBath = (listing: any, data: any): boolean => {
+  const props = listing?.property || listing?.data || data?.property || {};
+  const beds = toMetricNumber(
+    props?.BedroomsTotal ??
+    props?.bedroomsTotal ??
+    props?.bedroomTotal ??
+    data?.bedroomTotal ??
+    data?.beds ??
+    data?.bedrooms
+  );
+  const baths = toMetricNumber(
+    props?.BathroomsTotalInteger ??
+    props?.bathroomsTotal ??
+    props?.bathroomTotal ??
+    data?.bathroomTotal ??
+    data?.baths ??
+    data?.bathrooms
+  );
+
+  // Keep listings where either metric is unknown; only block explicit 0/0.
+  return beds === 0 && baths === 0;
+};
+
 interface PropertyStore {
   allProperties: UnifiedLandingPropertiesType<IProperty | MlsPropertyListing>[];
   isLoading: boolean;
@@ -52,19 +81,7 @@ export const usePropertyStore = create<PropertyStore>((set) => ({
       properties.forEach((p: any) => {
         const d = p.data || p;
         const listing = p?.listing || p?.data?.listing || d?.listing || d;
-        const props = listing?.property || listing?.data || d?.property || d;
-
-        // Extract values using same logic as card for consistency, plus MLS caps
-        const beds = props?.BedroomsTotal ?? props?.bedroomsTotal ?? d?.bedroomTotal ?? d?.beds ?? d?.bedrooms ?? props?.bedroomTotal ?? 0;
-        const baths = props?.BathroomsTotalInteger ?? props?.bathroomsTotal ?? d?.bathroomTotal ?? d?.baths ?? d?.bathrooms ?? props?.bathroomTotal ?? 0;
-        const sqft = props?.LivingArea ?? props?.livingArea ?? d?.sqft ?? d?.livingArea ?? props?.sqft ?? 0;
-
-        const bVal = Number(beds);
-        const baVal = Number(baths);
-        const sVal = Number(sqft);
-
-        // Filter: any zero or invalid value counts as "junk" for this residential view
-        if (isNaN(bVal) || bVal <= 0 || isNaN(baVal) || baVal <= 0 || isNaN(sVal) || sVal <= 0) return;
+        if (shouldExcludeZeroBedZeroBath(listing, d)) return;
 
         // Deduplication signature: Address + Price + City (normalized)
         const addr = (listing?.address?.unparsedAddress ?? d?.UnparsedAddress ?? d?.unparsedAddress ?? d?.address ?? "").toString().toLowerCase().trim();
@@ -100,17 +117,7 @@ export const usePropertyStore = create<PropertyStore>((set) => ({
       properties.forEach((p: any) => {
         const d = p.data || p;
         const listing = p?.listing || p?.data?.listing || d?.listing || d;
-        const props = listing?.property || listing?.data || d?.property || d;
-
-        const beds = props?.BedroomsTotal ?? props?.bedroomsTotal ?? d?.bedroomTotal ?? d?.beds ?? d?.bedrooms ?? props?.bedroomTotal ?? 0;
-        const baths = props?.BathroomsTotalInteger ?? props?.bathroomsTotal ?? d?.bathroomTotal ?? d?.baths ?? d?.bathrooms ?? props?.bathroomTotal ?? 0;
-        const sqft = props?.LivingArea ?? props?.livingArea ?? d?.sqft ?? d?.livingArea ?? props?.sqft ?? 0;
-
-        const bVal = Number(beds);
-        const baVal = Number(baths);
-        const sVal = Number(sqft);
-
-        if (isNaN(bVal) || bVal <= 0 || isNaN(baVal) || baVal <= 0 || isNaN(sVal) || sVal <= 0) return;
+        if (shouldExcludeZeroBedZeroBath(listing, d)) return;
 
         const addr = (listing?.address?.unparsedAddress ?? d?.UnparsedAddress ?? d?.unparsedAddress ?? d?.address ?? "").toString().toLowerCase().trim();
         const city = (listing?.address?.city ?? d?.City ?? d?.city ?? "").toString().toLowerCase().trim();

@@ -246,6 +246,7 @@ function PropertyBrowseView({ }: Props) {
   const [drawFilteredPropertyIds, setDrawFilteredPropertyIds] = useState<string[] | null>(null);
   const [clearDrawSignal, setClearDrawSignal] = useState(0);
   const [showCompactFilters, setShowCompactFilters] = useState(false);
+  const [searchSubmitNonce, setSearchSubmitNonce] = useState(0);
   const [topSearchValue, setTopSearchValue] = useState(query);
   const [draftPriceMin, setDraftPriceMin] = useState<string>(searchParams.get('priceMin') || '');
   const [draftPriceMax, setDraftPriceMax] = useState<string>(searchParams.get('priceMax') || '');
@@ -273,6 +274,7 @@ function PropertyBrowseView({ }: Props) {
   const dragStartModeRef = useRef<MobileSheetMode>('default');
   const dragDeltaYRef = useRef(0);
   const ignoreNextHandleClickRef = useRef(false);
+  const lastHandledSearchSubmitNonceRef = useRef(0);
 
   const subCategories = [
     {
@@ -354,7 +356,9 @@ function PropertyBrowseView({ }: Props) {
   }, [allProperties, subCategories]);
 
   const displayedProperties = useMemo(() => {
-    if (!Array.isArray(drawFilteredPropertyIds)) return allProperties;
+    if (!Array.isArray(drawFilteredPropertyIds) || drawFilteredPropertyIds.length === 0) {
+      return allProperties;
+    }
 
     return allProperties.filter((p: any) => {
       const listingId = resolveListingId(p);
@@ -397,7 +401,7 @@ function PropertyBrowseView({ }: Props) {
   }).filter(coord => Number.isFinite(coord.lat) && Number.isFinite(coord.lng));
 
   const resultCount = displayedProperties.length;
-  const hasDrawFilter = Array.isArray(drawFilteredPropertyIds);
+  const hasDrawFilter = Array.isArray(drawFilteredPropertyIds) && drawFilteredPropertyIds.length > 0;
 
   useEffect(() => {
     const inferred = parseQueryFilters(rawQuery ?? '');
@@ -497,11 +501,18 @@ function PropertyBrowseView({ }: Props) {
       (document.activeElement as HTMLElement | null)?.blur?.();
     }
     const nextQuery = topSearchValue.trim();
+    if (nextQuery && nextQuery === query.trim()) {
+      // Allow explicit "Search" on the same query to re-run MLS fetch.
+      lastSearchFingerprintRef.current = '';
+      lastSearchSentAtRef.current = 0;
+      setSearchSubmitNonce((n) => n + 1);
+      return;
+    }
     pushBrowseParams((params) => {
       if (nextQuery) params.set('q', nextQuery);
       else params.delete('q');
     });
-  }, [pushBrowseParams, topSearchValue]);
+  }, [pushBrowseParams, query, topSearchValue]);
 
   const applyCompactFilters = useCallback(() => {
     pushBrowseParams((params) => {
@@ -664,12 +675,10 @@ function PropertyBrowseView({ }: Props) {
         const newProperties = response?.data?.properties || response?.data?.records || response?.data?.result?.records;
 
         if (Array.isArray(newProperties) && newProperties.length > 0) {
-          // Only clear if we are not moving the map (i.e. no latitude/longitude in body) 
-          // or if we really want a fresh set. For map moves, we usually want to append or replace smoothly.
-          // For now, let's keep the logic but ensure we don't trigger unnecessary re-renders.
-          if (body.latitude && body.longitude) {
-            clearProperties();
-          }
+          // Always replace the current result set for each completed MLS request.
+          // Appending across searches causes stale out-of-area cards to leak into
+          // the next query (e.g. SF address showing old Iowa listings).
+          clearProperties();
 
           setSearchedQuery(JSON.stringify(newProperties));
           addProperties(newProperties);
@@ -680,7 +689,7 @@ function PropertyBrowseView({ }: Props) {
           clearProperties();
           warning({
             message: 'No properties found',
-            subtitle: 'Try searching for a location or address, e.g. "3 bedroom houses in San Jose".',
+            subtitle: 'Try a city, neighborhood, or ZIP, e.g. "Folsom, CA" or "Morgan Hill, CA".',
             duration: 8000,
           });
         }
@@ -720,19 +729,24 @@ function PropertyBrowseView({ }: Props) {
     if (!isSearchModeReady) return;
     if (!query.trim()) return;
 
+    const isManualResubmit = searchSubmitNonce !== lastHandledSearchSubmitNonceRef.current;
+    if (isManualResubmit) {
+      lastHandledSearchSubmitNonceRef.current = searchSubmitNonce;
+    }
+
     // Back-navigation cache check: if we already have results for this exact
     // query + mode + filters in the Zustand store, show them instantly without
     // hitting the backend at all.  usePropertyStore.getState() gives the latest
     // store values without stale-closure issues.
     const querySearchKey = `${isMlsMode ? 'mls' : 'ai'}||${query.trim()}||${activeSearchFiltersKey}`;
     const { lastSearchKey, allProperties: cachedProps } = usePropertyStore.getState();
-    if (cachedProps.length > 0 && lastSearchKey === querySearchKey) {
+    if (!isManualResubmit && cachedProps.length > 0 && lastSearchKey === querySearchKey) {
       setIsLoading(false); // clear the store's initial isLoading:true
       return;
     }
 
     sendSearchRequest({});
-  }, [currentView, isSearchModeReady, query, activeSearchFiltersKey, sendSearchRequest, isMlsMode, setIsLoading]);
+  }, [currentView, isSearchModeReady, query, activeSearchFiltersKey, sendSearchRequest, isMlsMode, setIsLoading, searchSubmitNonce]);
 
   if (currentView === 'map') {
     return (
@@ -758,7 +772,7 @@ function PropertyBrowseView({ }: Props) {
                   }
                 }}
                 onDrawFilterChange={(ids) => {
-                  setDrawFilteredPropertyIds(ids);
+                  setDrawFilteredPropertyIds(ids && ids.length > 0 ? ids : null);
                   if (!ids || ids.length === 0) return;
                   if (selectedProperty && !ids.includes(String(selectedProperty))) {
                     setSelectedProperty('');

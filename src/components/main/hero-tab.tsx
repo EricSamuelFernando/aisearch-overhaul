@@ -3286,7 +3286,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     padding: isExpanded ? 16 : 8, // keep expanded layout comfortable on mobile
                 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full ${isExpanded ? 'max-w-[1200px]' : 'max-w-[460px] lg:max-w-[480px] xl:max-w-[820px]'
+                className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full ${isExpanded ? 'max-w-[1200px]' : 'max-w-[460px] lg:max-w-[480px] xl:max-w-[820px] min-[1280px]:max-[1440px]:max-w-[640px]'
                     }`}
             >
                 <input
@@ -3523,7 +3523,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                         <Button
                                             type='submit'
                                             disabled={!!pendingImage && pendingImageStatus !== 'ready'}
-                                            className="hidden md:flex bg-[#F58634] hover:bg-[#E07224] text-white rounded-xl px-8 py-3 font-semibold text-sm md:text-base items-center transition-all shadow-md hover:shadow-lg h-full disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634]"
+                                            className="hidden md:flex bg-[#F58634] hover:bg-[#E07224] text-white rounded-xl px-6 py-2.5 font-semibold text-sm md:text-[15px] items-center transition-all shadow-md hover:shadow-lg h-full disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634]"
                                         >
                                             Begin Journey
                                         </Button>
@@ -4716,14 +4716,14 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                 }}
                                                 placeholder=""
                                                 rows={1}
-                                                className={`w-full bg-white text-gray-900 rounded-2xl sm:rounded-3xl overflow-y-hidden resize-none pl-4 sm:pl-5 ${pendingImage || pendingImagePreview ? 'min-h-[128px] max-h-48 sm:max-h-56 pt-[88px] pb-3 md:min-h-[120px] md:max-h-48 md:pt-[84px] md:pb-4 md:pl-5' : 'min-h-[64px] sm:min-h-[68px] max-h-32 sm:max-h-40 py-4 sm:py-[22px]'} pr-24 sm:pr-24 md:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-[14px] sm:text-base placeholder:text-gray-400 font-normal leading-relaxed`}
+                                                className={`w-full bg-white text-gray-900 rounded-2xl sm:rounded-3xl overflow-y-hidden resize-none pl-4 sm:pl-5 ${pendingImage || pendingImagePreview ? 'min-h-[128px] max-h-48 sm:max-h-56 pt-[88px] pb-3 md:min-h-[108px] md:max-h-44 md:pt-[74px] md:pb-3 md:pl-4' : 'min-h-[64px] sm:min-h-[68px] max-h-32 sm:max-h-40 py-4 sm:py-[22px] md:min-h-[58px] md:py-[16px]'} pr-24 sm:pr-24 md:pr-28 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-[14px] sm:text-base md:text-[15px] placeholder:text-gray-400 font-normal leading-relaxed`}
                                             />
-                                            <div className={`absolute right-2 sm:right-3 flex items-center gap-1.5 sm:gap-4 ${(pendingImage || pendingImagePreview) ? 'bottom-2 md:top-1/2 md:-translate-y-1/2' : 'top-1/2 -translate-y-1/2'}`}>
-                                                <div className="hidden md:flex items-center gap-1.5 sm:gap-4">
+                                            <div className={`absolute right-2 sm:right-3 flex items-center gap-1.5 sm:gap-4 md:gap-2.5 ${(pendingImage || pendingImagePreview) ? 'bottom-2 md:top-1/2 md:-translate-y-1/2' : 'top-1/2 -translate-y-1/2'}`}>
+                                                <div className="hidden md:flex items-center gap-1.5 sm:gap-4 md:gap-2.5">
                                                     {/* Attach Icon & Menu */}
                                                     <div className="relative" ref={attachMenuRef}>
                                                         <div
-                                                            className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
+                                                            className="p-1.5 sm:p-2 md:p-1.5 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
                                                             onClick={() => setShowAttachMenu(!showAttachMenu)}
                                                         >
                                                             <Paperclip className="w-5 h-5 sm:w-5 sm:h-5" />

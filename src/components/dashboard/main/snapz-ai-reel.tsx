@@ -253,8 +253,20 @@ const getListingId = (p: any): string =>
 const getPropertyId = (p: any): string =>
   String(p?.propertyId || p?.id || p?.listingId || '');
 
-const getAddress = (p: any): string =>
-  p?.listing?.address?.unparsedAddress || p?.address || p?.listing?.address || 'Address unavailable';
+const getAddress = (p: any): string => {
+  const unparsed = p?.listing?.address?.unparsedAddress || 
+                   p?.address?.unparsedAddress || 
+                   p?.unparsedAddress;
+  if (typeof unparsed === 'string' && unparsed.length > 0) return unparsed;
+
+  const simpleAddress = p?.listing?.address || p?.address;
+  if (typeof simpleAddress === 'string' && simpleAddress.length > 0) return simpleAddress;
+
+  const formatted = p?.propertyAddressDetails?.formattedAddress || p?.formattedAddress;
+  if (typeof formatted === 'string' && formatted.length > 0) return formatted;
+
+  return 'Address unavailable';
+};
 
 const getCity = (p: any): string => {
   const a = p?.listing?.address;

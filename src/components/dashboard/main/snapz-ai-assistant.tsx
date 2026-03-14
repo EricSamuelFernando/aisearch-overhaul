@@ -121,8 +121,20 @@ const getListingId = (prop: RecommendedProperty): string =>
 const getPropertyId = (prop: RecommendedProperty): string =>
   String(prop?.propertyId || prop?.id || prop?.listingId || '');
 
-const getAddress = (prop: RecommendedProperty): string =>
-  prop?.listing?.address?.unparsedAddress || prop?.address || prop?.listing?.address || 'Address unavailable';
+const getAddress = (prop: RecommendedProperty): string => {
+  const unparsed = prop?.listing?.address?.unparsedAddress || 
+                   prop?.address?.unparsedAddress || 
+                   prop?.unparsedAddress;
+  if (typeof unparsed === 'string' && unparsed.length > 0) return unparsed;
+
+  const simpleAddress = prop?.listing?.address || prop?.address;
+  if (typeof simpleAddress === 'string' && simpleAddress.length > 0) return simpleAddress;
+
+  const formatted = prop?.propertyAddressDetails?.formattedAddress || prop?.formattedAddress;
+  if (typeof formatted === 'string' && formatted.length > 0) return formatted;
+
+  return 'Address unavailable';
+};
 
 const getCity = (prop: RecommendedProperty): string => {
   const addr = prop?.listing?.address;

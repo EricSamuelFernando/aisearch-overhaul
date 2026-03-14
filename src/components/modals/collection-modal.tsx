@@ -465,17 +465,38 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
       return;
     }
 
+    // Robust address extraction for different property structures (MLS search, IProperty, Favourites)
+    const getRobustAddress = (data: any) => {
+      // 1. Check formatted address (from IProperty / propertyAddressDetails)
+      const formatted = data?.propertyAddressDetails?.formattedAddress || data?.formattedAddress;
+      if (typeof formatted === 'string' && formatted.length > 0) return formatted;
+
+      // 2. Check unparsed address (from MLS structure)
+      const unparsed = data?.listing?.address?.unparsedAddress || 
+                       data?.address?.unparsedAddress || 
+                       data?.unparsedAddress;
+      if (typeof unparsed === 'string' && unparsed.length > 0) return unparsed;
+
+      // 3. Check for address fields that might be strings themselves
+      const simpleAddress = data?.listing?.address || data?.address;
+      if (typeof simpleAddress === 'string' && simpleAddress.length > 0) return simpleAddress;
+
+      return null;
+    };
+
+    const extractedAddress = getRobustAddress(propertyData);
+
     const input = {
       snapId,
-      name: propertyData?.listing?.courtesyOf || propertyData?.name || propertyData?.courtesyOf || "Property Name",
-      address: propertyData?.listing?.address?.unparsedAddress || propertyData?.address?.unparsedAddress || propertyData?.unparsedAddress || propertyData?.address || "Address not available",
-      city: propertyData?.listing?.address?.city || propertyData?.address?.city || propertyData?.city,
+      name: extractedAddress || propertyData?.listing?.courtesyOf || propertyData?.name || propertyData?.courtesyOf || "Property Name",
+      address: extractedAddress || "Address not available",
+      city: propertyData?.listing?.address?.city || propertyData?.address?.city || propertyData?.city || propertyData?.propertyAddressDetails?.city,
       // GraphQL expects String — Neo4j returns zipCode as a number, so always stringify
-      zipCode: String(propertyData?.listing?.address?.zipCode || propertyData?.address?.zipCode || propertyData?.zipCode || ''),
+      zipCode: String(propertyData?.listing?.address?.zipCode || propertyData?.address?.zipCode || propertyData?.zipCode || propertyData?.propertyAddressDetails?.postalCode || ''),
       price: +propertyData?.listing?.listPriceLow || +propertyData?.listPrice || +propertyData?.price || 0,
-      image: propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.primaryListingImageUrl || propertyData?.primaryImage || propertyData?.public?.imageUrl || propertyData?.image || propertyData?.primaryPhoto,
-      bedRooms: +propertyData?.listing?.property?.bedroomsTotal || +propertyData?.property?.bedroomsTotal || +propertyData?.bedroomTotal || +propertyData?.bedrooms || 0,
-      bathRooms: "" + (+propertyData?.listing?.property?.bathroomsTotal || +propertyData?.property?.bathroomsTotal || +propertyData?.bathroomTotal || +propertyData?.bathrooms || 0),
+      image: propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.primaryListingImageUrl || propertyData?.primaryImage || propertyData?.public?.imageUrl || propertyData?.image || propertyData?.primaryPhoto || propertyData?.images?.[0]?.url,
+      bedRooms: +propertyData?.listing?.property?.bedroomsTotal || +propertyData?.property?.bedroomsTotal || +propertyData?.bedroomTotal || +propertyData?.bedrooms || +propertyData?.numBedroom || 0,
+      bathRooms: "" + (+propertyData?.listing?.property?.bathroomsTotal || +propertyData?.property?.bathroomsTotal || +propertyData?.bathroomTotal || +propertyData?.bathrooms || +propertyData?.numBathroom || 0),
       sqft: "" + (+propertyData?.listing?.property?.livingArea || +propertyData?.property?.livingArea || +propertyData?.livingArea || +propertyData?.sqft || 0),
       listingId: resolvedListingId,
       propertyId: resolvedPropertyId,

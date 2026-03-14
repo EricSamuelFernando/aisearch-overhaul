@@ -21,7 +21,14 @@ const RenameCollectionModal: React.FC<RenameCollectionModalProps> = ({
 }) => {
   console.log("Curent Name: ", currentName);
   
-  const [newName, setNewName] = useState(currentName);  
+  const [newName, setNewName] = useState(currentName);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setNewName(currentName);
+    }
+  }, [isOpen, currentName]);
+
   const handleRename = () => {
     if (newName.trim()) {
       onRename(newName.trim());
@@ -41,7 +48,7 @@ const RenameCollectionModal: React.FC<RenameCollectionModalProps> = ({
 
         <div className="mt-4 space-y-4">
           <Input
-            value={newName||currentName}
+            value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="Enter new collection name"
             className="w-full"

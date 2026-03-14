@@ -53,7 +53,7 @@ const InviteUserModal = ({
   const { socket } = useContext(SocketContext);
   const { addParticipantsToThread } = useUserAgentMessageApi();
   const { propertyEngagementMutation } = usePropertyAPI();
-  const { externalAgentIvitationMutation } = useUserAuthApi();
+  const { externalAgentInvitationMutation } = useUserAuthApi();
   const { getEngagedPropertyByPropertyId } = useAgentConversationApi();
 
   const [email, setEmail] = useState('');
@@ -333,7 +333,7 @@ const InviteUserModal = ({
         }
 
         try {
-          const response: any = await externalAgentIvitationMutation.mutateAsync({
+          const response: any = await externalAgentInvitationMutation.mutateAsync({
             agentType: actor?.account_type,
             userId: actor?.id,
             email: email.trim(),

@@ -292,172 +292,172 @@ function MainNavPages() {
         </Link>
 
         <div className={`hidden md:flex items-center gap-x-4 ${finalTextColorClass}`}>
-          {isLoggedIn ? (
-            <>
-              <div className="relative" ref={quickAccessRef}>
-                <button
-                  type="button"
-                  onClick={() => setIsQuickAccessOpen((prev) => !prev)}
-                  style={{ width: 32, height: 32 }}
-                  className={`flex items-center justify-center rounded-lg transition-colors ${finalTextColorClass} ${finalTextColorClass === 'text-black' ? 'hover:bg-black/10' : 'hover:bg-white/10'}`}
-                  aria-label="Quick access"
-                  aria-expanded={isQuickAccessOpen}
-                >
-                  <LayoutGrid style={{ width: 18, height: 18 }} />
-                </button>
-                {isQuickAccessOpen && (
+          <div className="relative" ref={quickAccessRef}>
+            <button
+              type="button"
+              onClick={() => setIsQuickAccessOpen((prev) => !prev)}
+              style={{ width: 32, height: 32 }}
+              className={`flex items-center justify-center rounded-lg transition-colors ${finalTextColorClass} ${finalTextColorClass === 'text-black' ? 'hover:bg-black/10' : 'hover:bg-white/10'}`}
+              aria-label="Quick access"
+              aria-expanded={isQuickAccessOpen}
+            >
+              <LayoutGrid style={{ width: 18, height: 18 }} />
+            </button>
+            {isQuickAccessOpen && (
+              <div
+                className={`snap-tools-panel absolute right-0 top-full mt-3 w-[300px] rounded-[1.6rem] border-2 p-5 shadow-2xl z-[70] ${isListingPanelWhite
+                  ? 'border-black/10 bg-white text-[#0B0B0B]'
+                  : 'border-white/60 bg-black text-white'
+                  }`}
+              >
+                <div className="mb-6 flex items-center justify-between px-1">
+                  <h2 className="text-[17px] font-medium">Snap Tools</h2>
+                </div>
+                <div className="relative">
+                  {false && showMoreTools && (
+                    <div className="pointer-events-none absolute right-0 top-0 bottom-0 flex flex-col justify-between py-2 pr-1">
+                      <ChevronUp className={`h-3.5 w-3.5 ${isListingPanelWhite ? 'text-gray-400' : 'text-white/60'}`} />
+                      <ChevronDown className={`h-3.5 w-3.5 ${isListingPanelWhite ? 'text-gray-400' : 'text-white/60'}`} />
+                    </div>
+                  )}
                   <div
-                    className={`snap-tools-panel absolute right-0 top-full mt-3 w-[300px] rounded-[1.6rem] border-2 p-5 shadow-2xl z-[70] ${isListingPanelWhite
-                      ? 'border-black/10 bg-white text-[#0B0B0B]'
-                      : 'border-white/60 bg-black text-white'
-                      }`}
+                    className={`grid grid-cols-3 gap-x-3 gap-y-7 ${showMoreTools ? 'max-h-[260px] overflow-y-auto overflow-x-hidden pr-3 snap-tools-scroll' : ''}`}
+                    onScroll={clearSnapToolsTooltip}
                   >
-                    <div className="mb-6 flex items-center justify-between px-1">
-                      <h2 className="text-[17px] font-medium">Snap Tools</h2>
-                    </div>
-                    <div className="relative">
-                      {false && showMoreTools && (
-                        <div className="pointer-events-none absolute right-0 top-0 bottom-0 flex flex-col justify-between py-2 pr-1">
-                          <ChevronUp className={`h-3.5 w-3.5 ${isListingPanelWhite ? 'text-gray-400' : 'text-white/60'}`} />
-                          <ChevronDown className={`h-3.5 w-3.5 ${isListingPanelWhite ? 'text-gray-400' : 'text-white/60'}`} />
-                        </div>
-                      )}
-                      <div
-                        className={`grid grid-cols-3 gap-x-3 gap-y-7 ${showMoreTools ? 'max-h-[260px] overflow-y-auto overflow-x-hidden pr-3 snap-tools-scroll' : ''}`}
-                        onScroll={clearSnapToolsTooltip}
+                    {[
+                      {
+                        label: 'Disclosures',
+                        Icon: FileText,
+                        href: 'https://snapdisclosures.snaphomz.com/',
+                        tip: 'Clarity for every disclosure, explained simply.',
+                      },
+                      {
+                        label: 'Rent vs. Buy',
+                        Icon: ArrowLeftRight,
+                        href: 'https://rentvsbuy.snaphomz.com/',
+                        tip: 'Compare renting vs buying with real assumptions.',
+                      },
+                      {
+                        label: 'Grad',
+                        Icon: GraduationCap,
+                        href: 'https://snapgrad.snaphomz.com/?lat=0&lng=0&label=&source=&updatedAt=',
+                        tip: 'Schools, colleges, and neighborhood fit insights.',
+                      },
+                      {
+                        label: 'Audit',
+                        Icon: ClipboardCheck,
+                        href: 'https://snapaudit.snaphomz.com/',
+                        tip: 'Summarizes disclosures into clear, buyer-friendly insights and flags key risks fast.',
+                      },
+                      {
+                        label: 'Pre approvals',
+                        Icon: ShieldCheck,
+                        href: 'https://preapproval.snaphomz.com/',
+                        tip: 'Quick pre-approval flow and eligibility check.',
+                      },
+                      {
+                        label: 'Interest',
+                        Icon: TrendingUp,
+                        href: 'https://snapinterest.snaphomz.com/',
+                        tip: "Track today's rates and simple projections.",
+                      },
+                    ].map(({ label, Icon, href, tip }) => (
+                      <a
+                        key={label}
+                        href={href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="group relative flex flex-col items-center"
+                        onMouseEnter={(event) => handleSnapToolHover(event, tip)}
+                        onMouseLeave={clearSnapToolsTooltip}
                       >
-                      {[
-                        {
-                          label: 'Disclosures',
-                          Icon: FileText,
-                          href: 'https://snapdisclosures.snaphomz.com/',
-                          tip: 'Clarity for every disclosure, explained simply.',
-                        },
-                        {
-                          label: 'Rent vs. Buy',
-                          Icon: ArrowLeftRight,
-                          href: 'https://rentvsbuy.snaphomz.com/',
-                          tip: 'Compare renting vs buying with real assumptions.',
-                        },
-                        {
-                          label: 'Grad',
-                          Icon: GraduationCap,
-                          href: 'https://snapgrad.snaphomz.com/?lat=0&lng=0&label=&source=&updatedAt=',
-                          tip: 'Schools, colleges, and neighborhood fit insights.',
-                        },
-                        {
-                          label: 'Audit',
-                          Icon: ClipboardCheck,
-                          href: 'https://snapaudit.snaphomz.com/',
-                          tip: 'Summarizes disclosures into clear, buyer-friendly insights and flags key risks fast.',
-                        },
-                        {
-                          label: 'Pre approvals',
-                          Icon: ShieldCheck,
-                          href: 'https://preapproval.snaphomz.com/',
-                          tip: 'Quick pre-approval flow and eligibility check.',
-                        },
-                        {
-                          label: 'Interest',
-                          Icon: TrendingUp,
-                          href: 'https://snapinterest.snaphomz.com/',
-                          tip: "Track today's rates and simple projections.",
-                        },
-                      ].map(({ label, Icon, href, tip }) => (
-                        <a
-                          key={label}
-                          href={href}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="group relative flex flex-col items-center"
-                          onMouseEnter={(event) => handleSnapToolHover(event, tip)}
-                          onMouseLeave={clearSnapToolsTooltip}
-                        >
-                          <div
-                            className={`mb-2.5 flex h-12 w-12 items-center justify-center rounded-2xl border shadow-sm transition-all duration-300 group-hover:shadow-md ${isListingPanelWhite
-                              ? 'border-black/10 bg-black/5 group-hover:bg-[#f28e3d]/15'
-                              : 'border-white/10 bg-white/5 group-hover:bg-[#f28e3d]/20'
-                              }`}
-                          >
-                            <Icon style={{ width: 24, height: 24 }} className="text-[#f28e3d]" />
-                          </div>
-                          <span
-                            className={`text-center text-[11px] font-medium ${isListingPanelWhite ? 'text-gray-600' : 'text-gray-300'}`}
-                          >
-                            {label}
-                          </span>
-                        </a>
-                      ))}
-                      {showMoreTools && [
-                        { label: 'Snap Predict', Icon: Sparkles },
-                        { label: 'Offer Strength Analyzer', Icon: BarChart3 },
-                        { label: 'Listing Health Check', Icon: HeartPulse },
-                        { label: 'HOA Analyzer', Icon: Building2 },
-                        { label: 'Reverse Image Search', Icon: ImageIcon },
-                        { label: 'Hold Or Sell', Icon: Hand },
-                        { label: 'Price Predictor', Icon: DollarSign },
-                        { label: 'Inspection Rebuttal Engine', Icon: MessageSquare },
-                        { label: 'Snap Viral', Icon: Rocket },
-                        { label: 'Reel to Listing', Icon: Film },
-                        { label: 'Property Comps', Icon: Scale },
-                        { label: 'STR Vs LTR', Icon: Timer },
-                      ].map(({ label, Icon }) => (
-                        <button
-                          type="button"
-                          key={label}
-                          className="group flex flex-col items-center"
-                          onMouseEnter={clearSnapToolsTooltip}
-                          onMouseLeave={clearSnapToolsTooltip}
-                        >
-                          <div
-                            className={`mb-2.5 flex h-12 w-12 items-center justify-center rounded-2xl border shadow-sm transition-all duration-300 group-hover:shadow-md ${isListingPanelWhite
-                              ? 'border-black/10 bg-black/5 group-hover:bg-[#f28e3d]/15'
-                              : 'border-white/10 bg-white/5 group-hover:bg-[#f28e3d]/20'
-                              }`}
-                          >
-                            <Icon style={{ width: 24, height: 24 }} className="text-[#f28e3d]" />
-                          </div>
-                          <span
-                            className={`text-center text-[11px] font-medium leading-tight ${isListingPanelWhite ? 'text-gray-600' : 'text-gray-300'}`}
-                          >
-                            {label}
-                          </span>
-                        </button>
-                      ))}
-                      </div>
-                      {snapToolsTooltip && (
                         <div
-                          className="pointer-events-none fixed z-[90]"
-                          style={{
-                            top: snapToolsTooltip.top,
-                            left: snapToolsTooltip.left,
-                            transform: 'translate(-50%, -100%)',
-                          }}
+                          className={`mb-2.5 flex h-12 w-12 items-center justify-center rounded-2xl border shadow-sm transition-all duration-300 group-hover:shadow-md ${isListingPanelWhite
+                            ? 'border-black/10 bg-black/5 group-hover:bg-[#f28e3d]/15'
+                            : 'border-white/10 bg-white/5 group-hover:bg-[#f28e3d]/20'
+                            }`}
                         >
-                          <div className="relative w-[220px] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl">
-                            <p className="text-[11px] font-semibold leading-relaxed text-[#5A2B13]">
-                              {snapToolsTooltip.text}
-                            </p>
-                            <span className="absolute left-1/2 top-full h-2 w-2 -translate-x-1/2 -translate-y-1/2 rotate-45 border-b border-r border-[#f2cfb0] bg-white" />
-                          </div>
+                          <Icon style={{ width: 24, height: 24 }} className="text-[#f28e3d]" />
                         </div>
-                      )}
-                    </div>
-                    <div className="mt-7 text-center">
+                        <span
+                          className={`text-center text-[11px] font-medium ${isListingPanelWhite ? 'text-gray-600' : 'text-gray-300'}`}
+                        >
+                          {label}
+                        </span>
+                      </a>
+                    ))}
+                    {showMoreTools && [
+                      { label: 'Snap Predict', Icon: Sparkles },
+                      { label: 'Offer Strength Analyzer', Icon: BarChart3 },
+                      { label: 'Listing Health Check', Icon: HeartPulse },
+                      { label: 'HOA Analyzer', Icon: Building2 },
+                      { label: 'Reverse Image Search', Icon: ImageIcon },
+                      { label: 'Hold Or Sell', Icon: Hand },
+                      { label: 'Price Predictor', Icon: DollarSign },
+                      { label: 'Inspection Rebuttal Engine', Icon: MessageSquare },
+                      { label: 'Snap Viral', Icon: Rocket },
+                      { label: 'Reel to Listing', Icon: Film },
+                      { label: 'Property Comps', Icon: Scale },
+                      { label: 'STR Vs LTR', Icon: Timer },
+                    ].map(({ label, Icon }) => (
                       <button
                         type="button"
-                        onClick={() => setShowMoreTools((prev) => !prev)}
-                        className={`inline-flex items-center justify-center rounded-full border px-5 py-1.5 text-xs font-medium transition-colors ${isListingPanelWhite
-                          ? 'border-black/20 text-gray-600 hover:text-black hover:border-black/40'
-                          : 'border-white/20 text-white/80 hover:text-white hover:border-white/40'
-                          }`}
+                        key={label}
+                        className="group flex flex-col items-center"
+                        onMouseEnter={clearSnapToolsTooltip}
+                        onMouseLeave={clearSnapToolsTooltip}
                       >
-                        {showMoreTools ? 'Show less' : '12+ more tools'}
+                        <div
+                          className={`mb-2.5 flex h-12 w-12 items-center justify-center rounded-2xl border shadow-sm transition-all duration-300 group-hover:shadow-md ${isListingPanelWhite
+                            ? 'border-black/10 bg-black/5 group-hover:bg-[#f28e3d]/15'
+                            : 'border-white/10 bg-white/5 group-hover:bg-[#f28e3d]/20'
+                            }`}
+                        >
+                          <Icon style={{ width: 24, height: 24 }} className="text-[#f28e3d]" />
+                        </div>
+                        <span
+                          className={`text-center text-[11px] font-medium leading-tight ${isListingPanelWhite ? 'text-gray-600' : 'text-gray-300'}`}
+                        >
+                          {label}
+                        </span>
                       </button>
-                    </div>
+                    ))}
                   </div>
-                )}
+                  {snapToolsTooltip && (
+                    <div
+                      className="pointer-events-none fixed z-[90]"
+                      style={{
+                        top: snapToolsTooltip.top,
+                        left: snapToolsTooltip.left,
+                        transform: 'translate(-50%, -100%)',
+                      }}
+                    >
+                      <div className="relative w-[220px] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl">
+                        <p className="text-[11px] font-semibold leading-relaxed text-[#5A2B13]">
+                          {snapToolsTooltip.text}
+                        </p>
+                        <span className="absolute left-1/2 top-full h-2 w-2 -translate-x-1/2 -translate-y-1/2 rotate-45 border-b border-r border-[#f2cfb0] bg-white" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="mt-7 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setShowMoreTools((prev) => !prev)}
+                    className={`inline-flex items-center justify-center rounded-full border px-5 py-1.5 text-xs font-medium transition-colors ${isListingPanelWhite
+                      ? 'border-black/20 text-gray-600 hover:text-black hover:border-black/40'
+                      : 'border-white/20 text-white/80 hover:text-white hover:border-white/40'
+                      }`}
+                  >
+                    {showMoreTools ? 'Show less' : '12+ more tools'}
+                  </button>
+                </div>
               </div>
+            )}
+          </div>
+          {isLoggedIn ? (
+            <>
               <Link href='/dashboard' className={finalTextColorClass}>
                 Dashboard
               </Link>

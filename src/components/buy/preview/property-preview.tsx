@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import * as React from 'react';
 import { useDeferredValue } from 'react';
@@ -470,8 +470,8 @@ const PropertyPreview: React.FC = () => {
       {
         propertyName: propertyData?.listing?.courtesyOf || propertyData?.public?.address?.label,
         price: propertyData?.listing?.listPriceLow || propertyData?.listPrice,
-        listingId: +propertyData?.listingId || +listingId,
-        propertyId: propertyData?.id || +id,
+        listingId: propertyData?.listingId || listingId,
+        propertyId: propertyData?.id || id,
         city: propertyData?.address?.city || propertyData?.public?.address?.city || "Los angeles",
         zipCode: propertyData?.listing?.address?.zipCode || propertyData?.public?.address?.zipCode,
         propertyAddress: propertyData?.listing?.address?.unparsedAddress || propertyData?.public?.address?.unparsedAddress || propertyData?.public?.address?.label,
@@ -544,7 +544,7 @@ const PropertyPreview: React.FC = () => {
       {
         propertyName: propertyData?.listing?.courtesyOf || propertyData?.public?.address?.label,
         price: Number(String(propertyData?.listing?.listPriceLow || propertyData?.listPrice || 0).replace(/[^0-9.-]+/g, "")),
-        listingId: +propertyData?.listingId || +listingId,
+        listingId: propertyData?.listingId || listingId,
         propertyId: String(propertyData?.id || id),
         city: propertyData?.address?.city || propertyData?.public?.address?.city || "Los angeles",
         zipCode: propertyData?.listing?.address?.zipCode || propertyData?.public?.address?.zipCode,
@@ -622,7 +622,7 @@ const PropertyPreview: React.FC = () => {
       {
         propertyName: propertyData?.listing?.courtesyOf || propertyData?.public?.address?.label,
         price: Number(String(propertyData?.listing?.listPriceLow || propertyData?.listPrice || 0).replace(/[^0-9.-]+/g, "")),
-        listingId: +propertyData?.listingId || +listingId,
+        listingId: propertyData?.listingId || listingId,
         propertyId: String(propertyData?.id || id),
         city: propertyData?.address?.city || propertyData?.public?.address?.city || "Los angeles",
         zipCode: propertyData?.listing?.address?.zipCode || propertyData?.public?.address?.zipCode,

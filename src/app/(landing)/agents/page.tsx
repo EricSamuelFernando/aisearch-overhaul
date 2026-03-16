@@ -27,52 +27,62 @@ const GRAPHQL_URI =
 const sectionHeadingSize = 'text-[2.35rem] sm:text-[2.75rem] md:text-[3.35rem]';
 
 async function fetchAgents() {
-  const response = await fetch(GRAPHQL_URI, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apollo-require-preflight': 'true',
-    },
-    body: JSON.stringify({
-      query: `
-        query ExternalAgents($limit: Int, $offset: Int) {
-          externalAgents(limit: $limit, offset: $offset) {
-            data {
-              id
-              full_name
-              email
-              phone
-              brokerage
-              locationRaw
-              profile_image_url
-              avgRating
-              avgRatingForCustomerDisplay
-              homesSoldLastYear
-            }
-          }
-        }
-      `,
-      variables: {
-        limit: 1000,
-        offset: 0,
-      },
-    }),
-    cache: 'no-store',
-  });
-
-  if (!response.ok) {
+  if (!GRAPHQL_URI) {
     return [];
   }
 
-  const json = await response.json();
-  const data = json?.data?.externalAgents?.data || [];
-  return data.map((agent: any) => ({
-    ...agent,
-    Name: agent.full_name || '',
-    agentEmail: agent.email || undefined,
-    Location: agent.locationRaw || undefined,
-    Brokerage: agent.brokerage || undefined,
-  }));
+  try {
+    const response = await fetch(GRAPHQL_URI, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apollo-require-preflight': 'true',
+      },
+      body: JSON.stringify({
+        query: `
+          query ExternalAgents($limit: Int, $offset: Int) {
+            externalAgents(limit: $limit, offset: $offset) {
+              data {
+                id
+                full_name
+                email
+                phone
+                brokerage
+                locationRaw
+                profile_image_url
+                avgRating
+                avgRatingForCustomerDisplay
+                homesSoldLastYear
+              }
+            }
+          }
+        `,
+        variables: {
+          limit: 1000,
+          offset: 0,
+        },
+      }),
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      console.error('Failed to fetch agents', response.status, response.statusText);
+      return [];
+    }
+
+    const json = await response.json();
+    const data = json?.data?.externalAgents?.data || [];
+    return data.map((agent: any) => ({
+      ...agent,
+      Name: agent.full_name || '',
+      agentEmail: agent.email || undefined,
+      Location: agent.locationRaw || undefined,
+      Brokerage: agent.brokerage || undefined,
+    }));
+  } catch (error) {
+    console.error('Failed to fetch agents', error);
+    return [];
+  }
 }
 
 const AgentsPage = async () => {

@@ -858,17 +858,19 @@ const questions = [
 const HOME_PAGE_TESTIMONIALS = [
   {
     name: 'MILTON AUSTIN',
-    title: 'First-time Buyer Specialist, San Diego',
-    text: 'Snaphomz cuts the time I spend on offers and disclosures each week. The workflows keep everything organized so I can focus on advising clients instead of chasing paperwork.',
-    img: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=2080&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    title: 'Sales Manager, Sanfransico',
+    text: 'From browsing to signing, everything just flowed. The listings were clear, the agents responsive, and the process - smooth. I found my home faster than I expected.',
+    img: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=1200&auto=format&fit=crop',
   },
   {
     name: 'ALEX RICHARD',
-    title: 'Broker Associate, Austin',
-    text: 'The analytics and AI summaries give me clear talking points for every client meeting. I walk in prepared, and my clients feel confident in each decision we make together.',
-    img: 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?q=80&w=2080&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    title: 'Product Manager, Chicago',
+    text: 'Snaphomz helps me connect with serious buyers quickly. The interface is clean, and the snap tools make updates and scheduling super efficient. I’ve closed more deals in less time.',
+    img: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=1200&auto=format&fit=crop',
   },
 ];
+
+const testimonialHeadingSize = 'text-[2.9rem] sm:text-[3.3rem] md:text-[3.95rem] leading-[0.98] tracking-tight';
 
 // export default function Home() {
 //   const [isOpen, setIsOpen] = useState(false);
@@ -1503,7 +1505,7 @@ export default function Home() {
         </div>
 
 
-        <section className="relative z-30 flex h-full flex-col items-center justify-center px-4 pt-24 pb-10 md:pb-12 text-center">
+        <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pt-24 pb-10 md:pb-12 text-center">
 
           {/* ================= TEXT + SEARCH ================= */}
           <div
@@ -1641,22 +1643,22 @@ export default function Home() {
             }}
           >
             <Carousel.Slide>
-              <div className="h-[560px] flex items-center">
+              <div className="h-[560px] md:h-[620px] xl:h-[660px] flex items-center">
                 <GetReadyForCollege headingClassName={heroHeadingSize} />
               </div>
             </Carousel.Slide>
             <Carousel.Slide>
-              <div className="h-[540px] md:h-[820px] xl:h-[900px] flex items-start pt-0">
+              <div className="h-[560px] md:h-[620px] xl:h-[660px] flex items-center">
                 <FindPerfectMortgage headingClassName={heroHeadingSize} />
               </div>
             </Carousel.Slide>
             <Carousel.Slide>
-              <div className="h-[560px] flex items-center">
+              <div className="h-[560px] md:h-[620px] xl:h-[660px] flex items-center">
                 <HomeDisclosure headingClassName={heroHeadingSize} />
               </div>
             </Carousel.Slide>
             <Carousel.Slide>
-              <div className="h-[560px] flex items-center">
+              <div className="h-[560px] md:h-[620px] xl:h-[660px] flex items-center">
                 <BuyOrRent headingClassName={heroHeadingSize} />
               </div>
             </Carousel.Slide>
@@ -1666,8 +1668,8 @@ export default function Home() {
         {/* <OfferStrengthAnalyzer /> */}
         <OurClients
           bgColor="#FFF6EC"
-          headingClassName={heroHeadingSize}
-          subtitle="We value our agents' honest feedback on how Snaphomz supports their business."
+          headingClassName={testimonialHeadingSize}
+          subtitle="We value our customers authentic opinion on our products."
           testimonials={HOME_PAGE_TESTIMONIALS}
         />
       </div>

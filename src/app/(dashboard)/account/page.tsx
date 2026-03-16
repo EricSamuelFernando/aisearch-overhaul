@@ -301,54 +301,53 @@ export default function AccountPage() {
               </Button>
             </form>
 
-            {/* Suggestions dropdown */}
-            {searchedAgents.length > 0 && (
-              <ul className="absolute bg-white border border-gray-300 mt-1 max-h-60 overflow-y-auto rounded-md">
-                {searchedAgents.map((suggestion, index) => (
-                  <li
-                    key={index}
-                    className={`p-2 cursor-pointer ${selectedIndex === index ? 'bg-gray-200' : ''
-                      }`}
-                    onClick={() => {
-                      sendAgentInvitation(suggestion?.id)
-                      // setAgentSearch(suggestion.email);
-                      // setSearchedAgents([]);
-                    }}
-                  >
-                    {suggestion.email}
-                  </li>
-                ))}
-              </ul>
-            )}
+
           </div>
-          <div className="grid grid-cols-4 gap-5 py-12 text-center w-full">
-            {agents?.length ? (
-              agents.map((agent, idx) => {
-                // Determine which data to use based on accountType
-                const isSeller = agent.accountType === "SELLER";
-                const agentData = isSeller ? agent.sellerAgent : agent.buyerAgent;
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 py-6">
+            {/* Display already linked agents */}
+            {agents?.map((agent, idx) => {
+              const isSeller = agent.accountType === "SELLER";
+              const agentData = isSeller ? agent.sellerAgent : agent.buyerAgent;
+              if (!agentData) return null;
 
-                // Only render if agentData exists
-                if (!agentData) return null;
-
-                return (
-                  <div key={idx} className="rounded-lg bg-white p-3">
-                    <div className="flex items-start justify-start gap-3">
-                      <ProfileCircle
-                        placeholder={`${agentData.firstName[0]}/${agentData.lastName[0]}`}
-                        className="h-20 w-20 text-lg"
-                      />
-                      <section className="flex flex-col justify-start gap-1 text-start">
-                        <p className="font-bold">{`${agentData.firstName} ${agentData.lastName}`}</p>
-                        <p className="break-all text-sm font-medium">{agentData.email}</p>
-                      </section>
-                    </div>
-                    <Button disabled={agent?.is_accepted === "pending"} className="w-full">Send Message</Button>
+              return (
+                <div key={`linked-${idx}`} className="rounded-lg bg-white p-3 shadow-sm border">
+                  <div className="flex items-start justify-start gap-3 mb-3">
+                    <ProfileCircle
+                      placeholder={`${agentData.firstName[0]}/${agentData.lastName[0]}`}
+                      className="h-16 w-16 text-lg"
+                    />
+                    <section className="flex flex-col justify-start gap-1 text-start overflow-hidden">
+                      <p className="font-bold truncate">{`${agentData.firstName} ${agentData.lastName}`}</p>
+                      <p className="break-all text-xs font-medium text-gray-500">{agentData.email}</p>
+                    </section>
                   </div>
-                );
-              })
-            ) : (
-              <p className="col-span-4 whitespace-nowrap">No agents found.</p>
+                  <Button disabled={agent?.is_accepted === "pending"} className="w-full">
+                    {agent?.is_accepted === "pending" ? "Pending Approval" : "Send Message"}
+                  </Button>
+                </div>
+              );
+            })}
+
+            {/* Display searched agents from the search box */}
+            {searchedAgents.map((suggestion, index) => (
+              <div key={`searched-${index}`} className="rounded-lg bg-white p-3 shadow-sm border border-ocOrange/30 bg-orange-50/10">
+                <div className="flex items-start justify-start gap-3">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocOrange/10 text-ocOrange font-bold text-lg">
+                    {suggestion.email[0].toUpperCase()}
+                  </div>
+                  <section className="flex flex-col justify-start gap-1 text-start overflow-hidden">
+                    <p className="font-bold text-sm text-gray-500">Searched Agent</p>
+                    <p className="break-all text-sm font-medium">{suggestion.email}</p>
+                  </section>
+                </div>
+                {/* No button added as per user request */}
+              </div>
+            ))}
+
+            {/* Empty state logic */}
+            {(!agents?.length && !searchedAgents.length) && (
+              <p className="col-span-full py-12 text-center text-gray-500">No agents found.</p>
             )}
           </div>
 

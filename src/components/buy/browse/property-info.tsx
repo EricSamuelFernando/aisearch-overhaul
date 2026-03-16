@@ -12,6 +12,8 @@ import { useAppDispatch } from '@/lib/hook';
 import { error, warning } from '@/components/alert/notify';
 import SpeechInput from '@/components/speech-input';
 import axios from 'axios';
+import { PROPERTY_SEARCH_AI_URL, MLS_SEARCH_LIVE_URL } from '@/shared/constants/env';
+import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import debounce from 'lodash.debounce';
@@ -152,13 +154,14 @@ const resolveListingId = (item: any): string | undefined => {
 const isLikelyAddressQuery = (input: string): boolean => {
   const text = input.trim().toLowerCase();
   if (!text) return false;
-  if (/\d{5}(?:-\d{4})?\b/.test(text)) return true;
-  if (/^\d+\s+\w+/.test(text)) return true;
-  if (text.includes(',')) return true;
 
   const aiPattern =
     /\b(bed|bedroom|bath|bathroom|home|homes|house|houses|condo|townhome|under|over|between|with|without|near|around|budget|price|prices|\$|million|billion)\b/;
   if (aiPattern.test(text)) return false;
+
+  if (/\d{5}(?:-\d{4})?\b/.test(text)) return true;
+  if (/^\d+\s+\w+/.test(text)) return true;
+  if (text.includes(',')) return true;
 
   return /^[a-z\s.'-]{2,}$/i.test(text);
 };
@@ -674,9 +677,13 @@ function PropertyBrowseView({ }: Props) {
       setIsSearching(true);
       setIsLoading(true);
       try {
-        const searchUrl = '/api/mls/search';
+      const searchUrl = isMlsBypassModeEnabled()
+        ? MLS_SEARCH_LIVE_URL
+        : (PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search');
 
-        const response = await axios.post(searchUrl, {
+      const response = await axios.post(
+        searchUrl,
+ {
           ...activeSearchFilters,
           ...body,
           query: queryText,

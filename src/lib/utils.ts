@@ -431,12 +431,42 @@ export const downloadDocumentPreSigned = async (url: string, filename: string) =
   URL.revokeObjectURL(blobUrl); // cleanup
 };
 
-export function getProfileImageUrl(url: string | null | undefined): string {
-  if (!url) return "";
-  if (url.includes("amazonaws.com")) {
-    const cleanUrl = url.split("?")[0];
-    const baseUrl = process.env.NEXT_PUBLIC_MORTGAGE_SERIVCE_URL || "http://localhost:4001/mortgage";
-    return `${baseUrl}/file-upload/view-profile?url=${encodeURIComponent(cleanUrl)}`;
+export function getProfileImageUrl(personOrUrl: any): string {
+  if (!personOrUrl) return '';
+
+  let url = '';
+  if (typeof personOrUrl === 'string') {
+    url = personOrUrl;
+  } else if (typeof personOrUrl === 'object') {
+    // If it's the raw field value which is an object {url: "..."}
+    if (personOrUrl.url && typeof personOrUrl.url === 'string') {
+      url = personOrUrl.url;
+    } else {
+      // If it's the person object itself
+      const raw =
+        personOrUrl.profile_image_url ||
+        personOrUrl.profile ||
+        personOrUrl.avatar ||
+        personOrUrl.image ||
+        '';
+      if (typeof raw === 'string') {
+        url = raw;
+      } else if (raw && typeof raw === 'object' && (raw as any).url) {
+        url = (raw as any).url;
+      }
+    }
+  }
+
+  if (!url || typeof url !== 'string') return '';
+
+  if (url.includes('amazonaws.com')) {
+    const cleanUrl = url.split('?')[0];
+    const baseUrl =
+      process.env.NEXT_PUBLIC_MORTGAGE_SERIVCE_URL ||
+      'http://localhost:4001/mortgage';
+    return `${baseUrl}/file-upload/view-profile?url=${encodeURIComponent(
+      cleanUrl,
+    )}`;
   }
   return url;
 }

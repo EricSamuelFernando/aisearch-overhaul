@@ -1524,7 +1524,7 @@ export default function Home() {
             </p>
 
             <div className="relative w-full flex justify-center text-black">
-              <div className="home-hero-search-wrap mx-auto w-full max-w-[390px] lg:max-w-[420px] xl:max-w-[500px] 2xl:max-w-[660px] min-[1280px]:max-[1440px]:max-w-[340px]">
+              <div className={`home-hero-search-wrap mx-auto w-full transition-all duration-300 ${isHomeSearchActive ? 'max-w-[1150px]' : 'max-w-[390px] lg:max-w-[420px] xl:max-w-[500px] 2xl:max-w-[660px] min-[1280px]:max-[1440px]:max-w-[340px]'}`}>
                 <HeroSearchForm
                   onSearchStateChange={(isActive) => setIsHomeSearchActive(isActive)}
                   onSuggestionsOpen={(open) => setIsSearchSuggestionsOpen(open)}

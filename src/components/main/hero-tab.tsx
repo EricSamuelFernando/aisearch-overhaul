@@ -3289,7 +3289,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     padding: isExpanded ? 16 : 8, // keep expanded layout comfortable on mobile
                 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full ${isExpanded ? 'max-w-[1200px]' : 'max-w-[460px] lg:max-w-[480px] xl:max-w-[820px] min-[1280px]:max-[1440px]:max-w-[640px]'
+                className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full ${isExpanded ? 'max-w-[1150px]' : 'max-w-[460px] lg:max-w-[480px] xl:max-w-[820px] min-[1280px]:max-[1440px]:max-w-[640px]'
                     }`}
             >
                 <input
@@ -4673,7 +4673,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             {(pendingImage || pendingImagePreview) && !searchTerm && (
                                                 <span
                                                     aria-hidden="true"
-                                                    className="md:hidden absolute left-4 top-[88px] text-[12px] text-gray-400 pointer-events-none"
+                                                    className="md:hidden absolute left-4 right-24 sm:right-24 top-[88px] text-[12px] text-gray-400 pointer-events-none whitespace-normal break-words text-left"
                                                 >
                                                     Upload image to discover similar homes
                                                 </span>

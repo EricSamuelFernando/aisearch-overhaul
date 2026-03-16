@@ -2372,6 +2372,7 @@ import { useAgentConversationApi } from "@/hooks/api/auth/useConversationApi"
 import { decryptMessage, encryptMessage, generateColorFromName } from "@/utils/math-utilities"
 import { useMessagesApi } from "@/hooks/api/useFetchMessages"
 import { useUserAgentMessageApi } from "@/hooks/api/auth/useMessageApi"
+import { getProfileImageUrl } from "@/lib/utils"
 import { useUserAuthApi } from "@/hooks/api/auth/useUserAuthApi"
 import { AgentDirectoryWrapper } from "@/components/buy/preview/agent-directory-wrapper"
 import InviteUserModal from "./Invite-user-modal"
@@ -5939,8 +5940,7 @@ export default function ChatBoxComponent(props: any) {
   const resolveAgentIdField = () =>
     resolveCurrentAccountType() === 'seller' ? 'sellerAgentId' : 'buyerAgentId';
 
-  const resolveProfileImage = (person: any) =>
-    person?.profile || person?.avatar || person?.image || '';
+  const resolveProfileImage = (person: any) => getProfileImageUrl(person);
 
   const hasActiveAgentInvite = useCallback((participants: any) => {
     if (!Array.isArray(participants) || participants.length === 0) return false;
@@ -6282,8 +6282,7 @@ export default function ChatBoxComponent(props: any) {
   })();
   const agentNameForHeader =
     [agentForHeader?.firstName, agentForHeader?.lastName].filter(Boolean).join(' ') || '';
-  const agentImageForHeader =
-    agentForHeader?.profile || agentForHeader?.image || agentForHeader?.avatar || '';
+  const agentImageForHeader = resolveProfileImage(agentForHeader);
   const normalizedNegotiationStatus = resolveThreadNegotiationStatus(
     selectedThreadDetail,
     messages,
@@ -6649,7 +6648,7 @@ export default function ChatBoxComponent(props: any) {
                     })();
                     const agentName =
                       [agentForThread?.firstName, agentForThread?.lastName].filter(Boolean).join(' ') || 'Agent';
-                    const agentImage = agentForThread?.profile || agentForThread?.image || agentForThread?.avatar || '';
+                    const agentImage = resolveProfileImage(agentForThread);
 
                     return (
                       <div
@@ -6680,7 +6679,7 @@ export default function ChatBoxComponent(props: any) {
                             )}
                             {agentImage || thread?.image ? (
                               <Image
-                                src={agentImage || thread.image}
+                                src={agentImage || resolveProfileImage(thread)}
                                 alt="Agent Avatar"
                                 width={50}
                                 height={50}
@@ -6760,11 +6759,7 @@ export default function ChatBoxComponent(props: any) {
                                     {participantUsers.length > 0 && (
                                       <div className="flex -space-x-2">
                                         {participantUsers.map((participant: any) => {
-                                          const participantImage =
-                                            participant?.profile ||
-                                            participant?.avatar ||
-                                            participant?.image ||
-                                            '';
+                                          const participantImage = resolveProfileImage(participant);
                                           const rawName =
                                             `${participant?.firstName || ''} ${participant?.lastName || ''}`.trim();
                                           const fallbackName =

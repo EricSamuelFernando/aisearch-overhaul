@@ -8,7 +8,7 @@ import { FeatureOption } from '../property-filter';
 import CustomInput from '@/components/customs/input';
 import { removeNonNumericCharacters } from '@/lib/helpers';
 import { useEffect, useState } from 'react';
-import { PROPERTY_SEARCH_AI_URL } from '@/shared/constants/env';
+import { PROPERTY_SEARCH_AI_URL, MLS_SEARCH_LIVE_URL } from '@/shared/constants/env';
 import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import axios from 'axios';
 import { incrementSearchCount } from '@/slices/onboarding/property-preference';
@@ -347,7 +347,7 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
 
     try {
       const searchUrl = isMlsBypassModeEnabled()
-        ? '/api/mls/search'
+        ? MLS_SEARCH_LIVE_URL
         : (PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search');
 
       const response = await axios.post(

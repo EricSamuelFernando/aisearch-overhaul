@@ -374,6 +374,7 @@ interface Seller extends Buyer {}
 
 interface Agent {
   image: string | undefined;
+  profile_image_url?: string;
   connectedUsers: {
     default: any[];
   };

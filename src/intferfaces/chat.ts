@@ -60,6 +60,7 @@ interface Property {
 
 interface Agent {
   _id: string;
+  profile_image_url?: string;
   profile?:string;
   firstname: string;
   fullname: string;

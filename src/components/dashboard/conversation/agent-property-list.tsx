@@ -4,6 +4,7 @@ import ChatItem from './chat-item';
 import PropertyDetailCard from './property-detail-card';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { SocketContext } from '@/providers/socket.context';
+import { getProfileImageUrl } from '@/lib/utils';
 import { property } from './data';
 
 interface AgentPropertyListProps {
@@ -95,6 +96,7 @@ export default function AgentPropertyList({
           lastname={agent.lastName}
           email={agent.email}
           propertiesCount={properties?.length || 1}
+          profileImage={getProfileImageUrl(agent)}
           main={false}
         />
       </div>

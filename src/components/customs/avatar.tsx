@@ -1,5 +1,4 @@
-import React from 'react';
-import { cn } from '@/lib/utils';
+import { cn, getProfileImageUrl } from '@/lib/utils';
 import Image from 'next/image';
 
 interface AvatarProps {
@@ -11,7 +10,7 @@ interface AvatarProps {
   imageProps?: React.ComponentPropsWithoutRef<'img'>;
   radius?: string | number;
   size?: number | string;
-  src?: string | null;
+  src?: string | null | { url?: string };
   className?: string;
 }
 
@@ -26,6 +25,7 @@ const CustomAvatar: React.FC<AvatarProps> = ({
   size = 'md',
   src,
 }) => {
+  const resolvedSrc = getProfileImageUrl(src);
   const getSize = (size: number | string) => {
     if (typeof size === 'number') {
       return `${size}px`;
@@ -53,9 +53,9 @@ const CustomAvatar: React.FC<AvatarProps> = ({
       }}
       className={cn('relative', className)}
     >
-      {src ? (
+      {resolvedSrc ? (
         // <img src={src} alt={alt || ''} {...imageProps} />
-<Image src={src} alt={alt || ''} {...imageProps} width={100} height={100} />
+<Image src={resolvedSrc} alt={alt || ''} {...imageProps} width={100} height={100} />
       ) : (
         children && (
           <div className='absolute inset-0 flex items-center justify-center'>

@@ -1503,7 +1503,7 @@ export default function Home() {
         </div>
 
 
-        <section className="relative z-30 flex h-full flex-col items-center justify-center px-4 pt-24 pb-10 md:pb-12 text-center">
+        <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pt-24 pb-10 md:pb-12 text-center">
 
           {/* ================= TEXT + SEARCH ================= */}
           <div

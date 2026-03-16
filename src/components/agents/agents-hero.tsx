@@ -511,16 +511,20 @@ export default function HeroLayout({
       </div>
 
       <div className={`text-black relative pt-28 -mt-28 ${className}`}>
-        <div className="relative w-full min-h-[32rem] sm:min-h-[36rem] md:min-h-[42rem] lg:min-h-[48rem] overflow-visible bg-[url('/assets/images/agents-hero.jpg')] bg-[length:100%_100%] bg-center bg-no-repeat">
-          <div className="relative inset-0 h-full flex flex-col items-center justify-center px-4 sm:px-6 md:px-12 lg:px-20 z-20 pt-56 pb-0">
-            <h1 className="max-w-4xl text-center text-[2.35rem] sm:text-[2.75rem] md:text-[3.35rem] leading-tight font-semibold text-black drop-shadow-lg mb-6 sm:mb-8">Discover Agent Possibilities
+        <div className="relative w-full min-h-[24rem] sm:min-h-[36rem] md:min-h-[42rem] lg:min-h-[48rem] overflow-visible bg-[url('/assets/images/agents-hero.jpg')] bg-cover bg-[center_top] sm:bg-[length:100%_100%] sm:bg-center bg-no-repeat">
+          <div className="absolute inset-0 bg-gradient-to-b from-white/35 via-white/10 to-[#fff6ec]/88 sm:hidden" />
+          <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/40 to-transparent sm:hidden" />
+          <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#fff6ec] via-[#fff6ec]/75 to-transparent sm:hidden" />
+
+          <div className="relative inset-0 h-full flex flex-col items-center justify-start sm:justify-center px-4 sm:px-6 md:px-12 lg:px-20 z-20 pt-24 sm:pt-56 pb-6 sm:pb-0">
+            <h1 className="max-w-[17rem] text-center text-[1.95rem] font-semibold leading-[1.08] text-black drop-shadow-sm sm:max-w-4xl sm:text-[2.75rem] md:text-[3.35rem] sm:leading-tight mb-3 sm:mb-6 sm:drop-shadow-lg">Discover Agent Possibilities
               <br />
               <span className=''>With</span>
               <span className="italic font-light">Snaphomz</span>
             </h1>
 
-            <div className="w-full max-w-3xl relative mx-auto mt-12" ref={searchContainerRef}>
-              <div className={`relative flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0 w-full min-h-[clamp(52px,4.8vw,60px)] sm:h-[clamp(52px,4.8vw,60px)] bg-white border-4 border-[#C08C73] shadow-xl overflow-hidden px-2 sm:pl-4 sm:pr-1 py-2 sm:py-0 z-30 transition-all duration-300 ${isSearchFocused ? 'rounded-2xl sm:rounded-t-2xl sm:rounded-b-none sm:border-b-0' : 'rounded-2xl sm:rounded-full'}`}
+            <div className="w-full max-w-3xl relative mx-auto mt-4 sm:mt-12" ref={searchContainerRef}>
+              <div className={`relative flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0 w-full min-h-[clamp(52px,4.8vw,60px)] sm:h-[clamp(52px,4.8vw,60px)] bg-white border-[3px] sm:border-4 border-[#C08C73] shadow-xl overflow-hidden px-2 sm:pl-4 sm:pr-1 py-2 sm:py-0 z-30 transition-all duration-300 ${isSearchFocused ? 'rounded-2xl sm:rounded-t-2xl sm:rounded-b-none sm:border-b-0' : 'rounded-[1.15rem] sm:rounded-full'}`}
               >
                 <div className="flex items-center w-full min-w-0">
                   <button
@@ -533,7 +537,7 @@ export default function HeroLayout({
                   <input
                     type="text"
                     placeholder={placeholderText}
-                    className="flex-grow w-full min-w-0 h-full border-none outline-none text-gray-700 placeholder-gray-400 bg-transparent text-[clamp(0.9rem,1.05vw,1rem)]"
+                    className="flex-grow w-full min-w-0 h-full border-none outline-none text-gray-700 placeholder-gray-400 bg-transparent text-[0.82rem] sm:text-[clamp(0.9rem,1.05vw,1rem)]"
                     onFocus={() => setIsSearchFocused(true)}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -551,11 +555,11 @@ export default function HeroLayout({
                 </div>
 
                 <div className="w-full sm:w-auto flex items-center sm:ml-2 flex-shrink-0 sm:h-full py-0 sm:py-1.5">
-                  <div className="grid grid-cols-2 sm:flex bg-gray-100 rounded-full p-1 w-full sm:w-auto h-[clamp(36px,3.6vw,40px)] sm:h-full items-center">
+                  <div className="grid grid-cols-2 sm:flex bg-gray-100 rounded-full p-1 w-full sm:w-auto h-[38px] sm:h-full items-center">
                     <button
                       type="button"
                       onClick={() => setSearchMode('location')}
-                      className={`h-full flex items-center justify-center px-3 sm:px-4 rounded-full transition-colors text-[clamp(0.7rem,0.9vw,0.875rem)] font-medium ${searchMode === 'location'
+                      className={`h-full flex items-center justify-center px-3 sm:px-4 rounded-full transition-colors text-[0.68rem] sm:text-[clamp(0.7rem,0.9vw,0.875rem)] font-medium ${searchMode === 'location'
                         ? 'bg-black text-white shadow-sm'
                         : 'text-gray-600 hover:text-black'
                         }`}
@@ -565,7 +569,7 @@ export default function HeroLayout({
                     <button
                       type="button"
                       onClick={() => setSearchMode('name')}
-                      className={`h-full flex items-center justify-center px-3 sm:px-4 rounded-full transition-colors text-[clamp(0.7rem,0.9vw,0.875rem)] font-medium ${searchMode === 'name'
+                      className={`h-full flex items-center justify-center px-3 sm:px-4 rounded-full transition-colors text-[0.68rem] sm:text-[clamp(0.7rem,0.9vw,0.875rem)] font-medium ${searchMode === 'name'
                         ? 'bg-black text-white shadow-sm'
                         : 'text-gray-600 hover:text-black'
                         }`}
@@ -631,7 +635,7 @@ export default function HeroLayout({
                             onClick={goToSearchPage}
                             className="w-full mt-4 py-3 bg-black text-white rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors"
                           >
-                            See all results for "{searchQuery}"
+                            See all results for &quot;{searchQuery}&quot;
                             <ArrowRight className="w-4 h-4" />
                           </button>
                         </>

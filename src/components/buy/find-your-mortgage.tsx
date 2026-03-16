@@ -56,26 +56,26 @@ export default function FindPerfectMortgage({
   headingClassName?: string;
 }) {
   return (
-    <section className="home-mortgage-section w-full h-full bg-[#FFF6EC] px-4 sm:px-10 lg:px-20 xl:px-24 2xl:px-28 flex flex-col">
+    <section className="home-mortgage-section w-full h-full bg-[#FFF6EC] px-4 sm:px-10 lg:px-20 xl:px-24 2xl:px-28 flex flex-col justify-center py-6 md:py-10">
 
       {/* Heading */}
-      <div className="max-w-5xl mx-auto text-center mb-1 sm:mb-2">
+      <div className="max-w-5xl mx-auto text-center mb-3 sm:mb-5">
         <h1 className={cn('text-3xl sm:text-4xl md:text-5xl font-medium text-[#2C1F18]', headingClassName)}>
           Find Your Perfect <span className="font-light">Mortgage</span>
         </h1>
         <p className="mt-2 text-xs sm:text-base text-[#6E645A] max-w-2xl mx-auto">
-          Whether you're a first-time buyer or experienced homeowner, we have
+          Whether you&apos;re a first-time buyer or experienced homeowner, we have
           mortgage solutions tailored to your specific needs.
         </p>
       </div>
 
       {/* Content */}
-      <div className="home-mortgage-container max-w-7xl 2xl:max-w-[1600px] mx-auto flex flex-col lg:flex-row items-start gap-6 sm:gap-10 lg:gap-16 xl:gap-20">
+      <div className="home-mortgage-container max-w-6xl 2xl:max-w-[1450px] mx-auto flex flex-col lg:flex-row items-center gap-6 sm:gap-10 lg:gap-12 xl:gap-16">
 
         {/* LEFT CARD (CHART) */}
-        <div className="w-full lg:w-1/2 bg-[#F6E9D8] rounded-3xl p-5 sm:p-10 xl:p-12 2xl:p-14 scale-100 mt-4 sm:mt-8">
+        <div className="w-full lg:w-1/2 max-w-[440px] xl:max-w-[500px] bg-[#F6E9D8] rounded-3xl p-5 sm:p-8 xl:p-10 2xl:p-12 scale-100 mt-2 sm:mt-4 lg:mt-0 min-h-[360px] sm:min-h-[410px] xl:min-h-[450px] flex flex-col justify-between">
 
-          <div className="mb-6">
+          <div className="mb-5 sm:mb-6">
             <h2 className="text-lg font-bold text-[#2C1F18] mb-1">
               Mortgage rates
             </h2>
@@ -87,7 +87,7 @@ export default function FindPerfectMortgage({
           </div>
 
           {/* Chart */}
-          <div className="h-[160px] sm:h-[220px] xl:h-[260px] mb-6 sm:mb-10 max-w-md xl:max-w-lg">
+          <div className="h-[170px] sm:h-[220px] xl:h-[250px] mb-6 sm:mb-8 max-w-md xl:max-w-lg">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={chartData}
@@ -150,8 +150,8 @@ export default function FindPerfectMortgage({
         </div>
 
         {/* RIGHT IMAGE */}
-        <div className="w-full lg:w-1/2 flex justify-center">
-          <div className="relative w-[180px] sm:w-[260px] md:w-[380px] lg:w-[420px] xl:w-[520px] 2xl:w-[600px] scale-100 origin-center mt-0 sm:-mt-2 xl:-mt-2">
+        <div className="w-full lg:w-1/2 flex justify-center items-center min-h-[360px] sm:min-h-[410px] xl:min-h-[450px]">
+          <div className="relative w-[220px] sm:w-[280px] md:w-[360px] lg:w-[400px] xl:w-[470px] 2xl:w-[520px] h-[360px] sm:h-[410px] xl:h-[450px] scale-100 origin-center">
             <Image
               src="/assets/images/buyer-home_mortgage.png"
               alt="Mortgage illustration"

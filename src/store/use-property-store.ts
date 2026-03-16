@@ -57,7 +57,9 @@ interface PropertyStore {
   // Comparison Feature
   isCompareMode: boolean;
   selectedCompareProperties: UnifiedLandingPropertiesType<IProperty | MlsPropertyListing>[];
+  isComparisonModalOpen: boolean;
   setCompareMode: (mode: boolean) => void;
+  setComparisonModalOpen: (open: boolean) => void;
   toggleCompareProperty: (property: UnifiedLandingPropertiesType<IProperty | MlsPropertyListing>) => void;
   clearCompareProperties: () => void;
 }
@@ -72,6 +74,7 @@ export const usePropertyStore = create<PropertyStore>((set) => ({
   // Comparison Feature State
   isCompareMode: false,
   selectedCompareProperties: [],
+  isComparisonModalOpen: false,
 
   setAllProperties: (properties) => set({
     allProperties: (() => {
@@ -162,6 +165,8 @@ export const usePropertyStore = create<PropertyStore>((set) => ({
   setIsLoading: (isLoading) => set({ isLoading }),
 
   setCompareMode: (isCompareMode: boolean) => set({ isCompareMode }),
+
+  setComparisonModalOpen: (isComparisonModalOpen: boolean) => set({ isComparisonModalOpen }),
 
   toggleCompareProperty: (property: UnifiedLandingPropertiesType<IProperty | MlsPropertyListing>) =>
     set((state) => {

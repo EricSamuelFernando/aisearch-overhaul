@@ -502,6 +502,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
     setIsLoading,
     setSearchedQuery,
     isLoading,
+    isComparisonModalOpen,
   } = usePropertyStore();
 
   // Replace this with dynamic user fetching logic if needed
@@ -770,7 +771,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
           bottom: '24px',
           transform: 'translateX(-50%)',
           zIndex: 9999,
-          display: isFooterVisible ? 'none' : 'block',
+          display: (isFooterVisible || isComparisonModalOpen) ? 'none' : 'block',
         }}
       >
         <button

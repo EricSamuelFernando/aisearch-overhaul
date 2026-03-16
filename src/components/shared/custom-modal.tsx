@@ -108,11 +108,12 @@ const CustomModal = forwardRef<HTMLDivElement, ModalProps>(
         )}
         <div
           className={cn(
-            `modal-content relative z-50 transform overflow-auto rounded-3xl bg-white shadow-lg transition-transform duration-300`,
+            `modal-content relative z-50 transform rounded-3xl bg-white shadow-lg transition-transform duration-300`,
             isOpen ? 'scale-100' : 'scale-95',
             contentClassName,
             fullScreen ? 'h-full w-full rounded-none' : '',
           )}
+          style={{ maxHeight: '80vh' }}
         >
           {children}
         </div>

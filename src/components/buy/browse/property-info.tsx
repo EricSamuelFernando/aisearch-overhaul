@@ -218,6 +218,8 @@ function PropertyBrowseView({ }: Props) {
     setCompareMode,
     selectedCompareProperties,
     clearCompareProperties,
+    isComparisonModalOpen,
+    setComparisonModalOpen,
   } = usePropertyStore();
   const [selectedProperty, setSelectedProperty] = useState<string>('');
   const dispatch = useAppDispatch();
@@ -259,7 +261,7 @@ function PropertyBrowseView({ }: Props) {
   const [topSearchPromptIndex, setTopSearchPromptIndex] = useState(0);
   const [topSearchCharIndex, setTopSearchCharIndex] = useState(0);
   const [topSearchDeleting, setTopSearchDeleting] = useState(false);
-  const [showCompareModal, setShowCompareModal] = useState(false);
+
   const [mobileSheetMode, setMobileSheetMode] = useState<MobileSheetMode>('default');
   const [mobileMeasureState, setMobileMeasureState] = useState<{
     active: boolean;
@@ -677,9 +679,7 @@ function PropertyBrowseView({ }: Props) {
       setIsSearching(true);
       setIsLoading(true);
       try {
-      const searchUrl = isMlsBypassModeEnabled()
-        ? MLS_SEARCH_LIVE_URL
-        : (PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search');
+      const searchUrl = MLS_SEARCH_LIVE_URL;
 
       const response = await axios.post(
         searchUrl,
@@ -1060,7 +1060,7 @@ function PropertyBrowseView({ }: Props) {
                       selectedProperty={selectedProperty}
                       propertiesOverride={displayedProperties}
                       overlayMode
-                      onOpenCompareModal={() => setShowCompareModal(true)}
+                      onOpenCompareModal={() => setComparisonModalOpen(true)}
                     />
                   </div>
                 ) : null}
@@ -1269,7 +1269,7 @@ function PropertyBrowseView({ }: Props) {
                     selectedProperty={selectedProperty}
                     propertiesOverride={displayedProperties}
                     overlayMode
-                    onOpenCompareModal={() => setShowCompareModal(true)}
+                    onOpenCompareModal={() => setComparisonModalOpen(true)}
                   />
                 </div>
               </div>
@@ -1277,8 +1277,8 @@ function PropertyBrowseView({ }: Props) {
           </div>
         </section>
         <PropertyComparisonModal
-          isOpen={showCompareModal}
-          closeModal={() => setShowCompareModal(false)}
+          isOpen={isComparisonModalOpen}
+          closeModal={() => setComparisonModalOpen(false)}
         />
       </>
     );
@@ -1345,8 +1345,8 @@ function PropertyBrowseView({ }: Props) {
 
       </section>
       <PropertyComparisonModal
-        isOpen={showCompareModal}
-        closeModal={() => setShowCompareModal(false)}
+        isOpen={isComparisonModalOpen}
+        closeModal={() => setComparisonModalOpen(false)}
       />
     </>
   );

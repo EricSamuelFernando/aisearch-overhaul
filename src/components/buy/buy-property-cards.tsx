@@ -254,7 +254,7 @@ function BuyPropertyCards({
               onClick={onOpenCompareModal}
               disabled={selectedCompareProperties.length < 2}
               className={cn(
-                'absolute left-1/2 top-2 z-[80] -translate-x-1/2 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-lg transition',
+                'inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-semibold shadow-lg transition my-1',
                 selectedCompareProperties.length >= 2
                   ? 'bg-ocOrange text-white hover:brightness-95'
                   : 'cursor-not-allowed bg-white text-gray-400 ring-1 ring-gray-200'

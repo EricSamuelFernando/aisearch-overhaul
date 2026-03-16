@@ -8,12 +8,14 @@ interface ChatItemProps {
   lastname: string;
   propertiesCount: number;
   email:string;
+  profileImage?: string;
 }
 
 const ChatItem: React.FC<ChatItemProps> = ({
   firstname,
   lastname,
   email,
+  profileImage,
   propertiesCount,
   main = true,
   handleClick,
@@ -28,6 +30,7 @@ const ChatItem: React.FC<ChatItemProps> = ({
           className='h-[7rem] w-[7rem] text-base text-white'
           alt='avatar-image'
           size={'3rem'}
+          src={profileImage}
         >
           {getInitials(firstname, lastname) || 'SH'}
         </CustomAvatar>

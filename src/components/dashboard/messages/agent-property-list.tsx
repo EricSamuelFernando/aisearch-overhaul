@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { getProfileImageUrl } from '@/lib/utils';
 import ChatItem from './chat-item';
 import PropertyDetailCard from './property-detail-card';
 
@@ -27,6 +28,7 @@ export default function AgentPropertyList({
           firstname={agent.firstname}
           lastname={agent.lastname}
           propertiesCount={properties.length}
+          profileImage={getProfileImageUrl(agent)}
           main={false}
         />
       </div>

@@ -1,4 +1,5 @@
 export interface Agent {
+  profile_image_url?: string;
   connectedUsers: {
     default: any[];
   };

@@ -4,6 +4,7 @@ import ChatItem from './chat-item';
 import PropertyDetailCard from './property-detail-card';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { SocketContext } from '@/providers/socket.context';
+import { getProfileImageUrl } from '@/lib/utils';
 import { property } from './data';
 import ChatThread from './chat-thread';
 
@@ -80,6 +81,7 @@ export default function PropertyThreadList({
           propertyID={propertyId}
           timestamp={timeStamp}
           lastMessage={lastMessage}
+          profileImage={getProfileImageUrl(agent)}
           main={false}
         />
       </div>

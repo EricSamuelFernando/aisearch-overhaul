@@ -152,6 +152,7 @@ interface SpendAmount {
 
 interface Agent {
   id: string;
+  profile_image_url?: string;
   email: string;
   connectedUsers: any[]; // Define specific type if needed
   verification_code: string;

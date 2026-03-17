@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import * as React from 'react';
 import { useDeferredValue } from 'react';
@@ -470,8 +470,8 @@ const PropertyPreview: React.FC = () => {
       {
         propertyName: propertyData?.listing?.courtesyOf || propertyData?.public?.address?.label,
         price: propertyData?.listing?.listPriceLow || propertyData?.listPrice,
-        listingId: +propertyData?.listingId || +listingId,
-        propertyId: propertyData?.id || +id,
+        listingId: propertyData?.listingId || listingId,
+        propertyId: propertyData?.id || id,
         city: propertyData?.address?.city || propertyData?.public?.address?.city || "Los angeles",
         zipCode: propertyData?.listing?.address?.zipCode || propertyData?.public?.address?.zipCode,
         propertyAddress: propertyData?.listing?.address?.unparsedAddress || propertyData?.public?.address?.unparsedAddress || propertyData?.public?.address?.label,
@@ -544,7 +544,7 @@ const PropertyPreview: React.FC = () => {
       {
         propertyName: propertyData?.listing?.courtesyOf || propertyData?.public?.address?.label,
         price: Number(String(propertyData?.listing?.listPriceLow || propertyData?.listPrice || 0).replace(/[^0-9.-]+/g, "")),
-        listingId: +propertyData?.listingId || +listingId,
+        listingId: propertyData?.listingId || listingId,
         propertyId: String(propertyData?.id || id),
         city: propertyData?.address?.city || propertyData?.public?.address?.city || "Los angeles",
         zipCode: propertyData?.listing?.address?.zipCode || propertyData?.public?.address?.zipCode,
@@ -622,7 +622,7 @@ const PropertyPreview: React.FC = () => {
       {
         propertyName: propertyData?.listing?.courtesyOf || propertyData?.public?.address?.label,
         price: Number(String(propertyData?.listing?.listPriceLow || propertyData?.listPrice || 0).replace(/[^0-9.-]+/g, "")),
-        listingId: +propertyData?.listingId || +listingId,
+        listingId: propertyData?.listingId || listingId,
         propertyId: String(propertyData?.id || id),
         city: propertyData?.address?.city || propertyData?.public?.address?.city || "Los angeles",
         zipCode: propertyData?.listing?.address?.zipCode || propertyData?.public?.address?.zipCode,
@@ -2317,9 +2317,18 @@ const PropertyPreview: React.FC = () => {
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-[#E8804C]-300 flex items-center justify-center shrink-0">
-                      <Info className="h-2 w-2 sm:h-3 sm:w-3 text-[#E8804C]-600" />
-                    </div>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-orange-100 flex items-center justify-center shrink-0 cursor-help">
+                            <Info className="h-2 w-2 sm:h-3 sm:w-3 text-ocOrange" />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Get pre-qualified to see how much you can afford and strengthen your offer.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                     <a
                       href="https://preapproval.snaphomz.com/"
                       target="_blank"

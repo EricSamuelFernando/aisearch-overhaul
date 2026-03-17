@@ -68,7 +68,8 @@ export default function OurClients({
   }, [embla]);
 
   const slideSize = isMobile ? '100%' : '50%';
-  const needsNavigation = testimonials.length > (isMobile ? 1 : 2);
+  const needsNavigation = testimonials.length > 1;
+  const controlsEnabled = testimonials.length > 1;
 
   return (
     <section
@@ -131,10 +132,10 @@ export default function OurClients({
           <button
             type="button"
             aria-label="Previous testimonial"
-            disabled={!canScrollPrev}
+            disabled={!controlsEnabled}
             onClick={() => embla?.scrollPrev()}
             className={`flex items-center justify-center rounded-full transition-all duration-200 ${isMobile ? 'h-8 w-16' : 'h-10 w-16'
-              } ${canScrollPrev
+              } ${controlsEnabled
                 ? 'bg-[#F5EBDF] text-[#4A3A2B] hover:bg-[#EFE2D2]'
                 : 'bg-[#F1E7DC] text-[#CFC3B5] cursor-not-allowed'
               }`}
@@ -144,10 +145,10 @@ export default function OurClients({
           <button
             type="button"
             aria-label="Next testimonial"
-            disabled={!canScrollNext}
+            disabled={!controlsEnabled}
             onClick={() => embla?.scrollNext()}
             className={`flex items-center justify-center rounded-full transition-all duration-200 ${isMobile ? 'h-8 w-16' : 'h-10 w-16'
-              } ${canScrollNext
+              } ${controlsEnabled
                 ? 'bg-[#F5EBDF] text-[#4A3A2B] hover:bg-[#EFE2D2]'
                 : 'bg-[#F1E7DC] text-[#CFC3B5] cursor-not-allowed'
               }`}

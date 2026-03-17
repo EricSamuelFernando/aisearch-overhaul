@@ -53,7 +53,7 @@ const InviteUserModal = ({
   const { socket } = useContext(SocketContext);
   const { addParticipantsToThread } = useUserAgentMessageApi();
   const { propertyEngagementMutation } = usePropertyAPI();
-  const { externalAgentIvitationMutation } = useUserAuthApi();
+  // const { externalAgentInvitationMutation } = useUserAuthApi();
   const { getEngagedPropertyByPropertyId } = useAgentConversationApi();
 
   const [email, setEmail] = useState('');
@@ -333,36 +333,36 @@ const InviteUserModal = ({
         }
 
         try {
-          const response: any = await externalAgentIvitationMutation.mutateAsync({
-            agentType: actor?.account_type,
-            userId: actor?.id,
-            email: email.trim(),
-            is_accepted: 'pending',
-            engagementId: safeEngagementId,
-            threadId,
-          });
+          // const response: any = await externalAgentInvitationMutation.mutateAsync({
+          //   agentType: actor?.account_type,
+          //   userId: actor?.id,
+          //   email: email.trim(),
+          //   is_accepted: 'pending',
+          //   engagementId: safeEngagementId,
+          //   threadId,
+          // });
 
-          if (!response?.success) {
-            throw new Error(response?.message || 'Failed to send invitation');
-          }
-          inviteResponse = response;
-          logInviteDeliveryDebug({
-            path: 'createExternalParticipant',
-            targetEmail: email.trim(),
-            role: effectiveInviteRole,
-            response: inviteResponse,
-          });
+          // if (!response?.success) {
+          //   throw new Error(response?.message || 'Failed to send invitation');
+          // }
+          // inviteResponse = response;
+          // logInviteDeliveryDebug({
+          //   path: 'createExternalParticipant',
+          //   targetEmail: email.trim(),
+          //   role: effectiveInviteRole,
+          //   response: inviteResponse,
+          // });
 
-          if (socket && response?.agentId && response?.participantId) {
-            socket.emit('send_property_invitation', {
-              reciepent: response.agentId,
-              userName: `${actor?.firstname || ''} ${actor?.lastname || ''}`.trim(),
-              userEmail: actor?.email,
-              propertyImage: safePropertyImage,
-              propertyAddress: safePropertyAddress,
-              id: response.participantId,
-            });
-          }
+          // if (socket && response?.agentId && response?.participantId) {
+          //   socket.emit('send_property_invitation', {
+          //     reciepent: response.agentId,
+          //     userName: `${actor?.firstname || ''} ${actor?.lastname || ''}`.trim(),
+          //     userEmail: actor?.email,
+          //     propertyImage: safePropertyImage,
+          //     propertyAddress: safePropertyAddress,
+          //     id: response.participantId,
+          //   });
+          // }
         } catch (externalInviteErr: any) {
           console.error('[InviteUserModal][DeliveryDebug][Error]', {
             path: 'createExternalParticipant',

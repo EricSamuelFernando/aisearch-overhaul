@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Carousel } from '@mantine/carousel';
 import {
   Paper,
@@ -100,21 +100,37 @@ const features = [
 ];
 const AgentsWeMakeItEasy = () => {
   const [activeCategory, setActiveCategory] = useState('Transaction');
+  const [embla, setEmbla] = useState<any>(null);
+  const [canScrollPrev, setCanScrollPrev] = useState(false);
+  const [canScrollNext, setCanScrollNext] = useState(false);
 
-  // Responsive breakpoints for slide size
   const isSmallScreen = useMediaQuery('(max-width: 768px)');
-  const isMediumScreen = useMediaQuery('(max-width: 992px)');
-  const slideSize = isSmallScreen
-    ? '90%'          // reduced width on mobile
-    : isMediumScreen
-      ? '50%'
-      : '33.3333%';
+  const isLargeScreen = useMediaQuery('(min-width: 1536px)');
 
+  const slideSize = isSmallScreen ? '90%' : isLargeScreen ? '31.5%' : '33.3333%';
 
   // Only show features matching the selected tab
   const filteredFeatures = features.filter(
     (feature) => feature.category === activeCategory
   );
+
+  const cardsPerView = isSmallScreen ? 1 : 3;
+  const shouldShowArrows = filteredFeatures.length > cardsPerView;
+
+  useEffect(() => {
+    if (!embla) return;
+    const syncButtons = () => {
+      setCanScrollPrev(embla.canScrollPrev());
+      setCanScrollNext(embla.canScrollNext());
+    };
+    syncButtons();
+    embla.on('select', syncButtons);
+    embla.on('reInit', syncButtons);
+    return () => {
+      embla.off('select', syncButtons);
+      embla.off('reInit', syncButtons);
+    };
+  }, [embla, activeCategory]);
 
   return (
     <section className="bg-[#FFF6EC] pt-20 px-4 sm:px-6 lg:px-24 overflow-x-hidden">
@@ -286,53 +302,28 @@ const AgentsWeMakeItEasy = () => {
 
         {/* Carousel */}
         <Carousel
+          getEmblaApi={setEmbla}
           slideSize={slideSize}
           align={isSmallScreen ? 'center' : 'start'}
           loop
           slideGap="lg"
-          height={isSmallScreen ? 'auto' : 400}
-
-          // withControls={!isSmallScreen}   // 👈 KEY LINE
-          // nextControlIcon={<IconArrowNarrowRight size={36} stroke={1} />}
-          // previousControlIcon={<IconArrowNarrowLeft size={36} stroke={1} />}
-
+          height={isSmallScreen ? 320 : isLargeScreen ? 430 : 400}
           withControls={false}
-
           styles={{
-            root: {
-              position: 'relative',
-              width: '100%',
-              marginTop: '32px',
-              backgroundColor: isSmallScreen ? 'transparent' : undefined, // 👈 remove bg
-            },
-
-            controls: {
-              position: 'relative',
-              marginTop: '32px',
-              justifyContent: 'flex-end',
-              gap: 12,
-              marginRight: isSmallScreen ? 0 : 20,
-            },
-
-            control: {
-              padding: 8,
-              width: 100,
-              background: '#F5EBDF',
-              border: 'none',
-              boxShadow: 'none',
-            },
+            root: { position: 'relative', width: '100%', marginTop: '32px' },
+            controls: { position: 'relative', marginTop: '32px', justifyContent: 'flex-end', gap: 12 },
+            control: { padding: 8, width: 100, background: '#F5EBDF', border: 'none', boxShadow: 'none' },
           }}
         >
-
           {filteredFeatures.map((feature, index) => (
             <Carousel.Slide key={index}>
               <Paper
                 bg="#F4E5D0"
                 style={{
                   borderRadius: '14px',
-                  padding: isSmallScreen ? '18px' : '60px', // 👈 slightly tighter
-                  height: '100%',
-                  maxWidth: isSmallScreen ? '320px' : '100%', // 👈 KEY LINE
+                  padding: isSmallScreen ? '18px' : isLargeScreen ? '72px' : '60px',
+                  height: isSmallScreen ? '300px' : '100%',
+                  maxWidth: isSmallScreen ? '320px' : '100%',
                   margin: '0 auto',
                   display: 'flex',
                   flexDirection: 'column',
@@ -353,6 +344,31 @@ const AgentsWeMakeItEasy = () => {
             </Carousel.Slide>
           ))}
         </Carousel>
+
+        {/* Navigation Arrows — same as consumer homepage */}
+        <div
+          className={`mx-auto mt-6 flex w-full items-center justify-end gap-2 ${!shouldShowArrows ? 'hidden' : ''}`}
+          style={{ maxWidth: '100%', paddingRight: isSmallScreen ? 8 : isLargeScreen ? 72 : 56 }}
+        >
+          <button
+            type="button"
+            aria-label="Scroll previous cards"
+            disabled={!canScrollPrev}
+            onClick={() => embla?.scrollPrev()}
+            className={`flex items-center justify-center rounded-full transition-all duration-200 ${isSmallScreen ? 'h-8 w-16' : 'h-10 w-16'} ${canScrollPrev ? 'bg-[#F5EBDF] text-[#4A3A2B] hover:bg-[#EFE2D2]' : 'bg-[#F1E7DC] text-[#CFC3B5] cursor-not-allowed'}`}
+          >
+            <IconArrowNarrowLeft size={20} stroke={2.2} />
+          </button>
+          <button
+            type="button"
+            aria-label="Scroll next cards"
+            disabled={!canScrollNext}
+            onClick={() => embla?.scrollNext()}
+            className={`flex items-center justify-center rounded-full transition-all duration-200 ${isSmallScreen ? 'h-8 w-16' : 'h-10 w-16'} ${canScrollNext ? 'bg-[#F5EBDF] text-[#4A3A2B] hover:bg-[#EFE2D2]' : 'bg-[#F1E7DC] text-[#CFC3B5] cursor-not-allowed'}`}
+          >
+            <IconArrowNarrowRight size={20} stroke={2.2} />
+          </button>
+        </div>
       </div>
     </section>
   );

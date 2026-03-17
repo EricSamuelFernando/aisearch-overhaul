@@ -57,10 +57,60 @@ interface PropertyStore {
   // Comparison Feature
   isCompareMode: boolean;
   selectedCompareProperties: UnifiedLandingPropertiesType<IProperty | MlsPropertyListing>[];
+  isComparisonModalOpen: boolean;
   setCompareMode: (mode: boolean) => void;
+  setComparisonModalOpen: (open: boolean) => void;
   toggleCompareProperty: (property: UnifiedLandingPropertiesType<IProperty | MlsPropertyListing>) => void;
   clearCompareProperties: () => void;
+
+  // Subcategory Filters (Pool, View, etc.)
+  selectedSubCategories: string[];
+  setSelectedSubCategories: (subCategories: string[]) => void;
+  toggleSubCategory: (subCategory: string) => void;
+
+  // Map Drawing Filter
+  drawFilteredPropertyIds: string[] | null;
+  setDrawFilteredPropertyIds: (ids: string[] | null) => void;
 }
+
+export const SUB_CATEGORIES = [
+  {
+    title: 'Pool',
+    value: 'has_pool',
+    propertyKey: 'hasPool',
+    keywords: ['pool'],
+  },
+  {
+    title: 'Park View',
+    value: 'is_park_view',
+    propertyKey: 'isParkView',
+    keywords: ['park view', 'park views', 'overlooking park'],
+  },
+  {
+    title: 'Water View',
+    value: 'is_water_view',
+    propertyKey: 'isWaterView',
+    keywords: ['water view', 'water views', 'ocean view', 'bay view', 'lake view', 'river view'],
+  },
+  {
+    title: 'City View',
+    value: 'is_city_view',
+    propertyKey: 'isCityView',
+    keywords: ['city view', 'city views', 'skyline view', 'downtown view'],
+  },
+  {
+    title: 'Waterfront',
+    value: 'is_water_front',
+    propertyKey: 'isWaterFront',
+    keywords: ['waterfront', 'water front', 'oceanfront', 'beachfront'],
+  },
+  {
+    title: 'Mountain View',
+    value: 'is_mountain_view',
+    propertyKey: 'isMountainView',
+    keywords: ['mountain view', 'mountain views', 'mountainous'],
+  },
+];
 
 export const usePropertyStore = create<PropertyStore>((set) => ({
   allProperties: [],
@@ -72,6 +122,7 @@ export const usePropertyStore = create<PropertyStore>((set) => ({
   // Comparison Feature State
   isCompareMode: false,
   selectedCompareProperties: [],
+  isComparisonModalOpen: false,
 
   setAllProperties: (properties) => set({
     allProperties: (() => {
@@ -163,6 +214,8 @@ export const usePropertyStore = create<PropertyStore>((set) => ({
 
   setCompareMode: (isCompareMode: boolean) => set({ isCompareMode }),
 
+  setComparisonModalOpen: (isComparisonModalOpen: boolean) => set({ isComparisonModalOpen }),
+
   toggleCompareProperty: (property: UnifiedLandingPropertiesType<IProperty | MlsPropertyListing>) =>
     set((state) => {
       const exists = state.selectedCompareProperties.some((p) => {
@@ -192,4 +245,17 @@ export const usePropertyStore = create<PropertyStore>((set) => ({
     }),
 
   clearCompareProperties: () => set({ selectedCompareProperties: [], isCompareMode: false }),
+
+  // Subcategory Filters implementation
+  selectedSubCategories: [],
+  setSelectedSubCategories: (selectedSubCategories) => set({ selectedSubCategories }),
+  toggleSubCategory: (subCategory) => set((state) => ({
+    selectedSubCategories: state.selectedSubCategories.includes(subCategory)
+      ? state.selectedSubCategories.filter((s) => s !== subCategory)
+      : [...state.selectedSubCategories, subCategory]
+  })),
+
+  // Map Drawing Filter implementation
+  drawFilteredPropertyIds: null,
+  setDrawFilteredPropertyIds: (drawFilteredPropertyIds) => set({ drawFilteredPropertyIds }),
 }));

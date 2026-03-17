@@ -1039,7 +1039,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const suggestionsVisible = !isExpanded && aiModeActive && !searchTerm.trim() && showSuggestions;
     const anySuggestionsVisible = !isExpanded && (
         suggestionsVisible ||
-        (!!searchTerm.trim() && (showAddressSuggestions || isLoadingAddressSuggestions || showLocationSuggestions || isLoadingLocationSuggestions))
+        (!aiModeActive && !!searchTerm.trim() && (showAddressSuggestions || isLoadingAddressSuggestions || showLocationSuggestions || isLoadingLocationSuggestions))
     );
 
     // Rent Vs Buy State
@@ -3289,7 +3289,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     padding: isExpanded ? 16 : 8, // keep expanded layout comfortable on mobile
                 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full ${isExpanded ? 'max-w-[1200px]' : 'max-w-[460px] lg:max-w-[480px] xl:max-w-[820px]'
+                className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full ${isExpanded ? 'max-w-[1150px]' : 'max-w-[460px] lg:max-w-[480px] xl:max-w-[820px] min-[1280px]:max-[1440px]:max-w-[640px]'
                     }`}
             >
                 <input
@@ -3342,6 +3342,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             onChange={(e) => {
                                                 const val = e.target.value;
                                                 setSearchTerm(val);
+                                                if (aiModeActive) {
+                                                    setShowSuggestions(!val.trim() && !isExpanded);
+                                                    setShowAddressSuggestions(false);
+                                                    setShowLocationSuggestions(false);
+                                                }
                                                 setShowAiModeTip(false);
                                                 if (aiModeTipTimerRef.current) {
                                                     clearTimeout(aiModeTipTimerRef.current);
@@ -3350,8 +3355,13 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                 fetchAddressSuggestions(val);
                                             }}
                                             onFocus={() => {
-                                                setShowSuggestions(false);
-                                                onSuggestionsOpen?.(false);
+                                                const shouldShowAiSuggestions = aiModeActive && !isExpanded && !searchTerm.trim();
+                                                setShowSuggestions(shouldShowAiSuggestions);
+                                                if (aiModeActive) {
+                                                    setShowAddressSuggestions(false);
+                                                    setShowLocationSuggestions(false);
+                                                }
+                                                onSuggestionsOpen?.(shouldShowAiSuggestions);
                                                 setShowAiModeTip(false);
                                                 if (aiModeTipTimerRef.current) {
                                                     clearTimeout(aiModeTipTimerRef.current);
@@ -3526,7 +3536,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                         <Button
                                             type='submit'
                                             disabled={!!pendingImage && pendingImageStatus !== 'ready'}
-                                            className="hidden md:flex bg-[#F58634] hover:bg-[#E07224] text-white rounded-xl px-8 py-3 font-semibold text-sm md:text-base items-center transition-all shadow-md hover:shadow-lg h-full disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634]"
+                                            className="hidden md:flex bg-[#F58634] hover:bg-[#E07224] text-white rounded-xl px-6 py-2.5 font-semibold text-sm md:text-[15px] items-center transition-all shadow-md hover:shadow-lg h-full disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#F58634]"
                                         >
                                             Begin Journey
                                         </Button>
@@ -3571,7 +3581,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                 )}
 
                                 {/* ── Address Autocomplete Suggestions ── */}
-                                {searchTerm && (showAddressSuggestions || isLoadingAddressSuggestions) && (
+                                {searchTerm && !aiModeActive && (showAddressSuggestions || isLoadingAddressSuggestions) && (
                                     <motion.div
                                         initial={{ opacity: 0, height: 0 }}
                                         animate={{ opacity: 1, height: 'auto' }}
@@ -3626,7 +3636,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                 )}
 
                                 {/* ── Location (City/State) Autocomplete Suggestions ── */}
-                                {searchTerm && (showLocationSuggestions || isLoadingLocationSuggestions) && (
+                                {searchTerm && !aiModeActive && (showLocationSuggestions || isLoadingLocationSuggestions) && (
                                     <motion.div
                                         initial={{ opacity: 0, height: 0 }}
                                         animate={{ opacity: 1, height: 'auto' }}
@@ -4673,7 +4683,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             {(pendingImage || pendingImagePreview) && !searchTerm && (
                                                 <span
                                                     aria-hidden="true"
-                                                    className="md:hidden absolute left-4 top-[88px] text-[12px] text-gray-400 pointer-events-none"
+                                                    className="md:hidden absolute left-4 right-24 sm:right-24 top-[88px] text-[12px] text-gray-400 pointer-events-none whitespace-normal break-words text-left"
                                                 >
                                                     Upload image to discover similar homes
                                                 </span>
@@ -4719,14 +4729,14 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                 }}
                                                 placeholder=""
                                                 rows={1}
-                                                className={`w-full bg-white text-gray-900 rounded-2xl sm:rounded-3xl overflow-y-hidden resize-none pl-4 sm:pl-5 ${pendingImage || pendingImagePreview ? 'min-h-[128px] max-h-48 sm:max-h-56 pt-[88px] pb-3 md:min-h-[120px] md:max-h-48 md:pt-[84px] md:pb-4 md:pl-5' : 'min-h-[64px] sm:min-h-[68px] max-h-32 sm:max-h-40 py-4 sm:py-[22px]'} pr-24 sm:pr-24 md:pr-32 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-[14px] sm:text-base placeholder:text-gray-400 font-normal leading-relaxed`}
+                                                className={`w-full bg-white text-gray-900 rounded-2xl sm:rounded-3xl overflow-y-hidden resize-none pl-4 sm:pl-5 ${pendingImage || pendingImagePreview ? 'min-h-[128px] max-h-48 sm:max-h-56 pt-[88px] pb-3 md:min-h-[108px] md:max-h-44 md:pt-[74px] md:pb-3 md:pl-4' : 'min-h-[64px] sm:min-h-[68px] max-h-32 sm:max-h-40 py-4 sm:py-[22px] md:min-h-[58px] md:py-[16px]'} pr-24 sm:pr-24 md:pr-28 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-[14px] sm:text-base md:text-[15px] placeholder:text-gray-400 font-normal leading-relaxed`}
                                             />
-                                            <div className={`absolute right-2 sm:right-3 flex items-center gap-1.5 sm:gap-4 ${(pendingImage || pendingImagePreview) ? 'bottom-2 md:top-1/2 md:-translate-y-1/2' : 'top-1/2 -translate-y-1/2'}`}>
-                                                <div className="hidden md:flex items-center gap-1.5 sm:gap-4">
+                                            <div className={`absolute right-2 sm:right-3 flex items-center gap-1.5 sm:gap-4 md:gap-2.5 ${(pendingImage || pendingImagePreview) ? 'bottom-2 md:top-1/2 md:-translate-y-1/2' : 'top-1/2 -translate-y-1/2'}`}>
+                                                <div className="hidden md:flex items-center gap-1.5 sm:gap-4 md:gap-2.5">
                                                     {/* Attach Icon & Menu */}
                                                     <div className="relative" ref={attachMenuRef}>
                                                         <div
-                                                            className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
+                                                            className="p-1.5 sm:p-2 md:p-1.5 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
                                                             onClick={() => setShowAttachMenu(!showAttachMenu)}
                                                         >
                                                             <Paperclip className="w-5 h-5 sm:w-5 sm:h-5" />
@@ -4807,135 +4817,6 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                         </div>
                                     </div>
                                 </div>
-                                {/* Integrated Suggestions Dropdown for Expanded State */}
-                                <AnimatePresence>
-                                    {false && (
-                                        <motion.div
-                                            initial={{ opacity: 0, height: 0 }}
-                                            animate={{ opacity: 1, height: 'auto' }}
-                                            exit={{ opacity: 0, height: 0 }}
-                                            transition={{ duration: 0.2 }}
-                                            className="w-full border-t border-gray-100/50"
-                                        >
-                                            <div className="p-4 pt-4 text-left">
-                                                <p className="text-[10px] font-bold text-gray-400 mb-3 uppercase tracking-wider pl-2">
-                                                    Try Asking
-                                                </p>
-                                                <div className="space-y-1">
-                                                    {suggestions.map((suggestion) => (
-                                                        <div
-                                                            key={suggestion.id}
-                                                            onMouseDown={() => handleSuggestionClick(suggestion.text)}
-                                                            className="flex items-center gap-3 p-3 hover:bg-orange-50/50 rounded-xl cursor-pointer group transition-all"
-                                                        >
-                                                            <SearchIcon
-                                                                className="w-4 h-4 flex-shrink-0 text-gray-400 group-hover:text-[#F58634] transition-colors"
-                                                                strokeWidth={2.25}
-                                                                absoluteStrokeWidth
-                                                            />
-                                                            <span className="text-gray-600 group-hover:text-gray-900 font-medium text-sm transition-colors leading-snug">
-                                                                {suggestion.text}
-                                                            </span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </motion.div>
-                                    )}
-
-                                    {/* ── Address Autocomplete Suggestions ── */}
-                                    {searchTerm && (showAddressSuggestions || isLoadingAddressSuggestions) && (
-                                        <motion.div
-                                            initial={{ opacity: 0, height: 0 }}
-                                            animate={{ opacity: 1, height: 'auto' }}
-                                            exit={{ opacity: 0, height: 0 }}
-                                            transition={{ duration: 0.2 }}
-                                            className="w-full border-t border-gray-100/50"
-                                        >
-                                            <div className="p-2 pt-3 text-left">
-                                                <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-wider pl-3">
-                                                    Properties
-                                                </p>
-                                                <div className="space-y-0.5">
-                                                    {isLoadingAddressSuggestions ? (
-                                                        <div className="flex items-center gap-3 p-3 text-sm text-gray-400">
-                                                            <div className="w-4 h-4 border-2 border-orange-300 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                                                            Searching addresses…
-                                                        </div>
-                                                    ) : (
-                                                        addressSuggestions.map((suggestion, idx) => {
-                                                            // Split "123 Main St, City, State ZIP" into street vs city-state
-                                                            const commaIdx = suggestion.address.indexOf(',');
-                                                            const streetPart = commaIdx !== -1
-                                                                ? suggestion.address.slice(0, commaIdx).trim()
-                                                                : suggestion.address;
-                                                            const cityStatePart = commaIdx !== -1
-                                                                ? suggestion.address.slice(commaIdx + 1).trim()
-                                                                : '';
-                                                            return (
-                                                                <div
-                                                                    key={suggestion.id || String(idx)}
-                                                                    onMouseDown={() => handleAddressSuggestionClick(suggestion)}
-                                                                    className="flex items-start gap-3 p-3 hover:bg-orange-50/50 rounded-xl cursor-pointer group transition-all"
-                                                                >
-                                                                    <MapPin className="w-4 h-4 text-gray-300 group-hover:text-[#F58634] flex-shrink-0 mt-0.5 transition-colors" />
-                                                                    <span className="flex flex-col min-w-0">
-                                                                        <span className="text-gray-800 font-semibold text-sm leading-snug truncate">
-                                                                            {streetPart}
-                                                                        </span>
-                                                                        {cityStatePart && (
-                                                                            <span className="text-gray-400 text-xs leading-snug truncate">
-                                                                                {cityStatePart}
-                                                                            </span>
-                                                                        )}
-                                                                    </span>
-                                                                </div>
-                                                            );
-                                                        })
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </motion.div>
-                                    )}
-
-                                    {/* ── Location (City/State) Autocomplete Suggestions ── */}
-                                    {searchTerm && chatHistory.length === 0 && (showLocationSuggestions || isLoadingLocationSuggestions) && (
-                                        <motion.div
-                                            initial={{ opacity: 0, height: 0 }}
-                                            animate={{ opacity: 1, height: 'auto' }}
-                                            exit={{ opacity: 0, height: 0 }}
-                                            transition={{ duration: 0.2 }}
-                                            className="w-full border-t border-gray-100/50"
-                                        >
-                                            <div className="p-2 pt-3 text-left">
-                                                <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-wider pl-3">
-                                                    Locations
-                                                </p>
-                                                <div className="space-y-0.5">
-                                                    {isLoadingLocationSuggestions ? (
-                                                        <div className="flex items-center gap-3 p-3 text-sm text-gray-400">
-                                                            <div className="w-4 h-4 border-2 border-orange-300 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                                                            Searching locations...
-                                                        </div>
-                                                    ) : (
-                                                        locationSuggestions.map((suggestion, idx) => (
-                                                            <div
-                                                                key={suggestion.placeId || String(idx)}
-                                                                onMouseDown={() => handleLocationSuggestionClick(suggestion)}
-                                                                className="flex items-start gap-3 p-3 hover:bg-orange-50/50 rounded-xl cursor-pointer group transition-all"
-                                                            >
-                                                                <MapPin className="w-4 h-4 text-gray-300 group-hover:text-[#F58634] flex-shrink-0 mt-0.5 transition-colors" />
-                                                                <span className="text-gray-800 font-medium text-sm leading-snug truncate">
-                                                                    {suggestion.description}
-                                                                </span>
-                                                            </div>
-                                                        ))
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
 
                                 {/* 3. Disclaimer */}
                                 <div className="px-2 text-center">

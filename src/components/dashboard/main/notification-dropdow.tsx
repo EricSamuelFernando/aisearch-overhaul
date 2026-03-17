@@ -124,19 +124,31 @@ export default function NotificationDropdown() {
 
   const notifications = useMemo(() => {
     const socketNotifications = Array.isArray(state?.notifications) ? state.notifications : [];
-    const normalizedSocket: UINotification[] = socketNotifications.map((item: UINotification) => ({
-      ...item,
-      kind: normalizeKind(item.kind) || deriveKind(item.title, item.body),
-      source: item.source || 'socket',
-    }));
+    const normalizedSocket: UINotification[] = socketNotifications.map((item: UINotification) => {
+      let link = item.link;
+      if (item.snapId && (!link || link.includes('/snaps/'))) {
+        link = `/account/collections/${item.snapId}`;
+      }
+      return {
+        ...item,
+        link,
+        kind: normalizeKind(item.kind) || deriveKind(item.title, item.body),
+        source: item.source || 'socket',
+      };
+    });
 
     const normalizedApi: UINotification[] = apiNotifications.map((item: any) => {
       const threadId = (item as { threadId?: string }).threadId;
       const snapId = (item as { snapId?: string }).snapId;
-      const link =
-        (item as { link?: string }).link ||
-        (snapId ? `/account/collections/${snapId}` : undefined) ||
-        (threadId ? `/dashboard/buyer?tab=messages&threadId=${threadId}` : undefined);
+      let link = (item as { link?: string }).link;
+
+      // Prioritize collections link for snaps and fix old snap links
+      if (snapId && (!link || link.includes('/snaps/'))) {
+        link = `/account/collections/${snapId}`;
+      } else if (!link && threadId) {
+        link = `/dashboard/buyer?tab=messages&threadId=${threadId}`;
+      }
+
       return {
         id: extractNumericId(item._id || item.id),
         title: item.title,
@@ -222,9 +234,9 @@ export default function NotificationDropdown() {
   return (
     <Menu shadow="md" radius={'lg'} width={280} position="bottom-end">
       <Menu.Target>
-        <UnstyledButton onClick={() => notificationsQuery.refetch()}>
+        <UnstyledButton className="flex items-center justify-center h-10 w-10 sm:h-auto sm:w-auto" onClick={() => notificationsQuery.refetch()}>
           <Indicator color="red" size={12} disabled={!unreadCount}>
-            <BellDot size={24} />
+            <BellDot className="h-7 w-7 sm:h-6 sm:w-6" />
           </Indicator>
         </UnstyledButton>
       </Menu.Target>

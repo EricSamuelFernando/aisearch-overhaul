@@ -10,6 +10,7 @@ interface ChatItemProps {
   propertyID:string;
   PropertyImg?:string;
   timestamp:string;
+  profileImage?: string;
 }
 
 const ChatThread: React.FC<ChatItemProps> = ({
@@ -19,6 +20,7 @@ const ChatThread: React.FC<ChatItemProps> = ({
   timestamp,
   propertyID,
   lastMessage,
+  profileImage,
   main = true,
   handleClick,
 }) => {
@@ -32,6 +34,7 @@ const ChatThread: React.FC<ChatItemProps> = ({
           className='h-[8rem] w-[8rem] text-xl text-white'
           alt='avatar-image'
           size={'4rem'}
+          src={profileImage}
         >
           {getInitials(firstname, lastname) || 'SH'}
         </CustomAvatar>

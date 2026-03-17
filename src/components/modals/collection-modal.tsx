@@ -323,6 +323,7 @@ import { cn } from '@/lib/utils';
 import { useUserSnapAPIs } from '@/hooks/api/auth/snaps.API';
 import { useNotificationApi } from '@/hooks/api/user/useNotification';
 import { success, error } from '../alert/notify';
+import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { reverse } from 'lodash';
 import { SnapzHeartButton } from '@/components/ui/snapz-heart';
@@ -392,6 +393,34 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
   const [quickSnapName, setQuickSnapName] = useState('');
   const quickInputRef = useRef<HTMLInputElement>(null);
   const lastCreatedSnapIdRef = useRef<string | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const [viewportHeight, setViewportHeight] = useState(0);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const checkHeight = () => {
+      setViewportHeight(window.innerHeight);
+    };
+    checkHeight();
+    window.addEventListener('resize', checkHeight);
+    return () => window.removeEventListener('resize', checkHeight);
+  }, []);
+
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+
+  // Native DOM touchstart — bypasses React synthetic events after re-renders on mobile
+  useEffect(() => {
+    const btn = closeButtonRef.current;
+    if (!btn) return;
+    const handler = (e: TouchEvent) => {
+      e.stopPropagation();
+      toast.dismiss();
+      onCloseRef.current();
+    };
+    btn.addEventListener('touchstart', handler, { passive: true });
+    return () => btn.removeEventListener('touchstart', handler);
+  }, [isOpen]);
 
   const propertyData = useSelector((state: any) => state.property.property);
   const {
@@ -465,17 +494,38 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
       return;
     }
 
+    // Robust address extraction for different property structures (MLS search, IProperty, Favourites)
+    const getRobustAddress = (data: any) => {
+      // 1. Check formatted address (from IProperty / propertyAddressDetails)
+      const formatted = data?.propertyAddressDetails?.formattedAddress || data?.formattedAddress;
+      if (typeof formatted === 'string' && formatted.length > 0) return formatted;
+
+      // 2. Check unparsed address (from MLS structure)
+      const unparsed = data?.listing?.address?.unparsedAddress || 
+                       data?.address?.unparsedAddress || 
+                       data?.unparsedAddress;
+      if (typeof unparsed === 'string' && unparsed.length > 0) return unparsed;
+
+      // 3. Check for address fields that might be strings themselves
+      const simpleAddress = data?.listing?.address || data?.address;
+      if (typeof simpleAddress === 'string' && simpleAddress.length > 0) return simpleAddress;
+
+      return null;
+    };
+
+    const extractedAddress = getRobustAddress(propertyData);
+
     const input = {
       snapId,
-      name: propertyData?.listing?.courtesyOf || propertyData?.name || propertyData?.courtesyOf || "Property Name",
-      address: propertyData?.listing?.address?.unparsedAddress || propertyData?.address?.unparsedAddress || propertyData?.unparsedAddress || propertyData?.address || "Address not available",
-      city: propertyData?.listing?.address?.city || propertyData?.address?.city || propertyData?.city,
+      name: extractedAddress || propertyData?.listing?.courtesyOf || propertyData?.name || propertyData?.courtesyOf || "Property Name",
+      address: extractedAddress || "Address not available",
+      city: propertyData?.listing?.address?.city || propertyData?.address?.city || propertyData?.city || propertyData?.propertyAddressDetails?.city,
       // GraphQL expects String — Neo4j returns zipCode as a number, so always stringify
-      zipCode: String(propertyData?.listing?.address?.zipCode || propertyData?.address?.zipCode || propertyData?.zipCode || ''),
+      zipCode: String(propertyData?.listing?.address?.zipCode || propertyData?.address?.zipCode || propertyData?.zipCode || propertyData?.propertyAddressDetails?.postalCode || ''),
       price: +propertyData?.listing?.listPriceLow || +propertyData?.listPrice || +propertyData?.price || 0,
-      image: propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.primaryListingImageUrl || propertyData?.primaryImage || propertyData?.public?.imageUrl || propertyData?.image || propertyData?.primaryPhoto,
-      bedRooms: +propertyData?.listing?.property?.bedroomsTotal || +propertyData?.property?.bedroomsTotal || +propertyData?.bedroomTotal || +propertyData?.bedrooms || 0,
-      bathRooms: "" + (+propertyData?.listing?.property?.bathroomsTotal || +propertyData?.property?.bathroomsTotal || +propertyData?.bathroomTotal || +propertyData?.bathrooms || 0),
+      image: propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.primaryListingImageUrl || propertyData?.primaryImage || propertyData?.public?.imageUrl || propertyData?.image || propertyData?.primaryPhoto || propertyData?.images?.[0]?.url,
+      bedRooms: +propertyData?.listing?.property?.bedroomsTotal || +propertyData?.property?.bedroomsTotal || +propertyData?.bedroomTotal || +propertyData?.bedrooms || +propertyData?.numBedroom || 0,
+      bathRooms: "" + (+propertyData?.listing?.property?.bathroomsTotal || +propertyData?.property?.bathroomsTotal || +propertyData?.bathroomTotal || +propertyData?.bathrooms || +propertyData?.numBathroom || 0),
       sqft: "" + (+propertyData?.listing?.property?.livingArea || +propertyData?.property?.livingArea || +propertyData?.livingArea || +propertyData?.sqft || 0),
       listingId: resolvedListingId,
       propertyId: resolvedPropertyId,
@@ -681,32 +731,40 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
   const isInMyFav = myFavSnap ? isPropertyInFavourite(myFavSnap) : false;
   const customSnaps = snaps.filter((s: any) => s.name !== 'My Favourite');
 
+  const handleClose = () => {
+    toast.dismiss();
+    onClose();
+  };
+
   return (
     <CustomModal
       isOpen={isOpen}
-      onClose={onClose}
-      contentClassName="p-0 w-[480px] rounded-2xl"
+      onClose={handleClose}
+      contentClassName="p-0 w-[480px] max-w-[95vw] rounded-2xl overflow-hidden flex flex-col"
     >
-      <div className="flex flex-col p-6">
-        {/* Close Button */}
-        <div className="flex justify-end mb-2">
-          <button
-            onClick={onClose}
-            className="p-1 rounded-full hover:bg-gray-100 transition-colors"
-            aria-label="Close modal"
-          >
-            <X className="h-5 w-5 text-gray-500" />
-          </button>
-        </div>
+      {/* ── Top bar: close button (never scrolls) ── */}
+      <div className="flex-shrink-0 flex justify-end px-4 pt-4 bg-white">
+        <button
+          ref={closeButtonRef}
+          onClick={(e) => { e.stopPropagation(); handleClose(); }}
+          style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+          className="p-2 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+          aria-label="Close modal"
+        >
+          <X className="h-5 w-5 text-gray-500" />
+        </button>
+      </div>
 
-        {/* Header */}
+      {/* ── Fixed header (never scrolls) ── */}
+      <div className="flex-shrink-0 px-6 pb-2 bg-white">
+        {/* Save to favorites row */}
         <div className="flex items-center gap-3">
           {propertyImage && (
-            <div className="relative h-14 w-14 rounded-md overflow-hidden">
+            <div className="relative h-14 w-14 rounded-md overflow-hidden flex-shrink-0">
               <img
                 src={propertyImage || propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.public?.imageUrl || propertyData?.image || "/assets/images/placeholder.svg"}
                 alt="Property"
-                className="object-cover"
+                className="object-cover w-full h-full"
               />
             </div>
           )}
@@ -719,7 +777,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
         </div>
 
         {/* Snapz title row */}
-        <div className="flex items-center justify-between mt-4 mb-3">
+        <div className="flex items-center justify-between mt-4 mb-1">
           <h2 className="text-xl font-bold">Snapz</h2>
           <div className="flex items-center gap-2">
             {!isAgentAccount && !showInput && (
@@ -746,6 +804,19 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
             )}
           </div>
         </div>
+      </div>
+
+      {/* ── Scrollable snap list only ── */}
+      <div className="px-6 overflow-y-auto" style={{
+        overscrollBehavior: 'contain',
+        WebkitOverflowScrolling: 'touch',
+        touchAction: 'pan-y',
+        maxHeight: viewportHeight > 0 && viewportHeight <= 700 
+          ? '140px' 
+          : viewportHeight > 700 && viewportHeight <= 800 
+          ? '210px' 
+          : '280px'
+      } as any}>
 
         {/* ── Collaborative flow (shown when "Create a collaborative snapz" is clicked) ── */}
         {isAgentAccount ? (
@@ -843,6 +914,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
                   ? "bg-orange-50 hover:bg-orange-100"
                   : "bg-gray-50 hover:bg-gray-100"
               )}
+              style={{ touchAction: 'manipulation' }}
               onClick={() => handleSaveToMyFavourites()}
             >
               {/* Orange icon (matches My Snapz page) */}
@@ -890,7 +962,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
             )}
 
             {/* ── Custom snapz list (excludes My Favourite) ── */}
-            <div className="flex flex-col gap-2 mb-4 max-h-40 overflow-y-auto scrollbar-hide">
+            <div className="flex flex-col gap-2 mb-1">
               {customSnaps.length === 0 && !showQuickCreateInput && (
                 <p className="text-sm text-gray-400 text-center py-4">
                   No snapz yet. Hit <span className="font-semibold text-orange-500">+</span> to create one.
@@ -902,6 +974,7 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
                   <div
                     key={collection.id}
                     className="flex cursor-pointer items-center justify-between px-3 py-2.5 rounded-lg hover:bg-gray-100 transition"
+                    style={{ touchAction: 'manipulation' }}
                     onClick={() => handleToggleFavourite(collection.id)}
                   >
                     <span className="font-medium text-gray-800">{collection.name}</span>
@@ -920,17 +993,22 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
             </div>
 
             {/* View All Snapz */}
-            <button
-              onClick={() => { onClose(); router.push("/account"); }}
-              className="text-sm mb-4 text-right text-orange-500 w-full"
-            >
-              View All Snapz
-            </button>
+            <div className="flex justify-end pr-3">
+              <button
+                onClick={() => { onClose(); router.push("/account"); }}
+                className="text-sm py-1 text-orange-500 font-medium hover:underline"
+              >
+                View All Snapz
+              </button>
+            </div>
           </>
         )}
 
-        {/* ── Collaborative Button — always visible ── */}
-        {!isAgentAccount && (
+      </div>
+
+      {/* ── Collaborative Button — fixed footer, never scrolls ── */}
+      {!isAgentAccount && (
+        <div className="flex-shrink-0 px-6 pb-5 pt-1 bg-white">
           <button
             onClick={handleCreateCollaborative}
             className={cn(
@@ -951,8 +1029,8 @@ const CollectionModal: React.FC<CollectionModalProps> = ({
               </svg>
             </div>
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </CustomModal>
   );
 };

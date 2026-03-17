@@ -858,17 +858,19 @@ const questions = [
 const HOME_PAGE_TESTIMONIALS = [
   {
     name: 'MILTON AUSTIN',
-    title: 'First-time Buyer Specialist, San Diego',
-    text: 'Snaphomz cuts the time I spend on offers and disclosures each week. The workflows keep everything organized so I can focus on advising clients instead of chasing paperwork.',
-    img: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=2080&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    title: 'Sales Manager, Sanfransico',
+    text: 'From browsing to signing, everything just flowed. The listings were clear, the agents responsive, and the process - smooth. I found my home faster than I expected.',
+    img: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=1200&auto=format&fit=crop',
   },
   {
     name: 'ALEX RICHARD',
-    title: 'Broker Associate, Austin',
-    text: 'The analytics and AI summaries give me clear talking points for every client meeting. I walk in prepared, and my clients feel confident in each decision we make together.',
-    img: 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?q=80&w=2080&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+    title: 'Product Manager, Chicago',
+    text: 'Snaphomz helps me connect with serious buyers quickly. The interface is clean, and the snap tools make updates and scheduling super efficient. I’ve closed more deals in less time.',
+    img: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=1200&auto=format&fit=crop',
   },
 ];
+
+const testimonialHeadingSize = 'text-[2.9rem] sm:text-[3.3rem] md:text-[3.95rem] leading-[0.98] tracking-tight';
 
 // export default function Home() {
 //   const [isOpen, setIsOpen] = useState(false);
@@ -1082,7 +1084,7 @@ export default function Home() {
   const homeSectionGap = 80;
   const heroSectionRef = useRef<HTMLElement | null>(null);
   const heroContentRef = useRef<HTMLDivElement | null>(null);
-  const heroHeadingSize = 'text-[2.35rem] sm:text-[2.75rem] md:text-[2.15rem] lg:text-[2.35rem] xl:text-[3.3rem] 2xl:text-[3.45rem]';
+  const heroHeadingSize = 'text-[2.2rem] sm:text-[2.55rem] md:text-[2.05rem] lg:text-[2.2rem] xl:text-[2.55rem] 2xl:text-[3.05rem]';
   const heroMetaTextClass = isSearchSuggestionsOpen
     ? 'text-white md:text-[#111827]'
     : (isHomeSearchActive ? 'text-white md:text-[#111827]' : 'text-white');
@@ -1503,15 +1505,15 @@ export default function Home() {
         </div>
 
 
-        <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pt-24 pb-10 md:pb-12 text-center">
+        <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pb-10 pt-[18.5rem] text-center sm:pb-12 sm:pt-[20.5rem] md:pt-24 md:pb-12">
 
           {/* ================= TEXT + SEARCH ================= */}
           <div
             ref={heroContentRef}
-            className="home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-4 md:gap-5 mt-14 md:mt-16 lg:mt-20"
+            className="home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-3 md:gap-5 md:-mt-2 lg:-mt-4 min-[1280px]:max-[1440px]:translate-x-20"
           >
 
-            <h1 className={`${heroHeadingSize} font-medium leading-snug tracking-tight`}>
+            <h1 className={`${heroHeadingSize} max-w-[320px] text-[2.25rem] font-medium leading-[1.08] tracking-[-0.03em] sm:max-w-[360px] sm:text-[2.6rem] md:max-w-none md:leading-snug md:tracking-tight`}>
               <span className="block">Buying a home</span>
               <span className="block">
                 should be{' '}
@@ -1519,12 +1521,12 @@ export default function Home() {
               </span>
             </h1>
 
-            <p className="home-hero-subtitle text-[1rem] font-medium text-[#CEB28B]">
+            <p className="home-hero-subtitle max-w-[260px] text-[0.9rem] font-medium text-[#CEB28B] sm:max-w-none sm:text-[0.98rem]">
               First end-to-end guided real estate platform
             </p>
 
             <div className="relative w-full flex justify-center text-black">
-              <div className="home-hero-search-wrap mx-auto w-full max-w-[520px] lg:max-w-[580px] xl:max-w-[940px]">
+              <div className={`home-hero-search-wrap mx-auto w-full transition-all duration-300 ${isHomeSearchActive ? 'max-w-[1150px]' : 'max-w-[390px] lg:max-w-[420px] xl:max-w-[500px] 2xl:max-w-[660px] min-[1280px]:max-[1440px]:max-w-[340px]'}`}>
                 <HeroSearchForm
                   onSearchStateChange={(isActive) => setIsHomeSearchActive(isActive)}
                   onSuggestionsOpen={(open) => setIsSearchSuggestionsOpen(open)}
@@ -1549,13 +1551,13 @@ export default function Home() {
               </div> */}
             </div>
 
-            <div className="-mt-3 flex flex-col md:flex-row md:flex-nowrap items-center gap-y-0.5 md:gap-x-3 justify-center transition-all duration-200">
-              <span className={`text-[1rem] font-medium transition-colors ${heroMetaTextClass}`}>
+            <div className="-mt-1 flex flex-col items-center justify-center gap-y-1 transition-all duration-200 md:-mt-3 md:flex-row md:flex-nowrap md:gap-x-3">
+              <span className={`text-[0.95rem] font-medium transition-colors md:text-[1rem] ${heroMetaTextClass}`}>
                 Conversational Search,
               </span>
               <div className="flex items-center gap-2 md:contents">
                 <span
-                  className={`text-[1rem] font-bold underline transition-colors ${heroMetaAccentClass}`}
+                  className={`text-[0.95rem] font-bold underline transition-colors md:text-[1rem] ${heroMetaAccentClass}`}
                 >
                   Powered by Snaphomz AI.
                 </span>
@@ -1641,22 +1643,22 @@ export default function Home() {
             }}
           >
             <Carousel.Slide>
-              <div className="h-[560px] flex items-center">
+              <div className="h-[560px] md:h-[620px] xl:h-[660px] flex items-center">
                 <GetReadyForCollege headingClassName={heroHeadingSize} />
               </div>
             </Carousel.Slide>
             <Carousel.Slide>
-              <div className="h-[540px] md:h-[820px] xl:h-[900px] flex items-start pt-0">
+              <div className="h-[560px] md:h-[620px] xl:h-[660px] flex items-center">
                 <FindPerfectMortgage headingClassName={heroHeadingSize} />
               </div>
             </Carousel.Slide>
             <Carousel.Slide>
-              <div className="h-[560px] flex items-center">
+              <div className="h-[560px] md:h-[620px] xl:h-[660px] flex items-center">
                 <HomeDisclosure headingClassName={heroHeadingSize} />
               </div>
             </Carousel.Slide>
             <Carousel.Slide>
-              <div className="h-[560px] flex items-center">
+              <div className="h-[560px] md:h-[620px] xl:h-[660px] flex items-center">
                 <BuyOrRent headingClassName={heroHeadingSize} />
               </div>
             </Carousel.Slide>
@@ -1666,8 +1668,8 @@ export default function Home() {
         {/* <OfferStrengthAnalyzer /> */}
         <OurClients
           bgColor="#FFF6EC"
-          headingClassName={heroHeadingSize}
-          subtitle="We value our agents' honest feedback on how Snaphomz supports their business."
+          headingClassName={testimonialHeadingSize}
+          subtitle="We value our customers authentic opinion on our products."
           testimonials={HOME_PAGE_TESTIMONIALS}
         />
       </div>

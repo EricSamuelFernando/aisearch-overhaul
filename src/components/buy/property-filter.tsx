@@ -616,7 +616,7 @@ import FilterDrawer from './browse/filter-drawer';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { usePropertyStore } from '@/store/use-property-store';
 import AutoLoginrModal from '../modals/login-auto-modal';
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Landmark, ShipWheel, Building2, Droplets, TreePine, Waves } from 'lucide-react';
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Landmark, ShipWheel, Building2, Droplets, TreePine, Waves, Mountain } from 'lucide-react';
 import WhatshotIcon from '@mui/icons-material/Whatshot';
 import SchoolIcon from '@mui/icons-material/School';
 import PoolIcon from '@mui/icons-material/Pool';
@@ -626,7 +626,7 @@ import HouseSidingIcon from '@mui/icons-material/HouseSiding';
 import { Group, Menu, MenuDropdown, MenuItem, MenuTarget, MultiSelect, Select, UnstyledButton } from '@mantine/core';
 import Dropdown from '../ui/custom-select-dropdown';
 import axios from 'axios';
-import { PROPERTY_SEARCH_AI_URL } from '@/shared/constants/env';
+import { PROPERTY_SEARCH_AI_URL, MLS_SEARCH_LIVE_URL } from '@/shared/constants/env';
 import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { incrementSearchCount } from '@/slices/onboarding/property-preference';
 import { setPropertyQuery, setSearchFilters } from '@/slices/property/property-slice';
@@ -635,7 +635,7 @@ import { useAtom } from 'jotai';
 import { filterAtom } from '@/hooks/atoms';
 import { Listbox } from '@headlessui/react';
 import { RootState } from '@/lib/store';
-import { useProperty } from '@/shared/hooks/useProperty';
+import { useProperty, useFilteredProperties } from '@/shared/hooks/useProperty';
 import { cn } from '@/lib/utils';
 import PropertyComparisonModal from './property-comparison-modal';
 
@@ -710,19 +710,6 @@ function PropertyFilter() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>([]);
-  const [showModal, setShowModal] = useState(false);
-  const [isSearching, setIsSearching] = useState(false)
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const searchTerm = searchParams.get('q');
-  const searchFilters = useSelector((state: RootState) => state.property.filters);
-  const dispatch = useDispatch();
-  const [sortOption, setSortOption] = useState('');
-  const [propertyType, setPropertyType] = useState('');
-
-  // State for Comparison Modal
-  const [showCompareModal, setShowCompareModal] = useState(false);
-
   const {
     allProperties,
     addProperties,
@@ -734,8 +721,27 @@ function PropertyFilter() {
     isCompareMode,
     setCompareMode,
     selectedCompareProperties,
-    clearCompareProperties
+    clearCompareProperties,
+    isComparisonModalOpen,
+    setComparisonModalOpen,
+    // Subcategory Filters Store
+    selectedSubCategories,
+    toggleSubCategory,
   } = usePropertyStore();
+
+  const filteredProperties = useFilteredProperties();
+
+  const [showModal, setShowModal] = useState(false);
+  const [isSearching, setIsSearching] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const searchTerm = searchParams.get('q');
+  const searchFilters = useSelector((state: RootState) => state.property.filters);
+  const dispatch = useDispatch();
+  const [sortOption, setSortOption] = useState('');
+  const [propertyType, setPropertyType] = useState('');
+
+
+
 
   const sortOptions = [
     { name: 'Select type', value: '' },
@@ -820,6 +826,13 @@ function PropertyFilter() {
       propertyKey: 'isWaterFront',
       keywords: ['waterfront', 'water front', 'oceanfront', 'beachfront'],
       icon: <ShipWheel />
+    },
+    {
+      title: 'Mountain View',
+      value: 'is_mountain_view',
+      propertyKey: 'isMountainView',
+      keywords: ['mountain view', 'mountain views', 'mountainous'],
+      icon: <Mountain />
     }
   ];
 
@@ -925,7 +938,7 @@ function PropertyFilter() {
       }
 
       const searchUrl = isMlsBypassModeEnabled()
-        ? '/api/mls/search'
+        ? MLS_SEARCH_LIVE_URL
         : (PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search');
 
       const response = await axios.post(
@@ -1023,30 +1036,12 @@ function PropertyFilter() {
       {title}
     </Menu.Item>
   ));
-  const [opened, setOpened] = useState(false);
-
   const toggleCategory = (category: string | null) => {
     if (category === null) {
       setSelectedCategories([]);
     } else {
       setSelectedCategories([category]);
     }
-  };
-
-  const toggleSubCategory = (subcategory: string | null) => {
-    if (subcategory === null) {
-      setSelectedSubCategories([]);
-      return;
-    }
-
-    setSelectedSubCategories(prev => {
-      // If already selected, remove it
-      if (prev.includes(subcategory)) {
-        return prev.filter(item => item !== subcategory);
-      }
-      // Otherwise add it to the array
-      return [...prev, subcategory];
-    });
   };
 
   return (
@@ -1115,8 +1110,8 @@ function PropertyFilter() {
         currentView === 'map' ? 'hidden' : '',
       )}>
         {currentView !== 'map' ? (
-          allProperties?.length ? <p className="text-lg select-none font-medium leading-9 text-grey-370">
-            {allProperties.length} Results Found
+          filteredProperties?.length ? <p className="text-lg select-none font-medium leading-9 text-grey-370">
+            {filteredProperties.length} Results Found
           </p> : <p className="text-lg select-none font-medium leading-9 text-grey-370">
             Snaphomz AI in action
           </p>
@@ -1146,7 +1141,7 @@ function PropertyFilter() {
               </span>
               <button
                 disabled={selectedCompareProperties.length < 2}
-                onClick={() => setShowCompareModal(true)}
+                onClick={() => setComparisonModalOpen(true)}
                 className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${selectedCompareProperties.length >= 2
                   ? 'bg-black text-white hover:bg-gray-800'
                   : 'bg-gray-200 text-gray-400 cursor-not-allowed'
@@ -1307,17 +1302,6 @@ function PropertyFilter() {
 
       ) : ""}
 
-      {/* Comparison Modal */}
-      <PropertyComparisonModal
-        isOpen={showCompareModal}
-        closeModal={() => setShowCompareModal(false)}
-      />
-
-      {/* Comparison Modal */}
-      <PropertyComparisonModal
-        isOpen={showCompareModal}
-        closeModal={() => setShowCompareModal(false)}
-      />
     </section>
 
   );
@@ -1366,12 +1350,12 @@ const FeatureSelector: React.FC<{
         ...prev,
         bedrooms: null
       }));
+      onSelect('All');
     } else {
       setFilters((prev: any) => ({
         ...prev,
         bedrooms: bedValue
       }));
-      // setSelectedBed(bedValue);
       onSelect(bedValue);
     }
   };
@@ -1405,12 +1389,12 @@ const FeatureBathroomSelector: React.FC<{
         ...prev,
         bathrooms: null
       }));
+      onSelect('All');
     } else {
       setFilters((prev: any) => ({
         ...prev,
         bathrooms: bedValue
       }));
-      // setSelectedBed(bedValue);
       onSelect(bedValue);
     }
   };

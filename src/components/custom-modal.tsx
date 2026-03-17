@@ -1,4 +1,4 @@
-import React, { forwardRef, createRef, useEffect, useState } from 'react';
+import React, { forwardRef, createRef, useCallback, useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { cn } from '@/lib/utils';
 
@@ -34,24 +34,24 @@ const CustomModal = forwardRef<HTMLDivElement, ModalProps>(
       setIsPortalOpen(isOpen);
     }, [isOpen]);
 
-    const handleClose = () => {
+    const handleClose = useCallback(() => {
       if (onClose) {
         onClose();
       }
       setIsPortalOpen(false);
-    };
+    }, [onClose]);
 
-    const handleBackdropClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const handleBackdropClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
       if (event.target === event.currentTarget) {
         handleClose();
       }
-    };
+    }, [handleClose]);
 
-    const handleKeyDown = (event: KeyboardEvent) => {
+    const handleKeyDown = useCallback((event: KeyboardEvent) => {
       if (event.key === 'Escape' && !disableEscapeClose) {
         handleClose();
       }
-    };
+    }, [disableEscapeClose, handleClose]);
 
     useEffect(() => {
       const handleEscape = handleKeyDown;
@@ -73,10 +73,13 @@ const CustomModal = forwardRef<HTMLDivElement, ModalProps>(
       <div
         ref={modalRef}
         className={cn(
-          'fixed inset-0 z-30 flex items-center justify-center overflow-auto transition-opacity duration-300',
+          'fixed inset-0 z-50 flex items-center justify-center overflow-auto transition-opacity duration-300',
           isOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
           className,
         )}
+        style={{
+          zIndex: 200,
+        }}
       >
         {!fullScreen && (
           <div
@@ -89,7 +92,7 @@ const CustomModal = forwardRef<HTMLDivElement, ModalProps>(
         )}
         <div
           className={cn(
-            `modal-content relative z-50 m-4 w-full transform overflow-auto rounded-3xl bg-white p-8 shadow-lg transition-transform duration-300 md:min-w-[35rem]`,
+            `modal-content relative z-50 m-4 w-full max-h-[calc(100dvh-2rem)] transform overflow-auto rounded-3xl bg-white p-8 shadow-lg transition-transform duration-300 md:min-w-[35rem]`,
             isOpen ? 'scale-100' : 'scale-95',
             contentClassName,
             fullScreen ? 'h-full w-full rounded-none' : '',

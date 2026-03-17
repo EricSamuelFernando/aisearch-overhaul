@@ -1,5 +1,6 @@
-﻿//  CONFIRMED BACKEND CONTRACT (IMMUTABLE)
+//  CONFIRMED BACKEND CONTRACT (IMMUTABLE)
 // Backend Base URL (set NEXT_PUBLIC_API_BASE_URL in production)
+import { PROPERTY_SEARCH_AI_URL, MLS_SEARCH_LIVE_URL } from '@/shared/constants/env';
 import { isMlsBypassModeEnabled } from './mls-bypass-mode';
 
 const API_BASE =

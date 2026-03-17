@@ -9,7 +9,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { useAppDispatch } from '@/lib/hook';
 import { incrementSearchCount } from '@/slices/onboarding/property-preference';
 import { setPropertyQuery } from '@/slices/property/property-slice';
-import { PROPERTY_SEARCH_AI_URL } from '@/shared/constants/env';
+import { PROPERTY_SEARCH_AI_URL, MLS_SEARCH_LIVE_URL } from '@/shared/constants/env';
 import { error, warning } from '@/components/alert/notify';
 import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 
@@ -86,8 +86,8 @@ export const useSearchManager = () => {
             setIsLoading(true);
 
             try {
-                const searchUrl = isMlsMode
-                    ? '/api/mls/search'
+                const searchUrl = isMlsBypassModeEnabled()
+                    ? MLS_SEARCH_LIVE_URL
                     : (PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search');
 
                 const response = await axios.post(searchUrl, {

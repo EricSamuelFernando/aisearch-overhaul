@@ -367,7 +367,7 @@ import { useAppDispatch, useAppSelector } from '@/lib/hook';
 import { RootState } from '@/lib/store';
 import { success, error } from '../alert/notify';
 import { usePropertyStore } from '@/store/use-property-store';
-import { PROPERTY_SEARCH_AI_URL } from '@/shared/constants/env';
+import { PROPERTY_SEARCH_AI_URL, MLS_SEARCH_LIVE_URL } from '@/shared/constants/env';
 import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { setPropertyQuery } from '@/slices/property/property-slice';
 import { Input } from '../ui/input';
@@ -502,6 +502,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
     setIsLoading,
     setSearchedQuery,
     isLoading,
+    isComparisonModalOpen,
   } = usePropertyStore();
 
   // Replace this with dynamic user fetching logic if needed
@@ -702,7 +703,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
     setSearchedQuery("");
     try {
       const searchUrl = isMlsBypassModeEnabled()
-        ? '/api/mls/search'
+        ? MLS_SEARCH_LIVE_URL
         : (PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search');
 
       const response = await axios.post(
@@ -770,7 +771,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
           bottom: '24px',
           transform: 'translateX(-50%)',
           zIndex: 9999,
-          display: isFooterVisible ? 'none' : 'block',
+          display: (isFooterVisible || isComparisonModalOpen) ? 'none' : 'block',
         }}
       >
         <button
@@ -861,8 +862,9 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
                   placeholderText={searchAnimatedPlaceholder}
                   className="w-full"
                   inputClassName="h-11 w-full rounded-2xl border-0 bg-transparent pl-10 pr-28 text-sm text-gray-900 shadow-none outline-none ring-0 placeholder:text-gray-400 focus-visible:ring-0"
+                  dropdownPosition="top"
                 />
-                <button
+                {/* <button
                   type="button"
                   onClick={toggleSearchMode}
                   title={isMlsMode ? 'MLS mode active. Click to switch to AI search.' : 'AI search active. Click to switch to MLS search.'}
@@ -874,7 +876,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
                   )}
                 >
                   {isMlsMode ? 'AI OFF' : 'AI ON'}
-                </button>
+                </button> */}
                 {searchString ? (
                   <button
                     type="button"

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -23,12 +24,17 @@ const ChooseYourMeans = ({
   ctaLabel = 'Get Started',
   onCtaClick,
 }: ChooseYourMeansProps) => {
-  const handleCtaClick = () => {
+  const router = useRouter();
+
+  const handleCtaClick = (e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
     if (onCtaClick) {
       onCtaClick();
       return;
     }
-    window.location.href = "https://preprod.snaphomz.com/agents";
+    router.push("/agents");
   };
 
   return (
@@ -47,9 +53,12 @@ const ChooseYourMeans = ({
         </p>
 
         {/* Card Grid Layout */}
-        <div className="home-choose-grid grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-10 max-w-[1120px] mx-auto">
+        <div className="home-choose-grid grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6 max-w-[920px] mx-auto">
           {/* Card 1 */}
-          <div className="home-choose-card rounded-[3.25rem] overflow-hidden relative cursor-pointer h-[380px] sm:h-[440px] lg:h-[520px]">
+          <div
+            onClick={() => handleCtaClick()}
+            className="home-choose-card rounded-[2.5rem] overflow-hidden relative cursor-pointer h-[310px] sm:h-[350px] lg:h-[395px]"
+          >
             <img
               src="/assets/images/landing-means.png"
               alt="Your Agent"
@@ -57,19 +66,19 @@ const ChooseYourMeans = ({
             />
             {/* Soft gradient — top is fully clear, darkens only in the bottom 42% */}
             <div
-              className="absolute inset-0 rounded-[3.25rem]"
+              className="absolute inset-0 rounded-[2.5rem]"
               style={{
                 background:
                   'linear-gradient(180deg, rgba(13,17,26,0) 40%, rgba(74,77,82,0.45) 70%, rgba(58,61,67,0.88) 100%)',
               }}
             />
             {/* Text + button */}
-            <div className="absolute inset-x-0 bottom-10 text-white px-6 sm:px-8 text-center">
-              <p className="font-bold text-[2.35rem] leading-none mb-3">Your Agent</p>
-              <p className="text-[1.1rem] sm:text-[1.2rem] text-white/90 mb-7 leading-snug max-w-[280px] mx-auto">{yourAgentDescription}</p>
+            <div className="absolute inset-x-0 bottom-6 text-white px-5 sm:px-6 text-center">
+              <p className="font-bold text-[1.65rem] sm:text-[1.8rem] leading-none mb-2">Your Agent</p>
+              <p className="text-[0.88rem] sm:text-[0.95rem] text-white/90 mb-4 leading-snug max-w-[210px] mx-auto">{yourAgentDescription}</p>
               <button
-                onClick={() => window.location.href = "https://preprod.snaphomz.com/agents"}
-                className="px-9 sm:px-10 py-3.5 bg-black text-white text-[1.1rem] font-semibold rounded-full transition duration-200 hover:bg-black/80 min-w-[170px]"
+                onClick={(e) => handleCtaClick(e)}
+                className="px-6.5 sm:px-7 py-2.5 bg-black text-white text-[0.9rem] font-semibold rounded-full transition duration-200 hover:bg-black/80 min-w-[136px]"
               >
                 {ctaLabel}
               </button>
@@ -77,7 +86,10 @@ const ChooseYourMeans = ({
           </div>
 
           {/* Card 2 */}
-          <div className="home-choose-card rounded-[3.25rem] overflow-hidden relative cursor-pointer h-[380px] sm:h-[440px] lg:h-[520px]">
+          <div
+            onClick={() => handleCtaClick()}
+            className="home-choose-card rounded-[2.5rem] overflow-hidden relative cursor-pointer h-[310px] sm:h-[350px] lg:h-[395px]"
+          >
             <img
               src="/assets/images/landing-means1.png"
               alt="Our Agent"
@@ -85,19 +97,19 @@ const ChooseYourMeans = ({
             />
             {/* Soft gradient — top is fully clear, darkens only in the bottom 42% */}
             <div
-              className="absolute inset-0 rounded-[3.25rem]"
+              className="absolute inset-0 rounded-[2.5rem]"
               style={{
                 background:
                   'linear-gradient(180deg, rgba(198,118,74,0) 36%, rgba(192,118,79,0.44) 68%, rgba(195,121,82,0.82) 100%)',
               }}
             />
             {/* Text + button */}
-            <div className="absolute inset-x-0 bottom-10 text-white px-6 sm:px-8 text-center">
-              <p className="font-bold text-[2.35rem] leading-none mb-3">Our Agent</p>
-              <p className="text-[1.1rem] sm:text-[1.2rem] text-white/90 mb-7 leading-snug max-w-[300px] mx-auto">{ourAgentDescription}</p>
+            <div className="absolute inset-x-0 bottom-6 text-white px-5 sm:px-6 text-center">
+              <p className="font-bold text-[1.65rem] sm:text-[1.8rem] leading-none mb-2">Our Agent</p>
+              <p className="text-[0.88rem] sm:text-[0.95rem] text-white/90 mb-4 leading-snug max-w-[220px] mx-auto">{ourAgentDescription}</p>
               <button
-                onClick={() => window.location.href = "https://preprod.snaphomz.com/agents"}
-                className="px-9 sm:px-10 py-3.5 bg-black text-white text-[1.1rem] font-semibold rounded-full transition duration-200 hover:bg-black/80 min-w-[170px]"
+                onClick={(e) => handleCtaClick(e)}
+                className="px-6.5 sm:px-7 py-2.5 bg-black text-white text-[0.9rem] font-semibold rounded-full transition duration-200 hover:bg-black/80 min-w-[136px]"
               >
                 {ctaLabel}
               </button>

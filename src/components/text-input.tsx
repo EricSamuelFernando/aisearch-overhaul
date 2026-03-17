@@ -26,7 +26,7 @@ const CustomTextInput = ({
         {...props}
         type={type}
         name={name}
-        className={`${props.className} h-12 w-full appearance-none rounded-md border border-solid border-[#c4c4c4] px-3.5 leading-tight text-gray-700 placeholder:text-sm placeholder:text-[#acacac] focus:border-black focus:outline-none`}
+        className={`${props.className} h-12 w-full appearance-none rounded-md border border-solid border-gray-200 px-3.5 leading-tight text-gray-700 placeholder:text-sm placeholder:text-[#acacac] focus:border-black focus:ring-1 focus:ring-black focus:outline-none`}
       />
       {error && <p className='text-xs italic text-red-500'>{errorMessage}</p>}
     </div>

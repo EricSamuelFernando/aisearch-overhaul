@@ -18,7 +18,7 @@ export const UserPasswordInput = ({ label, ...props }: Props) => {
           id={props?.id ? props.id : 'hs-toggle-password'}
           type={showPassword ? 'text' : 'password'}
           autoComplete={props.autoComplete ?? 'new-password'}
-          className='focus-visible:ring-border-0 block h-[72px] w-full rounded-lg border border-solid border-gray-200 pl-4 pr-12 py-2.5 text-[16px] leading-[32px] placeholder:text-[16px] placeholder:leading-[32px] focus:border-grey-210 focus:ring-grey-210 disabled:pointer-events-none disabled:opacity-50 dark:border-grey-210 dark:bg-neutral-900 dark:text-neutral-400 dark:placeholder-neutral-500 dark:focus:ring-grey-210'
+          className='focus-visible:ring-0 block h-[72px] w-full rounded-lg border border-solid border-gray-200 pl-4 pr-12 py-2.5 text-[16px] leading-[32px] placeholder:text-[16px] placeholder:leading-[32px] focus:border-black focus:ring-1 focus:ring-black disabled:pointer-events-none disabled:opacity-50 dark:border-grey-210 dark:bg-neutral-900 dark:text-neutral-400 dark:placeholder-neutral-500 dark:focus:ring-grey-210'
           placeholder={props.placeholder ?? 'Enter password'}
         />
         <button

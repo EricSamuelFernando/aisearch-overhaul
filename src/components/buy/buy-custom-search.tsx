@@ -862,8 +862,9 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
                   placeholderText={searchAnimatedPlaceholder}
                   className="w-full"
                   inputClassName="h-11 w-full rounded-2xl border-0 bg-transparent pl-10 pr-28 text-sm text-gray-900 shadow-none outline-none ring-0 placeholder:text-gray-400 focus-visible:ring-0"
+                  dropdownPosition="top"
                 />
-                <button
+                {/* <button
                   type="button"
                   onClick={toggleSearchMode}
                   title={isMlsMode ? 'MLS mode active. Click to switch to AI search.' : 'AI search active. Click to switch to MLS search.'}
@@ -875,7 +876,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
                   )}
                 >
                   {isMlsMode ? 'AI OFF' : 'AI ON'}
-                </button>
+                </button> */}
                 {searchString ? (
                   <button
                     type="button"

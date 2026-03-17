@@ -234,9 +234,9 @@ export default function NotificationDropdown() {
   return (
     <Menu shadow="md" radius={'lg'} width={280} position="bottom-end">
       <Menu.Target>
-        <UnstyledButton onClick={() => notificationsQuery.refetch()}>
+        <UnstyledButton className="flex items-center justify-center h-10 w-10 sm:h-auto sm:w-auto" onClick={() => notificationsQuery.refetch()}>
           <Indicator color="red" size={12} disabled={!unreadCount}>
-            <BellDot size={24} />
+            <BellDot className="h-7 w-7 sm:h-6 sm:w-6" />
           </Indicator>
         </UnstyledButton>
       </Menu.Target>

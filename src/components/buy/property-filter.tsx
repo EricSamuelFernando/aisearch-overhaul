@@ -720,8 +720,7 @@ function PropertyFilter() {
   const [sortOption, setSortOption] = useState('');
   const [propertyType, setPropertyType] = useState('');
 
-  // State for Comparison Modal
-  const [showCompareModal, setShowCompareModal] = useState(false);
+
 
   const {
     allProperties,
@@ -734,7 +733,9 @@ function PropertyFilter() {
     isCompareMode,
     setCompareMode,
     selectedCompareProperties,
-    clearCompareProperties
+    clearCompareProperties,
+    isComparisonModalOpen,
+    setComparisonModalOpen,
   } = usePropertyStore();
 
   const sortOptions = [
@@ -1146,7 +1147,7 @@ function PropertyFilter() {
               </span>
               <button
                 disabled={selectedCompareProperties.length < 2}
-                onClick={() => setShowCompareModal(true)}
+                onClick={() => setComparisonModalOpen(true)}
                 className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${selectedCompareProperties.length >= 2
                   ? 'bg-black text-white hover:bg-gray-800'
                   : 'bg-gray-200 text-gray-400 cursor-not-allowed'
@@ -1307,17 +1308,6 @@ function PropertyFilter() {
 
       ) : ""}
 
-      {/* Comparison Modal */}
-      <PropertyComparisonModal
-        isOpen={showCompareModal}
-        closeModal={() => setShowCompareModal(false)}
-      />
-
-      {/* Comparison Modal */}
-      <PropertyComparisonModal
-        isOpen={showCompareModal}
-        closeModal={() => setShowCompareModal(false)}
-      />
     </section>
 
   );
@@ -1366,12 +1356,12 @@ const FeatureSelector: React.FC<{
         ...prev,
         bedrooms: null
       }));
+      onSelect('All');
     } else {
       setFilters((prev: any) => ({
         ...prev,
         bedrooms: bedValue
       }));
-      // setSelectedBed(bedValue);
       onSelect(bedValue);
     }
   };
@@ -1405,12 +1395,12 @@ const FeatureBathroomSelector: React.FC<{
         ...prev,
         bathrooms: null
       }));
+      onSelect('All');
     } else {
       setFilters((prev: any) => ({
         ...prev,
         bathrooms: bedValue
       }));
-      // setSelectedBed(bedValue);
       onSelect(bedValue);
     }
   };

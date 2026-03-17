@@ -1505,15 +1505,15 @@ export default function Home() {
         </div>
 
 
-        <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pt-24 pb-10 md:pb-12 text-center">
+        <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pb-10 pt-[18.5rem] text-center sm:pb-12 sm:pt-[20.5rem] md:pt-24 md:pb-12">
 
           {/* ================= TEXT + SEARCH ================= */}
           <div
             ref={heroContentRef}
-            className="home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-4 md:gap-5 md:-mt-2 lg:-mt-4 min-[1280px]:max-[1440px]:translate-x-20"
+            className="home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-3 md:gap-5 md:-mt-2 lg:-mt-4 min-[1280px]:max-[1440px]:translate-x-20"
           >
 
-            <h1 className={`${heroHeadingSize} font-medium leading-snug tracking-tight`}>
+            <h1 className={`${heroHeadingSize} max-w-[320px] text-[2.25rem] font-medium leading-[1.08] tracking-[-0.03em] sm:max-w-[360px] sm:text-[2.6rem] md:max-w-none md:leading-snug md:tracking-tight`}>
               <span className="block">Buying a home</span>
               <span className="block">
                 should be{' '}
@@ -1521,7 +1521,7 @@ export default function Home() {
               </span>
             </h1>
 
-            <p className="home-hero-subtitle text-[1rem] font-medium text-[#CEB28B]">
+            <p className="home-hero-subtitle max-w-[260px] text-[0.9rem] font-medium text-[#CEB28B] sm:max-w-none sm:text-[0.98rem]">
               First end-to-end guided real estate platform
             </p>
 
@@ -1551,13 +1551,13 @@ export default function Home() {
               </div> */}
             </div>
 
-            <div className="-mt-3 flex flex-col md:flex-row md:flex-nowrap items-center gap-y-0.5 md:gap-x-3 justify-center transition-all duration-200">
-              <span className={`text-[1rem] font-medium transition-colors ${heroMetaTextClass}`}>
+            <div className="-mt-1 flex flex-col items-center justify-center gap-y-1 transition-all duration-200 md:-mt-3 md:flex-row md:flex-nowrap md:gap-x-3">
+              <span className={`text-[0.95rem] font-medium transition-colors md:text-[1rem] ${heroMetaTextClass}`}>
                 Conversational Search,
               </span>
               <div className="flex items-center gap-2 md:contents">
                 <span
-                  className={`text-[1rem] font-bold underline transition-colors ${heroMetaAccentClass}`}
+                  className={`text-[0.95rem] font-bold underline transition-colors md:text-[1rem] ${heroMetaAccentClass}`}
                 >
                   Powered by Snaphomz AI.
                 </span>

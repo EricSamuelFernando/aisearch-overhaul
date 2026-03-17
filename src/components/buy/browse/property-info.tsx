@@ -2,13 +2,12 @@
 
 import CustomMap from '@/components/custom-map';
 import { cn } from '@/lib/utils';
-import { useProperty, usePropertyActions } from '@/shared/hooks/useProperty';
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { BuyPropertyCards } from '../buy-property-cards';
-import { usePropertyStore } from '@/store/use-property-store';
-import { incrementSearchCount } from '@/slices/onboarding/property-preference';
 import { setPropertyQuery } from '@/slices/property/property-slice';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useAppDispatch } from '@/lib/hook';
+import { incrementSearchCount } from '@/slices/onboarding/property-preference';
+import { useProperty, usePropertyActions, useFilteredProperties, resolvePropertyCoordinates } from '@/shared/hooks/useProperty';
+import { SUB_CATEGORIES, usePropertyStore } from '@/store/use-property-store';
 import { error, warning } from '@/components/alert/notify';
 import SpeechInput from '@/components/speech-input';
 import axios from 'axios';
@@ -19,6 +18,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import debounce from 'lodash.debounce';
 import { ArrowLeft, Building2, Droplets, Grid2X2, List, Map, MapPinned, Search, ShipWheel, SlidersHorizontal, TreePine, Waves, X } from 'lucide-react';
 import PropertyComparisonModal from '../property-comparison-modal';
+import { BuyPropertyCards } from '../buy-property-cards';
 
 type Props = {};
 type MobileSheetMode = 'collapsed' | 'default' | 'full';
@@ -212,6 +212,7 @@ function PropertyBrowseView({ }: Props) {
     addProperties,
     setSearchedQuery,
     clearProperties,
+    isLoading,
     setIsLoading,
     setLastSearchKey,
     isCompareMode,
@@ -220,8 +221,17 @@ function PropertyBrowseView({ }: Props) {
     clearCompareProperties,
     isComparisonModalOpen,
     setComparisonModalOpen,
+    selectedSubCategories,
+    toggleSubCategory,
+    drawFilteredPropertyIds,
+    setDrawFilteredPropertyIds,
   } = usePropertyStore();
+
   const [selectedProperty, setSelectedProperty] = useState<string>('');
+
+  const featureFilteredProperties = useFilteredProperties();
+  const resultCount = featureFilteredProperties.length;
+
   const dispatch = useAppDispatch();
   const { user } = useAuth();
   const [, setIsSearching] = useState(false);
@@ -248,7 +258,6 @@ function PropertyBrowseView({ }: Props) {
   const mapRef = useRef<HTMLDivElement>(null);
   const [isMapPinned, setIsMapPinned] = useState(true);
   const [mapOverlay, setMapOverlay] = useState<'none' | 'schools'>('none');
-  const [drawFilteredPropertyIds, setDrawFilteredPropertyIds] = useState<string[] | null>(null);
   const [clearDrawSignal, setClearDrawSignal] = useState(0);
   const [showCompactFilters, setShowCompactFilters] = useState(false);
   const [searchSubmitNonce, setSearchSubmitNonce] = useState(0);
@@ -282,64 +291,17 @@ function PropertyBrowseView({ }: Props) {
   const lastHandledSearchSubmitNonceRef = useRef(0);
   const cancelDebouncedSearchRef = useRef<(() => void) | null>(null);
 
-  const subCategories = [
-    {
-      title: 'Pool',
-      value: 'has_pool',
-      propertyKey: 'hasPool',
-      keywords: ['pool'],
-      icon: <Waves className="h-3.5 w-3.5" />
-    },
-    {
-      title: 'Park View',
-      value: 'is_park_view',
-      propertyKey: 'isParkView',
-      keywords: ['park view', 'park views', 'overlooking park'],
-      icon: <TreePine className="h-3.5 w-3.5" />
-    },
-    {
-      title: 'Water View',
-      value: 'is_water_view',
-      propertyKey: 'isWaterView',
-      keywords: ['water view', 'water views', 'ocean view', 'bay view', 'lake view', 'river view'],
-      icon: <Droplets className="h-3.5 w-3.5" />
-    },
-    {
-      title: 'City View',
-      value: 'is_city_view',
-      propertyKey: 'isCityView',
-      keywords: ['city view', 'city views', 'skyline view', 'downtown view'],
-      icon: <Building2 className="h-3.5 w-3.5" />
-    },
-    {
-      title: 'Waterfront',
-      value: 'is_water_front',
-      propertyKey: 'isWaterFront',
-      keywords: ['waterfront', 'water front', 'oceanfront', 'beachfront'],
-      icon: <ShipWheel className="h-3.5 w-3.5" />
-    },
-  ];
-
-  const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>([]);
-
-  const toggleSubCategory = (subcategory: string) => {
-    setSelectedSubCategories((prev) => (
-      prev.includes(subcategory)
-        ? prev.filter((item) => item !== subcategory)
-        : [...prev, subcategory]
-    ));
-  };
 
   const subCategoryAvailability = useMemo(() => {
     const availability: Record<string, boolean> = {};
     if (!allProperties || allProperties.length === 0) {
-      subCategories.forEach((sub) => {
+      SUB_CATEGORIES.forEach((sub) => {
         availability[sub.title] = false;
       });
       return availability;
     }
 
-    subCategories.forEach((sub) => {
+    SUB_CATEGORIES.forEach((sub) => {
       const hasFeature = allProperties.some((p: any) => {
         const listing = p?.listing || p?.data?.listing || p;
         const props = listing?.property || listing?.data || {};
@@ -359,54 +321,14 @@ function PropertyBrowseView({ }: Props) {
     });
 
     return availability;
-  }, [allProperties, subCategories]);
+  }, [allProperties]);
 
-  const displayedProperties = useMemo(() => {
-    if (!Array.isArray(drawFilteredPropertyIds) || drawFilteredPropertyIds.length === 0) {
-      return allProperties;
-    }
 
-    return allProperties.filter((p: any) => {
-      const listingId = resolveListingId(p);
-      return !!listingId && drawFilteredPropertyIds.includes(listingId);
-    });
-  }, [allProperties, drawFilteredPropertyIds]);
+  const coordinates = useMemo(
+    () => resolvePropertyCoordinates(featureFilteredProperties),
+    [featureFilteredProperties]
+  );
 
-  const featureFilteredProperties = useMemo(() => {
-    if (!selectedSubCategories.length) return displayedProperties;
-    return (displayedProperties || []).filter((p: any) => {
-      return selectedSubCategories.every((subCat) => {
-        const sub = subCategories.find((s) => s.title === subCat);
-        if (!sub) return true;
-
-        const listing = p?.listing || p?.data?.listing || p;
-        const props = listing?.property || listing?.data || {};
-        const remarks = listing?.publicRemarks;
-
-        if (props[sub.propertyKey]) return true;
-
-        if (remarks && sub.keywords && sub.keywords.length > 0) {
-          const lowerRemarks = remarks.toLowerCase();
-          return sub.keywords.some((k) => lowerRemarks.includes(k));
-        }
-
-        return false;
-      });
-    });
-  }, [displayedProperties, selectedSubCategories, subCategories]);
-
-  const coordinates = allProperties?.map((property: any) => {
-    const lat = property?.public?.latitude ?? property?._raw_public?.latitude ?? property?._raw_listing?.property?.latitude ?? property?.latitude ?? property?.lat;
-    const lng = property?.public?.longitude ?? property?._raw_public?.longitude ?? property?._raw_listing?.property?.longitude ?? property?.longitude ?? property?.lon;
-    return {
-      id: resolveListingId(property),
-      price: property?.listing?.listPriceLow ?? property?._raw_listing?.listPriceLow ?? property?.price,
-      lat: typeof lat === 'number' ? lat : parseFloat(lat),
-      lng: typeof lng === 'number' ? lng : parseFloat(lng),
-    };
-  }).filter(coord => Number.isFinite(coord.lat) && Number.isFinite(coord.lng));
-
-  const resultCount = displayedProperties.length;
   const hasDrawFilter = Array.isArray(drawFilteredPropertyIds) && drawFilteredPropertyIds.length > 0;
 
   useEffect(() => {
@@ -652,12 +574,11 @@ function PropertyBrowseView({ }: Props) {
         return;
       }
       const requestVersion = ++searchRequestVersionRef.current;
-      // Stable key that identifies query + mode + filters (no lat/lng â€” those are map-move only)
-      const querySearchKey = `${isMlsMode ? 'mls' : 'ai'}||${queryText}||${activeSearchFiltersKey}`;
+      // Stable key that identifies the location query.
+      const querySearchKey = `mls||${queryText}`;
       const fingerprint = JSON.stringify({
-        mode: isMlsMode ? 'mls' : 'ai',
+        mode: 'mls',
         query: queryText,
-        ...activeSearchFilters,
         ...body,
         latitude:
           typeof body?.latitude === 'number' ? Number(body.latitude.toFixed(3)) : body?.latitude,
@@ -679,18 +600,17 @@ function PropertyBrowseView({ }: Props) {
       setIsSearching(true);
       setIsLoading(true);
       try {
-      const searchUrl = MLS_SEARCH_LIVE_URL;
+        const searchUrl = MLS_SEARCH_LIVE_URL;
 
-      const response = await axios.post(
-        searchUrl,
- {
-          ...activeSearchFilters,
-          ...body,
-          query: queryText,
-          radius: 20,
-          from_browse: true,
-          user: user?.id
-        });
+        const response = await axios.post(
+          searchUrl,
+          {
+            ...body,
+            query: queryText,
+            radius: 20,
+            from_browse: true,
+            user: user?.id
+          });
 
         if (requestVersion !== searchRequestVersionRef.current) {
           return;
@@ -731,7 +651,7 @@ function PropertyBrowseView({ }: Props) {
         setIsLoading(false);
       }
     }, 1000),
-    [query, activeSearchFiltersKey, clearProperties, addProperties, setSearchedQuery, setLastSearchKey, setIsLoading, dispatch, isMlsMode],
+    [query, clearProperties, addProperties, setSearchedQuery, setLastSearchKey, setIsLoading, dispatch],
   );
 
   useEffect(() => {
@@ -763,10 +683,8 @@ function PropertyBrowseView({ }: Props) {
     }
 
     // Back-navigation cache check: if we already have results for this exact
-    // query + mode + filters in the Zustand store, show them instantly without
-    // hitting the backend at all.  usePropertyStore.getState() gives the latest
-    // store values without stale-closure issues.
-    const querySearchKey = `${isMlsMode ? 'mls' : 'ai'}||${query.trim()}||${activeSearchFiltersKey}`;
+    // query in the Zustand store, show them instantly.
+    const querySearchKey = `mls||${query.trim()}`;
     const { lastSearchKey, allProperties: cachedProps } = usePropertyStore.getState();
     if (!isManualResubmit && cachedProps.length > 0 && lastSearchKey === querySearchKey) {
       setIsLoading(false); // clear the store's initial isLoading:true
@@ -774,7 +692,7 @@ function PropertyBrowseView({ }: Props) {
     }
 
     sendSearchRequest({});
-  }, [currentView, isSearchModeReady, query, activeSearchFiltersKey, sendSearchRequest, isMlsMode, setIsLoading, searchSubmitNonce]);
+  }, [isSearchModeReady, query, sendSearchRequest, isMlsMode, setIsLoading, searchSubmitNonce]);
 
   if (currentView === 'map') {
     return (
@@ -786,7 +704,7 @@ function PropertyBrowseView({ }: Props) {
                 width="100%"
                 coord={coordinates}
                 zoom={13}
-                properties={displayedProperties}
+                properties={featureFilteredProperties}
                 height="100%"
                 searchQuery={query}
                 showDistricts={mapOverlay === 'schools'}
@@ -811,10 +729,11 @@ function PropertyBrowseView({ }: Props) {
                 useOverlayResultsRail
                 hideControls={mobileSheetMode !== 'collapsed'}
                 onMapMove={(center) => {
-                  // AI search is query-based and should not re-request while panning.
-                  // MLS mode is geo-based and should refresh on map movement.
+                  // Only re-search while panning in MLS mode if WE DON'T have properties.
+                  // Broad queries like "Florida" return a set that shouldn't be cleared by panning.
                   if (!isMlsMode) return;
                   if (!query.trim()) return;
+                  if (allProperties.length > 0) return;
                   sendSearchRequest({ latitude: center.lat, longitude: center.lng });
                 }}
               />
@@ -834,15 +753,15 @@ function PropertyBrowseView({ }: Props) {
                     </button>
                     <p className="text-sm font-semibold text-gray-900">Search</p>
                     <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleClearSearchQuery}
-                      className="text-sm font-medium text-gray-700"
-                    >
-                      Clear
-                    </button>
+                      <button
+                        type="button"
+                        onClick={handleClearSearchQuery}
+                        className="text-sm font-medium text-gray-700"
+                      >
+                        Clear
+                      </button>
+                    </div>
                   </div>
-                </div>
 
                   <form onSubmit={handleTopSearchSubmit} className="px-3 pb-2 pt-2">
                     <div className="relative min-w-0 rounded-full bg-[#efebe6]">
@@ -1058,7 +977,7 @@ function PropertyBrowseView({ }: Props) {
                   >
                     <BuyPropertyCards
                       selectedProperty={selectedProperty}
-                      propertiesOverride={displayedProperties}
+                      propertiesOverride={featureFilteredProperties}
                       overlayMode
                       onOpenCompareModal={() => setComparisonModalOpen(true)}
                     />
@@ -1267,7 +1186,7 @@ function PropertyBrowseView({ }: Props) {
                 <div className="min-h-0 flex-1 overflow-hidden p-3">
                   <BuyPropertyCards
                     selectedProperty={selectedProperty}
-                    propertiesOverride={displayedProperties}
+                    propertiesOverride={featureFilteredProperties}
                     overlayMode
                     onOpenCompareModal={() => setComparisonModalOpen(true)}
                   />
@@ -1301,7 +1220,7 @@ function PropertyBrowseView({ }: Props) {
             'col-span-5',
           )}
         >
-          <BuyPropertyCards selectedProperty={selectedProperty} propertiesOverride={displayedProperties} />
+          <BuyPropertyCards selectedProperty={selectedProperty} propertiesOverride={featureFilteredProperties} />
         </div>
 
         {currentView !== 'grid' ? (
@@ -1337,6 +1256,7 @@ function PropertyBrowseView({ }: Props) {
                 // Only MLS mode is geo-based and needs map-move re-requests
                 if (!isMlsMode) return;
                 if (!query.trim()) return;
+                if (allProperties.length > 0) return;
                 sendSearchRequest({ latitude: center.lat, longitude: center.lng });
               }}
             />

@@ -7,6 +7,7 @@ import {
   useMemo,
   useDeferredValue,
   useCallback,
+  FormEvent,
 } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -246,6 +247,7 @@ export default function HeroLayout({
   const [locationAgents, setLocationAgents] = useState<any[]>(agents);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const mobileSearchContainerRef = useRef<HTMLFormElement>(null);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const query = deferredSearchQuery.toLowerCase().trim();
 
@@ -328,6 +330,23 @@ export default function HeroLayout({
     router.push(`/agents/search?query=${qParam}&mode=${modeParam}`);
   };
 
+  const goToSearchPageForMobile = (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+    const trimmedQuery = searchQuery.trim().toLowerCase();
+    if (!trimmedQuery) return;
+
+    setIsSearchFocused(false);
+
+    const normalizedLocation = normalizeLocationQuery(searchQuery);
+    const mobileMode: SearchMode = normalizedLocation ? 'location' : 'name';
+    const queryForApi = normalizedLocation || trimmedQuery;
+
+    const qParam = encodeURIComponent(queryForApi);
+    const modeParam = encodeURIComponent(mobileMode);
+
+    router.push(`/agents/search?query=${qParam}&mode=${modeParam}`);
+  };
+
   const goToAgentProfile = useCallback(
     (agentId: string) => {
       setIsSearchFocused(false);
@@ -344,10 +363,15 @@ export default function HeroLayout({
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (
+      const target = event.target as Node;
+      const clickedDesktopSearch =
         searchContainerRef.current &&
-        !searchContainerRef.current.contains(event.target as Node)
-      ) {
+        searchContainerRef.current.contains(target);
+      const clickedMobileSearch =
+        mobileSearchContainerRef.current &&
+        mobileSearchContainerRef.current.contains(target);
+
+      if (!clickedDesktopSearch && !clickedMobileSearch) {
         setIsSearchFocused(false);
       }
     }
@@ -511,19 +535,19 @@ export default function HeroLayout({
       </div>
 
       <div className={`text-black relative pt-28 -mt-28 ${className}`}>
-        <div className="relative w-full min-h-[24rem] sm:min-h-[36rem] md:min-h-[42rem] lg:min-h-[48rem] overflow-visible bg-[url('/assets/images/agents-hero.jpg')] bg-cover bg-[center_top] sm:bg-[length:100%_100%] sm:bg-center bg-no-repeat">
-          <div className="absolute inset-0 bg-gradient-to-b from-white/35 via-white/10 to-[#fff6ec]/88 sm:hidden" />
-          <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/40 to-transparent sm:hidden" />
-          <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#fff6ec] via-[#fff6ec]/75 to-transparent sm:hidden" />
+        <div className="relative w-full min-h-[15.5rem] sm:min-h-[36rem] md:min-h-[42rem] lg:min-h-[48rem] overflow-visible bg-[url('/assets/images/agents-hero.jpg')] bg-[length:205%_auto] bg-[center_top] sm:bg-[length:100%_100%] sm:bg-center bg-no-repeat">
+          <div className="absolute inset-0 bg-gradient-to-b from-white/4 via-white/3 to-[#fff6ec]/8 sm:hidden" />
+          <div className="absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-white/6 to-transparent sm:hidden" />
+          <div className="absolute inset-x-0 bottom-0 h-0 sm:hidden" />
 
-          <div className="relative inset-0 h-full flex flex-col items-center justify-start sm:justify-center px-4 sm:px-6 md:px-12 lg:px-20 z-20 pt-24 sm:pt-56 pb-6 sm:pb-0">
-            <h1 className="max-w-[17rem] text-center text-[1.95rem] font-semibold leading-[1.08] text-black drop-shadow-sm sm:max-w-4xl sm:text-[2.75rem] md:text-[3.35rem] sm:leading-tight mb-3 sm:mb-6 sm:drop-shadow-lg">Discover Agent Possibilities
-              <br />
-              <span className=''>With</span>
+          <div className="relative inset-0 h-full flex flex-col items-center justify-start sm:justify-center px-4 sm:px-6 md:px-12 lg:px-20 z-20 pt-20 sm:pt-56 pb-0 sm:pb-0">
+            <h1 className="max-w-[18rem] text-center text-[1.95rem] font-medium leading-[1.15] tracking-[-0.03em] text-black drop-shadow-sm sm:max-w-4xl sm:text-[2.75rem] md:text-[3.35rem] sm:leading-tight mb-3 sm:mb-6 sm:drop-shadow-lg">
+              <span className="block sm:inline">Discover Agent</span>
+              <span className="block sm:inline">Possibilities With</span>
               <span className="italic font-light">Snaphomz</span>
             </h1>
 
-            <div className="w-full max-w-3xl relative mx-auto mt-4 sm:mt-12" ref={searchContainerRef}>
+            <div className="hidden sm:block w-full max-w-3xl relative mx-auto mt-4 sm:mt-12" ref={searchContainerRef}>
               <div className={`relative flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0 w-full min-h-[clamp(52px,4.8vw,60px)] sm:h-[clamp(52px,4.8vw,60px)] bg-white border-[3px] sm:border-4 border-[#C08C73] shadow-xl overflow-hidden px-2 sm:pl-4 sm:pr-1 py-2 sm:py-0 z-30 transition-all duration-300 ${isSearchFocused ? 'rounded-2xl sm:rounded-t-2xl sm:rounded-b-none sm:border-b-0' : 'rounded-[1.15rem] sm:rounded-full'}`}
               >
                 <div className="flex items-center w-full min-w-0">
@@ -653,10 +677,146 @@ export default function HeroLayout({
                 </div>
               )}
             </div>
-
-            {/* Removed the three hero cards below the search bar per request */}
-
           </div>
+        </div>
+
+        <div className="sm:hidden bg-[#FFF6EC] px-2 pb-10 pt-8">
+          <p className="mx-auto max-w-[19rem] text-center text-[0.95rem] leading-8 text-[#6E645A]">
+            Start your journey with the right guide — explore our trusted directory of experienced agents or invite someone you already trust to walk the process with you.
+          </p>
+
+          <form
+            onSubmit={goToSearchPageForMobile}
+            ref={mobileSearchContainerRef}
+            className="mx-auto mt-8 w-[calc(100%-12px)] max-w-[21.5rem] rounded-[1rem] border border-[#D8CCBC] bg-[#FFF6EC] px-4 py-5 shadow-[0_10px_30px_rgba(73,44,22,0.08)]"
+          >
+            <h2 className="text-center text-[1.12rem] font-medium leading-none text-[#201611]">
+              Search For An <span className="font-light">Agent</span>
+            </h2>
+
+            <div className="mt-5 flex items-center rounded-md bg-[#F3E9DE] px-4 py-3.5">
+              <Search className="h-3.5 w-3.5 flex-shrink-0 text-[#C8BBAE]" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setIsSearchFocused(true)}
+                onKeyDown={handleKeyDown}
+                placeholder={placeholderText}
+                className="ml-2 w-full border-none bg-transparent text-[0.82rem] text-[#4D4036] outline-none placeholder:text-[#C0B2A4]"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="ml-2 text-[#B8A999]"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-2 rounded-full bg-[#F3E9DE] p-1">
+              <button
+                type="button"
+                onClick={() => setSearchMode('location')}
+                className={`rounded-full px-3 py-2 text-[0.78rem] font-medium transition-colors ${
+                  searchMode === 'location' ? 'bg-black text-white' : 'text-[#6E645A]'
+                }`}
+              >
+                Location
+              </button>
+              <button
+                type="button"
+                onClick={() => setSearchMode('name')}
+                className={`rounded-full px-3 py-2 text-[0.78rem] font-medium transition-colors ${
+                  searchMode === 'name' ? 'bg-black text-white' : 'text-[#6E645A]'
+                }`}
+              >
+                Agent name
+              </button>
+            </div>
+
+            {isSearchFocused && (
+              <div className="mt-3 max-h-[18rem] overflow-y-auto rounded-xl border border-[#E8D8C8] bg-white">
+                {searchMode === 'location' ? (
+                  <div className="p-3">
+                    <p className="mb-2 text-[0.72rem] text-[#8D8278]">
+                      {query ? `${locationSuggestions.length} locations found` : 'Browse available locations'}
+                    </p>
+                    {locationSuggestions.length > 0 ? (
+                      <div className="flex flex-col divide-y divide-[#F1E6DA]">
+                        {locationSuggestions.map((s) => (
+                          <button
+                            key={`${s.token}:${s.label}`}
+                            type="button"
+                            onClick={() => handleLocationSuggestionClick(s)}
+                            className="flex w-full items-center px-2 py-3 text-left text-[0.82rem] text-[#3F342C]"
+                          >
+                            <span className="mr-3 h-2 w-2 rounded-full bg-[#C8B39F]" />
+                            {s.label}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="py-6 text-center text-[0.78rem] text-[#8D8278]">
+                        Try a different city, area, or region.
+                      </div>
+                    )}
+                  </div>
+                ) : query === '' ? (
+                  <div className="p-4 text-center text-[0.78rem] text-[#8D8278]">
+                    Type a name or email to find an agent.
+                  </div>
+                ) : filteredAgents.length > 0 ? (
+                  <div className="flex flex-col gap-2 p-3">
+                    {filteredAgents.slice(0, 4).map((agent) => (
+                      <button
+                        key={agent.id}
+                        type="button"
+                        onClick={() => goToAgentProfile(agent.id)}
+                        className="flex items-center rounded-lg border border-[#F1E6DA] bg-[#FFFCF8] px-3 py-3 text-left"
+                      >
+                        <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-full border border-[#E9DCCF]">
+                          <Image
+                            src={agent.profile_image_url || '/assets/images/agetn-hero-deop.jpg'}
+                            alt={agent.Name || 'Agent'}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                        <div className="ml-3 min-w-0">
+                          <p className="truncate text-[0.84rem] font-semibold text-[#201611]">
+                            {agent.Name}
+                          </p>
+                          <p className="truncate text-[0.74rem] text-[#7F7267]">
+                            {agent.agentEmail || agent.Location || 'Real Estate Agent'}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                    <button
+                      type="submit"
+                      className="mt-1 rounded-lg bg-black px-3 py-2.5 text-[0.8rem] font-medium text-white"
+                    >
+                      See all results
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-4 text-center text-[0.78rem] text-[#8D8278]">
+                    No agents found. Try adjusting your search.
+                  </div>
+                )}
+              </div>
+            )}
+
+            <p className="mt-5 text-center text-[0.88rem] text-[#7F7267]">
+              Can&apos;t find your agent?{' '}
+              <a href="#" className="font-semibold text-[#201611]">
+                Invite them here
+              </a>
+            </p>
+          </form>
         </div>
       </div>
     </>

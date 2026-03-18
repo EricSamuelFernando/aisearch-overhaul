@@ -9,34 +9,46 @@ const AI_BACKEND = (
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        console.log('[Proxy /api/search] → upstream:', AI_BACKEND, '| query:', body?.query);
+        const { listingId } = body;
+        
+        console.log('[Proxy /api/get_nearby_homes] → upstream:', AI_BACKEND, '| listingId:', listingId);
+
+        if (!listingId) {
+            return NextResponse.json({ error: 'listingId is required' }, { status: 400 });
+        }
 
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 90_000); // 90s max
 
-        const upstream = await fetch(`${AI_BACKEND}/api/search`, {
+        const upstream = await fetch(`${AI_BACKEND}/api/get_nearby_homes`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
             },
-            body: JSON.stringify(body),
+            body: JSON.stringify({ listingId }),
             signal: controller.signal,
         });
 
         clearTimeout(timeout);
 
+        if (!upstream.ok) {
+            const errorText = await upstream.text();
+            console.error('[Proxy /api/get_nearby_homes] Upstream error:', upstream.status, errorText);
+            return NextResponse.json({ error: 'Upstream request failed', detail: errorText }, { status: upstream.status });
+        }
+
         const data = await upstream.json();
-        console.log('[Proxy /api/search] ← upstream status:', upstream.status, '| properties:', data?.properties?.length ?? 0);
+        console.log('[Proxy /api/get_nearby_homes] ← upstream success');
 
         return NextResponse.json(data, { status: upstream.status });
     } catch (err: any) {
         if (err?.name === 'AbortError') {
-            console.error('[Proxy /api/search] Upstream timed out after 90s');
-            return NextResponse.json({ error: 'Search timed out. The AI backend took too long to respond.' }, { status: 504 });
+            console.error('[Proxy /api/get_nearby_homes] Upstream timed out after 90s');
+            return NextResponse.json({ error: 'Request timed out. The AI backend took too long to respond.' }, { status: 504 });
         }
-        console.error('[Proxy /api/search] Error:', err?.message);
-        return NextResponse.json({ error: 'Upstream search failed', detail: err?.message }, { status: 502 });
+        console.error('[Proxy /api/get_nearby_homes] Error:', err?.message);
+        return NextResponse.json({ error: 'Internal server error', detail: err?.message }, { status: 500 });
     }
 }
 

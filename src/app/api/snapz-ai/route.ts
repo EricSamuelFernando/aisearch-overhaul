@@ -118,7 +118,7 @@ async function callOpenAI(
 // Best-effort: a timeout or error on any single property never fails the whole flow.
 
 async function enrichSnapProperties(properties: SnapProperty[]): Promise<SnapProperty[]> {
-  const baseUri = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI || 'https://demo-ai.snaphomz.com';
+  const baseUri = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI || 'https://demo-new-ai.snaphomz.com';
   const detailUrl = `${baseUri}/api/get_data`;
 
   const results = await Promise.allSettled(
@@ -597,7 +597,7 @@ Return ONLY:
 
   const searchUrl = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI
     ? `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api/search`
-    : 'https://demo-ai.snaphomz.com/api/search';
+    : 'https://demo-new-ai.snaphomz.com/api/search';
 
   console.log('[snapz-ai] Calling search URL:', searchUrl);
 

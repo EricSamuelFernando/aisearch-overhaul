@@ -6,9 +6,10 @@ import debounce from 'lodash.debounce';
 import { useSearchParams } from 'next/navigation';
 import { usePropertyStore } from '@/store/use-property-store';
 import { useAuth } from '@/shared/hooks/useAuth';
-import { useAppDispatch } from '@/lib/hook';
+import { useAppDispatch, useAppSelector } from '@/lib/hook';
 import { incrementSearchCount } from '@/slices/onboarding/property-preference';
 import { setPropertyQuery } from '@/slices/property/property-slice';
+import { RootState } from '@/lib/store';
 import { PROPERTY_SEARCH_AI_URL, MLS_SEARCH_LIVE_URL } from '@/shared/constants/env';
 import { error, warning } from '@/components/alert/notify';
 import { isMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
@@ -17,6 +18,8 @@ export const useSearchManager = () => {
     const searchParams = useSearchParams();
     const dispatch = useAppDispatch();
     const { user } = useAuth();
+    const { tempUserId } = useAppSelector((state: RootState) => state.propertyPreference);
+    const userId = user?.id || tempUserId;
 
     const {
         addProperties,
@@ -24,6 +27,8 @@ export const useSearchManager = () => {
         clearProperties,
         setIsLoading,
         setLastSearchKey,
+        sessionId,
+        setSessionId,
     } = usePropertyStore();
 
     const isSearchingRef = useRef(false);
@@ -31,10 +36,10 @@ export const useSearchManager = () => {
     const lastSearchSentAtRef = useRef<number>(0);
 
     const activeSearchFilters = useMemo(() => ({
-        bedrooms: Number(searchParams.get('bedRooms') || '') || undefined,
-        bathrooms: Number(searchParams.get('bathRooms') || '') || undefined,
-        listing_price_min: Number(searchParams.get('priceMin') || '') || undefined,
-        listing_price_max: Number(searchParams.get('priceMax') || '') || undefined,
+        beds: Number(searchParams.get('bedRooms') || '') || undefined,
+        baths: Number(searchParams.get('bathRooms') || '') || undefined,
+        min_price: Number(searchParams.get('priceMin') || '') || undefined,
+        max_price: Number(searchParams.get('priceMax') || '') || undefined,
         listing_property_type: searchParams.get('propertyType') || undefined,
         public_land_use: searchParams.get('subType') || undefined,
     }), [searchParams]);
@@ -92,14 +97,21 @@ export const useSearchManager = () => {
 
                 const response = await axios.post(searchUrl, {
                     ...activeSearchFilters,
-                    ...body,
-                    query,
-                    radius: 20,
+                    ...body, // Overrides from manual filters
+                    userid: userId,
+                    session_id: sessionId,
+                    query: query || body?.query || undefined,
+                    use_cache: true,
                     from_browse: true,
-                    user: user?.id
                 });
 
-                const newProperties = response?.data?.properties || response?.data?.records || response?.data?.result?.records;
+                const data = response?.data;
+                const newProperties = data?.properties || data?.records || data?.result?.records;
+                
+                // Track session if returned
+                if (data?.session_id) {
+                    setSessionId(data.session_id);
+                }
 
                 if (Array.isArray(newProperties) && newProperties.length > 0) {
                     // If it's a fresh search (no lat/lng) or forceRefresh, clear old results
@@ -111,7 +123,7 @@ export const useSearchManager = () => {
                     addProperties(newProperties);
                     setLastSearchKey(querySearchKey);
                     dispatch(incrementSearchCount());
-                    dispatch(setPropertyQuery(response.data?.final_response || response.data?.search_query));
+                    dispatch(setPropertyQuery(data?.final_response || data?.search_query));
                 } else {
                     clearProperties();
                     if (!isMapRefresh) {
@@ -132,7 +144,7 @@ export const useSearchManager = () => {
                 setIsLoading(false);
             }
         }, 1000),
-        [searchParams, activeSearchFilters, activeSearchFiltersKey, clearProperties, addProperties, setSearchedQuery, setLastSearchKey, setIsLoading, dispatch, user?.id]
+        [searchParams, activeSearchFilters, activeSearchFiltersKey, clearProperties, addProperties, setSearchedQuery, setLastSearchKey, setIsLoading, dispatch, userId, sessionId, setSessionId]
     );
 
     return {

@@ -56,6 +56,7 @@ const BuyerProgressButton: React.FC<BuyerProgressButtonProps> = ({
   const { isLoggedIn, user } = useAuth();
   const data = useRegister();
   const { updatePropertyPreference } = useUpdatePropertyPreference(
+    user?.id,
     user?.email || data?.email,
   );
   const [saving, setSaving] = React.useState(false);

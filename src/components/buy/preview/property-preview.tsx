@@ -1132,6 +1132,26 @@ const PropertyPreview: React.FC = () => {
         setTags(data?.data?.tags);
         setPropertyDetails(data?.property_detail);
         persistPreviewContext(data?.data, data);
+
+        // Fetch nearby homes from the new API
+        try {
+          const nearbyResponse = await fetch('/api/get_nearby_homes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ listingId: Number(primaryListingId || listingId || id) })
+          });
+          if (nearbyResponse.ok) {
+            const nearbyData = await nearbyResponse.json();
+            console.log("Successfully fetched nearby homes:", nearbyData);
+            setpropertyDatas((prev: any) => ({
+              ...prev,
+              nearbyHomes: nearbyData.nearbyHomes || [],
+              offtheMarket: nearbyData.offtheMarket || []
+            }));
+          }
+        } catch (nearbyErr) {
+          console.error("Error fetching nearby homes:", nearbyErr);
+        }
       } else {
         const fallbackListing = readPreviewFallbackListing([
           id,
@@ -1151,6 +1171,25 @@ const PropertyPreview: React.FC = () => {
           setTags(fallbackListing?.tags || []);
           setPropertyDetails(data?.property_detail ?? null);
           persistPreviewContext(fallbackListing, data);
+
+          // Fetch nearby homes for fallback as well
+          try {
+            const nearbyResponse = await fetch('/api/get_nearby_homes', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ listingId: Number(primaryListingId || listingId || id) })
+            });
+            if (nearbyResponse.ok) {
+              const nearbyData = await nearbyResponse.json();
+              setpropertyDatas((prev: any) => ({
+                ...prev,
+                nearbyHomes: nearbyData.nearbyHomes || [],
+                offtheMarket: nearbyData.offtheMarket || []
+              }));
+            }
+          } catch (nearbyErr) {
+            console.error("Error fetching nearby homes for fallback:", nearbyErr);
+          }
         } else {
           setpropertyDatas(data);
           setPropertyDetails(data?.property_detail ?? null);
@@ -2054,6 +2093,7 @@ const PropertyPreview: React.FC = () => {
               placeholder={previewIsMlsMode ? 'Enter address, city, neighborhood, or ZIP' : 'Ask anything about homes, neighborhoods, schools'}
               className="h-11 w-full rounded-2xl border-0 bg-transparent pl-10 pr-28 text-sm text-gray-900 shadow-none outline-none ring-0 placeholder:text-gray-400 focus-visible:ring-0"
             />
+            {/* AI ON/OFF toggle button – commented out
             <button
               type="button"
               onClick={togglePreviewSearchMode}
@@ -2065,6 +2105,7 @@ const PropertyPreview: React.FC = () => {
             >
               {previewIsMlsMode ? 'AI OFF' : 'AI ON'}
             </button>
+            */}
             {previewSearchValue ? (
               <button
                 type="button"

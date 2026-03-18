@@ -16,6 +16,7 @@ import {
   HeroCarousel,
   HeroHighlights,
   ListingAgentCard,
+  NearbyHomesSection,
 } from '../preview-hero';
 import { useProperty } from '@/shared/hooks/useProperty';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +33,33 @@ const MLSPropertyPreview: React.FC = () => {
   }>();
 
   const { mlsProperty } = useProperty();
+  const [nearbyData, setNearbyData] = React.useState<{
+    nearbyHomes: any[];
+    offtheMarket: any[];
+  }>({ nearbyHomes: [], offtheMarket: [] });
+
+  React.useEffect(() => {
+    const fetchNearby = async () => {
+      if (!id) return;
+      try {
+        const response = await fetch('/api/get_nearby_homes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ listingId: Number(id) })
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setNearbyData({
+            nearbyHomes: data.nearbyHomes || [],
+            offtheMarket: data.offtheMarket || []
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching nearby homes:", err);
+      }
+    };
+    fetchNearby();
+  }, [id]);
 
   React.useEffect(() => {
     const handleIntersect: IntersectionObserverCallback = (entries) => {
@@ -258,6 +286,16 @@ const MLSPropertyPreview: React.FC = () => {
             <section id='schools' className='my-8 h-fit w-full'>
               <h2 className='mb-4 text-2xl font-bold'>Schools Near by</h2>
               <BuyTable />
+            </section>
+
+            {/** NEARBY HOMES */}
+            <section id='nearby' className='my-8 h-fit w-full'>
+              <NearbyHomesSection
+                nearbyHomes={nearbyData.nearbyHomes}
+                soldHomes={nearbyData.offtheMarket}
+                currentProperty={transformData.mls}
+                currentListingId={id}
+              />
             </section>
           </div>
           <ListingAgentCard

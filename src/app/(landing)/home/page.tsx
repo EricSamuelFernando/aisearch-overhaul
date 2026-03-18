@@ -870,7 +870,7 @@ const HOME_PAGE_TESTIMONIALS = [
   },
 ];
 
-const testimonialHeadingSize = 'text-[2.9rem] sm:text-[3.3rem] md:text-[3.95rem] leading-[0.98] tracking-tight';
+const testimonialHeadingSize = 'text-[1.7rem] sm:text-[2.5rem] md:text-[3.95rem] leading-[0.98] tracking-tight';
 
 // export default function Home() {
 //   const [isOpen, setIsOpen] = useState(false);
@@ -1648,7 +1648,7 @@ export default function Home() {
               </div>
             </Carousel.Slide>
             <Carousel.Slide>
-              <div className="h-[560px] md:h-[620px] xl:h-[660px] flex items-center">
+              <div className="h-[700px] sm:h-[560px] md:h-[620px] xl:h-[660px] flex items-start sm:items-center">
                 <FindPerfectMortgage headingClassName={heroHeadingSize} />
               </div>
             </Carousel.Slide>

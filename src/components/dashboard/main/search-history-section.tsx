@@ -1,8 +1,7 @@
-'use client';
-
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSelector } from 'react-redux';
+import { fetchHistory } from '@/lib/api';
 
 interface HistoryMeta {
   totalItems?: number;
@@ -33,69 +32,72 @@ const SearchHistorySection = () => {
   const [historyMeta, setHistoryMeta] = useState<HistoryMeta>({});
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
-  const AI_BASE_URL = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI || '';
 
   useEffect(() => {
     if (!userData?.id) return;
+
     const controller = new AbortController();
 
     const loadSearchHistory = async () => {
       setHistoryLoading(true);
       setHistoryError(null);
       try {
-        const params = new URLSearchParams({
-          user_id: String(userData.id),
-          page: String(historyPage),
-          per_page: String(historyPerPage),
-        });
-        const base = AI_BASE_URL.replace(/\/$/, '');
-        const response = await fetch(`${base}/api/search_history?${params.toString()}`, {
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          throw new Error('Failed to load search history');
-        }
-        const json = await response.json();
-        const items =
+        const json = await fetchHistory(userData.id, historyPage, historyPerPage, undefined, controller.signal);
+        
+        const rawItems =
           json?.history ||
-          json?.data ||
-          json?.items ||
           json?.results ||
+          (Array.isArray(json?.data) ? json.data : json?.data?.history || json?.data?.results || null) ||
+          json?.items ||
           (Array.isArray(json) ? json : []);
+        
+        const items = Array.isArray(rawItems) ? rawItems : [];
+        const pagination = json?.pagination || json?.data?.pagination;
+        const total = pagination?.total_items ?? json?.total ?? json?.total_items ?? 0;
+        
         const totalPages =
-          json?.pagination?.total_pages ||
+          pagination?.total_pages ||
           json?.total_pages ||
-          (json?.total && historyPerPage
-            ? Math.max(1, Math.ceil(Number(json.total) / historyPerPage))
+          (total && historyPerPage
+            ? Math.max(1, Math.ceil(Number(total) / historyPerPage))
             : 1);
-        setSearchHistory(items);
-        setHistoryTotalPages(totalPages);
-        setHistoryMeta({
-          totalItems: json?.pagination?.total_items ?? json?.total,
-          hasNext: json?.pagination?.has_next_page,
-          hasPrev: json?.pagination?.has_previous_page,
-        });
+
+        if (!controller.signal.aborted) {
+          setSearchHistory(items);
+          setHistoryTotalPages(totalPages);
+          setHistoryMeta({
+            totalItems: total,
+            hasNext: pagination?.has_next_page ?? json?.has_next_page,
+            hasPrev: pagination?.has_previous_page ?? json?.has_previous_page,
+          });
+        }
       } catch (err: any) {
-        if (err?.name !== 'AbortError') {
+        if (err?.name !== 'AbortError' && !controller.signal.aborted) {
           setHistoryError(err?.message || 'Failed to load search history');
           setSearchHistory([]);
         }
       } finally {
-        setHistoryLoading(false);
+        if (!controller.signal.aborted) {
+          setHistoryLoading(false);
+        }
       }
     };
 
     loadSearchHistory();
-    return () => controller.abort();
-  }, [userData?.id, historyPage, historyPerPage, AI_BASE_URL]);
+    
+    return () => {
+      controller.abort();
+    };
+  }, [userData?.id, historyPage, historyPerPage]);
 
   const dedupedHistory = useMemo(() => {
     const seen = new Set<string>();
     const unique: any[] = [];
     for (const item of searchHistory) {
-      const natural = item?.natural_query || item?.query || item?.search || '';
-      const createdAt = item?.timestamp || item?.created_at || item?.createdAt || '';
-      const key = `${natural}__${createdAt}`;
+      const natural = item?.query || item?.natural_query || item?.search || '';
+      const createdAt = item?.created_at || item?.timestamp || item?.createdAt || '';
+      const id = item?.id || '';
+      const key = id || `${natural}__${createdAt}`;
       if (seen.has(key)) continue;
       seen.add(key);
       unique.push(item);
@@ -114,26 +116,25 @@ const SearchHistorySection = () => {
       ) : (
         <div className='space-y-4'>
           <div className='hidden grid-cols-12 gap-3 rounded-lg bg-gray-50 px-4 py-2 text-xs font-semibold uppercase text-gray-500 md:grid'>
-            <div className='col-span-4'>Search</div>
-            <div className='col-span-4'>Location</div>
-            <div className='col-span-2'>Photos</div>
-            <div className='col-span-2'>Date</div>
+            <div className='col-span-12 md:col-span-8'>Search Query</div>
+            <div className='col-span-12 md:col-span-4'>Date</div>
           </div>
 
           <div className='grid grid-cols-1 gap-3'>
             {dedupedHistory.map((item, idx) => {
-              const natural = item?.natural_query || item?.query || item?.search || '';
+              const queryStr = item?.query || item?.natural_query || item?.search || '';
               const searchQuery = item?.search_query || {};
+              
+              // Fallback to query string if location details are missing
               const location = [searchQuery?.address, searchQuery?.city, searchQuery?.state]
                 .filter(Boolean)
                 .join(', ');
-              const photos = searchQuery?.include_photos ? 'Yes' : 'No';
-              const size = searchQuery?.size ? `Size ${searchQuery.size}` : '';
-              const createdAt = item?.timestamp || item?.created_at || item?.createdAt || '';
-              const label = natural || location || `Search ${idx + 1}`;
-              const targetQuery = natural || location || '';
-              const targetUrl = targetQuery
-                ? `/buy/browse?q=${encodeURIComponent(targetQuery)}`
+                
+              const createdAt = item?.created_at || item?.timestamp || item?.createdAt || '';
+              const label = queryStr || location || `Search ${idx + 1}`;
+              
+              const targetUrl = queryStr
+                ? `/buy/browse?q=${encodeURIComponent(queryStr)}`
                 : '/buy/browse';
 
               return (
@@ -145,17 +146,13 @@ const SearchHistorySection = () => {
                   aria-label={`Open results for ${label}`}
                 >
                   <div className='grid grid-cols-1 gap-2 md:grid-cols-12 md:gap-3'>
-                    <div className='md:col-span-4'>
+                    <div className='md:col-span-8'>
                       <p className='text-sm font-semibold text-black'>{label}</p>
-                      {/* {size ? <p className='text-xs text-gray-500'>{size}</p> : null} */}
+                      {location && location !== queryStr && (
+                        <p className='text-xs text-gray-500'>{location}</p>
+                      )}
                     </div>
                     <div className='md:col-span-4'>
-                      <p className='text-sm text-gray-800'>{location || 'N/A'}</p>
-                    </div>
-                    <div className='md:col-span-2'>
-                      <p className='text-sm text-gray-800'>{photos}</p>
-                    </div>
-                    <div className='md:col-span-2'>
                       <p className='text-sm text-gray-800'>
                         {createdAt ? formatTimestamp(createdAt) : 'N/A'}
                       </p>
@@ -195,3 +192,4 @@ const SearchHistorySection = () => {
 };
 
 export default SearchHistorySection;
+

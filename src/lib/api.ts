@@ -26,19 +26,20 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 export type SearchPayload = {
+    userid: string;
     query: string;
-    session_id?: string | null;  //  Added for conversation memory
-    system_prompt?: string | null;
-    assistant_mode?: string | null;
-    state?: string | null;
+    session_id?: string | null;
     city?: string | null;
+    state?: string | null;
     zip_code?: string | null;
     min_price?: number | null;
     max_price?: number | null;
     beds?: number | null;
     baths?: number | null;
-    school_rating_min?: number | null;
+    from_browse?: boolean | null;
     use_cache?: boolean | null;
+    system_prompt?: string | null;
+    assistant_mode?: string | null;
 };
 
 export type RentVsBuyPayload = {
@@ -120,12 +121,14 @@ export async function searchProperties(payload: SearchPayload, signal?: AbortSig
             ...getAuthHeaders(),
         },
         body: JSON.stringify({
+            ...payload,
+            userid: payload.userid,
             query: payload.query,
-            session_id: payload.session_id,  //  Send session ID to backend
-            system_prompt: payload.system_prompt,
-            assistant_mode: payload.assistant_mode,
+            session_id: payload.session_id,
+            from_browse: payload.from_browse ?? true,
+            use_cache: payload.use_cache ?? true,
         }),
-        signal, // Pass signal to fetch
+        signal,
     });
 
     if (!res.ok) {
@@ -230,22 +233,30 @@ export async function cancelActiveTask(session_id: string) {
     }
 }
 
-export async function fetchHistory() {
-    if (isMlsBypassModeEnabled()) return [];
+export async function fetchHistory(userid: string, page: number = 1, per_page: number = 10, session_id?: string, signal?: AbortSignal) {
     try {
-        const res = await fetch(`${API_BASE}/api/history`, {
+        const params = new URLSearchParams({
+            userid,
+            page: String(page),
+            per_page: String(per_page),
+        });
+        if (session_id) params.append('session_id', session_id);
+
+        const res = await fetch(`${API_BASE}/api/search_history?${params.toString()}`, {
             headers: { ...getAuthHeaders() },
+            signal,
         });
         const data = await res.json();
-        return data.sessions || [];
+        // The backend returns { status: 'success', data: { history: [], pagination: {} } }
+        // or { status: 'success', data: { results: [], total: 0, ... } }
+        return data.data || data;
     } catch (e) {
         console.error("Failed to fetch history:", e);
-        return [];
+        return { history: [], pagination: { total_items: 0 } };
     }
 }
 
 export async function fetchSessionDetails(session_id: string) {
-    if (isMlsBypassModeEnabled()) return null;
     try {
         const res = await fetch(`${API_BASE}/api/history/${session_id}`, {
             headers: { ...getAuthHeaders() },
@@ -258,7 +269,6 @@ export async function fetchSessionDetails(session_id: string) {
 }
 
 export async function clearHistoryAPI() {
-    if (isMlsBypassModeEnabled()) return true;
     try {
         const res = await fetch(`${API_BASE}/api/history`, {
             method: 'DELETE',

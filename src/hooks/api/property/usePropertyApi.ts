@@ -316,15 +316,15 @@ export const useGetPropertyByAddress = (address: string) => {
   return { getPropertyAddress };
 };
 
-export const useGetPropertyPreference = (email?: string) => {
-  // AI API query - returns raw response structure
+export const useGetPropertyPreference = (userId?: string) => {
   const getPropertyPreferenceFromAI = useQuery({
-    queryKey: ['property-preference-ai', email],
+    queryKey: ['property-preference-ai', userId],
     queryFn: async () => {
-      if (!email) return null;
+      if (!userId) return null;
       try {
-        const response = await axios.get(`${GET_PROPERTY_SEARCH_PREFERENCE_AI_URL}/${email}`);
-        return response.data || null;
+        const AI_BASE_URL = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI || 'https://demo-new-ai.snaphomz.com';
+        const response = await axios.get(`${AI_BASE_URL}/api/preference/${userId}`);
+        return response?.data || null;
       } catch (err: any) {
         if (err?.response?.status === 404) {
           return null; // Handle 404 as not created yet
@@ -332,7 +332,7 @@ export const useGetPropertyPreference = (email?: string) => {
         throw err;
       }
     },
-    enabled: !!email,
+    enabled: !!userId,
     refetchOnMount: true,
     staleTime: 0,
   });
@@ -342,9 +342,7 @@ export const useGetPropertyPreference = (email?: string) => {
   };
 }
 
-export const useUpdatePropertyPreference = (email?: string) => {
-  const GRAPHQL_URI = process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL || "http://localhost:4000/graphql";
-  const PROPERTY_SEARCH_PREFERENCE_AI_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:5000'}/api/search/preference`;
+export const useUpdatePropertyPreference = (userId?: string, email?: string) => {
   const queryClientHook = useQueryClient();
 
   const updatePropertyPreference = useMutation({
@@ -358,51 +356,31 @@ export const useUpdatePropertyPreference = (email?: string) => {
       city?: string;
       onboardingCompleted?: boolean
     }) => {
-      if (!email) {
-        throw new Error('User email is required to update preferences.');
+      if (!userId || !email) {
+        throw new Error('User ID and email are required to update preferences.');
       }
 
-      let exists = false;
-      try {
-        const getResponse = await axios.get(`${GET_PROPERTY_SEARCH_PREFERENCE_AI_URL}/${email}`);
-        if (getResponse.status === 200 && getResponse.data) {
-          exists = true;
-        }
-      } catch (err: any) {
-        if (err.response?.status !== 404) {
-          console.warn('Error checking existing preference', err);
-        }
-      }
+      const typeStr = data.propertyType || 'property';
+      const areaStr = data.preferredPropertyAddress || data.city || 'any area';
+      const minPrice = data.priceMin || 0;
+      const maxPrice = data.priceMax || 0;
+      
+      const preferenceText = `Looking for a ${typeStr} in ${areaStr}. Budget is between ${minPrice} and ${maxPrice} USD.`;
 
-      if (exists) {
-        // PUT request to update whole preference
-        const payload = {
-          city: data.city || data.preferredPropertyAddress || '',
-          province: data.province || '',
-          mls_type: data.propertyType || '',
-          mostRecentStatus: 'Active',
-          listing_price_min: data.priceMin || 0,
-          listing_price_max: data.priceMax || 0,
-        };
-        const response = await axios.put(`${GET_PROPERTY_SEARCH_PREFERENCE_AI_URL}/${email}`, { preference: payload }, {
+      const AI_BASE_URL = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI || 'https://demo-new-ai.snaphomz.com';
+      const response = await axios.post(
+        `${AI_BASE_URL}/api/search/preference`,
+        {
+          user_id: userId,
+          email: email,
+          preference: preferenceText,
+        },
+        {
           headers: { 'Content-Type': 'application/json' },
-        });
-        return response.data;
-      } else {
-        // POST to create
-        const preferenceText = `Looking for a ${data.propertyType || 'property'} in ${data.preferredPropertyAddress || data.city || ''}. Budget is between ${data.priceMin || 0} and ${data.priceMax || 0} USD`;
-        const response = await axios.post(
-          PROPERTY_SEARCH_PREFERENCE_AI_URL,
-          {
-            user: email,
-            preference: preferenceText,
-          },
-          {
-            headers: { 'Content-Type': 'application/json' },
-          }
-        );
-        return response.data;
-      }
+        }
+      );
+      
+      return response?.data;
     },
     onSuccess: async (data: any) => {
       console.log('Preference updated:', data);

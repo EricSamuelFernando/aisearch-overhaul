@@ -414,22 +414,22 @@ const libraries: Libraries = ['places'];
 function UserPropfilePreference() {
     const { user } = useAuth();
     const [isLoaded, setIsLoaded] = useState(true);
-    const { updatePropertyPreference } = useUpdatePropertyPreference(user?.email);
+    const { updatePropertyPreference } = useUpdatePropertyPreference(user?.id, user?.email);
     const { getPropertyPreferenceFromAI } =
-        useGetPropertyPreference(user?.email);
+        useGetPropertyPreference(user?.id);
 
     // Track whether we've already loaded preference data to prevent re-setting on refetch
     const hasLoadedPreferences = useRef(false);
 
     // Refetch AI API preferences when component mounts to ensure fresh data
     React.useEffect(() => {
-        if (user?.email) {
+        if (user?.id) {
             console.log('🔄 Refetching preferences on mount...');
             hasLoadedPreferences.current = false;
             getPropertyPreferenceFromAI.refetch?.();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user?.email]);
+    }, [user?.id]);
 
     // Initialize preferenceData from user.propertyPreference or fetched preference
     const [preferenceData, setPreferenceData] = useState({
@@ -462,24 +462,41 @@ function UserPropfilePreference() {
 
             // Property type logic
             let propertyType = '';
-            if (aiPreference?.property_sub_type === 'Condo') {
-                propertyType = 'Condomium';
-            } else {
-                propertyType = aiPreference?.mls_type || aiPreference?.propertyType || '';
+            let priceMax = 0;
+            let priceMin = 0;
+            let areaPreference = '';
+
+            if (typeof aiPreference === 'string') {
+                const regex = /^Looking for a (.*?) in (.*?)\. Budget is between (\d+) and (\d+) USD\.$/;
+                const match = aiPreference.match(regex);
+                if (match) {
+                    propertyType = match[1];
+                    areaPreference = match[2];
+                    priceMin = Number(match[3]) || 0;
+                    priceMax = Number(match[4]) || 0;
+                }
+            } else if (typeof aiPreference === 'object' && aiPreference !== null) {
+                if (aiPreference?.property_sub_type === 'Condo') {
+                    propertyType = 'Condomium';
+                } else {
+                    propertyType = aiPreference?.mls_type || aiPreference?.propertyType || '';
+                }
+
+                priceMax = Number(aiPreference?.listing_price_max) || Number(aiPreference?.spendAmount?.max) || 0;
+                priceMin = Number(aiPreference?.listing_price_min) || Number(aiPreference?.spendAmount?.min) || 0;
+
+                if (aiPreference?.city) {
+                    areaPreference = `${aiPreference.city}${aiPreference.state ? `, ${aiPreference.state}` : ''}`;
+                } else {
+                    areaPreference = aiPreference?.preferredPropertyAddress || '';
+                }
             }
+
             if (propertyType === 'Single Family') {
                 propertyType = 'Single Family Home';
             }
-
-            const priceMax = Number(aiPreference?.listing_price_max) || Number(aiPreference?.spendAmount?.max) || 0;
-            const priceMin = Number(aiPreference?.listing_price_min) || Number(aiPreference?.spendAmount?.min) || 0;
-
-            let areaPreference = '';
-            if (aiPreference?.city) {
-                areaPreference = `${aiPreference.city}${aiPreference.state ? `, ${aiPreference.state}` : ''}`;
-            } else {
-                areaPreference = aiPreference?.preferredPropertyAddress || '';
-            }
+            if (propertyType === 'property' || propertyType === 'any') propertyType = '';
+            if (areaPreference === 'any area') areaPreference = '';
 
             // Only set if we have meaningful data
             if (propertyType || areaPreference || priceMax > 0) {

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { PasswordInput2 } from '@/components/password-input-2';
 import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
 import { cn } from '@/lib/utils';
+import CustomInput from '@/components/customs/input';
 
 interface SetPasswordModalFormProps {
   email: string;
@@ -18,10 +19,12 @@ export const SetPasswordModalForm = ({ email, onPasswordSet, onBack }: SetPasswo
   const [showPasswordRules, setShowPasswordRules] = useState(false);
   const form = useForm({
     initialValues: {
+      code: '',
       password: '',
       confirmPassword: '',
     },
     validate: {
+      code: (value) => (value.length === 6 ? null : 'Verification code must be 6 digits'),
       password: (value) => {
         if (!value) return 'Password is required';
         if (value.length < 8) return 'Password must be at least 8 characters';
@@ -42,7 +45,6 @@ export const SetPasswordModalForm = ({ email, onPasswordSet, onBack }: SetPasswo
   });
 
   const { confirmForgotPasswordMutation } = useUserAuthApi();
-  const code = localStorage.getItem('forgotPasswordCode') || '';
 
   const passwordValue = form.values.password || '';
   const passwordChecks = {
@@ -65,16 +67,16 @@ export const SetPasswordModalForm = ({ email, onPasswordSet, onBack }: SetPasswo
 
   const isValid =
     form.isValid() &&
+    form.values.code.length === 6 &&
     form.values.password.length >= 8 &&
     form.values.confirmPassword.length >= 8 &&
-    email &&
-    code;
+    email;
 
-  const handleSubmit = (values: { password: string }) => {
-    if (email && code) {
+  const handleSubmit = (values: any) => {
+    if (email && values.code) {
       confirmForgotPasswordMutation.mutate({
         email,
-        code,
+        code: values.code,
         newPassword: values.password,
       });
     }
@@ -88,95 +90,106 @@ export const SetPasswordModalForm = ({ email, onPasswordSet, onBack }: SetPasswo
         onSubmit={form.onSubmit(handleSubmit)}
         className='mx-auto flex flex-col items-center justify-center space-y-5 pb-5'
       >
-        <div
-          className='w-full max-w-xl'
-          onFocusCapture={() => setShowPasswordRules(true)}
-          onBlurCapture={(event) => {
-            const nextTarget = event.relatedTarget as Node | null;
-            if (!nextTarget || !event.currentTarget.contains(nextTarget)) {
-              setShowPasswordRules(false);
-            }
-          }}
-        >
-          <PasswordInput2
-            placeholder='Enter your new password'
-            className='h-12 placeholder:text-base focus-visible:border focus-visible:border-black focus-visible:ring-0 w-full'
-            {...form.getInputProps('password')}
+        <div className='w-full max-w-xl'>
+          <CustomInput
+            label='Verification Code'
+            placeholder='Enter 6-digit code'
+            className='h-12 placeholder:text-base w-full'
+            containerClass='w-full mb-5'
+            maxLength={6}
+            type='text'
+            {...form.getInputProps('code')}
           />
-          {form.errors.password && (
-            <p className='mt-1 text-sm text-red-600'>{form.errors.password}</p>
-          )}
 
-          {showPasswordRules && (
-            <div className='mt-3 space-y-1 text-sm'>
-              <p className='text-gray-600'>Password must contain:</p>
-              <div
-                className={`flex items-center gap-2 ${passwordChecks.length
-                  ? 'text-green-700'
-                  : passwordValue.length > 0
-                    ? 'text-red-500'
-                    : 'text-gray-500'
-                  }`}
-              >
-                <span>{passwordChecks.length ? '✓' : '○'}</span>
-                <span>At least 8 characters</span>
-              </div>
-              <div
-                className={`flex items-center gap-2 ${passwordChecks.upper
-                  ? 'text-green-700'
-                  : passwordValue.length > 0
-                    ? 'text-red-500'
-                    : 'text-gray-500'
-                  }`}
-              >
-                <span>{passwordChecks.upper ? '✓' : '○'}</span>
-                <span>1 uppercase letter (A-Z)</span>
-              </div>
-              <div
-                className={`flex items-center gap-2 ${passwordChecks.lower
-                  ? 'text-green-700'
-                  : passwordValue.length > 0
-                    ? 'text-red-500'
-                    : 'text-gray-500'
-                  }`}
-              >
-                <span>{passwordChecks.lower ? '✓' : '○'}</span>
-                <span>1 lowercase letter (a-z)</span>
-              </div>
-              <div
-                className={`flex items-center gap-2 ${passwordChecks.number
-                  ? 'text-green-700'
-                  : passwordValue.length > 0
-                    ? 'text-red-500'
-                    : 'text-gray-500'
-                  }`}
-              >
-                <span>{passwordChecks.number ? '✓' : '○'}</span>
-                <span>1 number (0-9)</span>
-              </div>
-              <div
-                className={`flex items-center gap-2 ${passwordChecks.special
-                  ? 'text-green-700'
-                  : passwordValue.length > 0
-                    ? 'text-red-500'
-                    : 'text-gray-500'
-                  }`}
-              >
-                <span>{passwordChecks.special ? '✓' : '○'}</span>
-                <span>1 special character (e.g., !@#$)</span>
-              </div>
-            </div>
-          )}
-
-          <div className='mt-5'>
+          <div
+            onFocusCapture={() => setShowPasswordRules(true)}
+            onBlurCapture={(event) => {
+              const nextTarget = event.relatedTarget as Node | null;
+              if (!nextTarget || !event.currentTarget.contains(nextTarget)) {
+                setShowPasswordRules(false);
+              }
+            }}
+          >
             <PasswordInput2
-              placeholder='Confirm your new password'
+              placeholder='Enter your new password'
               className='h-12 placeholder:text-base focus-visible:border focus-visible:border-black focus-visible:ring-0 w-full'
-              {...form.getInputProps('confirmPassword')}
+              {...form.getInputProps('password')}
             />
-            {form.errors.confirmPassword && (
-              <p className='mt-1 text-sm text-red-600'>{form.errors.confirmPassword}</p>
+            {form.errors.password && (
+              <p className='mt-1 text-sm text-red-600'>{form.errors.password}</p>
             )}
+
+            {showPasswordRules && (
+              <div className='mt-3 space-y-1 text-sm'>
+                <p className='text-gray-600'>Password must contain:</p>
+                <div
+                  className={`flex items-center gap-2 ${passwordChecks.length
+                    ? 'text-green-700'
+                    : passwordValue.length > 0
+                      ? 'text-red-500'
+                      : 'text-gray-500'
+                    }`}
+                >
+                  <span>{passwordChecks.length ? '✓' : '○'}</span>
+                  <span>At least 8 characters</span>
+                </div>
+                <div
+                  className={`flex items-center gap-2 ${passwordChecks.upper
+                    ? 'text-green-700'
+                    : passwordValue.length > 0
+                      ? 'text-red-500'
+                      : 'text-gray-500'
+                    }`}
+                >
+                  <span>{passwordChecks.upper ? '✓' : '○'}</span>
+                  <span>1 uppercase letter (A-Z)</span>
+                </div>
+                <div
+                  className={`flex items-center gap-2 ${passwordChecks.lower
+                    ? 'text-green-700'
+                    : passwordValue.length > 0
+                      ? 'text-red-500'
+                      : 'text-gray-500'
+                    }`}
+                >
+                  <span>{passwordChecks.lower ? '✓' : '○'}</span>
+                  <span>1 lowercase letter (a-z)</span>
+                </div>
+                <div
+                  className={`flex items-center gap-2 ${passwordChecks.number
+                    ? 'text-green-700'
+                    : passwordValue.length > 0
+                      ? 'text-red-500'
+                      : 'text-gray-500'
+                    }`}
+                >
+                  <span>{passwordChecks.number ? '✓' : '○'}</span>
+                  <span>1 number (0-9)</span>
+                </div>
+                <div
+                  className={`flex items-center gap-2 ${passwordChecks.special
+                    ? 'text-green-700'
+                    : passwordValue.length > 0
+                      ? 'text-red-500'
+                      : 'text-gray-500'
+                    }`}
+                >
+                  <span>{passwordChecks.special ? '✓' : '○'}</span>
+                  <span>1 special character (e.g., !@#$)</span>
+                </div>
+              </div>
+            )}
+
+            <div className='mt-5'>
+              <PasswordInput2
+                placeholder='Confirm your new password'
+                className='h-12 placeholder:text-base focus-visible:border focus-visible:border-black focus-visible:ring-0 w-full'
+                {...form.getInputProps('confirmPassword')}
+              />
+              {form.errors.confirmPassword && (
+                <p className='mt-1 text-sm text-red-600'>{form.errors.confirmPassword}</p>
+              )}
+            </div>
           </div>
         </div>
 

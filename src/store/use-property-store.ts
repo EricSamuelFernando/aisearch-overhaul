@@ -71,6 +71,10 @@ interface PropertyStore {
   // Map Drawing Filter
   drawFilteredPropertyIds: string[] | null;
   setDrawFilteredPropertyIds: (ids: string[] | null) => void;
+
+  // AI Search Session
+  sessionId: string | null;
+  setSessionId: (id: string | null) => void;
 }
 
 export const SUB_CATEGORIES = [
@@ -258,4 +262,8 @@ export const usePropertyStore = create<PropertyStore>((set) => ({
   // Map Drawing Filter implementation
   drawFilteredPropertyIds: null,
   setDrawFilteredPropertyIds: (drawFilteredPropertyIds) => set({ drawFilteredPropertyIds }),
+
+  // AI Search Session
+  sessionId: null,
+  setSessionId: (sessionId) => set({ sessionId }),
 }));

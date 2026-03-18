@@ -12,6 +12,12 @@ module "s3" {
   allowed_origins = var.allowed_origins
 }
 
+module "secrets_manager" {
+  source       = "./module/secrets_manager"
+  env          = var.environment
+  project_name = var.project_name
+}
+
 module "lambda" {
   source               = "./module/lambda"
   env                  = var.environment
@@ -38,4 +44,4 @@ module "cloudfront" {
 # prod -> terraform init -backend-config="key=snaphomz-frontend-terraform/prod/terraform.tfstate"
 
 # demo -> terraform plan -var-file="demo.tfvars"
-# prod -> terraform plan -var-file="demo.tfvars"
+# prod -> terraform plan -var-file="prod.tfvars"

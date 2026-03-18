@@ -75,13 +75,18 @@ export default function OurClients({
     <section
       id="testimonials"
       style={{ backgroundColor: bgColor }}
-      className="home-clients-section pt-12 md:pt-16 pb-10 px-4 sm:px-6 lg:px-12 overflow-x-hidden"
+      className="home-clients-section pt-8 md:pt-16 pb-8 md:pb-10 px-4 sm:px-6 lg:px-12 overflow-x-hidden"
     >
-      <div className="max-w-6xl mx-auto text-start pb-6 sm:pb-12">
-        <h2 className={cn('satoshi text-3xl sm:text-4xl font-medium text-left md:text-center', headingClassName)}>
+      <div className="max-w-6xl mx-auto text-start pb-4 sm:pb-12">
+        <h2
+          className={cn(
+            'satoshi whitespace-nowrap text-[1.7rem] leading-tight sm:text-4xl font-medium text-left md:text-center',
+            headingClassName
+          )}
+        >
           What Our Clients <span className="font-light">Say</span>
         </h2>
-        <p className="home-clients-subtitle satoshi text-xs sm:text-sm text-[#8E8B8A] mb-10 md:mb-12 max-w-[600px] mx-auto text-left md:text-center">
+        <p className="home-clients-subtitle satoshi text-xs sm:text-sm text-[#8E8B8A] mb-5 md:mb-12 max-w-[600px] mx-auto text-left md:text-center">
           {subtitle}
         </p>
       </div>
@@ -105,11 +110,11 @@ export default function OurClients({
               <div
                 className="home-clients-card bg-[#EEDFC9] rounded-2xl flex flex-col justify-between"
                 style={{
-                  padding: isMobile ? '24px' : '44px',
+                  padding: isMobile ? '20px' : '44px',
                   minHeight: isMobile ? 'auto' : '320px',
                 }}
               >
-                <div className="text-left mb-6">
+                <div className="text-left mb-4">
                   <h3 className={`font-bold mb-1 ${isMobile ? 'text-sm' : 'text-xl'}`}>{name}</h3>
                   <p className={`text-[#606060] ${isMobile ? 'text-xs' : 'text-md'}`}>{title}</p>
                   <p className={`mt-4 text-[#595858] leading-relaxed ${isMobile ? 'text-xs' : 'text-md'}`}>{text}</p>

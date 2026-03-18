@@ -80,7 +80,7 @@ export const notificationServiceUrl = process.env.NEXT_PUBLIC_NOTIFICATION_SERVI
 
 export const AGENT_APPLICATIONS = process.env.NEXT_PUBLIC_AGENT_URL;
 
-export const mlsDeploymentEnv = process.env.NEXT_PUBLIC_MLS_ENVIROMENT_URL || deploymentEnv || "https://demo-ai.snaphomz.com";
+export const mlsDeploymentEnv = process.env.NEXT_PUBLIC_MLS_ENVIROMENT_URL || deploymentEnv || "https://demo-new-ai.snaphomz.com";
 export const publicDomain = process.env.NEXT_PUBLIC_DOMAIN;
 export const googleMapsUrl = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_URL;
 export const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_MAP_KEY || "";

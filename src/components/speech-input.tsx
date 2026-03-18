@@ -15,6 +15,7 @@ type Props = Readonly<{
   setValue: (val: string) => void;
   onFocus?: () => void;
   onBlur?: () => void;
+  dropdownPosition?: 'top' | 'bottom';
 }>;
 
 function MemoizedSpeechInput({
@@ -26,6 +27,7 @@ function MemoizedSpeechInput({
   placeholderText,
   onFocus,
   onBlur,
+  dropdownPosition = 'bottom',
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -226,7 +228,12 @@ function MemoizedSpeechInput({
 
       {/* Autocomplete Dropdown */}
       {showSuggestions && limitedSuggestions.length > 0 && (
-        <ul className="absolute z-[99999] top-full left-0 right-0 mt-2 max-h-60 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl ring-1 ring-black/5 animate-in fade-in slide-in-from-top-2 duration-200">
+        <ul className={cn(
+          "absolute z-[99999] left-0 right-0 max-h-60 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl ring-1 ring-black/5 animate-in fade-in duration-200",
+          dropdownPosition === 'top' 
+            ? "bottom-full mb-2 slide-in-from-bottom-2" 
+            : "top-full mt-2 slide-in-from-top-2"
+        )}>
           {limitedSuggestions.map((city, index) => (
             <li
               key={index}

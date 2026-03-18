@@ -616,7 +616,7 @@ import FilterDrawer from './browse/filter-drawer';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { usePropertyStore } from '@/store/use-property-store';
 import AutoLoginrModal from '../modals/login-auto-modal';
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Landmark, ShipWheel, Building2, Droplets, TreePine, Waves } from 'lucide-react';
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Landmark, ShipWheel, Building2, Droplets, TreePine, Waves, Mountain } from 'lucide-react';
 import WhatshotIcon from '@mui/icons-material/Whatshot';
 import SchoolIcon from '@mui/icons-material/School';
 import PoolIcon from '@mui/icons-material/Pool';
@@ -635,7 +635,7 @@ import { useAtom } from 'jotai';
 import { filterAtom } from '@/hooks/atoms';
 import { Listbox } from '@headlessui/react';
 import { RootState } from '@/lib/store';
-import { useProperty } from '@/shared/hooks/useProperty';
+import { useProperty, useFilteredProperties } from '@/shared/hooks/useProperty';
 import { cn } from '@/lib/utils';
 import PropertyComparisonModal from './property-comparison-modal';
 
@@ -710,18 +710,6 @@ function PropertyFilter() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>([]);
-  const [showModal, setShowModal] = useState(false);
-  const [isSearching, setIsSearching] = useState(false)
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const searchTerm = searchParams.get('q');
-  const searchFilters = useSelector((state: RootState) => state.property.filters);
-  const dispatch = useDispatch();
-  const [sortOption, setSortOption] = useState('');
-  const [propertyType, setPropertyType] = useState('');
-
-
-
   const {
     allProperties,
     addProperties,
@@ -736,7 +724,24 @@ function PropertyFilter() {
     clearCompareProperties,
     isComparisonModalOpen,
     setComparisonModalOpen,
+    // Subcategory Filters Store
+    selectedSubCategories,
+    toggleSubCategory,
   } = usePropertyStore();
+
+  const filteredProperties = useFilteredProperties();
+
+  const [showModal, setShowModal] = useState(false);
+  const [isSearching, setIsSearching] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const searchTerm = searchParams.get('q');
+  const searchFilters = useSelector((state: RootState) => state.property.filters);
+  const dispatch = useDispatch();
+  const [sortOption, setSortOption] = useState('');
+  const [propertyType, setPropertyType] = useState('');
+
+
+
 
   const sortOptions = [
     { name: 'Select type', value: '' },
@@ -821,6 +826,13 @@ function PropertyFilter() {
       propertyKey: 'isWaterFront',
       keywords: ['waterfront', 'water front', 'oceanfront', 'beachfront'],
       icon: <ShipWheel />
+    },
+    {
+      title: 'Mountain View',
+      value: 'is_mountain_view',
+      propertyKey: 'isMountainView',
+      keywords: ['mountain view', 'mountain views', 'mountainous'],
+      icon: <Mountain />
     }
   ];
 
@@ -1024,30 +1036,12 @@ function PropertyFilter() {
       {title}
     </Menu.Item>
   ));
-  const [opened, setOpened] = useState(false);
-
   const toggleCategory = (category: string | null) => {
     if (category === null) {
       setSelectedCategories([]);
     } else {
       setSelectedCategories([category]);
     }
-  };
-
-  const toggleSubCategory = (subcategory: string | null) => {
-    if (subcategory === null) {
-      setSelectedSubCategories([]);
-      return;
-    }
-
-    setSelectedSubCategories(prev => {
-      // If already selected, remove it
-      if (prev.includes(subcategory)) {
-        return prev.filter(item => item !== subcategory);
-      }
-      // Otherwise add it to the array
-      return [...prev, subcategory];
-    });
   };
 
   return (
@@ -1116,8 +1110,8 @@ function PropertyFilter() {
         currentView === 'map' ? 'hidden' : '',
       )}>
         {currentView !== 'map' ? (
-          allProperties?.length ? <p className="text-lg select-none font-medium leading-9 text-grey-370">
-            {allProperties.length} Results Found
+          filteredProperties?.length ? <p className="text-lg select-none font-medium leading-9 text-grey-370">
+            {filteredProperties.length} Results Found
           </p> : <p className="text-lg select-none font-medium leading-9 text-grey-370">
             Snaphomz AI in action
           </p>

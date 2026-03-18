@@ -430,7 +430,7 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-gray-500">No Snap Collections Found</p>
+                <p className="text-sm text-gray-500" style={{ display: 'none' }}></p>
               )}
             </>
           )}

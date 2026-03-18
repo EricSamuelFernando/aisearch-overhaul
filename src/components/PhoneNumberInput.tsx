@@ -31,10 +31,10 @@ export const PhoneNumberInput = (props: IPhoneNumberInputProps) => {
   };
 
   return (
-    <div className='group flex w-full items-center'>
+    <div className='group flex w-full items-center rounded-md border border-solid border-gray-200 focus-within:border-black focus-within:ring-1 focus-within:ring-black overflow-hidden'>
       <div
-        className='dark:focus:ring-grey-700 z-10 inline-flex h-[72px] flex-shrink-0 appearance-none items-center rounded-l-md border-y border-l border-r-0 border-solid
-        border-[#c4c4c4] bg-white px-3.5 py-2 text-center text-sm font-medium leading-tight text-gray-700 placeholder:text-sm placeholder:text-[#acacac] group-focus:border-black focus:outline-none dark:text-white'
+        className='z-10 inline-flex h-[72px] flex-shrink-0 appearance-none items-center border-r border-gray-200
+        bg-white px-3.5 py-2 text-center text-sm font-medium leading-tight text-gray-700 placeholder:text-sm placeholder:text-[#acacac] focus:outline-none dark:text-white'
       >
         <svg
           fill='none'
@@ -126,7 +126,7 @@ export const PhoneNumberInput = (props: IPhoneNumberInputProps) => {
           {...rest}
           type='tel'
           id='phone-input'
-          className='h-[72px] w-full appearance-none rounded-r-md border-y border-r border-solid border-[#c4c4c4] px-3.5 leading-tight text-gray-700 placeholder:text-sm placeholder:text-[#acacac] group-focus:border-black  focus:outline-none'
+          className='h-[72px] w-full appearance-none border-none px-3.5 leading-tight text-gray-700 placeholder:text-sm placeholder:text-[#acacac] focus:outline-none focus:ring-0'
           pattern='[0-9]{3}-[0-9]{3}-[0-9]{4}'
           required
           inputMode='numeric'

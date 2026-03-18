@@ -3,7 +3,6 @@ name: Deploying microservices frontend DEMO ENV using lambda in AWS
 on:
   push:
     branches:
-      # - demo-deploy
       - release
 
     paths-ignore:
@@ -58,19 +57,27 @@ jobs:
           yarn install --frozen-lockfile
           echo "Package installation completed"
 
-      - name: Build nextjs app
-        run: |
-          export NODE_OPTIONS="--max-old-space-size=4096"
-          npx next telemetry disable
-          yarn build:demo --no-lint
-          echo "NextJS app built successfully"
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Fetch secrets from AWS Secrets Manager
+        run: |
+          aws secretsmanager get-secret-value \
+            --secret-id ${{ secrets.DEMO_SECRET_MANAGER_ARN }} \
+            --query SecretString \
+            --output text | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' > .env.demo
+          echo "Secrets fetched and written to .env.demo"
+
+      - name: Build nextjs app
+        run: |
+          export NODE_OPTIONS="--max-old-space-size=4096"
+          npx next telemetry disable
+          yarn build:demo --no-lint
+          echo "NextJS app built successfully"
 
       - name: Log in to AWS ECR
         run: |

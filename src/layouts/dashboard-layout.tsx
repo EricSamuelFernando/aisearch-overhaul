@@ -15,7 +15,7 @@ type Props = {
 function DashboardLayout({ children }: Readonly<Props>) {
   const pathname = usePathname();
   const { user, isLoggedIn } = useAuth();
-  const { getPropertyPreferenceFromAI } = useGetPropertyPreference(user?.email);
+  const { getPropertyPreferenceFromAI } = useGetPropertyPreference(user?.id);
   const [showPreferenceModal, setShowPreferenceModal] = useState(false);
   const hasPromptedRef = useRef(false);
   const lastUserIdRef = useRef<string | undefined>(undefined);
@@ -55,15 +55,21 @@ function DashboardLayout({ children }: Readonly<Props>) {
     const aiResponse = getPropertyPreferenceFromAI.data;
     const aiPref = aiResponse?.preference;
 
-    if (aiPref && typeof aiPref === 'object') {
-      const hasType = !!(aiPref.mls_type || aiPref.propertyType || aiPref.property_sub_type || aiPref.property_type);
-      const hasLocation = !!(aiPref.city || aiPref.preferredPropertyAddress || aiPref.location || aiPref.address || aiPref.state);
-      const hasPrice = !!(aiPref.listing_price_max || aiPref.spendAmount?.max || aiPref.budget_max || aiPref.price_max || aiPref.listing_price_min);
-
-      if (hasType || hasLocation || hasPrice) {
-        console.log('[DashboardLayout] AI preference data exists — not showing modal');
+    if (aiPref) {
+      if (typeof aiPref === 'string' && aiPref.trim().length > 0) {
+        console.log('[DashboardLayout] AI preference string exists — not showing modal');
         hasPromptedRef.current = true;
         return;
+      } else if (typeof aiPref === 'object') {
+        const hasType = !!(aiPref.mls_type || aiPref.propertyType || aiPref.property_sub_type || aiPref.property_type);
+        const hasLocation = !!(aiPref.city || aiPref.preferredPropertyAddress || aiPref.location || aiPref.address || aiPref.state);
+        const hasPrice = !!(aiPref.listing_price_max || aiPref.spendAmount?.max || aiPref.budget_max || aiPref.price_max || aiPref.listing_price_min);
+
+        if (hasType || hasLocation || hasPrice) {
+          console.log('[DashboardLayout] AI preference object exists — not showing modal');
+          hasPromptedRef.current = true;
+          return;
+        }
       }
     }
 

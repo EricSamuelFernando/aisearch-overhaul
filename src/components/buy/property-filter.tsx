@@ -705,7 +705,9 @@ const dummyProperties = [
 ];
 
 function PropertyFilter() {
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, user } = useAuth();
+  const { tempUserId } = useSelector((state: RootState) => state.propertyPreference);
+  const userId = user?.id || tempUserId;
   const { currentView } = useProperty();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -727,6 +729,8 @@ function PropertyFilter() {
     // Subcategory Filters Store
     selectedSubCategories,
     toggleSubCategory,
+    sessionId,
+    setSessionId,
   } = usePropertyStore();
 
   const filteredProperties = useFilteredProperties();
@@ -912,16 +916,20 @@ function PropertyFilter() {
       addProperties([]);
       setIsLoading(true);
       const requestBody: any = {
+        userid: userId,
         query: searchTerm,
+        session_id: sessionId || undefined,
         // num_records: process.env.SEARCH_RECORDS || 12,
         property_sub_type: selectedCategories?.[0],
         additional_criteria: {},
-        bedrooms: +(searchFilters?.bedRooms ?? '') || undefined,
-        bathrooms: +(searchFilters?.bathRooms ?? '') || undefined,
-        listing_price_max: +(searchFilters?.maxPrice ?? "") || undefined,
-        listing_price_min: +(searchFilters?.minPrice ?? "") || undefined,
+        beds: +(searchFilters?.bedRooms ?? '') || undefined,
+        baths: +(searchFilters?.bathRooms ?? '') || undefined,
+        max_price: +(searchFilters?.maxPrice ?? "") || undefined,
+        min_price: +(searchFilters?.minPrice ?? "") || undefined,
         listing_property_type: selectedSort.value,
-        public_land_use: selectedPropertyType.value
+        public_land_use: selectedPropertyType.value,
+        from_browse: true,
+        use_cache: true,
       };
 
       if (selectedSubCategories.length > 0) {
@@ -945,6 +953,11 @@ function PropertyFilter() {
         searchUrl,
         requestBody
       );
+
+      // Update session ID if returned
+      if (response.data?.session_id) {
+        setSessionId(response.data.session_id);
+      }
 
       let properties = response.data.records || response?.data?.result?.records || [];
 
@@ -992,7 +1005,8 @@ function PropertyFilter() {
         subType: selectedSort?.value || ''
       }))
       dispatch(incrementSearchCount());
-      dispatch(setPropertyQuery(response.data.search_query));
+      const displayQuery = response.data?.final_response || response.data?.search_query || response.data?.result?.search_query;
+      dispatch(setPropertyQuery(displayQuery));
       setSearchedQuery(transformedProperties);
       addProperties(transformedProperties);
 

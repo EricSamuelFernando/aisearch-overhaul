@@ -4,7 +4,6 @@ import { useForm } from '@mantine/form';
 import { Button } from '@/components/ui/button';
 import CustomInput from '@/components/customs/input';
 import { cn } from '@/lib/utils';
-import { success } from '@/components/alert/notify';
 
 interface VerifyPasswordCodeModalFormProps {
   email: string;
@@ -23,7 +22,6 @@ export const VerifyPasswordCodeModalForm = ({ email, onCodeVerify, onBack }: Ver
     if (values?.code) {
       localStorage.setItem('forgotPasswordCode', values.code);
     }
-    success({ message: 'OTP verified successfully' });
     onCodeVerify();
   };
 

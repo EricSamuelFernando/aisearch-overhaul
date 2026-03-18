@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Dialog } from '@headlessui/react';
 import { X } from 'lucide-react';
 
@@ -58,38 +58,29 @@ const SendSnapLinkModal: React.FC<SendSnapLinkModalProps> = ({
     onClose();
   };
 
-  // Generate page numbers to display (simple version)
-  const getPageNumbers = () => {
-    const pages = [];
-    // Always show first, last, current, and neighbors.
-    // Simplifying to show current -1, current, current + 1 for now, or just all if small.
-    // Given the screenshot shows "Prev 1 2 ... 2832 Next", we need logic.
+  const pageNumbers = useMemo(() => {
     if (!totalPages) return [];
 
-    // Simple logic:
     if (totalPages <= 5) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-      if (currentPage <= 3) {
-        pages.push(1, 2, 3, 4, '...');
-        pages.push(totalPages);
-      } else if (currentPage >= totalPages - 2) {
-        pages.push(1, '...');
-        pages.push(totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
-      } else {
-        pages.push(1, '...');
-        pages.push(currentPage - 1, currentPage, currentPage + 1);
-        pages.push('...', totalPages);
-      }
+      return Array.from({ length: totalPages }, (_, index) => index + 1);
     }
-    return pages;
-  };
+
+    if (currentPage <= 3) {
+      return [1, 2, 3, 4, '...', totalPages];
+    }
+
+    if (currentPage >= totalPages - 2) {
+      return [1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+
+    return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
+  }, [currentPage, totalPages]);
 
   return (
     <Dialog open={isOpen} onClose={onClose} className="relative z-50">
       <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
       <div className="fixed inset-0 flex items-center justify-center p-4">
-        <Dialog.Panel className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-lg">
+        <Dialog.Panel className="w-full max-w-lg rounded-2xl bg-white p-4 shadow-lg sm:p-6">
           <div className="flex items-center justify-between mb-6">
             <Dialog.Title className="text-xl font-semibold text-orange-600">
               Send Snap Link
@@ -143,7 +134,30 @@ const SendSnapLinkModal: React.FC<SendSnapLinkModalProps> = ({
 
           {/* Pagination Controls */}
           {totalPages > 1 && onPageChange && (
-            <div className="flex items-center justify-center gap-2 mt-4 text-sm">
+            <>
+              <div className="mt-4 flex items-center justify-between gap-3 text-sm sm:hidden">
+                <button
+                  onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className="rounded-md px-3 py-2 text-gray-500 hover:bg-gray-100 hover:text-orange-600 disabled:opacity-50"
+                >
+                  Prev
+                </button>
+
+                <span className="min-w-0 text-center text-sm font-medium text-gray-600">
+                  Page {currentPage} of {totalPages}
+                </span>
+
+                <button
+                  onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  className="rounded-md px-3 py-2 text-gray-500 hover:bg-gray-100 hover:text-orange-600 disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+
+              <div className="mt-4 hidden items-center justify-center gap-2 text-sm sm:flex">
               <button
                 onClick={() => onPageChange(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
@@ -152,7 +166,7 @@ const SendSnapLinkModal: React.FC<SendSnapLinkModalProps> = ({
                 Prev
               </button>
 
-              {getPageNumbers().map((p, idx) => (
+              {pageNumbers.map((p, idx) => (
                 <button
                   key={idx}
                   onClick={() => typeof p === 'number' ? onPageChange(p) : null}
@@ -173,14 +187,15 @@ const SendSnapLinkModal: React.FC<SendSnapLinkModalProps> = ({
               >
                 Next
               </button>
-            </div>
+              </div>
+            </>
           )}
 
           <div className="mt-6 flex justify-end">
             <button
               onClick={handleSend}
               disabled={selectedUsers.length === 0}
-              className="rounded-lg bg-orange-500 px-6 py-2 text-white font-semibold hover:bg-orange-600 transition disabled:opacity-50"
+              className="w-full rounded-lg bg-orange-500 px-6 py-2 text-white font-semibold hover:bg-orange-600 transition disabled:opacity-50 sm:w-auto"
             >
               Send Link
             </button>

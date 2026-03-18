@@ -3339,6 +3339,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             onChange={(e) => {
                                                 const val = e.target.value;
                                                 setSearchTerm(val);
+                                                if (aiModeActive) {
+                                                    setShowSuggestions(!val.trim() && !isExpanded);
+                                                    setShowAddressSuggestions(false);
+                                                    setShowLocationSuggestions(false);
+                                                }
                                                 setShowAiModeTip(false);
                                                 if (aiModeTipTimerRef.current) {
                                                     clearTimeout(aiModeTipTimerRef.current);
@@ -3347,8 +3352,13 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                 fetchAddressSuggestions(val);
                                             }}
                                             onFocus={() => {
-                                                setShowSuggestions(false);
-                                                onSuggestionsOpen?.(false);
+                                                const shouldShowAiSuggestions = aiModeActive && !isExpanded && !searchTerm.trim();
+                                                setShowSuggestions(shouldShowAiSuggestions);
+                                                if (aiModeActive) {
+                                                    setShowAddressSuggestions(false);
+                                                    setShowLocationSuggestions(false);
+                                                }
+                                                onSuggestionsOpen?.(shouldShowAiSuggestions);
                                                 setShowAiModeTip(false);
                                                 if (aiModeTipTimerRef.current) {
                                                     clearTimeout(aiModeTipTimerRef.current);

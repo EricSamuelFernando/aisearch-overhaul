@@ -26,6 +26,7 @@ interface PropertyState {
   claimProperty: any;
   selectedOffer:any;
   filters: PropertyFilters;
+  sessionId: string | null;
 }
 
 
@@ -47,6 +48,7 @@ const initialState: PropertyState = {
     propertyType: '',
     subType: '',
   },
+  sessionId: null,
 };
 
 const propertySlice = createSlice({
@@ -114,6 +116,9 @@ const propertySlice = createSlice({
     setSearchFilters: (state, action) => {
       state.filters = { ...state.filters, ...action.payload };
     },
+    setSessionId: (state, action) => {
+      state.sessionId = action.payload;
+    },
     resetFilters: (state) => {
       state.filters = {
         bedRooms: null,
@@ -144,6 +149,7 @@ export const {
   createPropertyTourEvent,
   setOffer,
   setSearchFilters,
+  setSessionId,
   resetFilters
 } =
   propertySlice.actions;

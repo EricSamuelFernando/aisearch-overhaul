@@ -209,6 +209,8 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
     setIsLoading,
     setSearchedQuery,
     isLoading,
+    sessionId,
+    setSessionId,
   } = usePropertyStore();
 
   const bedOptions: FeatureOption[] = [
@@ -354,18 +356,24 @@ const FilterDrawer = ({ FeatureSelectorComponent, FeatureBathroomSelector, subCa
         searchUrl,
         {
           ...data,
-          user: userId,
+          userid: userId,
           query: searchQuery,
-          // num_records: process.env.SEARCH_RECORDS || 10,
-          listing_property_type: selectedSort.value || searchFilters.propertyType || undefined,
-          public_land_use: searchFilters.subType || undefined,
+          session_id: sessionId || undefined,
           from_browse: true,
+          use_cache: true,
         }
       );
+      
+      // Update session ID if returned
+      if (response.data?.session_id) {
+        setSessionId(response.data.session_id);
+      }
+
       clearProperties();
       dispatch(incrementSearchCount());
       const responseRecords = response.data?.properties || response.data?.result?.records || response.data?.records || [];
-      dispatch(setPropertyQuery(response.data?.final_response || response.data?.result?.search_query || response.data?.search_query || searchQuery));
+      const displayQuery = response.data?.final_response || response.data?.result?.search_query || response.data?.search_query || searchQuery;
+      dispatch(setPropertyQuery(displayQuery));
       setSearchedQuery(responseRecords);
       addProperties(responseRecords);
       setLoading(false)

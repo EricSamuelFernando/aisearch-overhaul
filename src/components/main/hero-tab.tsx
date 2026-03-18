@@ -1,6 +1,10 @@
 'use client';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { askQuestion, searchProperties, cancelActiveTask, fetchHistory, fetchSessionDetails, clearHistoryAPI, suggestAddresses, fetchThinkingProgress } from '@/lib/api';
+import { useAppDispatch, useAppSelector } from '@/lib/hook';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { initializeTempUserId, incrementSearchCount } from '@/slices/onboarding/property-preference';
+import { usePropertyStore } from '@/store/use-property-store';
 import type { QuestionPayload, AddressSuggestion, ThinkingProgressResponse } from '@/lib/api';
 import { getMlsBypassStorageKey, isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { detectIntent } from '@/lib/chatRouting';
@@ -975,9 +979,17 @@ export default function HeroTab() {
 
 export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchActive, onSuggestionsOpen }: { placeholderText?: string, onSearchStateChange?: (isActive: boolean, searchTerm: string) => void, isSearchActive?: boolean, searchType?: string, showOutline?: boolean, disableAutoExpand?: boolean, onSuggestionsOpen?: (open: boolean) => void }) => {
     // --- Hooks & State ---
-    // Mocked state
-    const searchCount = 0;
-    const user = null;
+    const dispatch = useAppDispatch();
+    const { user } = useAuth();
+    const tempUserId = useAppSelector((state: any) => state.propertyPreference.tempUserId);
+    const { sessionId: globalSessionId, setSessionId: setGlobalSessionId } = usePropertyStore();
+
+    useEffect(() => {
+        if (!tempUserId) {
+            dispatch(initializeTempUserId());
+        }
+    }, [dispatch, tempUserId]);
+
     const [searchTerm, setSearchTerm] = useState('');
     const [showSuggestions, setShowSuggestions] = useState(false);
     // Address autocomplete state
@@ -1005,7 +1017,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     // Menu State for AI Badge
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     // Session State for Conversation Persistence
-    const [sessionId, setSessionId] = useState<string | null>(null);
+    const [sessionId, setLocalSessionId] = useState<string | null>(null);
+    const setSessionId = useCallback((id: string | null) => {
+        setLocalSessionId(id);
+        setGlobalSessionId(id);
+    }, [setGlobalSessionId]);
+    const activeSessionId = sessionId || globalSessionId;
     const [recentSessions, setRecentSessions] = useState<any[]>([]);
     const getInitialMlsBypassMode = () => {
         if (typeof window === 'undefined') return true;
@@ -1073,9 +1090,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
         const loadHistory = async () => {
             try {
-                const sessions = await fetchHistory();
+                const currentUserId = user?.id || tempUserId;
+                if (!currentUserId) return;
+                const sessions = await fetchHistory(currentUserId);
                 if (!cancelled) {
-                    setRecentSessions(Array.isArray(sessions) ? sessions : []);
+                    const historyItems = Array.isArray(sessions?.history) ? sessions.history : Array.isArray(sessions) ? sessions : [];
+                    setRecentSessions(historyItems);
                 }
             } catch (e) {
                 console.error("Failed to fetch history:", e);
@@ -2319,6 +2339,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
             console.log("Fetching properties for:", queryToSearch);
             const data = await searchProperties({
+                userid: user?.id || tempUserId || 'anonymous',
                 query: queryToSearch,
                 session_id: activeSessionId
             }, newController.signal);
@@ -2334,6 +2355,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             if (Array.isArray(data.thinking_steps) && data.thinking_steps.length > 0) {
                 setThinkingSteps(data.thinking_steps);
             }
+            dispatch(incrementSearchCount());
 
             const rawProperties = data.properties || data.search_results || [];
             const aiText = data.final_response || data.answer || data.summary || data.response;

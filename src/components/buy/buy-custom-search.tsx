@@ -503,6 +503,8 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
     setSearchedQuery,
     isLoading,
     isComparisonModalOpen,
+    sessionId,
+    setSessionId,
   } = usePropertyStore();
 
   // Replace this with dynamic user fetching logic if needed
@@ -709,12 +711,21 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
       const response = await axios.post(
         searchUrl,
         {
-          user: userId,
+          userid: userId,
           query: resolvedQuery,
+          session_id: sessionId || undefined,
+          from_browse: true,
+          use_cache: true,
         }
       );
       const searchType = isMlsBypassModeEnabled() ? 'mls' : 'property';
-      const records = response.data?.result?.records ?? response.data?.records ?? [];
+      
+      // Update session ID if returned
+      if (response.data?.session_id) {
+        setSessionId(response.data.session_id);
+      }
+
+      const records = response.data?.properties ?? response.data?.result?.records ?? response.data?.records ?? [];
       const transformedProperties = records.map((p: any) => ({
         data: p,
         type: searchType
@@ -722,7 +733,8 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
 
       clearProperties();
       dispatch(incrementSearchCount());
-      dispatch(setPropertyQuery(response.data?.result?.search_query ?? response.data?.search_query ?? resolvedQuery));
+      const displayQuery = response.data?.final_response ?? response.data?.result?.search_query ?? response.data?.search_query ?? resolvedQuery;
+      dispatch(setPropertyQuery(displayQuery));
       setSearchedQuery(transformedProperties);
       addProperties(transformedProperties);
 

@@ -26,7 +26,7 @@ export const PasswordResetModal = ({ isOpen, setIsOpen }: PasswordResetModalProp
   const handleEmailSubmit = (submittedEmail: string) => {
     setEmail(submittedEmail);
     localStorage.setItem('forgotPasswordEmail', submittedEmail);
-    setCurrentStep('verify');
+    setCurrentStep('set-password');
   };
 
   const handleCodeVerify = () => {
@@ -44,10 +44,8 @@ export const PasswordResetModal = ({ isOpen, setIsOpen }: PasswordResetModalProp
   };
 
   const handleBack = () => {
-    if (currentStep === 'verify') {
+    if (currentStep === 'set-password') {
       setCurrentStep('forgot');
-    } else if (currentStep === 'set-password') {
-      setCurrentStep('verify');
     }
   };
 

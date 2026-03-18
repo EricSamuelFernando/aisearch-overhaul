@@ -5229,7 +5229,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
     const loadHistory = async () => {
       try {
-        const sessions = await fetchHistory();
+        const sessions = await fetchHistory((user as any)?.id);
         if (!cancelled) {
           setRecentSessions(Array.isArray(sessions) ? sessions : []);
         }
@@ -6070,6 +6070,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
       console.log("Fetching properties for:", queryToSearch);
       const data = await searchProperties({
+        userid: (user as any)?.id,
         query: queryToSearch,
         session_id: sessionId
       }, newController.signal);

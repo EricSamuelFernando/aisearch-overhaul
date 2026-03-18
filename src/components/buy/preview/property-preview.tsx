@@ -2093,6 +2093,7 @@ const PropertyPreview: React.FC = () => {
               placeholder={previewIsMlsMode ? 'Enter address, city, neighborhood, or ZIP' : 'Ask anything about homes, neighborhoods, schools'}
               className="h-11 w-full rounded-2xl border-0 bg-transparent pl-10 pr-28 text-sm text-gray-900 shadow-none outline-none ring-0 placeholder:text-gray-400 focus-visible:ring-0"
             />
+            {/* AI ON/OFF toggle button – commented out
             <button
               type="button"
               onClick={togglePreviewSearchMode}
@@ -2104,6 +2105,7 @@ const PropertyPreview: React.FC = () => {
             >
               {previewIsMlsMode ? 'AI OFF' : 'AI ON'}
             </button>
+            */}
             {previewSearchValue ? (
               <button
                 type="button"

@@ -163,6 +163,7 @@ const CustomMap: React.FC<Props> = ({
   const [drawMode, setDrawMode] = useState(false);
   const [drawPolygon, setDrawPolygon] = useState<google.maps.Polygon | null>(null);
   const [drawFilteredMarkerIds, setDrawFilteredMarkerIds] = useState<string[] | null>(null);
+  const [mapViewport, setMapViewport] = useState<google.maps.LatLngBounds | null>(null);
   const shouldHideControls = hideControls && isTouchDevice;
   const featureLayersRef = React.useRef<{
     state?: google.maps.FeatureLayer;
@@ -201,6 +202,7 @@ const CustomMap: React.FC<Props> = ({
   onDrawFilterChangeRef.current = onDrawFilterChange;
   const freehandPathRef = React.useRef<google.maps.LatLngLiteral[]>([]);
   const freehandPreviewLineRef = React.useRef<google.maps.Polyline | null>(null);
+  const refreshTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const containerStyle = {
     height: height || '100%',
@@ -914,41 +916,26 @@ const CustomMap: React.FC<Props> = ({
     lng: coord[0],
   });
 
-  const buildPolygonPaths = (coords: number[][][]) => {
-    return coords.map((ring) => ring.map(toLatLngLiteral));
-  };
-
-  const buildPolygonsForFeature = useCallback((feature: DistrictFeature) => {
+  const getFeatureBounds = useCallback((feature: DistrictFeature) => {
     const geometry = feature.geometry;
-    const polygons: google.maps.Polygon[] = [];
     const bounds: google.maps.LatLngBounds[] = [];
 
-    if (!geometry) return { polygons, bounds };
+    if (!geometry) return bounds;
+
+    const processPolygon = (coords: number[][][]) => {
+      if (coords.length === 0) return;
+      const polyBounds = new google.maps.LatLngBounds();
+      coords[0].forEach((coord) => polyBounds.extend({ lat: coord[1], lng: coord[0] }));
+      bounds.push(polyBounds);
+    };
 
     if (geometry.type === 'Polygon') {
-      const paths = buildPolygonPaths(geometry.coordinates as number[][][]);
-      const polygon = new google.maps.Polygon({ paths });
-      polygons.push(polygon);
-
-      const polygonBounds = new google.maps.LatLngBounds();
-      paths.flat().forEach((pt) => polygonBounds.extend(pt));
-      bounds.push(polygonBounds);
+      processPolygon(geometry.coordinates as number[][][]);
+    } else if (geometry.type === 'MultiPolygon') {
+      (geometry.coordinates as number[][][][]).forEach(processPolygon);
     }
 
-    if (geometry.type === 'MultiPolygon') {
-      const multi = geometry.coordinates as number[][][][];
-      multi.forEach((polyCoords) => {
-        const paths = buildPolygonPaths(polyCoords);
-        const polygon = new google.maps.Polygon({ paths });
-        polygons.push(polygon);
-
-        const polygonBounds = new google.maps.LatLngBounds();
-        paths.flat().forEach((pt) => polygonBounds.extend(pt));
-        bounds.push(polygonBounds);
-      });
-    }
-
-    return { polygons, bounds };
+    return bounds;
   }, []);
 
   useEffect(() => {
@@ -958,16 +945,18 @@ const CustomMap: React.FC<Props> = ({
     districtFeatures.forEach((feature) => {
       const id = getDistrictId(feature);
       if (!cache.has(id)) {
-        const { polygons, bounds } = buildPolygonsForFeature(feature);
-        cache.set(id, { id, feature, polygons, bounds });
+        const bounds = getFeatureBounds(feature);
+        cache.set(id, { id, feature, bounds, polygons: [] });
       }
     });
-
-  }, [isLoaded, mapInstance, districtFeatures, getDistrictId, buildPolygonsForFeature]);
+  }, [isLoaded, mapInstance, districtFeatures, getDistrictId, getFeatureBounds]);
 
   useEffect(() => {
-    if (!isLoaded || !mapInstance || markers.length === 0 || districtFeatures.length === 0) return;
-    if (!showDistricts) {
+    if (!isLoaded || !mapInstance || districtFeatures.length === 0) return;
+
+    // Show districts if the Schools overlay is explicitly ON, or if ANY explore category/search is active.
+    const isExploreActive = showDistricts || activeCategoryKeys.length > 0 || exploreSearchInput.trim().length > 0;
+    if (!isExploreActive) {
       setMatchedDistricts([]);
       return;
     }
@@ -978,48 +967,65 @@ const CustomMap: React.FC<Props> = ({
     }
 
     const cache = districtPolygonCacheRef.current;
+    const viewportBounds = mapInstance.getBounds();
     const matchedIds = new Set<string>();
     const matched: DistrictFeature[] = [];
 
-    for (const marker of markers) {
-      const point = new google.maps.LatLng(marker.lat, marker.lng);
+    for (const feature of districtFeatures) {
+      const id = getDistrictId(feature);
+      const cached = cache.get(id);
+      if (!cached) continue;
 
-      for (const feature of districtFeatures) {
-        const id = getDistrictId(feature);
-        const cached = cache.get(id);
-        if (!cached) continue;
+      let isRelevant = false;
 
-        let contains = false;
-        for (let i = 0; i < cached.polygons.length; i += 1) {
-          const polygon = cached.polygons[i];
-          const bounds = cached.bounds[i];
-          if (bounds && !bounds.contains(point)) continue;
-
-          if (google.maps.geometry.poly.containsLocation(point, polygon)) {
-            contains = true;
+      // 1. Check if any property marker is inside this district (approximate for performance)
+      for (const marker of markers) {
+        const point = { lat: marker.lat, lng: marker.lng };
+        for (const polyBounds of cached.bounds) {
+          if (polyBounds.contains(point)) {
+            isRelevant = true;
             break;
           }
         }
+        if (isRelevant) break;
+      }
 
-        if (contains) {
-          if (!matchedIds.has(id)) {
-            matchedIds.add(id);
-            matched.push(feature);
+      // 2. Check if the district intersects the current viewport
+      if (!isRelevant && viewportBounds) {
+        for (const polyBounds of cached.bounds) {
+          if (viewportBounds.intersects(polyBounds)) {
+            isRelevant = true;
+            break;
           }
-          break;
         }
+      }
+
+      if (isRelevant) {
+        matchedIds.add(id);
+        matched.push(feature);
       }
     }
 
     setMatchedDistricts(matched);
-  }, [isLoaded, mapInstance, markers, districtFeatures, getDistrictId]);
+  }, [
+    isLoaded,
+    mapInstance,
+    markers,
+    showDistricts,
+    activeCategoryKeys,
+    exploreSearchInput,
+    districtFeatures,
+    getDistrictId,
+    mapViewport,
+  ]);
 
   useEffect(() => {
     if (!isLoaded || !mapInstance) return;
 
     mapInstance.data.forEach((feature) => mapInstance.data.remove(feature));
 
-    if (!showDistricts || matchedDistricts.length === 0) return;
+    const isExploreActive = showDistricts || activeCategoryKeys.length > 0 || exploreSearchInput.trim().length > 0;
+    if (!isExploreActive || matchedDistricts.length === 0) return;
 
     mapInstance.data.addGeoJson({
       type: 'FeatureCollection',
@@ -1032,7 +1038,7 @@ const CustomMap: React.FC<Props> = ({
       strokeColor: '#1d4ed8',
       strokeWeight: 2,
     });
-  }, [isLoaded, mapInstance, matchedDistricts, showDistricts]);
+  }, [isLoaded, mapInstance, matchedDistricts, showDistricts, activeCategoryKeys, exploreSearchInput]);
 
   const formatMarkerPriceCompact = (value?: number) => {
     if (!Number.isFinite(value as number) || !value || value <= 0) return '$0';
@@ -1135,6 +1141,8 @@ const CustomMap: React.FC<Props> = ({
       restaurants: '/assets/icons/Restaurants.svg',
       gyms: '/assets/icons/Gym.svg',
       schools: '/assets/icons/Education.svg',
+      hospitals: '/assets/icons/Hospitals.svg',
+      parks: '/assets/icons/Parks.svg',
     };
 
     const assetUrl = categoryKey ? assetByCategory[categoryKey] : undefined;
@@ -1149,6 +1157,7 @@ const CustomMap: React.FC<Props> = ({
       };
     }
 
+    // Improved fallback pin for unknown categories
     const svg = `
 <svg width="32" height="42" viewBox="0 0 32 42" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -1157,12 +1166,13 @@ const CustomMap: React.FC<Props> = ({
     </filter>
   </defs>
   <path d="M16 41 C16 41 3 27 3 16 C3 8.8 9 3 16 3 C23 3 29 8.8 29 16 C29 27 16 41 16 41 Z" fill="${color}" filter="url(#shadow)"/>
-  <circle cx="16" cy="16" r="5" fill="#ffffff"/>
+  <circle cx="16" cy="16" r="6" fill="#ffffff"/>
+  <text x="16" y="17" font-size="10" font-family="sans-serif" font-weight="900" fill="${color}" text-anchor="middle" alignment-baseline="middle">${categoryKey?.charAt(0).toUpperCase() || '?'}</text>
 </svg>`;
     return {
       url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg.trim())}`,
-      scaledSize: new google.maps.Size(28, 38),
-      anchor: new google.maps.Point(14, 36),
+      scaledSize: new google.maps.Size(32, 42),
+      anchor: new google.maps.Point(16, 40),
     };
   };
 
@@ -1376,11 +1386,8 @@ const CustomMap: React.FC<Props> = ({
         if (opts?.categoryKey) {
           if (requestId !== categoryRequestIdRef.current[opts.categoryKey]) return;
           if (!activeCategoryKeysRef.current.has(opts.categoryKey)) return;
-          clearCategoryMarkers(opts.categoryKey);
         } else if (requestId !== searchRequestIdRef.current) {
           return;
-        } else {
-          clearSearchMarkers();
         }
 
         const icon = createCategoryPinIcon(opts?.iconColor ?? '#ef4444', opts?.categoryKey);
@@ -1398,6 +1405,13 @@ const CustomMap: React.FC<Props> = ({
         });
         const finalFiltered = filtered.length > 0 ? filtered : filteredByViewport;
 
+        // Clear existing markers right before we add new ones to avoid flickering
+        if (opts?.categoryKey) {
+          clearCategoryMarkers(opts.categoryKey);
+        } else {
+          clearSearchMarkers();
+        }
+
         const builtMarkers = finalFiltered.map((place) => {
           const loc = place.geometry?.location;
           if (!loc) return null;
@@ -1406,6 +1420,7 @@ const CustomMap: React.FC<Props> = ({
             position: loc,
             title: place.name ?? 'Place',
             icon,
+            zIndex: 100, // Ensure POI markers stay below property markers
             visible: isPointInsideActiveDrawPolygon(loc),
           });
           marker.addListener('click', () => {
@@ -1461,6 +1476,28 @@ const CustomMap: React.FC<Props> = ({
       mapInstance,
     ],
   );
+
+  const refreshExplorePlaces = useCallback((viewportOverride?: google.maps.LatLngBounds) => {
+    if (!mapInstance) return;
+    const bounds = viewportOverride ?? mapInstance.getBounds();
+    if (!bounds) return;
+
+    // Refresh active categories
+    activeCategoryKeys.forEach((key) => {
+      const cfg = quickCategories[key as keyof typeof quickCategories];
+      runTextSearch(cfg.query, {
+        categoryKey: key,
+        iconColor: cfg.color,
+        viewportOverride: bounds,
+      });
+    });
+
+    // Refresh text search
+    const query = exploreSearchInput.trim();
+    if (query) {
+      runTextSearch(query, { viewportOverride: bounds });
+    }
+  }, [mapInstance, activeCategoryKeys, quickCategories, runTextSearch, exploreSearchInput]);
 
 
   const extractPlaceQuery = useCallback((rawQuery: string) => {
@@ -1597,12 +1634,16 @@ const CustomMap: React.FC<Props> = ({
     const { state, county, city } = featureLayersRef.current;
     // Modified by Abhradip Paul showing typescript error
     const styleFn = (options: any) => {
-      if (options.feature.placeId === selectedPlaceId) {
+      const isSelected = options.feature.placeId === selectedPlaceId;
+      const isExploreActive = showDistricts || activeCategoryKeys.length > 0 || exploreSearchInput.trim().length > 0;
+      
+      if (isSelected || (isExploreActive && options.feature.featureType === google.maps.FeatureType.LOCALITY)) {
         return {
-          strokeColor: '#0f172a',
+          strokeColor: isSelected ? '#F07639' : '#1d4ed8', // Sync with SnapHomz orange OR district blue
           strokeWeight: 3,
-          fillColor: '#0f172a',
-          fillOpacity: 0.05,
+          strokeOpacity: 1,
+          fillColor: isSelected ? '#F07639' : '#1d4ed8',
+          fillOpacity: 0.08,
         };
       }
       return null;
@@ -1678,18 +1719,15 @@ const CustomMap: React.FC<Props> = ({
       });
 
     const run = async () => {
-      clearSchoolMarkers();
-
       const matchedEntries = getMatchedEntries();
       const allBounds = matchedEntries.flatMap((entry) => entry.bounds);
       const polygons = matchedEntries.flatMap((entry) => entry.polygons);
-      const viewportBounds = mapInstance.getBounds();
-      const boundsToSearch =
-        allBounds.length > 0
-          ? allBounds
-          : viewportBounds
-            ? [viewportBounds]
-            : [];
+      const boundsToSearch = allBounds.length > 0 ? allBounds : mapViewport ? [mapViewport] : [];
+
+      if (boundsToSearch.length === 0) {
+        clearSchoolMarkers();
+        return;
+      }
 
       const allPlaces: google.maps.places.PlaceResult[] = [];
       for (const bounds of boundsToSearch) {
@@ -1717,11 +1755,12 @@ const CustomMap: React.FC<Props> = ({
         : uniquePlaces;
       const placesToRender = filtered.length > 0 ? filtered : uniquePlaces;
 
-      const schoolIconUrl = '/assets/icons/Education.svg';
+      // Only clear markers right before we redraw to avoid flickering / "icons removed"
+      clearSchoolMarkers();
 
+      const schoolIconUrl = '/assets/icons/Education.svg';
       const markers = placesToRender.map((place) => {
         const location = place.geometry!.location;
-        // Modified by Abhradip Paul showing typescript error
         if (!location?.lat() || !location?.lng()) return;
         const position = { lat: location.lat(), lng: location.lng() };
         const marker = new google.maps.Marker({
@@ -1785,7 +1824,6 @@ const CustomMap: React.FC<Props> = ({
         return marker;
       });
 
-      // Modified by Abhradip Paul showing typescript error
       (schoolMarkersRef.current as any) = markers.filter(Boolean);
     };
 
@@ -1796,7 +1834,7 @@ const CustomMap: React.FC<Props> = ({
   }, [
     isLoaded,
     mapInstance,
-    matchedDistricts,
+    mapViewport, // Use the debounced mapViewport instead of matchedDistricts
     showDistricts,
     getDistrictId,
     fetchPlaceDetails,
@@ -2674,15 +2712,24 @@ const CustomMap: React.FC<Props> = ({
           // (drag/zoom). Prevents initial/programmatic idles from overriding
           // a freshly typed location search with stale previous-area results.
           if (!userMovedMapRef.current) return;
-          if (mapInstance && onMapMove) {
+          if (mapInstance) {
             const center = mapInstance.getCenter();
             const bounds = mapInstance.getBounds();
             if (center && bounds) {
-              userMovedMapRef.current = false;
-              onMapMove(
-                { lat: center.lat(), lng: center.lng() },
-                bounds
-              );
+              // Debounce viewport-based refreshes to avoid flickering and infinite-zoom loops
+              // when fitBounds is triggered elsewhere.
+              if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+              refreshTimerRef.current = setTimeout(() => {
+                setMapViewport(bounds);
+                refreshExplorePlaces(bounds);
+              }, 150);
+
+              if (onMapMove) {
+                onMapMove(
+                  { lat: center.lat(), lng: center.lng() },
+                  bounds
+                );
+              }
             }
           }
         }}
@@ -2748,7 +2795,11 @@ const CustomMap: React.FC<Props> = ({
               key={marker.markerKey}
               position={{ lat: marker.lat, lng: marker.lng }}
               icon={createCustomMarker(marker.price, isSelectedMarker, isHoveredMapMarker)}
-              options={{ clickable: !drawMode && isMarkerVisible, visible: isMarkerVisible }}
+              options={{ 
+                clickable: !drawMode && isMarkerVisible, 
+                visible: isMarkerVisible,
+                zIndex: isSelectedMarker || isHoveredMapMarker ? 2000 : 1500 // Always stay above POI markers
+              }}
               onMouseOver={() => {
                 if (drawMode || !isMarkerVisible || isTouchDevice) return;
                 setHoveredMarker(marker);

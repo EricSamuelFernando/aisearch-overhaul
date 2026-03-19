@@ -22,7 +22,9 @@ interface SendSnapLinkModalProps {
   totalPages?: number;
   onPageChange?: (page: number) => void;
   total?: number;
-  loading?: boolean
+  loading?: boolean;
+  onSearch?: (query: string) => void;
+  isSearching?: boolean;
 }
 
 {/* Modified here by Abhradip Paul loading is not defined in the props*/ }
@@ -36,7 +38,9 @@ const SendSnapLinkModal: React.FC<SendSnapLinkModalProps> = ({
   totalPages = 1,
   onPageChange,
   total,
-  loading
+  loading,
+  onSearch,
+  isSearching
 }) => {
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
 
@@ -93,8 +97,19 @@ const SendSnapLinkModal: React.FC<SendSnapLinkModalProps> = ({
             </button>
           </div>
 
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Search by name or email..."
+              onChange={(e) => onSearch?.(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 text-sm"
+            />
+          </div>
+
           <div className="space-y-4 max-h-60 overflow-y-auto min-h-[200px]">
-            {users.length === 0 ? (
+            {isSearching ? (
+              <p className="text-center text-gray-500 py-8">Searching...</p>
+            ) : users.length === 0 ? (
               <p className="text-center text-gray-500 py-8">No users found.</p>
             ) : (
               users.map((user: any) => {
@@ -133,7 +148,7 @@ const SendSnapLinkModal: React.FC<SendSnapLinkModalProps> = ({
           </div>
 
           {/* Pagination Controls */}
-          {totalPages > 1 && onPageChange && (
+          {totalPages > 1 && onPageChange && !isSearching && (
             <>
               <div className="mt-4 flex items-center justify-between gap-3 text-sm sm:hidden">
                 <button

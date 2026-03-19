@@ -119,8 +119,51 @@ export default function SnapDetailsPage() {
     // Invite logic state (reused from account page)
     const [inviteUsers, setInviteUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
-    const { getAllAgents } = useUserSnapAPIs();
-    const { createParticipents, deleteSnap, updateSnap, getAllSnaps, getAllSnapsProperties, getSnapById } = useUserSnapAPIs();
+    const { 
+        getAllAgents, 
+        createParticipents, 
+        deleteSnap, 
+        updateSnap, 
+        getAllSnaps, 
+        getAllSnapsProperties, 
+        getSnapById,
+        getAgents 
+    } = useUserSnapAPIs();
+
+    const [searchQuery, setSearchQuery] = useState("");
+    const [isSearching, setIsSearching] = useState(false);
+
+    const fetchAgents = (page: number, search?: string) => {
+        setIsSearching(true);
+        getAllAgents.mutate({ limit: INVITE_LIMIT, offset: (page - 1) * INVITE_LIMIT, search: search || undefined }, {
+            onSuccess: (res: any) => {
+                setInviteUsers(res?.users || []);
+                const total = res?.total || 0;
+                setInviteTotalPages(Math.ceil(total / INVITE_LIMIT));
+                setIsSearching(false);
+            },
+            onError: () => {
+                setIsSearching(false);
+            }
+        });
+    };
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (isModalOpen === "share") {
+                setInvitePage(1);
+                fetchAgents(1, searchQuery.trim());
+            }
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    useEffect(() => {
+        if (isModalOpen === "share" && !searchQuery.trim()) {
+            fetchAgents(invitePage);
+        }
+    }, [isModalOpen]);
 
     useEffect(() => {
         if (id && userData?.id) {
@@ -205,25 +248,16 @@ export default function SnapDetailsPage() {
     const [inviteTotalPages, setInviteTotalPages] = useState(1);
     const INVITE_LIMIT = 10;
 
-    const fetchAgents = (page: number) => {
-        getAllAgents.mutate({ limit: INVITE_LIMIT, offset: (page - 1) * INVITE_LIMIT }, {
-            onSuccess: (res: any) => {
-                setInviteUsers(res?.users || []);
-                const total = res?.total || 0;
-                setInviteTotalPages(Math.ceil(total / INVITE_LIMIT));
-            }
-        });
-    };
 
     const handleSendInvitation = () => {
         setIsModalOpen("share");
         setInvitePage(1);
-        fetchAgents(1);
+        setSearchQuery(""); // Reset search on open
     };
 
     const handlePageChange = (page: number) => {
         setInvitePage(page);
-        fetchAgents(page);
+        fetchAgents(page, searchQuery.trim());
     };
 
     const inviteCollaborator = (email: string, type: 'agent' | 'co-buyer' | 'other') => {
@@ -666,6 +700,8 @@ export default function SnapDetailsPage() {
                 totalPages={inviteTotalPages}
                 onPageChange={handlePageChange}
                 onSend={handleBatchInvite}
+                onSearch={setSearchQuery}
+                isSearching={isSearching}
             />
         </main>
     );

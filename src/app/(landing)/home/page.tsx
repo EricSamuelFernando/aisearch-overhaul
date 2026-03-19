@@ -1208,24 +1208,13 @@ export default function Home() {
     '/assets/images/home-landing1.png',
   ];
 
-  const mobileCardImages = [
-    '/assets/images/home-landing-1.png',
-    '/assets/images/home-landing-2.png',
-    '/assets/images/home-landing-3.png',
-    '/assets/images/home-landing-4.png',
-    '/assets/images/home-landing-5.png',
-    '/assets/images/home-landing-6.png',
-    '/assets/images/home-landing-7.png',
-    '/assets/images/home-landing-8.png',
-  ];
-
   const mobileHeroCards = [
-    { left: '-10px', top: '206px', width: '62px', height: '92px', rotation: 18, imageIndex: 7, imageScale: 1.12 },
-    { left: '18px', top: '150px', width: '74px', height: '104px', rotation: -42, imageIndex: 2, imageScale: 1.1 },
-    { left: '122px', top: '96px', width: '98px', height: '80px', rotation: -16, imageIndex: 3, imageScale: 1.05 },
-    { left: '236px', top: '96px', width: '86px', height: '102px', rotation: 14, imageIndex: 4, imageScale: 1.05 },
-    { left: '340px', top: '138px', width: '96px', height: '86px', rotation: 31, imageIndex: 5, imageScale: 1.08 },
-    { left: '438px', top: '200px', width: '64px', height: '96px', rotation: 34, imageIndex: 6, imageScale: 1.1 },
+    { left: '5px', top: '206px', width: '66px', height: '98px', rotation: 18, src: '/assets/images/home-landing1.png', imageScale: 1.08 },
+    { left: '18px', top: '118px', width: '86px', height: '124px', rotation: -42, src: '/assets/images/home-landing8.png', imageScale: 1.08 },
+    { left: '104px', top: '70px', width: '108px', height: '90px', rotation: -15, src: '/assets/images/home-landing6.png', imageScale: 1.02 },
+    { left: '220px', top: '74px', width: '108px', height: '96px', rotation: 14, src: '/assets/images/home-landing3.png', imageScale: 1.04 },
+    { left: '334px', top: '110px', width: '102px', height: '98px', rotation: 36, src: '/assets/images/home-landing2.png', imageScale: 1.07 },
+    { left: '420px', top: '204px', width: '66px', height: '98px', rotation: 22, src: '/assets/images/home-landing4.png', imageScale: 1.08 },
   ];
 
   return (
@@ -1484,7 +1473,7 @@ export default function Home() {
           </div>
           {/* ================= MOBILE ARC ================= */}
           <div className="relative w-full md:hidden pointer-events-none">
-            <div className="absolute left-1/2 top-[5.1rem] h-[280px] w-[470px] -translate-x-1/2 overflow-hidden sm:top-[5.95rem] sm:h-[292px] sm:w-[494px]">
+            <div className="absolute left-1/2 top-[5.3rem] h-[270px] w-[430px] -translate-x-1/2 overflow-visible sm:top-[5.95rem] sm:h-[292px] sm:w-[460px]">
               {mobileHeroCards.map((card, i) => (
                 <div
                   key={i}
@@ -1498,7 +1487,7 @@ export default function Home() {
                   }}
                 >
                   <Image
-                    src={mobileCardImages[card.imageIndex]}
+                    src={card.src}
                     alt={`mobile-hero-${i}`}
                     width={95}
                     height={95}

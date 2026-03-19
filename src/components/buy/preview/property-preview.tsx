@@ -293,6 +293,11 @@ const PropertyPreview: React.FC = () => {
   const { externalAgentIvitationMutation } = useUserAuthApi();
   const { recordPropertyView } = useRecordPropertyView();
   const hasRecordedViewRef = React.useRef(false);
+  // Guard refs to prevent duplicate API fetches
+  const hasFetchedForIdRef = React.useRef<string | null>(null);
+  const hasFetchedViewsForRef = React.useRef<string | null>(null);
+  const hasFetchedSavesForRef = React.useRef<string | null>(null);
+  const hasFetchedSchoolsForRef = React.useRef<string | null>(null);
   const [rentEstimate, setRentEstimate] = React.useState<number | null>(null);
   const [rentDelta, setRentDelta] = React.useState<number | null>(null);
   const [projectedGainPct, setProjectedGainPct] = React.useState<number | null>(null);
@@ -389,6 +394,8 @@ const PropertyPreview: React.FC = () => {
       id;
     if (!listingIdToRecord) return;
 
+    hasRecordedViewRef.current = true;
+
     recordPropertyView.mutate({
       listingId: String(listingIdToRecord),
       propertyId: String(propertyDatas?.data?.propertyId || propertyData?.propertyId || ''),
@@ -448,9 +455,7 @@ const PropertyPreview: React.FC = () => {
         propertyData?.property?.livingArea ||
         0,
     });
-
-    hasRecordedViewRef.current = true;
-  }, [currentUser?.id, proprtyData, propertyDatas, propertyData, property?.listingId, id, recordPropertyView]);
+  }, [currentUser?.id, proprtyData?.listingId, propertyDatas?.data?.listingId, propertyData?.listingId, property?.listingId, id]);
 
   // console.log("DEBUG PREVIEW:", { id, engagedProperty, propertyData });
 
@@ -1002,7 +1007,7 @@ const PropertyPreview: React.FC = () => {
       const bypassMls = isMlsBypassModeEnabled();
       const endpoint = bypassMls
         ? '/api/mls/detail'
-        : (PROPERTY_DETAIL_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search/preference');
+        : '/api/mls/detail';
 
       const listingIdFromPath = toPositiveIntegerOrNull(id);
       const listingIdFromQuery = toPositiveIntegerOrNull(listingId);
@@ -1251,9 +1256,11 @@ const PropertyPreview: React.FC = () => {
       id ||
       propertyId ||
       property?.listingId;
-    if (targetListingId) {
-      getPropertyDetails(String(targetListingId));
-    }
+    if (!targetListingId) return;
+    const key = String(targetListingId);
+    if (hasFetchedForIdRef.current === key) return; // already fetching/fetched for this ID
+    hasFetchedForIdRef.current = key;
+    getPropertyDetails(key);
   }, [id, listingId, propertyId, property?.listingId]);
 
   const rentAddress = React.useMemo(() => {
@@ -1457,10 +1464,13 @@ const PropertyPreview: React.FC = () => {
     return () => {
       didCancel = true;
     };
-  }, [appreciationZip, authRestBaseUrl, projectionSignals]);
+  }, [appreciationZip, authRestBaseUrl]);
 
   React.useEffect(() => {
     if (!authRestBaseUrl || !listingIdForViews) return;
+    const key = String(listingIdForViews);
+    if (hasFetchedViewsForRef.current === key) return;
+    hasFetchedViewsForRef.current = key;
     let didCancel = false;
 
     const loadViewCount = async () => {
@@ -1490,6 +1500,9 @@ const PropertyPreview: React.FC = () => {
 
   React.useEffect(() => {
     if (!authRestBaseUrl || (!listingIdForViews && !propertyIdForSaves)) return;
+    const key = `${listingIdForViews}_${propertyIdForSaves}`;
+    if (hasFetchedSavesForRef.current === key) return;
+    hasFetchedSavesForRef.current = key;
     let didCancel = false;
 
     const loadSavesCount = async () => {
@@ -1556,61 +1569,26 @@ const PropertyPreview: React.FC = () => {
 
   // Fetch nearby schools from Neo4j API when property coordinates are available
   React.useEffect(() => {
+    const coords = getPropertyLatLng();
+    if (!coords) return;
+
+    // Build a stable cache key from rounded coordinates to avoid float noise
+    const coordKey = `${coords.lat.toFixed(4)}_${coords.lng.toFixed(4)}`;
+    if (hasFetchedSchoolsForRef.current === coordKey) return;
+    hasFetchedSchoolsForRef.current = coordKey;
+
+    if (!authRestBaseUrl) {
+      setSchoolsError('Auth service URL is not configured');
+      return;
+    }
+
+    setSchoolsLoading(true);
+    setSchoolsError(null);
+
     const fetchNearbySchools = async () => {
-      // Check multiple possible locations for coordinates
-      let lat = null;
-      let lon = null;
-
-      // Try different possible coordinate locations in the data structure
-      if (propertyDatas?.data) {
-        // Option 1: Direct latitude/longitude fields (PRIORITY - works for most properties)
-        lat = (propertyDatas.data as any).latitude || (propertyDatas.data as any).Latitude;
-        lon = (propertyDatas.data as any).longitude || (propertyDatas.data as any).Longitude;
-
-        // Option 2: Inside property object (fallback for some properties)
-        if (!lat || !lon) {
-          lat = (propertyDatas.data as any).property?.latitude || (propertyDatas.data as any).property?.Latitude;
-          lon = (propertyDatas.data as any).property?.longitude || (propertyDatas.data as any).property?.Longitude;
-        }
-      }
-
-      // Option 3: Check proprtyData (transformed data)
-      if (!lat || !lon) {
-        lat = (proprtyData as any)?.latitude || (proprtyData as any)?.Latitude;
-        lon = (proprtyData as any)?.longitude || (proprtyData as any)?.Longitude;
-      }
-
-      // Option 4: Check proprtyData.property
-      if (!lat || !lon) {
-        lat = (proprtyData as any)?.property?.latitude || (proprtyData as any)?.property?.Latitude;
-        lon = (proprtyData as any)?.property?.longitude || (proprtyData as any)?.property?.Longitude;
-      }
-
-      console.log('ðŸ« Schools API Debug:', {
-        hasPropertyDatas: !!propertyDatas,
-        lat,
-        lon,
-        propertyDatasKeys: propertyDatas?.data ? Object.keys(propertyDatas.data) : [],
-        propertyKeys: propertyDatas?.data?.property ? Object.keys(propertyDatas.data.property) : []
-      });
-
-      if (!lat || !lon) {
-        console.log('âŒ No coordinates available for schools API');
-        return;
-      }
-
-      if (!authRestBaseUrl) {
-        setSchoolsError('Auth service URL is not configured');
-        return;
-      }
-
-      console.log(`ðŸ” Fetching schools from: ${authRestBaseUrl}/schools/nearby?lat=${lat}&lon=${lon}`);
-      setSchoolsLoading(true);
-      setSchoolsError(null);
-
       try {
         const response = await fetch(
-          `${authRestBaseUrl}/schools/nearby?lat=${lat}&lon=${lon}`
+          `${authRestBaseUrl}/schools/nearby?lat=${coords.lat}&lon=${coords.lng}`
         );
 
         if (!response.ok) {
@@ -1618,21 +1596,17 @@ const PropertyPreview: React.FC = () => {
         }
 
         const schools = await response.json();
-        console.log('âœ… Schools API response:', schools);
-
-        // Transform Neo4j response to match the expected format
         const transformedSchools = schools.map((school: any) => ({
           rating: school.rating && school.rating > 0 ? `${school.rating} / 10` : 'N/A',
           name: school.name,
-          type: 'Public - Serves this home', // Default type
-          grades: 'K to 12', // Default grades
+          type: 'Public - Serves this home',
+          grades: 'K to 12',
           distance: `${school.distanceMiles.toFixed(1)} mi`
         }));
 
-        console.log('ðŸ“š Transformed schools:', transformedSchools);
         setNearbySchools(transformedSchools);
       } catch (err) {
-        console.error('âŒ Error fetching nearby schools:', err);
+        console.error('Error fetching nearby schools:', err);
         setSchoolsError(err instanceof Error ? err.message : 'Failed to load schools');
       } finally {
         setSchoolsLoading(false);
@@ -1640,7 +1614,7 @@ const PropertyPreview: React.FC = () => {
     };
 
     fetchNearbySchools();
-  }, [propertyDatas, proprtyData, authRestBaseUrl]);
+  }, [getPropertyLatLng, authRestBaseUrl]);
 
   React.useEffect(() => {
     if (!isStreetViewOpen) return;

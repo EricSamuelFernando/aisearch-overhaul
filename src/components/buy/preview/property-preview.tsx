@@ -2361,7 +2361,7 @@ const PropertyPreview: React.FC = () => {
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <div className="h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-orange-100 flex items-center justify-center shrink-0 cursor-help">
+                          <div className="h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-orange-100 flex items-center justify-center shrink-0 cursor-pointer">
                             <Info className="h-2 w-2 sm:h-3 sm:w-3 text-ocOrange" />
                           </div>
                         </TooltipTrigger>

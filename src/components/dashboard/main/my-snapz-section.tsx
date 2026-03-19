@@ -59,6 +59,8 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSnapzLoading, setIsSnapzLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
   const {
     createNewSnap,
@@ -67,19 +69,22 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
     deleteSnap,
     updateSnap,
     createParticipents,
+    getAgents,
   } = useUserSnapAPIs();
   const { getAllSnapzRequest, updateSnapzById } = useAgentConversationApi();
   const { notificationsQuery } = useNotificationApi();
   const { getAllSnapzRequest: getAllPendingSnapzRequest } = useAgentConversationApi();
 
-  const fetchInvitationUsers = async (page: number) => {
+  const fetchInvitationUsers = async (page: number, search?: string) => {
     setIsLoading(true);
+    setIsSearching(true);
     const offset = (page - 1) * ITEMS_PER_PAGE;
 
     try {
       const response: any = await getAllAgents.mutateAsync({
         limit: ITEMS_PER_PAGE,
         offset,
+        search: search || undefined,
       });
       setInviteUsers(response?.users || []);
       setInviteTotal(response?.total || 0);
@@ -87,8 +92,26 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
       console.error('Error fetching invitation users', err);
     } finally {
       setIsLoading(false);
+      setIsSearching(false);
     }
   };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (isModalOpen === 'share') {
+        setInvitePage(1);
+        fetchInvitationUsers(1, searchQuery.trim());
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (isModalOpen === 'share' && !searchQuery.trim()) {
+      fetchInvitationUsers(invitePage);
+    }
+  }, [isModalOpen]);
 
   const handleSendSnapLink = async (selectedUsers: InvitationInterface[]) => {
     if (!selectedSnap?.id || !selectedUsers?.length) return;
@@ -295,13 +318,13 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
   const openShareModal = () => {
     if (!selectedSnap) return;
     setInvitePage(1);
-    fetchInvitationUsers(1);
+    setSearchQuery(''); // Reset search on open
     setIsModalOpen('share');
   };
 
   const handleInvitePageChange = (page: number) => {
     setInvitePage(page);
-    fetchInvitationUsers(page);
+    fetchInvitationUsers(page, searchQuery.trim());
   };
 
   const snapList = useMemo(() => snaps || [], [snaps]);
@@ -458,6 +481,8 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
         onPageChange={handleInvitePageChange}
         total={inviteTotal}
         loading={isLoading}
+        onSearch={setSearchQuery}
+        isSearching={isSearching}
       />
       <DeleteCollectionConfirmationModal
         isOpen={isDeleteModalOpen}

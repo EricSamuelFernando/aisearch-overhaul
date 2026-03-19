@@ -52,12 +52,12 @@ const ChooseYourMeans = ({
           Take control of your home purchase with guided transactions, approval workflows, and transparent tracking, no matter how you like to work.
         </p>
 
-        {/* Card Grid Layout */}
-        <div className="home-choose-grid grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6 max-w-[920px] mx-auto">
+        {/* Mobile carousel, desktop grid */}
+        <div className="home-choose-grid flex gap-4 overflow-x-auto pl-4 pr-4 pb-2 snap-x snap-mandatory md:mx-auto md:grid md:max-w-[920px] md:grid-cols-2 md:gap-5 md:overflow-visible md:px-0 lg:gap-6">
           {/* Card 1 */}
           <div
             onClick={() => handleCtaClick()}
-            className="home-choose-card rounded-[2.5rem] overflow-hidden relative cursor-pointer h-[310px] sm:h-[350px] lg:h-[395px]"
+            className="home-choose-card relative h-[310px] min-w-[80vw] snap-start overflow-hidden rounded-[2.5rem] cursor-pointer sm:h-[350px] md:min-w-0 lg:h-[395px]"
           >
             <img
               src="/assets/images/landing-means.png"
@@ -88,7 +88,7 @@ const ChooseYourMeans = ({
           {/* Card 2 */}
           <div
             onClick={() => handleCtaClick()}
-            className="home-choose-card rounded-[2.5rem] overflow-hidden relative cursor-pointer h-[310px] sm:h-[350px] lg:h-[395px]"
+            className="home-choose-card relative h-[310px] min-w-[80vw] snap-start overflow-hidden rounded-[2.5rem] cursor-pointer sm:h-[350px] md:min-w-0 lg:h-[395px]"
           >
             <img
               src="/assets/images/landing-means1.png"

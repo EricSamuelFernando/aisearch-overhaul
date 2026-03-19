@@ -1208,6 +1208,26 @@ export default function Home() {
     '/assets/images/home-landing1.png',
   ];
 
+  const mobileCardImages = [
+    '/assets/images/home-landing-1.png',
+    '/assets/images/home-landing-2.png',
+    '/assets/images/home-landing-3.png',
+    '/assets/images/home-landing-4.png',
+    '/assets/images/home-landing-5.png',
+    '/assets/images/home-landing-6.png',
+    '/assets/images/home-landing-7.png',
+    '/assets/images/home-landing-8.png',
+  ];
+
+  const mobileHeroCards = [
+    { left: '-10px', top: '206px', width: '62px', height: '92px', rotation: 18, imageIndex: 7, imageScale: 1.12 },
+    { left: '18px', top: '150px', width: '74px', height: '104px', rotation: -42, imageIndex: 2, imageScale: 1.1 },
+    { left: '122px', top: '96px', width: '98px', height: '80px', rotation: -16, imageIndex: 3, imageScale: 1.05 },
+    { left: '236px', top: '96px', width: '86px', height: '102px', rotation: 14, imageIndex: 4, imageScale: 1.05 },
+    { left: '340px', top: '138px', width: '96px', height: '86px', rotation: 31, imageIndex: 5, imageScale: 1.08 },
+    { left: '438px', top: '200px', width: '64px', height: '96px', rotation: 34, imageIndex: 6, imageScale: 1.1 },
+  ];
+
   return (
     <>
       <MainNavPages />
@@ -1215,7 +1235,7 @@ export default function Home() {
       {/* ================= HERO SECTION ================= */}
       <section
         ref={heroSectionRef}
-        className="home-hero relative -mt-24 min-h-[80vh] bg-[#170800] pt-28 text-white md:min-h-[620px] md:h-[620px] md:max-h-[620px] md:pt-24 lg:min-h-[680px] lg:h-[680px] lg:max-h-[680px] xl:min-h-[740px] xl:h-[740px] xl:max-h-[740px]"
+        className="home-hero relative -mt-24 min-h-[680px] bg-[#170800] pt-28 text-white sm:min-h-[720px] md:min-h-[620px] md:h-[620px] md:max-h-[620px] md:pt-24 lg:min-h-[680px] lg:h-[680px] lg:max-h-[680px] xl:min-h-[740px] xl:h-[740px] xl:max-h-[740px]"
       >
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {/* ================= DESKTOP ARC ================= */}
@@ -1464,38 +1484,26 @@ export default function Home() {
           </div>
           {/* ================= MOBILE ARC ================= */}
           <div className="relative w-full md:hidden pointer-events-none">
-            <div className="absolute left-1/2 top-44 sm:top-52 h-[190px] sm:h-[220px] w-full max-w-[360px] sm:max-w-[460px]
-                            -translate-x-1/2 overflow-visible">
-              {[
-                { a: 175, r: 'clamp(118px, 34vw, 180px)', size: 'clamp(64px, 18vw, 95px)', idx: 0, rot: 18 },
-                { a: 211, r: 'clamp(118px, 34vw, 180px)', size: 'clamp(64px, 18vw, 95px)', idx: 1, rot: -55 },
-                { a: 247, r: 'clamp(118px, 34vw, 180px)', size: 'clamp(64px, 18vw, 95px)', idx: 2, rot: -20 },
-                { a: 285, r: 'clamp(118px, 34vw, 180px)', size: 'clamp(64px, 18vw, 95px)', idx: 3, rot: 18 },
-                { a: 324, r: 'clamp(118px, 34vw, 180px)', size: 'clamp(64px, 18vw, 95px)', idx: 4, rot: 55 },
-                { a: 363, r: 'clamp(118px, 34vw, 180px)', size: 'clamp(64px, 18vw, 95px)', idx: 5, rot: 85 },
-              ].map((p, i) => (
+            <div className="absolute left-1/2 top-[5.1rem] h-[280px] w-[470px] -translate-x-1/2 overflow-hidden sm:top-[5.95rem] sm:h-[292px] sm:w-[494px]">
+              {mobileHeroCards.map((card, i) => (
                 <div
                   key={i}
-                  className="absolute overflow-hidden rounded-2xl shadow-sm"
+                  className="absolute overflow-hidden rounded-[1.2rem] shadow-sm"
                   style={{
-                    left: '50%',
-                    top: '96px',
-                    width: p.size,
-                    height: p.size,
-                    transform: `
-                      translate(-50%, -50%)
-                      rotate(${p.a}deg)
-                      translateX(${p.r})
-                      rotate(${-p.a + p.rot}deg)
-                    `,
+                    left: card.left,
+                    top: card.top,
+                    width: card.width,
+                    height: card.height,
+                    transform: `rotate(${card.rotation}deg)`,
                   }}
                 >
                   <Image
-                    src={cardImages[p.idx]}
+                    src={mobileCardImages[card.imageIndex]}
                     alt={`mobile-hero-${i}`}
                     width={95}
                     height={95}
                     className="h-full w-full object-cover"
+                    style={{ transform: `scale(${card.imageScale})` }}
                   />
                 </div>
               ))}
@@ -1505,7 +1513,7 @@ export default function Home() {
         </div>
 
 
-        <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pb-10 pt-[18.5rem] text-center sm:pb-12 sm:pt-[20.5rem] md:pt-24 md:pb-12">
+        <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pb-2 pt-[16.8rem] text-center sm:pb-4 sm:pt-[18.1rem] md:pt-24 md:pb-12">
 
           {/* ================= TEXT + SEARCH ================= */}
           <div
@@ -1513,7 +1521,7 @@ export default function Home() {
             className="home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-3 md:gap-5 md:-mt-2 lg:-mt-4 min-[1280px]:max-[1440px]:translate-x-20"
           >
 
-            <h1 className={`${heroHeadingSize} max-w-[320px] text-[2.25rem] font-medium leading-[1.08] tracking-[-0.03em] sm:max-w-[360px] sm:text-[2.6rem] md:max-w-none md:leading-snug md:tracking-tight`}>
+            <h1 className={`${heroHeadingSize} max-w-[340px] text-[2.55rem] font-medium leading-[1.06] tracking-[-0.03em] sm:max-w-[380px] sm:text-[2.8rem] md:max-w-none md:leading-snug md:tracking-tight`}>
               <span className="block">Buying a home</span>
               <span className="block">
                 should be{' '}
@@ -1521,7 +1529,7 @@ export default function Home() {
               </span>
             </h1>
 
-            <p className="home-hero-subtitle max-w-[260px] text-[0.9rem] font-medium text-[#CEB28B] sm:max-w-none sm:text-[0.98rem]">
+            <p className="home-hero-subtitle my-2 max-w-none whitespace-nowrap text-[0.82rem] font-medium text-[#CEB28B] sm:my-3 sm:text-[0.98rem]">
               First end-to-end guided real estate platform
             </p>
 
@@ -1551,13 +1559,13 @@ export default function Home() {
               </div> */}
             </div>
 
-            <div className="-mt-1 flex flex-col items-center justify-center gap-y-1 transition-all duration-200 md:-mt-3 md:flex-row md:flex-nowrap md:gap-x-3">
-              <span className={`text-[0.95rem] font-medium transition-colors md:text-[1rem] ${heroMetaTextClass}`}>
+            <div className="mt-2 flex flex-nowrap items-center justify-center gap-x-2 transition-all duration-200 md:-mt-3 md:gap-x-3">
+              <span className={`whitespace-nowrap text-[0.82rem] font-medium transition-colors md:text-[1rem] ${heroMetaTextClass}`}>
                 Conversational Search,
               </span>
-              <div className="flex items-center gap-2 md:contents">
+              <div className="flex flex-nowrap items-center gap-2">
                 <span
-                  className={`text-[0.95rem] font-bold underline transition-colors md:text-[1rem] ${heroMetaAccentClass}`}
+                  className={`whitespace-nowrap text-[0.82rem] font-bold underline transition-colors md:text-[1rem] ${heroMetaAccentClass}`}
                 >
                   Powered by Snaphomz AI.
                 </span>

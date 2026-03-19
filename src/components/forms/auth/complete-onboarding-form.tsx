@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useForm } from '@mantine/form';
 import Link from 'next/link';
@@ -128,7 +128,7 @@ export function CompleteOnboardingForm() {
         className="mx-auto flex flex-col items-center justify-center md:w-[699px]"
         onSubmit={form.onSubmit(handleSubmit)}
       >
-        <div className="grid w-full grid-flow-col grid-cols-1 gap-5 md:grid-cols-2 md:gap-x-[39px]">
+        <div className="grid w-full grid-cols-2 gap-5 md:gap-x-[39px]">
           <CustomTextInput
             placeholder="First Name"
             className="w-full !h-[72px] text-[16px] leading-[32px] placeholder:text-[16px] placeholder:leading-[32px] md:w-[330px]"

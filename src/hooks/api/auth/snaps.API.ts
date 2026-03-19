@@ -264,12 +264,12 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
 
   const getAllAgents = useMutation({
     mutationKey: ["getAllAgents"],
-    mutationFn: async ({ limit, offset }: { limit: number; offset: number }) => {
+    mutationFn: async ({ limit, offset, search }: { limit: number; offset: number; search?: string }) => {
       try {
         const data = await executeSnapsGraphql({
           query: `
-            mutation findAllAgents($limit: Float!, $offset: Float!) {
-              findAllAgents(limit: $limit, offset: $offset) {
+            mutation findAllAgents($limit: Float!, $offset: Float!, $search: String) {
+              findAllAgents(limit: $limit, offset: $offset, search: $search) {
                 users {
                   id
                   firstName
@@ -284,6 +284,7 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
           variables: {
             limit,
             offset,
+            search,
           },
         });
 
@@ -516,6 +517,35 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
     },
   });
 
+  const getAgents = useMutation({
+    mutationKey: ["getAgents"],
+    mutationFn: async (search: string) => {
+      try {
+        const data = await executeSnapsGraphql({
+          query: `
+            mutation get_agents($search: String!) {
+              get_agents(search: $search) {
+                id
+                firstName
+                lastName
+                email
+                accountType
+              }
+            }
+          `,
+          variables: {
+            search,
+          },
+        });
+
+        return data.get_agents;
+      } catch (error) {
+        console.error("Error searching agents:", error);
+        throw error;
+      }
+    },
+  });
+
   return {
     createNewSnap,
     getAllSnaps,
@@ -530,6 +560,7 @@ export const useUserSnapAPIs = (handleCb?: () => void) => {
     getSnapById,
     markPropertyAsRead,
     reclaimMySnaps,
+    getAgents,
   };
 };
 

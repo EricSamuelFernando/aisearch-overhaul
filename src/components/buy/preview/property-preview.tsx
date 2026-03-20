@@ -1996,6 +1996,7 @@ const PropertyPreview: React.FC = () => {
   const [isOpen, setIsOpen] = React.useState(false);
   const [isCategorizedModalOpen, setIsCategorizedModalOpen] = React.useState(false); // New state
   const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
+  const [isInfoTooltipOpen, setIsInfoTooltipOpen] = React.useState(false);
 
   const images = React.useMemo(() => {
     if (transformData.prop?.media?.photosList?.length) {
@@ -2064,8 +2065,20 @@ const PropertyPreview: React.FC = () => {
             <input
               value={previewSearchValue}
               onChange={(e) => setPreviewSearchValue(e.target.value)}
-              placeholder={previewIsMlsMode ? 'Enter address, city, neighborhood, or ZIP' : 'Ask anything about homes, neighborhoods, schools'}
-              className="h-11 w-full rounded-2xl border-0 bg-transparent pl-10 pr-28 text-sm text-gray-900 shadow-none outline-none ring-0 placeholder:text-gray-400 focus-visible:ring-0"
+              placeholder={(() => {
+                const fullPlaceholder = previewIsMlsMode
+                  ? 'Enter address, city, neighborhood, or ZIP'
+                  : 'Ask anything about homes, neighborhoods, schools';
+                
+                // On small screens, use a truncated placeholder with ellipsis
+                if (typeof window !== 'undefined' && window.innerWidth < 640) {
+                  return fullPlaceholder.length > 25 
+                    ? fullPlaceholder.substring(0, 22) + '...' 
+                    : fullPlaceholder;
+                }
+                return fullPlaceholder;
+              })()}
+              className="h-11 w-full rounded-2xl border-0 bg-transparent pl-10 pr-10 sm:pr-12 text-sm text-gray-900 shadow-none outline-none ring-0 placeholder:text-gray-400 focus-visible:ring-0"
             />
             {/* AI ON/OFF toggle button – commented out
             <button
@@ -2333,14 +2346,14 @@ const PropertyPreview: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
+                      <Tooltip open={isInfoTooltipOpen} onOpenChange={setIsInfoTooltipOpen}>
+                        <TooltipTrigger asChild onClick={() => setIsInfoTooltipOpen(!isInfoTooltipOpen)}>
                           <div className="h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-orange-100 flex items-center justify-center shrink-0 cursor-pointer">
                             <Info className="h-2 w-2 sm:h-3 sm:w-3 text-ocOrange" />
                           </div>
                         </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Get pre-qualified to see how much you can afford and strengthen your offer.</p>
+                        <TooltipContent side="top" align="center" className="max-w-[240px] text-xs sm:text-sm">
+                          <p className="leading-tight">Get pre-qualified to see how much you can afford and strengthen your offer.</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>

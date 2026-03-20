@@ -793,6 +793,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { Carousel } from '@mantine/carousel';
+import { useMediaQuery } from '@mantine/hooks';
 
 import MainTestimonial from '../../../components/main-testimonial';
 import { ChooseYourMeans } from '@/components/buy/choose-your-means';
@@ -1094,9 +1095,12 @@ export default function Home() {
   const dispatch = useAppDispatch();
   const { email } = useRegister();
   const [carouselEmbla, setCarouselEmbla] = useState<any>(null);
+  const [mobileCarouselHeight, setMobileCarouselHeight] = useState<number | null>(null);
   const autoplayRef = useRef<NodeJS.Timeout | null>(null);
   const resumeRef = useRef<NodeJS.Timeout | null>(null);
+  const carouselSlideRefs = useRef<Array<HTMLDivElement | null>>([]);
   const AUTOPLAY_DELAY = 4000;
+  const isMobileCarousel = useMediaQuery('(max-width: 639px)');
 
   const { tempUserId } = useAppSelector(
     (state: RootState) => state.propertyPreference
@@ -1158,6 +1162,39 @@ export default function Home() {
       carouselEmbla.off('pointerUp', handlePointerUp);
     };
   }, [carouselEmbla]);
+
+  useEffect(() => {
+    if (!carouselEmbla || !isMobileCarousel) {
+      setMobileCarouselHeight(null);
+      return;
+    }
+
+    const updateMobileCarouselHeight = () => {
+      const activeIndex = carouselEmbla.selectedScrollSnap();
+      const activeSlide = carouselSlideRefs.current[activeIndex];
+      if (activeSlide) {
+        setMobileCarouselHeight(activeSlide.offsetHeight);
+      }
+    };
+
+    updateMobileCarouselHeight();
+
+    const resizeObserver = new ResizeObserver(updateMobileCarouselHeight);
+    carouselSlideRefs.current.forEach((slide) => {
+      if (slide) resizeObserver.observe(slide);
+    });
+
+    carouselEmbla.on('select', updateMobileCarouselHeight);
+    carouselEmbla.on('reInit', updateMobileCarouselHeight);
+    window.addEventListener('resize', updateMobileCarouselHeight);
+
+    return () => {
+      resizeObserver.disconnect();
+      carouselEmbla.off('select', updateMobileCarouselHeight);
+      carouselEmbla.off('reInit', updateMobileCarouselHeight);
+      window.removeEventListener('resize', updateMobileCarouselHeight);
+    };
+  }, [carouselEmbla, isMobileCarousel]);
 
   useEffect(() => {
     if (!heroSectionRef.current || !heroContentRef.current) return;
@@ -1627,8 +1664,18 @@ export default function Home() {
             loop
             getEmblaApi={setCarouselEmbla}
             styles={{
-              root: { width: '100%' },
-              viewport: { overflow: 'hidden' },
+              root: {
+                width: '100%',
+                ...(isMobileCarousel && mobileCarouselHeight
+                  ? { height: mobileCarouselHeight }
+                  : {}),
+              },
+              viewport: {
+                overflow: 'hidden',
+                ...(isMobileCarousel && mobileCarouselHeight
+                  ? { height: mobileCarouselHeight }
+                  : {}),
+              },
               controls: {
                 top: '50%',
                 transform: 'translateY(-50%)',
@@ -1640,22 +1687,42 @@ export default function Home() {
             }}
           >
             <Carousel.Slide>
-              <div className="h-[560px] md:h-[620px] xl:h-[660px] flex items-center">
+              <div
+                ref={(node) => {
+                  carouselSlideRefs.current[0] = node;
+                }}
+                className="min-h-[560px] h-auto md:h-[620px] xl:h-[660px] flex items-center"
+              >
                 <GetReadyForCollege headingClassName={heroHeadingSize} />
               </div>
             </Carousel.Slide>
             <Carousel.Slide>
-              <div className="h-[700px] sm:h-[560px] md:h-[620px] xl:h-[660px] flex items-start sm:items-center">
+              <div
+                ref={(node) => {
+                  carouselSlideRefs.current[1] = node;
+                }}
+                className="min-h-[980px] h-auto sm:min-h-0 sm:h-[560px] md:h-[620px] xl:h-[660px] flex items-start sm:items-center"
+              >
                 <FindPerfectMortgage headingClassName={heroHeadingSize} />
               </div>
             </Carousel.Slide>
             <Carousel.Slide>
-              <div className="h-[560px] md:h-[620px] xl:h-[660px] flex items-center">
+              <div
+                ref={(node) => {
+                  carouselSlideRefs.current[2] = node;
+                }}
+                className="min-h-[560px] h-auto md:h-[620px] xl:h-[660px] flex items-center"
+              >
                 <HomeDisclosure headingClassName={heroHeadingSize} />
               </div>
             </Carousel.Slide>
             <Carousel.Slide>
-              <div className="h-[560px] md:h-[620px] xl:h-[660px] flex items-center">
+              <div
+                ref={(node) => {
+                  carouselSlideRefs.current[3] = node;
+                }}
+                className="min-h-[560px] h-auto md:h-[620px] xl:h-[660px] flex items-center"
+              >
                 <BuyOrRent headingClassName={heroHeadingSize} />
               </div>
             </Carousel.Slide>

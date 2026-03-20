@@ -150,14 +150,14 @@ export default function FindPerfectMortgage({
         </div>
 
         {/* RIGHT IMAGE */}
-        <div className="w-full lg:w-1/2 flex justify-center items-center min-h-[220px] sm:min-h-[410px] xl:min-h-[450px]">
-          <div className="relative w-[180px] sm:w-[280px] md:w-[360px] lg:w-[400px] xl:w-[470px] 2xl:w-[520px] h-[220px] sm:h-[410px] xl:h-[450px] scale-100 origin-center">
+        <div className="w-full lg:w-1/2 flex justify-center items-center py-2 sm:min-h-[410px] xl:min-h-[450px]">
+          <div className="w-[78vw] max-w-[320px] sm:w-[280px] md:w-[360px] lg:w-[400px] xl:w-[470px] 2xl:w-[520px]">
             <Image
               src="/assets/images/buyer-home_mortgage.png"
               alt="Mortgage illustration"
               width={500}
               height={600}
-              className="object-contain w-full h-full"
+              className="h-auto w-full object-contain"
               priority
             />
           </div>

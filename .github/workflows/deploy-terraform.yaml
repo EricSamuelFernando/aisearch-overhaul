@@ -1,12 +1,6 @@
 name: Deploying Terraform Resources in AWS
 
 on:
-  push:
-    branches:
-      - release
-      - main
-    paths: ['terraform/**', '.github/workflows/deploy-terraform.yaml']
-
   pull_request:
     branches:
       - release

@@ -86,7 +86,10 @@ jobs:
     name: Build DEMO ENV frontend
     runs-on: ubuntu-latest
     needs: [changes, terraform]
-    if: always() && !failure() && !cancelled()
+    if: |
+      always() &&
+      (needs.terraform.result == 'success' || needs.terraform.result == 'skipped') &&
+      needs.changes.result == 'success'
 
     steps:
       - name: Checkout code

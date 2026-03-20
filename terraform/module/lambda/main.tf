@@ -35,10 +35,6 @@ resource "aws_lambda_function" "this" {
   timeout       = var.timeout
   memory_size   = var.memory_size
 
-  environment {
-    variables = var.lambda_env_variables
-  }
-
   tags = {
     Name        = "${local.function_name}-terraform"
     Environment = var.env

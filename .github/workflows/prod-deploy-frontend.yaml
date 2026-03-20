@@ -6,9 +6,8 @@ on:
       - main
 
     paths-ignore:
-      - "terraform/**"
+      - ".github/workflows/demo-deploy-frontend.yaml"
       - ".github/workflows/deploy-terraform.yaml"
-      - ".github/workflows/prod-deploy-frontned.yaml"
       - "README.md"
       - ".gitignore"
       - ".env.development"
@@ -27,9 +26,62 @@ env:
   PROVISIONED-CONCURRENT-EXECUTIONS: 1
 
 jobs:
-  deploy-frontend-prod:
-    name: Deploy PROD ENV frontend
+  changes:
+    name: Detect changed paths
     runs-on: ubuntu-latest
+    outputs:
+      terraform: ${{ steps.filter.outputs.terraform }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Filter changed paths
+        uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            terraform:
+              - 'terraform/**'
+
+  terraform:
+    name: Terraform Apply PROD ENV
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.terraform == 'true'
+
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: '1.13.5'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        run: terraform init -backend-config="key=snaphomz-frontend-terraform/prod/terraform.tfstate"
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -input=false -var-file="prod.tfvars"
+
+  build:
+    name: Build PROD ENV frontend
+    runs-on: ubuntu-latest
+    needs: [changes, terraform]
+    if: |
+      always() &&
+      (needs.terraform.result == 'success' || needs.terraform.result == 'skipped') &&
+      needs.changes.result == 'success'
 
     steps:
       - name: Checkout code
@@ -96,6 +148,46 @@ jobs:
             --push \
             .
 
+      - name: Upload static build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: next-static
+          path: .next/static/
+          retention-days: 1
+
+      - name: Upload public folder artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: public-folder
+          path: public/
+          retention-days: 1
+
+  deploy:
+    name: Deploy PROD ENV frontend
+    runs-on: ubuntu-latest
+    needs: build
+    if: always() && needs.build.result == 'success'
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download static build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: next-static
+          path: .next/static/
+
+      - name: Download public folder artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: public-folder
+          path: public/
+
       - name: Deploy image to Lambda
         run: |
           aws lambda update-function-code \
@@ -123,6 +215,20 @@ jobs:
           aws s3 sync public/assets/ s3://${{ env.S3_BUCKET }}/assets/ \
             --delete
           echo "Assets folder uploaded to s3 successfully"
+
+      - name: Upload logos folder to s3
+        run: |
+          echo "Deploying static assets with long cache..."
+          aws s3 sync public/logos/ s3://${{ env.S3_BUCKET }}/logos/ \
+            --delete
+          echo "Logos folder uploaded to s3 successfully"
+
+      - name: Upload data folder to s3
+        run: |
+          echo "Deploying static assets with long cache..."
+          aws s3 sync public/data/ s3://${{ env.S3_BUCKET }}/data/ \
+            --delete
+          echo "Data folder uploaded to s3 successfully"
 
       - name: Invalidate CloudFront cache
         run: |

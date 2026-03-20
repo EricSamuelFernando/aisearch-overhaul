@@ -125,7 +125,7 @@ export async function searchProperties(payload: SearchPayload, signal?: AbortSig
             userid: payload.userid,
             query: payload.query,
             session_id: payload.session_id,
-            from_browse: payload.from_browse ?? true,
+            from_browse: payload.from_browse ?? false,
             use_cache: payload.use_cache ?? true,
         }),
         signal,

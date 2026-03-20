@@ -1,4 +1,4 @@
-name: Deploying microservices frontend PROD ENV using lambda in AWS
+name: Deploying Snaphomz frontend PROD ENV
 
 on:
   push:
@@ -7,13 +7,12 @@ on:
 
     paths-ignore:
       - "terraform/**"
-      - "prod-deploy-terraform.yaml"
-      - "prod-deploy-frontned.yaml"
+      - ".github/workflows/deploy-terraform.yaml"
+      - ".github/workflows/prod-deploy-frontned.yaml"
       - "README.md"
       - ".gitignore"
       - ".env.development"
       - ".env.production"
-      - ".env.demo"
       - "docker-compose.yml"
 
 env:
@@ -21,7 +20,7 @@ env:
   ECR_REGISTRY: "075502422618.dkr.ecr.us-west-1.amazonaws.com"
   ECR_REPOSITORY: "snaphomz-frontend-prod-terraform"
   LAMBDA_FUNCTION_NAME: "snaphomz-frontend-prod-terraform"
-  NODE_VERSION: "22.x"
+  NODE_VERSION: "24.x"
   S3_BUCKET: "snaphomz-frontend-prod-terraform"
   CLOUDFRONT_DISTRIBUTION_ID: "E27MB2F0VHAUFH"
   ENVIRONMENT: production
@@ -29,12 +28,12 @@ env:
 
 jobs:
   deploy-frontend-prod:
-    name: Deploy NextJS PROD ENV frontend
+    name: Deploy PROD ENV frontend
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Node setup
         uses: actions/setup-node@v6
@@ -57,7 +56,7 @@ jobs:
           echo "Package installation completed"
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -68,14 +67,14 @@ jobs:
           aws secretsmanager get-secret-value \
             --secret-id ${{ secrets.PROD_SECRET_MANAGER_ARN }} \
             --query SecretString \
-            --output text | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' > .env.prod
-          echo "Secrets fetched and written to .env.prod"
+            --output text | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' > .env.production
+          echo "Secrets fetched and written to .env.production"
 
       - name: Build nextjs app
         run: |
           export NODE_OPTIONS="--max-old-space-size=4096"
           npx next telemetry disable
-          yarn build:prod --no-lint
+          yarn build --no-lint
           echo "NextJS app built successfully"
 
       - name: Log in to AWS ECR
@@ -84,76 +83,25 @@ jobs:
           echo "AWS ECR login successful"
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
-      - name: Build Docker image
+      - name: Build and push Docker image
         run: |
-          docker build -t ${{env.ECR_REGISTRY}}/${{env.ECR_REPOSITORY}}:latest .
-          echo "Docker image built successfully"
+          docker buildx build \
+            --platform linux/amd64 \
+            --provenance=false \
+            --sbom=false \
+            -t "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest" \
+            -f Dockerfile \
+            --push \
+            .
 
-      - name: Push Docker image
-        run: |
-          docker push ${{env.ECR_REGISTRY}}/${{env.ECR_REPOSITORY}}:latest
-          echo "Docker image push successfully"
-
-      - name: Update lambda image
+      - name: Deploy image to Lambda
         run: |
           aws lambda update-function-code \
-          --function-name ${{env.LAMBDA_FUNCTION_NAME}}  \
-          --image-uri ${{env.ECR_REGISTRY}}/${{env.ECR_REPOSITORY}}:latest
-          echo "Lambda image updated successfully"
-
-      - name: Wait for Lambda update to finish
-        run: |
-           aws lambda wait function-updated --function-name "${{ env.LAMBDA_FUNCTION_NAME }}"
-
-      - name: Publish new version for Lambda
-        run: |
-          LAMBDA_VERSION=$(aws lambda publish-version \
-            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
-            --query 'Version' \
-            --output text)
-          echo "Lambda function published with version: $LAMBDA_VERSION"
-          echo "LAMBDA_VERSION=$LAMBDA_VERSION" >> $GITHUB_ENV  # Save the version to GITHUB_ENV
-
-      - name: Update Lambda Provisioned Concurrency and Alias with New Version
-        run: |
-          # Ensure that LAMBDA_VERSION is available
-          if [ -z "$LAMBDA_VERSION" ]; then
-            echo "Error: LAMBDA_VERSION is not set!"
-            exit 1
-          fi
-
-          # Check if the alias exists
-          ALIAS_EXISTS=$(aws lambda get-alias \
-            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
-            --name ${{ env.ENVIRONMENT }} \
-            --query 'Name' --output text 2>/dev/null || echo "Alias not found")
-
-          # If the alias exists, update it, otherwise create the alias
-          if [[ "$ALIAS_EXISTS" == "${{ env.ENVIRONMENT }}" ]]; then
-            echo "Alias '${{ env.ENVIRONMENT }}' exists. Updating alias to point to version $LAMBDA_VERSION..."
-            aws lambda update-alias \
-              --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
-              --name ${{ env.ENVIRONMENT }} \
-              --function-version $LAMBDA_VERSION
-            echo "Lambda alias '${{ env.ENVIRONMENT }}' updated to point to version: $LAMBDA_VERSION"
-          else
-            echo "Alias '${{ env.ENVIRONMENT }}' does not exist. Creating alias and pointing it to version $LAMBDA_VERSION..."
-            aws lambda create-alias \
-              --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
-              --name ${{ env.ENVIRONMENT }} \
-              --function-version $LAMBDA_VERSION
-            echo "Lambda alias '${{ env.ENVIRONMENT }}' created and pointing to version: $LAMBDA_VERSION"
-
-            # Update or create provisioned concurrency for the alias
-            echo "Creating or updating provisioned concurrency for alias '${{ env.ENVIRONMENT }}' and version $LAMBDA_VERSION..."
-            aws lambda put-provisioned-concurrency-config \
-              --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
-              --qualifier ${{ env.ENVIRONMENT }} \
-              --provisioned-concurrent-executions ${{ env.PROVISIONED-CONCURRENT-EXECUTIONS }}
-            echo "Provisioned concurrency created or updated for alias: ${{ env.ENVIRONMENT }}"
-          fi
+            --function-name "${{ env.LAMBDA_FUNCTION_NAME }}" \
+            --image-uri "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest" \
+            --publish
 
       - name: Upload static file to s3
         run: |
@@ -185,4 +133,56 @@ jobs:
             --query 'Invalidation.Id' \
             --output text)
           echo "Invalidation ID: $INVALIDATION_ID"
-          echo "CloudFront cache invalidated done"
+          echo "CloudFront cache invalidated"
+
+      - name: Wait for Lambda update to finish
+        run: |
+           aws lambda wait function-updated --function-name "${{ env.LAMBDA_FUNCTION_NAME }}"
+
+      - name: Publish new version for Lambda
+        run: |
+          LAMBDA_VERSION=$(aws lambda publish-version \
+            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+            --query 'Version' \
+            --output text)
+          echo "Lambda function published with version: $LAMBDA_VERSION"
+          echo "LAMBDA_VERSION=$LAMBDA_VERSION" >> $GITHUB_ENV  # Save the version to GITHUB_ENV
+
+      - name: Update Lambda Provisioned Concurrency and Alias with New Version
+        run: |
+          # Ensure that LAMBDA_VERSION is available
+          if [ -z "$LAMBDA_VERSION" ]; then
+            echo "Error: LAMBDA_VERSION is not set!"
+            exit 1
+          fi
+
+          # Check if the alias exist
+          ALIAS_EXISTS=$(aws lambda get-alias \
+            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+            --name ${{ env.ENVIRONMENT }} \
+            --query 'Name' --output text 2>/dev/null || echo "Alias not found")
+
+          # If the alias exists, update it, otherwise create the alias
+          if [[ "$ALIAS_EXISTS" == "${{ env.ENVIRONMENT }}" ]]; then
+            echo "Alias '${{ env.ENVIRONMENT }}' exists. Updating alias to point to version $LAMBDA_VERSION..."
+            aws lambda update-alias \
+              --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+              --name ${{ env.ENVIRONMENT }} \
+              --function-version $LAMBDA_VERSION
+            echo "Lambda alias '${{ env.ENVIRONMENT }}' updated to point to version: $LAMBDA_VERSION"
+          else
+            echo "Alias '${{ env.ENVIRONMENT }}' does not exist. Creating alias and pointing it to version $LAMBDA_VERSION..."
+            aws lambda create-alias \
+              --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+              --name ${{ env.ENVIRONMENT }} \
+              --function-version $LAMBDA_VERSION
+            echo "Lambda alias '${{ env.ENVIRONMENT }}' created and pointing to version: $LAMBDA_VERSION"
+
+            # Update or create provisioned concurrency for the alias
+            echo "Creating or updating provisioned concurrency for alias '${{ env.ENVIRONMENT }}' and version $LAMBDA_VERSION..."
+            aws lambda put-provisioned-concurrency-config \
+              --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+              --qualifier ${{ env.ENVIRONMENT }} \
+              --provisioned-concurrent-executions ${{ env.PROVISIONED-CONCURRENT-EXECUTIONS }}
+            echo "Provisioned concurrency created or updated for alias: ${{ env.ENVIRONMENT }}"
+          fi

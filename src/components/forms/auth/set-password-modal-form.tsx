@@ -13,9 +13,10 @@ interface SetPasswordModalFormProps {
   email: string;
   onPasswordSet: () => void;
   onBack: () => void;
+  onCodeInvalid?: () => void;
 }
 
-export const SetPasswordModalForm = ({ email, onPasswordSet, onBack }: SetPasswordModalFormProps) => {
+export const SetPasswordModalForm = ({ email, onPasswordSet, onBack, onCodeInvalid }: SetPasswordModalFormProps) => {
   const [showPasswordRules, setShowPasswordRules] = useState(false);
   const form = useForm({
     initialValues: {
@@ -24,7 +25,6 @@ export const SetPasswordModalForm = ({ email, onPasswordSet, onBack }: SetPasswo
       confirmPassword: '',
     },
     validate: {
-      code: (value) => (value.length === 6 ? null : 'Verification code must be 6 digits'),
       password: (value) => {
         if (!value) return 'Password is required';
         if (value.length < 8) return 'Password must be at least 8 characters';
@@ -65,20 +65,43 @@ export const SetPasswordModalForm = ({ email, onPasswordSet, onBack }: SetPasswo
     }
   }, [confirmForgotPasswordMutation.isSuccess, onPasswordSet]);
 
+  useEffect(() => {
+    const storedCode = localStorage.getItem('forgotPasswordCode');
+    if (storedCode) {
+      form.setFieldValue('code', storedCode);
+    }
+  }, []);
+
   const isValid =
     form.isValid() &&
-    form.values.code.length === 6 &&
     form.values.password.length >= 8 &&
     form.values.confirmPassword.length >= 8 &&
     email;
 
-  const handleSubmit = (values: any) => {
-    if (email && values.code) {
-      confirmForgotPasswordMutation.mutate({
+  const handleSubmit = async (values: any) => {
+    const code = values.code || localStorage.getItem('forgotPasswordCode') || '';
+    if (!email || !code) return;
+    try {
+      await confirmForgotPasswordMutation.mutateAsync({
         email,
-        code: values.code,
+        code,
         newPassword: values.password,
       });
+    } catch (err: any) {
+      const message = err?.message || '';
+      const normalized = message.toLowerCase();
+      const isInvalidCode =
+        (normalized.includes('code') &&
+          (normalized.includes('invalid') ||
+            normalized.includes('mismatch') ||
+            normalized.includes('verification') ||
+            normalized.includes('expired'))) ||
+        normalized.includes('codeMismatchException'.toLowerCase()) ||
+        normalized.includes('expiredcodeexception');
+      if (isInvalidCode && onCodeInvalid) {
+        onCodeInvalid();
+      }
+      // The global onError in useUserAuthApi will handle showing the toast
     }
   };
 
@@ -91,15 +114,6 @@ export const SetPasswordModalForm = ({ email, onPasswordSet, onBack }: SetPasswo
         className='mx-auto flex flex-col items-center justify-center space-y-5 pb-5'
       >
         <div className='w-full max-w-xl'>
-          <CustomInput
-            label='Verification Code'
-            placeholder='Enter 6-digit code'
-            className='h-12 placeholder:text-base w-full'
-            containerClass='w-full mb-5'
-            maxLength={6}
-            type='text'
-            {...form.getInputProps('code')}
-          />
 
           <div
             onFocusCapture={() => setShowPasswordRules(true)}
@@ -196,7 +210,7 @@ export const SetPasswordModalForm = ({ email, onPasswordSet, onBack }: SetPasswo
         <div className='flex w-full flex-col gap-3'>
           <Button
             disabled={
-              (confirmForgotPasswordMutation.isPending) || 
+              (confirmForgotPasswordMutation.isPending) ||
               !isValid
             }
             size='lg'

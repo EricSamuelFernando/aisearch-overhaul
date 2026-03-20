@@ -340,6 +340,30 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     },
   });
 
+  const verifyForgotPasswordCodeMutation = useMutation({
+    mutationKey: ['verify-forgot-password-code'],
+    mutationFn: async ({ email, code }: { email: string; code: string }) => {
+      const response = await axios.post(GRAPHQL_URI, {
+        query: `
+              mutation VerifyForgotPasswordCode($email: String!, $code: String!) {
+                verifyForgotPasswordCode(email: $email, code: $code)
+              }
+            `,
+        variables: { email, code },
+      });
+
+      if (response.data?.errors) {
+        throw new Error(response.data.errors[0]?.message || 'Invalid or expired code');
+      }
+
+      return response.data?.data?.verifyForgotPasswordCode;
+    },
+    onError: (err: any) => {
+      const apiMessage = err?.message || 'Invalid or expired verification code';
+      error({ message: apiMessage });
+    },
+  });
+
   const onBoardingMutation = useMutation({
     mutationKey: ['onboarding-mutation'],
     mutationFn: async (data: OnboardingPayload) => {
@@ -1583,6 +1607,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
     forgotPasswordMutation,
     resetPasswordMutation,
     confirmForgotPasswordMutation,
+    verifyForgotPasswordCodeMutation,
     updateUserMutation,
     uploadprofile,
     createUserByEmailMutation,

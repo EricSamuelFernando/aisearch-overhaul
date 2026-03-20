@@ -23,7 +23,7 @@ env:
   S3_BUCKET: "snaphomz-frontend-demo-terraform"
   CLOUDFRONT_DISTRIBUTION_ID: "E1L8OKYDDVOBQK"
   ENVIRONMENT: demo
-  PROVISIONED-CONCURRENT-EXECUTIONS: 1
+  PROVISIONED_CONCURRENT_EXECUTIONS: 1
 
 jobs:
   changes:
@@ -93,6 +93,7 @@ jobs:
           node-version: ${{env.NODE_VERSION}}
 
       - name: Cache Yarn dependencies
+        id: yarn-cache
         uses: actions/cache@v5
         with:
           path: |
@@ -103,6 +104,7 @@ jobs:
             ${{ runner.os }}-yarn-
 
       - name: Package Installtion
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
         run: |
           yarn install --frozen-lockfile
           echo "Package installation completed"
@@ -123,9 +125,10 @@ jobs:
           echo "Secrets fetched and written to .env.production"
 
       - name: Build nextjs app
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+          NODE_OPTIONS: "--max-old-space-size=4096"
         run: |
-          export NODE_OPTIONS="--max-old-space-size=4096"
-          npx next telemetry disable
           yarn build --no-lint
           echo "NextJS app built successfully"
 
@@ -143,6 +146,9 @@ jobs:
             --platform linux/amd64 \
             --provenance=false \
             --sbom=false \
+            --cache-from type=registry,ref=${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:cache \
+            --cache-to type=registry,ref=${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:cache,mode=max \
+            -t "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}" \
             -t "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest" \
             -f Dockerfile \
             --push \
@@ -192,8 +198,7 @@ jobs:
         run: |
           aws lambda update-function-code \
             --function-name "${{ env.LAMBDA_FUNCTION_NAME }}" \
-            --image-uri "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest" \
-            --publish
+            --image-uri "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
 
       - name: Upload static file to s3
         run: |
@@ -201,40 +206,22 @@ jobs:
           aws s3 sync .next/static/ s3://${{ env.S3_BUCKET }}/_next/static/
           echo "Static assets uploaded to s3 successfully"
 
-      - name: Upload public folder to s3
+      - name: Upload public subfolders to s3 (parallel)
         run: |
-          echo "Deploying static assets with long cache..."
-          aws s3 sync public/ s3://${{ env.S3_BUCKET }}/public/ \
-            --delete
-          echo "Public folder uploaded to s3 successfully"
-
-      - name: Upload assets folder to s3
-        run: |
-          echo "Deploying static assets with long cache..."
-          aws s3 sync public/assets/ s3://${{ env.S3_BUCKET }}/assets/ \
-            --delete
-          echo "Assets folder uploaded to s3 successfully"
-
-      - name: Upload logos folder to s3
-        run: |
-          echo "Deploying static assets with long cache..."
-          aws s3 sync public/logos/ s3://${{ env.S3_BUCKET }}/logos/ \
-            --delete
-          echo "Logos folder uploaded to s3 successfully"
-
-      - name: Upload data folder to s3
-        run: |
-          echo "Deploying static assets with long cache..."
-          aws s3 sync public/data/ s3://${{ env.S3_BUCKET }}/data/ \
-            --delete
-          echo "Data folder uploaded to s3 successfully"
+          aws s3 sync public/assets/ s3://${{ env.S3_BUCKET }}/assets/ --delete &
+          aws s3 sync public/logos/  s3://${{ env.S3_BUCKET }}/logos/  --delete &
+          aws s3 sync public/data/   s3://${{ env.S3_BUCKET }}/data/   --delete &
+          wait
+          echo "Public subfolders uploaded to s3 successfully"
 
       - name: Invalidate CloudFront cache
         run: |
           echo "Invalidating CloudFront cache..."
+          # Excludes /_next/static/* — those files are content-hashed and their URLs
+          # change each build, so they never go stale and don't need invalidation.
           INVALIDATION_ID=$(aws cloudfront create-invalidation \
             --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} \
-            --paths "/*" \
+            --paths "/_next/*" \
             --query 'Invalidation.Id' \
             --output text)
           echo "Invalidation ID: $INVALIDATION_ID"
@@ -282,12 +269,12 @@ jobs:
               --name ${{ env.ENVIRONMENT }} \
               --function-version $LAMBDA_VERSION
             echo "Lambda alias '${{ env.ENVIRONMENT }}' created and pointing to version: $LAMBDA_VERSION"
-
-            # Update or create provisioned concurrency for the alias
-            echo "Creating or updating provisioned concurrency for alias '${{ env.ENVIRONMENT }}' and version $LAMBDA_VERSION..."
-            aws lambda put-provisioned-concurrency-config \
-              --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
-              --qualifier ${{ env.ENVIRONMENT }} \
-              --provisioned-concurrent-executions ${{ env.PROVISIONED-CONCURRENT-EXECUTIONS }}
-            echo "Provisioned concurrency created or updated for alias: ${{ env.ENVIRONMENT }}"
           fi
+
+          # Always apply provisioned concurrency to keep config in sync on every deploy
+          echo "Updating provisioned concurrency for alias '${{ env.ENVIRONMENT }}' to version $LAMBDA_VERSION..."
+          aws lambda put-provisioned-concurrency-config \
+            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+            --qualifier ${{ env.ENVIRONMENT }} \
+            --provisioned-concurrent-executions ${{ env.PROVISIONED_CONCURRENT_EXECUTIONS }}
+          echo "Provisioned concurrency updated for alias: ${{ env.ENVIRONMENT }}"

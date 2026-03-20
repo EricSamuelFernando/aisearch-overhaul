@@ -11,46 +11,25 @@ env:
   AWS_REGION: us-west-1
 
 jobs:
-  # --- DEMO ENVIRONMENT (Release Branch) ---#
-  deploy-terraform-demo:
-    name: Deploy DEMO ENV Terraform
+  deploy-terraform:
+    name: Terraform Plan ${{ matrix.env }} ENV
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/release' || github.base_ref == 'release'
-    
-    defaults:
-      run:
-        working-directory: terraform
+    # Point 3: github.ref is the feature branch on a PR — only github.base_ref reliably
+    # identifies which target branch this PR is merging into.
+    if: github.base_ref == matrix.branch
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - uses: hashicorp/setup-terraform@v4
-        with:
-          terraform_version: '1.13.5'
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Terraform Init
-        run: terraform init -backend-config="key=snaphomz-frontend-terraform/demo/terraform.tfstate"
-
-      - name: Terraform Plan
-        run: terraform plan -no-color -input=false -var-file="demo.tfvars"
-
-      # - name: Terraform Apply
-      #   if: github.event_name == 'push' && github.ref == 'refs/heads/release'
-      #   run: terraform apply -auto-approve -input=false -var-file="demo.tfvars"
-
-  # --- PROD ENVIRONMENT (Main Branch) ---#
-  deploy-terraform-prod:
-    name: Deploy PROD ENV Terraform
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.base_ref == 'main'
+    # Point 2: single job with a matrix replaces two near-identical jobs
+    strategy:
+      matrix:
+        include:
+          - env: demo
+            branch: release
+            tfvars: demo.tfvars
+            state_key: snaphomz-frontend-terraform/demo/terraform.tfstate
+          - env: prod
+            branch: main
+            tfvars: prod.tfvars
+            state_key: snaphomz-frontend-terraform/prod/terraform.tfstate
 
     defaults:
       run:
@@ -72,11 +51,37 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init
-        run: terraform init -backend-config="key=snaphomz-frontend-terraform/prod/terraform.tfstate"
+        run: terraform init -backend-config="key=${{ matrix.state_key }}"
 
       - name: Terraform Plan
-        run: terraform plan -no-color -input=false -var-file="prod.tfvars"
+        id: plan
+        run: terraform plan -no-color -input=false -var-file="${{ matrix.tfvars }}"
+        continue-on-error: true
 
-      # - name: Terraform Apply
-      #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      #   run: terraform apply -auto-approve -input=false -var-file="prod.tfvars"
+      # Point 4: post the plan output directly on the PR so reviewers don't need
+      # to dig into workflow logs. Uses an env var to safely handle multiline output.
+      - name: Post Terraform Plan to PR
+        uses: actions/github-script@v8
+        env:
+          PLAN_OUTPUT: ${{ steps.plan.outputs.stdout }}
+        with:
+          script: |
+            const plan = process.env.PLAN_OUTPUT || '(no output)';
+            const body = [
+              `#### Terraform Plan — \`${{ matrix.env }}\` ENV`,
+              '```hcl',
+              plan,
+              '```',
+              `*Plan outcome: \`${{ steps.plan.outcome }}\`*`
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
+
+            if ('${{ steps.plan.outcome }}' === 'failure') {
+              core.setFailed('Terraform plan failed');
+            }

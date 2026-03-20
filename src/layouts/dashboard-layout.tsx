@@ -18,6 +18,7 @@ function DashboardLayout({ children }: Readonly<Props>) {
   const { getPropertyPreferenceFromAI } = useGetPropertyPreference(user?.id);
   const [showPreferenceModal, setShowPreferenceModal] = useState(false);
   const hasPromptedRef = useRef(false);
+  const dismissedSessionRef = useRef(false);
   const lastUserIdRef = useRef<string | undefined>(undefined);
 
   // Reset prompt flag when user changes (logout/login) and refetch AI preferences
@@ -47,6 +48,17 @@ function DashboardLayout({ children }: Readonly<Props>) {
     if (hasPromptedRef.current) return;
     if (!isLoggedIn) return;
     if (user?.account_type?.toLowerCase() !== 'buyer') return;
+    
+    if (typeof window !== 'undefined' && user?.id) {
+      const dismissedThisSession =
+        sessionStorage.getItem(`buyerPreferenceDismissed:${user.id}`) === 'true';
+      if (dismissedThisSession) {
+        console.log('[DashboardLayout] Preference modal dismissed this session — skipping');
+        hasPromptedRef.current = true;
+        dismissedSessionRef.current = true;
+        return;
+      }
+    }
 
     // Wait for AI query to finish loading
     if (getPropertyPreferenceFromAI.isLoading) return;
@@ -93,6 +105,16 @@ function DashboardLayout({ children }: Readonly<Props>) {
         onComplete={() => {
           setShowPreferenceModal(false);
           getPropertyPreferenceFromAI.refetch?.();
+        }}
+        onSkip={() => {
+          console.log('[DashboardLayout] onSkip triggered');
+          if (typeof window !== 'undefined' && user?.id) {
+            console.log('[DashboardLayout] Setting sessionStorage for user', user.id);
+            sessionStorage.setItem(`buyerPreferenceDismissed:${user.id}`, 'true');
+          }
+          hasPromptedRef.current = true;
+          dismissedSessionRef.current = true;
+          setShowPreferenceModal(false);
         }}
       />
       <DashboardNav navClass={navClass} />

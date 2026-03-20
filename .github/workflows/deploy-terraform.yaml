@@ -11,50 +11,27 @@ env:
   AWS_REGION: us-west-1
 
 jobs:
-  deploy-terraform:
-    name: Terraform Plan ${{ matrix.env }} ENV
+  # --- DEMO ENVIRONMENT (Release Branch) ---#
+  deploy-terraform-demo:
+    name: Deploy DEMO ENV Terraform
     runs-on: ubuntu-latest
-    # Point 2: single job with a matrix replaces two near-identical jobs
-    # Point 3: matrix context is not available in job-level `if` — filtering is done
-    # via a gate step at the top instead (matrix IS available inside steps).
-    strategy:
-      matrix:
-        include:
-          - env: demo
-            branch: release
-            tfvars: demo.tfvars
-            state_key: snaphomz-frontend-terraform/demo/terraform.tfstate
-          - env: prod
-            branch: main
-            tfvars: prod.tfvars
-            state_key: snaphomz-frontend-terraform/prod/terraform.tfstate
+    if: github.base_ref == 'release'
+    permissions:
+      pull-requests: write
 
     defaults:
       run:
         working-directory: terraform
 
     steps:
-      - name: Check environment match
-        id: gate
-        run: |
-          if [[ "${{ github.base_ref }}" == "${{ matrix.branch }}" ]]; then
-            echo "active=true" >> $GITHUB_OUTPUT
-          else
-            echo "active=false" >> $GITHUB_OUTPUT
-            echo "Skipping: PR targets '${{ github.base_ref }}', this matrix entry targets '${{ matrix.branch }}'"
-          fi
-
       - name: Checkout code
-        if: steps.gate.outputs.active == 'true'
         uses: actions/checkout@v6
 
       - uses: hashicorp/setup-terraform@v4
-        if: steps.gate.outputs.active == 'true'
         with:
           terraform_version: '1.13.5'
 
       - name: Configure AWS credentials
-        if: steps.gate.outputs.active == 'true'
         uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -62,40 +39,134 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init
-        if: steps.gate.outputs.active == 'true'
-        run: terraform init -backend-config="key=${{ matrix.state_key }}"
+        run: terraform init -backend-config="key=snaphomz-frontend-terraform/demo/terraform.tfstate"
 
-      - name: Terraform Plan
-        if: steps.gate.outputs.active == 'true'
-        id: plan
-        run: terraform plan -no-color -input=false -var-file="${{ matrix.tfvars }}"
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
         continue-on-error: true
 
-      # Point 4: post the plan output directly on the PR so reviewers don't need
-      # to dig into workflow logs. Uses an env var to safely handle multiline output.
-      - name: Post Terraform Plan to PR
-        if: steps.gate.outputs.active == 'true'
-        uses: actions/github-script@v8
-        env:
-          PLAN_OUTPUT: ${{ steps.plan.outputs.stdout }}
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color -input=false -var-file="demo.tfvars" 2>&1 | tee plan_output.txt
+        continue-on-error: true
+
+      - name: Post Plan to PR
+        uses: actions/github-script@v7
         with:
           script: |
-            const plan = process.env.PLAN_OUTPUT || '(no output)';
-            const body = [
-              `#### Terraform Plan — \`${{ matrix.env }}\` ENV`,
-              '```hcl',
-              plan,
-              '```',
-              `*Plan outcome: \`${{ steps.plan.outcome }}\`*`
-            ].join('\n');
-
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
+            const fs = require('fs');
+            const plan = fs.readFileSync('terraform/plan_output.txt', 'utf8');
+            const truncated = plan.length > 65000 ? plan.substring(0, 65000) + '\n\n...[truncated]' : plan;
+            const body = `## Terraform Plan — DEMO\n\`\`\`\n${truncated}\n\`\`\``;
+            const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body
+              issue_number: context.issue.number,
             });
-
-            if ('${{ steps.plan.outcome }}' === 'failure') {
-              core.setFailed('Terraform plan failed');
+            const existing = comments.find(c => c.body.startsWith('## Terraform Plan — DEMO'));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
             }
+
+      - name: Fail if Plan failed
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
+
+      # - name: Terraform Apply
+      #   if: github.event_name == 'push' && github.base_ref == 'release'
+      #   run: terraform apply -auto-approve -input=false -var-file="demo.tfvars"
+
+  # --- PROD ENVIRONMENT (Main Branch) ---#
+  deploy-terraform-prod:
+    name: Deploy PROD ENV Terraform
+    runs-on: ubuntu-latest
+    if: github.base_ref == 'main'
+    permissions:
+      pull-requests: write
+
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: '1.13.5'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        run: terraform init -backend-config="key=snaphomz-frontend-terraform/prod/terraform.tfstate"
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+        continue-on-error: true
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color -input=false -var-file="prod.tfvars" 2>&1 | tee plan_output.txt
+        continue-on-error: true
+
+      - name: Post Plan to PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('terraform/plan_output.txt', 'utf8');
+            const truncated = plan.length > 65000 ? plan.substring(0, 65000) + '\n\n...[truncated]' : plan;
+            const body = `## Terraform Plan — PROD\n\`\`\`\n${truncated}\n\`\`\``;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.startsWith('## Terraform Plan — PROD'));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Fail if Plan failed
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
+
+      # - name: Terraform Apply
+      #   if: github.event_name == 'push' && github.base_ref == 'main'
+      #   run: terraform apply -auto-approve -input=false -var-file="prod.tfvars"

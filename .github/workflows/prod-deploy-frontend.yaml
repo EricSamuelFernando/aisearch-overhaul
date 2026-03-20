@@ -198,7 +198,7 @@ jobs:
         run: |
           aws lambda update-function-code \
             --function-name "${{ env.LAMBDA_FUNCTION_NAME }}" \
-            --image-uri "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
+            --image-uri "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest"
 
       - name: Upload public subfolders to s3 (parallel)
         run: |

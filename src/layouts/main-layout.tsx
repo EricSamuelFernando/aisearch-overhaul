@@ -179,7 +179,9 @@ function MainLayout({ children }: Readonly<Props>) {
           getPropertyPreferenceFromAI.refetch?.();
         }}
         onSkip={() => {
+          console.log('[MainLayout] onSkip triggered');
           if (typeof window !== 'undefined' && user?.id) {
+            console.log('[MainLayout] Setting sessionStorage for user', user.id);
             sessionStorage.setItem(`buyerPreferenceDismissed:${user.id}`, 'true');
           }
           hasPromptedRef.current = true;

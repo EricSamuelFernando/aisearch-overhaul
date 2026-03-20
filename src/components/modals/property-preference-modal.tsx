@@ -63,7 +63,16 @@ const PropertyPreferenceModal: React.FC<PropertyPreferenceModalProps> = ({
           variant='ghost'
           roundness='full'
           className='h-10 border border-black px-5 py-2 text-ocOrange'
-          onClick={onSkip || onClose}
+          onClick={() => {
+            console.log('[PropertyPreferenceModal] Skip clicked');
+            if (onSkip) {
+              console.log('[PropertyPreferenceModal] Calling onSkip');
+              onSkip();
+            } else if (onClose) {
+              console.log('[PropertyPreferenceModal] Calling onClose (fallback)');
+              onClose();
+            }
+          }}
         >
           Skip
         </Button>

@@ -86,7 +86,7 @@ export default function OurClients({
         >
           What Our Clients <span className="font-light">Say</span>
         </h2>
-        <p className="home-clients-subtitle satoshi text-xs sm:text-sm text-[#8E8B8A] mb-5 md:mb-12 max-w-[600px] mx-auto text-left md:text-center">
+        <p className="home-clients-subtitle satoshi mt-3 text-sm leading-relaxed sm:mt-4 sm:text-base text-[#8E8B8A] mb-6 md:mb-12 max-w-[640px] mx-auto text-left md:text-center">
           {subtitle}
         </p>
       </div>

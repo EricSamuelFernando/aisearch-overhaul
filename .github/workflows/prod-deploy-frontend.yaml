@@ -34,14 +34,19 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
-
-      - name: Filter changed paths
-        uses: dorny/paths-filter@v4
-        id: filter
         with:
-          filters: |
-            terraform:
-              - 'terraform/**'
+          fetch-depth: 0
+
+      - name: Check if terraform files changed
+        id: filter
+        run: |
+          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            echo "terraform=true" >> $GITHUB_OUTPUT
+          elif git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q '^terraform/'; then
+            echo "terraform=true" >> $GITHUB_OUTPUT
+          else
+            echo "terraform=false" >> $GITHUB_OUTPUT
+          fi
 
   terraform:
     name: Terraform Apply PROD ENV
@@ -198,7 +203,7 @@ jobs:
         run: |
           aws lambda update-function-code \
             --function-name "${{ env.LAMBDA_FUNCTION_NAME }}" \
-            --image-uri "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
+            --image-uri "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest"
 
       - name: Upload public subfolders to s3 (parallel)
         run: |

@@ -3608,13 +3608,6 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             <Camera className="h-[18px] w-[18px]" />
                                         </button>
                                     </div>
-                                    <Button
-                                        type="submit"
-                                        disabled={!!pendingImage && pendingImageStatus !== 'ready'}
-                                        className="h-10 min-w-0 flex-1 rounded-xl bg-[#F58634] px-4 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#E07224] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-[#F58634]"
-                                    >
-                                        Begin Journey
-                                    </Button>
                                 </div>
                             </motion.form>
 

@@ -15,7 +15,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { ProgressLine } from '@/components/progress-line';
 import { ProgressStepButtons } from '@/components/progress-step-buttons';
 import { useRegister } from '@/hooks/api/auth/useRegister';
-import { error } from '@/components/alert/notify';
+import { success, error } from '@/components/alert/notify';
 import { getAuthToken } from '@/lib/storage';
 import { getIsAuthExpired } from '@/lib/api/axios';
 
@@ -137,6 +137,7 @@ const BuyerProgressButton: React.FC<BuyerProgressButtonProps> = ({
         priceMax: preferenceValues?.spendAmount?.max ?? 0,
         onboardingCompleted: isPreferenceComplete,
       });
+      success({ message: 'Property preference updated successfully' });
     } catch (err) {
       // Mutation already handles toast, keep a fallback
       error({ message: 'Failed to save preference. Please try again.' });

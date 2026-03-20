@@ -946,7 +946,23 @@ const CustomMap: React.FC<Props> = ({
       const id = getDistrictId(feature);
       if (!cache.has(id)) {
         const bounds = getFeatureBounds(feature);
-        cache.set(id, { id, feature, bounds, polygons: [] });
+        const polygons: google.maps.Polygon[] = [];
+        const geometry = feature.geometry;
+
+        if (geometry) {
+          const processPolygon = (coords: number[][][]) => {
+            const path = coords[0].map((c) => ({ lat: c[1], lng: c[0] }));
+            polygons.push(new google.maps.Polygon({ paths: path }));
+          };
+
+          if (geometry.type === "Polygon") {
+            processPolygon(geometry.coordinates as number[][][]);
+          } else if (geometry.type === "MultiPolygon") {
+            (geometry.coordinates as number[][][][]).forEach(processPolygon);
+          }
+        }
+
+        cache.set(id, { id, feature, bounds, polygons });
       }
     });
   }, [isLoaded, mapInstance, districtFeatures, getDistrictId, getFeatureBounds]);
@@ -954,9 +970,9 @@ const CustomMap: React.FC<Props> = ({
   useEffect(() => {
     if (!isLoaded || !mapInstance || districtFeatures.length === 0) return;
 
-    // Show districts if the Schools overlay is explicitly ON, or if ANY explore category/search is active.
-    const isExploreActive = showDistricts || activeCategoryKeys.length > 0 || exploreSearchInput.trim().length > 0;
-    if (!isExploreActive) {
+    // Show districts ONLY if the Schools overlay is explicitly ON.
+    const isSchoolsActive = showDistricts; 
+    if (!isSchoolsActive) {
       setMatchedDistricts([]);
       return;
     }
@@ -990,15 +1006,6 @@ const CustomMap: React.FC<Props> = ({
         if (isRelevant) break;
       }
 
-      // 2. Check if the district intersects the current viewport
-      if (!isRelevant && viewportBounds) {
-        for (const polyBounds of cached.bounds) {
-          if (viewportBounds.intersects(polyBounds)) {
-            isRelevant = true;
-            break;
-          }
-        }
-      }
 
       if (isRelevant) {
         matchedIds.add(id);
@@ -1024,8 +1031,8 @@ const CustomMap: React.FC<Props> = ({
 
     mapInstance.data.forEach((feature) => mapInstance.data.remove(feature));
 
-    const isExploreActive = showDistricts || activeCategoryKeys.length > 0 || exploreSearchInput.trim().length > 0;
-    if (!isExploreActive || matchedDistricts.length === 0) return;
+    const isSchoolsActive = showDistricts;
+    if (!isSchoolsActive || matchedDistricts.length === 0) return;
 
     mapInstance.data.addGeoJson({
       type: 'FeatureCollection',
@@ -1141,38 +1148,34 @@ const CustomMap: React.FC<Props> = ({
       restaurants: '/assets/icons/Restaurants.svg',
       gyms: '/assets/icons/Gym.svg',
       schools: '/assets/icons/Education.svg',
-      hospitals: '/assets/icons/Hospitals.svg',
-      parks: '/assets/icons/Parks.svg',
     };
 
     const assetUrl = categoryKey ? assetByCategory[categoryKey] : undefined;
-    if (assetUrl) {
-      return {
-        url: assetUrl,
-        scaledSize: new google.maps.Size(CATEGORY_SVG_MARKER_SIZE, CATEGORY_SVG_MARKER_SIZE),
-        anchor: new google.maps.Point(
-          Math.round(CATEGORY_SVG_MARKER_SIZE / 2),
-          Math.round(CATEGORY_SVG_MARKER_SIZE / 2),
-        ),
-      };
-    }
 
-    // Improved fallback pin for unknown categories
+    // Procedural generation for Hospitals / Parks / Fallbacks
+    const getIconContent = (key?: string) => {
+      if (key === 'hospitals') return '<path d="M20 10v20M10 20h20" stroke="white" stroke-width="4" stroke-linecap="round"/>';
+      if (key === 'parks') return '<path d="M20 8l-10 16h6v10h8v-10h6l-10-16z" fill="white"/>';
+      return `<text x="20" y="21" font-size="20" font-family="sans-serif" font-weight="900" fill="white" text-anchor="middle" alignment-baseline="middle">${key?.charAt(0).toUpperCase() || '?'}</text>`;
+    };
+
     const svg = `
-<svg width="32" height="42" viewBox="0 0 32 42" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <filter id="shadow" x="-30%" y="-20%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.35"/>
-    </filter>
-  </defs>
-  <path d="M16 41 C16 41 3 27 3 16 C3 8.8 9 3 16 3 C23 3 29 8.8 29 16 C29 27 16 41 16 41 Z" fill="${color}" filter="url(#shadow)"/>
-  <circle cx="16" cy="16" r="6" fill="#ffffff"/>
-  <text x="16" y="17" font-size="10" font-family="sans-serif" font-weight="900" fill="${color}" text-anchor="middle" alignment-baseline="middle">${categoryKey?.charAt(0).toUpperCase() || '?'}</text>
+<svg width="40" height="50" viewBox="0 0 40 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="20" cy="20" r="19" fill="${color}" stroke="white" stroke-width="1.5"/>
+  <path d="M22.1935 44.8046C21.4094 46.0526 19.5906 46.0526 18.8065 44.8046L6.40362 25.064C5.56679 23.7321 6.52412 22 8.09711 22L32.9029 22C34.4759 22 35.4332 23.7321 34.5964 25.064L22.1935 44.8046Z" fill="white"/>
+  ${assetUrl 
+    ? `<image href="${assetUrl}" x="10" y="10" height="20" width="20" />` 
+    : getIconContent(categoryKey)
+  }
 </svg>`;
+
     return {
       url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg.trim())}`,
-      scaledSize: new google.maps.Size(32, 42),
-      anchor: new google.maps.Point(16, 40),
+      scaledSize: new google.maps.Size(CATEGORY_SVG_MARKER_SIZE, CATEGORY_SVG_MARKER_SIZE * 1.25),
+      anchor: new google.maps.Point(
+        Math.round(CATEGORY_SVG_MARKER_SIZE / 2),
+        Math.round(CATEGORY_SVG_MARKER_SIZE * 1.25),
+      ),
     };
   };
 
@@ -1345,12 +1348,97 @@ const CustomMap: React.FC<Props> = ({
     [fetchPlaceDetails],
   );
 
+  const runCategorySearch = useCallback(
+    (
+      query: string,
+      opts: {
+        categoryKey: string;
+        iconColor?: string;
+        viewportOverride?: google.maps.LatLngBounds | null;
+      },
+    ) => {
+      if (!mapInstance) return;
+      const viewportBounds = opts.viewportOverride ?? mapInstance.getBounds();
+      if (!viewportBounds) return;
+
+      const service = new google.maps.places.PlacesService(mapInstance);
+      const results: google.maps.places.PlaceResult[] = [];
+      const requestId = (categoryRequestIdRef.current[opts.categoryKey] ?? 0) + 1;
+      categoryRequestIdRef.current[opts.categoryKey] = requestId;
+
+      const handlePage = (
+        pageResults: google.maps.places.PlaceResult[] | null,
+        status: google.maps.places.PlacesServiceStatus,
+        pagination: google.maps.places.PlaceSearchPagination | null,
+      ) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && pageResults) {
+          results.push(...pageResults);
+        }
+
+        if (pagination?.hasNextPage) {
+          setTimeout(() => pagination.nextPage(), 1000);
+          return;
+        }
+
+        if (requestId !== categoryRequestIdRef.current[opts.categoryKey]) return;
+        if (!activeCategoryKeysRef.current.has(opts.categoryKey)) return;
+
+        const icon = createCategoryPinIcon(opts.iconColor ?? '#ef4444', opts.categoryKey);
+        
+        clearCategoryMarkers(opts.categoryKey);
+
+        const builtMarkers = results.map((place) => {
+          const loc = place.geometry?.location;
+          if (!loc || !viewportBounds.contains(loc)) return null;
+          
+          const marker = new google.maps.Marker({
+            map: mapInstance,
+            position: loc,
+            title: place.name ?? 'Place',
+            icon,
+            zIndex: 1100,
+            visible: isPointInsideActiveDrawPolygon(loc),
+          });
+
+          marker.addListener('click', () => {
+             const position = { lat: loc.lat(), lng: loc.lng() };
+             if (!measureModeRef.current) centerOnMeasurePoint(position);
+             applyMeasurePointFromMarker(position, 'poi');
+             attachPlaceMarkerClick(place, position, setSelectedSearchPlace, opts.categoryKey);
+          });
+          return marker;
+        }).filter(Boolean) as google.maps.Marker[];
+
+        categoryMarkersRef.current[opts.categoryKey] = builtMarkers;
+      };
+
+      service.nearbySearch(
+        { 
+          location: viewportBounds.getCenter(), 
+          radius: Math.min(50000, google.maps.geometry.spherical.computeDistanceBetween(viewportBounds.getCenter(), viewportBounds.getNorthEast())),
+          type: opts.categoryKey === 'restaurants' ? 'restaurant' : 
+                opts.categoryKey === 'gyms' ? 'gym' : 
+                opts.categoryKey === 'hospitals' ? 'hospital' : 
+                opts.categoryKey === 'parks' ? 'park' : undefined,
+          keyword: query,
+        }, 
+        handlePage
+      );
+    },
+    [
+      applyMeasurePointFromMarker,
+      attachPlaceMarkerClick,
+      centerOnMeasurePoint,
+      clearCategoryMarkers,
+      isPointInsideActiveDrawPolygon,
+      mapInstance,
+    ]
+  );
+
   const runTextSearch = useCallback(
     (
       query: string,
       opts?: {
-        categoryKey?: string;
-        iconColor?: string;
         onStoreMarkers?: (markers: google.maps.Marker[]) => void;
         viewportOverride?: google.maps.LatLngBounds | null;
       },
@@ -1364,10 +1452,7 @@ const CustomMap: React.FC<Props> = ({
       const locationBounds = searchPlaceBoundsRef.current;
       const service = new google.maps.places.PlacesService(mapInstance);
       const results: google.maps.places.PlaceResult[] = [];
-      const requestId = opts?.categoryKey
-        ? ((categoryRequestIdRef.current[opts.categoryKey] ?? 0) + 1)
-        : ++searchRequestIdRef.current;
-      if (opts?.categoryKey) categoryRequestIdRef.current[opts.categoryKey] = requestId;
+      const requestId = ++searchRequestIdRef.current;
 
       const handlePage = (
         pageResults: google.maps.places.PlaceResult[] | null,
@@ -1383,14 +1468,9 @@ const CustomMap: React.FC<Props> = ({
           return;
         }
 
-        if (opts?.categoryKey) {
-          if (requestId !== categoryRequestIdRef.current[opts.categoryKey]) return;
-          if (!activeCategoryKeysRef.current.has(opts.categoryKey)) return;
-        } else if (requestId !== searchRequestIdRef.current) {
-          return;
-        }
+        if (requestId !== searchRequestIdRef.current) return;
 
-        const icon = createCategoryPinIcon(opts?.iconColor ?? '#ef4444', opts?.categoryKey);
+        const icon = createCategoryPinIcon('#ef4444');
         const filteredByViewport = results.filter((place) => {
           const location = place.geometry?.location;
           if (!location) return false;
@@ -1405,12 +1485,7 @@ const CustomMap: React.FC<Props> = ({
         });
         const finalFiltered = filtered.length > 0 ? filtered : filteredByViewport;
 
-        // Clear existing markers right before we add new ones to avoid flickering
-        if (opts?.categoryKey) {
-          clearCategoryMarkers(opts.categoryKey);
-        } else {
-          clearSearchMarkers();
-        }
+        clearSearchMarkers();
 
         const builtMarkers = finalFiltered.map((place) => {
           const loc = place.geometry?.location;
@@ -1420,7 +1495,7 @@ const CustomMap: React.FC<Props> = ({
             position: loc,
             title: place.name ?? 'Place',
             icon,
-            zIndex: 100, // Ensure POI markers stay below property markers
+            zIndex: 1100,
             visible: isPointInsideActiveDrawPolygon(loc),
           });
           marker.addListener('click', () => {
@@ -1431,8 +1506,7 @@ const CustomMap: React.FC<Props> = ({
             const sameSelected =
               !!current &&
               ((place.place_id && current.placeId && current.placeId === place.place_id) ||
-                (current.categoryKey === opts?.categoryKey &&
-                  current.position?.lat === position.lat &&
+                (current.position?.lat === position.lat &&
                   current.position?.lng === position.lng));
 
             if (sameSelected) {
@@ -1441,25 +1515,20 @@ const CustomMap: React.FC<Props> = ({
               return;
             }
 
-            if (!measureModeRef.current) {
-              centerOnMeasurePoint(position);
-            }
+            if (!measureModeRef.current) centerOnMeasurePoint(position);
             applyMeasurePointFromMarker(position, 'poi');
-            attachPlaceMarkerClick(place, position, setSelectedSearchPlace, opts?.categoryKey);
+            attachPlaceMarkerClick(place, position, setSelectedSearchPlace);
           });
           return marker;
         }).filter(Boolean) as google.maps.Marker[];
 
-        if (opts?.categoryKey) categoryMarkersRef.current[opts.categoryKey] = builtMarkers;
-        else searchMarkersRef.current = builtMarkers;
+        searchMarkersRef.current = builtMarkers;
 
-        if (!opts?.categoryKey) {
-          setExploreFeedback(
-            builtMarkers.length === 0
-              ? 'No places found in the current map view. Try a POI term like coffee, grocery, or park.'
-              : null,
-          );
-        }
+        setExploreFeedback(
+          builtMarkers.length === 0
+            ? 'No places found in the current map view. Try a POI term like coffee, grocery, or park.'
+            : null,
+        );
 
         opts?.onStoreMarkers?.(builtMarkers);
       };
@@ -1470,7 +1539,6 @@ const CustomMap: React.FC<Props> = ({
       applyMeasurePointFromMarker,
       attachPlaceMarkerClick,
       centerOnMeasurePoint,
-      clearCategoryMarkers,
       clearSearchMarkers,
       isPointInsideActiveDrawPolygon,
       mapInstance,
@@ -1485,7 +1553,7 @@ const CustomMap: React.FC<Props> = ({
     // Refresh active categories
     activeCategoryKeys.forEach((key) => {
       const cfg = quickCategories[key as keyof typeof quickCategories];
-      runTextSearch(cfg.query, {
+      runCategorySearch(cfg.query, {
         categoryKey: key,
         iconColor: cfg.color,
         viewportOverride: bounds,
@@ -1635,16 +1703,38 @@ const CustomMap: React.FC<Props> = ({
     // Modified by Abhradip Paul showing typescript error
     const styleFn = (options: any) => {
       const isSelected = options.feature.placeId === selectedPlaceId;
-      const isExploreActive = showDistricts || activeCategoryKeys.length > 0 || exploreSearchInput.trim().length > 0;
+      const isSchoolsActive = showDistricts;
+      const isExploreActive = activeCategoryKeys.length > 0 || exploreSearchInput.trim().length > 0;
       
-      if (isSelected || (isExploreActive && options.feature.featureType === google.maps.FeatureType.LOCALITY)) {
-        return {
-          strokeColor: isSelected ? '#F07639' : '#1d4ed8', // Sync with SnapHomz orange OR district blue
-          strokeWeight: 3,
-          strokeOpacity: 1,
-          fillColor: isSelected ? '#F07639' : '#1d4ed8',
-          fillOpacity: 0.08,
-        };
+      // Determine the color for the locality border based on the active category
+      let exploreColor = '#1d4ed8'; // Default blue
+      if (activeCategoryKeys.length > 0) {
+        const lastKey = activeCategoryKeys[activeCategoryKeys.length - 1] as keyof typeof quickCategories;
+        if (quickCategories[lastKey]) {
+          exploreColor = quickCategories[lastKey].color;
+        }
+      }
+
+      if (options.feature.featureType === google.maps.FeatureType.LOCALITY) {
+        let activeColor: string | null = null;
+        
+        if (isExploreActive) {
+          activeColor = exploreColor;
+        } else if (isSchoolsActive) {
+          activeColor = '#1d4ed8'; // District blue
+        } else if (isSelected) {
+          activeColor = '#F07639'; // SF Orange
+        }
+
+        if (activeColor) {
+          return {
+            strokeColor: activeColor,
+            strokeWeight: 4,
+            strokeOpacity: 1,
+            fillColor: activeColor,
+            fillOpacity: 0.1,
+          };
+        }
       }
       return null;
     };
@@ -1652,7 +1742,7 @@ const CustomMap: React.FC<Props> = ({
     if (state) state.style = styleFn;
     if (county) county.style = styleFn;
     if (city) city.style = styleFn;
-  }, [isLoaded, mapInstance, selectedPlaceId]);
+  }, [isLoaded, mapInstance, selectedPlaceId, showDistricts, activeCategoryKeys, exploreSearchInput]);
 
   useEffect(() => {
     if (!isLoaded || !mapInstance) return;
@@ -1722,7 +1812,19 @@ const CustomMap: React.FC<Props> = ({
       const matchedEntries = getMatchedEntries();
       const allBounds = matchedEntries.flatMap((entry) => entry.bounds);
       const polygons = matchedEntries.flatMap((entry) => entry.polygons);
-      const boundsToSearch = allBounds.length > 0 ? allBounds : mapViewport ? [mapViewport] : [];
+      const currentViewport = mapInstance.getBounds();
+      
+      let boundsToSearch: google.maps.LatLngBounds[] = [];
+      if (allBounds.length > 0) {
+        // Merge district bounds to minimize API calls
+        const merged = allBounds[0];
+        for (let i = 1; i < allBounds.length; i += 1) {
+          merged.union(allBounds[i]);
+        }
+        boundsToSearch = [merged];
+      } else if (currentViewport) {
+        boundsToSearch = [currentViewport];
+      }
 
       if (boundsToSearch.length === 0) {
         clearSchoolMarkers();
@@ -1734,7 +1836,7 @@ const CustomMap: React.FC<Props> = ({
         if (cancelled) return;
         const places = await collectPlacesForBounds(bounds);
         allPlaces.push(...places);
-        await delay(250);
+        if (boundsToSearch.length > 1) await delay(250);
       }
 
       if (cancelled) return;
@@ -1768,6 +1870,7 @@ const CustomMap: React.FC<Props> = ({
           position,
           title: place.name ?? 'School',
           visible: isPointInsideActiveDrawPolygon(position),
+          zIndex: 1100,
           icon: {
             url: schoolIconUrl,
             scaledSize: new google.maps.Size(CATEGORY_SVG_MARKER_SIZE, CATEGORY_SVG_MARKER_SIZE),
@@ -2192,13 +2295,13 @@ const CustomMap: React.FC<Props> = ({
       activeCategoryKeysRef.current.add(categoryKey);
       const cfg = quickCategories[categoryKey];
       setExploreFeedback(null);
-      runTextSearch(cfg.query, {
+      runCategorySearch(cfg.query, {
         categoryKey,
         iconColor: cfg.color,
       });
       return next;
     });
-  }, [clearCategoryMarkers, quickCategories, runTextSearch]);
+  }, [clearCategoryMarkers, quickCategories, runCategorySearch]);
 
   useEffect(() => {
     return () => {

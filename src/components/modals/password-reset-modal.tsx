@@ -14,23 +14,33 @@ interface PasswordResetModalProps {
 export const PasswordResetModal = ({ isOpen, setIsOpen }: PasswordResetModalProps) => {
   const [currentStep, setCurrentStep] = useState<'forgot' | 'verify' | 'set-password'>('forgot');
   const [email, setEmail] = useState<string>('');
+  const [codeError, setCodeError] = useState<string>('');
 
   useEffect(() => {
     if (!isOpen) {
       // Reset to initial step when modal closes
       setCurrentStep('forgot');
       setEmail('');
+      setCodeError('');
     }
   }, [isOpen]);
 
   const handleEmailSubmit = (submittedEmail: string) => {
     setEmail(submittedEmail);
     localStorage.setItem('forgotPasswordEmail', submittedEmail);
-    setCurrentStep('set-password');
+    setCurrentStep('verify');
+    setCodeError('');
   };
 
   const handleCodeVerify = () => {
+    setCodeError('');
     setCurrentStep('set-password');
+  };
+
+  const handleCodeInvalid = () => {
+    // Code was rejected by backend — go back to verify step and show error
+    setCurrentStep('verify');
+    setCodeError('The code you entered is invalid or has expired. Please enter the correct code.');
   };
 
   const handlePasswordSet = () => {
@@ -41,10 +51,13 @@ export const PasswordResetModal = ({ isOpen, setIsOpen }: PasswordResetModalProp
     setIsOpen(false);
     setCurrentStep('forgot');
     setEmail('');
+    setCodeError('');
   };
 
   const handleBack = () => {
     if (currentStep === 'set-password') {
+      setCurrentStep('verify');
+    } else if (currentStep === 'verify') {
       setCurrentStep('forgot');
     }
   };
@@ -63,6 +76,7 @@ export const PasswordResetModal = ({ isOpen, setIsOpen }: PasswordResetModalProp
             email={email}
             onCodeVerify={handleCodeVerify}
             onBack={handleBack}
+            externalError={codeError}
           />
         )}
         {currentStep === 'set-password' && (
@@ -70,6 +84,7 @@ export const PasswordResetModal = ({ isOpen, setIsOpen }: PasswordResetModalProp
             email={email}
             onPasswordSet={handlePasswordSet}
             onBack={handleBack}
+            onCodeInvalid={handleCodeInvalid}
           />
         )}
       </DialogContent>

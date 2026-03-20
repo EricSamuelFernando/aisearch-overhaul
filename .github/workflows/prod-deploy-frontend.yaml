@@ -6,9 +6,8 @@ on:
       - main
 
     paths-ignore:
-      - "terraform/**"
+      - ".github/workflows/demo-deploy-frontend.yaml"
       - ".github/workflows/deploy-terraform.yaml"
-      - ".github/workflows/prod-deploy-frontned.yaml"
       - "README.md"
       - ".gitignore"
       - ".env.development"
@@ -24,12 +23,70 @@ env:
   S3_BUCKET: "snaphomz-frontend-prod-terraform"
   CLOUDFRONT_DISTRIBUTION_ID: "E27MB2F0VHAUFH"
   ENVIRONMENT: production
-  PROVISIONED-CONCURRENT-EXECUTIONS: 1
+  PROVISIONED_CONCURRENT_EXECUTIONS: 1
 
 jobs:
-  deploy-frontend-prod:
-    name: Deploy PROD ENV frontend
+  changes:
+    name: Detect changed paths
     runs-on: ubuntu-latest
+    outputs:
+      terraform: ${{ steps.filter.outputs.terraform }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check if terraform files changed
+        id: filter
+        run: |
+          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            echo "terraform=true" >> $GITHUB_OUTPUT
+          elif git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q '^terraform/'; then
+            echo "terraform=true" >> $GITHUB_OUTPUT
+          else
+            echo "terraform=false" >> $GITHUB_OUTPUT
+          fi
+
+  terraform:
+    name: Terraform Apply PROD ENV
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.terraform == 'true'
+
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: '1.13.5'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        run: terraform init -backend-config="key=snaphomz-frontend-terraform/prod/terraform.tfstate"
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -input=false -var-file="prod.tfvars"
+
+  build:
+    name: Build PROD ENV frontend
+    runs-on: ubuntu-latest
+    needs: [changes, terraform]
+    if: |
+      always() &&
+      (needs.terraform.result == 'success' || needs.terraform.result == 'skipped') &&
+      needs.changes.result == 'success'
 
     steps:
       - name: Checkout code
@@ -41,6 +98,7 @@ jobs:
           node-version: ${{env.NODE_VERSION}}
 
       - name: Cache Yarn dependencies
+        id: yarn-cache
         uses: actions/cache@v5
         with:
           path: |
@@ -51,6 +109,7 @@ jobs:
             ${{ runner.os }}-yarn-
 
       - name: Package Installtion
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
         run: |
           yarn install --frozen-lockfile
           echo "Package installation completed"
@@ -71,9 +130,10 @@ jobs:
           echo "Secrets fetched and written to .env.production"
 
       - name: Build nextjs app
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+          NODE_OPTIONS: "--max-old-space-size=4096"
         run: |
-          export NODE_OPTIONS="--max-old-space-size=4096"
-          npx next telemetry disable
           yarn build --no-lint
           echo "NextJS app built successfully"
 
@@ -91,45 +151,77 @@ jobs:
             --platform linux/amd64 \
             --provenance=false \
             --sbom=false \
+            --cache-from type=registry,ref=${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:cache \
+            --cache-to type=registry,ref=${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:cache,mode=max \
+            -t "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}" \
             -t "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest" \
             -f Dockerfile \
             --push \
             .
 
+      - name: Upload static build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: next-static
+          path: .next/static/
+          retention-days: 1
+
+      - name: Upload public folder artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: public-folder
+          path: public/
+          retention-days: 1
+
+  deploy:
+    name: Deploy PROD ENV frontend
+    runs-on: ubuntu-latest
+    needs: build
+    if: always() && needs.build.result == 'success'
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download static build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: next-static
+          path: .next/static/
+
+      - name: Download public folder artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: public-folder
+          path: public/
+
       - name: Deploy image to Lambda
         run: |
           aws lambda update-function-code \
             --function-name "${{ env.LAMBDA_FUNCTION_NAME }}" \
-            --image-uri "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest" \
-            --publish
+            --image-uri "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest"
 
-      - name: Upload static file to s3
+      - name: Upload public subfolders to s3 (parallel)
         run: |
-          echo "Deploying static assets with long cache..."
-          aws s3 sync .next/static/ s3://${{ env.S3_BUCKET }}/_next/static/ \
-            --delete
-          echo "Static assets uploaded to s3 successfully"
-
-      - name: Upload public folder to s3
-        run: |
-          echo "Deploying static assets with long cache..."
-          aws s3 sync public/ s3://${{ env.S3_BUCKET }}/public/ \
-            --delete
-          echo "Public folder uploaded to s3 successfully"
-
-      - name: Upload assets folder to s3
-        run: |
-          echo "Deploying static assets with long cache..."
-          aws s3 sync public/assets/ s3://${{ env.S3_BUCKET }}/assets/ \
-            --delete
-          echo "Assets folder uploaded to s3 successfully"
+          aws s3 sync .next/static/ s3://${{ env.S3_BUCKET }}/_next/static/ --delete &
+          aws s3 sync public/assets/ s3://${{ env.S3_BUCKET }}/assets/ --delete &
+          aws s3 sync public/logos/  s3://${{ env.S3_BUCKET }}/logos/  --delete &
+          aws s3 sync public/data/   s3://${{ env.S3_BUCKET }}/data/   --delete &
+          wait
+          echo "Public subfolders uploaded to s3 successfully"
 
       - name: Invalidate CloudFront cache
         run: |
           echo "Invalidating CloudFront cache..."
+          # Excludes /_next/static/* — those files are content-hashed and their URLs
+          # change each build, so they never go stale and don't need invalidation.
           INVALIDATION_ID=$(aws cloudfront create-invalidation \
             --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} \
-            --paths "/*" \
+            --paths "/_next/*" \
             --query 'Invalidation.Id' \
             --output text)
           echo "Invalidation ID: $INVALIDATION_ID"
@@ -177,12 +269,12 @@ jobs:
               --name ${{ env.ENVIRONMENT }} \
               --function-version $LAMBDA_VERSION
             echo "Lambda alias '${{ env.ENVIRONMENT }}' created and pointing to version: $LAMBDA_VERSION"
-
-            # Update or create provisioned concurrency for the alias
-            echo "Creating or updating provisioned concurrency for alias '${{ env.ENVIRONMENT }}' and version $LAMBDA_VERSION..."
-            aws lambda put-provisioned-concurrency-config \
-              --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
-              --qualifier ${{ env.ENVIRONMENT }} \
-              --provisioned-concurrent-executions ${{ env.PROVISIONED-CONCURRENT-EXECUTIONS }}
-            echo "Provisioned concurrency created or updated for alias: ${{ env.ENVIRONMENT }}"
           fi
+
+          # Always apply provisioned concurrency to keep config in sync on every deploy
+          echo "Updating provisioned concurrency for alias '${{ env.ENVIRONMENT }}' to version $LAMBDA_VERSION..."
+          aws lambda put-provisioned-concurrency-config \
+            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+            --qualifier ${{ env.ENVIRONMENT }} \
+            --provisioned-concurrent-executions ${{ env.PROVISIONED_CONCURRENT_EXECUTIONS }}
+          echo "Provisioned concurrency updated for alias: ${{ env.ENVIRONMENT }}"

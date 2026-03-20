@@ -25,21 +25,24 @@ variable "domain" {
   type = string
 }
 
+variable "certificate_domain" {
+  type        = string
+  description = "Primary domain of the existing ACM certificate"
+}
+
+variable "certificate_san" {
+  type        = list(string)
+  description = "Subject alternative names on the existing ACM certificate (excluding primary domain)"
+  default     = []
+}
+
 variable "hosted_zone_id" {
   type    = string
   default = "Z03826773GQ15YX1JR593"
 }
 
-variable "acm_certificate_arn" {
-  type = string
-}
-
 variable "cloudfront_aliases" {
   type = list(string)
-}
-
-variable "lambda_env_variables" {
-  type = map(any)
 }
 
 variable "allowed_origins" {

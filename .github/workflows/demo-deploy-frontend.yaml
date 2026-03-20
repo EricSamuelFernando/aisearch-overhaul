@@ -200,14 +200,9 @@ jobs:
             --function-name "${{ env.LAMBDA_FUNCTION_NAME }}" \
             --image-uri "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
 
-      - name: Upload static file to s3
-        run: |
-          echo "Deploying static assets with long cache..."
-          aws s3 sync .next/static/ s3://${{ env.S3_BUCKET }}/_next/static/
-          echo "Static assets uploaded to s3 successfully"
-
       - name: Upload public subfolders to s3 (parallel)
         run: |
+          aws s3 sync .next/static/ s3://${{ env.S3_BUCKET }}/_next/static/ --delete &
           aws s3 sync public/assets/ s3://${{ env.S3_BUCKET }}/assets/ --delete &
           aws s3 sync public/logos/  s3://${{ env.S3_BUCKET }}/logos/  --delete &
           aws s3 sync public/data/   s3://${{ env.S3_BUCKET }}/data/   --delete &

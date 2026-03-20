@@ -14,11 +14,9 @@ jobs:
   deploy-terraform:
     name: Terraform Plan ${{ matrix.env }} ENV
     runs-on: ubuntu-latest
-    # Point 3: github.ref is the feature branch on a PR — only github.base_ref reliably
-    # identifies which target branch this PR is merging into.
-    if: github.base_ref == matrix.branch
-
     # Point 2: single job with a matrix replaces two near-identical jobs
+    # Point 3: matrix context is not available in job-level `if` — filtering is done
+    # via a gate step at the top instead (matrix IS available inside steps).
     strategy:
       matrix:
         include:
@@ -36,14 +34,27 @@ jobs:
         working-directory: terraform
 
     steps:
+      - name: Check environment match
+        id: gate
+        run: |
+          if [[ "${{ github.base_ref }}" == "${{ matrix.branch }}" ]]; then
+            echo "active=true" >> $GITHUB_OUTPUT
+          else
+            echo "active=false" >> $GITHUB_OUTPUT
+            echo "Skipping: PR targets '${{ github.base_ref }}', this matrix entry targets '${{ matrix.branch }}'"
+          fi
+
       - name: Checkout code
+        if: steps.gate.outputs.active == 'true'
         uses: actions/checkout@v6
 
       - uses: hashicorp/setup-terraform@v4
+        if: steps.gate.outputs.active == 'true'
         with:
           terraform_version: '1.13.5'
 
       - name: Configure AWS credentials
+        if: steps.gate.outputs.active == 'true'
         uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -51,9 +62,11 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init
+        if: steps.gate.outputs.active == 'true'
         run: terraform init -backend-config="key=${{ matrix.state_key }}"
 
       - name: Terraform Plan
+        if: steps.gate.outputs.active == 'true'
         id: plan
         run: terraform plan -no-color -input=false -var-file="${{ matrix.tfvars }}"
         continue-on-error: true
@@ -61,6 +74,7 @@ jobs:
       # Point 4: post the plan output directly on the PR so reviewers don't need
       # to dig into workflow logs. Uses an env var to safely handle multiline output.
       - name: Post Terraform Plan to PR
+        if: steps.gate.outputs.active == 'true'
         uses: actions/github-script@v8
         env:
           PLAN_OUTPUT: ${{ steps.plan.outputs.stdout }}

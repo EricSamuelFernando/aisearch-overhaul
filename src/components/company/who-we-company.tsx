@@ -37,19 +37,23 @@ const WhoWeCompany = () => {
       </section>
 
       {/* ================= CARDS SECTION ================= */}
-      <section
-        className="relative flex w-full justify-center px-4 pb-20 pt-16 sm:px-6 lg:px-6 lg:pb-56 lg:pt-20"
-        style={{
-          backgroundImage: `url('/assets/images/company-whowe.jpg')`,
-          backgroundSize: '100% 100%',
-          backgroundRepeat: 'no-repeat',
-          backgroundPosition: 'center',
-        }}
-      >
+      <section className="relative flex w-full justify-center overflow-hidden bg-[#F7E9D7] px-4 pb-20 pt-16 sm:px-6 lg:px-6 lg:pb-56 lg:pt-20">
+        <div
+          className="absolute inset-x-0 top-0 h-[820px] bg-[length:auto_76%] bg-[left_top] bg-no-repeat sm:hidden"
+          style={{
+            backgroundImage: `url('/assets/images/company-whowe.jpg')`,
+          }}
+        />
+        <div
+          className="absolute inset-0 hidden bg-center bg-cover bg-no-repeat sm:block"
+          style={{
+            backgroundImage: `url('/assets/images/company-whowe.jpg')`,
+          }}
+        />
         <div className="absolute inset-0 bg-black/10" />
 
         <div className="relative w-full max-w-6xl">
-          <div className="h-[300px] sm:h-[220px] lg:h-[520px]" />
+          <div className="h-[240px] sm:h-[220px] lg:h-[520px]" />
 
           <div className="w-full lg:hidden">
             <div className="scrollbar-hide flex snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-hidden scroll-smooth px-3 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

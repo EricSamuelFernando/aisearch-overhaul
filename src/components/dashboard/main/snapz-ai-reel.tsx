@@ -904,15 +904,17 @@ function ReelCard({
 export default function SnapzAIReel({ properties, snapId, onPropertyAdded }: Props) {
   const [statusMap, setStatusMap] = useState<Record<string, CardStatus>>(() => {
     const m: Record<string, CardStatus> = {};
-    properties.forEach((p) => {
-      const id = getListingId(p);
-      if (id) m[id] = 'visible';
-    });
+    if (Array.isArray(properties)) {
+      properties.forEach((p) => {
+        const id = getListingId(p);
+        if (id) m[id] = 'visible';
+      });
+    }
     return m;
   });
 
   const [visibleIds, setVisibleIds] = useState<string[]>(() =>
-    properties.map((p) => getListingId(p)).filter(Boolean),
+    Array.isArray(properties) ? properties.map((p) => getListingId(p)).filter(Boolean) : [],
   );
 
   const [previewData,       setPreviewData]       = useState<PreviewData | null>(null);
@@ -923,7 +925,7 @@ export default function SnapzAIReel({ properties, snapId, onPropertyAdded }: Pro
   // Close timer — bridges the gap between card and preview so it doesn't flicker closed
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const baseDuration = Math.max(15, properties.length * 6);
+  const baseDuration = Math.max(15, (Array.isArray(properties) ? properties.length : 0) * 6);
 
   const openPreview = useCallback((property: any, rect: DOMRect) => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);

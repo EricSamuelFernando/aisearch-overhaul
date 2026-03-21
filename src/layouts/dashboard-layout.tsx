@@ -103,6 +103,11 @@ function DashboardLayout({ children }: Readonly<Props>) {
         isOpen={showPreferenceModal}
         onClose={() => setShowPreferenceModal(false)}
         onComplete={() => {
+          if (typeof window !== 'undefined' && user?.id) {
+            sessionStorage.setItem(`buyerPreferenceDismissed:${user.id}`, 'true');
+          }
+          hasPromptedRef.current = true;
+          dismissedSessionRef.current = true;
           setShowPreferenceModal(false);
           getPropertyPreferenceFromAI.refetch?.();
         }}

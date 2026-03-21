@@ -139,8 +139,7 @@ const BuyerProgressButton: React.FC<BuyerProgressButtonProps> = ({
       });
       success({ message: 'Property preference updated successfully' });
     } catch (err) {
-      // Mutation already handles toast, keep a fallback
-      error({ message: 'Failed to save preference. Please try again.' });
+      // Mutation hook in useUpdatePropertyPreference already handles error toasts
       throw err;
     } finally {
       setSaving(false);

@@ -49,8 +49,8 @@ export default function SnapDetailsPage() {
     const searchParams = useSearchParams();
     const id = params?.id as string;
     const userData = useSelector((state: any) => state.auth.user);
-    const fromBuyerDashboard = searchParams?.get('from') === 'buyer-dashboard';
-    const backTarget = fromBuyerDashboard ? '/dashboard/buyer?tab=my-snapz' : '/account';
+    const fromAccount = searchParams?.get('from') === 'account';
+    const backTarget = fromAccount ? '/account' : '/dashboard/buyer?tab=my-snapz';
 
     const [snap, setSnap] = useState<SnapCollection | null>(null);
     const [favourites, setFavourites] = useState<any[]>([]);

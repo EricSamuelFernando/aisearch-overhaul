@@ -672,7 +672,7 @@ const PropertyPreview: React.FC = () => {
     setInviteAgentEmail(value);
 
     if (!validateEmail(value)) {
-      setInviteEmailError('âœ¨ Almost there! Please enter a valid email address');
+      setInviteEmailError('Please enter a valid email address.');
       return;
     } else {
       setInviteEmailError('');
@@ -692,7 +692,7 @@ const PropertyPreview: React.FC = () => {
 
   const sendInviteByEmail = () => {
     if (!inviteAgentEmail || !validateEmail(inviteAgentEmail)) {
-      setInviteEmailError('Please enter a valid email address');
+      setInviteEmailError('Please enter a valid email address.');
       return;
     }
 
@@ -769,6 +769,12 @@ const PropertyPreview: React.FC = () => {
           setInviteEmailError('');
           setIsInviteAgentModalOpen(false);
           // Navigate to dashboard messages after successful invitation
+          if (typeof window !== 'undefined') {
+            const mainElement = document.querySelector('main');
+            if (mainElement) {
+              mainElement.scrollTo({ top: 0, behavior: 'auto' });
+            }
+          }
           router.push('/dashboard/buyer?tab=messages');
         } else {
           error({ message: message || 'Failed to send invitation' });
@@ -2069,16 +2075,26 @@ const PropertyPreview: React.FC = () => {
                 const fullPlaceholder = previewIsMlsMode
                   ? 'Enter address, city, neighborhood, or ZIP'
                   : 'Ask anything about homes, neighborhoods, schools';
-                
+
                 // On small screens, use a truncated placeholder with ellipsis
                 if (typeof window !== 'undefined' && window.innerWidth < 640) {
-                  return fullPlaceholder.length > 25 
-                    ? fullPlaceholder.substring(0, 22) + '...' 
+                  const width = window.innerWidth;
+                  let threshold = 35; // Default for larger mobile
+
+                  if (width <= 360) threshold = 28;      // Galaxy S8+
+                  else if (width <= 375) threshold = 29; // iPhone SE
+                  else if (width <= 390) threshold = 32; // iPhone 12/13/14
+                  else if (width <= 414) threshold = 34; // iPhone XR/S20
+                  else if (width <= 430) threshold = 37; // iPhone 14 Pro Max
+                  else threshold = 45;                   // Other larger mobile
+
+                  return fullPlaceholder.length > threshold
+                    ? fullPlaceholder.substring(0, threshold - 3) + '...'
                     : fullPlaceholder;
                 }
                 return fullPlaceholder;
               })()}
-              className="h-11 w-full rounded-2xl border-0 bg-transparent pl-10 pr-10 sm:pr-12 text-sm text-gray-900 shadow-none outline-none ring-0 placeholder:text-gray-400 focus-visible:ring-0"
+              className="h-11 w-full rounded-2xl border-0 bg-transparent pl-10 pr-8 sm:pr-12 text-sm text-gray-900 shadow-none outline-none ring-0 placeholder:text-gray-400 focus-visible:ring-0"
             />
             {/* AI ON/OFF toggle button – commented out
             <button

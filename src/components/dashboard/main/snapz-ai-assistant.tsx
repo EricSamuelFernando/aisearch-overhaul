@@ -572,6 +572,7 @@ export default function SnapzAIAssistant({ snapProperties, snapId, onPropertyAdd
       });
       if (!res.ok) throw new Error(`API error ${res.status}`);
       const data = await res.json();
+      console.log('[SnapzAI] Analyze data received:', data);
       setAnalysis(data.analysis || null);
 
       // ── 5. If AI returned 0 questions (all dimensions covered) → skip to recs ──
@@ -624,6 +625,7 @@ export default function SnapzAIAssistant({ snapProperties, snapId, onPropertyAdd
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phase: 'recommend',
+          userId: user?.id,
           snapProperties: propsForRec,
           analysis: safeAnalysis,
           answers: finalAnswers,
@@ -633,6 +635,7 @@ export default function SnapzAIAssistant({ snapProperties, snapId, onPropertyAdd
       });
       if (!res.ok) throw new Error(`API error ${res.status}`);
       const data = await res.json();
+      console.log('[SnapzAI] Recommend data received:', data);
       const props: RecommendedProperty[] = data?.properties || [];
       if (!props.length) { setPhase('empty'); return; }
       setRecommendations(props);

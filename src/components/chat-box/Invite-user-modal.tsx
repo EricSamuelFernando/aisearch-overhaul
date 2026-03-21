@@ -136,7 +136,7 @@ const InviteUserModal = ({
       const createdResponse: any = await propertyEngagementMutation.mutateAsync({
         propertyName: safePropertyName,
         price: 0,
-        listingId: Number(normalizedListingId) || 0,
+        listingId: normalizedListingId || "0",
         propertyId: normalizedPropertyId,
         city: 'Los angeles',
         zipCode: '',

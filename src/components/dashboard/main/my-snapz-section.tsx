@@ -391,7 +391,8 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
                     className="rounded-full bg-black px-4 sm:px-6 py-2 text-sm font-medium text-white hover:bg-gray-800"
                     onClick={() => {
                       if (myFavSnap) {
-                        router.push(`/account/collections/${myFavSnap.id}`);
+                        const suffix = `?from=${origin}`;
+                        router.push(`/account/collections/${myFavSnap.id}${suffix}`);
                       } else {
                         success({ message: 'No properties saved to My Favourite yet. Use the + button on any property to save here.' });
                       }
@@ -431,8 +432,7 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
                         className="flex-shrink-0 rounded-full bg-black px-4 sm:px-6 py-2 text-sm font-medium text-white hover:bg-gray-800"
                         onClick={() => {
                           setSelectedSnap(snap);
-                          const fromBuyerDashboard = origin === 'buyer-dashboard';
-                          const suffix = fromBuyerDashboard ? '?from=buyer-dashboard' : '';
+                          const suffix = `?from=${origin}`;
                           router.push(`/account/collections/${snap.id}${suffix}`);
                         }}
                       >

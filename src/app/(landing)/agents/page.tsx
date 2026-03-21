@@ -5,6 +5,10 @@ import FindPartner from '@/components/agents/find-partner';
 import OurClients from '@/components/company/our-clients';
 import MainTestimonial from '@/components/main-testimonial';
 
+const AGENTS_REVALIDATE_SECONDS = 300;
+
+export const revalidate = AGENTS_REVALIDATE_SECONDS;
+
 const AGENTS_TESTIMONIALS = [
   {
     name: 'MILTON AUSTIN',
@@ -62,7 +66,7 @@ async function fetchAgents() {
           offset: 0,
         },
       }),
-      cache: 'no-store',
+      next: { revalidate: AGENTS_REVALIDATE_SECONDS },
     });
 
     if (!response.ok) {

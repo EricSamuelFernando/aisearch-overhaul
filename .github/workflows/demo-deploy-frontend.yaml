@@ -8,10 +8,10 @@ on:
     paths-ignore:
       - ".github/workflows/prod-deploy-frontend.yaml"
       - ".github/workflows/deploy-terraform.yaml"
-      - "README.md"
+      - "*.md"
       - ".gitignore"
-      - ".env.development"
-      - ".env.production"
+      - "*.env*"
+      - "*.txt"
       - "docker-compose.yml"
 
 env:
@@ -248,7 +248,7 @@ jobs:
             exit 1
           fi
 
-          # Check if the alias exist
+          # Check if the alias exists
           ALIAS_EXISTS=$(aws lambda get-alias \
             --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
             --name ${{ env.ENVIRONMENT }} \
@@ -269,12 +269,12 @@ jobs:
               --name ${{ env.ENVIRONMENT }} \
               --function-version $LAMBDA_VERSION
             echo "Lambda alias '${{ env.ENVIRONMENT }}' created and pointing to version: $LAMBDA_VERSION"
-          fi
 
-          # Always apply provisioned concurrency to keep config in sync on every deploy
-          echo "Updating provisioned concurrency for alias '${{ env.ENVIRONMENT }}' to version $LAMBDA_VERSION..."
-          aws lambda put-provisioned-concurrency-config \
-            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
-            --qualifier ${{ env.ENVIRONMENT }} \
-            --provisioned-concurrent-executions ${{ env.PROVISIONED_CONCURRENT_EXECUTIONS }}
-          echo "Provisioned concurrency updated for alias: ${{ env.ENVIRONMENT }}"
+            # Update or create provisioned concurrency for the alias
+            echo "Creating or updating provisioned concurrency for alias '${{ env.ENVIRONMENT }}' and version $LAMBDA_VERSION..."
+            aws lambda put-provisioned-concurrency-config \
+              --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+              --qualifier ${{ env.ENVIRONMENT }} \
+              --provisioned-concurrent-executions ${{ env.PROVISIONED_CONCURRENT_EXECUTIONS }}
+            echo "Provisioned concurrency created or updated for alias: ${{ env.ENVIRONMENT }}"
+          fi

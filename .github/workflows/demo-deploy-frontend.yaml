@@ -159,6 +159,12 @@ jobs:
             --push \
             .
 
+      - name: Deploy image to Lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name "${{ env.LAMBDA_FUNCTION_NAME }}" \
+            --image-uri "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest"
+
       - name: Upload static build artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -198,12 +204,6 @@ jobs:
         with:
           name: public-folder
           path: public/
-
-      - name: Deploy image to Lambda
-        run: |
-          aws lambda update-function-code \
-            --function-name "${{ env.LAMBDA_FUNCTION_NAME }}" \
-            --image-uri "${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest"
 
       - name: Upload public subfolders to s3 (parallel)
         run: |

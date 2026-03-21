@@ -3515,7 +3515,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                     </div>
 
                                     {/* Mobile AI Toggle Icon */}
-                                    <div className="hidden md:hidden relative flex-shrink-0">
+                                    <div className="relative flex-shrink-0 md:hidden">
                                         <button
                                             type="button"
                                             onMouseDown={(event) => {
@@ -3562,7 +3562,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             )}
                                         </AnimatePresence>
                                     </div>
-                                    <div className="hidden md:hidden relative flex-shrink-0">
+                                    <div className="relative flex-shrink-0 md:hidden">
                                         <button
                                             type="button"
                                             onClick={handleMobileCameraClick}
@@ -3664,50 +3664,6 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                     </div>
                                 </div>
 
-                                <div className="mt-2 flex items-center gap-2 md:hidden">
-                                    <div className="relative flex-shrink-0">
-                                        <button
-                                            type="button"
-                                            onMouseDown={(event) => {
-                                                event.preventDefault();
-                                                event.stopPropagation();
-                                            }}
-                                            onClick={toggleMlsBypass}
-                                            aria-pressed={aiModeActive}
-                                            title={aiModeActive ? 'AI Search is ON' : 'AI Search is OFF'}
-                                            className={`relative h-[36px] transition-all duration-300 ${aiModeActive
-                                                ? 'w-[92px] ai-mode-shell'
-                                                : 'w-[92px] rounded-full border border-[#D8DDE6] bg-[#F3F5F8] text-[#4B4B4B]'
-                                                }`}
-                                        >
-                                            <span className={`relative z-[2] flex h-full w-full items-center justify-center gap-1 rounded-full px-2 text-[9px] font-semibold tracking-wide ${aiModeActive ? 'text-[#5A2B13]' : 'text-[#4B4B4B]'}`}>
-                                                <svg
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 24 24"
-                                                    width="24"
-                                                    height="24"
-                                                    fill="#000000"
-                                                    style={{ opacity: 1 }}
-                                                    className="h-3.5 w-3.5"
-                                                >
-                                                    <path d="M8.037 3.167a1.44 1.44 0 0 0 .482 1.43A5.001 5.001 0 0 0 9.5 14.5a5 5 0 0 0 4.748-3.435l.027.083c.1.25.26.461.48.622c.22.149.478.228.747.229l-.005.001h.004a6.5 6.5 0 0 1-.905 1.535l3.434 3.435a.75.75 0 0 1-.976 1.133l-.084-.073l-3.435-3.434A6.5 6.5 0 1 1 8.037 3.167M15.484 6a.3.3 0 0 1 .286.201l.249.766a1.58 1.58 0 0 0 .999.998l.765.248l.015.004a.303.303 0 0 1 .146.46a.3.3 0 0 1-.146.11l-.765.248a1.58 1.58 0 0 0-.999.998l-.249.766a.302.302 0 0 1-.57 0l-.25-.766a1.58 1.58 0 0 0-.998-1.002l-.765-.248a.303.303 0 0 1-.146-.46a.3.3 0 0 1 .146-.11l.765-.248a1.58 1.58 0 0 0 .984-.998L15.2 6.2a.3.3 0 0 1 .284-.2M12.48 0a.42.42 0 0 1 .399.282l.348 1.072a2.2 2.2 0 0 0 1.398 1.396l1.072.349l.022.005a.424.424 0 0 1 0 .797l-1.072.349a2.2 2.2 0 0 0-1.399 1.396L12.9 6.718a.423.423 0 0 1-.643.204l-.02-.015a.43.43 0 0 1-.135-.19l-.348-1.07a2.22 2.22 0 0 0-1.399-1.403l-1.072-.348a.423.423 0 0 1 0-.797l1.072-.349a2.21 2.21 0 0 0 1.377-1.396L12.08.282a.42.42 0 0 1 .4-.282" />
-                                                </svg>
-                                                <span>AI MODE</span>
-                                            </span>
-                                        </button>
-                                    </div>
-                                    <div className="relative flex-shrink-0">
-                                        <button
-                                            type="button"
-                                            onClick={handleMobileCameraClick}
-                                            title={CAMERA_TIP_TEXT}
-                                            aria-label={CAMERA_TIP_TEXT}
-                                            className="h-10 w-10 flex-shrink-0 text-[#1E1E1E] flex items-center justify-center transition-colors hover:text-black"
-                                        >
-                                            <Camera className="h-[18px] w-[18px]" />
-                                        </button>
-                                    </div>
-                                </div>
                             </motion.form>
 
                             {/* Integrated Suggestions Dropdown */}

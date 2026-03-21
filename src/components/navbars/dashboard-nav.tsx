@@ -48,23 +48,23 @@ const DashboardNav: React.FC<DashboardNavProps> = ({ navClass }) => {
       `fixed top-0 left-0 z-50 w-full bg-primary-100`,
       `${navClass}`
     )}>
-      <div className="mx-auto flex w-full items-center justify-between px-4 sm:px-6 md:px-10 lg:px-[3.219rem] py-3">
+      <div className="mx-auto flex w-full items-center justify-between gap-2 px-3 sm:px-6 md:px-10 lg:px-[3.219rem] py-3">
         {/* Logo Section */}
-        <div className="logo">
+        <div className="logo min-w-0 flex-1">
           {/* <Link href={user?.email ? "/dashboard" : "/home"}> */}
-          <Link href="/">
+          <Link href="/" className="inline-flex max-w-full items-center">
             <Image
               src="/assets/images/snaphomz-logo-black.png"
               alt="logo"
               width={200}
               height={59}
-              className="h-12 w-auto sm:h-[3.75rem]"
+              className="h-10 w-auto max-w-[190px] object-contain sm:h-[3.75rem] sm:max-w-none"
             />
           </Link>
         </div>
 
         {/* Right Section: Tabs & Dropdowns */}
-        <div className="flex items-center gap-4 sm:gap-5 md:gap-6">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-5 md:gap-6">
           <UserSwitchTab />
           <NotificationDropdown />
           <AccountDropdown
@@ -133,15 +133,21 @@ export const UserSwitchTab = () => {
       variant='outline'
       aria-disabled={isBuyerView}
       className={cn(
-        'border-[1px] border-black px-6 py-1 font-bold text-black transition-opacity',
+        'border-[1px] border-black px-2 py-1 text-[11px] font-bold text-black transition-opacity sm:px-6 sm:text-sm',
         isBuyerView && 'cursor-not-allowed opacity-60'
       )}
       onClick={handleButtonClick}
     >
       {isBuyerView ? (
-        <span>I want to sell</span>
+        <span>
+          <span className="sm:hidden">Sell</span>
+          <span className="hidden sm:inline">I want to sell</span>
+        </span>
       ) : (
-        <span>I want to Buy</span>
+        <span>
+          <span className="sm:hidden">Buy</span>
+          <span className="hidden sm:inline">I want to Buy</span>
+        </span>
       )}
     </Button>
   );

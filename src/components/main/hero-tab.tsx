@@ -517,6 +517,74 @@ const storePreviewFallback = (property: any) => {
     });
 };
 
+const getCanonicalPriceForCard = (property: any): string => {
+    const raw =
+        property?.price_display ??
+        property?.listPrice ??
+        property?.list_price ??
+        property?.price_value ??
+        property?.price ??
+        property?.formattedPrice ??
+        property?.asking_price;
+
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+        return `$${raw.toLocaleString()}`;
+    }
+    if (typeof raw === 'string') {
+        const trimmed = raw.trim();
+        if (!trimmed) return '$0';
+        const numeric = Number(trimmed.replace(/[^0-9.]/g, ''));
+        if (Number.isFinite(numeric) && numeric > 0) {
+            return `$${numeric.toLocaleString()}`;
+        }
+        return trimmed;
+    }
+    return '$0';
+};
+
+const extractPropertyOrdinalFromQuery = (query: string): number | null => {
+    if (!query) return null;
+    const lower = query.toLowerCase();
+
+    const numberedOrdinal = lower.match(/\b(\d+)\s*(?:st|nd|rd|th)\b/);
+    if (numberedOrdinal) {
+        const value = Number(numberedOrdinal[1]);
+        return Number.isFinite(value) ? value : null;
+    }
+
+    const propertyNumber = lower.match(/\bproperty\s*#?\s*(\d+)\b/);
+    if (propertyNumber) {
+        const value = Number(propertyNumber[1]);
+        return Number.isFinite(value) ? value : null;
+    }
+
+    const genericNumber = lower.match(/\b(\d+)\s*(?:property|home|house|listing)\b/);
+    if (genericNumber) {
+        const value = Number(genericNumber[1]);
+        return Number.isFinite(value) ? value : null;
+    }
+
+    const wordToOrdinal: Record<string, number> = {
+        first: 1,
+        second: 2,
+        third: 3,
+        fourth: 4,
+        fifth: 5,
+        sixth: 6,
+        seventh: 7,
+        eighth: 8,
+        ninth: 9,
+        tenth: 10,
+    };
+    for (const [word, ordinal] of Object.entries(wordToOrdinal)) {
+        if (new RegExp(`\\b${word}\\b`, 'i').test(lower)) {
+            return ordinal;
+        }
+    }
+
+    return null;
+};
+
 const mapSnapProperties = (rawProperties: any[]) => {
     return (rawProperties || []).map((p: any, index: number) => {
         let mainImage =
@@ -567,8 +635,7 @@ const mapSnapProperties = (rawProperties: any[]) => {
             galleryImages = [mainImage];
         }
 
-        const price = p.price || p.listPrice || '$0';
-        const fmtPrice = typeof price === 'number' ? `$${price.toLocaleString()}` : price;
+        const fmtPrice = getCanonicalPriceForCard(p);
         const address = p.address || p.formattedAddress || p.fullAddress ||
             (p.street ? `${p.street}, ${p.city}, ${p.state}` : 'Address Unavailable');
 
@@ -1253,6 +1320,27 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             return [];
         } finally {
             setForecastLoading(false);
+        }
+    };
+
+    const mapBackendChartDataToForecastPoints = (chartData: any, horizon: 6 | 12 | 24 = 24): ForecastPoint[] => {
+        try {
+            const key = `${horizon}m`;
+            const series = chartData?.forecast?.[key];
+            const dates = Array.isArray(series?.dates) ? series.dates : [];
+            const rates = Array.isArray(series?.rates) ? series.rates : [];
+            const len = Math.min(dates.length, rates.length);
+            if (!len) return [];
+            const points: ForecastPoint[] = [];
+            for (let i = 0; i < len; i++) {
+                const date = String(dates[i] ?? '').trim();
+                const rateNum = Number(rates[i] ?? 0);
+                if (!date || !Number.isFinite(rateNum)) continue;
+                points.push({ date, rate: rateNum });
+            }
+            return points;
+        } catch {
+            return [];
         }
     };
 
@@ -2279,6 +2367,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             if (effectiveIntent === "general") {
                 const selectedPropPayload =
                     selectedPropertyId !== null ? properties.find((p) => p.id === selectedPropertyId) : null;
+                const ordinalFromQuestion = extractPropertyOrdinalFromQuery(queryToSearch);
                 const questionPayload: QuestionPayload = {
                     question: queryToSearch,
                     session_id: activeSessionId
@@ -2291,6 +2380,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     if (selectedPropPayload?.displayIndex) {
                         questionPayload.selected_property_index = selectedPropPayload.displayIndex;
                     }
+                }
+                if (!questionPayload.selected_property_index && ordinalFromQuestion) {
+                    questionPayload.selected_property_index = ordinalFromQuestion;
                 }
 
                 const data = await askQuestion(questionPayload, newController.signal);
@@ -2314,6 +2406,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     data.response ||
                     "I couldn't find a response for that question.";
                 const sanitized = sanitizeAssistantOutput(aiText);
+                const backendForecastPoints = mapBackendChartDataToForecastPoints(data?.chart_data, 24);
 
                 const backendRelatedQuestions =
                     data.suggestions ||
@@ -2332,6 +2425,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     content: sanitized.cleanedText || aiText,
                     relatedQuestions: relatedQuestions,
                     clarification: data.clarification || "",
+                    isForecast: backendForecastPoints.length > 0,
+                    forecastData: backendForecastPoints.length > 0 ? backendForecastPoints : undefined,
                     map: data.map,
                     intent: data.intent || "question"
                 };
@@ -2344,7 +2439,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             const data = await searchProperties({
                 userid: user?.id || tempUserId || 'anonymous',
                 query: queryToSearch,
-                session_id: activeSessionId
+                session_id: activeSessionId,
+                from_browse: false,
             }, newController.signal);
             console.log("Backend Response:", data);
 
@@ -2428,8 +2524,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     }
 
                     // 2. Details Extraction
-                    const price = p.price || p.listPrice || '$0';
-                    const fmtPrice = typeof price === 'number' ? `$${price.toLocaleString()}` : price;
+                    const fmtPrice = getCanonicalPriceForCard(p);
 
                     const address = p.address || p.formattedAddress || p.fullAddress ||
                         (p.street ? `${p.street}, ${p.city}, ${p.state}` : 'Address Unavailable');
@@ -2463,6 +2558,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                         listingId,
                         propertyId,
                         listingUrl,
+                        displayIndex: p.display_index || p.displayIndex || index + 1,
                         image: mainImage,
                         price: fmtPrice,
                         address: address,
@@ -2516,6 +2612,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 let extractedAddress: string | undefined = undefined;
                 let isForecastMsg = false;
                 let forecastPoints: ForecastPoint[] | undefined = undefined;
+                const backendForecastPoints = mapBackendChartDataToForecastPoints(data?.chart_data, 24);
+
+                if (backendForecastPoints.length > 0) {
+                    isForecastMsg = true;
+                    forecastPoints = backendForecastPoints;
+                }
 
                 // Check for Forecast — only trigger when user explicitly wants a chart/forecast/trend.
                 // "what is the interest rate today?" is a text question → NO chart.
@@ -2526,7 +2628,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     /\brate\s+(trend|chart|graph|projection|predict)\b/.test(loweredQuery) ||
                     /\b(show|display|visuali[sz]e)\b.{0,20}\brate(s)?\b/.test(loweredQuery);
                 const isRateForecastQuery = hasExplicitForecastIntent;
-                if (isRateForecastQuery) {
+                if (!isForecastMsg && isRateForecastQuery) {
                     isForecastMsg = true;
                     forecastPoints = await fetchForecast(24);
                     // Don't override content if we have AI text, unless necessary. 
@@ -3608,13 +3710,6 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             <Camera className="h-[18px] w-[18px]" />
                                         </button>
                                     </div>
-                                    <Button
-                                        type="submit"
-                                        disabled={!!pendingImage && pendingImageStatus !== 'ready'}
-                                        className="h-10 min-w-0 flex-1 rounded-xl bg-[#F58634] px-4 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#E07224] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-[#F58634]"
-                                    >
-                                        Begin Journey
-                                    </Button>
                                 </div>
                             </motion.form>
 
@@ -4660,8 +4755,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                                                             if (lastAiIndex !== -1) {
                                                                                                 const mappedProps = details.last_results.map((p: any, index: number) => {
                                                                                                     const mainImage = p.primaryListingImageUrl || p.primaryImage || p.imgSrc || p.image || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c';
-                                                                                                    const price = p.price || p.listPrice || '$0';
-                                                                                                    const fmtPrice = typeof price === 'number' ? `$${price.toLocaleString()}` : price;
+                                                                                                    const fmtPrice = getCanonicalPriceForCard(p);
                                                                                                     const address = p.address || p.formattedAddress || (p.street ? `${p.street}, ${p.city}, ${p.state}` : 'Address Unavailable');
                                                                                                     const listingId = resolveListingId(p);
                                                                                                     const propertyId = resolvePropertyId(p);
@@ -4672,6 +4766,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                                                                         listingId,
                                                                                                         propertyId,
                                                                                                         listingUrl: p.listing_url || p.url || p.hdpUrl,
+                                                                                                        displayIndex: p.display_index || p.displayIndex || index + 1,
                                                                                                         image: mainImage,
                                                                                                         price: fmtPrice,
                                                                                                         address: address,

@@ -25,6 +25,12 @@ const ChooseYourMeans = ({
   onCtaClick,
 }: ChooseYourMeansProps) => {
   const router = useRouter();
+  const yourAgentDescriptionParts = yourAgentDescription.includes(' personal agent')
+    ? yourAgentDescription.split(' personal agent')
+    : null;
+  const ourAgentDescriptionParts = ourAgentDescription.includes(' list of agents')
+    ? ourAgentDescription.split(' list of agents')
+    : null;
 
   const handleCtaClick = (e?: React.MouseEvent) => {
     if (e) {
@@ -57,7 +63,7 @@ const ChooseYourMeans = ({
           {/* Card 1 */}
           <div
             onClick={() => handleCtaClick()}
-            className="home-choose-card relative h-[310px] min-w-[80vw] snap-start overflow-hidden rounded-[2.5rem] cursor-pointer sm:h-[350px] md:min-w-0 lg:h-[395px]"
+            className="home-choose-card relative h-[345px] min-w-[80vw] snap-start overflow-hidden rounded-[2.5rem] cursor-pointer sm:h-[350px] md:min-w-0 lg:h-[395px]"
           >
             <img
               src="/assets/images/landing-means.png"
@@ -73,12 +79,23 @@ const ChooseYourMeans = ({
               }}
             />
             {/* Text + button */}
-            <div className="absolute inset-x-0 bottom-6 text-white px-5 sm:px-6 text-center">
-              <p className="font-bold text-[1.65rem] sm:text-[1.8rem] leading-none mb-2">Your Agent</p>
-              <p className="text-[0.88rem] sm:text-[0.95rem] text-white/90 mb-4 leading-snug max-w-[210px] mx-auto">{yourAgentDescription}</p>
+            <div className="absolute inset-x-0 bottom-8 text-white px-5 sm:px-6 text-center">
+              <p className="font-semibold text-[1.2rem] leading-[1.1] mb-3 sm:text-[1.8rem] sm:mb-2">Your Agent</p>
+              <p className="text-[0.92rem] text-white/90 mb-5 leading-[1.35] max-w-[270px] mx-auto sm:text-[0.95rem] sm:mb-4 sm:max-w-[210px]">
+                {yourAgentDescriptionParts ? (
+                  <>
+                    {yourAgentDescriptionParts[0]}
+                    <br className="sm:hidden" />
+                    <span className="hidden sm:inline"> </span>
+                    personal agent
+                  </>
+                ) : (
+                  yourAgentDescription
+                )}
+              </p>
               <button
                 onClick={(e) => handleCtaClick(e)}
-                className="px-6.5 sm:px-7 py-2.5 bg-black text-white text-[0.9rem] font-semibold rounded-full transition duration-200 hover:bg-black/80 min-w-[136px]"
+                className="px-6 py-2.5 bg-black text-white text-[0.88rem] font-semibold rounded-full transition duration-200 hover:bg-black/80 min-w-[138px] sm:px-7 sm:text-[0.9rem] sm:min-w-[136px]"
               >
                 {ctaLabel}
               </button>
@@ -88,7 +105,7 @@ const ChooseYourMeans = ({
           {/* Card 2 */}
           <div
             onClick={() => handleCtaClick()}
-            className="home-choose-card relative h-[310px] min-w-[80vw] snap-start overflow-hidden rounded-[2.5rem] cursor-pointer sm:h-[350px] md:min-w-0 lg:h-[395px]"
+            className="home-choose-card relative h-[345px] min-w-[80vw] snap-start overflow-hidden rounded-[2.5rem] cursor-pointer sm:h-[350px] md:min-w-0 lg:h-[395px]"
           >
             <img
               src="/assets/images/landing-means1.png"
@@ -104,12 +121,23 @@ const ChooseYourMeans = ({
               }}
             />
             {/* Text + button */}
-            <div className="absolute inset-x-0 bottom-6 text-white px-5 sm:px-6 text-center">
-              <p className="font-bold text-[1.65rem] sm:text-[1.8rem] leading-none mb-2">Our Agent</p>
-              <p className="text-[0.88rem] sm:text-[0.95rem] text-white/90 mb-4 leading-snug max-w-[220px] mx-auto">{ourAgentDescription}</p>
+            <div className="absolute inset-x-0 bottom-8 text-white px-5 sm:px-6 text-center">
+              <p className="font-semibold text-[1.2rem] leading-[1.1] mb-3 sm:text-[1.8rem] sm:mb-2">Our Agent</p>
+              <p className="text-[0.92rem] text-white/90 mb-5 leading-[1.35] max-w-[250px] mx-auto sm:text-[0.95rem] sm:mb-4 sm:max-w-[220px]">
+                {ourAgentDescriptionParts ? (
+                  <>
+                    {ourAgentDescriptionParts[0]}
+                    <br className="sm:hidden" />
+                    <span className="hidden sm:inline"> </span>
+                    list of agents
+                  </>
+                ) : (
+                  ourAgentDescription
+                )}
+              </p>
               <button
                 onClick={(e) => handleCtaClick(e)}
-                className="px-6.5 sm:px-7 py-2.5 bg-black text-white text-[0.9rem] font-semibold rounded-full transition duration-200 hover:bg-black/80 min-w-[136px]"
+                className="px-6 py-2.5 bg-black text-white text-[0.88rem] font-semibold rounded-full transition duration-200 hover:bg-black/80 min-w-[138px] sm:px-7 sm:text-[0.9rem] sm:min-w-[136px]"
               >
                 {ctaLabel}
               </button>

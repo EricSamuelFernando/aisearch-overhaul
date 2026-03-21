@@ -109,6 +109,10 @@ export const useFilteredProperties = (propertiesOverride?: any[] | null) => {
       const price = Number(listing?.listPriceLow ?? listing?.ListPrice ?? listing?.listPrice ?? p?.price ?? 0);
       const beds = Number(props?.BedroomsTotal ?? props?.bedroomsTotal ?? props?.bedroomTotal ?? p?.beds ?? p?.bedrooms ?? 0);
       const baths = Number(props?.BathroomsTotalInteger ?? props?.bathroomsTotal ?? props?.bathroomTotal ?? p?.baths ?? p?.bathrooms ?? 0);
+      const sqft = Number(props?.LivingArea ?? props?.livingArea ?? props?.sqft ?? p?.sqft ?? 0);
+
+      // Exclude properties with 0 beds, baths, or sqft
+      if (beds === 0 || baths === 0 || sqft === 0) return false;
 
       if (filters.priceMin !== null && price < filters.priceMin) return false;
       if (filters.priceMax !== null && price > filters.priceMax) return false;

@@ -153,10 +153,10 @@ export default function BuyerPage() {
 
             {/* What Our Clients Say Section */}
             <section className="bg-[#fef6ee] text-black py-16 px-6">
-                <h2 className="text-3xl font-semibold text-center mb-2">
+                <h2 className="text-3xl font-semibold text-center mb-2 sm:mb-3">
                     What Our <span className="font-light">Clients</span> Say
                 </h2>
-                <p className="text-center text-gray-600 mb-10">
+                <p className="mx-auto mt-3 max-w-2xl text-center text-sm leading-relaxed text-gray-600 sm:mt-4 sm:text-base mb-10">
                     We value our customers authentic opinion on our products.
                 </p>
 

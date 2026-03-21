@@ -1335,11 +1335,7 @@ export default function HeroLayout({
       </div>
 
       <div className={`text-black relative pt-28 -mt-28 ${className}`}>
-        <div className="relative w-full min-h-[24rem] sm:min-h-[36rem] md:min-h-[42rem] lg:min-h-[48rem] overflow-visible bg-[url('/assets/images/agents-hero.jpg')] bg-cover bg-[center_top] sm:bg-[length:100%_100%] sm:bg-center bg-no-repeat">
-          <div className="absolute inset-0 bg-gradient-to-b from-white/35 via-white/10 to-[#fff6ec]/88 sm:hidden" />
-          <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/40 to-transparent sm:hidden" />
-          <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#fff6ec] via-[#fff6ec]/75 to-transparent sm:hidden" />
-
+        <div className="relative w-full min-h-[24rem] sm:min-h-[36rem] md:min-h-[42rem] lg:min-h-[48rem] overflow-visible bg-[url('/assets/images/agents-hero.jpg')] bg-[length:205%_auto] bg-[center_top] sm:bg-[length:100%_100%] sm:bg-center bg-no-repeat">
           <div className="relative inset-0 h-full flex flex-col items-center justify-start sm:justify-center px-4 sm:px-6 md:px-12 lg:px-20 z-20 pt-24 sm:pt-56 pb-6 sm:pb-0">
             <h1 className="max-w-[17rem] text-center text-[1.95rem] font-semibold leading-[1.08] text-black drop-shadow-sm sm:max-w-4xl sm:text-[2.75rem] md:text-[3.35rem] sm:leading-tight mb-3 sm:mb-6 sm:drop-shadow-lg">Discover Agent Possibilities
               <br />

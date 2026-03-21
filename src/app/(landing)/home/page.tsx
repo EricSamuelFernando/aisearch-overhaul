@@ -861,13 +861,13 @@ const HOME_PAGE_TESTIMONIALS = [
     name: 'MILTON AUSTIN',
     title: 'Sales Manager, Sanfransico',
     text: 'From browsing to signing, everything just flowed. The listings were clear, the agents responsive, and the process - smooth. I found my home faster than I expected.',
-    img: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=1200&auto=format&fit=crop',
+    img: '/assets/images/what-our-clients/img1.png',
   },
   {
     name: 'ALEX RICHARD',
     title: 'Product Manager, Chicago',
     text: 'Snaphomz helps me connect with serious buyers quickly. The interface is clean, and the snap tools make updates and scheduling super efficient. I’ve closed more deals in less time.',
-    img: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=1200&auto=format&fit=crop',
+    img: '/assets/images/what-our-clients/img2.png',
   },
 ];
 

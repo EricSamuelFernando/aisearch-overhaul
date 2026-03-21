@@ -1246,12 +1246,12 @@ export default function Home() {
   ];
 
   const mobileHeroCards = [
-    { left: '5px', top: '206px', width: '66px', height: '98px', rotation: 18, src: '/assets/images/home-landing1.png', imageScale: 1.08 },
-    { left: '18px', top: '118px', width: '86px', height: '124px', rotation: -42, src: '/assets/images/home-landing8.png', imageScale: 1.08 },
-    { left: '104px', top: '70px', width: '108px', height: '90px', rotation: -15, src: '/assets/images/home-landing6.png', imageScale: 1.02 },
-    { left: '220px', top: '74px', width: '108px', height: '96px', rotation: 14, src: '/assets/images/home-landing3.png', imageScale: 1.04 },
-    { left: '334px', top: '110px', width: '102px', height: '98px', rotation: 36, src: '/assets/images/home-landing2.png', imageScale: 1.07 },
-    { left: '420px', top: '204px', width: '66px', height: '98px', rotation: 22, src: '/assets/images/home-landing4.png', imageScale: 1.08 },
+    { left: '-55px', top: '224px', width: '62px', height: '96px', rotation: -27, src: '/assets/images/home-landing1.png', imageScale: 1.08 },
+    { left: '-31px', top: '118px', width: '100px', height: '96px', rotation: -42, src: '/assets/images/home-landing-3.png', imageScale: 1.08 },
+    { left: '85px', top: '70px', width: '100px', height: '96px', rotation: -15, src: '/assets/images/home-landing-4.png', imageScale: 1.02 },
+    { left: '212px', top: '74px', width: '100px', height: '96px', rotation: 14, src: '/assets/images/home-landing-5.png', imageScale: 1.04 },
+    { left: '334px', top: '110px', width: '100px', height: '96px', rotation: 36, src: '/assets/images/home-landing-6.png', imageScale: 1.07 },
+    { left: '420px', top: '204px', width: '100px', height: '96px', rotation: 22, src: '/assets/images/home-landing4.png', imageScale: 1.08 },
   ];
 
   return (
@@ -1261,7 +1261,7 @@ export default function Home() {
       {/* ================= HERO SECTION ================= */}
       <section
         ref={heroSectionRef}
-        className="home-hero relative -mt-24 min-h-[680px] bg-[#170800] pt-28 text-white sm:min-h-[720px] md:min-h-[620px] md:h-[620px] md:max-h-[620px] md:pt-24 lg:min-h-[680px] lg:h-[680px] lg:max-h-[680px] xl:min-h-[740px] xl:h-[740px] xl:max-h-[740px]"
+        className="home-hero relative -mt-24 min-h-[610px] bg-[#170800] pt-28 text-white sm:min-h-[650px] md:min-h-[620px] md:h-[620px] md:max-h-[620px] md:pt-24 lg:min-h-[680px] lg:h-[680px] lg:max-h-[680px] xl:min-h-[740px] xl:h-[740px] xl:max-h-[740px]"
       >
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {/* ================= DESKTOP ARC ================= */}
@@ -1539,7 +1539,7 @@ export default function Home() {
         </div>
 
 
-        <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pb-2 pt-[16.8rem] text-center sm:pb-4 sm:pt-[18.1rem] md:pt-24 md:pb-12">
+        <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pb-2 pt-[13.2rem] text-center sm:pb-4 sm:pt-[15rem] md:pt-24 md:pb-12">
 
           {/* ================= TEXT + SEARCH ================= */}
           <div

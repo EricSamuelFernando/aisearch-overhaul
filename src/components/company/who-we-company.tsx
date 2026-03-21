@@ -39,7 +39,7 @@ const WhoWeCompany = () => {
       {/* ================= CARDS SECTION ================= */}
       <section className="relative flex w-full justify-center overflow-hidden bg-[#F7E9D7] px-4 pb-20 pt-16 sm:px-6 lg:px-6 lg:pb-56 lg:pt-20">
         <div
-          className="absolute inset-x-0 top-0 h-[820px] bg-[length:auto_76%] bg-[left_top] bg-no-repeat sm:hidden"
+          className="absolute inset-x-0 top-0 h-[820px] bg-[length:auto_70%] bg-[left_top] bg-no-repeat sm:hidden"
           style={{
             backgroundImage: `url('/assets/images/company-whowe.jpg')`,
           }}
@@ -56,17 +56,17 @@ const WhoWeCompany = () => {
           <div className="h-[240px] sm:h-[220px] lg:h-[520px]" />
 
           <div className="w-full lg:hidden">
-            <div className="scrollbar-hide flex snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-hidden scroll-smooth px-3 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <div className="snap-start w-[72%] shrink-0 rounded-[24px] bg-[#EADCC8] px-5 py-7 text-center shadow-[0_18px_48px_rgba(0,0,0,0.22)] sm:w-[300px] sm:px-6 sm:py-8">
-                <h3 className="mb-2 text-[17px] font-semibold leading-tight sm:text-lg sm:leading-tight">People Driven</h3>
+            <div className="scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto overflow-y-hidden scroll-smooth px-4 pb-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="snap-start w-[86%] shrink-0 rounded-[24px] bg-[#EADCC8] px-5 py-7 text-center shadow-[0_18px_48px_rgba(0,0,0,0.22)] sm:w-[300px] sm:px-6 sm:py-8">
+                <h3 className="mb-2 text-[17px] font-bold leading-tight sm:text-lg sm:leading-tight">People Driven</h3>
                 <p className="text-sm leading-relaxed text-[#777675]">
                   Human connections at the heart of every interaction and
                   decision.
                 </p>
               </div>
 
-              <div className="snap-start w-[72%] shrink-0 rounded-[24px] bg-[#EADCC8] px-5 py-7 text-center shadow-[0_18px_48px_rgba(0,0,0,0.22)] sm:w-[300px] sm:px-6 sm:py-8">
-                <h3 className="mb-2 text-[17px] font-semibold leading-tight sm:text-lg sm:leading-tight">
+              <div className="snap-start w-[86%] shrink-0 rounded-[24px] bg-[#EADCC8] px-5 py-7 text-center shadow-[0_18px_48px_rgba(0,0,0,0.22)] sm:w-[300px] sm:px-6 sm:py-8">
+                <h3 className="mb-2 text-[17px] font-bold leading-tight sm:text-lg sm:leading-tight">
                   Open House. Open Mind
                 </h3>
                 <p className="text-sm leading-relaxed text-[#777675]">
@@ -75,8 +75,8 @@ const WhoWeCompany = () => {
                 </p>
               </div>
 
-              <div className="snap-start w-[72%] shrink-0 rounded-[24px] bg-[#EADCC8] px-5 py-7 text-center shadow-[0_18px_48px_rgba(0,0,0,0.22)] sm:w-[300px] sm:px-6 sm:py-8">
-                <h3 className="mb-2 text-[17px] font-semibold leading-tight sm:text-lg sm:leading-tight">Digital Edge</h3>
+              <div className="snap-start w-[86%] shrink-0 rounded-[24px] bg-[#EADCC8] px-5 py-7 text-center shadow-[0_18px_48px_rgba(0,0,0,0.22)] sm:w-[300px] sm:px-6 sm:py-8">
+                <h3 className="mb-2 text-[17px] font-bold leading-tight sm:text-lg sm:leading-tight">Digital Edge</h3>
                 <p className="text-sm leading-relaxed text-[#777675]">
                   We build revolutionary digital solutions to disrupt
                   traditional real estate.

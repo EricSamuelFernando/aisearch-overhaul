@@ -55,6 +55,7 @@ import Script from 'next/script';
 import { metadata as md } from './metadata';
 import { satoshi } from '../utils/fonts';
 import { ClientRoot } from '../components/ClientRoot';
+import ScrollToTop from '../components/ScrollToTop';
 
 export const metadata = {
   title: md.title,
@@ -86,6 +87,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         className="h-full flex flex-col font-satoshi scroll-smooth overflow-auto"
       >
         <ClientRoot>
+          <ScrollToTop />
           <main className="flex-1 overflow-y-auto mobile-hide-scrollbar">
             {children}
           </main>

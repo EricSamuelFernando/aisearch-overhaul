@@ -13,6 +13,9 @@ type UpstreamResult = { ok: boolean; status: number; json: any };
 const MLS_PAGE_CACHE_TTL_MS = 3000;
 const mlsPageInflight = new Map<string, Promise<UpstreamResult>>();
 const mlsPageRecentCache = new Map<string, { expiresAt: number; value: UpstreamResult }>();
+const BACKEND_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:5000';
+const BACKEND_INGEST_URL = `${BACKEND_BASE}/api/mls/ingest`;
+const INGEST_MAX_RECORDS = 200;
 
 const stableKey = (value: any): string => {
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
@@ -417,6 +420,16 @@ export async function POST(request: NextRequest) {
       properties.length > 0
         ? `Found ${countHint} property match${Number(countHint) === 1 ? '' : 'es'} from MLS.`
         : 'No MLS listings matched that search. Try adding a city/ZIP or adjusting filters.';
+
+    void fetch(BACKEND_INGEST_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        records: aggregateRaw.slice(0, INGEST_MAX_RECORDS),
+        source: 'mls_bypass',
+      }),
+      cache: 'no-store',
+    }).catch(() => null);
 
     return NextResponse.json({
       intent: 'property',

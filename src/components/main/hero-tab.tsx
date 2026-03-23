@@ -1022,31 +1022,7 @@ const normalizePoolValue = (value: any): boolean | null => {
     return null;
 };
 
-export default function HeroTab() {
-    const [activeTab, setActiveTab] = useState<string | null>('buy');
-    const [isExpanded, setIsExpanded] = useState(false);
 
-    return (
-        <div className="w-full mx-auto flex max-w-[1600px] flex-col items-center transition-all duration-500 ease-in-out">
-            {/* Tabs */}
-            <div className={`flex flex-row items-center gap-x-1 mb-2 transition-all duration-300 ${isExpanded ? 'opacity-0 h-0 overflow-hidden mt-0' : 'opacity-100 h-8'}`}>
-                {['buy', 'sell'].map((item) => (
-                    <div
-                        key={item}
-                        onClick={() => setActiveTab(item)}
-                        className={`flex h-8 cursor-pointer items-center justify-center rounded-tl-md rounded-tr-md px-4 transition-colors ${activeTab?.toLowerCase() === item.toLowerCase()
-                            ? 'bg-white/10 text-white font-semibold'
-                            : 'text-white/60 hover:text-white'
-                            }`}
-                    >
-                        <h3 className="text-sm uppercase tracking-wide">{item}</h3>
-                    </div>
-                ))}
-            </div>
-            <HeroSearchForm onSearchStateChange={(expanded) => setIsExpanded(expanded)} />
-        </div>
-    );
-}
 
 export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchActive, onSuggestionsOpen }: { placeholderText?: string, onSearchStateChange?: (isActive: boolean, searchTerm: string) => void, isSearchActive?: boolean, searchType?: string, showOutline?: boolean, disableAutoExpand?: boolean, onSuggestionsOpen?: (open: boolean) => void }) => {
     // --- Hooks & State ---
@@ -1426,6 +1402,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const searchContainerRef = useRef<HTMLDivElement>(null);
     const searchInputRef = useRef<HTMLTextAreaElement>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
+    const isSearchingRef = useRef(false);
     const lastIntentRef = useRef<string | null>(null);
     const addressSuggestDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const locationSuggestDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2162,7 +2139,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     };
 
     const handleSearchSubmit = async (queryToSearch: string) => {
-        if (!queryToSearch.trim()) return;
+        if (!queryToSearch.trim() || isSearching || isSearchingRef.current) return;
 
         // Direct MLS mode should behave like a normal search bar:
         // skip chat expansion/conversation and route to the listings page.
@@ -2196,8 +2173,10 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             onSearchStateChange(true, queryToSearch);
         }
 
+        isSearchingRef.current = true;
         console.log('[Snap-Search] handleSearchSubmit called. pendingLocationImage:', pendingLocationImage ? pendingLocationImage.name : 'null');
 
+        let responseData: any;
 
         // 1. Add User Message
         const userMsgId = Date.now().toString();
@@ -2309,12 +2288,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     throw new Error(errorData.detail || 'Image search failed with the provided location');
                 }
 
-                const data = await response.json();
+                responseData = await response.json();
                 setPendingLocationImage(null);
 
-                const mappedProps = mapSnapProperties(data.properties || []);
+                const mappedProps = mapSnapProperties(responseData.properties || []);
 
-                const totalMatches = data.total_matches || mappedProps.length;
+                const totalMatches = responseData.total_matches || mappedProps.length;
                 const manualResponseMsgId = (Date.now() + 1).toString();
                 setChatHistory(prev => [...prev, {
                     id: manualResponseMsgId,
@@ -2388,35 +2367,36 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     questionPayload.selected_property_index = ordinalFromQuestion;
                 }
 
-                const data = await askQuestion(questionPayload, newController.signal);
-                console.log("Backend Response:", data);
+                responseData = await askQuestion(questionPayload, newController.signal);
 
-                if (data.session_id) {
-                    setSessionId(data.session_id);
+                console.log("Backend Response:", responseData);
+
+                if (responseData.session_id) {
+                    setSessionId(responseData.session_id);
                 }
-                if (Array.isArray(data.thinking_steps) && data.thinking_steps.length > 0) {
-                    setThinkingSteps(data.thinking_steps);
+                if (Array.isArray(responseData.thinking_steps) && responseData.thinking_steps.length > 0) {
+                    setThinkingSteps(responseData.thinking_steps);
                 }
-                if (data.intent) {
-                    setThinkingIntentHint(data.intent);
+                if (responseData.intent) {
+                    setThinkingIntentHint(responseData.intent);
                 }
-                lastIntentRef.current = data.intent || "question";
+                lastIntentRef.current = responseData.intent || "question";
 
                 const aiText =
-                    data.answer ||
-                    data.final_response ||
-                    data.summary ||
-                    data.response ||
+                    responseData.answer ||
+                    responseData.final_response ||
+                    responseData.summary ||
+                    responseData.response ||
                     "I couldn't find a response for that question.";
                 const sanitized = sanitizeAssistantOutput(aiText);
-                const backendForecastPoints = mapBackendChartDataToForecastPoints(data?.chart_data, 24);
+                const backendForecastPoints = mapBackendChartDataToForecastPoints(responseData?.chart_data, 24);
 
                 const backendRelatedQuestions =
-                    data.suggestions ||
-                    data.suggested_actions ||
-                    data.recommendations ||
-                    data.suggested_questions ||
-                    data.related_questions ||
+                    responseData.suggestions ||
+                    responseData.suggested_actions ||
+                    responseData.recommendations ||
+                    responseData.suggested_questions ||
+                    responseData.related_questions ||
                     [];
                 const relatedQuestions = Array.from(
                     new Set([...(Array.isArray(backendRelatedQuestions) ? backendRelatedQuestions : []), ...sanitized.extractedSuggestions])
@@ -2427,41 +2407,41 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     role: 'assistant',
                     content: sanitized.cleanedText || aiText,
                     relatedQuestions: relatedQuestions,
-                    clarification: data.clarification || "",
+                    clarification: responseData.clarification || "",
                     isForecast: backendForecastPoints.length > 0,
                     forecastData: backendForecastPoints.length > 0 ? backendForecastPoints : undefined,
-                    map: data.map,
-                    intent: data.intent || "question"
+                    map: responseData.map,
+                    intent: responseData.intent || "question"
                 };
                 setChatHistory(prev => [...prev, aiMsg]);
                 setIsSearching(false);
                 return;
             }
 
-            console.log("Fetching properties for:", queryToSearch);
-            const data = await searchProperties({
+            responseData = await searchProperties({
                 userid: user?.id || tempUserId || 'anonymous',
                 query: queryToSearch,
                 session_id: activeSessionId,
                 from_browse: false,
             }, newController.signal);
-            console.log("Backend Response:", data);
 
-            if (data.session_id) {
-                setSessionId(data.session_id);
+            console.log("Backend Response:", responseData);
+
+            if (responseData.session_id) {
+                setSessionId(responseData.session_id);
             }
-            if (data.intent) {
-                lastIntentRef.current = data.intent;
-                setThinkingIntentHint(data.intent);
+            if (responseData.intent) {
+                lastIntentRef.current = responseData.intent;
+                setThinkingIntentHint(responseData.intent);
             }
-            if (Array.isArray(data.thinking_steps) && data.thinking_steps.length > 0) {
-                setThinkingSteps(data.thinking_steps);
+            if (Array.isArray(responseData.thinking_steps) && responseData.thinking_steps.length > 0) {
+                setThinkingSteps(responseData.thinking_steps);
             }
             dispatch(incrementSearchCount());
 
-            const rawProperties = data.properties || data.search_results || [];
-            const aiText = data.final_response || data.answer || data.summary || data.response;
-            const responseMode = data?.metadata?.response_mode;
+            const rawProperties = responseData.properties || responseData.search_results || [];
+            const aiText = responseData.final_response || responseData.answer || responseData.summary || responseData.response;
+            const responseMode = responseData?.metadata?.response_mode;
             const isCardsOnly = responseMode === "cards_only";
             const hasAiText = typeof aiText === "string" && aiText.trim().length > 0;
 
@@ -2599,11 +2579,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 // Add Assistant Response
                 const aiMsgId = (Date.now() + 1).toString();
                 const backendRelatedQuestions =
-                    data.suggestions ||
-                    data.suggested_actions ||
-                    data.recommendations ||
-                    data.suggested_questions ||
-                    data.related_questions ||
+                    responseData.suggestions ||
+                    responseData.suggested_actions ||
+                    responseData.recommendations ||
+                    responseData.suggested_questions ||
+                    responseData.related_questions ||
                     [];
 
                 const schoolKeywords = ['school', 'education', 'university', 'college', 'district', 'elementary', 'high', 'rating'];
@@ -2615,7 +2595,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 let extractedAddress: string | undefined = undefined;
                 let isForecastMsg = false;
                 let forecastPoints: ForecastPoint[] | undefined = undefined;
-                const backendForecastPoints = mapBackendChartDataToForecastPoints(data?.chart_data, 24);
+                const backendForecastPoints = mapBackendChartDataToForecastPoints(responseData?.chart_data, 24);
 
                 if (backendForecastPoints.length > 0) {
                     isForecastMsg = true;
@@ -2674,17 +2654,17 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     role: 'assistant',
                     content: sanitizedFinal.cleanedText || finalContent,
                     query: queryToSearch,
-                    query_history_formatted: data.metadata?.query_history_formatted,
+                    query_history_formatted: responseData.metadata?.query_history_formatted,
                     relatedProperties: mappedProps,
                     relatedQuestions: relatedQuestions,
-                    clarification: data.clarification || "",
+                    clarification: responseData.clarification || "",
                     showSchools: showSchools,
                     relatedSchools: extractedSchools,
                     schoolAddress: extractedAddress,
                     isForecast: isForecastMsg,
                     forecastData: forecastPoints,
-                    map: data.map,
-                    intent: data.intent
+                    map: responseData.map,
+                    intent: responseData.intent
                 };
                 setChatHistory(prev => [...prev, aiMsg]);
 
@@ -2692,11 +2672,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 // Empty results
                 const aiMsgId = (Date.now() + 1).toString();
                 const backendRelatedQuestions =
-                    data.suggestions ||
-                    data.suggested_actions ||
-                    data.recommendations ||
-                    data.suggested_questions ||
-                    data.related_questions ||
+                    responseData.suggestions ||
+                    responseData.suggested_actions ||
+                    responseData.recommendations ||
+                    responseData.suggested_questions ||
+                    responseData.related_questions ||
                     [];
                 const sanitizedEmpty = sanitizeAssistantOutput(aiText || "I couldn't find any properties matching that search right now.");
                 const relatedQuestions = Array.from(
@@ -2712,8 +2692,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     content: sanitizedEmpty.cleanedText || aiText || "I couldn't find any properties matching that search right now.",
                     relatedProperties: [],
                     relatedQuestions: relatedQuestions,
-                    clarification: data.clarification || "",
-                    intent: data.intent
+                    clarification: responseData.clarification || "",
+                    intent: responseData.intent
                 };
                 setChatHistory(prev => [...prev, aiMsg]);
             }
@@ -2735,6 +2715,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 requestStartedAtRef.current = null;
             }
             setIsSearching(false);
+            isSearchingRef.current = false;
         }
     };
 
@@ -3326,8 +3307,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             price: priceValue !== undefined && priceValue !== null ? String(priceValue) : undefined,
             propertyType,
             propertyImage,
-            bedroomsTotal: parseNumericValue(property?.beds ?? property?.bedrooms ?? property?.bedroomTotal ?? property?.property?.bedroomsTotal ?? 0),
-            bathroomsTotal: parseNumericValue(property?.baths ?? property?.bathrooms ?? property?.bathroomTotal ?? property?.property?.bathroomsTotal ?? 0),
+            bedroomsTotal: parseNumericValue(property?.beds ?? property?.bedrooms ?? property?.bedroomTotal ?? property?.property?.bedroomsTotal),
+            bathroomsTotal: parseNumericValue(property?.baths ?? property?.bathrooms ?? property?.bathroomTotal ?? property?.property?.bathroomsTotal),
             livingArea: parseNumericValue(property?.sqft ?? property?.livingArea ?? property?.property?.livingArea),
         };
     }, []);
@@ -3575,18 +3556,6 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                 setIsLoadingLocationSuggestions(false);
                                                 onSuggestionsOpen?.(false);
                                             }, 200)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' && !e.shiftKey) {
-                                                    e.preventDefault();
-                                                    if (pendingImage) {
-                                                        if (pendingImageStatus === 'ready') {
-                                                            submitPendingImage();
-                                                        }
-                                                        return;
-                                                    }
-                                                    handleSearchSubmit(searchTerm);
-                                                }
-                                            }}
                                             placeholder={!aiModeActive ? typedPlaceholder : (placeholderText || typedPlaceholder)}
                                             className="flex-1 min-w-0 bg-transparent outline-none px-3 md:px-4 py-1.5 text-gray-700 placeholder-gray-400 text-sm md:text-sm font-medium"
                                         />
@@ -5032,3 +5001,29 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         </div >
     );
 };
+
+export default function HeroTab() {
+    const [activeTab, setActiveTab] = useState<string | null>('buy');
+    const [isExpanded, setIsExpanded] = useState(false);
+
+    return (
+        <div className="w-full mx-auto flex max-w-[1600px] flex-col items-center transition-all duration-500 ease-in-out">
+            {/* Tabs */}
+            <div className={`flex flex-row items-center gap-x-1 mb-2 transition-all duration-300 ${isExpanded ? 'opacity-0 h-0 overflow-hidden mt-0' : 'opacity-100 h-8'}`}>
+                {['buy', 'sell'].map((item) => (
+                    <div
+                        key={item}
+                        onClick={() => setActiveTab(item)}
+                        className={`flex h-8 cursor-pointer items-center justify-center rounded-tl-md rounded-tr-md px-4 transition-colors ${activeTab?.toLowerCase() === item.toLowerCase()
+                            ? 'bg-white/10 text-white font-semibold'
+                            : 'text-white/60 hover:text-white'
+                            }`}
+                    >
+                        <h3 className="text-sm uppercase tracking-wide">{item}</h3>
+                    </div>
+                ))}
+            </div>
+            <HeroSearchForm onSearchStateChange={(expanded) => setIsExpanded(expanded)} />
+        </div>
+    );
+}

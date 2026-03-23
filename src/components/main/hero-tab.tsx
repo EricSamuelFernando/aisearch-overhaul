@@ -18,6 +18,7 @@ import InteractiveSchoolMapPanel from '@/components/InteractiveSchoolMapPanel';
 import ThinkingPanel from '@/components/main/ThinkingPanel';
 import type { ThinkingStep } from '@/components/main/ThinkingPanel';
 import { warning as showWarning } from '@/components/alert/notify';
+import { useRecordPropertyView } from '@/hooks/api/auth/useViewHistory';
 
 
 // Force refresh logic
@@ -1048,6 +1049,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     // --- Hooks & State ---
     const dispatch = useAppDispatch();
     const { user } = useAuth();
+    const { recordPropertyView } = useRecordPropertyView();
+    const viewHistoryDedupeRef = useRef<Set<string>>(new Set());
     const tempUserId = useAppSelector((state: any) => state.propertyPreference.tempUserId);
     const { sessionId: globalSessionId, setSessionId: setGlobalSessionId } = usePropertyStore();
 
@@ -3268,6 +3271,76 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         }
     };
 
+    const buildViewHistoryPayload = useCallback((property: any) => {
+        const listingId = resolveListingId(property);
+        const propertyId = resolvePropertyId(property);
+        const propertyAddress =
+            property?.propertyAddress ||
+            property?.address?.unparsedAddress ||
+            property?.address ||
+            property?.formattedAddress ||
+            property?.fullAddress ||
+            property?.streetAddress ||
+            property?.street ||
+            '';
+        const city = property?.city || property?.address?.city || '';
+        const state =
+            property?.state ||
+            property?.province ||
+            property?.stateOrProvince ||
+            property?.address?.stateOrProvince ||
+            property?.address?.state ||
+            '';
+        const priceValue =
+            property?.price ??
+            property?.listPrice ??
+            property?.listPriceLow ??
+            property?.listPriceHigh ??
+            property?.listingPrice;
+        const propertyType =
+            property?.propertyType ||
+            property?.homeType ||
+            property?.type ||
+            property?.property?.propertyType ||
+            property?.propertyTypeName;
+        const propertyImage =
+            property?.image ||
+            property?.primaryListingImageUrl ||
+            property?.primaryImage ||
+            property?.media?.primaryListingImageUrl ||
+            property?.media?.photosList?.[0]?.url ||
+            property?.photos?.[0]?.url ||
+            property?.photos?.[0] ||
+            property?.images?.[0] ||
+            null;
+
+        return {
+            listingId,
+            propertyId,
+            propertyAddress,
+            city,
+            state,
+            price: priceValue !== undefined && priceValue !== null ? String(priceValue) : undefined,
+            propertyType,
+            propertyImage,
+            bedroomsTotal: parseNumericValue(property?.beds ?? property?.bedrooms ?? property?.bedroomTotal ?? property?.property?.bedroomsTotal),
+            bathroomsTotal: parseNumericValue(property?.baths ?? property?.bathrooms ?? property?.bathroomTotal ?? property?.property?.bathroomsTotal),
+            livingArea: parseNumericValue(property?.sqft ?? property?.livingArea ?? property?.property?.livingArea),
+        };
+    }, []);
+
+    const recordViewHistoryOnce = useCallback((property: any) => {
+        if (!user?.id) return;
+        if (!property) return;
+        const listingId = resolveListingId(property);
+        const propertyId = resolvePropertyId(property);
+        const dedupeKey = listingId || propertyId;
+        if (!dedupeKey) return;
+        if (viewHistoryDedupeRef.current.has(dedupeKey)) return;
+        viewHistoryDedupeRef.current.add(dedupeKey);
+        recordPropertyView.mutate(buildViewHistoryPayload(property));
+    }, [recordPropertyView, buildViewHistoryPayload, user?.id]);
+
     // Strict Interaction Handlers
     const handlePropertyClick = (id: string | number) => {
         // Select the card AND immediately expand details (no need to click "Show More")
@@ -3288,6 +3361,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             setExpandedPropertyId(id);
             if (foundProperty) {
                 fetchNearbySchools(foundProperty);
+                recordViewHistoryOnce(foundProperty);
             }
         }
     };
@@ -3302,6 +3376,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         } else {
             setExpandedPropertyId(id); // Expand this one
             fetchNearbySchools(property);
+            recordViewHistoryOnce(property);
         }
     };
 

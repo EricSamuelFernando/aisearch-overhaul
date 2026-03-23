@@ -233,19 +233,25 @@ const formatPrice = (price?: number) => {
   return `$${(price / 1000).toFixed(0)}K`;
 };
 
-const getPropertyImage = (p: any): string =>
-  p?.listing?.media?.primaryListingImageUrl ||
-  p?.listing?.media?.photosList?.[0]?.highRes ||
-  p?.listing?.media?.photosList?.[0]?.lowRes ||
-  p?.listing?.media?.photos?.[0]?.uri ||
-  p?.listing?.media?.photos?.[0]?.url ||
-  p?.listing?.photos?.[0]?.uri ||
-  p?.listing?.photos?.[0]?.url ||
-  p?.media?.primaryListingImageUrl ||
-  p?.media?.photosList?.[0]?.highRes ||
-  p?.media?.photosList?.[0]?.lowRes ||
-  p?.media?.photos?.[0]?.uri ||
-  p?.primaryPhoto || p?.photo || p?.image || '';
+const getPropertyImage = (p: any): string => {
+  // Try all possible root-level image fields first (common in AI/search responses)
+  const rootImg = p?.primaryListingImageUrl || p?.primaryImage || p?.image || p?.photo || p?.primaryPhoto;
+  if (rootImg && typeof rootImg === 'string') return rootImg;
+
+  // Then try nested structures (common in MLS data)
+  return p?.listing?.media?.primaryListingImageUrl ||
+    p?.listing?.media?.photosList?.[0]?.highRes ||
+    p?.listing?.media?.photosList?.[0]?.lowRes ||
+    p?.listing?.media?.photos?.[0]?.uri ||
+    p?.listing?.media?.photos?.[0]?.url ||
+    p?.listing?.photos?.[0]?.uri ||
+    p?.listing?.photos?.[0]?.url ||
+    p?.media?.primaryListingImageUrl ||
+    p?.media?.photosList?.[0]?.highRes ||
+    p?.media?.photosList?.[0]?.lowRes ||
+    p?.media?.photos?.[0]?.uri ||
+    '';
+};
 
 const getListingId = (p: any): string =>
   String(p?.listingId || p?.listing?.listingId || p?.listing?.mlsNumber || p?.id || '');
@@ -287,25 +293,50 @@ const getPhotos = (p: any): string[] => {
   const seen = new Set<string>();
   const out: string[] = [];
   const push = (url: string) => {
-    if (url && !seen.has(url)) { seen.add(url); out.push(url); }
+    if (url && typeof url === 'string' && !seen.has(url)) {
+      seen.add(url);
+      out.push(url);
+    }
   };
 
   const media = p?.listing?.media ?? p?.media;
 
   // Primary image first
-  if (media?.primaryListingImageUrl) push(media.primaryListingImageUrl);
+  const primary = p?.primaryListingImageUrl || p?.primaryImage || media?.primaryListingImageUrl || p?.image || p?.photo || p?.primaryPhoto;
+  if (primary) push(primary);
+
+  // photoListJson or photoList (often stringified arrays in AI responses)
+  const rawList = p?.photoListJson || p?.photoList;
+  if (rawList) {
+    try {
+      const parsed = typeof rawList === 'string' ? JSON.parse(rawList) : rawList;
+      if (Array.isArray(parsed)) {
+        parsed.forEach((item: any) => {
+          if (typeof item === 'string') push(item);
+          else if (item?.highRes || item?.lowRes) push(item.highRes || item.lowRes);
+          else if (item?.uri || item?.url) push(item.uri || item.url);
+        });
+      }
+    } catch (e) {
+      console.warn('[SnapzAIReel] Failed to parse photoList:', e);
+    }
+  }
+
+  // photos array (could be strings or objects)
+  const photosArr = p?.photos || media?.photos || p?.listing?.photos || [];
+  if (Array.isArray(photosArr)) {
+    photosArr.forEach((ph: any) => {
+      if (typeof ph === 'string') push(ph);
+      else push(ph?.uri || ph?.url || ph?.href || '');
+    });
+  }
 
   // photosList is the real field used by the MLS data ({ highRes, lowRes })
   (media?.photosList || []).forEach((ph: any) => {
     push(ph?.highRes || ph?.lowRes || '');
   });
 
-  // Legacy fallbacks
-  (media?.photos || p?.listing?.photos || []).forEach((ph: any) => {
-    push(ph?.uri || ph?.url || ph?.href || '');
-  });
-
-  // Last resort: single primary image
+  // Last resort: single primary image if we still have nothing
   if (out.length === 0) push(getPropertyImage(p));
 
   return out.slice(0, 12);

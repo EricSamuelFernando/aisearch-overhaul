@@ -55,9 +55,23 @@ const BuyerProgressButton: React.FC<BuyerProgressButtonProps> = ({
   const router = useRouter();
   const { isLoggedIn, user } = useAuth();
   const data = useRegister();
+
+  const userDetails = React.useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    const stored = localStorage.getItem('userDetails');
+    try {
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const userId = user?.id || userDetails?.id;
+  const userEmail = user?.email || userDetails?.email || data?.email;
+
   const { updatePropertyPreference } = useUpdatePropertyPreference(
-    user?.id,
-    user?.email || data?.email,
+    userId,
+    userEmail,
   );
   const [saving, setSaving] = React.useState(false);
   const canPersistPreference = React.useMemo(() => {
@@ -157,12 +171,12 @@ const BuyerProgressButton: React.FC<BuyerProgressButtonProps> = ({
         return;
       }
       const link =
-        isLoggedIn || user?.account_type === 'buyer'
+        isLoggedIn && user?.firstname
           ? '/dashboard'
           : '/complete-onboarding';
       router.push(link);
     },
-    [isLoggedIn, onComplete, onSkip, router, user?.account_type],
+    [isLoggedIn, onComplete, onSkip, router, user?.firstname],
   );
 
   const handleNext = React.useCallback(

@@ -490,6 +490,9 @@ export const useUserAuthApi = (handleCb?: () => void) => {
           }){
             access_token
             accountType
+            id
+            email
+            verified
           }
         }`
       });
@@ -528,13 +531,39 @@ export const useUserAuthApi = (handleCb?: () => void) => {
           message: 'Verification completed successfully',
           subtitle: 'Getting started with your journey',
         });
-        localStorage.setItem('userAccessToken', data?.data?.data?.verifyOtp?.access_token);
-        setAuthToken((data as any)?.data?.data?.verifyOtp?.access_token);
+
+        const {
+          access_token,
+          accountType,
+          id,
+          email,
+        } = data.data.data.verifyOtp;
+
+        const user: any = {
+          id,
+          status: 'online',
+          firstname: '',
+          lastname: '',
+          email: email || data?.email,
+          profile: '',
+          account_type: accountType,
+          access_token: access_token,
+        };
+
+        localStorage.setItem('userEmail', user.email);
+        localStorage.setItem('userAccessToken', access_token);
+        localStorage.setItem('userDetails', JSON.stringify(user));
+
+        setAuthToken(access_token);
         storeCookie({
           key: AUTH_TOKEN,
-          value: (data as any)?.data?.data?.verifyOtp?.access_token,
+          value: access_token,
         });
-        if (data?.data?.data?.verifyOtp?.accountType === "buyer") {
+
+        // Initialize user in Redux
+        login(user);
+
+        if (accountType === "buyer") {
           dispatch(resetOnboardingSlice());
           router.push("/property-preference");
         } else {

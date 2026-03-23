@@ -29,9 +29,9 @@ export interface ViewHistoryItem {
   price?: string;
   propertyType?: string;
   propertyImage?: string;
-  bedroomsTotal?: number;
-  bathroomsTotal?: number;
-  livingArea?: number;
+  bedroomsTotal?: number | null;
+  bathroomsTotal?: number | null;
+  livingArea?: number | null;
   viewedAt: string;
 }
 
@@ -50,9 +50,9 @@ export interface RecordViewInput {
   price?: string;
   propertyType?: string;
   propertyImage?: string;
-  bedroomsTotal?: number;
-  bathroomsTotal?: number;
-  livingArea?: number;
+  bedroomsTotal?: number | null;
+  bathroomsTotal?: number | null;
+  livingArea?: number | null;
   viewedAt?: string;
 }
 

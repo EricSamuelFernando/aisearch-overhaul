@@ -4,7 +4,8 @@ import CustomMap from '@/components/custom-map';
 import { cn } from '@/lib/utils';
 import { setPropertyQuery } from '@/slices/property/property-slice';
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { useAppDispatch } from '@/lib/hook';
+import { useAppDispatch, useAppSelector } from '@/lib/hook';
+import { RootState } from '@/lib/store';
 import { incrementSearchCount } from '@/slices/onboarding/property-preference';
 import { useProperty, usePropertyActions, useFilteredProperties, resolvePropertyCoordinates } from '@/shared/hooks/useProperty';
 import { SUB_CATEGORIES, usePropertyStore } from '@/store/use-property-store';
@@ -19,6 +20,7 @@ import debounce from 'lodash.debounce';
 import { ArrowLeft, Building2, Droplets, Grid2X2, List, Map, MapPinned, Search, ShipWheel, SlidersHorizontal, TreePine, Waves, X } from 'lucide-react';
 import PropertyComparisonModal from '../property-comparison-modal';
 import { BuyPropertyCards } from '../buy-property-cards';
+import { storeSearchHistory } from '@/lib/api';
 
 type Props = {};
 type MobileSheetMode = 'collapsed' | 'default' | 'full';
@@ -225,6 +227,7 @@ function PropertyBrowseView({ }: Props) {
     toggleSubCategory,
     drawFilteredPropertyIds,
     setDrawFilteredPropertyIds,
+    sessionId,
   } = usePropertyStore();
 
   const [selectedProperty, setSelectedProperty] = useState<string>('');
@@ -233,6 +236,7 @@ function PropertyBrowseView({ }: Props) {
   const resultCount = featureFilteredProperties.length;
 
   const dispatch = useAppDispatch();
+  const { tempUserId } = useAppSelector((state: RootState) => state.propertyPreference);
   const { user } = useAuth();
   const [, setIsSearching] = useState(false);
   const searchParams = useSearchParams();
@@ -611,6 +615,15 @@ function PropertyBrowseView({ }: Props) {
             from_browse: true,
             user: user?.id
           });
+
+        // Store search history
+        if ((user?.id || tempUserId) && queryText) {
+          storeSearchHistory({
+            user_id: user?.id || tempUserId || 'anonymous',
+            query: queryText,
+            session_id: sessionId || undefined
+          });
+        }
 
         if (requestVersion !== searchRequestVersionRef.current) {
           return;

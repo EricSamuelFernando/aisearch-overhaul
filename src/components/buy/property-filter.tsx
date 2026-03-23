@@ -846,25 +846,58 @@ function PropertyFilter() {
     if (isLoading) return lastSubCategoryAvailability.current;
 
     const availability: Record<string, boolean> = {};
-    if (!allProperties || allProperties.length === 0) {
-      subCategories.forEach((sub) => {
-        availability[sub.title] = false;
-      });
+
+    // Check against filteredProperties (properties matching current active filters)
+    // so a button is only enabled when adding it to the current selection still
+    // yields at least one result. Fall back to allProperties when no filters are
+    // applied yet (filteredProperties === allProperties in that case anyway).
+    const base = filteredProperties && filteredProperties.length > 0
+      ? filteredProperties
+      : allProperties;
+
+    if (!base || base.length === 0) {
+      subCategories.forEach((sub) => { availability[sub.title] = false; });
       lastSubCategoryAvailability.current = availability;
       return availability;
     }
 
     subCategories.forEach((sub) => {
-      const hasFeature = allProperties.some((p: any) => {
+      const hasFeature = base.some((p: any) => {
         const listing = p?.listing || p?.data?.listing || p;
-        const props = listing?.property || listing?.data || {};
-        const remarks = listing?.publicRemarks;
+        const props = listing?.property || listing?.data || p?.data?.property || {};
+        const remarks = String(listing?.publicRemarks || '').toLowerCase();
+        const views = Array.isArray(listing?.View) ? listing.View
+          : (Array.isArray(props?.View) ? props.View : []);
+        const viewStr = views.join(' ').toLowerCase();
 
-        if (props[sub.propertyKey]) return true;
+        // Specialized MLS field checks (mirrors useFilteredProperties)
+        if (sub.title === 'Pool') {
+          const poolYN = listing.PoolPrivateYN ?? props.PoolPrivateYN;
+          if (poolYN === true || poolYN === 'true' || poolYN === 'Y') return true;
+          if (poolYN === false || poolYN === 'false' || poolYN === 'N') return false;
+        }
+        if (sub.title === 'Waterfront') {
+          const waterYN = listing.WaterfrontYN ?? props.WaterfrontYN;
+          if (waterYN === true || waterYN === 'true' || waterYN === 'Y') return true;
+          if (waterYN === false || waterYN === 'false' || waterYN === 'N') return false;
+        }
 
+        // Boolean flag field
+        const flagValue = props[sub.propertyKey] ?? listing[sub.propertyKey];
+        if (flagValue === true || flagValue === 'true' || flagValue === 'Y') return true;
+        if (flagValue === false || flagValue === 'false' || flagValue === 'N') return false;
+
+        // View array checks
+        if (sub.title === 'Park View' && viewStr.includes('park')) return true;
+        if (sub.title === 'City View' && viewStr.includes('city')) return true;
+        if (sub.title === 'Water View' &&
+          (viewStr.includes('water') || viewStr.includes('lake') ||
+            viewStr.includes('ocean') || viewStr.includes('river'))) return true;
+        if (sub.title === 'Mountain View' && viewStr.includes('mountain')) return true;
+
+        // Keyword fallback in remarks
         if (remarks && sub.keywords && sub.keywords.length > 0) {
-          const lowerRemarks = remarks.toLowerCase();
-          return sub.keywords.some(k => lowerRemarks.includes(k));
+          return sub.keywords.some(k => remarks.includes(k.toLowerCase()));
         }
 
         return false;
@@ -875,7 +908,7 @@ function PropertyFilter() {
 
     lastSubCategoryAvailability.current = availability;
     return availability;
-  }, [allProperties, isLoading, subCategories]);
+  }, [filteredProperties, allProperties, isLoading, subCategories]);
 
 
   useEffect(() => {

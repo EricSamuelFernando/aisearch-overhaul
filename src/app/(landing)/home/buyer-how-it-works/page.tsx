@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import Image from 'next/image'
 import { Play, ChevronRight } from 'lucide-react'
 import MainNavPages from '@/components/navbars/main-nav-pages'
@@ -153,9 +153,9 @@ export default function HowItWorksPage() {
             <li>
               <button
                 type="button"
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault()
                   setActiveTab('buy')
-                  window.history.replaceState(null, '', '#buy')
                 }}
                 className={`${activeTab === 'buy' ? 'text-orange-500' : 'text-white'} font-medium hover:text-orange-400`}
               >
@@ -165,9 +165,9 @@ export default function HowItWorksPage() {
             <li>
               <button
                 type="button"
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault()
                   setActiveTab('sell')
-                  window.history.replaceState(null, '', '#sell')
                 }}
                 className={`${activeTab === 'sell' ? 'text-orange-500' : 'text-white'} font-medium hover:text-orange-400`}
               >
@@ -177,9 +177,9 @@ export default function HowItWorksPage() {
             <li>
               <button
                 type="button"
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault()
                   setActiveTab('agent')
-                  window.history.replaceState(null, '', '#agent')
                 }}
                 className={`${activeTab === 'agent' ? 'text-orange-500' : 'text-white'} font-medium hover:text-orange-400`}
               >

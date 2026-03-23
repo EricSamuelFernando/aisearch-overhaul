@@ -256,6 +256,30 @@ export async function fetchHistory(userid: string, page: number = 1, per_page: n
     }
 }
 
+/**
+ * Stores user search history in Postgres.
+ * Endpoint: POST /api/mls/search-history
+ */
+export async function storeSearchHistory(payload: { user_id: string; query: string; session_id?: string }) {
+    try {
+        const res = await fetch(`${API_BASE}/api/mls/search-history`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...getAuthHeaders(),
+            },
+            body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+            console.warn('[API] Failed to store search history:', res.status);
+        }
+        return await res.json();
+    } catch (e) {
+        console.error('[API] Error storing search history:', e);
+        return null;
+    }
+}
+
 export async function fetchSessionDetails(session_id: string) {
     try {
         const res = await fetch(`${API_BASE}/api/history/${session_id}`, {

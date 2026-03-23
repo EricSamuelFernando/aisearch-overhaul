@@ -100,20 +100,26 @@ const formatPrice = (price?: number) => {
   return `$${(price / 1000).toFixed(0)}K`;
 };
 
-const getPropertyImage = (prop: RecommendedProperty): string =>
-  prop?.listing?.media?.primaryListingImageUrl ||
-  prop?.listing?.media?.photos?.[0]?.uri ||
-  prop?.listing?.media?.photos?.[0]?.url ||
-  prop?.listing?.photos?.[0]?.uri ||
-  prop?.listing?.photos?.[0]?.url ||
-  prop?.listing?.image ||
-  prop?.listing?.primaryPhoto ||
-  prop?.media?.primaryListingImageUrl ||
-  prop?.media?.photos?.[0]?.uri ||
-  prop?.primaryPhoto ||
-  prop?.photo ||
-  prop?.image ||
-  '';
+const getPropertyImage = (prop: RecommendedProperty): string => {
+  // Try all possible root-level image fields first (common in AI/search responses)
+  const rootImg = prop?.primaryListingImageUrl || prop?.primaryImage || prop?.image || prop?.photo || prop?.primaryPhoto;
+  if (rootImg && typeof rootImg === 'string') return rootImg;
+
+  // Then try nested structures
+  return prop?.listing?.media?.primaryListingImageUrl ||
+    prop?.listing?.media?.photos?.[0]?.uri ||
+    prop?.listing?.media?.photos?.[0]?.url ||
+    prop?.listing?.photos?.[0]?.uri ||
+    prop?.listing?.photos?.[0]?.url ||
+    prop?.listing?.image ||
+    prop?.listing?.primaryPhoto ||
+    prop?.media?.primaryListingImageUrl ||
+    prop?.media?.photos?.[0]?.uri ||
+    prop?.primaryPhoto ||
+    prop?.photo ||
+    prop?.image ||
+    '';
+};
 
 const getListingId = (prop: RecommendedProperty): string =>
   String(prop?.listingId || prop?.listing?.listingId || prop?.listing?.mlsNumber || prop?.id || '');

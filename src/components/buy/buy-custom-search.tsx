@@ -374,6 +374,7 @@ import { Input } from '../ui/input';
 import { cn } from '@/lib/utils';
 import { useProperty } from '@/shared/hooks/useProperty';
 import { Search, X } from 'lucide-react';
+import { storeSearchHistory } from '@/lib/api';
 
 let globalLastAutoSearch: string | null = null;
 
@@ -737,6 +738,15 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
       dispatch(setPropertyQuery(displayQuery));
       setSearchedQuery(transformedProperties);
       addProperties(transformedProperties);
+
+      // Store search history
+      if ((userId || tempUserId) && resolvedQuery) {
+        storeSearchHistory({
+          user_id: String(userId || tempUserId || 'anonymous'),
+          query: resolvedQuery,
+          session_id: sessionId || undefined
+        });
+      }
 
     } catch (err: any) {
 

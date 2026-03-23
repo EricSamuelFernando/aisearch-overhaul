@@ -3326,8 +3326,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             price: priceValue !== undefined && priceValue !== null ? String(priceValue) : undefined,
             propertyType,
             propertyImage,
-            bedroomsTotal: parseNumericValue(property?.beds ?? property?.bedrooms ?? property?.bedroomTotal ?? property?.property?.bedroomsTotal),
-            bathroomsTotal: parseNumericValue(property?.baths ?? property?.bathrooms ?? property?.bathroomTotal ?? property?.property?.bathroomsTotal),
+            bedroomsTotal: parseNumericValue(property?.beds ?? property?.bedrooms ?? property?.bedroomTotal ?? property?.property?.bedroomsTotal ?? 0),
+            bathroomsTotal: parseNumericValue(property?.baths ?? property?.bathrooms ?? property?.bathroomTotal ?? property?.property?.bathroomsTotal ?? 0),
             livingArea: parseNumericValue(property?.sqft ?? property?.livingArea ?? property?.property?.livingArea),
         };
     }, []);
@@ -4959,27 +4959,27 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                                                     onClick={() => handleAttachmentClick('image')}
                                                                                     type="button"
                                                                                     className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left w-full"
-                                                                                    >
-                                                                                        <ImageIcon className="w-4 h-4 text-blue-500" />
-                                                                                        <span>Image</span>
-                                                                                    </button>
-                                                                                    <AnimatePresence>
-                                                                                        {showAttachTooltip && (
-                                                                                            <motion.div
-                                                                                                initial={{ opacity: 0, y: 6, scale: 0.98 }}
-                                                                                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                                                                                exit={{ opacity: 0, y: 4, scale: 0.98 }}
-                                                                                                transition={{ duration: 0.2 }}
-                                                                                                className="absolute right-0 bottom-full mb-2 w-[170px] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl z-[90]"
-                                                                                            >
-                                                                                                <p className="text-[11px] font-semibold leading-relaxed text-[#5A2B13]">
-                                                                                                    Search homes with a photo
-                                                                                                </p>
-                                                                                                <span className="absolute right-6 -bottom-1 h-2 w-2 rotate-45 border-r border-b border-[#f2cfb0] bg-white" />
-                                                                                            </motion.div>
-                                                                                        )}
-                                                                                    </AnimatePresence>
-                                                                                </div>
+                                                                                >
+                                                                                    <ImageIcon className="w-4 h-4 text-blue-500" />
+                                                                                    <span>Image</span>
+                                                                                </button>
+                                                                                <AnimatePresence>
+                                                                                    {showAttachTooltip && (
+                                                                                        <motion.div
+                                                                                            initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                                                                                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                                                            exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                                                                                            transition={{ duration: 0.2 }}
+                                                                                            className="absolute right-0 bottom-full mb-2 w-[170px] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl z-[90]"
+                                                                                        >
+                                                                                            <p className="text-[11px] font-semibold leading-relaxed text-[#5A2B13]">
+                                                                                                Search homes with a photo
+                                                                                            </p>
+                                                                                            <span className="absolute right-6 -bottom-1 h-2 w-2 rotate-45 border-r border-b border-[#f2cfb0] bg-white" />
+                                                                                        </motion.div>
+                                                                                    )}
+                                                                                </AnimatePresence>
+                                                                            </div>
                                                                             <button
                                                                                 onClick={() => handleAttachmentClick('pdf')}
                                                                                 type="button"

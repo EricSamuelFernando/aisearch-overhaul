@@ -1246,12 +1246,12 @@ export default function Home() {
   ];
 
   const mobileHeroCards = [
-    { left: '-55px', top: '224px', width: '62px', height: '96px', rotation: -27, src: '/assets/images/home-landing1.png', imageScale: 1.08 },
-    { left: '-31px', top: '118px', width: '100px', height: '96px', rotation: -42, src: '/assets/images/home-landing-3.png', imageScale: 1.08 },
-    { left: '85px', top: '70px', width: '100px', height: '96px', rotation: -15, src: '/assets/images/home-landing-4.png', imageScale: 1.02 },
-    { left: '212px', top: '74px', width: '100px', height: '96px', rotation: 14, src: '/assets/images/home-landing-5.png', imageScale: 1.04 },
-    { left: '334px', top: '110px', width: '100px', height: '96px', rotation: 36, src: '/assets/images/home-landing-6.png', imageScale: 1.07 },
-    { left: '420px', top: '204px', width: '100px', height: '96px', rotation: 22, src: '/assets/images/home-landing4.png', imageScale: 1.08 },
+    { left: '-12.8%', top: '83%', width: '14.4%', height: '35.6%', rotation: -27, src: '/assets/images/home-landing1.png', imageScale: 1.08 },
+    { left: '-7.2%', top: '43.7%', width: '23.3%', height: '35.6%', rotation: -42, src: '/assets/images/home-landing-3.png', imageScale: 1.08 },
+    { left: '19.8%', top: '25.9%', width: '23.3%', height: '35.6%', rotation: -15, src: '/assets/images/home-landing-4.png', imageScale: 1.02 },
+    { left: '49.3%', top: '27.4%', width: '23.3%', height: '35.6%', rotation: 14, src: '/assets/images/home-landing-5.png', imageScale: 1.04 },
+    { left: '77.7%', top: '40.7%', width: '23.3%', height: '35.6%', rotation: 36, src: '/assets/images/home-landing-6.png', imageScale: 1.07 },
+    { left: '97.7%', top: '75.6%', width: '23.3%', height: '35.6%', rotation: 22, src: '/assets/images/home-landing4.png', imageScale: 1.08 },
   ];
 
   return (
@@ -1510,11 +1510,11 @@ export default function Home() {
           </div>
           {/* ================= MOBILE ARC ================= */}
           <div className="relative w-full md:hidden pointer-events-none">
-            <div className="absolute left-1/2 top-[5.3rem] h-[270px] w-[430px] -translate-x-1/2 overflow-visible sm:top-[5.95rem] sm:h-[292px] sm:w-[460px]">
+            <div className="home-hero-mobile-stage absolute left-1/2 -translate-x-1/2 overflow-visible">
               {mobileHeroCards.map((card, i) => (
                 <div
                   key={i}
-                  className="absolute overflow-hidden rounded-[1.2rem] shadow-sm"
+                  className="home-hero-mobile-card absolute overflow-hidden rounded-[1.2rem] shadow-sm"
                   style={{
                     left: card.left,
                     top: card.top,
@@ -1538,7 +1538,7 @@ export default function Home() {
         </div>
 
 
-        <section className="relative z-30 flex h-full flex-col items-center justify-start px-4 pb-2 pt-[13.2rem] text-center sm:pb-4 sm:pt-[15rem] md:pt-24 md:pb-12">
+        <section className="home-hero-shell relative z-30 flex h-full flex-col items-center justify-start px-4 pb-2 pt-[13.2rem] text-center sm:pb-4 sm:pt-[15rem] md:pb-12 md:pt-24">
 
           {/* ================= TEXT + SEARCH ================= */}
           <div
@@ -1546,7 +1546,7 @@ export default function Home() {
             className="home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-3 md:gap-5 md:-mt-2 lg:-mt-4 min-[1280px]:max-[1440px]:translate-x-20"
           >
 
-            <h1 className={`${heroHeadingSize} max-w-[340px] text-[2.55rem] font-medium leading-[1.06] tracking-[-0.03em] sm:max-w-[380px] sm:text-[2.8rem] md:max-w-none md:leading-snug md:tracking-tight`}>
+            <h1 className="home-hero-title max-w-[340px] text-[2.55rem] font-medium leading-[1.06] tracking-[-0.03em] sm:max-w-[380px] sm:text-[2.8rem] md:max-w-none md:leading-snug md:tracking-tight md:text-[2.05rem] lg:text-[2.2rem] xl:text-[2.55rem] 2xl:text-[3.05rem]">
               <span className="block">Buying a home</span>
               <span className="block">
                 should be{' '}
@@ -1584,17 +1584,17 @@ export default function Home() {
               </div> */}
             </div>
 
-            <div className="mt-2 flex flex-nowrap items-center justify-center gap-x-2 transition-all duration-200 md:-mt-3 md:gap-x-3">
+            <div className="home-hero-meta mt-2 flex items-center justify-center transition-all duration-200 md:-mt-3 md:gap-x-3">
               <span className={`whitespace-nowrap text-[0.82rem] font-medium transition-colors md:text-[1rem] ${heroMetaTextClass}`}>
                 Conversational Search,
               </span>
-              <div className="flex flex-nowrap items-center gap-2">
+              <div className="home-hero-meta-copy flex items-center gap-2">
                 <span
                   className={`whitespace-nowrap text-[0.82rem] font-bold underline transition-colors md:text-[1rem] ${heroMetaAccentClass}`}
                 >
                   Powered by Snaphomz AI.
                 </span>
-                <button className="uiverse">
+                <button className="uiverse home-hero-beta">
                   <div className="wrapper">
                     <span>BETA</span>
                     <div className="circle circle-12"></div>

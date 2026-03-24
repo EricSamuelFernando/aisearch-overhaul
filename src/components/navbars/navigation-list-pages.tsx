@@ -4,7 +4,6 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { NavigationMenu, NavigationMenuContent, NavigationMenuItem, NavigationMenuLink, NavigationMenuList, NavigationMenuTrigger } from '@/components/ui/navigation-menu';
-import { AGENT_APPLICATIONS } from '@/shared/constants/env';
 import { setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 
 export function NavigationListPages({ isScrolled = false }: { isScrolled?: boolean }) {
@@ -99,38 +98,11 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
         </NavigationMenuItem>
 
         <NavigationMenuItem className={hiddenTopNavItems.has('/sell') ? 'hidden' : undefined}>
-          <NavigationMenuTrigger className={`bg-transparent px-4 hover:bg-transparent hover:underline focus:bg-transparent ${textColorClass}`}>
-            <Link href='/sell' className={isActive('/sell') ? textColorClass : textColorClass}>
+          <Link href='/sell' legacyBehavior passHref>
+            <NavigationMenuLink className={`bg-transparent px-4 font-medium hover:bg-transparent hover:underline ${isActive('/sell') ? textColorClass : textColorClass}`}>
               Sell
-            </Link>
-          </NavigationMenuTrigger>
-          <NavigationMenuContent className={`${dropdownContentClass} w-auto min-w-[360px]`}>
-            <div className='inline-flex flex-row divide-x divide-white p-6 font-medium text-black'>
-              <div className='flex flex-col space-y-4 pr-8'>
-                <div className='flex flex-col space-y-3'>
-                  <Link href='/agents' className='text-black hover:text-primary hover:underline'>
-                    With an agents
-                  </Link>
-                  {/*<Link href={AGENT_APPLICATIONS || ""} className='text-black hover:text-primary hover:underline'>
-                    Our Real Estate Agents
-                  </Link>*/}
-                  <Link href='/home/seller-how-it-works' className='text-black hover:text-primary hover:underline'>
-                    How it Works
-                  </Link>
-                </div>
-              </div>
-              <div className='flex flex-col space-y-4 pl-8'>
-                <div className='flex flex-col space-y-3'>
-                  {/*  <Link href='#home-estimator' className='text-black hover:text-primary hover:underline'>
-                    Home Estimator
-                  </Link>*/}
-                  <Link href="#testimonials" className='text-black hover:text-primary hover:underline'>
-                    Testimonials
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </NavigationMenuContent>
+            </NavigationMenuLink>
+          </Link>
         </NavigationMenuItem>
 
         <NavigationMenuItem>

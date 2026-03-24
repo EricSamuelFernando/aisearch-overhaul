@@ -3,10 +3,8 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Carousel, Embla } from '@mantine/carousel';
+import { Carousel } from '@mantine/carousel';
 import { useMediaQuery } from '@mantine/hooks';
-import { IconArrowNarrowLeft, IconArrowNarrowRight } from '@tabler/icons-react';
 import '@mantine/carousel/styles.css';
 import { cn } from '@/lib/utils';
 
@@ -46,30 +44,6 @@ export default function OurClients({
   headingClassName,
 }: OurClientsProps) {
   const isMobile = useMediaQuery('(max-width: 1023px)');
-  const [embla, setEmbla] = useState<Embla | null>(null);
-  const [canScrollPrev, setCanScrollPrev] = useState(false);
-  const [canScrollNext, setCanScrollNext] = useState(false);
-
-  useEffect(() => {
-    if (!embla) return;
-
-    const syncButtons = () => {
-      setCanScrollPrev(embla.canScrollPrev());
-      setCanScrollNext(embla.canScrollNext());
-    };
-
-    syncButtons();
-    embla.on('select', syncButtons);
-    embla.on('reInit', syncButtons);
-    return () => {
-      embla.off('select', syncButtons);
-      embla.off('reInit', syncButtons);
-    };
-  }, [embla]);
-
-  const slideSize = isMobile ? '100%' : '50%';
-  const needsNavigation = testimonials.length > 1;
-  const controlsEnabled = testimonials.length > 1;
 
   return (
     <section
@@ -92,75 +66,68 @@ export default function OurClients({
       </div>
 
       <div className="home-clients-container max-w-7xl mx-auto">
-        <Carousel
-          slideSize={slideSize}
-          slideGap={isMobile ? 'md' : 'xl'}
-          align="start"
-          loop={false}
-          withIndicators={false}
-          withControls={false}
-          getEmblaApi={setEmbla}
-          styles={{
-            root: { padding: 0 },
-            viewport: { overflow: 'hidden' },
-          }}
-        >
-          {testimonials.map(({ name, title, text, img }, idx) => (
-            <Carousel.Slide key={idx}>
+        {isMobile ? (
+          <Carousel
+            slideSize="100%"
+            slideGap="md"
+            align="center"
+            loop={false}
+            withIndicators={false}
+            withControls={false}
+            styles={{
+              root: { padding: 0 },
+              viewport: { overflow: 'hidden' },
+            }}
+          >
+            {testimonials.map(({ name, title, text, img }, idx) => (
+              <Carousel.Slide key={idx}>
+                <div
+                  className="home-clients-card mx-auto w-full bg-[#EEDFC9] rounded-2xl flex flex-col justify-between"
+                  style={{
+                    padding: '20px',
+                    height: 'auto',
+                  }}
+                >
+                  <div className="text-left mb-4">
+                    <h3 className="mb-1 text-sm font-bold">{name}</h3>
+                    <p className="text-xs text-[#606060]">{title}</p>
+                    <p className="mt-4 text-xs leading-relaxed text-[#595858]">{text}</p>
+                  </div>
+                  <img
+                    src={img}
+                    alt={`${name} photo`}
+                    className="h-[72px] w-[72px] self-start rounded-full object-cover"
+                  />
+                </div>
+              </Carousel.Slide>
+            ))}
+          </Carousel>
+        ) : (
+          <div className="mx-auto grid max-w-7xl grid-cols-2 justify-items-center gap-2 lg:gap-3">
+            {testimonials.map(({ name, title, text, img }, idx) => (
               <div
-                className="home-clients-card bg-[#EEDFC9] rounded-2xl flex flex-col justify-between"
+                key={idx}
+                className="home-clients-card mx-auto w-full bg-[#EEDFC9] rounded-2xl flex flex-col justify-between lg:w-[96%] lg:max-w-none"
                 style={{
-                  padding: isMobile ? '20px' : '44px',
-                  minHeight: isMobile ? 'auto' : '320px',
+                  padding: '52px',
+                  height: '292px',
                 }}
               >
                 <div className="text-left mb-4">
-                  <h3 className={`font-bold mb-1 ${isMobile ? 'text-sm' : 'text-xl'}`}>{name}</h3>
-                  <p className={`text-[#606060] ${isMobile ? 'text-xs' : 'text-md'}`}>{title}</p>
-                  <p className={`mt-4 text-[#595858] leading-relaxed ${isMobile ? 'text-xs' : 'text-md'}`}>{text}</p>
+                  <h3 className="mb-1 text-[1.5rem] font-bold">{name}</h3>
+                  <p className="text-[1.05rem] text-[#606060]">{title}</p>
+                  <p className="mt-4 text-[1.05rem] leading-relaxed text-[#595858]">{text}</p>
                 </div>
                 <img
                   src={img}
                   alt={`${name} photo`}
-                  className="w-14 h-14 rounded-full object-cover self-start"
+                  className="h-[72px] w-[72px] self-start rounded-full object-cover"
                 />
               </div>
-            </Carousel.Slide>
-          ))}
-        </Carousel>
+            ))}
+          </div>
+        )}
 
-        {/* Pagination arrows — only shown when more testimonials exist than visible slides */}
-        {needsNavigation && <div
-          className="mt-6 md:mt-8 flex items-center justify-end gap-3"
-          style={{ paddingRight: isMobile ? 0 : 8 }}
-        >
-          <button
-            type="button"
-            aria-label="Previous testimonial"
-            disabled={!canScrollPrev}
-            onClick={() => embla?.scrollPrev()}
-            className={`flex items-center justify-center rounded-full transition-all duration-200 ${isMobile ? 'h-8 w-14' : 'h-10 w-[72px]'
-              } ${canScrollPrev
-                ? 'bg-[#F5EBDF] text-[#8B7A69] hover:bg-[#EEE1D1]'
-                : 'bg-[#F6EDE3] text-[#CDBEAE] cursor-not-allowed'
-              }`}
-          >
-            <IconArrowNarrowLeft size={18} stroke={1.9} />
-          </button>
-          <button
-            type="button"
-            aria-label="Next testimonial"
-            disabled={!canScrollNext}
-            onClick={() => embla?.scrollNext()}
-            className={`flex items-center justify-center rounded-full transition-all duration-200 ${isMobile ? 'h-8 w-14' : 'h-10 w-[72px]'
-              } ${canScrollNext
-                ? 'bg-[#F5EBDF] text-[#4A3726] hover:bg-[#EADBC8]'
-                : 'bg-[#F6EDE3] text-[#CDBEAE] cursor-not-allowed'
-              }`}
-          >
-            <IconArrowNarrowRight size={18} stroke={1.9} />
-          </button>
-        </div>}
       </div>
     </section>
   );

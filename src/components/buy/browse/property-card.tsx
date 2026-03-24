@@ -91,6 +91,7 @@ const PropertyCards = (props: any) => {
   // const hasCarousel = Array.isArray(props?.listing?.media?.photosList) && props.listing.media.photosList.length > 0;
 
   const hasCarousel = Array.isArray(slides) && slides.some(s => s !== null);
+  const showCarousel = hasCarousel && !!slides?.length && isHovered;
 
   const getStatusInfo = (listing: any) => {
     const rawStatus =
@@ -276,8 +277,20 @@ const PropertyCards = (props: any) => {
         )}
 
         <div className="relative aspect-[16/9] w-full overflow-hidden bg-gray-100">
-          {hasCarousel && slides?.length && isHovered ? (
-            <div className="relative h-full">
+          <NImage
+            className="object-cover object-center"
+            fill
+            loader={imageLoader}
+            alt="snaphomz-property-image"
+            src={primaryImage}
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.src = '/assets/images/placeholder.svg';
+            }}
+          />
+
+          {showCarousel ? (
+            <div className="absolute inset-0">
               <EmblaCarousel
                 slides={slides}
                 options={{ loop: true }}
@@ -285,19 +298,7 @@ const PropertyCards = (props: any) => {
                 controlsVisibility="always"
               />
             </div>
-          ) : (
-            <NImage
-              className="object-cover object-center"
-              fill
-              loader={imageLoader}
-              alt="snaphomz-property-image"
-              src={primaryImage}
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.src = '/assets/images/placeholder.svg';
-              }}
-            />
-          )}
+          ) : null}
 
           {!isCompareMode && statusInfo ? (
             <div
@@ -423,8 +424,22 @@ const PropertyCards = (props: any) => {
 
       {/* Full Image Background */}
       <div className="absolute inset-0 w-full h-full">
-        {hasCarousel && slides?.length && isHovered ? (
-          <div className="relative h-full">
+        <div className="relative h-full w-full">
+          <NImage
+            className="h-full w-full object-cover object-center rounded-2xl"
+            fill
+            loader={imageLoader}
+            alt="snaphomz-property-image"
+            src={primaryImage}
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.src = '/assets/images/placeholder.svg';
+            }}
+          />
+        </div>
+
+        {showCarousel ? (
+          <div className="absolute inset-0">
             <EmblaCarousel
               slides={slides}
               options={{ loop: true }}
@@ -432,21 +447,7 @@ const PropertyCards = (props: any) => {
               controlsVisibility="always"
             />
           </div>
-        ) : (
-          <div className="relative h-full w-full">
-            <NImage
-              className="h-full w-full object-cover object-center rounded-2xl"
-              fill
-              loader={imageLoader}
-              alt="snaphomz-property-image"
-              src={primaryImage}
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.src = '/assets/images/placeholder.svg';
-              }}
-            />
-          </div>
-        )}
+        ) : null}
       </div>
 
       {!isCompareMode && statusInfo ? (

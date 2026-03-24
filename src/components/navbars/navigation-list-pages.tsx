@@ -9,7 +9,7 @@ import { setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 
 export function NavigationListPages({ isScrolled = false }: { isScrolled?: boolean }) {
   const pathname = usePathname();
-  const hiddenTopNavItems = new Set(['/sell', '/company']);
+  const hiddenTopNavItems = new Set(['/company']);
 
   // Determine text color based on route
   const getTextColor = (route: string) => {

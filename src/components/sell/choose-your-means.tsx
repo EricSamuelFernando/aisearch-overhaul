@@ -70,14 +70,19 @@
 
 // export default ChooseYourMeans;
 
+import { cn } from '@/lib/utils';
 
-const ChooseYourMeans = () => {
+type ChooseYourMeansProps = {
+  headingClassName?: string;
+};
+
+const ChooseYourMeans = ({ headingClassName }: ChooseYourMeansProps) => {
   return (
     <section className="mb-0 bg-[#FFF6EC] px-4 pt-0 text-center sm:px-16">
       {/* Choose Your Means Section */}
       <div className="mx-auto max-w-6xl text-center">
-        <h2 className="mb-2 text-3xl font-bold sm:text-4xl">
-          Choose Your <span className="font-normal italic">Means</span>
+        <h2 className={cn('mb-2 satoshi text-3xl font-medium sm:text-4xl', headingClassName)}>
+          Choose Your <span className="font-light">Means</span>
         </h2>
         <p className="mx-auto mb-10 max-w-[600px] text-xs text-gray-600 sm:mb-12 sm:text-sm">
           Gain unprecedented control with guided transactions, approval
@@ -88,17 +93,19 @@ const ChooseYourMeans = () => {
           className="
             -mx-4 flex snap-x snap-mandatory flex-nowrap gap-4 overflow-x-auto px-4 pb-4
             scrollbar-hide [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
-            sm:mx-0 sm:flex-wrap sm:justify-center sm:gap-8 sm:overflow-visible sm:px-0 sm:snap-none
+            sm:mx-0 sm:flex-wrap sm:justify-center sm:gap-4 sm:overflow-visible sm:px-0 sm:snap-none
+            md:mx-auto md:grid md:max-w-[920px] md:grid-cols-2 md:justify-items-center md:gap-4
+            lg:gap-5
           "
         >
           {/* Card 1 */}
-          <div className="relative w-[64vw] min-w-[230px] max-w-[270px] shrink-0 snap-start cursor-pointer overflow-hidden rounded-[28px] sm:w-[300px] sm:min-w-0 sm:max-w-none">
+          <div className="relative h-[360px] w-[75vw] min-w-[250px] max-w-[330px] shrink-0 snap-start cursor-pointer overflow-hidden rounded-[2.5rem] sm:h-[405px] sm:w-[365px] sm:min-w-0 sm:max-w-none">
             <img
               src="/assets/images/sell-means1.png"
               alt="Proper Name"
               className="w-full h-full object-cover"
             />
-            <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center gap-1 rounded-[28px] p-6 text-center text-white">
+            <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center gap-1 rounded-[2.5rem] p-6 text-center text-white">
               <p className="text-center text-base font-bold sm:text-lg">Your Agent</p>
               <p className="w-[75%] text-center text-xs text-[#E5E3E3] sm:w-[60%] sm:text-sm">
                 Onboard or invite your personal agent
@@ -110,13 +117,13 @@ const ChooseYourMeans = () => {
           </div>
 
           {/* Card 2 */}
-          <div className="relative w-[64vw] min-w-[230px] max-w-[270px] shrink-0 snap-start cursor-pointer overflow-hidden rounded-[28px] sm:w-[300px] sm:min-w-0 sm:max-w-none">
+          <div className="relative h-[360px] w-[75vw] min-w-[250px] max-w-[330px] shrink-0 snap-start cursor-pointer overflow-hidden rounded-[2.5rem] sm:h-[405px] sm:w-[365px] sm:min-w-0 sm:max-w-none">
             <img
               src="/assets/images/sell-means.png"
               alt="Proper Name"
               className="w-full h-full object-cover"
             />
-            <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center gap-1 rounded-[28px] p-6 text-center text-white">
+            <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center gap-1 rounded-[2.5rem] p-6 text-center text-white">
               <p className="text-center text-base font-bold sm:text-lg">Our Agent</p>
               <p className="w-[75%] text-center text-xs text-[#E5E3E3] sm:w-[60%] sm:text-sm">
                 Choose from our directory list of vetted agents

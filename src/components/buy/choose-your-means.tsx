@@ -59,11 +59,11 @@ const ChooseYourMeans = ({
         </p>
 
         {/* Mobile carousel, desktop grid */}
-        <div className="home-choose-grid flex gap-4 overflow-x-auto pl-4 pr-4 pb-2 snap-x snap-mandatory md:mx-auto md:grid md:max-w-[920px] md:grid-cols-2 md:gap-5 md:overflow-visible md:px-0 lg:gap-6">
+        <div className="home-choose-grid flex gap-4 overflow-x-auto pl-4 pr-4 pb-2 snap-x snap-mandatory md:mx-auto md:grid md:max-w-[920px] md:grid-cols-2 md:justify-items-center md:gap-4 md:overflow-visible md:px-0 lg:gap-5">
           {/* Card 1 */}
           <div
             onClick={() => handleCtaClick()}
-            className="home-choose-card relative h-[345px] min-w-[80vw] snap-start overflow-hidden rounded-[2.5rem] cursor-pointer sm:h-[350px] md:min-w-0 lg:h-[395px]"
+            className="home-choose-card relative h-[360px] w-[75vw] min-w-[250px] max-w-[330px] shrink-0 snap-start cursor-pointer overflow-hidden rounded-[2.5rem] sm:h-[405px] sm:w-[365px] sm:min-w-0 sm:max-w-none"
           >
             <img
               src="/assets/images/landing-means.png"
@@ -105,7 +105,7 @@ const ChooseYourMeans = ({
           {/* Card 2 */}
           <div
             onClick={() => handleCtaClick()}
-            className="home-choose-card relative h-[345px] min-w-[80vw] snap-start overflow-hidden rounded-[2.5rem] cursor-pointer sm:h-[350px] md:min-w-0 lg:h-[395px]"
+            className="home-choose-card relative h-[360px] w-[75vw] min-w-[250px] max-w-[330px] shrink-0 snap-start cursor-pointer overflow-hidden rounded-[2.5rem] sm:h-[405px] sm:w-[365px] sm:min-w-0 sm:max-w-none"
           >
             <img
               src="/assets/images/landing-means1.png"

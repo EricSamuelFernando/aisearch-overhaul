@@ -1,13 +1,12 @@
 'use client';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { askQuestion, searchProperties, cancelActiveTask, fetchHistory, fetchSessionDetails, clearHistoryAPI, suggestAddresses, fetchThinkingProgress } from '@/lib/api';
+import { searchProperties, cancelActiveTask, fetchHistory, fetchSessionDetails, clearHistoryAPI, suggestAddresses, fetchThinkingProgress } from '@/lib/api';
 import { useAppDispatch, useAppSelector } from '@/lib/hook';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { initializeTempUserId, incrementSearchCount } from '@/slices/onboarding/property-preference';
 import { usePropertyStore } from '@/store/use-property-store';
-import type { QuestionPayload, AddressSuggestion, ThinkingProgressResponse } from '@/lib/api';
+import type { AddressSuggestion, ThinkingProgressResponse } from '@/lib/api';
 import { getMlsBypassStorageKey, isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
-import { detectIntent } from '@/lib/chatRouting';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { Sparkles, Paperclip, X, ArrowUp, Mic, Search as SearchIcon, FileText, Image as ImageIcon, Camera, ChevronDown, ChevronUp, MapPin, School, Shield, Footprints, Thermometer, CloudSun, BedDouble, Bath, Square, Scaling, Calendar, Clock, TrendingUp, GraduationCap, Trees, Plus, Lightbulb, Droplets, HelpCircle } from 'lucide-react';
@@ -2312,108 +2311,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 return;
             }
 
-            const intent = detectIntent(queryToSearch, { enableRentVsBuy: true });
-            const normalizedQuery = queryToSearch.trim().toLowerCase();
-            const rvbFollowupKeywords = [
-                "down payment",
-                "downpayment",
-                "dp",
-                "income",
-                "annual income",
-                "monthly rent",
-                "current rent",
-                "loan term",
-                "term",
-                "years",
-                "yr",
-                "yrs",
-                "interest rate",
-                "mortgage rate",
-                "apr",
-                "budget",
-                "home price",
-                "price",
-            ];
-            const hasRentAmountSignal = /\brent\b/.test(normalizedQuery) && /\d/.test(normalizedQuery);
-            const hasRvbFollowup =
-                lastIntentRef.current === "rent_vs_buy" &&
-                (rvbFollowupKeywords.some((keyword) => normalizedQuery.includes(keyword)) ||
-                    /\b\d+(?:\.\d+)?\s*%\b/.test(normalizedQuery) ||
-                    hasRentAmountSignal);
-            const effectiveIntent = intent === "general" && hasRvbFollowup ? "property" : intent;
-            setThinkingIntentHint(effectiveIntent);
-
-            if (effectiveIntent === "general") {
-                const selectedPropPayload =
-                    selectedPropertyId !== null ? properties.find((p) => p.id === selectedPropertyId) : null;
-                const ordinalFromQuestion = extractPropertyOrdinalFromQuery(queryToSearch);
-                const questionPayload: QuestionPayload = {
-                    question: queryToSearch,
-                    session_id: activeSessionId
-                };
-                if (selectedPropertyId !== null) {
-                    questionPayload.selected_property_id =
-                        selectedPropPayload?.propertyId ??
-                        selectedPropPayload?.listingId ??
-                        selectedPropertyId;
-                    if (selectedPropPayload?.displayIndex) {
-                        questionPayload.selected_property_index = selectedPropPayload.displayIndex;
-                    }
-                }
-                if (!questionPayload.selected_property_index && ordinalFromQuestion) {
-                    questionPayload.selected_property_index = ordinalFromQuestion;
-                }
-
-                responseData = await askQuestion(questionPayload, newController.signal);
-
-                console.log("Backend Response:", responseData);
-
-                if (responseData.session_id) {
-                    setSessionId(responseData.session_id);
-                }
-                if (Array.isArray(responseData.thinking_steps) && responseData.thinking_steps.length > 0) {
-                    setThinkingSteps(responseData.thinking_steps);
-                }
-                if (responseData.intent) {
-                    setThinkingIntentHint(responseData.intent);
-                }
-                lastIntentRef.current = responseData.intent || "question";
-
-                const aiText =
-                    responseData.answer ||
-                    responseData.final_response ||
-                    responseData.summary ||
-                    responseData.response ||
-                    "I couldn't find a response for that question.";
-                const sanitized = sanitizeAssistantOutput(aiText);
-                const backendForecastPoints = mapBackendChartDataToForecastPoints(responseData?.chart_data, 24);
-
-                const backendRelatedQuestions =
-                    responseData.suggestions ||
-                    responseData.suggested_actions ||
-                    responseData.recommendations ||
-                    responseData.suggested_questions ||
-                    responseData.related_questions ||
-                    [];
-                const relatedQuestions = Array.from(
-                    new Set([...(Array.isArray(backendRelatedQuestions) ? backendRelatedQuestions : []), ...sanitized.extractedSuggestions])
-                );
-
-                const aiMsg: ChatMessage = {
-                    id: (Date.now() + 1).toString(),
-                    role: 'assistant',
-                    content: sanitized.cleanedText || aiText,
-                    relatedQuestions: relatedQuestions,
-                    clarification: responseData.clarification || "",
-                    isForecast: backendForecastPoints.length > 0,
-                    forecastData: backendForecastPoints.length > 0 ? backendForecastPoints : undefined,
-                    map: responseData.map,
-                    intent: responseData.intent || "question"
-                };
-                setChatHistory(prev => [...prev, aiMsg]);
-                setIsSearching(false);
-                return;
-            }
+            // All messages route through LangGraph via /api/search.
+            // Nova Planner handles routing internally: property search, Q&A, SnapInterest,
+            // rent-vs-buy, school lookup, etc. The response contract is identical regardless
+            // of intent — properties=[] for text-only answers, properties=[...] for search results.
+            setThinkingIntentHint("search");
 
             responseData = await searchProperties({
                 userid: user?.id || tempUserId || 'anonymous',

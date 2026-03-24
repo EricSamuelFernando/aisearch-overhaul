@@ -152,10 +152,20 @@ const getPrice = (prop: RecommendedProperty): number =>
   prop?.listing?.listPriceLow || prop?.price || prop?.listing?.price || 0;
 
 const getBeds = (prop: RecommendedProperty): number =>
-  prop?.listing?.property?.bedroomsTotal || prop?.listing?.bedrooms || prop?.bedRooms || 0;
+  prop?.listing?.property?.bedroomsTotal || prop?.listing?.bedrooms || prop?.bedRooms || prop?.bedroomTotal || 0;
 
 const getBaths = (prop: RecommendedProperty): number | string =>
-  prop?.listing?.property?.bathroomsTotal || prop?.listing?.bathrooms || prop?.bathRooms || 0;
+  prop?.listing?.property?.bathroomsTotal || prop?.listing?.bathrooms || prop?.bathRooms || prop?.bathroomTotal || 0;
+
+const getLivingArea = (prop: RecommendedProperty): string | number =>
+  prop?.listing?.property?.livingArea || prop?.sqft || prop?.livingArea || '';
+
+const getPool = (prop: RecommendedProperty): boolean => {
+  if (prop?.pool === true || prop?.pool === 'Yes' || prop?.pool === 'yes' || prop?.hasPool === true) return true;
+  if (prop?.listing?.property?.poolFeatures?.length > 0) return true;
+  if (prop?.tags?.includes('Pool')) return true;
+  return false;
+};
 
 const FALLBACK_COLORS = [
   'bg-slate-700', 'bg-zinc-600', 'bg-stone-600', 'bg-neutral-700', 'bg-gray-600',
@@ -201,12 +211,16 @@ function AiPropertyCard({
   const city = getCity(property);
   const beds = getBeds(property);
   const baths = getBaths(property);
+  const sqft = getLivingArea(property);
+  const pool = getPool(property);
   const fallbackColor = FALLBACK_COLORS[index % FALLBACK_COLORS.length];
   const showImg = image && !imgFailed;
 
   const meta = [
     Number(beds) > 0 ? `${beds} bd` : null,
     Number(baths) > 0 ? `${baths} ba` : null,
+    sqft ? `${Number(sqft).toLocaleString()} sqft` : null,
+    pool ? `Pool` : null,
     city ? city.split(',')[0] : null,
   ].filter(Boolean).join(' · ');
 

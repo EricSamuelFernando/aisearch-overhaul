@@ -229,6 +229,21 @@ function HowItWorksPage({ defaultTab }: Props) {
                   )
                 })}
               </ul>
+              {activeTab === 'buy' ? (
+                <p className="mt-8 text-gray-700">
+                  <span className="block">Ready to Get Started?</span>
+                  <span className="block">
+                    Join agents closing deals faster.{' '}
+                    <LoginRegisterModal
+                      label="Sign up free today"
+                      initialStage={1}
+                      variant="link"
+                      className="p-0 text-orange-500 underline underline-offset-4 hover:text-orange-400"
+                      registerDefaults={{ userType: 'agent', startAt: 'send-code' }}
+                    />
+                  </span>
+                </p>
+              ) : null}
               {activeTab === 'agent' ? (
                 <p className="mt-8 text-gray-700">
                   <span className="block">Ready to Get Started?</span>

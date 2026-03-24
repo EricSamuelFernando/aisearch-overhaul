@@ -68,14 +68,17 @@ export default function OurClients({
   }, [embla]);
 
   const slideSize = isMobile ? '100%' : '50%';
+  const slideGap = isMobile ? 'md' : 'lg';
   const needsNavigation = testimonials.length > 1;
-  const controlsEnabled = testimonials.length > 1;
+  const cardPadding = isMobile ? '24px 20px' : '38px 34px 22px';
+  const cardMinHeight = isMobile ? 'auto' : '332px';
+  const cardCopyWidthClass = isMobile ? 'max-w-full' : 'max-w-[370px]';
 
   return (
     <section
       id="testimonials"
       style={{ backgroundColor: bgColor }}
-      className="home-clients-section pt-8 md:pt-16 pb-20 md:pb-28 px-4 sm:px-6 lg:px-12 overflow-x-hidden"
+      className="home-clients-section overflow-x-hidden px-4 pt-8 pb-20 sm:px-6 md:pt-16 md:pb-28 lg:px-12"
     >
       <div className="max-w-6xl mx-auto text-start pb-4 sm:pb-12">
         <h2
@@ -91,10 +94,13 @@ export default function OurClients({
         </p>
       </div>
 
-      <div className="home-clients-container max-w-7xl mx-auto">
+      <div
+        className="home-clients-container mx-auto"
+        style={{ maxWidth: isMobile ? '100%' : '1120px' }}
+      >
         <Carousel
           slideSize={slideSize}
-          slideGap={isMobile ? 'md' : 'xl'}
+          slideGap={slideGap}
           align="start"
           loop={false}
           withIndicators={false}
@@ -108,22 +114,48 @@ export default function OurClients({
           {testimonials.map(({ name, title, text, img }, idx) => (
             <Carousel.Slide key={idx}>
               <div
-                className="home-clients-card bg-[#EEDFC9] rounded-2xl flex flex-col justify-between"
+                className="home-clients-card flex h-full flex-col justify-between rounded-[30px] bg-[#F2E4CF]"
                 style={{
-                  padding: isMobile ? '20px' : '44px',
-                  minHeight: isMobile ? 'auto' : '320px',
+                  padding: cardPadding,
+                  minHeight: cardMinHeight,
                 }}
               >
-                <div className="text-left mb-4">
-                  <h3 className={`font-bold mb-1 ${isMobile ? 'text-sm' : 'text-xl'}`}>{name}</h3>
-                  <p className={`text-[#606060] ${isMobile ? 'text-xs' : 'text-md'}`}>{title}</p>
-                  <p className={`mt-4 text-[#595858] leading-relaxed ${isMobile ? 'text-xs' : 'text-md'}`}>{text}</p>
+                <div className={cn('text-left', cardCopyWidthClass)}>
+                  <h3
+                    className={cn(
+                      'font-bold uppercase tracking-[-0.02em] text-[#171310]',
+                      isMobile ? 'text-lg leading-[1.2]' : 'text-[0.98rem] leading-[1.2]'
+                    )}
+                  >
+                    {name}
+                  </h3>
+                  <p
+                    className={cn(
+                      'mt-2 text-[#6B625A]',
+                      isMobile ? 'text-sm leading-5' : 'text-[0.98rem] leading-6'
+                    )}
+                  >
+                    {title}
+                  </p>
+                  <p
+                    className={cn(
+                      'mt-8 text-[#595858]',
+                      isMobile ? 'text-sm leading-6' : 'text-[0.98rem] leading-[1.22]'
+                    )}
+                  >
+                    {text}
+                  </p>
                 </div>
-                <img
-                  src={img}
-                  alt={`${name} photo`}
-                  className="w-14 h-14 rounded-full object-cover self-start"
-                />
+                <div className="flex justify-start pt-6">
+                  <img
+                    src={img}
+                    alt={`${name} photo`}
+                    className={cn(
+                      'block rounded-full object-cover',
+                      isMobile ? 'h-14 w-14' : 'h-[66px] w-[66px]'
+                    )}
+                  />
+                </div>
               </div>
             </Carousel.Slide>
           ))}

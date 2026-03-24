@@ -1004,6 +1004,14 @@ body {
   display: none !important;
 }
 
+/* Fix: Sonner toast and its container are positioned top-right, overlapping
+   the navbar buttons. Since all toasts are informational (no close/action buttons),
+   make the entire toaster area non-interactive so clicks pass through to the navbar. */
+[data-sonner-toaster],
+[data-sonner-toast] {
+  pointer-events: none !important;
+}
+
 /* Listing card "For Sale" hanging sign behavior */
 .sale-sign-badge {
   transform-origin: 50% 6%;

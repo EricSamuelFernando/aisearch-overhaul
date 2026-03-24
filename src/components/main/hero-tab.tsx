@@ -3487,10 +3487,10 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                 onSubmit={handleFormSubmit}
                                 className="relative flex items-center w-full bg-transparent"
                             >
-                                <div className="flex-1 min-w-0 flex min-h-[44px] items-center rounded-[22px] border border-[#ECECEC] bg-white px-2.5 py-1 md:border-0 md:min-h-0 md:rounded-none md:bg-transparent md:p-0">
+                                <div className="flex-1 min-w-0 flex min-h-[44px] items-center rounded-[22px] border border-[#ECECEC] bg-white px-2 py-1 max-[380px]:px-1.5 md:border-0 md:min-h-0 md:rounded-none md:bg-transparent md:p-0">
                                     {/* Left Ask AI Icon */}
-                                    <div className="pl-1 md:pl-2 flex-shrink-0">
-                                        <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 md:w-6 md:h-6">
+                                    <div className="pl-1 max-[380px]:pl-0.5 md:pl-2 flex-shrink-0">
+                                        <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 max-[380px]:h-[22px] max-[380px]:w-[22px] md:h-6 md:w-6">
                                             <path d="M15.0645 1C22.8233 0.998533 29.122 7.31736 29.1221 15.1211V25.0967C29.1221 26.201 28.6985 27.1986 28.0068 27.9336L28.0049 27.9355C27.2517 28.7409 26.1847 29.2393 25.001 29.2393H5.12109C2.85069 29.2393 1 27.3893 1 25.0986V15.123C1 7.31903 7.30043 1 15.0645 1Z" fill="black" stroke="url(#askAiGradient)" strokeWidth="2" />
                                             <mask id="askAiMask1" fill="white">
                                                 <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" />
@@ -3511,7 +3511,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                         </svg>
                                     </div>
                                     {/* Input Field */}
-                                    <div className="flex-1 min-w-0 flex items-center gap-3">
+                                    <div className="flex-1 min-w-0 flex items-center gap-3 max-[380px]:gap-1.5">
                                         {renderPendingImageChip('collapsed')}
                                         <input
                                             type="text"
@@ -3554,7 +3554,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                 onSuggestionsOpen?.(false);
                                             }, 200)}
                                             placeholder={!aiModeActive ? typedPlaceholder : (placeholderText || typedPlaceholder)}
-                                            className="flex-1 min-w-0 bg-transparent outline-none px-3 md:px-4 py-1.5 text-gray-700 placeholder-gray-400 text-sm md:text-sm font-medium"
+                                            className="flex-1 min-w-0 bg-transparent outline-none px-3 py-1.5 text-sm font-medium text-gray-700 placeholder-gray-400 max-[380px]:px-2 max-[380px]:text-[13px] md:px-4 md:text-sm"
                                         />
                                     </div>
 
@@ -3569,12 +3569,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             onClick={toggleMlsBypass}
                                             aria-pressed={aiModeActive}
                                             title={aiModeActive ? 'AI Search is ON' : 'AI Search is OFF'}
-                                            className={`relative h-[36px] transition-all duration-300 ${aiModeActive
-                                                ? 'w-[96px] ai-mode-shell'
-                                                : 'w-[96px] rounded-full border border-[#D8DDE6] bg-[#F3F5F8] text-[#4B4B4B]'
+                                            className={`relative h-[36px] max-[380px]:h-[32px] transition-all duration-300 ${aiModeActive
+                                                ? 'w-[96px] max-[380px]:w-[82px] ai-mode-shell'
+                                                : 'w-[96px] max-[380px]:w-[82px] rounded-full border border-[#D8DDE6] bg-[#F3F5F8] text-[#4B4B4B]'
                                                 }`}
                                         >
-                                            <span className={`relative z-[2] flex h-full w-full items-center justify-center gap-1.5 rounded-full px-2 text-[10px] font-semibold tracking-wide ${aiModeActive ? 'text-[#5A2B13]' : 'text-[#4B4B4B]'}`}>
+                                            <span className={`relative z-[2] flex h-full w-full items-center justify-center gap-1.5 rounded-full px-2 text-[10px] font-semibold tracking-wide max-[380px]:gap-1 max-[380px]:px-1.5 max-[380px]:text-[9px] ${aiModeActive ? 'text-[#5A2B13]' : 'text-[#4B4B4B]'}`}>
                                                 <svg
                                                     xmlns="http://www.w3.org/2000/svg"
                                                     viewBox="0 0 24 24"
@@ -3582,7 +3582,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                     height="24"
                                                     fill="#000000"
                                                     style={{ opacity: 1 }}
-                                                    className="h-3.5 w-3.5"
+                                                    className="h-3.5 w-3.5 max-[380px]:h-3 max-[380px]:w-3"
                                                 >
                                                     <path d="M8.037 3.167a1.44 1.44 0 0 0 .482 1.43A5.001 5.001 0 0 0 9.5 14.5a5 5 0 0 0 4.748-3.435l.027.083c.1.25.26.461.48.622c.22.149.478.228.747.229l-.005.001h.004a6.5 6.5 0 0 1-.905 1.535l3.434 3.435a.75.75 0 0 1-.976 1.133l-.084-.073l-3.435-3.434A6.5 6.5 0 1 1 8.037 3.167M15.484 6a.3.3 0 0 1 .286.201l.249.766a1.58 1.58 0 0 0 .999.998l.765.248l.015.004a.303.303 0 0 1 .146.46a.3.3 0 0 1-.146.11l-.765.248a1.58 1.58 0 0 0-.999.998l-.249.766a.302.302 0 0 1-.57 0l-.25-.766a1.58 1.58 0 0 0-.998-1.002l-.765-.248a.303.303 0 0 1-.146-.46a.3.3 0 0 1 .146-.11l.765-.248a1.58 1.58 0 0 0 .984-.998L15.2 6.2a.3.3 0 0 1 .284-.2M12.48 0a.42.42 0 0 1 .399.282l.348 1.072a2.2 2.2 0 0 0 1.398 1.396l1.072.349l.022.005a.424.424 0 0 1 0 .797l-1.072.349a2.2 2.2 0 0 0-1.399 1.396L12.9 6.718a.423.423 0 0 1-.643.204l-.02-.015a.43.43 0 0 1-.135-.19l-.348-1.07a2.22 2.22 0 0 0-1.399-1.403l-1.072-.348a.423.423 0 0 1 0-.797l1.072-.349a2.21 2.21 0 0 0 1.377-1.396L12.08.282a.42.42 0 0 1 .4-.282" />
                                                 </svg>
@@ -3596,7 +3596,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                     animate={{ opacity: 1, y: 0, scale: 1 }}
                                                     exit={{ opacity: 0, y: 4, scale: 0.98 }}
                                                     transition={{ duration: 0.2 }}
-                                                    className="absolute bottom-full right-0 mb-3 w-[220px] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl z-[75]"
+                                                    className="absolute bottom-full right-0 z-[75] mb-3 w-[220px] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl max-[380px]:w-[190px]"
                                                 >
                                                     <p className="text-[11px] font-semibold leading-relaxed text-[#5A2B13]">
                                                         Click here to ask AI about {activeAiModeTip}
@@ -3612,9 +3612,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             onClick={handleMobileCameraClick}
                                             title={CAMERA_TIP_TEXT}
                                             aria-label={CAMERA_TIP_TEXT}
-                                            className="h-10 w-10 text-[#1E1E1E] flex items-center justify-center transition-colors hover:text-black"
+                                            className="flex h-10 w-10 items-center justify-center text-[#1E1E1E] transition-colors hover:text-black max-[380px]:h-8 max-[380px]:w-8"
                                         >
-                                            <Camera className="h-[18px] w-[18px]" />
+                                            <Camera className="h-[18px] w-[18px] max-[380px]:h-4 max-[380px]:w-4" />
                                         </button>
                                         <AnimatePresence>
                                             {showAiModeTip && !isExpanded && showCameraTipBubble && (
@@ -3623,7 +3623,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                     animate={{ opacity: 1, y: 0, scale: 1 }}
                                                     exit={{ opacity: 0, y: 4, scale: 0.98 }}
                                                     transition={{ duration: 0.2 }}
-                                                    className="absolute bottom-full right-0 mb-3 w-[220px] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl z-[75]"
+                                                    className="absolute bottom-full right-0 z-[75] mb-3 w-[220px] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl max-[380px]:w-[190px]"
                                                 >
                                                     <p className="text-[11px] font-semibold leading-relaxed text-[#5A2B13]">
                                                         {CAMERA_TIP_TEXT}

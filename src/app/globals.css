@@ -1535,7 +1535,7 @@ input:-webkit-autofill {
 /* ============================= */
 
 .company-navbar {
-  background-color: #000000 !important;
+  background-color: #1A0700 !important;
   color: #ffffff !important;
 }
 
@@ -1549,7 +1549,16 @@ input:-webkit-autofill {
 .company-navbar.bg-transparent,
 .company-navbar.bg-white,
 .company-navbar.bg-black {
-  background-color: #000000 !important;
+  background-color: #1A0700 !important;
+}
+
+@media (min-width: 640px) {
+  .company-navbar,
+  .company-navbar.bg-transparent,
+  .company-navbar.bg-white,
+  .company-navbar.bg-black {
+    background-color: #000000 !important;
+  }
 }
 
 /* Company dropdown text enforcement when navbar is dark */

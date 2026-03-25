@@ -32,7 +32,7 @@ const ROOM_ORDER = [
 ];
 const ROOM_ORDER_LOOKUP = new Map(ROOM_ORDER.map((label, idx) => [label, idx]));
 
-const API_BASE_URL = "https://demo-ai.snaphomz.com/api";
+const API_BASE_URL = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI
 
 export default function CategorizedPhotosModal({
     isOpen,

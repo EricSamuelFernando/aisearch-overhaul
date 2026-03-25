@@ -1344,7 +1344,7 @@ export default function HeroLayout({
             </h1>
 
             <div className="w-full max-w-3xl relative mx-auto mt-4 sm:mt-12" ref={searchContainerRef}>
-              <div className={`relative flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0 w-full min-h-[clamp(52px,4.8vw,60px)] sm:h-[clamp(52px,4.8vw,60px)] bg-white border-[3px] sm:border-4 border-[#C08C73] shadow-xl overflow-hidden px-2 sm:pl-4 sm:pr-1 py-2 sm:py-0 z-30 transition-all duration-300 ${isSearchFocused ? 'rounded-2xl sm:rounded-t-2xl sm:rounded-b-none sm:border-b-0' : 'rounded-[1.15rem] sm:rounded-full'}`}
+              <div className={`relative flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-0 w-full min-h-[clamp(52px,4.8vw,60px)] sm:h-[clamp(52px,4.8vw,60px)] bg-white border-[3px] sm:border-4 border-[#C08C73] shadow-xl overflow-hidden px-2 sm:pl-4 sm:pr-1 py-2 sm:py-0 z-30 transition-all duration-300 ${isSearchFocused ? 'rounded-t-[1.15rem] rounded-b-none border-b-0 sm:rounded-t-2xl sm:rounded-b-none' : 'rounded-[1.15rem] sm:rounded-full'}`}
               >
                 <div className="flex items-center w-full min-w-0">
                   <button
@@ -1401,7 +1401,7 @@ export default function HeroLayout({
               </div>
 
               {isSearchFocused && (
-                <div className="absolute top-full mt-2 sm:mt-0 left-0 w-full bg-white rounded-2xl sm:rounded-b-2xl sm:rounded-t-none border-4 sm:border-t-0 border-[#C08C73] shadow-2xl z-20 overflow-hidden min-h-[300px] max-h-[400px] overflow-y-auto">
+                <div className="absolute top-full left-0 w-full bg-white rounded-b-[1.15rem] rounded-t-none sm:rounded-b-2xl sm:rounded-t-none border-[3px] sm:border-4 border-t-0 border-[#C08C73] shadow-2xl z-20 overflow-hidden min-h-[300px] max-h-[400px] overflow-y-auto">
                   {searchMode === 'location' ? (
                     <div className="p-4 bg-white h-full flex flex-col">
                       <p className="text-gray-500 text-sm mb-3 pl-2">

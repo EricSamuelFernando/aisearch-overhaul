@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Check, ChevronLeft, ChevronRight, ExternalLink, Loader2, Pause, Play, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, ExternalLink, Loader2, Pause, Play, ThumbsDown, ThumbsUp, BedDouble, Bath, Maximize, Waves } from 'lucide-react';
 import { useUserSnapAPIs } from '@/hooks/api/auth/snaps.API';
 import { useAuth } from '@/shared/hooks/useAuth';
 import API from '@/lib/api/axios';
@@ -284,10 +284,17 @@ const getPrice = (p: any): number =>
   p?.listing?.listPriceLow || p?.price || p?.listing?.price || 0;
 
 const getBeds = (p: any): number =>
-  p?.listing?.property?.bedroomsTotal || p?.listing?.bedrooms || p?.bedRooms || 0;
+  p?.listing?.property?.bedroomsTotal || p?.listing?.bedrooms || p?.bedRooms || p?.bedroomTotal || 0;
 
 const getBaths = (p: any): number | string =>
-  p?.listing?.property?.bathroomsTotal || p?.listing?.bathrooms || p?.bathRooms || 0;
+  p?.listing?.property?.bathroomsTotal || p?.listing?.bathrooms || p?.bathRooms || p?.bathroomTotal || 0;
+
+const getPool = (p: any): boolean => {
+  if (p?.pool === true || p?.pool === 'Yes' || p?.pool === 'yes' || p?.hasPool === true) return true;
+  if (p?.listing?.property?.poolFeatures?.length > 0) return true;
+  if (p?.tags?.includes('Pool')) return true;
+  return false;
+};
 
 const getPhotos = (p: any): string[] => {
   const seen = new Set<string>();
@@ -349,7 +356,7 @@ const getYearBuilt = (p: any): string | number =>
   p?.listing?.property?.yearBuilt || p?.yearBuilt || '';
 
 const getLivingArea = (p: any): string | number =>
-  p?.listing?.property?.livingArea || p?.sqft || '';
+  p?.listing?.property?.livingArea || p?.sqft || p?.livingArea || '';
 
 const getPropType = (p: any): string =>
   p?.listing?.property?.propertyType?.[0] || p?.propertyType || '';
@@ -414,6 +421,7 @@ function HoverPreview({
   const beds      = getBeds(property);
   const baths     = getBaths(property);
   const sqft      = getLivingArea(property);
+  const pool      = getPool(property);
   const yearBuilt = getYearBuilt(property);
   const propType  = getPropType(property);
   const hoa       = getHOA(property);
@@ -619,27 +627,30 @@ function HoverPreview({
             <p className="text-[12px] text-gray-400 mt-0.5 mb-3">{city}</p>
 
             {/* Specs row with icons */}
-            <div className="flex items-center gap-2 mb-3 flex-wrap">
+            <div className="flex items-center gap-3 mb-3 flex-wrap">
               {Number(beds) > 0 && (
-                <span className="flex items-center gap-1 text-[12px] text-gray-700">
-                  <span>🛏</span>{beds} <span className="text-gray-400">bd</span>
+                <span className="flex items-center gap-1.5 text-[12px] text-gray-700">
+                  <BedDouble className="w-3.5 h-3.5 text-gray-400" />
+                  <span>{beds} <span className="text-gray-400">bd</span></span>
                 </span>
               )}
-              {Number(beds) > 0 && Number(baths) > 0 && (
-                <span className="text-gray-200 text-[10px]">·</span>
-              )}
               {Number(baths) > 0 && (
-                <span className="flex items-center gap-1 text-[12px] text-gray-700">
-                  <span>🛁</span>{baths} <span className="text-gray-400">ba</span>
+                <span className="flex items-center gap-1.5 text-[12px] text-gray-700">
+                  <Bath className="w-3.5 h-3.5 text-gray-400" />
+                  <span>{baths} <span className="text-gray-400">ba</span></span>
                 </span>
               )}
               {sqft && (
-                <>
-                  <span className="text-gray-200 text-[10px]">·</span>
-                  <span className="flex items-center gap-1 text-[12px] text-gray-700">
-                    <span>📐</span>{Number(sqft).toLocaleString()} <span className="text-gray-400">sqft</span>
-                  </span>
-                </>
+                <span className="flex items-center gap-1.5 text-[12px] text-gray-700">
+                  <Maximize className="w-3.5 h-3.5 text-gray-400" />
+                  <span>{Number(sqft).toLocaleString()} <span className="text-gray-400">sqft</span></span>
+                </span>
+              )}
+              {pool && (
+                <span className="flex items-center gap-1.5 text-[12px] text-gray-700">
+                   <Waves className="w-3.5 h-3.5 text-blue-400" />
+                   <span>Pool</span>
+                </span>
               )}
             </div>
 
@@ -777,12 +788,11 @@ function ReelCard({
   const city    = getCity(property);
   const beds    = getBeds(property);
   const baths   = getBaths(property);
+  const sqft    = getLivingArea(property);
+  const pool    = getPool(property);
   const showImg = image && !imgFailed;
 
-  const specLine = [
-    Number(beds)  > 0 ? `${beds} bd`  : null,
-    Number(baths) > 0 ? `${baths} ba` : null,
-  ].filter(Boolean).join(' · ');
+  const hasSpecs = Number(beds) > 0 || Number(baths) > 0 || sqft || pool;
 
   const handleThumbsUp = () => {
     setSparkActive(true);
@@ -851,7 +861,14 @@ function ReelCard({
       <div className="px-3 pt-2.5 pb-1 flex-1">
         <p className="text-[12px] font-semibold text-gray-900 truncate leading-tight">{address}</p>
         <p className="text-[11px] text-gray-400 truncate mt-0.5">{city}</p>
-        {specLine && <p className="text-[11px] text-gray-400 mt-1">{specLine}</p>}
+        {hasSpecs && (
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap text-[11px] text-gray-500 font-medium">
+            {Number(beds) > 0 && <span className="flex items-center gap-1"><BedDouble className="w-3 h-3 text-gray-400" />{beds}</span>}
+            {Number(baths) > 0 && <span className="flex items-center gap-1"><Bath className="w-3 h-3 text-gray-400" />{baths}</span>}
+            {sqft && <span className="flex items-center gap-1"><Maximize className="w-2.5 h-2.5 text-gray-400" />{Number(sqft).toLocaleString()}</span>}
+            {pool && <span className="flex items-center gap-1"><Waves className="w-3 h-3 text-blue-400" />Pool</span>}
+          </div>
+        )}
       </div>
 
       {/* ── Actions ── */}

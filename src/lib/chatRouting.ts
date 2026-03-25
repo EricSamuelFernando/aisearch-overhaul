@@ -371,8 +371,29 @@ export const detectIntent = (
         return "general";
     }
 
+    // Hoist filter-change signals so the looksLikeQuestion early-return below can
+    // exempt conversational property refinements like "How about with a pool instead?".
+    const hasPropertyAttr = /\b(bedroom|bedrooms|bed|beds|bath|baths|bathroom|bathrooms|pool|garage|sqft|square\s+feet|story|stories|floors)\b/i.test(normalized);
+    const hasFilterChangeSignal = /\b(instead|what about|how about|actually|only the|show the|more bedrooms|fewer bedrooms)\b/i.test(normalized);
+    const msgWordCount = normalized.split(/\s+/).length;
+    // Short city-swap: "what about dallas", "how about seattle" — filter-change signal
+    // present, very short (≤5 words), and no general-info topic (HOA/mortgage/rates etc.)
+    // that should stay in the Q&A pipeline.
+    const isShortCitySwap = hasFilterChangeSignal && msgWordCount <= 5 && !hasGeneralInfoCue(normalized);
+
+    // Only apply the question early-return when there are no property-search signals.
+    // "How about with a pool instead?" and "what about dallas" look like questions but
+    // are search refinements — they must fall through to property routing below.
     if (looksLikeQuestion && !hasLocationHint && !hasNumeric && !hasSearchConstraints) {
-        return "general";
+        const isPropertyFilterChange =
+            (hasPropertyAttr || isShortCitySwap) &&
+            hasFilterChangeSignal &&
+            msgWordCount <= 12 &&
+            !hasAdvisoryCue(normalized);
+        if (!isPropertyFilterChange) {
+            return "general";
+        }
+        // Fall through to property routing for filter-change messages.
     }
 
     if (schoolLocationQuery) return "property";
@@ -384,12 +405,9 @@ export const detectIntent = (
 
     // Follow-up property filter change: short message modifying a property attribute
     // (e.g., "What about 2 bedrooms instead", "how about 4 beds", "actually under $1m")
-    // These start with question words but are search refinements, not genuine questions.
-    const hasPropertyAttr = /\b(bedroom|bedrooms|bed|beds|bath|baths|bathroom|bathrooms|pool|garage|sqft|square\s+feet|story|stories|floors)\b/i.test(normalized);
-    const hasFilterChangeSignal = /\b(instead|what about|how about|actually|only the|show the|more bedrooms|fewer bedrooms)\b/i.test(normalized);
-    const msgWordCount = normalized.split(/\s+/).length;
+    // Also catches city-swap follow-ups (e.g., "what about dallas", "how about seattle").
     if (
-        hasPropertyAttr &&
+        (hasPropertyAttr || isShortCitySwap) &&
         (hasFilterChangeSignal || (looksLikeQuestion && hasNumeric)) &&
         msgWordCount <= 12 &&
         !hasAdvisoryCue(normalized)

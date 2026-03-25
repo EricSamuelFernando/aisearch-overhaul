@@ -1,6 +1,5 @@
 'use client';
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
@@ -59,11 +58,11 @@ const ChooseYourMeans = ({
         </p>
 
         {/* Mobile carousel, desktop grid */}
-        <div className="home-choose-grid flex gap-4 overflow-x-auto pl-4 pr-4 pb-2 snap-x snap-mandatory md:mx-auto md:grid md:max-w-[920px] md:grid-cols-2 md:justify-items-center md:gap-4 md:overflow-visible md:px-0 lg:gap-5">
+        <div className="home-choose-grid flex gap-4 overflow-x-auto pl-4 pr-4 pb-2 snap-x snap-mandatory md:mx-auto md:grid md:max-w-[1060px] md:grid-cols-[430px_430px] md:justify-center md:gap-20 md:overflow-visible md:px-0 lg:max-w-[1140px] lg:grid-cols-[450px_450px] lg:gap-20">
           {/* Card 1 */}
           <div
             onClick={() => handleCtaClick()}
-            className="home-choose-card relative h-[360px] w-[75vw] min-w-[250px] max-w-[330px] shrink-0 snap-start cursor-pointer overflow-hidden rounded-[2.5rem] sm:h-[405px] sm:w-[365px] sm:min-w-0 sm:max-w-none"
+            className="home-choose-card relative h-[345px] min-w-[80vw] snap-start cursor-pointer overflow-hidden rounded-[2.8rem] sm:h-[350px] sm:rounded-[3rem] md:h-[410px] md:min-w-0 lg:h-[455px] lg:rounded-[3.35rem]"
           >
             <img
               src="/assets/images/landing-means.png"
@@ -72,16 +71,16 @@ const ChooseYourMeans = ({
             />
             {/* Soft gradient — top is fully clear, darkens only in the bottom 42% */}
             <div
-              className="absolute inset-0 rounded-[2.5rem]"
+              className="absolute inset-0 rounded-[2.8rem] sm:rounded-[3rem] lg:rounded-[3.35rem]"
               style={{
                 background:
-                  'linear-gradient(180deg, rgba(13,17,26,0) 40%, rgba(74,77,82,0.45) 70%, rgba(58,61,67,0.88) 100%)',
+                  'linear-gradient(180deg, rgba(13,17,26,0) 34%, rgba(45,49,56,0.16) 58%, rgba(58,61,67,0.82) 100%)',
               }}
             />
             {/* Text + button */}
-            <div className="absolute inset-x-0 bottom-8 text-white px-5 sm:px-6 text-center">
-              <p className="font-semibold text-[1.2rem] leading-[1.1] mb-3 sm:text-[1.8rem] sm:mb-2">Your Agent</p>
-              <p className="text-[0.92rem] text-white/90 mb-5 leading-[1.35] max-w-[270px] mx-auto sm:text-[0.95rem] sm:mb-4 sm:max-w-[210px]">
+            <div className="absolute inset-x-0 bottom-8 px-5 text-center text-white sm:bottom-10 sm:px-6 lg:bottom-12">
+              <p className="mb-3 font-semibold text-[1.2rem] leading-[1.1] sm:mb-2 sm:text-[1.85rem] lg:text-[1.95rem]">Your Agent</p>
+              <p className="mx-auto mb-5 max-w-[270px] text-[0.92rem] leading-[1.35] text-white/90 sm:mb-4 sm:max-w-[230px] sm:text-[1rem] sm:leading-[1.45]">
                 {yourAgentDescriptionParts ? (
                   <>
                     {yourAgentDescriptionParts[0]}
@@ -95,7 +94,7 @@ const ChooseYourMeans = ({
               </p>
               <button
                 onClick={(e) => handleCtaClick(e)}
-                className="px-6 py-2.5 bg-black text-white text-[0.88rem] font-semibold rounded-full transition duration-200 hover:bg-black/80 min-w-[138px] sm:px-7 sm:text-[0.9rem] sm:min-w-[136px]"
+                className="min-w-[138px] rounded-full bg-black px-6 py-2.5 text-[0.88rem] font-semibold text-white transition duration-200 hover:bg-black/80 sm:min-w-[150px] sm:px-7 sm:py-3 sm:text-[0.95rem]"
               >
                 {ctaLabel}
               </button>
@@ -105,7 +104,7 @@ const ChooseYourMeans = ({
           {/* Card 2 */}
           <div
             onClick={() => handleCtaClick()}
-            className="home-choose-card relative h-[360px] w-[75vw] min-w-[250px] max-w-[330px] shrink-0 snap-start cursor-pointer overflow-hidden rounded-[2.5rem] sm:h-[405px] sm:w-[365px] sm:min-w-0 sm:max-w-none"
+            className="home-choose-card relative h-[345px] min-w-[80vw] snap-start cursor-pointer overflow-hidden rounded-[2.8rem] sm:h-[350px] sm:rounded-[3rem] md:h-[410px] md:min-w-0 lg:h-[455px] lg:rounded-[3.35rem]"
           >
             <img
               src="/assets/images/landing-means1.png"
@@ -114,16 +113,16 @@ const ChooseYourMeans = ({
             />
             {/* Soft gradient — top is fully clear, darkens only in the bottom 42% */}
             <div
-              className="absolute inset-0 rounded-[2.5rem]"
+              className="absolute inset-0 rounded-[2.8rem] sm:rounded-[3rem] lg:rounded-[3.35rem]"
               style={{
                 background:
-                  'linear-gradient(180deg, rgba(198,118,74,0) 36%, rgba(192,118,79,0.44) 68%, rgba(195,121,82,0.82) 100%)',
+                  'linear-gradient(180deg, rgba(198,118,74,0) 34%, rgba(197,121,82,0.18) 58%, rgba(195,121,82,0.78) 100%)',
               }}
             />
             {/* Text + button */}
-            <div className="absolute inset-x-0 bottom-8 text-white px-5 sm:px-6 text-center">
-              <p className="font-semibold text-[1.2rem] leading-[1.1] mb-3 sm:text-[1.8rem] sm:mb-2">Our Agent</p>
-              <p className="text-[0.92rem] text-white/90 mb-5 leading-[1.35] max-w-[250px] mx-auto sm:text-[0.95rem] sm:mb-4 sm:max-w-[220px]">
+            <div className="absolute inset-x-0 bottom-8 px-5 text-center text-white sm:bottom-10 sm:px-6 lg:bottom-12">
+              <p className="mb-3 font-semibold text-[1.2rem] leading-[1.1] sm:mb-2 sm:text-[1.85rem] lg:text-[1.95rem]">Our Agent</p>
+              <p className="mx-auto mb-5 max-w-[250px] text-[0.92rem] leading-[1.35] text-white/90 sm:mb-4 sm:max-w-[238px] sm:text-[1rem] sm:leading-[1.45]">
                 {ourAgentDescriptionParts ? (
                   <>
                     {ourAgentDescriptionParts[0]}
@@ -137,7 +136,7 @@ const ChooseYourMeans = ({
               </p>
               <button
                 onClick={(e) => handleCtaClick(e)}
-                className="px-6 py-2.5 bg-black text-white text-[0.88rem] font-semibold rounded-full transition duration-200 hover:bg-black/80 min-w-[138px] sm:px-7 sm:text-[0.9rem] sm:min-w-[136px]"
+                className="min-w-[138px] rounded-full bg-black px-6 py-2.5 text-[0.88rem] font-semibold text-white transition duration-200 hover:bg-black/80 sm:min-w-[150px] sm:px-7 sm:py-3 sm:text-[0.95rem]"
               >
                 {ctaLabel}
               </button>

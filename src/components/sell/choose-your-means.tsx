@@ -89,46 +89,38 @@ const ChooseYourMeans = ({ headingClassName }: ChooseYourMeansProps) => {
         </p>
 
         {/* Card Layout */}
-        <div
-          className="
-            -mx-4 flex snap-x snap-mandatory flex-nowrap gap-4 overflow-x-auto px-4 pb-4
-            scrollbar-hide [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
-            sm:mx-0 sm:flex-wrap sm:justify-center sm:gap-4 sm:overflow-visible sm:px-0 sm:snap-none
-            md:mx-auto md:grid md:max-w-[920px] md:grid-cols-2 md:justify-items-center md:gap-4
-            lg:gap-5
-          "
-        >
+        <div className="home-choose-grid flex gap-4 overflow-x-auto pl-4 pr-4 pb-2 snap-x snap-mandatory md:mx-auto md:grid md:max-w-[1060px] md:grid-cols-[430px_430px] md:justify-center md:gap-20 md:overflow-visible md:px-0 lg:max-w-[1140px] lg:grid-cols-[450px_450px] lg:gap-20">
           {/* Card 1 */}
-          <div className="relative h-[360px] w-[75vw] min-w-[250px] max-w-[330px] shrink-0 snap-start cursor-pointer overflow-hidden rounded-[2.5rem] sm:h-[405px] sm:w-[365px] sm:min-w-0 sm:max-w-none">
+          <div className="home-choose-card relative h-[345px] min-w-[80vw] snap-start cursor-pointer overflow-hidden rounded-[2.8rem] sm:h-[350px] sm:rounded-[3rem] md:h-[410px] md:min-w-0 lg:h-[455px] lg:rounded-[3.35rem]">
             <img
               src="/assets/images/sell-means1.png"
               alt="Proper Name"
               className="w-full h-full object-cover"
             />
-            <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center gap-1 rounded-[2.5rem] p-6 text-center text-white">
-              <p className="text-center text-base font-bold sm:text-lg">Your Agent</p>
-              <p className="w-[75%] text-center text-xs text-[#E5E3E3] sm:w-[60%] sm:text-sm">
+            <div className="absolute inset-x-0 bottom-8 px-5 text-center text-white sm:bottom-10 sm:px-6 lg:bottom-12">
+              <p className="mb-3 font-semibold text-[1.2rem] leading-[1.1] sm:mb-2 sm:text-[1.85rem] lg:text-[1.95rem]">Your Agent</p>
+              <p className="mx-auto mb-5 max-w-[270px] text-[0.92rem] leading-[1.35] text-white/90 sm:mb-4 sm:max-w-[230px] sm:text-[1rem] sm:leading-[1.45]">
                 Onboard or invite your personal agent
               </p>
-              <button className="mt-4 rounded-full border border-white bg-transparent px-6 py-2 text-xs text-white transition duration-200">
+              <button className="mt-4 min-w-[138px] rounded-full border border-white bg-transparent px-6 py-2.5 text-[0.88rem] text-white transition duration-200 sm:min-w-[150px] sm:px-7 sm:py-3 sm:text-[0.95rem]">
                 Get Started
               </button>
             </div>
           </div>
 
           {/* Card 2 */}
-          <div className="relative h-[360px] w-[75vw] min-w-[250px] max-w-[330px] shrink-0 snap-start cursor-pointer overflow-hidden rounded-[2.5rem] sm:h-[405px] sm:w-[365px] sm:min-w-0 sm:max-w-none">
+          <div className="home-choose-card relative h-[345px] min-w-[80vw] snap-start cursor-pointer overflow-hidden rounded-[2.8rem] sm:h-[350px] sm:rounded-[3rem] md:h-[410px] md:min-w-0 lg:h-[455px] lg:rounded-[3.35rem]">
             <img
               src="/assets/images/sell-means.png"
               alt="Proper Name"
               className="w-full h-full object-cover"
             />
-            <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center gap-1 rounded-[2.5rem] p-6 text-center text-white">
-              <p className="text-center text-base font-bold sm:text-lg">Our Agent</p>
-              <p className="w-[75%] text-center text-xs text-[#E5E3E3] sm:w-[60%] sm:text-sm">
+            <div className="absolute inset-x-0 bottom-8 px-5 text-center text-white sm:bottom-10 sm:px-6 lg:bottom-12">
+              <p className="mb-3 font-semibold text-[1.2rem] leading-[1.1] sm:mb-2 sm:text-[1.85rem] lg:text-[1.95rem]">Our Agent</p>
+              <p className="mx-auto mb-5 max-w-[250px] text-[0.92rem] leading-[1.35] text-white/90 sm:mb-4 sm:max-w-[238px] sm:text-[1rem] sm:leading-[1.45]">
                 Choose from our directory list of vetted agents
               </p>
-              <button className="mt-4 rounded-full border border-white bg-transparent px-6 py-2 text-xs text-white transition duration-200">
+              <button className="mt-4 min-w-[138px] rounded-full border border-white bg-transparent px-6 py-2.5 text-[0.88rem] text-white transition duration-200 sm:min-w-[150px] sm:px-7 sm:py-3 sm:text-[0.95rem]">
                 Get Started
               </button>
             </div>

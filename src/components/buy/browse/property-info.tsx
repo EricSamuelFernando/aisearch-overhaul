@@ -858,22 +858,22 @@ function PropertyBrowseView({ }: Props) {
                       <p className="text-base font-semibold text-gray-900">Price range</p>
                       <div className="grid grid-cols-2 gap-2">
                         <label className="flex flex-col gap-1">
-                          <span className="px-1 text-xs font-medium text-gray-500">No min</span>
+                          <span className="px-1 text-xs font-medium text-gray-500">Min</span>
                           <input
                             inputMode="numeric"
                             value={draftPriceMin}
                             onChange={(e) => setDraftPriceMin(e.target.value.replace(/[^\d]/g, ''))}
-                            placeholder="$ No min"
+                            placeholder="$ Min"
                             className="block h-11 w-full appearance-none rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 shadow-sm outline-none placeholder:text-gray-400 focus:border-gray-400"
                           />
                         </label>
                         <label className="flex flex-col gap-1">
-                          <span className="px-1 text-xs font-medium text-gray-500">No max</span>
+                          <span className="px-1 text-xs font-medium text-gray-500">Max</span>
                           <input
                             inputMode="numeric"
                             value={draftPriceMax}
                             onChange={(e) => setDraftPriceMax(e.target.value.replace(/[^\d]/g, ''))}
-                            placeholder="$ No max"
+                            placeholder="$ Max"
                             className="block h-11 w-full appearance-none rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-900 shadow-sm outline-none placeholder:text-gray-400 focus:border-gray-400"
                           />
                         </label>

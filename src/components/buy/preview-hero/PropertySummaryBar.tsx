@@ -48,13 +48,27 @@ const DEMOGRAPHIC_COLORS: { [key: string]: string } = {
   'Other': '#4B5563'             // Dark Gray
 };
 
-const TopCollegesSection = () => {
-  const [data, setData] = useState<CollegeReadinessData | null>(null);
-  const [loading, setLoading] = useState(true);
+const TopCollegesSection = ({ 
+  initialData, 
+  isLoadingFromParent = false 
+}: { 
+  initialData?: CollegeReadinessData | null;
+  isLoadingFromParent?: boolean;
+}) => {
+  const [data, setData] = useState<CollegeReadinessData | null>(initialData || null);
+  const [loading, setLoading] = useState(!initialData);
   const [error, setError] = useState<string | null>(null);
   const [zipCode, setZipCode] = useState<string>('');
   const schoolsApiBaseUrl =
     process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL || 'http://localhost:4000';
+
+  // Sync with initialData if it changes
+  useEffect(() => {
+    if (initialData) {
+      setData(initialData);
+      setLoading(false);
+    }
+  }, [initialData]);
 
   // Get zip code from localStorage or property data
   useEffect(() => {
@@ -64,7 +78,7 @@ const TopCollegesSection = () => {
 
   // Fetch college readiness data
   useEffect(() => {
-    if (!zipCode) return;
+    if (!zipCode || initialData || isLoadingFromParent) return;
 
     const fetchCollegeReadiness = async () => {
       try {
@@ -80,7 +94,7 @@ const TopCollegesSection = () => {
         }
 
         const result = await response.json();
-        console.log('✅ College Readiness API response:', result);
+        console.log('✅ College Readiness API response (TopCollegesSection):', result);
         setData(result);
       } catch (err) {
         console.error('❌ Error fetching college readiness data:', err);
@@ -91,7 +105,7 @@ const TopCollegesSection = () => {
     };
 
     fetchCollegeReadiness();
-  }, [zipCode]);
+  }, [zipCode, initialData]);
 
   if (loading) {
     return (

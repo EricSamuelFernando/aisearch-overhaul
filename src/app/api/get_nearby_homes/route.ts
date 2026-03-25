@@ -9,12 +9,12 @@ const AI_BACKEND = (
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { listingId } = body;
-        
-        console.log('[Proxy /api/get_nearby_homes] → upstream:', AI_BACKEND, '| listingId:', listingId);
+        const { listingId, latitude, longitude } = body;
 
-        if (!listingId) {
-            return NextResponse.json({ error: 'listingId is required' }, { status: 400 });
+        console.log('[Proxy /api/get_nearby_homes] → upstream:', AI_BACKEND, '| coords:', latitude, longitude);
+
+        if (!listingId && (!latitude || !longitude)) {
+            return NextResponse.json({ error: 'latitude and longitude are required' }, { status: 400 });
         }
 
         const controller = new AbortController();
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
             },
-            body: JSON.stringify({ listingId }),
+            body: JSON.stringify({ listingId, latitude, longitude }),
             signal: controller.signal,
         });
 

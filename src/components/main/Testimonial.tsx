@@ -21,10 +21,10 @@ export function TestimonailTab() {
             <div
               onClick={() => setActiveTab(testimonial.user)}
               key={testimonial.user}
-              className={`flex w-11/12 cursor-pointer flex-row items-center rounded-md px-8 py-3.5 
-              bg-${isActiveTestimonial ? 'ocOrange' : 'transparent'} h-28`}
+              className={`flex w-10/12 cursor-pointer flex-row items-center rounded-md px-10 py-4 
+              bg-${isActiveTestimonial ? 'ocOrange' : 'transparent'} h-[132px]`}
             >
-              <div className='relative mr-10 h-[70px] w-[70px]'>
+              <div className='relative mr-9 h-[80px] w-[80px]'>
                 <Image
                   src={testimonial.imagePath}
                   alt={testimonial.user}

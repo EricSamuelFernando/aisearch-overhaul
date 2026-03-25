@@ -1020,7 +1020,7 @@ const normalizePoolValue = (value: any): boolean | null => {
 
 
 
-export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchActive, onSuggestionsOpen }: { placeholderText?: string, onSearchStateChange?: (isActive: boolean, searchTerm: string) => void, isSearchActive?: boolean, searchType?: string, showOutline?: boolean, disableAutoExpand?: boolean, onSuggestionsOpen?: (open: boolean) => void }) => {
+export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchActive, searchType, onSuggestionsOpen }: { placeholderText?: string, onSearchStateChange?: (isActive: boolean, searchTerm: string) => void, isSearchActive?: boolean, searchType?: string, showOutline?: boolean, disableAutoExpand?: boolean, onSuggestionsOpen?: (open: boolean) => void }) => {
     // --- Hooks & State ---
     const dispatch = useAppDispatch();
     const { user } = useAuth();
@@ -3288,6 +3288,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         isSearching ||
         (hasCompletedThinkingForCurrentTurn && !latestVisibleAssistantMessageId);
 
+    const isSellSearch = searchType === 'sell';
+
     // --- Render ---
     return (
         <div className="relative w-full z-20 text-black">
@@ -3368,7 +3370,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     padding: isExpanded ? 16 : 8, // keep expanded layout comfortable on mobile
                 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full ${isExpanded ? 'max-w-[1150px]' : 'max-w-[460px] lg:max-w-[480px] xl:max-w-[820px] min-[1280px]:max-[1440px]:max-w-[640px]'
+                className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full ${isExpanded ? 'max-w-[1150px]' : (isSellSearch ? 'w-[92vw] max-w-[500px] sm:max-w-[560px] md:w-[600px] md:max-w-none lg:w-[660px] xl:w-[700px]' : 'max-w-[460px] lg:max-w-[480px] xl:max-w-[820px] min-[1280px]:max-[1440px]:max-w-[640px]')
                     }`}
             >
                 <input

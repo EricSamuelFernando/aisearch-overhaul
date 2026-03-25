@@ -6,7 +6,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { initializeTempUserId, incrementSearchCount } from '@/slices/onboarding/property-preference';
 import { usePropertyStore } from '@/store/use-property-store';
 import type { AddressSuggestion, ThinkingProgressResponse } from '@/lib/api';
-import { getMlsBypassStorageKey, isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
+import { setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { Sparkles, Paperclip, X, ArrowUp, Mic, Search as SearchIcon, FileText, Image as ImageIcon, Camera, ChevronDown, ChevronUp, MapPin, School, Shield, Footprints, Thermometer, CloudSun, BedDouble, Bath, Square, Scaling, Calendar, Clock, TrendingUp, GraduationCap, Trees, Plus, Lightbulb, Droplets, HelpCircle } from 'lucide-react';
@@ -27,6 +27,14 @@ interface Suggestion {
     id: string;
     text: string;
 }
+
+type SmartSuggestionIntent = 'mls' | 'nl' | 'mixed';
+
+type AiQueryLogEntry = {
+    query: string;
+    count: number;
+    lastUsedAt: number;
+};
 
 interface LocationSuggestion {
     placeId: string;
@@ -141,6 +149,26 @@ const classifyLocationQuery = (value: string) => {
     if (locationCues && !intentKeywords) return 'valid';
     if (locationCues && intentKeywords) return 'invalid';
     return 'borderline';
+};
+
+const hasLikelyMlsIdentifier = (value: string) => {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return false;
+
+    const compact = normalized.replace(/[\s#:,.-]/g, '');
+    if (/^mls\d{5,12}$/.test(compact)) return true;
+    if (/^\d{6,12}$/.test(compact)) return true;
+    return false;
+};
+
+const classifySuggestionIntent = (value: string): SmartSuggestionIntent => {
+    const normalized = normalizeLocationInput(value);
+    if (!normalized) return 'nl';
+    if (hasLikelyMlsIdentifier(normalized)) return 'mls';
+    const locationClassification = classifyLocationQuery(normalized);
+    if (locationClassification === 'valid') return 'mls';
+    if (locationClassification === 'borderline') return 'mixed';
+    return 'nl';
 };
 
 const geocodeValidateLocation = (value: string) =>
@@ -290,6 +318,93 @@ const AI_MODE_TIPS = [
 ];
 const CAMERA_TIP_TEXT = `Click here to ask AI about ${CAMERA_TIP_TOPIC_TEXT}`;
 const AI_MODE_TIP_LAST_INDEX_STORAGE_KEY = 'snaphomz:ai-mode-tip:last-index';
+const AI_QUERY_LOG_STORAGE_KEY = 'snaphomz:hero:ai-suggestion-logs:v1';
+const MAX_AI_QUERY_LOGS = 80;
+const MAX_AI_SUGGESTIONS = 4;
+const INITIAL_AI_TRY_ASKING_SUGGESTIONS: Suggestion[] = [
+    { id: 'try-1', text: '3-bedroom homes near top-rated schools in Manhattan Beach' },
+    { id: 'try-2', text: "I'm looking for 4-bedroom houses in Los Angeles, California with a pool" },
+    { id: 'try-3', text: "Explain what an HOA is like I'm 5." },
+    { id: 'try-4', text: 'What is the monthly payment on a $240,000 loan at 6% for 30 years?' },
+];
+const CURATED_AI_SEARCH_TEMPLATES: string[] = [
+    '3-bedroom homes near top-rated schools in Manhattan Beach',
+    'Homes in Irvine under $900k with low HOA',
+    'Show family-friendly neighborhoods in Austin with great schools',
+    'Condos in San Diego with ocean view and parking',
+    'What can I afford with $8,000 monthly income and 20% down?',
+    'Best neighborhoods in Dallas for first-time home buyers',
+    'Townhomes near BART stations in the Bay Area',
+    'Single-family homes in Phoenix with a pool under $700k',
+    'Safe neighborhoods in Seattle with short downtown commute',
+    'Starter homes in Sacramento under $500k',
+    'Compare buying vs renting in Los Angeles this year',
+    'Investment properties in Tampa with strong rental demand',
+    '2-bedroom condos in Miami with low maintenance fees',
+    'Homes near top elementary schools in Plano Texas',
+    'New construction homes in Charlotte under $650k',
+    'Fixer-uppers in Denver with high upside potential',
+    'Walkable neighborhoods in Chicago with good public transit',
+    'Luxury homes in Orange County with a guest house',
+    'Show homes with ADU potential in San Jose',
+    'Estimate monthly payment for a $1.1M home at 6.25% interest',
+    'Homes with large backyard in San Antonio under $450k',
+    'Best suburbs near Atlanta for young families',
+    'Properties close to hospitals in Houston',
+    'Pet-friendly condo communities in Scottsdale',
+];
+
+const normalizeSuggestionKey = (value: string) =>
+    value.trim().toLowerCase().replace(/\s+/g, ' ');
+
+const scoreSuggestionMatch = (candidateText: string, query: string, queryTokens: string[]) => {
+    if (!query) return 30;
+    const normalizedCandidate = normalizeSuggestionKey(candidateText);
+    if (normalizedCandidate === query) return 180;
+    if (normalizedCandidate.startsWith(query)) return 140;
+    if (normalizedCandidate.includes(query)) return 95;
+    if (queryTokens.length === 0) return 0;
+    const tokenHits = queryTokens.reduce((count, token) => (
+        normalizedCandidate.includes(token) ? count + 1 : count
+    ), 0);
+    if (tokenHits === 0) return 0;
+    return 48 + tokenHits * 14;
+};
+
+const buildAiSuggestionsFromLocalData = (query: string, logs: AiQueryLogEntry[]): Suggestion[] => {
+    const normalizedQuery = normalizeSuggestionKey(query);
+    const queryTokens = normalizedQuery.split(' ').filter(Boolean);
+    const now = Date.now();
+    const deduped = new Map<string, { text: string; score: number }>();
+
+    const upsert = (text: string, baseScore: number, usageCount = 0, lastUsedAt = 0) => {
+        const normalizedText = normalizeSuggestionKey(text);
+        if (!normalizedText) return;
+        const matchScore = scoreSuggestionMatch(text, normalizedQuery, queryTokens);
+        if (normalizedQuery && matchScore <= 0) return;
+
+        const recencyDays = lastUsedAt > 0 ? Math.max(0, (now - lastUsedAt) / 86400000) : Number.POSITIVE_INFINITY;
+        const recencyBoost = Number.isFinite(recencyDays) ? Math.max(0, 26 - recencyDays) : 0;
+        const usageBoost = Math.min(usageCount, 20) * 6;
+        const totalScore = baseScore + matchScore + usageBoost + recencyBoost;
+
+        const existing = deduped.get(normalizedText);
+        if (!existing || totalScore > existing.score) {
+            deduped.set(normalizedText, { text, score: totalScore });
+        }
+    };
+
+    CURATED_AI_SEARCH_TEMPLATES.forEach((template) => upsert(template, 36));
+    logs.forEach((entry) => upsert(entry.query, 52, entry.count, entry.lastUsedAt));
+
+    return Array.from(deduped.values())
+        .sort((a, b) => b.score - a.score)
+        .slice(0, MAX_AI_SUGGESTIONS)
+        .map((item) => ({
+            id: normalizeSuggestionKey(item.text).replace(/[^a-z0-9]+/g, '-'),
+            text: item.text,
+        }));
+};
 
 const DEFAULT_MAIN_SITE_URL = 'https://demo.snaphomz.com';
 
@@ -1044,6 +1159,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
     const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
     const [isLoadingLocationSuggestions, setIsLoadingLocationSuggestions] = useState(false);
+    const [aiQueryLogs, setAiQueryLogs] = useState<AiQueryLogEntry[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [currentQuery, setCurrentQuery] = useState('');
     const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([]);
@@ -1069,18 +1185,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     }, [setGlobalSessionId]);
     const activeSessionId = sessionId || globalSessionId;
     const [recentSessions, setRecentSessions] = useState<any[]>([]);
-    const getInitialMlsBypassMode = () => {
-        if (typeof window === 'undefined') return true;
-        try {
-            const stored = localStorage.getItem(getMlsBypassStorageKey());
-            if (stored === null) return true; // default AI OFF on first load
-            return stored === '1';
-        } catch {
-            return true;
-        }
-    };
-    const [mlsBypassMode, setMlsBypassMode] = useState(getInitialMlsBypassMode);
-    const [aiModeActive, setAiModeActive] = useState(() => !getInitialMlsBypassMode());
+    const [mlsBypassMode, setMlsBypassMode] = useState(false);
+    const [aiModeActive, setAiModeActive] = useState(true);
     const aiModeTipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const hasShownInitialAiTipRef = useRef(false);
     const [showAiModeTip, setShowAiModeTip] = useState(false);
@@ -1095,38 +1201,62 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const [snapSearchInProgress, setSnapSearchInProgress] = useState(false);
     const [isClearingHistory, setIsClearingHistory] = useState(false);
     const [carouselEdges, setCarouselEdges] = useState<Record<string, { atStart: boolean; atEnd: boolean }>>({});
-    const suggestionsVisible = !isExpanded && aiModeActive && !searchTerm.trim() && showSuggestions;
+    const aiSuggestions = React.useMemo(
+        () => buildAiSuggestionsFromLocalData(searchTerm, aiQueryLogs),
+        [searchTerm, aiQueryLogs]
+    );
+    const searchSuggestionIntent = classifySuggestionIntent(searchTerm);
+    const initialSuggestionsMode = searchTerm.trim().length === 0;
+    const displayedAiSuggestions = initialSuggestionsMode
+        ? INITIAL_AI_TRY_ASKING_SUGGESTIONS
+        : aiSuggestions;
+    const suggestionsVisible =
+        !isExpanded &&
+        showSuggestions &&
+        searchSuggestionIntent === 'nl' &&
+        displayedAiSuggestions.length > 0;
     const anySuggestionsVisible = !isExpanded && (
         suggestionsVisible ||
-        (!aiModeActive && !!searchTerm.trim() && (showAddressSuggestions || isLoadingAddressSuggestions || showLocationSuggestions || isLoadingLocationSuggestions))
+        (!!searchTerm.trim() && (showAddressSuggestions || isLoadingAddressSuggestions || showLocationSuggestions || isLoadingLocationSuggestions))
     );
 
     // Rent Vs Buy State
 
     useEffect(() => {
+        // Homepage search now auto-routes between MLS and AI based on query type.
+        // Keep persisted MLS bypass disabled so natural-language queries stay on AI.
+        setMlsBypassMode(false);
+        setAiModeActive(true);
+        setMlsBypassModeEnabled(false);
+    }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
         try {
-            const storageKey = getMlsBypassStorageKey();
-            const stored = localStorage.getItem(storageKey);
-            if (stored !== null) {
-                setMlsBypassMode(isMlsBypassModeEnabled());
-            }
+            const raw = localStorage.getItem(AI_QUERY_LOG_STORAGE_KEY);
+            if (!raw) return;
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) return;
+            const cleaned = parsed
+                .filter((item: any) =>
+                    item &&
+                    typeof item.query === 'string' &&
+                    Number.isFinite(Number(item.count)) &&
+                    Number.isFinite(Number(item.lastUsedAt))
+                )
+                .map((item: any) => ({
+                    query: String(item.query).trim(),
+                    count: Math.max(1, Math.trunc(Number(item.count))),
+                    lastUsedAt: Math.max(0, Math.trunc(Number(item.lastUsedAt))),
+                }))
+                .filter((item: AiQueryLogEntry) => item.query.length > 0)
+                .sort((a: AiQueryLogEntry, b: AiQueryLogEntry) => b.lastUsedAt - a.lastUsedAt)
+                .slice(0, MAX_AI_QUERY_LOGS);
+
+            setAiQueryLogs(cleaned);
         } catch {
-            // no-op
+            // Ignore malformed local storage payloads.
         }
-
-        const handleBypassChange = (event: Event) => {
-            const customEvent = event as CustomEvent<boolean>;
-            if (typeof customEvent.detail === 'boolean') {
-                setMlsBypassMode(customEvent.detail);
-                return;
-            }
-            setMlsBypassMode(isMlsBypassModeEnabled());
-        };
-
-        window.addEventListener('snaphomz:mls-bypass-changed', handleBypassChange as EventListener);
-        return () => {
-            window.removeEventListener('snaphomz:mls-bypass-changed', handleBypassChange as EventListener);
-        };
     }, []);
 
     useEffect(() => {
@@ -1374,12 +1504,6 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         setShowAttachMenu(false);
     };
 
-    const suggestions: Suggestion[] = [
-        { id: '1', text: '3-bedroom homes near top-rated schools in Manhattan Beach' },
-        { id: '2', text: "I'm looking for 4-bedroom houses in Los Angeles, California with a pool" },
-        { id: '3', text: "Explain what an HOA is like I’m 5." },
-        { id: '4', text: 'What is the monthly payment on a $240,000 loan at 6% for 30 years?' },
-    ];
 
 
     // --- State for Real Data ---
@@ -1576,75 +1700,6 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         }, 3000);
         return () => window.clearTimeout(timer);
     }, [showAttachMenu]);
-
-    const toggleMlsBypass = () => {
-        setMlsBypassMode((prev) => {
-            const next = !prev;
-            const nextAiModeActive = !next;
-            setAiModeActive(nextAiModeActive);
-            setShowSuggestions(nextAiModeActive && !searchTerm.trim() && !isExpanded);
-            if (nextAiModeActive && !isExpanded) {
-                showAiModeTipBubble();
-            } else {
-                setShowAiModeTip(false);
-                if (aiModeTipTimerRef.current) {
-                    clearTimeout(aiModeTipTimerRef.current);
-                    aiModeTipTimerRef.current = null;
-                }
-            }
-            return next;
-        });
-    };
-
-    const renderAiModeToggle = () => (
-        <div className="relative flex-shrink-0">
-            <button
-                type="button"
-                onMouseDown={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                }}
-                onClick={toggleMlsBypass}
-                aria-pressed={aiModeActive}
-                title={aiModeActive ? 'AI Search is ON' : 'AI Search is OFF'}
-                className={`relative h-[36px] w-[96px] transition-all duration-300 ${aiModeActive
-                    ? 'ai-mode-shell'
-                    : 'rounded-full border border-[#D8DDE6] bg-[#F3F5F8] text-[#4B4B4B]'
-                    }`}
-            >
-                <span className={`relative z-[2] flex h-full w-full items-center justify-center gap-1.5 rounded-full px-2 text-[10px] font-semibold tracking-wide ${aiModeActive ? 'text-[#5A2B13]' : 'text-[#4B4B4B]'}`}>
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        width="24"
-                        height="24"
-                        fill="#000000"
-                        style={{ opacity: 1 }}
-                        className="h-3.5 w-3.5"
-                    >
-                        <path d="M8.037 3.167a1.44 1.44 0 0 0 .482 1.43A5.001 5.001 0 0 0 9.5 14.5a5 5 0 0 0 4.748-3.435l.027.083c.1.25.26.461.48.622c.22.149.478.228.747.229l-.005.001h.004a6.5 6.5 0 0 1-.905 1.535l3.434 3.435a.75.75 0 0 1-.976 1.133l-.084-.073l-3.435-3.434A6.5 6.5 0 1 1 8.037 3.167M15.484 6a.3.3 0 0 1 .286.201l.249.766a1.58 1.58 0 0 0 .999.998l.765.248l.015.004a.303.303 0 0 1 .146.46a.3.3 0 0 1-.146.11l-.765.248a1.58 1.58 0 0 0-.999.998l-.249.766a.302.302 0 0 1-.57 0l-.25-.766a1.58 1.58 0 0 0-.998-1.002l-.765-.248a.303.303 0 0 1-.146-.46a.3.3 0 0 1 .146-.11l.765-.248a1.58 1.58 0 0 0 .984-.998L15.2 6.2a.3.3 0 0 1 .284-.2M12.48 0a.42.42 0 0 1 .399.282l.348 1.072a2.2 2.2 0 0 0 1.398 1.396l1.072.349l.022.005a.424.424 0 0 1 0 .797l-1.072.349a2.2 2.2 0 0 0-1.399 1.396L12.9 6.718a.423.423 0 0 1-.643.204l-.02-.015a.43.43 0 0 1-.135-.19l-.348-1.07a2.22 2.22 0 0 0-1.399-1.403l-1.072-.348a.423.423 0 0 1 0-.797l1.072-.349a2.21 2.21 0 0 0 1.377-1.396L12.08.282a.42.42 0 0 1 .4-.282" />
-                    </svg>
-                    <span>AI MODE</span>
-                </span>
-            </button>
-            <AnimatePresence>
-                {showAiModeTip && !isExpanded && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 6, scale: 0.98 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 4, scale: 0.98 }}
-                        transition={{ duration: 0.2 }}
-                        className="absolute bottom-full right-0 mb-3 w-[220px] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl z-[75]"
-                    >
-                        <p className="text-[11px] font-semibold leading-relaxed text-[#5A2B13]">
-                            Click here to ask AI about {activeAiModeTip}
-                        </p>
-                        <span className="absolute -bottom-1 right-6 h-2 w-2 rotate-45 border-r border-b border-[#f2cfb0] bg-white" />
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </div>
-    );
 
     useEffect(() => {
         setAiModeActive(!mlsBypassMode);
@@ -2134,22 +2189,65 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         return [];
     };
 
+    const persistAiQueryLogs = useCallback((nextLogs: AiQueryLogEntry[]) => {
+        if (typeof window === 'undefined') return;
+        try {
+            localStorage.setItem(AI_QUERY_LOG_STORAGE_KEY, JSON.stringify(nextLogs));
+        } catch {
+            // Ignore storage quota/write errors.
+        }
+    }, []);
+
+    const trackAiQueryForSuggestions = useCallback((rawQuery: string) => {
+        const trimmed = normalizeLocationInput(rawQuery);
+        if (trimmed.length < 4) return;
+        if (classifySuggestionIntent(trimmed) === 'mls') return;
+
+        setAiQueryLogs((prev) => {
+            const normalized = normalizeSuggestionKey(trimmed);
+            const now = Date.now();
+            const existingIndex = prev.findIndex((entry) => normalizeSuggestionKey(entry.query) === normalized);
+            const next = [...prev];
+
+            if (existingIndex >= 0) {
+                const existing = next[existingIndex];
+                next[existingIndex] = {
+                    query: trimmed,
+                    count: Math.min(existing.count + 1, 9999),
+                    lastUsedAt: now,
+                };
+            } else {
+                next.push({ query: trimmed, count: 1, lastUsedAt: now });
+            }
+
+            const sorted = next
+                .sort((a, b) => {
+                    if (b.count !== a.count) return b.count - a.count;
+                    return b.lastUsedAt - a.lastUsedAt;
+                })
+                .slice(0, MAX_AI_QUERY_LOGS);
+
+            persistAiQueryLogs(sorted);
+            return sorted;
+        });
+    }, [persistAiQueryLogs]);
+
     const handleSearchSubmit = async (queryToSearch: string) => {
         if (!queryToSearch.trim() || isSearching || isSearchingRef.current) return;
 
-        // Direct MLS mode should behave like a normal search bar:
-        // skip chat expansion/conversation and route to the listings page.
-        let allowMlsRoute = mlsBypassMode && !pendingLocationImage;
+        // Auto-route: MLS-style queries go to browse results, natural-language stays in AI chat.
+        let allowMlsRoute = !pendingLocationImage;
         if (allowMlsRoute) {
             const trimmedQuery = normalizeLocationInput(queryToSearch);
-            const classification = classifyLocationQuery(trimmedQuery);
-
-            if (classification === 'invalid') {
-                allowMlsRoute = false;
-            } else if (classification === 'borderline') {
-                const geocodedValid = await geocodeValidateLocation(trimmedQuery);
-                if (!geocodedValid) {
+            if (!hasLikelyMlsIdentifier(trimmedQuery)) {
+                const classification = classifyLocationQuery(trimmedQuery);
+                if (classification === 'invalid') {
                     allowMlsRoute = false;
+                } else if (classification === 'borderline') {
+                    const geocodedValid = await geocodeValidateLocation(trimmedQuery);
+                    if (!geocodedValid) {
+                        allowMlsRoute = false;
+                    }
                 }
             }
 
@@ -2160,10 +2258,10 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 }
                 return;
             }
-
-            setMlsBypassMode(false);
-            setMlsBypassModeEnabled(false);
         }
+        setMlsBypassMode(false);
+        setMlsBypassModeEnabled(false);
+        trackAiQueryForSuggestions(queryToSearch);
         setIsExpanded(true); // Immediate UI response
         if (onSearchStateChange) {
             onSearchStateChange(true, queryToSearch);
@@ -2627,10 +2725,33 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         handleSearchSubmit(searchTerm);
     };
 
+    const clearMlsSuggestionState = () => {
+        if (addressSuggestDebounceRef.current) {
+            clearTimeout(addressSuggestDebounceRef.current);
+            addressSuggestDebounceRef.current = null;
+        }
+        if (locationSuggestDebounceRef.current) {
+            clearTimeout(locationSuggestDebounceRef.current);
+            locationSuggestDebounceRef.current = null;
+        }
+        if (locationSuggestTimeoutRef.current) {
+            clearTimeout(locationSuggestTimeoutRef.current);
+            locationSuggestTimeoutRef.current = null;
+        }
+        locationSuggestRequestIdRef.current += 1;
+        setAddressSuggestions([]);
+        setShowAddressSuggestions(false);
+        setIsLoadingAddressSuggestions(false);
+        setLocationSuggestions([]);
+        setShowLocationSuggestions(false);
+        setIsLoadingLocationSuggestions(false);
+    };
+
     const handleSuggestionClick = (text: string) => {
         setSearchTerm(text);
         handleSearchSubmit(text);
         setShowSuggestions(false);
+        clearMlsSuggestionState();
         setShowAiModeTip(false);
         if (aiModeTipTimerRef.current) {
             clearTimeout(aiModeTipTimerRef.current);
@@ -2805,22 +2926,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         setSearchTerm(suggestionQuery || suggestion.address || '');
 
         const mainSiteBase = getMainSiteBaseUrl();
-        if (mlsBypassMode) {
-            window.location.href = `${mainSiteBase}/buy/browse?q=${encodeURIComponent(
-                suggestionQuery || suggestion.address || '',
-            )}`;
-            return;
-        }
-
-        const url = toMainSitePropertyPreviewUrl({
-            listingId: suggestion.listingId,
-            id: suggestion.id,
-            city: suggestion.city,
-            state: suggestion.state,
-            zip_code: suggestion.zip_code,
-            address: suggestion.address,
-        }, suggestionQuery || suggestion.address || undefined);
-        window.location.href = url;
+        window.location.href = `${mainSiteBase}/buy/browse?q=${encodeURIComponent(
+            suggestionQuery || suggestion.address || '',
+        )}`;
     };
 
     const handleLocationSuggestionClick = (suggestion: LocationSuggestion) => {
@@ -3423,26 +3531,31 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             onChange={(e) => {
                                                 const val = e.target.value;
                                                 setSearchTerm(val);
-                                                if (aiModeActive) {
-                                                    setShowSuggestions(!val.trim() && !isExpanded);
-                                                    setShowAddressSuggestions(false);
-                                                    setShowLocationSuggestions(false);
-                                                }
+                                                setShowSuggestions(true);
                                                 setShowAiModeTip(false);
                                                 if (aiModeTipTimerRef.current) {
                                                     clearTimeout(aiModeTipTimerRef.current);
                                                     aiModeTipTimerRef.current = null;
                                                 }
-                                                fetchAddressSuggestions(val);
+                                                const typedIntent = classifySuggestionIntent(val);
+                                                if (!val.trim() || typedIntent === 'nl') {
+                                                    clearMlsSuggestionState();
+                                                } else {
+                                                    fetchAddressSuggestions(val);
+                                                }
                                             }}
                                             onFocus={() => {
-                                                const shouldShowAiSuggestions = aiModeActive && !isExpanded && !searchTerm.trim();
-                                                setShowSuggestions(shouldShowAiSuggestions);
-                                                if (aiModeActive) {
-                                                    setShowAddressSuggestions(false);
-                                                    setShowLocationSuggestions(false);
+                                                setShowSuggestions(true);
+                                                const trimmedSearch = searchTerm.trim();
+                                                if (trimmedSearch) {
+                                                    const focusIntent = classifySuggestionIntent(trimmedSearch);
+                                                    if (focusIntent === 'nl') {
+                                                        clearMlsSuggestionState();
+                                                    } else {
+                                                        fetchAddressSuggestions(trimmedSearch);
+                                                    }
                                                 }
-                                                onSuggestionsOpen?.(shouldShowAiSuggestions);
+                                                onSuggestionsOpen?.(true);
                                                 setShowAiModeTip(false);
                                                 if (aiModeTipTimerRef.current) {
                                                     clearTimeout(aiModeTipTimerRef.current);
@@ -3457,59 +3570,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                 setIsLoadingLocationSuggestions(false);
                                                 onSuggestionsOpen?.(false);
                                             }, 200)}
-                                            placeholder={!aiModeActive ? typedPlaceholder : (placeholderText || typedPlaceholder)}
+                                            placeholder={placeholderText || typedPlaceholder}
                                             className="flex-1 min-w-0 bg-transparent outline-none px-3 py-1.5 text-sm font-medium text-gray-700 placeholder-gray-400 max-[380px]:px-2 max-[380px]:text-[13px] md:px-4 md:text-sm"
                                         />
                                     </div>
 
-                                    {/* Mobile AI Toggle Icon */}
-                                    <div className="relative flex-shrink-0 md:hidden">
-                                        <button
-                                            type="button"
-                                            onMouseDown={(event) => {
-                                                event.preventDefault();
-                                                event.stopPropagation();
-                                            }}
-                                            onClick={toggleMlsBypass}
-                                            aria-pressed={aiModeActive}
-                                            title={aiModeActive ? 'AI Search is ON' : 'AI Search is OFF'}
-                                            className={`relative h-[36px] max-[380px]:h-[32px] transition-all duration-300 ${aiModeActive
-                                                ? 'w-[96px] max-[380px]:w-[82px] ai-mode-shell'
-                                                : 'w-[96px] max-[380px]:w-[82px] rounded-full border border-[#D8DDE6] bg-[#F3F5F8] text-[#4B4B4B]'
-                                                }`}
-                                        >
-                                            <span className={`relative z-[2] flex h-full w-full items-center justify-center gap-1.5 rounded-full px-2 text-[10px] font-semibold tracking-wide max-[380px]:gap-1 max-[380px]:px-1.5 max-[380px]:text-[9px] ${aiModeActive ? 'text-[#5A2B13]' : 'text-[#4B4B4B]'}`}>
-                                                <svg
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 24 24"
-                                                    width="24"
-                                                    height="24"
-                                                    fill="#000000"
-                                                    style={{ opacity: 1 }}
-                                                    className="h-3.5 w-3.5 max-[380px]:h-3 max-[380px]:w-3"
-                                                >
-                                                    <path d="M8.037 3.167a1.44 1.44 0 0 0 .482 1.43A5.001 5.001 0 0 0 9.5 14.5a5 5 0 0 0 4.748-3.435l.027.083c.1.25.26.461.48.622c.22.149.478.228.747.229l-.005.001h.004a6.5 6.5 0 0 1-.905 1.535l3.434 3.435a.75.75 0 0 1-.976 1.133l-.084-.073l-3.435-3.434A6.5 6.5 0 1 1 8.037 3.167M15.484 6a.3.3 0 0 1 .286.201l.249.766a1.58 1.58 0 0 0 .999.998l.765.248l.015.004a.303.303 0 0 1 .146.46a.3.3 0 0 1-.146.11l-.765.248a1.58 1.58 0 0 0-.999.998l-.249.766a.302.302 0 0 1-.57 0l-.25-.766a1.58 1.58 0 0 0-.998-1.002l-.765-.248a.303.303 0 0 1-.146-.46a.3.3 0 0 1 .146-.11l.765-.248a1.58 1.58 0 0 0 .984-.998L15.2 6.2a.3.3 0 0 1 .284-.2M12.48 0a.42.42 0 0 1 .399.282l.348 1.072a2.2 2.2 0 0 0 1.398 1.396l1.072.349l.022.005a.424.424 0 0 1 0 .797l-1.072.349a2.2 2.2 0 0 0-1.399 1.396L12.9 6.718a.423.423 0 0 1-.643.204l-.02-.015a.43.43 0 0 1-.135-.19l-.348-1.07a2.22 2.22 0 0 0-1.399-1.403l-1.072-.348a.423.423 0 0 1 0-.797l1.072-.349a2.21 2.21 0 0 0 1.377-1.396L12.08.282a.42.42 0 0 1 .4-.282" />
-                                                </svg>
-                                                <span>AI MODE</span>
-                                            </span>
-                                        </button>
-                                        <AnimatePresence>
-                                            {showAiModeTip && !isExpanded && !showCameraTipBubble && (
-                                                <motion.div
-                                                    initial={{ opacity: 0, y: 6, scale: 0.98 }}
-                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                                    exit={{ opacity: 0, y: 4, scale: 0.98 }}
-                                                    transition={{ duration: 0.2 }}
-                                                    className="absolute bottom-full right-0 z-[75] mb-3 w-[220px] rounded-xl border border-[#f2cfb0] bg-white px-3 py-2 shadow-xl max-[380px]:w-[190px]"
-                                                >
-                                                    <p className="text-[11px] font-semibold leading-relaxed text-[#5A2B13]">
-                                                        Click here to ask AI about {activeAiModeTip}
-                                                    </p>
-                                                    <span className="absolute -bottom-1 right-6 h-2 w-2 rotate-45 border-r border-b border-[#f2cfb0] bg-white" />
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-                                    </div>
                                     <div className="relative flex-shrink-0 md:hidden">
                                         <button
                                             type="button"
@@ -3540,7 +3605,6 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
                                     {/* Right Actions */}
                                     <div className="hidden md:flex items-center gap-2 flex-shrink-0 pr-1">
-                                        {renderAiModeToggle()}
                                         <div className="relative" ref={attachMenuRef}>
                                             <div
                                                 className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
@@ -3616,7 +3680,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
                             {/* Integrated Suggestions Dropdown */}
                             <AnimatePresence>
-                                {!searchTerm && showSuggestions && aiModeActive && (
+                                {suggestionsVisible && (
                                     <motion.div
                                         initial={{ opacity: 0, height: 0 }}
                                         animate={{ opacity: 1, height: 'auto' }}
@@ -3626,10 +3690,10 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                     >
                                         <div className="p-4 pt-4 text-left">
                                             <p className="text-[10px] font-bold text-gray-400 mb-3 uppercase tracking-wider pl-2">
-                                                Try Asking
+                                                {initialSuggestionsMode ? 'Try Asking' : 'AI Suggestions'}
                                             </p>
                                             <div className="space-y-1">
-                                                {suggestions.map((suggestion) => (
+                                                {displayedAiSuggestions.map((suggestion) => (
                                                     <div
                                                         key={suggestion.id}
                                                         onMouseDown={() => handleSuggestionClick(suggestion.text)}
@@ -3651,7 +3715,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                 )}
 
                                 {/* ── Address Autocomplete Suggestions ── */}
-                                {searchTerm && !aiModeActive && (showAddressSuggestions || isLoadingAddressSuggestions) && (
+                                {searchTerm && (showAddressSuggestions || isLoadingAddressSuggestions) && (
                                     <motion.div
                                         initial={{ opacity: 0, height: 0 }}
                                         animate={{ opacity: 1, height: 'auto' }}
@@ -3706,7 +3770,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                 )}
 
                                 {/* ── Location (City/State) Autocomplete Suggestions ── */}
-                                {searchTerm && !aiModeActive && (showLocationSuggestions || isLoadingLocationSuggestions) && (
+                                {searchTerm && (showLocationSuggestions || isLoadingLocationSuggestions) && (
                                     <motion.div
                                         initial={{ opacity: 0, height: 0 }}
                                         animate={{ opacity: 1, height: 'auto' }}
@@ -4769,11 +4833,27 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                 onChange={(e) => {
                                                     const val = e.target.value;
                                                     setSearchTerm(val);
-                                                    fetchAddressSuggestions(val);
+                                                    const typedIntent = classifySuggestionIntent(val);
+                                                    if (!val.trim() || typedIntent === 'nl') {
+                                                        clearMlsSuggestionState();
+                                                    } else {
+                                                        fetchAddressSuggestions(val);
+                                                    }
                                                     e.target.style.height = 'auto';
                                                     e.target.style.height = e.target.scrollHeight + 'px';
                                                 }}
-                                                onFocus={() => setShowSuggestions(true)}
+                                                onFocus={() => {
+                                                    setShowSuggestions(true);
+                                                    const trimmedSearch = searchTerm.trim();
+                                                    if (trimmedSearch) {
+                                                        const focusIntent = classifySuggestionIntent(trimmedSearch);
+                                                        if (focusIntent === 'nl') {
+                                                            clearMlsSuggestionState();
+                                                        } else {
+                                                            fetchAddressSuggestions(trimmedSearch);
+                                                        }
+                                                    }
+                                                }}
                                                 onBlur={() => setTimeout(() => {
                                                     setShowSuggestions(false);
                                                     setShowAddressSuggestions(false);

@@ -112,8 +112,7 @@ export async function searchProperties(payload: SearchPayload, signal?: AbortSig
 
     // Use the local Next.js proxy to bypass CORS (hits our src/app/api/search/route.ts)
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-    // const res = await fetch(`${baseUrl}/api/search`, {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/search`, {
+    const res = await fetch(`${baseUrl}/api/search`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",

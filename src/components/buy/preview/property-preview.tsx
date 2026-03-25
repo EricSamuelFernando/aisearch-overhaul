@@ -325,6 +325,9 @@ const PropertyPreview: React.FC = () => {
     "Can I raise a family here?"
   ]);
 
+  const [collegeReadinessData, setCollegeReadinessData] = React.useState<any>(null);
+  const [collegeReadinessLoading, setCollegeReadinessLoading] = React.useState(false);
+
   const handleAskAIQuery = (query: string) => {
     if (!query.trim()) return;
 
@@ -1146,19 +1149,28 @@ const PropertyPreview: React.FC = () => {
 
         // Fetch nearby homes from the new API
         try {
-          const nearbyResponse = await fetch('/api/get_nearby_homes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ listingId: Number(primaryListingId || listingId || id) })
-          });
-          if (nearbyResponse.ok) {
-            const nearbyData = await nearbyResponse.json();
-            console.log("Successfully fetched nearby homes:", nearbyData);
-            setpropertyDatas((prev: any) => ({
-              ...prev,
-              nearbyHomes: nearbyData.nearbyHomes || [],
-              offtheMarket: nearbyData.offtheMarket || []
-            }));
+          const coords = getPropertyLatLng(data); 
+          const currentListingId = Number(primaryListingId || listingId || id);
+          
+          if (coords?.lat && coords?.lng) {
+            const nearbyResponse = await fetch('/api/get_nearby_homes', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                latitude: coords.lat, 
+                longitude: coords.lng 
+              })
+            });
+            if (nearbyResponse.ok) {
+              const nearbyData = await nearbyResponse.json();
+              setpropertyDatas((prev: any) => ({
+                ...prev,
+                nearbyHomes: nearbyData.nearbyHomes || [],
+                offtheMarket: nearbyData.offtheMarket || []
+              }));
+            }
+          } else {
+            console.warn("[get_nearby_homes] Skipping fetch because coordinates are missing");
           }
         } catch (nearbyErr) {
           console.error("Error fetching nearby homes:", nearbyErr);
@@ -1184,22 +1196,34 @@ const PropertyPreview: React.FC = () => {
           persistPreviewContext(fallbackListing, data);
 
           // Fetch nearby homes for fallback as well
-          try {
-            const nearbyResponse = await fetch('/api/get_nearby_homes', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ listingId: Number(primaryListingId || listingId || id) })
-            });
-            if (nearbyResponse.ok) {
-              const nearbyData = await nearbyResponse.json();
-              setpropertyDatas((prev: any) => ({
-                ...prev,
-                nearbyHomes: nearbyData.nearbyHomes || [],
-                offtheMarket: nearbyData.offtheMarket || []
-              }));
+          if (fallbackListing) {
+            try {
+              const coords = getPropertyLatLng({ data: fallbackListing });
+              const currentListingId = Number(primaryListingId || listingId || id);
+
+              if (coords?.lat && coords?.lng) {
+                const nearbyResponse = await fetch('/api/get_nearby_homes', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ 
+                    latitude: coords.lat, 
+                    longitude: coords.lng 
+                  })
+                });
+                if (nearbyResponse.ok) {
+                  const nearbyData = await nearbyResponse.json();
+                  setpropertyDatas((prev: any) => ({
+                    ...prev,
+                    nearbyHomes: nearbyData.nearbyHomes || [],
+                    offtheMarket: nearbyData.offtheMarket || []
+                  }));
+                }
+              } else {
+                console.warn("[get_nearby_homes] Skipping fetch because coordinates are missing in fallback data");
+              }
+            } catch (nearbyErr) {
+              console.error("Error fetching nearby homes for fallback:", nearbyErr);
             }
-          } catch (nearbyErr) {
-            console.error("Error fetching nearby homes for fallback:", nearbyErr);
           }
         } else {
           setpropertyDatas(data);
@@ -1542,17 +1566,19 @@ const PropertyPreview: React.FC = () => {
     };
   }, [listingIdForViews, propertyIdForSaves, authRestBaseUrl]);
 
-  const getPropertyLatLng = React.useCallback(() => {
+  const getPropertyLatLng = React.useCallback((overrideSource?: any) => {
     let lat = null;
     let lon = null;
 
-    if (propertyDatas?.data) {
-      lat = (propertyDatas.data as any).latitude || (propertyDatas.data as any).Latitude;
-      lon = (propertyDatas.data as any).longitude || (propertyDatas.data as any).Longitude;
+    const source = overrideSource || propertyDatas;
+
+    if (source?.data) {
+      lat = (source.data as any).latitude || (source.data as any).Latitude;
+      lon = (source.data as any).longitude || (source.data as any).Longitude;
 
       if (!lat || !lon) {
-        lat = (propertyDatas.data as any).property?.latitude || (propertyDatas.data as any).property?.Latitude;
-        lon = (propertyDatas.data as any).property?.longitude || (propertyDatas.data as any).property?.Longitude;
+        lat = (source.data as any).property?.latitude || (source.data as any).property?.Latitude;
+        lon = (source.data as any).property?.longitude || (source.data as any).property?.Longitude;
       }
     }
 
@@ -1621,6 +1647,41 @@ const PropertyPreview: React.FC = () => {
 
     fetchNearbySchools();
   }, [getPropertyLatLng, authRestBaseUrl]);
+
+  // Fetch college readiness data once for the zip code
+  React.useEffect(() => {
+    const zipCode = appreciationZip; // and other derivations above use the same logic
+    if (!zipCode || !authRestBaseUrl) return;
+
+    let isMounted = true;
+    const fetchCollegeReadiness = async () => {
+      try {
+        setCollegeReadinessLoading(true);
+        const schoolsApiBaseUrl = process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL || 'http://localhost:4000';
+        const response = await fetch(
+          `${schoolsApiBaseUrl}/schools/college-readiness-by-zip?zipCode=${encodeURIComponent(zipCode)}`
+        );
+        if (response.ok) {
+          const result = await response.json();
+          if (isMounted) {
+            setCollegeReadinessData(result);
+            console.log('✅ PropertyPreview: College Readiness data fetched once:', result);
+          }
+        }
+      } catch (err) {
+        console.error('❌ PropertyPreview: Error fetching college readiness:', err);
+      } finally {
+        if (isMounted) {
+          setCollegeReadinessLoading(false);
+        }
+      }
+    };
+
+    fetchCollegeReadiness();
+    return () => {
+      isMounted = false;
+    };
+  }, [appreciationZip, authRestBaseUrl]);
 
   React.useEffect(() => {
     if (!isStreetViewOpen) return;
@@ -1923,7 +1984,7 @@ const PropertyPreview: React.FC = () => {
     {
       id: "college",
       title: "College Readiness",
-      content: <TopCollegesSection />,
+      content: <TopCollegesSection initialData={collegeReadinessData} isLoadingFromParent={collegeReadinessLoading} />,
     },
     {
       id: "offers",
@@ -2418,6 +2479,8 @@ const PropertyPreview: React.FC = () => {
                     transformData.prop
                   }
                   nearbySchools={nearbySchools}
+                  collegeReadinessData={collegeReadinessData}
+                  collegeReadinessLoading={collegeReadinessLoading}
                 />
               </div>
 

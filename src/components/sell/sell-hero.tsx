@@ -30,6 +30,8 @@ import { HeroSearchForm } from '@/components/main/hero-tab';
 import MainNavPages from '../navbars/main-nav-pages';
 
 function SellHero() {
+  const heroHeadingSize = 'text-[2.5rem] sm:text-[2.9rem] md:text-[2.35rem] lg:text-[2.7rem] xl:text-[3.1rem] 2xl:text-[3.45rem]';
+
   return (
     <>
       <div className="fixed w-full z-50 top-0 left-0">
@@ -54,9 +56,9 @@ function SellHero() {
           {/* Bottom Image */}
           <div className="absolute bottom-0 left-0 right-0 bg-[url('/assets/images/hero-sell-bg-bottom.png')] bg-cover bg-center bg-no-repeat z-0 h-[40px] md:h-[140px]"></div>
 
-          <div className="relative z-10 flex flex-col items-center justify-start md:justify-center text-center px-4 pt-24 md:pt-0 pb-8 md:pb-0 h-full md:h-auto md:min-h-[135vh] gap-5 md:gap-8">
+          <div className="relative z-10 w-full max-w-[1440px] mx-auto flex flex-col items-center justify-start md:justify-center text-center px-4 pt-24 md:pt-0 pb-8 md:pb-0 h-full md:h-auto md:min-h-[135vh] gap-5 md:gap-8">
             {/* Mobile View - "Buying a home should be Very Easy" */}
-            <h1 className="block md:hidden text-black text-[2rem] font-medium leading-tight mb-3 relative z-20">
+            <h1 className="block md:hidden text-black text-[2.3rem] font-medium leading-tight mb-3 relative z-20">
               <span className="block">Buying a home</span>
               <span className="block">
                 should be <span className="font-semibold">Very</span>{' '}
@@ -65,12 +67,12 @@ function SellHero() {
             </h1>
 
             {/* Desktop View - Multi Line */}
-            <h1 className="hidden md:block text-black font-bold md:text-5xl lg:text-6xl xl:text-7xl md:leading-tight md:mb-6 max-w-4xl px-4">
-              <span className="block mb-2 font-semibold">Take Control of Your</span>
-              <span className="block font-semibold">Real Estate <span className="font-light italic">Journey</span></span>
+            <h1 className={`${heroHeadingSize} hidden md:block max-w-[340px] font-medium leading-[1.06] tracking-[-0.03em] text-black sm:max-w-[380px] md:mb-6 md:max-w-none md:leading-snug md:tracking-tight px-4`}>
+              <span className="block">Take Control of Your</span>
+              <span className="block">Real Estate <span className="font-light italic">Journey</span></span>
             </h1>
 
-            <div className="w-full max-w-2xl md:mt-8 [&>div]:w-full [&>div>form]:!flex [&>div>form]:items-center [&>div>form]:gap-2 [&>div>form]:w-full [&_button]:!w-auto [&_button]:flex-shrink-0 [&_button]:md:!w-auto [&_input]:flex-1">
+            <div className="w-[92vw] max-w-[500px] sm:max-w-[560px] md:mt-8 md:w-[600px] md:max-w-none lg:w-[660px] xl:w-[700px] [&>div]:w-full [&>div>form]:!flex [&>div>form]:items-center [&>div>form]:gap-2 [&>div>form]:w-full [&_button]:!w-auto [&_button]:flex-shrink-0 [&_button]:md:!w-auto [&_input]:flex-1">
               <HeroSearchForm placeholderText="Enter your MLS#" searchType="sell" />
             </div>
           </div>

@@ -23,7 +23,6 @@ const MobileSideDrawer: React.FC<MobileSideDrawerProps> = ({
   closeDrawer,
   isDrawerOpen = false,
 }) => {
-  const hiddenMobileNavItems = new Set(['/sell', '/company']);
   const { isLoggedIn, user } = useAuth();
   const { userLogout } = useUserAuthApi();
   const [showAvatar, setShowAvatar] = React.useState(Boolean(user?.profile));
@@ -89,13 +88,13 @@ const MobileSideDrawer: React.FC<MobileSideDrawerProps> = ({
             >
               Home
             </Link>
-            {/* <Link
+            <Link
               href="/sell"
-              className={`block text-lg font-normal text-gray-900 hover:text-primary transition-colors ${hiddenMobileNavItems.has('/sell') ? 'hidden' : ''}`}
+              className="block text-lg font-normal text-gray-900 hover:text-primary transition-colors"
               onClick={closeDrawer}
             >
               Sell
-            </Link> */}
+            </Link>
             <Link
               href="/agents"
               className="block text-lg font-normal text-gray-900 hover:text-primary transition-colors"

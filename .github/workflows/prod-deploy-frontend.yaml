@@ -240,7 +240,13 @@ jobs:
           echo "Lambda function published with version: $LAMBDA_VERSION"
           echo "LAMBDA_VERSION=$LAMBDA_VERSION" >> $GITHUB_ENV  # Save the version to GITHUB_ENV
 
+      - name: Wait for published version to be active
+        run: |
+          aws lambda wait function-active-v2 \
+            --function-name "${{ env.LAMBDA_FUNCTION_NAME }}:${{ env.LAMBDA_VERSION }}"
+
       - name: Update Lambda Provisioned Concurrency and Alias with New Version
+        continue-on-error: true
         run: |
           # Ensure that LAMBDA_VERSION is available
           if [ -z "$LAMBDA_VERSION" ]; then

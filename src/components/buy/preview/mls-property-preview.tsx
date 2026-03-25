@@ -38,28 +38,43 @@ const MLSPropertyPreview: React.FC = () => {
     offtheMarket: any[];
   }>({ nearbyHomes: [], offtheMarket: [] });
 
+  const transformData = React.useMemo(() => {
+    const mls = mlsProperty?.ListingKey === id ? mlsProperty : {};
+    return {
+      display: Boolean(Object.keys(mls).length),
+      mls,
+    };
+  }, [mlsProperty, id]);
+
   React.useEffect(() => {
     const fetchNearby = async () => {
       if (!id) return;
       try {
-        const response = await fetch('/api/get_nearby_homes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ listingId: Number(id) })
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setNearbyData({
-            nearbyHomes: data.nearbyHomes || [],
-            offtheMarket: data.offtheMarket || []
+        if (id || (transformData.mls?.Coordinates?.[0] && transformData.mls?.Coordinates?.[1])) {
+          const response = await fetch('/api/get_nearby_homes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              latitude: transformData.mls?.Coordinates?.[0], 
+              longitude: transformData.mls?.Coordinates?.[1]
+            })
           });
+          if (response.ok) {
+            const data = await response.json();
+            setNearbyData({
+              nearbyHomes: data.nearbyHomes || [],
+              offtheMarket: data.offtheMarket || []
+            });
+          }
         }
       } catch (err) {
         console.error("Error fetching nearby homes:", err);
       }
     };
-    fetchNearby();
-  }, [id]);
+    if (transformData.display) {
+      fetchNearby();
+    }
+  }, [id, transformData.display, transformData.mls]);
 
   React.useEffect(() => {
     const handleIntersect: IntersectionObserverCallback = (entries) => {
@@ -102,14 +117,6 @@ const MLSPropertyPreview: React.FC = () => {
     }, 1500);
     return () => clearTimeout(timeoutId);
   }, []);
-
-  const transformData = React.useMemo(() => {
-    const mls = mlsProperty?.ListingKey === id ? mlsProperty : {};
-    return {
-      display: Boolean(Object.keys(mls).length),
-      mls,
-    };
-  }, [mlsProperty, id]);
 
   return (
     <>
@@ -252,7 +259,7 @@ const MLSPropertyPreview: React.FC = () => {
                     coord={[
                       {
                         lat: transformData.mls?.Coordinates?.[0] || 36.778,
-                        lng: transformData.mls?.Coordinates?.[0] || -119.417,
+                        lng: transformData.mls?.Coordinates?.[1] || -119.417,
                         id:"",
                         price:""
                       },

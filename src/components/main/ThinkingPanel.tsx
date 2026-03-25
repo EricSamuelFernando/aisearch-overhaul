@@ -863,13 +863,13 @@ export default function ThinkingPanel({ isThinking, query, intentHint, backendSt
 
         return (
             <div className="flex items-start gap-4 mt-6 ml-1">
-                <div className="flex-shrink-0 w-[45px] h-[45.18px] flex items-center justify-center">
+                <div className="flex-shrink-0 w-[34px] h-[34px] sm:w-[45px] sm:h-[45.18px] flex items-center justify-center">
                     <Image
                         src="/assets/images/Group14455(1).svg"
                         alt="Snaphomz AI"
                         width={45}
                         height={45}
-                        className="w-[45px] h-[45.18px] object-contain"
+                        className="w-[34px] h-[34px] sm:w-[45px] sm:h-[45.18px] object-contain"
                     />
                 </div>
                 <div className="pt-2.5">
@@ -889,13 +889,13 @@ export default function ThinkingPanel({ isThinking, query, intentHint, backendSt
         >
             {/* SnapHomz avatar */}
             {!embedded && (
-                <div className="flex-shrink-0 w-[45px] h-[45.18px] flex items-center justify-center">
+                <div className="flex-shrink-0 w-[34px] h-[34px] sm:w-[45px] sm:h-[45.18px] flex items-center justify-center">
                     <Image
                         src="/assets/images/Group14455(1).svg"
                         alt="Snaphomz AI"
                         width={45}
                         height={45}
-                        className="w-[45px] h-[45.18px] object-contain"
+                        className="w-[34px] h-[34px] sm:w-[45px] sm:h-[45.18px] object-contain"
                     />
                 </div>
             )}

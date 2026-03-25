@@ -7,6 +7,8 @@ import { PROPERTY_DETAIL_SEARCH_AI_URL } from '@/shared/constants/env';
 type PropertyTakeawaysAIProps = {
   property?: any;
   nearbySchools?: any[];
+  collegeReadinessData?: any;
+  collegeReadinessLoading?: boolean;
 };
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -298,6 +300,8 @@ const PropertyStorySection: React.FC<PropertyStorySectionProps> = ({
 const PropertyTakeawaysAI: React.FC<PropertyTakeawaysAIProps> = ({
   property,
   nearbySchools,
+  collegeReadinessData: propCollegeReadinessData,
+  collegeReadinessLoading = false,
 }) => {
   const schoolsApiBaseUrl =
     process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL || 'http://localhost:4000';
@@ -308,7 +312,7 @@ const PropertyTakeawaysAI: React.FC<PropertyTakeawaysAIProps> = ({
   const [resolvedProperty, setResolvedProperty] = React.useState<any>(null);
   const [resolvingProperty, setResolvingProperty] = React.useState(false);
   const [institutionNames, setInstitutionNames] = React.useState<string[]>([]);
-  const [collegeReadinessData, setCollegeReadinessData] = React.useState<any>(null);
+  const [collegeReadinessData, setCollegeReadinessData] = React.useState<any>(propCollegeReadinessData || null);
   const resolveAttemptedRef = React.useRef(false);
   const sourceProperty = resolvedProperty || property;
   const addressLabel = React.useMemo(() => getAddressLabel(sourceProperty), [sourceProperty]);
@@ -355,6 +359,14 @@ const PropertyTakeawaysAI: React.FC<PropertyTakeawaysAIProps> = ({
     const fromSummary = institutionNames.filter((name) => /(University|College|CSU|USC)/i.test(name));
     return uniqueItems([...fromApi, ...fromSummary]).slice(0, 3);
   }, [collegeReadinessData, institutionNames]);
+
+  // Sync with propCollegeReadinessData if it changes
+  React.useEffect(() => {
+    if (propCollegeReadinessData) {
+      setCollegeReadinessData(propCollegeReadinessData);
+      setInstitutionNames(collectInstitutionNames(nearbySchools || [], propCollegeReadinessData));
+    }
+  }, [propCollegeReadinessData, nearbySchools]);
 
   const neighborhoodSubtitle = React.useMemo(() => {
     const tags: string[] = [];
@@ -545,10 +557,13 @@ const PropertyTakeawaysAI: React.FC<PropertyTakeawaysAIProps> = ({
     let isMounted = true;
 
     const fetchTakeaways = async () => {
+      // Wait for parent to finish loading college readiness data
+      if (collegeReadinessLoading) return;
+
       try {
         setLoading(true);
         setError(null);
-        setCollegeReadinessData(null);
+        if (!propCollegeReadinessData) setCollegeReadinessData(null);
         const initialInstitutionNames = collectInstitutionNames(nearbySchools || []);
         if (isMounted) {
           setInstitutionNames(initialInstitutionNames);
@@ -605,8 +620,8 @@ const PropertyTakeawaysAI: React.FC<PropertyTakeawaysAIProps> = ({
         const zipCode = address?.zipCode || localStorage.getItem('propertyAddress2') || '';
         console.log('ðŸ“ Takeaways resolving zipCode:', zipCode);
 
-        let collegeReadiness: any = null;
-        if (zipCode) {
+        let collegeReadiness: any = propCollegeReadinessData || null;
+        if (false) {
           try {
             const fetchUrl = `${schoolsApiBaseUrl}/schools/college-readiness-by-zip?zipCode=${encodeURIComponent(zipCode)}`;
             console.log('ðŸ” AI Fetching College Data from:', fetchUrl);
@@ -676,7 +691,7 @@ const PropertyTakeawaysAI: React.FC<PropertyTakeawaysAIProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [property, nearbySchools, resolvedProperty]);
+  }, [property, nearbySchools, resolvedProperty, propCollegeReadinessData, collegeReadinessLoading]);
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-3.5 sm:p-4 shadow-[0_8px_20px_-24px_rgba(15,23,42,0.45)]">

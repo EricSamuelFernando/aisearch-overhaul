@@ -751,8 +751,14 @@ const mapSnapProperties = (rawProperties: any[]) => {
         }
 
         const fmtPrice = getCanonicalPriceForCard(p);
-        const address = p.address || p.formattedAddress || p.fullAddress ||
-            (p.street ? `${p.street}, ${p.city}, ${p.state}` : 'Address Unavailable');
+        const streetAddr = p.address || p.formattedAddress || p.fullAddress || p.street;
+        const addrCity = p.city || '';
+        const addrState = p.state || p.stateOrProvince || '';
+        const addrZip = p.zip || p.zipCode || '';
+        const locationStr = [addrCity, addrState && addrZip ? `${addrState} ${addrZip}` : addrState].filter(Boolean).join(', ');
+        const address = streetAddr
+            ? (locationStr ? `${streetAddr}, ${locationStr}` : streetAddr)
+            : 'Address Unavailable';
 
         const schoolsRaw = p.nearby_schools || p.schools;
         const localParseSchools = (schoolsData: any) => {
@@ -2509,8 +2515,14 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     // 2. Details Extraction
                     const fmtPrice = getCanonicalPriceForCard(p);
 
-                    const address = p.address || p.formattedAddress || p.fullAddress ||
-                        (p.street ? `${p.street}, ${p.city}, ${p.state}` : 'Address Unavailable');
+                    const streetAddr2 = p.address || p.formattedAddress || p.fullAddress || p.street;
+                    const addrCity2 = p.city || '';
+                    const addrState2 = p.state || p.stateOrProvince || '';
+                    const addrZip2 = p.zip || p.zipCode || '';
+                    const locationStr2 = [addrCity2, addrState2 && addrZip2 ? `${addrState2} ${addrZip2}` : addrState2].filter(Boolean).join(', ');
+                    const address = streetAddr2
+                        ? (locationStr2 ? `${streetAddr2}, ${locationStr2}` : streetAddr2)
+                        : 'Address Unavailable';
 
                     // 3. Schools Extraction
                     const schoolsRaw = p.nearby_schools || p.schools;
@@ -4176,29 +4188,6 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                                         </div>
                                                                     )}
 
-                                                                    {(msg.id !== latestAssistantTextMessageId || completedAnswerAnimations[msg.id]) &&
-                                                                        displayRelatedQuestions.length > 0 && (
-                                                                            <div className="mt-6 mb-2">
-                                                                                <div className="flex items-center gap-2 mb-3">
-                                                                                    <Lightbulb className="w-5 h-5 text-[#F58634]" />
-                                                                                    <h3 className="text-lg font-bold text-gray-900">Related questions</h3>
-                                                                                </div>
-                                                                                <div className="flex flex-wrap gap-2">
-                                                                                    {displayRelatedQuestions.map((q, idx) => (
-                                                                                        <button
-                                                                                            key={idx}
-                                                                                            onClick={() => {
-                                                                                                setSearchTerm(q);
-                                                                                                handleSearchSubmit(q);
-                                                                                            }}
-                                                                                            className="px-4 py-2 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 rounded-full text-sm font-medium text-gray-700 hover:text-gray-900 transition-all text-left shadow-sm whitespace-normal"
-                                                                                        >
-                                                                                            {q}
-                                                                                        </button>
-                                                                                    ))}
-                                                                                </div>
-                                                                            </div>
-                                                                        )}
                                                                 </>
                                                             );
                                                         })()}

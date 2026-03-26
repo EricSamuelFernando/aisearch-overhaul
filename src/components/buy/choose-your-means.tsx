@@ -43,10 +43,10 @@ const ChooseYourMeans = ({
   };
 
   return (
-    <section className="bg-[#FFF6EC] pt-16 pb-12 sm:pt-20 sm:pb-14 px-4 sm:px-8 lg:px-12 text-center">
+    <section className="home-choose-section bg-[#FFF6EC] pt-16 pb-12 sm:pt-20 sm:pb-14 px-4 sm:px-8 lg:px-12 text-center">
       {/* Choose Your Means Section */}
-      <div className="max-w-6xl mx-auto text-center">
-        <h2 className={cn('satoshi text-3xl sm:text-4xl font-medium', headingClassName)}>
+      <div className="home-choose-container max-w-6xl mx-auto text-center">
+        <h2 className={cn('home-choose-title satoshi text-3xl sm:text-4xl font-medium', headingClassName)}>
           {heading ?? (
             <>
               Choose How You <span className="font-light">Buy</span>

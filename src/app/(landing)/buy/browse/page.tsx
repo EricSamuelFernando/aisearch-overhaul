@@ -2,6 +2,7 @@
 
 import PropertyCardLists from '@/components/buy/browse/property-card-list';
 import PropertyBrowseView from '@/components/buy/browse/property-info';
+import BrowseAIChat from '@/components/buy/browse/browse-ai-chat';
 import {
   BuyBreadCrumb,
   BuyCustomSearch,
@@ -27,6 +28,9 @@ export default function BrowsePage() {
       {/* <PropertyCardLists /> */}
 
       {currentView !== 'map' ? <BuyCustomSearch hideInMap /> : null}
+
+      {/* Floating AI Chat Assistant */}
+      <BrowseAIChat />
 
       {/* MAP STOP SENTINEL */}
       <div id="map-stop-sentinel" className="h-px" />

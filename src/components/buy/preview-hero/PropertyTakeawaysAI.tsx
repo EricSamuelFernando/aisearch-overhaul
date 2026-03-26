@@ -629,11 +629,16 @@ const PropertyTakeawaysAI: React.FC<PropertyTakeawaysAIProps> = ({
             const collegeResponse = await fetch(fetchUrl);
 
             if (collegeResponse.ok) {
-              collegeReadiness = await collegeResponse.json();
-              console.log('âœ… AI Received College Data:', collegeReadiness);
-              if (isMounted) {
-                setCollegeReadinessData(collegeReadiness);
-                setInstitutionNames(collectInstitutionNames(nearbySchools || [], collegeReadiness));
+              const text = await collegeResponse.text();
+              if (text && text.trim() !== "") {
+                collegeReadiness = JSON.parse(text);
+                console.log('âœ… AI Received College Data:', collegeReadiness);
+                if (isMounted) {
+                  setCollegeReadinessData(collegeReadiness);
+                  setInstitutionNames(collectInstitutionNames(nearbySchools || [], collegeReadiness));
+                }
+              } else {
+                console.log('ℹ️ AI College API returned empty response');
               }
             } else {
               console.error('âŒ AI College Fetch Failed:', collegeResponse.status, collegeResponse.statusText);
@@ -672,9 +677,15 @@ const PropertyTakeawaysAI: React.FC<PropertyTakeawaysAIProps> = ({
           throw new Error('Failed to load takeaways');
         }
 
-        const result = await response.json();
+        const text = await response.text();
         if (isMounted) {
-          setSummary(result?.summary || '');
+          if (text && text.trim() !== "") {
+            const result = JSON.parse(text);
+            setSummary(result?.summary || '');
+          } else {
+            console.log('ℹ️ Property Takeaways API returned empty response');
+            setSummary('');
+          }
         }
       } catch (err) {
         if (isMounted) {

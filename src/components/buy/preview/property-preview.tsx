@@ -1662,10 +1662,18 @@ const PropertyPreview: React.FC = () => {
           `${schoolsApiBaseUrl}/schools/college-readiness-by-zip?zipCode=${encodeURIComponent(zipCode)}`
         );
         if (response.ok) {
-          const result = await response.json();
-          if (isMounted) {
-            setCollegeReadinessData(result);
-            console.log('✅ PropertyPreview: College Readiness data fetched once:', result);
+          const text = await response.text();
+          if (text && text.trim() !== "") {
+            const result = JSON.parse(text);
+            if (isMounted) {
+              setCollegeReadinessData(result);
+              console.log('✅ PropertyPreview: College Readiness data fetched once:', result);
+            }
+          } else {
+            console.log('ℹ️ PropertyPreview: College Readiness API returned empty response');
+            if (isMounted) {
+              setCollegeReadinessData(null);
+            }
           }
         }
       } catch (err) {

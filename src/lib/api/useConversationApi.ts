@@ -693,8 +693,8 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
               console.warn(
                 `[getAgentTiersForThread] Failed at ${endpoint}. Retrying with fallback endpoint.`,
                 endpointError?.response?.data?.errors?.[0]?.message ||
-                  endpointError?.message ||
-                  endpointError,
+                endpointError?.message ||
+                endpointError,
               );
             }
           }

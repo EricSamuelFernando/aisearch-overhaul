@@ -311,7 +311,7 @@ const WeMakeItEasy = ({
     <section className="home-easy-section bg-[#FFF6EC] pt-8 md:pt-4 px-4 sm:px-6 lg:px-24 overflow-x-hidden">
       <div className="home-easy-container mx-auto text-center">
         {/* Heading */}
-        <h2 className={cn('satoshi text-3xl sm:text-4xl font-medium', headingClassName)}>
+        <h2 className={cn('home-easy-title satoshi text-3xl sm:text-4xl font-medium', headingClassName)}>
           {effectiveHeading}
         </h2>
         <p className="home-easy-subtitle satoshi text-xs sm:text-sm text-[#8E8B8A] mb-12 max-w-[600px] mx-auto">

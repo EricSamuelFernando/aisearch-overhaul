@@ -1917,6 +1917,10 @@ input:-webkit-autofill {
   text-wrap: balance;
 }
 
+.home-hero-search-wrap--expanded {
+  max-width: 1150px !important;
+}
+
 @media (max-width: 767px) {
   .home-hero-subtitle {
     max-width: min(100%, 24rem);
@@ -2176,6 +2180,182 @@ input:-webkit-autofill {
   }
 }
 
+@media (min-width: 1024px) and (max-width: 1199px) {
+  .home-hero {
+    min-height: 610px;
+    height: 610px;
+    max-height: 610px;
+  }
+
+  .home-hero-arc {
+    --home-hero-arc-radius: 300px;
+    --home-hero-card-size: 96px;
+    width: 860px !important;
+    height: 740px !important;
+    top: 5.2rem !important;
+  }
+
+  .home-hero-content {
+    max-width: 930px !important;
+    margin-top: 4rem !important;
+    gap: 1rem !important;
+    margin-right: 0 !important;
+    left: 0;
+  }
+
+  .home-hero-title {
+    font-size: 2.05rem;
+    line-height: 1.08;
+  }
+
+  .home-hero-subtitle {
+    font-size: 0.82rem;
+  }
+
+  .home-hero-search-wrap {
+    max-width: 510px !important;
+  }
+
+  .home-choose-section,
+  .home-easy-section,
+  .home-rent-section,
+  .home-clients-section {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+
+  .home-choose-container,
+  .home-easy-container,
+  .home-college-container,
+  .home-mortgage-container,
+  .home-clients-container {
+    max-width: 980px !important;
+  }
+
+  .home-choose-title,
+  .home-easy-title,
+  .home-clients-title {
+    font-size: 2.05rem;
+  }
+
+  .home-choose-subtitle,
+  .home-easy-subtitle,
+  .home-clients-subtitle {
+    max-width: 560px;
+    font-size: 0.82rem;
+  }
+
+  .home-choose-grid {
+    max-width: 780px !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 1rem !important;
+  }
+
+  .home-choose-card {
+    height: 370px !important;
+  }
+
+  .home-easy-tabs {
+    max-width: 390px !important;
+  }
+
+  .home-clients-card {
+    min-height: 320px;
+  }
+
+  .home-sections>*+* {
+    margin-top: 2.75rem;
+  }
+}
+
+@media (min-width: 1200px) and (max-width: 1279px) {
+  .home-hero {
+    min-height: 660px;
+    height: 660px;
+    max-height: 660px;
+  }
+
+  .home-hero-arc {
+    --home-hero-arc-radius: 338px;
+    --home-hero-card-size: 106px;
+    width: 960px !important;
+    height: 800px !important;
+    top: 5.55rem !important;
+  }
+
+  .home-hero-content {
+    max-width: 1000px !important;
+    margin-top: 4.9rem !important;
+    gap: 1.15rem !important;
+    margin-right: 0 !important;
+    left: 0;
+  }
+
+  .home-hero-title {
+    font-size: 2.2rem;
+    line-height: 1.08;
+  }
+
+  .home-hero-subtitle {
+    font-size: 0.86rem;
+  }
+
+  .home-hero-search-wrap {
+    max-width: 560px !important;
+  }
+
+  .home-choose-section,
+  .home-easy-section,
+  .home-rent-section,
+  .home-clients-section {
+    padding-left: 1.75rem;
+    padding-right: 1.75rem;
+  }
+
+  .home-choose-container,
+  .home-easy-container,
+  .home-college-container,
+  .home-mortgage-container,
+  .home-clients-container {
+    max-width: 1080px !important;
+  }
+
+  .home-choose-title,
+  .home-easy-title,
+  .home-clients-title {
+    font-size: 2.25rem;
+  }
+
+  .home-choose-subtitle,
+  .home-easy-subtitle,
+  .home-clients-subtitle {
+    max-width: 620px;
+    font-size: 0.88rem;
+  }
+
+  .home-choose-grid {
+    max-width: 900px !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 1.25rem !important;
+  }
+
+  .home-choose-card {
+    height: 395px !important;
+  }
+
+  .home-easy-tabs {
+    max-width: 410px !important;
+  }
+
+  .home-clients-card {
+    min-height: 340px;
+  }
+
+  .home-sections>*+* {
+    margin-top: 3.25rem;
+  }
+}
+
 @media (min-width: 1280px) {
   .home-hero {
     min-height: 740px;
@@ -2206,15 +2386,15 @@ input:-webkit-autofill {
   }
 
   .home-hero-arc {
-    --home-hero-arc-radius: 390px;
-    --home-hero-card-size: 132px;
-    width: 1120px !important;
-    height: 820px !important;
-    top: 6.45rem !important;
+    --home-hero-arc-radius: 405px;
+    --home-hero-card-size: 122px;
+    width: 1140px !important;
+    height: 830px !important;
+    top: 6.35rem !important;
   }
 
   .home-hero-content {
-    margin-top: 6.2rem !important;
+    margin-top: 6.05rem !important;
     gap: 1.5rem !important;
     max-width: 1080px !important;
     left: 0;
@@ -2226,6 +2406,89 @@ input:-webkit-autofill {
 
   .home-hero-search-wrap {
     max-width: 620px !important;
+  }
+}
+
+@media (min-width: 1280px) and (max-width: 1439px) {
+  .home-hero {
+    min-height: 730px;
+    height: 730px;
+    max-height: 730px;
+  }
+
+  .home-hero-arc {
+    --home-hero-arc-radius: 410px;
+    --home-hero-card-size: 128px;
+    width: 1160px !important;
+    height: 870px !important;
+    top: 6.4rem !important;
+  }
+
+  .home-hero-content {
+    max-width: 1180px !important;
+    margin-top: 6.35rem !important;
+    gap: 1.6rem !important;
+    margin-right: 0 !important;
+    left: 0;
+  }
+
+  .home-hero-subtitle {
+    font-size: 0.9rem;
+  }
+
+  .home-hero-search-wrap {
+    max-width: 610px !important;
+  }
+
+  .home-choose-section,
+  .home-easy-section,
+  .home-rent-section,
+  .home-clients-section {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+
+  .home-choose-container,
+  .home-easy-container,
+  .home-college-container,
+  .home-mortgage-container,
+  .home-clients-container {
+    max-width: 1220px !important;
+  }
+
+  .home-choose-title,
+  .home-easy-title,
+  .home-clients-title {
+    font-size: 2.55rem;
+  }
+
+  .home-choose-subtitle,
+  .home-easy-subtitle,
+  .home-clients-subtitle {
+    max-width: 680px;
+    font-size: 0.92rem;
+  }
+
+  .home-choose-grid {
+    max-width: 1040px !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 1.5rem !important;
+  }
+
+  .home-choose-card {
+    height: 430px !important;
+  }
+
+  .home-easy-tabs {
+    max-width: 430px !important;
+  }
+
+  .home-clients-card {
+    min-height: 370px;
+  }
+
+  .home-sections>*+* {
+    margin-top: 3.75rem;
   }
 }
 
@@ -2252,6 +2515,251 @@ input:-webkit-autofill {
 
   .home-hero-search-wrap {
     max-width: 620px !important;
+  }
+
+  .home-choose-section,
+  .home-easy-section,
+  .home-rent-section,
+  .home-clients-section {
+    padding-left: 2.25rem;
+    padding-right: 2.25rem;
+  }
+
+  .home-choose-container,
+  .home-easy-container,
+  .home-college-container,
+  .home-mortgage-container,
+  .home-clients-container {
+    max-width: 1280px !important;
+  }
+
+  .home-choose-title,
+  .home-easy-title,
+  .home-clients-title {
+    font-size: 2.75rem;
+  }
+
+  .home-choose-subtitle,
+  .home-easy-subtitle,
+  .home-clients-subtitle {
+    max-width: 720px;
+    font-size: 0.95rem;
+  }
+
+  .home-choose-grid {
+    max-width: 1080px !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 1.75rem !important;
+  }
+
+  .home-choose-card {
+    height: 440px !important;
+  }
+
+  .home-easy-tabs {
+    max-width: 440px !important;
+  }
+
+  .home-clients-card {
+    min-height: 380px;
+  }
+
+  .home-sections>*+* {
+    margin-top: 4rem;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) and (max-height: 820px) {
+  .home-hero {
+    min-height: 580px;
+    height: 580px;
+    max-height: 580px;
+  }
+
+  .home-hero-arc {
+    --home-hero-arc-radius: 310px;
+    --home-hero-card-size: 92px;
+    width: 880px !important;
+    height: 790px !important;
+    top: 4.9rem !important;
+  }
+
+  .home-hero-content {
+    margin-top: 3.35rem !important;
+    gap: 0.9rem !important;
+  }
+
+  .home-hero-title {
+    font-size: 1.95rem;
+    line-height: 1.06;
+  }
+
+  .home-hero-subtitle {
+    font-size: 0.78rem;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  .home-hero-search-wrap {
+    max-width: 500px !important;
+  }
+
+  .home-hero-meta {
+    margin-top: 0 !important;
+  }
+
+  .home-choose-section {
+    padding-top: 2rem !important;
+  }
+
+  .home-easy-section {
+    padding-top: 0.75rem !important;
+  }
+
+  .home-clients-section {
+    padding-top: 2.25rem !important;
+  }
+
+  .home-sections>*+* {
+    margin-top: 2.5rem;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1099px) and (max-height: 700px) {
+  .home-hero {
+    min-height: 620px;
+    height: 620px;
+    max-height: 620px;
+  }
+
+  .home-hero-shell {
+    justify-content: center;
+    padding-top: 5.75rem !important;
+    padding-bottom: 1.5rem !important;
+  }
+
+  .home-hero-arc {
+    --home-hero-arc-radius: 300px;
+    --home-hero-card-size: 86px;
+    width: 830px !important;
+    height: 748px !important;
+    top: 5.55rem !important;
+  }
+
+  .home-hero-content {
+    max-width: 900px !important;
+    margin-top: 0.95rem !important;
+    gap: 1.05rem !important;
+  }
+
+  .home-hero-title {
+    font-size: 2rem;
+    line-height: 1.06;
+  }
+
+  .home-hero-subtitle {
+    font-size: 0.8rem;
+  }
+
+  .home-hero-search-wrap {
+    max-width: 520px !important;
+  }
+
+  .home-hero-meta {
+    margin-top: 0.25rem !important;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1099px) and (min-height: 701px) and (max-height: 860px) {
+  .home-hero {
+    min-height: 680px;
+    height: 680px;
+    max-height: 680px;
+  }
+
+  .home-hero-shell {
+    justify-content: center;
+    padding-top: 6.25rem !important;
+    padding-bottom: 1.5rem !important;
+  }
+
+  .home-hero-arc {
+    --home-hero-arc-radius: 318px;
+    --home-hero-card-size: 94px;
+    width: 890px !important;
+    height: 810px !important;
+    top: 5.75rem !important;
+  }
+
+  .home-hero-content {
+    max-width: 930px !important;
+    margin-top: 1.85rem !important;
+    gap: 1.1rem !important;
+  }
+
+  .home-hero-title {
+    font-size: 2.1rem;
+    line-height: 1.07;
+  }
+
+  .home-hero-subtitle {
+    font-size: 0.84rem;
+  }
+
+  .home-hero-search-wrap {
+    max-width: 540px !important;
+  }
+
+  .home-hero-meta {
+    margin-top: 0.35rem !important;
+  }
+}
+
+@media (min-width: 1100px) and (max-width: 1199px) and (max-height: 760px) {
+  .home-hero {
+    min-height: 640px;
+    height: 640px;
+    max-height: 640px;
+  }
+
+  .home-hero-shell {
+    justify-content: center;
+    padding-top: 6rem !important;
+    padding-bottom: 1.5rem !important;
+  }
+
+  .home-hero-arc {
+    --home-hero-arc-radius: 318px;
+    --home-hero-card-size: 92px;
+    width: 900px !important;
+    height: 790px !important;
+    top: 5.55rem !important;
+  }
+
+  .home-hero-content {
+    max-width: 960px !important;
+    margin-top: 1.45rem !important;
+    gap: 1.05rem !important;
+    margin-right: 0 !important;
+  }
+
+  .home-hero-title {
+    font-size: 2.08rem;
+    line-height: 1.07;
+  }
+
+  .home-hero-subtitle {
+    font-size: 0.82rem;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  .home-hero-search-wrap {
+    max-width: 535px !important;
+  }
+
+  .home-hero-meta {
+    margin-top: 0.3rem !important;
   }
 }
 
@@ -2385,6 +2893,53 @@ input:-webkit-autofill {
 
   .home-sections>*+* {
     margin-top: 5.25rem;
+  }
+}
+
+@media (min-width: 1440px) and (max-width: 1679px) and (max-height: 820px) {
+  .home-hero {
+    min-height: 720px;
+    height: 720px;
+    max-height: 720px;
+  }
+
+  .home-hero-shell {
+    justify-content: center;
+    padding-top: 6rem !important;
+    padding-bottom: 1.5rem !important;
+  }
+
+  .home-hero-arc {
+    --home-hero-arc-radius: 424px;
+    --home-hero-card-size: 120px;
+    width: 1280px !important;
+    height: 900px !important;
+    top: 6rem !important;
+  }
+
+  .home-hero-content {
+    max-width: 1500px !important;
+    margin-top: 1.35rem !important;
+    gap: 1.65rem !important;
+  }
+
+  .home-hero-title {
+    font-size: 3.3rem;
+    line-height: 1.08;
+  }
+
+  .home-hero-subtitle {
+    font-size: 1rem;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  .home-hero-search-wrap {
+    max-width: 860px !important;
+  }
+
+  .home-hero-meta {
+    margin-top: 0.25rem !important;
   }
 }
 

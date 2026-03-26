@@ -83,7 +83,7 @@ export default function OurClients({
       <div className="max-w-6xl mx-auto text-start pb-4 sm:pb-12">
         <h2
           className={cn(
-            'satoshi whitespace-nowrap text-[1.7rem] leading-tight sm:text-4xl font-medium text-left md:text-center',
+            'home-clients-title satoshi whitespace-nowrap text-[1.7rem] leading-tight sm:text-4xl font-medium text-left md:text-center',
             headingClassName
           )}
         >

@@ -1248,13 +1248,22 @@ export default function Home() {
     '/assets/images/home-landing1.png',
   ];
 
-  const mobileHeroCards = [
-    { left: '-12.8%', top: '83%', width: '14.4%', height: '35.6%', rotation: -27, src: '/assets/images/home-landing1.png', imageScale: 1.08 },
-    { left: '-7.2%', top: '43.7%', width: '23.3%', height: '35.6%', rotation: -42, src: '/assets/images/home-landing-3.png', imageScale: 1.08 },
-    { left: '19.8%', top: '25.9%', width: '23.3%', height: '35.6%', rotation: -15, src: '/assets/images/home-landing-4.png', imageScale: 1.02 },
-    { left: '49.3%', top: '27.4%', width: '23.3%', height: '35.6%', rotation: 14, src: '/assets/images/home-landing-5.png', imageScale: 1.04 },
-    { left: '77.7%', top: '40.7%', width: '23.3%', height: '35.6%', rotation: 36, src: '/assets/images/home-landing-6.png', imageScale: 1.07 },
-    { left: '97.7%', top: '75.6%', width: '23.3%', height: '35.6%', rotation: 22, src: '/assets/images/home-landing4.png', imageScale: 1.08 },
+  const mobileHeroCards: Array<{
+    left: string;
+    top: string;
+    width: string;
+    height: string;
+    rotation: number;
+    src: string;
+    imageScale: number;
+    objectPosition: string;
+  }> = [
+    { left: '-12.8%', top: '83%', width: '14.4%', height: '35.6%', rotation: -27, src: '/assets/images/home-landing1.png', imageScale: 1.08, objectPosition: 'center center' },
+    { left: '-7.2%', top: '43.7%', width: '23.3%', height: '35.6%', rotation: -42, src: '/assets/images/home-landing-3.png', imageScale: 1.08, objectPosition: 'center center' },
+    { left: '19.8%', top: '25.9%', width: '23.3%', height: '35.6%', rotation: -15, src: '/assets/images/home-landing-4.png', imageScale: 0.98, objectPosition: 'center center' },
+    { left: '48.8%', top: '24.9%', width: '23.3%', height: '35.6%', rotation: 14, src: '/assets/images/home-landing5.png', imageScale: 1.02, objectPosition: 'center center' },
+    { left: '77.7%', top: '40.7%', width: '23.3%', height: '35.6%', rotation: 36, src: '/assets/images/home-landing-6.png', imageScale: 0.98, objectPosition: 'center 52%' },
+    { left: '97.7%', top: '75.6%', width: '23.3%', height: '35.6%', rotation: 22, src: '/assets/images/home-landing4.png', imageScale: 1.08, objectPosition: 'center center' },
   ];
 
   return (
@@ -1532,7 +1541,7 @@ export default function Home() {
                     width={95}
                     height={95}
                     className="h-full w-full object-cover"
-                    style={{ transform: `scale(${card.imageScale})` }}
+                    style={{ transform: `scale(${card.imageScale})`, objectPosition: card.objectPosition }}
                   />
                 </div>
               ))}

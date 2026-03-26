@@ -93,12 +93,19 @@ const TopCollegesSection = ({
           throw new Error(`Failed to fetch college readiness data: ${response.statusText}`);
         }
 
-        const result = await response.json();
+        const text = await response.text();
+        if (!text || text.trim() === "") {
+          console.log('ℹ️ College Readiness API returned empty response (TopCollegesSection)');
+          setData(null);
+          return;
+        }
+
+        const result = JSON.parse(text);
         console.log('✅ College Readiness API response (TopCollegesSection):', result);
         setData(result);
       } catch (err) {
         console.error('❌ Error fetching college readiness data:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load college readiness data');
+        setError("College readiness data is currently unavailable for this area.");
       } finally {
         setLoading(false);
       }
@@ -120,9 +127,8 @@ const TopCollegesSection = ({
   if (error) {
     return (
       <section className="p-6 w-full mt-4">
-        <div className="text-center py-12 text-red-600">
-          <p>Error loading college readiness data</p>
-          <p className="text-sm mt-2">{error}</p>
+        <div className="text-center py-12 text-gray-600 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+          <p className="max-w-md mx-auto">{error}</p>
         </div>
       </section>
     );
@@ -131,8 +137,8 @@ const TopCollegesSection = ({
   if (!data) {
     return (
       <section className="p-6 w-full mt-4">
-        <div className="text-center py-12 text-gray-500">
-          <p>No college readiness data available</p>
+        <div className="text-center py-12 text-gray-600 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+          <p className="max-w-md mx-auto">College readiness data is currently unavailable for this area.</p>
         </div>
       </section>
     );
@@ -171,8 +177,8 @@ const TopCollegesSection = ({
         <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-6">
           College Readiness
         </h2>
-        <div className="text-center py-12 text-gray-500">
-          <p>No college readiness data available for this location</p>
+        <div className="text-center py-12 text-gray-600 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+          <p className="max-w-md mx-auto">College readiness data is currently unavailable for this location.</p>
         </div>
       </section>
     );

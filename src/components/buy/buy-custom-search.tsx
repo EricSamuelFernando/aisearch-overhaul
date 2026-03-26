@@ -482,7 +482,7 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
   const [filterData, setFilterData] = React.useState({});
   const [showInputBox, setShowInputBox] = React.useState(false);
   const { currentView } = useProperty();
-  const isHiddenInMapMode = hideInMap && currentView === 'map';
+  const isHiddenInMapMode = hideInMap && (currentView === 'map' || currentView === 'grid');
   const popupRef = React.useRef<HTMLDivElement>(null);
   const toggleButtonRef = React.useRef<HTMLButtonElement>(null);
   const [isFooterVisible, setIsFooterVisible] = React.useState(false);

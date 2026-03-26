@@ -437,8 +437,8 @@
 //       const ids = filtered?.propertyIds ?? [];
 //       setDrawFilteredMarkerIds(ids);
 
-//       // Only notify parent when IDs actually changed — prevents infinite re-render loop
-//       // where onDrawFilterChange → parent re-render → new markers → this effect fires again
+//       // Only notify parent when IDs actually changed  prevents infinite re-render loop
+//       // where onDrawFilterChange ? parent re-render ? new markers ? this effect fires again
 //       const prev = lastDrawFilterIdsRef.current;
 //       const changed =
 //         prev === null ||
@@ -449,7 +449,7 @@
 //         onDrawFilterChangeRef.current?.(ids);
 //       }
 //     },
-//     // onDrawFilterChange intentionally omitted — accessed via ref to keep this callback stable
+//     // onDrawFilterChange intentionally omitted  accessed via ref to keep this callback stable
 //     // eslint-disable-next-line react-hooks/exhaustive-deps
 //     [computeMarkersInsideDrawPolygon],
 //   );
@@ -471,7 +471,7 @@
 //     setDrawFilteredMarkerIds(null);
 //     onDrawFilterChangeRef.current?.(null);
 //     setDrawMode(false);
-//     // onDrawFilterChange accessed via ref → empty deps → stable reference.
+//     // onDrawFilterChange accessed via ref ? empty deps ? stable reference.
 //     // This is critical: the clearDrawSignal effect depends on clearDrawPolygon, and if
 //     // clearDrawPolygon were recreated on every parent render (because onDrawFilterChange is
 //     // an inline prop), the effect would fire on every render after clearDrawSignal is set,
@@ -547,8 +547,8 @@
 //   }, [applyDrawFilterFromPolygon]);
 
 //   // Always-current ref so the draw-mode effect can call the latest handlePolygonComplete
-//   // without listing it as a dependency (which would cause the effect to re-run — and
-//   // reset freehandDrawingActiveRef — whenever markers change during an active draw).
+//   // without listing it as a dependency (which would cause the effect to re-run  and
+//   // reset freehandDrawingActiveRef  whenever markers change during an active draw).
 //   const handlePolygonCompleteRef = React.useRef(handlePolygonComplete);
 //   handlePolygonCompleteRef.current = handlePolygonComplete;
 
@@ -823,7 +823,7 @@
 //         freehandPreviewLineRef.current = null;
 //       }
 //     };
-//     // handlePolygonComplete intentionally omitted from deps — accessed via ref so the effect
+//     // handlePolygonComplete intentionally omitted from deps  accessed via ref so the effect
 //     // doesn't re-run (and reset freehandDrawingActiveRef) when markers change mid-draw.
 //     // eslint-disable-next-line react-hooks/exhaustive-deps
 //   }, [isLoaded, mapInstance, drawMode]);
@@ -2011,7 +2011,7 @@
 //     );
 //   }, [isLoaded, measureStart, measureEnd]);
 
-//   // Listen on the Data layer directly — the Data layer intercepts feature clicks
+//   // Listen on the Data layer directly  the Data layer intercepts feature clicks
 //   // before the map's onClick fires, so containsLocation on map onClick never triggers.
 //   useEffect(() => {
 //     if (!isLoaded || !mapInstance) return;
@@ -3078,7 +3078,7 @@
 //                 <div className="text-xs text-gray-600">
 //                   {selectedSchool.rating ? (
 //                     <>
-//                       <span className="text-amber-500">★</span>{' '}
+//                       <span className="text-amber-500">?</span>{' '}
 //                       {selectedSchool.rating.toFixed(1)}
 //                       {selectedSchool.total ? ` (${selectedSchool.total})` : ''}
 //                     </>
@@ -3147,7 +3147,7 @@
 //                 <div className="text-xs text-gray-600">
 //                   {selectedSearchPlace.rating ? (
 //                     <>
-//                       <span className="text-amber-500">★</span>{' '}
+//                       <span className="text-amber-500">?</span>{' '}
 //                       {selectedSearchPlace.rating.toFixed(1)}
 //                       {selectedSearchPlace.total ? ` (${selectedSearchPlace.total})` : ''}
 //                     </>
@@ -3598,6 +3598,12 @@ const CustomMap: React.FC<Props> = ({
     [],
   );
 
+  const quickCategoryIcons: Partial<Record<keyof typeof quickCategories, string>> = {
+    restaurants: '/assets/icons/Restaurants.svg',
+    gyms: '/assets/icons/Gym.svg',
+  };
+
+  const schoolOverlayIcon = '/assets/icons/Education.svg';
 
   const markers = useMemo<ListingMarker[]>(() => {
     const usePropertiesSource = useOverlayResultsRail ? true : properties.length > 0;
@@ -3665,8 +3671,8 @@ const CustomMap: React.FC<Props> = ({
       const ids = filtered?.propertyIds ?? [];
       setDrawFilteredMarkerIds(ids);
 
-      // Only notify parent when IDs actually changed — prevents infinite re-render loop
-      // where onDrawFilterChange → parent re-render → new markers → this effect fires again
+      // Only notify parent when IDs actually changed  prevents infinite re-render loop
+      // where onDrawFilterChange ? parent re-render ? new markers ? this effect fires again
       const prev = lastDrawFilterIdsRef.current;
       const changed =
         prev === null ||
@@ -3677,7 +3683,7 @@ const CustomMap: React.FC<Props> = ({
         onDrawFilterChangeRef.current?.(ids);
       }
     },
-    // onDrawFilterChange intentionally omitted — accessed via ref to keep this callback stable
+    // onDrawFilterChange intentionally omitted  accessed via ref to keep this callback stable
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [computeMarkersInsideDrawPolygon],
   );
@@ -3699,7 +3705,7 @@ const CustomMap: React.FC<Props> = ({
     setDrawFilteredMarkerIds(null);
     onDrawFilterChangeRef.current?.(null);
     setDrawMode(false);
-    // onDrawFilterChange accessed via ref → empty deps → stable reference.
+    // onDrawFilterChange accessed via ref ? empty deps ? stable reference.
     // This is critical: the clearDrawSignal effect depends on clearDrawPolygon, and if
     // clearDrawPolygon were recreated on every parent render (because onDrawFilterChange is
     // an inline prop), the effect would fire on every render after clearDrawSignal is set,
@@ -3775,8 +3781,8 @@ const CustomMap: React.FC<Props> = ({
   }, [applyDrawFilterFromPolygon]);
 
   // Always-current ref so the draw-mode effect can call the latest handlePolygonComplete
-  // without listing it as a dependency (which would cause the effect to re-run — and
-  // reset freehandDrawingActiveRef — whenever markers change during an active draw).
+  // without listing it as a dependency (which would cause the effect to re-run  and
+  // reset freehandDrawingActiveRef  whenever markers change during an active draw).
   const handlePolygonCompleteRef = React.useRef(handlePolygonComplete);
   handlePolygonCompleteRef.current = handlePolygonComplete;
 
@@ -4051,7 +4057,7 @@ const CustomMap: React.FC<Props> = ({
         freehandPreviewLineRef.current = null;
       }
     };
-    // handlePolygonComplete intentionally omitted from deps — accessed via ref so the effect
+    // handlePolygonComplete intentionally omitted from deps  accessed via ref so the effect
     // doesn't re-run (and reset freehandDrawingActiveRef) when markers change mid-draw.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoaded, mapInstance, drawMode]);
@@ -5117,7 +5123,7 @@ const CustomMap: React.FC<Props> = ({
       return;
     }
 
-    // Use textSearch (same as Restaurants / Gyms / Parks) — single API call,
+    // Use textSearch (same as Restaurants / Gyms / Parks)  single API call,
     // no async-chain cancellation risk. District polygon containment is applied
     // as a post-filter so pins only render inside the drawn district borders.
     const cache = districtPolygonCacheRef.current;
@@ -5432,7 +5438,7 @@ const CustomMap: React.FC<Props> = ({
     );
   }, [isLoaded, measureStart, measureEnd]);
 
-  // Listen on the Data layer directly — the Data layer intercepts feature clicks
+  // Listen on the Data layer directly  the Data layer intercepts feature clicks
   // before the map's onClick fires, so containsLocation on map onClick never triggers.
   useEffect(() => {
     if (!isLoaded || !mapInstance) return;
@@ -5765,9 +5771,207 @@ const CustomMap: React.FC<Props> = ({
         className={cn(
           'absolute z-30 pointer-events-auto',
           shouldHideControls ? 'hidden' : '',
-          isTouchDevice
-            ? 'right-3 bottom-[132px]'
-            : 'right-3 top-3 sm:right-4 sm:top-4',
+          useOverlayResultsRail && !isTouchDevice
+            ? 'left-[calc(min(44vw,620px)+16px)] top-3 sm:top-4'
+            : isTouchDevice
+              ? 'left-3 top-3'
+              : 'left-3 top-3 sm:left-4 sm:top-4',
+        )}
+      >
+        <div className="relative flex items-start">
+          <div
+            className={cn(
+              'flex flex-col border border-gray-200 bg-white/95 shadow-lg backdrop-blur',
+              isTouchDevice ? 'overflow-hidden rounded-md p-0' : 'gap-2 rounded-xl p-1.5',
+            )}
+          >
+            <button
+              type="button"
+              title="Explore Search"
+              onClick={() => {
+                if (isTouchDevice) {
+                  const next = activeToolPanel !== 'explore';
+                  if (!next) {
+                    setActiveToolPanel(null);
+                    return;
+                  }
+                  setMeasureMode(false);
+                  resetMeasure();
+                  setDrawMode(false);
+                  setActiveToolPanel('explore');
+                  setExploreFeedback(null);
+                  return;
+                }
+                setActiveToolPanel((prev) => (prev === 'explore' ? null : 'explore'));
+              }}
+              className={cn(
+                'flex items-center justify-center',
+                isTouchDevice ? 'h-10 w-10 border border-gray-200' : 'h-10 w-10 rounded-lg border',
+                activeToolPanel === 'explore'
+                  ? 'border-black bg-black'
+                  : 'bg-white hover:bg-gray-50',
+              )}
+              aria-label="Explore places"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14Zm0 2a5 5 0 1 1 0 10a5 5 0 0 1 0-10Z" fill={activeToolPanel === 'explore' ? '#fff' : '#6b7280'} />
+                <path d="M15.8 15.8l3.9 3.9" stroke={activeToolPanel === 'explore' ? '#fff' : '#6b7280'} strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+
+          {activeToolPanel === 'explore' && (
+            <div
+              className={cn(
+                'absolute left-full top-0 ml-2 rounded-2xl border border-gray-200 bg-white/95 p-2.5 shadow-lg backdrop-blur',
+                isTouchDevice ? 'w-[320px] max-w-[86vw]' : 'w-[720px] max-w-[calc(100vw-32px)]',
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pr-1 scrollbar-hide">
+                  {onOverlayChange && (
+                    <button
+                      type="button"
+                      onClick={() => onOverlayChange(overlayValue === 'schools' ? 'none' : 'schools')}
+                      className="flex h-16 min-w-[72px] flex-col items-center justify-center gap-1 rounded-xl border px-2 py-1 text-[10px] font-semibold text-center transition-colors"
+                      style={{
+                        borderColor: overlayValue === 'schools' ? schoolCategoryColor : '#e5e7eb',
+                        background: overlayValue === 'schools' ? schoolCategoryColor : '#fff',
+                        color: overlayValue === 'schools' ? '#fff' : '#111827',
+                      }}
+                    >
+                      {schoolOverlayIcon ? (
+                        <img
+                          src={schoolOverlayIcon}
+                          alt=""
+                          className={overlayValue === 'schools' ? 'h-5 w-5 brightness-0 invert' : 'h-5 w-5'}
+                        />
+                      ) : (
+                        <span className="h-5 w-5" aria-hidden />
+                      )}
+                      <span className="leading-tight">Schools</span>
+                    </button>
+                  )}
+                  {Object.entries(quickCategories).map(([key, cfg]) => {
+                    const active = activeCategoryKeys.includes(key);
+                    const iconSrc = quickCategoryIcons[key as keyof typeof quickCategories];
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => toggleExploreCategory(key as keyof typeof quickCategories)}
+                        className="flex h-16 min-w-[72px] flex-col items-center justify-center gap-1 rounded-xl border px-2 py-1 text-[10px] font-semibold text-center transition-colors"
+                        style={{
+                          borderColor: active ? cfg.color : '#e5e7eb',
+                          background: active ? cfg.color : '#fff',
+                          color: active ? '#fff' : '#111827',
+                        }}
+                      >
+                        {iconSrc ? (
+                          <img
+                            src={iconSrc}
+                            alt=""
+                            className={active ? 'h-5 w-5 brightness-0 invert' : 'h-5 w-5'}
+                          />
+                        ) : (
+                          <span className="h-5 w-5" aria-hidden />
+                        )}
+                        <span className="leading-tight">{cfg.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <form
+                  className="flex shrink-0 items-center gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    submitExploreSearch();
+                  }}
+                >
+                  <div className="min-w-0">
+                    <input
+                      type="text"
+                      value={exploreSearchInput}
+                      onChange={(e) => setExploreSearchInput(e.target.value)}
+                      placeholder="Search places in view"
+                      className="block h-10 w-[200px] appearance-none rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none ring-0 focus:border-gray-400 sm:w-[240px]"
+                      style={{
+                        lineHeight: '20px',
+                        paddingTop: 0,
+                        paddingBottom: 0,
+                      }}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="h-10 shrink-0 rounded-xl bg-gray-900 px-3 text-xs font-semibold text-white hover:bg-black"
+                  >
+                    Go
+                  </button>
+                </form>
+              </div>
+
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-3 text-[10px] font-medium text-gray-500">
+                  <button
+                    type="button"
+                    className="hover:text-gray-800"
+                    onClick={() => {
+                      searchRequestIdRef.current += 1;
+                      clearSearchMarkers();
+                      setExploreSearchInput('');
+                      setExploreFeedback(null);
+                    }}
+                  >
+                    Clear Search
+                  </button>
+                  <button
+                    type="button"
+                    className="hover:text-gray-800"
+                    onClick={() => {
+                      Object.keys(categoryMarkersRef.current).forEach((key) => {
+                        categoryRequestIdRef.current[key] = (categoryRequestIdRef.current[key] ?? 0) + 1;
+                      });
+                      activeCategoryKeysRef.current = new Set();
+                      setActiveCategoryKeys([]);
+                      clearAllCategoryMarkers();
+                      if (onOverlayChange && overlayValue === 'schools') onOverlayChange('none');
+                      setExploreFeedback(null);
+                    }}
+                  >
+                    Clear Categories
+                  </button>
+                  {(activeCategoryKeys.length > 0 || overlayValue === 'schools') && (
+                    <span className="text-[10px] text-gray-500">
+                      {activeCategoryKeys.length + (overlayValue === 'schools' ? 1 : 0)} active
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="text-[10px] font-medium text-gray-500 hover:text-gray-800"
+                  onClick={() => setActiveToolPanel(null)}
+                >
+                  Close
+                </button>
+              </div>
+
+              {exploreFeedback && (
+                <div className="mt-2 rounded-md bg-gray-50 px-2.5 py-2 text-[11px] text-gray-600">
+                  {exploreFeedback}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div
+        className={cn(
+          'absolute z-30 pointer-events-auto',
+          shouldHideControls ? 'hidden' : '',
+          isTouchDevice ? 'right-3 bottom-3' : 'right-3 bottom-3 sm:right-4 sm:bottom-4',
         )}
       >
         <div className="flex items-start gap-2">
@@ -5864,135 +6068,6 @@ const CustomMap: React.FC<Props> = ({
               >
                 Clear Draw
               </button>
-            </div>
-          )}
-
-          {activeToolPanel === 'explore' && (
-            <div className={cn(
-              'rounded-xl border border-gray-200 bg-white p-3 shadow-lg',
-              isTouchDevice ? 'w-[260px] max-w-[72vw]' : 'w-[280px] max-w-[80vw]',
-            )}>
-              <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                Explore Search
-              </div>
-              <form
-                className="flex items-stretch gap-2"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  submitExploreSearch();
-                }}
-              >
-                <div className="min-w-0 flex-1">
-                  <input
-                    type="text"
-                    value={exploreSearchInput}
-                    onChange={(e) => setExploreSearchInput(e.target.value)}
-                    placeholder="Search places in view"
-                    className="block w-full appearance-none rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none ring-0 focus:border-gray-400"
-                    style={{
-                      display: 'block',
-                      width: '100%',
-                      height: 36,
-                      minHeight: 36,
-                      lineHeight: '20px',
-                      paddingTop: 0,
-                      paddingBottom: 0,
-                      backgroundColor: '#fff',
-                      borderWidth: 1,
-                    }}
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="shrink-0 rounded-lg bg-gray-900 px-3 text-xs font-semibold text-white hover:bg-black"
-                  style={{ height: 36, minWidth: 44 }}
-                >
-                  Go
-                </button>
-              </form>
-              <div className="mt-2 flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  className="text-[11px] font-medium text-gray-600 hover:text-gray-900"
-                  onClick={() => {
-                    searchRequestIdRef.current += 1;
-                    clearSearchMarkers();
-                    setExploreSearchInput('');
-                    setExploreFeedback(null);
-                  }}
-                >
-                  Clear Search
-                </button>
-                <button
-                  type="button"
-                  className="text-[11px] font-medium text-gray-600 hover:text-gray-900"
-                  onClick={() => setActiveToolPanel(null)}
-                >
-                  Close
-                </button>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {onOverlayChange && (
-                  <button
-                    type="button"
-                    onClick={() => onOverlayChange(overlayValue === 'schools' ? 'none' : 'schools')}
-                    className="rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
-                    style={{
-                      borderColor: overlayValue === 'schools' ? schoolCategoryColor : '#e5e7eb',
-                      background: overlayValue === 'schools' ? schoolCategoryColor : '#fff',
-                      color: overlayValue === 'schools' ? '#fff' : '#111827',
-                    }}
-                  >
-                    Schools
-                  </button>
-                )}
-                {Object.entries(quickCategories).map(([key, cfg]) => {
-                  const active = activeCategoryKeys.includes(key);
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => toggleExploreCategory(key as keyof typeof quickCategories)}
-                      className="rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
-                      style={{
-                        borderColor: active ? cfg.color : '#e5e7eb',
-                        background: active ? cfg.color : '#fff',
-                        color: active ? '#fff' : '#111827',
-                      }}
-                    >
-                      {cfg.label}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="mt-2 flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  className="text-[11px] font-medium text-gray-600 hover:text-gray-900"
-                  onClick={() => {
-                    Object.keys(categoryMarkersRef.current).forEach((key) => {
-                      categoryRequestIdRef.current[key] = (categoryRequestIdRef.current[key] ?? 0) + 1;
-                    });
-                    activeCategoryKeysRef.current = new Set();
-                    setActiveCategoryKeys([]);
-                    clearAllCategoryMarkers();
-                    if (onOverlayChange && overlayValue === 'schools') onOverlayChange('none');
-                    setExploreFeedback(null);
-                  }}
-                >
-                  Clear Categories
-                </button>
-                {(activeCategoryKeys.length > 0 || overlayValue === 'schools') && (
-                  <span className="text-[10px] text-gray-500">
-                    {activeCategoryKeys.length + (overlayValue === 'schools' ? 1 : 0)} active
-                  </span>
-                )}
-              </div>
-              {exploreFeedback && (
-                <div className="mt-2 rounded-md bg-gray-50 px-2.5 py-2 text-[11px] text-gray-600">
-                  {exploreFeedback}
-                </div>
-              )}
             </div>
           )}
 
@@ -6169,44 +6244,12 @@ const CustomMap: React.FC<Props> = ({
                     />
                   </svg>
                 </button>
-                <button
-                  type="button"
-                  title="Explore Search"
-                  onClick={() => {
-                    if (isTouchDevice) {
-                      const next = activeToolPanel !== 'explore';
-                      if (!next) {
-                        setActiveToolPanel(null);
-                        return;
-                      }
-                      setMeasureMode(false);
-                      resetMeasure();
-                      setDrawMode(false);
-                      setActiveToolPanel('explore');
-                      setExploreFeedback(null);
-                      return;
-                    }
-                    setActiveToolPanel((prev) => (prev === 'explore' ? null : 'explore'));
-                  }}
-                  className={cn(
-                    'flex items-center justify-center',
-                    isTouchDevice ? 'h-10 w-10 border-b border-gray-200' : 'h-10 w-10 rounded-lg border',
-                    activeToolPanel === 'explore'
-                      ? 'border-black bg-black'
-                      : 'bg-white hover:bg-gray-50',
-                  )}
-                  aria-label="Explore places"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14Zm0 2a5 5 0 1 1 0 10a5 5 0 0 1 0-10Z" fill={activeToolPanel === 'explore' ? '#fff' : '#6b7280'} />
-                    <path d="M15.8 15.8l3.9 3.9" stroke={activeToolPanel === 'explore' ? '#fff' : '#6b7280'} strokeWidth="2" strokeLinecap="round" />
-                  </svg>
-                </button>
               </>
             ) : null}
           </div>
         </div>
       </div>
+
 
       {isTouchDevice && drawMode && !shouldHideControls ? (
         <div
@@ -6486,7 +6529,7 @@ const CustomMap: React.FC<Props> = ({
                 <div className="text-xs text-gray-600">
                   {selectedSchool.rating ? (
                     <>
-                      <span className="text-amber-500">★</span>{' '}
+                      <span className="text-amber-500">?</span>{' '}
                       {selectedSchool.rating.toFixed(1)}
                       {selectedSchool.total ? ` (${selectedSchool.total})` : ''}
                     </>
@@ -6555,7 +6598,7 @@ const CustomMap: React.FC<Props> = ({
                 <div className="text-xs text-gray-600">
                   {selectedSearchPlace.rating ? (
                     <>
-                      <span className="text-amber-500">★</span>{' '}
+                      <span className="text-amber-500">?</span>{' '}
                       {selectedSearchPlace.rating.toFixed(1)}
                       {selectedSearchPlace.total ? ` (${selectedSearchPlace.total})` : ''}
                     </>

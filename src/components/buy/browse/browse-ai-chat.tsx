@@ -268,12 +268,12 @@ export default function BrowseAIChat() {
             <button
               onClick={send}
               disabled={!input.trim() || loading}
-              className="shrink-0 w-9 h-9 rounded-full bg-orange-500 flex items-center justify-center disabled:opacity-40 hover:bg-orange-600 active:scale-90 transition-all ml-2"
+              className="shrink-0 w-[34px] h-[34px] min-w-[34px] min-h-[34px] aspect-square rounded-full bg-orange-500 flex items-center justify-center p-0 disabled:opacity-40 hover:bg-orange-600 active:scale-90 transition-all ml-2"
             >
               {loading ? (
                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
-                <svg viewBox="0 0 24 24" fill="white" className="w-4 h-4" style={{ transform: 'rotate(-45deg) translateY(-1px)' }}>
+                <svg viewBox="0 0 24 24" fill="white" className="w-[18px] h-[18px] block" style={{ transform: 'rotate(-45deg)' }}>
                   <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
                 </svg>
               )}

@@ -468,7 +468,8 @@ const PropertyPreview: React.FC = () => {
       return;
     }
 
-    if (!propertyData?.id) {
+    const prop = transformData.prop;
+    if (!prop?.id && !id) {
       error({ message: "Property data is not available" });
       return;
     }
@@ -476,18 +477,18 @@ const PropertyPreview: React.FC = () => {
     // Create engagement
     propertyEngagementMutation.mutate(
       {
-        propertyName: propertyData?.listing?.courtesyOf || propertyData?.public?.address?.label,
-        price: propertyData?.listing?.listPriceLow || propertyData?.listPrice,
-        listingId: propertyData?.listingId || listingId,
-        propertyId: propertyData?.id || id,
-        city: propertyData?.address?.city || propertyData?.public?.address?.city || "Los angeles",
-        zipCode: propertyData?.listing?.address?.zipCode || propertyData?.public?.address?.zipCode,
-        propertyAddress: propertyData?.listing?.address?.unparsedAddress || propertyData?.public?.address?.unparsedAddress || propertyData?.public?.address?.label,
-        propertyImage: propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.media?.primaryListingImageUrl,
+        propertyName: prop?.listing?.courtesyOf || prop?.public?.address?.label || "",
+        price: prop?.listPrice || 0,
+        listingId: prop?.listingId || listingId || id,
+        propertyId: prop?.id || id,
+        city: prop?.address?.city || prop?.public?.address?.city || "Los angeles",
+        zipCode: prop?.address?.zipCode || prop?.public?.address?.zipCode || "",
+        propertyAddress: prop?.address?.unparsedAddress || prop?.public?.address?.unparsedAddress || prop?.public?.address?.label || "",
+        propertyImage: prop?.media?.primaryListingImageUrl || "",
         userId: currentUser?.id,
         answers: undefined,
         propertyProgress: 10,
-        fullAddress: propertyData?.public?.address?.label || propertyData?.listing?.address?.unparsedAddress || `${propertyData?.address?.city || ''}, USA`
+        fullAddress: prop?.public?.address?.label || prop?.address?.unparsedAddress || `${prop?.address?.city || ''}, USA`
       },
       {
         onSuccess: (response: any) => {
@@ -537,6 +538,8 @@ const PropertyPreview: React.FC = () => {
     setIsProcessingInvitation(true);
     setContactActionInProgress("search");
 
+    const prop = transformData.prop;
+
     // Check if engagement already exists
     if (engagedProperty?.id) {
       setEngagementIdForModal(engagedProperty.id);
@@ -550,17 +553,17 @@ const PropertyPreview: React.FC = () => {
     // Create engagement only if it doesn't exist
     propertyEngagementMutation.mutate(
       {
-        propertyName: propertyData?.listing?.courtesyOf || propertyData?.public?.address?.label,
-        price: Number(String(propertyData?.listing?.listPriceLow || propertyData?.listPrice || 0).replace(/[^0-9.-]+/g, "")),
-        listingId: propertyData?.listingId || listingId,
-        propertyId: String(propertyData?.id || id),
-        city: propertyData?.address?.city || propertyData?.public?.address?.city || "Los angeles",
-        zipCode: propertyData?.listing?.address?.zipCode || propertyData?.public?.address?.zipCode,
-        propertyAddress: propertyData?.listing?.address?.unparsedAddress || propertyData?.public?.address?.unparsedAddress || propertyData?.public?.address?.label,
-        propertyImage: propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.media?.primaryListingImageUrl,
+        propertyName: prop?.listing?.courtesyOf || prop?.public?.address?.label || "",
+        price: Number(String(prop?.listPrice || 0).replace(/[^0-9.-]+/g, "")),
+        listingId: prop?.listingId || listingId || id,
+        propertyId: String(prop?.id || id),
+        city: prop?.address?.city || prop?.public?.address?.city || "Los angeles",
+        zipCode: prop?.address?.zipCode || prop?.public?.address?.zipCode || "",
+        propertyAddress: prop?.address?.unparsedAddress || prop?.public?.address?.unparsedAddress || prop?.public?.address?.label || "",
+        propertyImage: prop?.media?.primaryListingImageUrl || "",
         userId: currentUser?.id,
         propertyProgress: 10,
-        fullAddress: propertyData?.public?.address?.label || propertyData?.listing?.address?.unparsedAddress || `${propertyData?.address?.city || ''}, USA`
+        fullAddress: prop?.public?.address?.label || prop?.address?.unparsedAddress || `${prop?.address?.city || ''}, USA`
       },
       {
         onSuccess: (response: any) => {
@@ -615,6 +618,8 @@ const PropertyPreview: React.FC = () => {
     setIsProcessingInvitation(true);
     setContactActionInProgress("invite");
 
+    const prop = transformData.prop;
+
     // Check if engagement already exists
     if (engagedProperty?.id) {
       setEngagementIdForModal(engagedProperty.id);
@@ -628,17 +633,17 @@ const PropertyPreview: React.FC = () => {
     // Create engagement first, then open modal
     propertyEngagementMutation.mutate(
       {
-        propertyName: propertyData?.listing?.courtesyOf || propertyData?.public?.address?.label,
-        price: Number(String(propertyData?.listing?.listPriceLow || propertyData?.listPrice || 0).replace(/[^0-9.-]+/g, "")),
-        listingId: propertyData?.listingId || listingId,
-        propertyId: String(propertyData?.id || id),
-        city: propertyData?.address?.city || propertyData?.public?.address?.city || "Los angeles",
-        zipCode: propertyData?.listing?.address?.zipCode || propertyData?.public?.address?.zipCode,
-        propertyAddress: propertyData?.listing?.address?.unparsedAddress || propertyData?.public?.address?.unparsedAddress || propertyData?.public?.address?.label,
-        propertyImage: propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.media?.primaryListingImageUrl,
+        propertyName: prop?.listing?.courtesyOf || prop?.public?.address?.label || "",
+        price: Number(String(prop?.listPrice || 0).replace(/[^0-9.-]+/g, "")),
+        listingId: prop?.listingId || listingId || id,
+        propertyId: String(prop?.id || id),
+        city: prop?.address?.city || prop?.public?.address?.city || "Los angeles",
+        zipCode: prop?.address?.zipCode || prop?.public?.address?.zipCode || "",
+        propertyAddress: prop?.address?.unparsedAddress || prop?.public?.address?.unparsedAddress || prop?.public?.address?.label || "",
+        propertyImage: prop?.media?.primaryListingImageUrl || "",
         userId: currentUser?.id,
         propertyProgress: 10,
-        fullAddress: propertyData?.public?.address?.label || propertyData?.listing?.address?.unparsedAddress || `${propertyData?.address?.city || ''}, USA`
+        fullAddress: prop?.public?.address?.label || prop?.address?.unparsedAddress || `${prop?.address?.city || ''}, USA`
       },
       {
         onSuccess: (response: any) => {
@@ -722,6 +727,10 @@ const PropertyPreview: React.FC = () => {
       return;
     }
 
+    const propertyAddress = transformData.prop?.address?.unparsedAddress || propertyDatas?.property_detail?.data?.propertyInfo?.address?.address || "";
+    const city = transformData.prop?.address?.city || propertyDatas?.property_detail?.data?.propertyInfo?.address?.city || "";
+    const fullAddress = transformData.prop?.address?.label || propertyDatas?.property_detail?.data?.propertyInfo?.address?.label || `${propertyAddress}, ${city}`.trim();
+
     const data = {
       agentType: currentUser?.account_type,
       userId: currentUser?.id,
@@ -730,6 +739,9 @@ const PropertyPreview: React.FC = () => {
       engagementId: engagementIdForModal,
       // threadId is now optional in the backend DTO
       ...(engagedProperty?.threadId && { threadId: engagedProperty.threadId }),
+      propertyAddress,
+      city,
+      fullAddress,
     };
 
     externalAgentIvitationMutation.mutateAsync(data, {

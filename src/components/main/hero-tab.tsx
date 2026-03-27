@@ -2311,8 +2311,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const handleSearchSubmit = async (queryToSearch: string) => {
         if (!queryToSearch.trim() || isSearching || isSearchingRef.current) return;
 
+        // Conversational messages (hi, hello, thanks…) must never trigger MLS routing — "hi"
+        // matches the Hawaii state abbreviation "HI" which fools hasStateToken().
+        const isConversationalQuery = /^(hi|hello|hey|howdy|greetings|good\s+(morning|afternoon|evening)|thanks?|thank\s+you|ok|okay|sure|awesome|great|cool)$/i.test(queryToSearch.trim());
+
         // Auto-route: MLS-style queries go to browse results, natural-language stays in AI chat.
-        let allowMlsRoute = !pendingLocationImage;
+        let allowMlsRoute = !pendingLocationImage && !isConversationalQuery;
         if (allowMlsRoute) {
             const trimmedQuery = normalizeLocationInput(queryToSearch);
             if (!hasLikelyMlsIdentifier(trimmedQuery)) {
@@ -2503,6 +2507,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 query: queryToSearch,
                 session_id: activeSessionId,
                 from_browse: false,
+                user_name: user?.firstname || undefined,
+                user_local_hour: new Date().getHours(),
             }, newController.signal);
 
             console.log("Backend Response:", responseData);

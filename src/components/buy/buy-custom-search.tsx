@@ -717,6 +717,8 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
           session_id: sessionId || undefined,
           from_browse: true,
           use_cache: true,
+          user_name: user?.firstname || undefined,
+          user_local_hour: new Date().getHours(),
         }
       );
       const searchType = isMlsBypassModeEnabled() ? 'mls' : 'property';
@@ -770,10 +772,28 @@ const BuyCustomSearch = ({ hideInMap = false }: { hideInMap?: boolean }) => {
       e.preventDefault();
       const normalizedQuery = (searchString || '').trim();
       if (!normalizedQuery) return;
-      // Prevent the searchParams effect from firing the same search again after router.push.
-      lastAutoSearchRef.current = normalizedQuery;
-      router.push(`/buy/browse?q=${encodeURIComponent(normalizedQuery)}`);
-      await sendSearchRequest(normalizedQuery)
+
+      // Detect POSITIVE property-search signals rather than maintaining a
+      // fragile greeting whitelist. If none of these signals are present the
+      // message is treated as conversational and handled inline by the AI.
+      // This correctly handles "hiiii", "yo", "heyyy whats up", any casual
+      // phrasing — all without any hardcoded word lists.
+      const hasPropertySignal = (
+        /\b(home|homes|house|houses|condo|condos|apartment|apartments|property|properties|listing|listings|townhouse|duplex)\b/i.test(normalizedQuery) ||
+        /\$[\d,]+|\b\d+[kKmM]\b|\b(under|over|below|above|between|around)\s+\$?\d/i.test(normalizedQuery) ||
+        /\b\d+\s*(bed|bath|br|ba|bedroom|bathroom)s?\b/i.test(normalizedQuery) ||
+        /\bin\s+[A-Z][a-z]/.test(normalizedQuery) ||         // "in Austin", "in New York"
+        /\b[A-Z][a-z]+,?\s+[A-Z]{2}\b/.test(normalizedQuery) // "Austin, TX" / "Austin TX"
+      );
+
+      if (hasPropertySignal) {
+        // Property search: navigate to browse — useEffect picks up ?q= and fires request
+        lastAutoSearchRef.current = normalizedQuery;
+        router.push(`/buy/browse?q=${encodeURIComponent(normalizedQuery)}`);
+      } else {
+        // Conversational message or question: handle inline via AI, no navigation
+        await sendSearchRequest(normalizedQuery);
+      }
     },
     [router, filterData, searchString, searchTerm],
   );

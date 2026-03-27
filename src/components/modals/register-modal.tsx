@@ -211,8 +211,10 @@ export default function RegisterModal({
             </div>
             <Button
               onClick={navigateUser}
-              className='h-12 w-full text-lg font-bold text-white'
-              disabled={isLoading}
+              className={`h-12 w-full text-lg font-bold text-white transition-all ${
+                !activeUserType ? 'cursor-not-allowed opacity-50' : 'opacity-100'
+              }`}
+              disabled={isLoading || !activeUserType}
             >
               Continue
             </Button>

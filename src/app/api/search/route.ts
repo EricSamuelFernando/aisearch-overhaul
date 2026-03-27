@@ -10,6 +10,7 @@ export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
         console.log('[Proxy /api/search] → upstream:', AI_BACKEND, '| query:', body?.query);
+        const userId = req.headers.get('x-user-id') || body?.userid;
 
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 90_000); // 90s max
@@ -19,6 +20,7 @@ export async function POST(req: NextRequest) {
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
+                ...(userId ? { 'x-user-id': userId } : {}),
             },
             body: JSON.stringify(body),
             signal: controller.signal,
@@ -46,7 +48,7 @@ export async function OPTIONS() {
         headers: {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-user-id',
         },
     });
 }

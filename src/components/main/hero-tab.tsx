@@ -2060,14 +2060,15 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     }, [pendingImage]);
 
     useEffect(() => {
-        if (!isSearching || !sessionId) return;
+        const sessionForThinking = activeSessionId;
+        if (!isSearching || !sessionForThinking) return;
 
         let cancelled = false;
         let intervalId: ReturnType<typeof setInterval> | null = null;
 
         const pollThinking = async () => {
             try {
-                const progress: ThinkingProgressResponse = await fetchThinkingProgress(sessionId);
+                const progress: ThinkingProgressResponse = await fetchThinkingProgress(sessionForThinking);
                 if (cancelled) return;
                 if (Array.isArray(progress?.steps) && progress.steps.length > 0) {
                     setThinkingSteps(progress?.steps as any);
@@ -2087,7 +2088,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             cancelled = true;
             if (intervalId) clearInterval(intervalId);
         };
-    }, [isSearching, sessionId]);
+    }, [isSearching, activeSessionId]);
 
     // Auto-scroll to bottom when conversation updates.
     useEffect(() => {

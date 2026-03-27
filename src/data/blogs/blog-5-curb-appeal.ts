@@ -11,7 +11,7 @@ const blog5CurbAppeal: Article = {
 
     <p>Curb appeal is more than just making your house look pretty. From a capital-markets perspective, it's about maximizing return on investment (ROI). These small, quick projects are some of the highest-leverage activities a homeowner can undertake. A few hundred dollars and a weekend of work can translate into thousands of dollars in perceived value. Strong curb appeal signals to a potential buyer that the home has been well-maintained — subtly communicating that if the outside is this well cared for, the inside is likely in good shape too.</p>
 
-    <p>This guide is designed for fast, high-impact projects you can complete in a single weekend. We'll break down the ten most effective ideas, complete with material lists, step-by-step plans, and realistic cost estimates. Before you begin, visit <a href="https://www.snaphomz.com" target="_blank">snaphomz.com</a> to see how these small changes can impact your home's estimated value in the broader market.</p>
+    <p>This guide is designed for fast, high-impact projects you can complete in a single weekend. We'll break down the ten most effective ideas, complete with material lists, step-by-step plans, and realistic cost estimates. Before you begin, visit <a href="https://www.snaphomz.com" target="_blank" rel="noopener noreferrer">snaphomz.com</a> to see how these small changes can impact your home's estimated value in the broader market.</p>
 
     <h2 id="weekend-prep">Quick Weekend Prep: Tools, Safety, and a Simple Plan</h2>
     <p>A successful weekend project starts with a solid five-minute plan on Friday night. Walk the perimeter of your property with a critical eye. What are the three things that jump out as tired or messy? Is it the faded shutters, the weedy flower beds, or the grimy siding? Prioritize your attack based on what will make the biggest visual impact for the least amount of effort.</p>
@@ -51,7 +51,7 @@ const blog5CurbAppeal: Article = {
       <li>New house numbers (~$20–60)</li>
       <li>Screwdriver/drill, measuring tape</li>
     </ul>
-    <p><strong>Cost vs. Value:</strong> As little as $75. Sleek new hardware communicates quality and attention to detail. If you're planning to sell, manage your disclosures at <a href="https://snapdisclosures.snaphomz.com/" target="_blank">snapdisclosures.snaphomz.com</a>.</p>
+    <p><strong>Cost vs. Value:</strong> As little as $75. Sleek new hardware communicates quality and attention to detail. If you're planning to sell, manage your disclosures at <a href="https://snapdisclosures.snaphomz.com/" target="_blank" rel="noopener noreferrer">snapdisclosures.snaphomz.com</a>.</p>
 
     <h2 id="idea-4">Idea 4: Add or Improve Exterior Lighting</h2>
     <p>Good lighting makes a home feel safe, warm, and welcoming. Replace dated porch lights and sconces, and add solar-powered pathway lights for extra ambiance.</p>
@@ -112,7 +112,7 @@ const blog5CurbAppeal: Article = {
       <li>Small outdoor bench or chair (optional)</li>
       <li>Decorative wreath</li>
     </ul>
-    <p><strong>Cost vs. Value:</strong> Under $100 for a magazine-ready entryway. It helps a buyer connect with the home on a personal level. For homeowners weighing their options, model your rent vs. buy decision at <a href="https://rentvsbuy.snaphomz.com/" target="_blank">rentvsbuy.snaphomz.com</a>.</p>
+    <p><strong>Cost vs. Value:</strong> Under $100 for a magazine-ready entryway. It helps a buyer connect with the home on a personal level. For homeowners weighing their options, model your rent vs. buy decision at <a href="https://rentvsbuy.snaphomz.com/" target="_blank" rel="noopener noreferrer">rentvsbuy.snaphomz.com</a>.</p>
 
     <h2 id="faqs">FAQs</h2>
 
@@ -126,7 +126,7 @@ const blog5CurbAppeal: Article = {
     <p>No. None of the 10 ideas listed here typically requires a permit — they are considered cosmetic maintenance.</p>
 
     <h3>4. What if I'm not a DIY person?</h3>
-    <p>You can hire a handyman or landscaper to tackle most of these tasks in 1–2 days. Consider a final quality check at <a href="https://snapaudit.snaphomz.com/" target="_blank">snapaudit.snaphomz.com</a> to ensure the work meets your standards.</p>
+    <p>You can hire a handyman or landscaper to tackle most of these tasks in 1–2 days. Consider a final quality check at <a href="https://snapaudit.snaphomz.com/" target="_blank" rel="noopener noreferrer">snapaudit.snaphomz.com</a> to ensure the work meets your standards.</p>
 
     <h3>5. How do I choose a front door color?</h3>
     <p>Look at your home's fixed elements — roof and brick color. A bold color like navy, black, or deep red is classic. For a modern touch, consider charcoal gray or vibrant teal. Always test paint samples first.</p>
@@ -138,8 +138,8 @@ const blog5CurbAppeal: Article = {
     <p>Spring and fall are ideal for planting and painting due to moderate temperatures. However, pressure washing, hardware updates, and decluttering can be done any time of year.</p>
 
     <h2 id="conclusion">Conclusion and Next Steps</h2>
-    <p>Improving your home's curb appeal doesn't require a massive budget or a team of contractors. A single weekend and a focused plan can completely transform your home's first impression, boosting its perceived value and your own sense of pride. For more inspiration and to see how these upgrades can affect your home's value, visit <a href="https://www.snaphomz.com" target="_blank">snaphomz.com</a>.</p>
-    <p>Pick just one project from this list — like painting your front door or adding potted plants — and complete it this weekend. If you're considering selling, get a clear financial picture at <a href="https://preapproval.snaphomz.com/" target="_blank">preapproval.snaphomz.com</a>.</p>
+    <p>Improving your home's curb appeal doesn't require a massive budget or a team of contractors. A single weekend and a focused plan can completely transform your home's first impression, boosting its perceived value and your own sense of pride. For more inspiration and to see how these upgrades can affect your home's value, visit <a href="https://www.snaphomz.com" target="_blank" rel="noopener noreferrer">snaphomz.com</a>.</p>
+    <p>Pick just one project from this list — like painting your front door or adding potted plants — and complete it this weekend. If you're considering selling, get a clear financial picture at <a href="https://preapproval.snaphomz.com/" target="_blank" rel="noopener noreferrer">preapproval.snaphomz.com</a>.</p>
 
     <p><strong>Disclaimer:</strong> The content published on this blog represents the personal opinions and perspectives of the individual authors and is provided for general informational purposes only. Snaphomz does not independently verify the accuracy or completeness of any statements presented. This content should not be construed as legal, financial, real estate, or professional advice. Readers are encouraged to conduct their own independent research and consult qualified professionals before making any decisions based on the information provided.</p>
   `,

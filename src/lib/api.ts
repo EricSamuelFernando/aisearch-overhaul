@@ -40,6 +40,8 @@ export type SearchPayload = {
     use_cache?: boolean | null;
     system_prompt?: string | null;
     assistant_mode?: string | null;
+    user_name?: string | null
+    user_local_hour?: number
 };
 
 export type RentVsBuyPayload = {

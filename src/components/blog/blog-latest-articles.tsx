@@ -2,9 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { ArrowUpRight, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowUpRight } from 'lucide-react';
 
 
 interface Article {
@@ -33,7 +31,6 @@ const articles: Article[] = [
     date: '24 Jan 2024',
     readTime: '8 min read',
     tags: ['This is a Tag', 'This is a Tag', 'This is a Tag'],
-
   },
   {
     id: '2',
@@ -46,28 +43,103 @@ const articles: Article[] = [
     date: '22 Jan 2024',
     readTime: '8 min read',
     tags: ['This is a Tag', 'This is a Tag', 'This is a Tag'],
-
   },
-  // {
-  //   id: '3',
-  //   title: 'Understanding Property Valuation: A Complete Guide',
-  //   excerpt: 'Learn how properties are valued, what factors influence pricing, and how to ensure you get the best deal when buying or selling.',
-  //   image: '/assets/images/rightside-blog-img.jpg',
-  //   category: 'Tips & Advice',
-  //   author: 'Sarah Williams',
-  //   authorImage: '/assets/images/leftside-blog-img.png',
-  //   date: '20 Jan 2024',
-  // },
-  // {
-  //   id: '4',
-  //   title: 'The Future of Smart Homes in Nigeria',
-  //   excerpt: 'Explore how smart home technology is reshaping the Nigerian real estate market and what buyers should consider.',
-  //   image: '/assets/images/leftside-blog-img.png',
-  //   category: 'Market Trends',
-  //   author: 'Michael Brown',
-  //   authorImage: '/assets/images/rightside-blog-img.jpg',
-  //   date: '18 Jan 2024',
-  // },
+  {
+    id: '10-quick-curb-appeal-ideas-you-can-do-in-a-weekend-or-less',
+    title: '10 Quick Curb Appeal Ideas You Can Do in a Weekend or Less',
+    excerpt: 'Boost curb appeal fast with 10 easy weekend upgrades that improve first impressions, increase home value, and attract more buyers instantly.',
+    image: '/assets/images/Blogs/Blog 3/281-1.jpeg',
+    category: 'Tips & Advice',
+    author: 'Nrupen Mandava',
+    authorImage: '/assets/images/Blogs/Profile/ChatGPT Image Mar 25, 2026, 10_58_30 AM.png',
+    date: '27 Mar 2026',
+    readTime: '10 min read',
+    tags: ['Curb Appeal', 'Home Improvement', 'Weekend Project', 'Selling Tips'],
+  },
+  {
+    id: 'curb-appeal-on-autopilot-smart-sprinkler-systems-and-property-value',
+    title: 'Curb Appeal on Autopilot: Smart Sprinkler Systems and Property Value',
+    excerpt: 'Boost curb appeal with smart sprinklers. Compare Rachio, Orbit, and more. Learn how lawn care impacts property value in top school districts in 2026.',
+    image: '/assets/images/Blogs/Blog 5/279-2.jpeg',
+    category: 'Tips & Advice',
+    author: 'Nrupen Mandava',
+    authorImage: '/assets/images/Blogs/Profile/ChatGPT Image Mar 25, 2026, 10_58_30 AM.png',
+    date: '26 Mar 2026',
+    readTime: '10 min read',
+    tags: ['Smart Sprinklers', 'Curb Appeal', 'Property Value', 'Water Conservation'],
+  },
+  {
+    id: 'hvac-strategy-investing-in-air-quality-and-cooling-efficiency-for-2026',
+    title: 'HVAC Strategy: Investing in Air Quality and Cooling Efficiency for 2026',
+    excerpt: 'Is your HVAC ready for 2026? Compare Carrier, Trane, and Mitsubishi. Learn about SEER2 ratings and how HVAC history affects home value today.',
+    image: '/assets/images/Blogs/Blog 4/280-3.jpeg',
+    category: 'Tips & Advice',
+    author: 'Nrupen Mandava',
+    authorImage: '/assets/images/Blogs/Profile/ChatGPT Image Mar 25, 2026, 10_58_30 AM.png',
+    date: '25 Mar 2026',
+    readTime: '10 min read',
+    tags: ['HVAC', 'Air Quality', 'Energy Efficiency', 'Home Value'],
+  },
+  {
+    id: 'the-2026-bbq-strategy-gas-pellet-or-charcoal-which-grill-wins-the-tco-game',
+    title: 'The 2026 BBQ Strategy: Gas, Pellet, or Charcoal — Which Grill Wins the TCO Game?',
+    excerpt: 'Which grill wins the Total Cost of Ownership? Compare Weber, Traeger, and Big Green Egg to find the best BBQ investment for your 2026 outdoor kitchen.',
+    image: '/assets/images/Blogs/Blog 2/283-1.png',
+    category: 'Tips & Advice',
+    author: 'Nrupen Mandava',
+    authorImage: '/assets/images/Blogs/Profile/ChatGPT Image Mar 25, 2026, 10_58_30 AM.png',
+    date: '24 Mar 2026',
+    readTime: '10 min read',
+    tags: ['BBQ', 'Outdoor Kitchen', 'Home Upgrades', 'TCO'],
+  },
+  {
+    id: 'refrigerators-in-2026-more-than-cooling-predicting-your-food-and-energy-burn',
+    title: 'Refrigerators in 2026: More Than Cooling — Predicting Your Food & Energy Burn',
+    excerpt: 'Compare Samsung, Sub-Zero, and more in our 2026 refrigerator guide. Learn how energy efficiency and smart tech affect home value and total cost of ownership.',
+    image: '/assets/images/Blogs/Blog 8/T3.jpeg',
+    category: 'Tips & Advice',
+    author: 'Nrupen Mandava',
+    authorImage: '/assets/images/Blogs/Profile/ChatGPT Image Mar 25, 2026, 10_58_30 AM.png',
+    date: '23 Mar 2026',
+    readTime: '10 min read',
+    tags: ['Refrigerators', 'Smart Kitchen', 'Energy Efficiency', 'Home Value'],
+  },
+  {
+    id: 'standalone-freezers-the-secret-weapon-for-lowering-your-monthly-food-overhead',
+    title: 'Standalone Freezers: The Secret Weapon for Lowering Your Monthly Food Overhead',
+    excerpt: 'Discover how a standalone freezer lowers your monthly food overhead. We compare Danby, GE, and more, analyzing energy costs vs. bulk buying savings.',
+    image: '/assets/images/Blogs/Blog 7/277-1.jpeg',
+    category: 'Tips & Advice',
+    author: 'Nrupen Mandava',
+    authorImage: '/assets/images/Blogs/Profile/ChatGPT Image Mar 25, 2026, 10_58_30 AM.png',
+    date: '22 Mar 2026',
+    readTime: '10 min read',
+    tags: ['Standalone Freezers', 'Bulk Buying', 'Food Savings', 'Home Efficiency'],
+  },
+  {
+    id: 'water-heater-tco-why-tankless-is-the-2026-standard-for-smart-buyers',
+    title: 'Water Heater TCO: Why Tankless is the 2026 Standard for Smart Buyers',
+    excerpt: 'Is a tankless water heater right for you? Compare Rheem, Rinnai, and others. Learn how gas lines, heat pumps, and efficiency affect TCO in 2026 now!',
+    image: '/assets/images/Blogs/Blog 6/278-2.jpeg',
+    category: 'Tips & Advice',
+    author: 'Nrupen Mandava',
+    authorImage: '/assets/images/Blogs/Profile/ChatGPT Image Mar 25, 2026, 10_58_30 AM.png',
+    date: '21 Mar 2026',
+    readTime: '10 min read',
+    tags: ['Water Heater', 'Tankless', 'Home Efficiency', 'TCO'],
+  },
+  {
+    id: 'speed-ovens-vs-microwaves-the-professional-kitchen-upgrade-you-didnt-know-you-needed',
+    title: 'Speed Ovens vs. Microwaves: The Professional Kitchen Upgrade You Didn\'t Know You Needed',
+    excerpt: 'Is a speed oven worth it? Compare Bosch, Monogram, and more to standard microwaves to see if the $1,500 upgrade pays off in 2026 kitchens.',
+    image: '/assets/images/Blogs/Blog 1/73-3.png',
+    category: 'Tips & Advice',
+    author: 'Nrupen Mandava',
+    authorImage: '/assets/images/Blogs/Profile/ChatGPT Image Mar 25, 2026, 10_58_30 AM.png',
+    date: '20 Mar 2026',
+    readTime: '10 min read',
+    tags: ['Kitchen Upgrades', 'Speed Oven', 'Home Value', 'Smart Appliances'],
+  },
 ];
 
 export default function BlogLatestArticles({
@@ -75,55 +147,15 @@ export default function BlogLatestArticles({
 }: {
   variant?: 'default' | 'detailed';
 }) {
-
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const itemsPerPage = 2;
-  const totalPages = Math.ceil(articles.length / itemsPerPage);
-
-  const nextSlide = () => {
-    setCurrentIndex((prev) => (prev + 1) % totalPages);
-  };
-
-  const prevSlide = () => {
-    setCurrentIndex((prev) => (prev - 1 + totalPages) % totalPages);
-  };
-
-  const visibleArticles = articles.slice(
-    currentIndex * itemsPerPage,
-    (currentIndex + 1) * itemsPerPage
-  );
-
   return (
     <section className="py-16 px-4 md:px-10 bg-[#FFF6EC]">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-12">
-          <h2 className="mt-3 text-2xl md:text-4xl lg:text-4xl font-semibold text-[#1B1B1B] leading-tight">
-            Agent Edge
-          </h2>
-          {/* <div className="flex gap-2">
-            <button
-              onClick={prevSlide}
-              className="p-2 rounded-full bg-white hover:bg-gray-100 transition-colors"
-              aria-label="Previous"
-            >
-              <ChevronLeft className="w-6 h-6" />
-            </button>
-            <button
-              onClick={nextSlide}
-              className="p-2 rounded-full bg-white hover:bg-gray-100 transition-colors"
-              aria-label="Next"
-            >
-              <ChevronRight className="w-6 h-6" />
-            </button>
-          </div> */}
-        </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {visibleArticles.map((article) => (
+          {articles.map((article) => (
             <Link
               key={article.id}
               href={`/blog/${article.id}`}
-              className="group rounded-2xl overflow-hidden max-w-xl"
+              className={`group rounded-2xl overflow-hidden max-w-xl ${article.id === '1' || article.id === '2' ? 'hidden' : ''}`}
             >
               {/* Image */}
               <div className="relative w-full h-[360px] rounded-2xl overflow-hidden">
@@ -159,7 +191,7 @@ export default function BlogLatestArticles({
                   <h2 className="text-2xl font-semibold text-[#1B1B1B] leading-snug">
                     {article.title}
                   </h2>
-                  <ArrowUpRight className="w-5 h-5 text-[#1B1B1B]" />
+                  <ArrowUpRight className="w-6 h-6 shrink-0 text-[#1B1B1B]" />
                 </div>
 
                 {/* Excerpt */}
@@ -215,5 +247,3 @@ export default function BlogLatestArticles({
     </section>
   );
 }
-
-

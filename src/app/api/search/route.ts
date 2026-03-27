@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
         console.log('[Proxy /api/search] → upstream:', AI_BACKEND, '| query:', body?.query);
 
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 90_000); // 90s max
+        const timeout = setTimeout(() => controller.abort(), 180_000); // 180s max
 
         const upstream = await fetch(`${AI_BACKEND}/api/search`, {
             method: 'POST',
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(data, { status: upstream.status });
     } catch (err: any) {
         if (err?.name === 'AbortError') {
-            console.error('[Proxy /api/search] Upstream timed out after 90s');
+            console.error('[Proxy /api/search] Upstream timed out after 180s');
             return NextResponse.json({ error: 'Search timed out. The AI backend took too long to respond.' }, { status: 504 });
         }
         console.error('[Proxy /api/search] Error:', err?.message);

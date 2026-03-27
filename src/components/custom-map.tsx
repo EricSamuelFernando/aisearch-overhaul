@@ -3253,6 +3253,9 @@ type Props = {
   clearDrawSignal?: number;
   useOverlayResultsRail?: boolean;
   hideControls?: boolean;
+  /** AI-driven POI categories. When this prop changes, the map syncs its
+   *  active category keys to match. Valid values: 'restaurants' | 'gyms' | 'hospitals' | 'parks' */
+  externalActivePOICategories?: string[];
 };
 
 const DEFAULT_COORD = { lat: 36.778, lng: -119.417 };
@@ -3334,6 +3337,7 @@ const CustomMap: React.FC<Props> = ({
   clearDrawSignal = 0,
   useOverlayResultsRail = false,
   hideControls = false,
+  externalActivePOICategories,
 }) => {
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
@@ -5782,6 +5786,25 @@ const CustomMap: React.FC<Props> = ({
       return next;
     });
   }, [clearCategoryMarkers, quickCategories, runTextSearch]);
+
+  // Sync AI-driven POI categories from parent prop
+  useEffect(() => {
+    if (!externalActivePOICategories || !isLoaded || !mapInstance) return;
+    const validKeys = Object.keys(quickCategories) as Array<keyof typeof quickCategories>;
+    // Enable keys present in prop but not yet active
+    externalActivePOICategories.forEach((key) => {
+      if (validKeys.includes(key as keyof typeof quickCategories) && !activeCategoryKeys.includes(key)) {
+        toggleExploreCategory(key as keyof typeof quickCategories);
+      }
+    });
+    // Disable keys active internally but removed from prop
+    activeCategoryKeys.forEach((key) => {
+      if (!externalActivePOICategories.includes(key)) {
+        toggleExploreCategory(key as keyof typeof quickCategories);
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalActivePOICategories]);
 
   useEffect(() => {
     return () => {

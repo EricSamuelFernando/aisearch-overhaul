@@ -131,7 +131,15 @@ export async function searchProperties(payload: SearchPayload, signal?: AbortSig
     });
 
     if (!res.ok) {
-        throw new Error("Backend request failed");
+        const errorBody = await res.json().catch(() => null);
+        // Backend sometimes returns a non-200 status but still includes valid data.
+        // Use it rather than discarding it.
+        if (errorBody?.properties || errorBody?.final_response) {
+            console.warn('[API] Non-200 response but usable data found, status:', res.status);
+            return errorBody;
+        }
+        console.error('[API] Search failed:', res.status, errorBody);
+        throw new Error(errorBody?.error || `Backend request failed (${res.status})`);
     }
 
     const data = await res.json();

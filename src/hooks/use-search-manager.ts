@@ -95,15 +95,24 @@ export const useSearchManager = () => {
                     ? MLS_SEARCH_LIVE_URL
                     : (PROPERTY_SEARCH_AI_URL || 'http://13.60.114.186:9000/api/search');
 
-                const response = await axios.post(searchUrl, {
-                    ...activeSearchFilters,
-                    ...body, // Overrides from manual filters
-                    userid: userId,
-                    session_id: sessionId,
-                    query: query || body?.query || undefined,
-                    use_cache: true,
-                    from_browse: true,
-                });
+                const response = await axios.post(
+                    searchUrl,
+                    {
+                        ...activeSearchFilters,
+                        ...body, // Overrides from manual filters
+                        userid: userId,
+                        session_id: sessionId,
+                        query: query || body?.query || undefined,
+                        use_cache: false,
+                        from_browse: true,
+                    },
+                    {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(userId ? { 'x-user-id': userId } : {}),
+                        },
+                    }
+                );
 
                 const data = response?.data;
                 const newProperties = data?.properties || data?.records || data?.result?.records;

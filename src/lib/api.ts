@@ -90,6 +90,7 @@ export async function searchProperties(payload: SearchPayload, signal?: AbortSig
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
                 ...getAuthHeaders(),
+                ...(payload.userid ? { 'x-user-id': payload.userid } : {}),
             },
             body: JSON.stringify(payload),
             signal,
@@ -112,12 +113,14 @@ export async function searchProperties(payload: SearchPayload, signal?: AbortSig
 
     // Use the local Next.js proxy to bypass CORS (hits our src/app/api/search/route.ts)
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const userIdHeader = payload.userid;
     const res = await fetch(`${baseUrl}/api/search`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
             "Accept": "application/json",
             ...getAuthHeaders(),
+            ...(userIdHeader ? { "x-user-id": userIdHeader } : {}),
         },
         body: JSON.stringify({
             ...payload,
@@ -125,7 +128,7 @@ export async function searchProperties(payload: SearchPayload, signal?: AbortSig
             query: payload.query,
             session_id: payload.session_id,
             from_browse: payload.from_browse ?? false,
-            use_cache: payload.use_cache ?? true,
+            use_cache: payload.use_cache ?? false,
         }),
         signal,
     });

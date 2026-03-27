@@ -1201,6 +1201,15 @@ body {
   display: none !important;
 }
 
+/* Homepage: force wider expanded AI chat shell (overrides breakpoint caps). */
+.home-hero .home-hero-search-wrap.home-hero-search-wrap--expanded {
+  max-width: min(96vw, 68rem) !important;
+}
+
+.home-hero-shell.home-hero-shell--expanded {
+  justify-content: flex-start !important;
+}
+
 /* Fix: Sonner toast and its container are positioned top-right, overlapping
    the navbar buttons. Since all toasts are informational (no close/action buttons),
    make the entire toaster area non-interactive so clicks pass through to the navbar. */
@@ -2349,6 +2358,10 @@ input:-webkit-autofill {
 
 .home-hero-search-wrap--expanded {
   max-width: min(100%, 42rem) !important;
+}
+
+.home-hero-shell--expanded {
+  justify-content: flex-start !important;
 }
 
 @media (max-width: 767px) {

@@ -1,5 +1,15 @@
 import { getAuthToken } from '@/lib/storage';
 
+export interface CounterOfferData {
+  threadId: string;
+  userId: string;
+  receiverId?: string;
+  tierId: string;
+  tierName: string;
+  offeredCommission: number;
+  message?: string;
+}
+
 export interface WebSocketClient {
   id: string | null;
   connected: boolean;
@@ -14,6 +24,9 @@ export interface WebSocketClient {
   joinRoom(roomId: string): void;
   leaveRoom(roomId: string): void;
   ping(): void;
+  // Negotiation methods
+  sendCounterOffer(data: CounterOfferData): void;
+  closeChat(threadId: string, userId: string): void;
 }
 
 export interface CreateRoomData {
@@ -272,7 +285,7 @@ export class WebSocketClientImpl implements WebSocketClient {
       'save_messages',
       'save_file',
       'typing',
-      'recievedMessage'
+      'recievedMessage',
     ];
 
     if (unsupportedEvents.includes(event)) {
@@ -404,6 +417,24 @@ export class WebSocketClientImpl implements WebSocketClient {
     userType?: string;
   }): void {
     this.emit('addComment', commentData);
+  }
+
+  sendCounterOffer(data: CounterOfferData): void {
+    if (!data?.threadId || !data?.userId || !data?.tierId || data?.offeredCommission == null) {
+      console.error('[WebSocket] sendCounterOffer called with invalid data:', data);
+      return;
+    }
+    console.log('[WebSocket] Sending counter-offer:', data);
+    this.emit('send_counter_offer', data);
+  }
+
+  closeChat(threadId: string, userId: string): void {
+    if (!threadId || !userId) {
+      console.error('[WebSocket] closeChat called with invalid args:', { threadId, userId });
+      return;
+    }
+    console.log('[WebSocket] Closing chat for thread:', threadId);
+    this.emit('close_chat', { threadId, userId });
   }
 
   // Connection status methods

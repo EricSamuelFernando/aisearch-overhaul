@@ -5022,8 +5022,11 @@ const CustomMap: React.FC<Props> = ({
         searchPlaceBoundsRef.current = null;
         return;
       }
-      if (geometry.viewport) {
-        searchPlaceBoundsRef.current = geometry.viewport;
+      // Prefer bounds (full place extent) over viewport (recommended crop) so
+      // boundary filtering and map centering cover the entire place polygon.
+      const targetBounds = (geometry as any).bounds ?? geometry.viewport;
+      if (targetBounds) {
+        searchPlaceBoundsRef.current = targetBounds;
         return;
       }
       const location = geometry.location;
@@ -5743,6 +5746,13 @@ const CustomMap: React.FC<Props> = ({
         ({ lat, lng }) => typeof lat === 'number' && typeof lng === 'number' && isFinite(lat) && isFinite(lng),
       );
       if (validMarkers.length === 0) return;
+      // If a city/place boundary is active, always fit to the place bounds so
+      // the full boundary polygon stays visible after markers load.
+      if (selectedPlaceId && searchPlaceBoundsRef.current) {
+        mapInstance.fitBounds(searchPlaceBoundsRef.current, 60);
+        lastAutoFitQueryRef.current = currentQueryKey;
+        return;
+      }
       if (validMarkers.length === 1) {
         const { lat, lng } = validMarkers[0];
         mapInstance.setCenter({ lat, lng });
@@ -5754,7 +5764,7 @@ const CustomMap: React.FC<Props> = ({
       }
       lastAutoFitQueryRef.current = currentQueryKey;
     }
-  }, [mapInstance, markers, zoom, drawMode, hasActiveDrawPolygon, searchQuery, useOverlayResultsRail]);
+  }, [mapInstance, markers, zoom, drawMode, hasActiveDrawPolygon, searchQuery, useOverlayResultsRail, selectedPlaceId]);
 
   const submitExploreSearch = useCallback(() => {
     const query = exploreSearchInput.trim();

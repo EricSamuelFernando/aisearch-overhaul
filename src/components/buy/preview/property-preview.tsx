@@ -34,7 +34,7 @@ import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypas
 import { useSelector } from 'react-redux';
 import CategorizedPhotosModal from '../CategorizedPhotosModal'; // Import the new modal
 import PropertyDetailsCard from '../propertyDetailsCard';
-import { BookmarkCheck, ChevronDown, ChevronUp, Info, Search, Loader2, X, Star, ArrowRight } from 'lucide-react';
+import { BookmarkCheck, ChevronDown, ChevronUp, Info, Loader2, Mail, Star, ArrowRight } from 'lucide-react';
 import { EstimatedMarketValue } from '../preview-hero/EstimatedMarketValue';
 import HomeHighlights from '../preview-hero/HomeHighlights';
 import SchoolsNearAddress from '../preview-hero/SchoolsNearAddress';
@@ -267,7 +267,6 @@ const PropertyPreview: React.FC = () => {
   const propertyId = searchParams.get('propertyId') || "";
   const listingId = searchParams.get('listingId') || "";
   const mostRecentStatus = searchParams.get('mostRecentStatus') || ""
-  const initialPreviewQuery = searchParams.get('q') || [city, province].filter(Boolean).join(', ');
   const { getSingleProperty: { isFetching } } = useGetSingleProperty(id!);
   const propertyData = useSelector((state: any) => state.property.property)
   const engagedProperty = useSelector((state: any) => state.property.engagedProperty);
@@ -307,8 +306,6 @@ const PropertyPreview: React.FC = () => {
     () => normalizeAuthServiceRestBaseUrl(process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL),
     []
   );
-  const [previewSearchValue, setPreviewSearchValue] = React.useState(initialPreviewQuery);
-  const [previewIsMlsMode, setPreviewIsMlsMode] = React.useState(false);
 
   // Neo4j schools API integration
   const [nearbySchools, setNearbySchools] = React.useState<any[]>([]);
@@ -328,6 +325,7 @@ const PropertyPreview: React.FC = () => {
   const [collegeReadinessData, setCollegeReadinessData] = React.useState<any>(null);
   const [collegeReadinessLoading, setCollegeReadinessLoading] = React.useState(false);
 
+
   const handleAskAIQuery = (query: string) => {
     if (!query.trim()) return;
 
@@ -345,40 +343,6 @@ const PropertyPreview: React.FC = () => {
     });
   };
 
-  React.useEffect(() => {
-    setPreviewIsMlsMode(isMlsBypassModeEnabled());
-
-    const handleBypassChange = (event: Event) => {
-      const customEvent = event as CustomEvent<boolean>;
-      if (typeof customEvent.detail === 'boolean') {
-        setPreviewIsMlsMode(customEvent.detail);
-        return;
-      }
-      setPreviewIsMlsMode(isMlsBypassModeEnabled());
-    };
-
-    window.addEventListener('snaphomz:mls-bypass-changed', handleBypassChange as EventListener);
-    return () => {
-      window.removeEventListener('snaphomz:mls-bypass-changed', handleBypassChange as EventListener);
-    };
-  }, []);
-
-  React.useEffect(() => {
-    setPreviewSearchValue(initialPreviewQuery);
-  }, [initialPreviewQuery]);
-
-  const togglePreviewSearchMode = React.useCallback(() => {
-    const next = !previewIsMlsMode;
-    setMlsBypassModeEnabled(next);
-    setPreviewIsMlsMode(next);
-  }, [previewIsMlsMode]);
-
-  const handlePreviewSearchSubmit = React.useCallback((e: React.FormEvent) => {
-    e.preventDefault();
-    const nextQuery = previewSearchValue.trim();
-    if (!nextQuery) return;
-    router.push(`/buy/browse?q=${encodeURIComponent(nextQuery)}`);
-  }, [previewSearchValue, router]);
 
   React.useEffect(() => {
     if (id) {
@@ -1950,11 +1914,15 @@ const PropertyPreview: React.FC = () => {
             ? { section: 'schools', scrollId: 'schools' }
             : hash === '#forecast'
               ? { section: 'interest', scrollId: 'forecast' }
-              : null;
+              : hash === '#comparables'
+                ? { section: null, scrollId: 'comparables' }
+                : null;
 
     if (!target) return;
 
-    setOpenSection(target.section);
+    if (target.section) {
+      setOpenSection(target.section);
+    }
 
     // After the accordion opens, scroll to the content area for that section.
     // Wait 400ms to ensure the duration-300 accordion expansion animation completes
@@ -1963,7 +1931,7 @@ const PropertyPreview: React.FC = () => {
         const el = document.getElementById(target.scrollId);
         if (!el) return;
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 400);
+      }, target.section ? 400 : 0);
     });
   }, []);
 
@@ -2116,7 +2084,6 @@ const PropertyPreview: React.FC = () => {
       openSectionForHash(window.location.hash);
     };
 
-    handleHashChange();
     window.addEventListener('hashchange', handleHashChange);
     const handlePreviewNav = (event: Event) => {
       const customEvent = event as CustomEvent<string>;
@@ -2145,70 +2112,6 @@ const PropertyPreview: React.FC = () => {
     <div>
       <ItemNav cardRef={cardRef} />
       <div className='mt-14 sm:mt-12 md:mt-12 lg:mt-14' />
-      <div className="mx-auto mb-4 w-full max-w-7xl px-2 sm:px-4 md:px-6 lg:px-0">
-        <form onSubmit={handlePreviewSearchSubmit} className="flex items-center gap-2">
-          <div className="relative min-w-0 flex-1 rounded-2xl border border-gray-300 bg-white shadow-sm ring-1 ring-black/5">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input
-              value={previewSearchValue}
-              onChange={(e) => setPreviewSearchValue(e.target.value)}
-              placeholder={(() => {
-                const fullPlaceholder = previewIsMlsMode
-                  ? 'Enter address, city, neighborhood, or ZIP'
-                  : 'Ask anything about homes, neighborhoods, schools';
-
-                // On small screens, use a truncated placeholder with ellipsis
-                if (typeof window !== 'undefined' && window.innerWidth < 640) {
-                  const width = window.innerWidth;
-                  let threshold = 35; // Default for larger mobile
-
-                  if (width <= 360) threshold = 28;      // Galaxy S8+
-                  else if (width <= 375) threshold = 29; // iPhone SE
-                  else if (width <= 390) threshold = 32; // iPhone 12/13/14
-                  else if (width <= 414) threshold = 34; // iPhone XR/S20
-                  else if (width <= 430) threshold = 37; // iPhone 14 Pro Max
-                  else threshold = 45;                   // Other larger mobile
-
-                  return fullPlaceholder.length > threshold
-                    ? fullPlaceholder.substring(0, threshold - 3) + '...'
-                    : fullPlaceholder;
-                }
-                return fullPlaceholder;
-              })()}
-              className="h-11 w-full rounded-2xl border-0 bg-transparent pl-10 pr-8 sm:pr-12 text-sm text-gray-900 shadow-none outline-none ring-0 placeholder:text-gray-400 focus-visible:ring-0"
-            />
-            {/* AI ON/OFF toggle button – commented out
-            <button
-              type="button"
-              onClick={togglePreviewSearchMode}
-              title={previewIsMlsMode ? 'MLS search active. Click to switch to AI search.' : 'AI search active. Click to switch to MLS search.'}
-              className={`absolute right-10 top-1/2 -translate-y-1/2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition ${previewIsMlsMode
-                ? 'bg-gray-100 text-gray-600 ring-1 ring-gray-200 hover:bg-gray-200'
-                : 'bg-orange-50 text-orange-700 ring-1 ring-orange-200 hover:bg-orange-100'
-                }`}
-            >
-              {previewIsMlsMode ? 'AI OFF' : 'AI ON'}
-            </button>
-            */}
-            {previewSearchValue ? (
-              <button
-                type="button"
-                onClick={() => setPreviewSearchValue('')}
-                className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                aria-label="Clear search"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            ) : null}
-          </div>
-          <button
-            type="submit"
-            className="h-11 shrink-0 rounded-2xl bg-ocOrange px-4 text-sm font-semibold text-white shadow-sm hover:brightness-95"
-          >
-            Search
-          </button>
-        </form>
-      </div>
       <div id="overview" className="scroll-mt-28" />
 
       {/* Contact Agent Dialog */}
@@ -2336,19 +2239,22 @@ const PropertyPreview: React.FC = () => {
         </DialogContent>
       </Dialog>
       {loading ? (
-        <div className='grid w-full max-w-7xl mx-auto min-h-[calc(100vh-12rem)] content-start grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-12 lg:gap-7 animate-pulse bg-white px-2 pb-8 sm:px-4 md:px-6 lg:px-0'>
-          <SkeletonLoader className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[392px] w-full bg-gray-200 lg:col-span-8 rounded-lg' />
-          <div className='w-full lg:col-span-4'>
-            <PropCardLoader className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[392px] w-full rounded-lg shadow-lg' />
+        <div className="mx-auto w-full max-w-[1920px] px-2 pb-8 sm:px-4 md:px-6 xl:px-[78px] min-[1920px]:px-[94px]">
+          <div className='grid w-full min-h-[calc(100vh-12rem)] content-start grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-12 lg:gap-7 animate-pulse bg-white'>
+            <SkeletonLoader className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[392px] w-full bg-gray-200 lg:col-span-8 rounded-lg' />
+            <div className='w-full lg:col-span-4'>
+              <PropCardLoader className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[392px] w-full rounded-lg shadow-lg' />
+            </div>
           </div>
         </div>
       ) : transformData.display ? (
         <>
-          <div className='grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-12 lg:gap-7 h-auto transition-all duration-300 ease-in-out px-2 sm:px-4 md:px-6 lg:px-0 max-w-7xl mx-auto'>
+          <div className="mx-auto w-full max-w-[1920px] px-2 sm:px-4 md:px-6 xl:px-[78px] min-[1536px]:max-[1919px]:px-[52px] min-[1920px]:px-[94px]">
+            <div className='grid w-full grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-12 lg:gap-7 xl:grid-cols-[847.793px_321px_543px] min-[1536px]:max-[1919px]:grid-cols-[710px_268px_454px] xl:gap-0 h-auto transition-all duration-300 ease-in-out'>
 
-            <div className="col-span-12 lg:col-span-8 flex flex-col" ref={leftSection}>
+            <div className="col-span-12 lg:col-span-8 xl:col-span-2 flex flex-col xl:pr-[24px]" ref={leftSection}>
               <HeroCollege
-                className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[28rem] w-full rounded-lg shadow-lg overflow-hidden'
+                className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[28rem] xl:h-[569px] w-full rounded-lg xl:rounded-[20px] shadow-lg overflow-hidden'
                 imageURLs={
                   transformData.prop?.media?.photosList?.length ?
                     transformData.prop?.media?.photosList?.map((img: any) => img) || [] :
@@ -2376,59 +2282,62 @@ const PropertyPreview: React.FC = () => {
                 preloadedData={propertyDatas} // Pass existing data to prevent re-fetch
               />
               {/* Top Section: Price/Address and Agent Card */}
-              <div className="mt-3 w-full flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6 mb-4">
+              <div className="mt-3 w-full flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_479px] min-[1536px]:max-[1919px]:grid-cols-[minmax(0,1fr)_454px] lg:items-start lg:gap-6 xl:gap-[20px] mb-4">
                 {/* Left: Price and Address */}
                 <div className="space-y-1 w-full lg:flex-1">
                   <div className='inline-flex items-baseline gap-1'>
-                    <span className='text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-gray-900'>$</span>
-                    <h2 className='text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold text-gray-900 relative inline-block'>
+                    <span className='text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-[40px] font-bold text-gray-900'>$</span>
+                    <h2 className='text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-[40px] font-bold text-gray-900 relative inline-block'>
                       {transformData.prop?.listPrice ? transformData.prop.listPrice.toLocaleString('en-US') : '0'}
                       <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#60A5FA]"></span>
                     </h2>
                   </div>
-                  <p className='text-sm sm:text-base text-gray-600 leading-6 break-words' style={{ fontFamily: "Satoshi" }}>
+                  <p className='text-sm sm:text-base text-gray-600 leading-6 break-words xl:text-[21px] xl:leading-[32px] xl:text-[#1d1d1d]' style={{ fontFamily: "Satoshi" }}>
                     {`${transformData.prop?.address?.unparsedAddress || propertyDatas?.property_detail?.data?.propertyInfo?.address?.address || "N/A"}, ${transformData.prop?.address?.city || propertyDatas?.property_detail?.data?.propertyInfo?.address?.city || "N/A"}, ${transformData.prop?.address?.stateOrProvince || propertyDatas?.property_detail?.data?.propertyInfo?.address?.stateOrProvince || "N/A"} ${transformData.prop?.address?.zipCode || propertyDatas?.property_detail?.data?.propertyInfo?.address?.zip || "N/A"}`}
                   </p>
                 </div>
 
                 {/* Right: Agent Card */}
                 <div className="w-full">
-                  <div className="rounded-xl bg-[#F5E6D3] shadow-sm px-3 sm:px-4 py-3 flex items-center justify-between gap-2 sm:gap-3">
-                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                      <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden shrink-0">
-                        {transformData?.prop?.listingAgent?.photo && transformData?.prop?.listingAgent?.photo !== "" ? (
-                          <Image
-                            src={transformData.prop.listingAgent.photo}
-                            alt={transformData?.prop?.listingAgent?.fullName || "Agent"}
-                            width={48}
-                            height={48}
-                            className="rounded-full object-cover w-full h-full"
-                          />
-                        ) : (
-                          <span className="text-sm sm:text-base font-medium text-gray-600">
-                            {transformData?.prop?.listingAgent?.fullName?.charAt(0) || "A"}
-                          </span>
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs sm:text-sm font-bold text-gray-900 truncate">
-                          {transformData?.prop?.listingAgent?.fullName || "Snaphomz Agent"}
-                        </p>
-                        <p className="text-xs text-gray-500">Listing Agent</p>
+                  <div className="rounded-[16px] bg-[#F5E6D3] shadow-sm px-3 sm:px-4 py-3 flex items-center justify-center xl:w-[479px] min-[1536px]:max-[1919px]:w-[454px] xl:h-[110px] xl:px-[20px] xl:py-[22px]">
+                    <div className="flex items-center justify-center w-full gap-2 sm:gap-3 xl:w-[399px] min-[1536px]:max-[1919px]:w-[370px] xl:h-[60px]">
+                      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                        <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden shrink-0 xl:h-[60px] xl:w-[60px]">
+                          {transformData?.prop?.listingAgent?.photo && transformData?.prop?.listingAgent?.photo !== "" ? (
+                            <Image
+                              src={transformData.prop.listingAgent.photo}
+                              alt={transformData?.prop?.listingAgent?.fullName || "Agent"}
+                              width={60}
+                              height={60}
+                              className="rounded-full object-cover w-full h-full"
+                            />
+                          ) : (
+                            <span className="text-sm sm:text-base font-semibold text-gray-600 xl:text-[22px]">
+                              {transformData?.prop?.listingAgent?.fullName?.charAt(0) || "A"}
+                            </span>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs sm:text-sm font-bold text-gray-900 truncate xl:text-[24px] xl:leading-[28px]">
+                            {transformData?.prop?.listingAgent?.fullName || "Snaphomz Agent"}
+                          </p>
+                          <p className="text-xs text-gray-500 xl:text-[20px] xl:text-[#727070]">Listing Agent</p>
+                        </div>
                       </div>
                     </div>
-                    {/* Email button hidden per updated design */}
                   </div>
                 </div>
               </div>
 
               {/* Bottom Section: Estimated Payment and Schedule A Tour Button */}
-              <div className="flex flex-col w-full gap-3 sm:gap-4 mb-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center lg:gap-6">
+              <div className="flex flex-col w-full gap-3 sm:gap-4 mb-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_479px] min-[1536px]:max-[1919px]:grid-cols-[minmax(0,1fr)_454px] lg:items-center lg:gap-6 xl:gap-[20px]">
                 {/* Left: Estimated Payment Section */}
-                <div className="rounded-xl bg-[#FAE6DB] shadow-sm px-3 sm:px-4 py-2 sm:py-2.5 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-2.5 w-full lg:max-w-[460px]">
-                  <div className="flex items-center gap-2 flex-1">
-                    <span className="text-xs sm:text-sm text-gray-600">Est. payment:</span>
-                    <span className="text-xs sm:text-sm font-bold text-gray-900">
+                <div className="rounded-xl bg-[#FAE6DB] shadow-sm px-3 sm:px-4 py-2 sm:py-2.5 flex flex-row flex-wrap items-center gap-2 sm:gap-2.5 w-full lg:max-w-[460px] xl:w-fit xl:max-w-none xl:h-[57px] xl:rounded-[12px] xl:px-[20px] xl:py-[13px] xl:flex-nowrap xl:items-center xl:gap-[14px] min-[1536px]:max-[1919px]:w-fit min-[1536px]:max-[1919px]:gap-[2px] min-[1536px]:max-[1919px]:pr-[12px]">
+                  <div className="flex items-center gap-2 flex-1 min-w-0 xl:flex-none xl:w-[318px] min-[1536px]:max-[1919px]:w-auto min-[1536px]:max-[1919px]:gap-[4px]" style={{ letterSpacing: "-0.27px" }}>
+                    <span className="text-xs sm:text-sm text-gray-600 whitespace-normal xl:whitespace-nowrap xl:text-[20px] min-[1536px]:max-[1919px]:text-[16px] xl:text-[#2a2a32]" style={{ lineHeight: "32px" }}>
+                      Est. payment:{' '}
+                    </span>
+                    <span className="text-xs sm:text-sm font-bold text-gray-900 whitespace-normal xl:whitespace-nowrap xl:text-[20px] min-[1536px]:max-[1919px]:text-[16px]" style={{ lineHeight: "32px", letterSpacing: "-0.16px" }}>
                       ${(() => {
                         const fallbackPrice = Number(transformData.prop?.listPrice || 0);
                         const fallbackMonthly = Number.isFinite(fallbackPrice)
@@ -2441,38 +2350,54 @@ const PropertyPreview: React.FC = () => {
                       })()}/mo
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <TooltipProvider>
-                      <Tooltip open={isInfoTooltipOpen} onOpenChange={setIsInfoTooltipOpen}>
-                        <TooltipTrigger asChild onClick={() => setIsInfoTooltipOpen(!isInfoTooltipOpen)}>
-                          <div className="h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-orange-100 flex items-center justify-center shrink-0 cursor-pointer">
-                            <Info className="h-2 w-2 sm:h-3 sm:w-3 text-ocOrange" />
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" align="center" className="max-w-[240px] text-xs sm:text-sm">
-                          <p className="leading-tight">Get pre-qualified to see how much you can afford and strengthen your offer.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    <a
-                      href="https://preapproval.snaphomz.com/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs sm:text-sm text-[#E8804C] hover:underline whitespace-nowrap"
-                    >
-                      Get pre-qualified
-                    </a>
+                  <div className="flex items-center gap-3 xl:gap-[10px]">
+                  <TooltipProvider>
+                    <Tooltip open={isInfoTooltipOpen} onOpenChange={setIsInfoTooltipOpen}>
+                      <TooltipTrigger asChild onClick={() => setIsInfoTooltipOpen(!isInfoTooltipOpen)}>
+                        <button
+                          type="button"
+                          className="h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-orange-100 flex items-center justify-center shrink-0 cursor-pointer xl:h-[18px] xl:w-[18px] min-[1536px]:max-[1919px]:h-[16px] min-[1536px]:max-[1919px]:w-[16px]"
+                          aria-label="More info"
+                        >
+                          <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 18 18"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-full w-full"
+                          >
+                            <circle cx="9" cy="9" r="8" stroke="#E8804C" strokeWidth="1.5" />
+                            <rect x="8.25" y="7" width="1.5" height="6" rx="0.75" fill="#E8804C" />
+                            <circle cx="9" cy="5" r="1" fill="#E8804C" />
+                          </svg>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" align="center" className="max-w-[240px] text-xs sm:text-sm">
+                        <p className="leading-tight">Get pre-qualified to see how much you can afford and strengthen your offer.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <a
+                    href="https://preapproval.snaphomz.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs sm:text-sm text-[#E8804C] hover:underline whitespace-normal xl:whitespace-nowrap xl:text-[20px] min-[1536px]:max-[1919px]:text-[15px] xl:font-bold shrink-0"
+                    style={{ lineHeight: "32px", letterSpacing: "-0.27px" }}
+                  >
+                    Get pre-qualified
+                  </a>
                   </div>
                 </div>
 
                 {/* Right: Schedule A Tour Button */}
                 <div className="w-full flex flex-col gap-2">
                   <button
-                    className="w-full bg-black text-white px-4 sm:px-6 lg:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-normal border border-black hover:bg-gray-900 transition-colors"
+                    className="w-full bg-black text-white px-4 sm:px-6 lg:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-normal border border-black hover:bg-gray-900 transition-colors xl:w-[479px] min-[1536px]:max-[1919px]:w-[454px] xl:h-[64px] xl:rounded-[32px] xl:text-[22px]"
                     onClick={handleContactAgent}
                     disabled={propertyEngagementMutation.isPending}
                   >
-                    {propertyEngagementMutation.isPending ? "Creating..." : "Schedule a Tour"}
+                    {propertyEngagementMutation.isPending ? "Creating..." : "Start The Process"}
                   </button>
                 </div>
               </div>
@@ -2489,7 +2414,7 @@ const PropertyPreview: React.FC = () => {
 
 
               {/* Takeaways */}
-              <div className="py-2 sm:py-3">
+              <div className="hidden py-2 sm:py-3">
                 <PropertyTakeawaysAI
                   property={
                     propertyDatas?.data ||
@@ -2505,15 +2430,15 @@ const PropertyPreview: React.FC = () => {
               </div>
 
               {/* Estimated Market Value (image_60fd3b.png) */}
-              <div className='flex flex-wrap items-center justify-between gap-2 sm:gap-3 py-2 sm:py-3 px-2 sm:px-0'>
+              <div className='flex flex-wrap items-center justify-between gap-2 sm:gap-3 pt-2 pb-1 sm:pt-3 sm:pb-2 px-2 sm:px-0'>
                 <EstimatedMarketValue estimatedData={estimatedMarketData} />
               </div>
 
             </div>
 
 
-            <div className="col-span-12 lg:col-span-4 lg:row-span-2 mt-4 lg:mt-0">
-              <div className="w-full rounded-2xl bg-[#F9F6EF] shadow-sm border border-[#EFE7DC] p-4 sm:p-5 md:p-6">
+            <div className="col-span-12 lg:col-span-4 xl:col-span-1 lg:row-span-2 mt-4 lg:mt-0 xl:pl-[24px]">
+              <div className="w-full rounded-2xl bg-[#F9F6EF] shadow-sm border border-[#EFE7DC] p-4 sm:p-5 md:p-6 xl:w-[543px] min-[1536px]:max-[1919px]:w-[454px] xl:h-[569px] xl:rounded-[20px] xl:bg-[#FAF9F5] xl:border-none xl:px-[32px] xl:py-[26px]">
                 {(() => {
                   // Calculate dynamic values
                   const beds = transformData.prop?.property?.bedroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bedroomsTotal || 0;
@@ -2530,53 +2455,103 @@ const PropertyPreview: React.FC = () => {
                   return (
                     <>
                       {/* Status Badge */}
-                      <div className="inline-flex items-center gap-2 bg-white/70 px-3 py-1 rounded-full text-xs sm:text-[13px] font-medium text-gray-800">
-                        <span className="h-[6px] w-[6px] rounded-full bg-red-500"></span>
+                      <div className="inline-flex items-center gap-2 bg-white/70 px-3 py-1 rounded-full text-xs sm:text-[13px] font-medium text-gray-800 xl:w-[117px] xl:h-[30px] xl:rounded-[4px] xl:bg-[#F1F1F4] xl:text-[20px] xl:text-[#2A2A32]">
+                        <span className="h-[6px] w-[6px] rounded-full bg-red-500 xl:h-[12px] xl:w-[12px] xl:bg-[#EE6658]"></span>
                         {status}
                       </div>
 
                       {/* Top stats */}
-                      <div className="mt-4 grid grid-cols-3 gap-5">
+                      <div className="mt-4 grid grid-cols-3 gap-5 xl:mt-[20px] xl:h-[80px] xl:gap-[40px]">
                         <div>
-                          <p className="text-2xl sm:text-[30px] font-semibold leading-none">{beds}</p>
-                          <p className="text-xs sm:text-[13px] text-gray-600 mt-1">beds</p>
+                          <p className="text-2xl sm:text-[30px] font-semibold leading-none xl:text-[40px]">{beds}</p>
+                          <p className="text-xs sm:text-[13px] text-gray-600 mt-1 xl:text-[21px] xl:text-[#1D1D1D]">beds</p>
                         </div>
 
                         <div>
-                          <p className="text-2xl sm:text-[30px] font-semibold leading-none">{baths}</p>
-                          <p className="text-xs sm:text-[13px] text-gray-600 mt-1">baths</p>
+                          <p className="text-2xl sm:text-[30px] font-semibold leading-none xl:text-[40px]">{baths}</p>
+                          <p className="text-xs sm:text-[13px] text-gray-600 mt-1 xl:text-[21px] xl:text-[#1D1D1D]">baths</p>
                         </div>
 
                         <div>
-                          <p className="text-2xl sm:text-[30px] font-semibold leading-none tracking-tight">
+                          <p className="text-2xl sm:text-[30px] font-semibold leading-none tracking-tight xl:text-[40px]">
                             {sqft ? sqft.toLocaleString('en-US') : "0"}
                           </p>
-                          <p className="text-xs sm:text-[13px] text-gray-600 mt-1">sqft</p>
+                          <p className="text-xs sm:text-[13px] text-gray-600 mt-1 xl:text-[21px] xl:text-[#1D1D1D]">sqft</p>
                         </div>
                       </div>
 
                       {/* Open house - optional, can be made dynamic if data is available */}
-                      {transformData.prop?.openHouse && (
-                        <p className="text-[13px] text-gray-700 mt-4">
-                          Open : {transformData.prop.openHouse}
-                        </p>
-                      )}
+                      {(() => {
+                        const openHouseRaw =
+                          transformData.prop?.openHouse ??
+                          transformData.prop?.OpenHouse ??
+                          transformData.prop?.openHouses ??
+                          transformData.prop?.open_houses ??
+                          propertyDatas?.data?.openHouse ??
+                          propertyDatas?.data?.OpenHouse ??
+                          propertyDatas?.data?.openHouses ??
+                          propertyDatas?.data?.open_houses ??
+                          null;
 
-                      <div className="h-px bg-[#E3DCD2] my-4"></div>
+                        const formatDate = (value: any) => {
+                          const d = value instanceof Date ? value : new Date(value);
+                          if (Number.isNaN(d.getTime())) return null;
+                          return {
+                            date: d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }),
+                            day: d.toLocaleDateString('en-US', { weekday: 'short' }),
+                            time: d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+                          };
+                        };
+
+                        const formatOpenHouse = (oh: any): string | null => {
+                          if (!oh) return null;
+                          if (typeof oh === 'string') return oh.trim() || null;
+                          if (Array.isArray(oh)) return formatOpenHouse(oh[0]);
+                          if (typeof oh === 'object') {
+                            const start =
+                              oh.startTime ?? oh.start ?? oh.startDate ?? oh.StartTime ?? oh.OpenHouseStartTime ?? oh.start_time;
+                            const end =
+                              oh.endTime ?? oh.end ?? oh.endDate ?? oh.EndTime ?? oh.OpenHouseEndTime ?? oh.end_time;
+                            const date =
+                              oh.date ?? oh.Date ?? oh.openDate ?? oh.OpenHouseDate ?? oh.open_date ?? start;
+
+                            const startFmt = start ? formatDate(start) : null;
+                            const endFmt = end ? formatDate(end) : null;
+                            const dateFmt = date ? formatDate(date) : startFmt;
+
+                            if (dateFmt && startFmt) {
+                              const range = endFmt ? `${startFmt.time} - ${endFmt.time}` : startFmt.time;
+                              return `${dateFmt.day}(${dateFmt.date}), ${range}`;
+                            }
+                          }
+                          return null;
+                        };
+
+                        const openHouseValue = formatOpenHouse(openHouseRaw);
+                        if (!openHouseValue) return null;
+
+                        return (
+                          <p className="text-[13px] text-gray-700 mt-4 xl:mt-[16px] xl:text-[20px] xl:text-[#1D1D1D] xl:w-[371px]">
+                            Open : {openHouseValue}
+                          </p>
+                        );
+                      })()}
+
+                      <div className="h-px bg-[#E3DCD2] my-4 xl:my-[16px] xl:w-[438px]"></div>
 
                       {/* Middle grid info with SVG icons */}
-                      <div className="grid grid-cols-2 gap-y-4 text-xs sm:text-[13px]">
+                      <div className="grid grid-cols-2 gap-y-4 text-xs sm:text-[13px] xl:gap-y-[24px]">
                         <div className="flex items-start gap-3">
                           <Image
                             src="/assets/images/residental.png"
                             alt="Year Built"
                             width={18}
                             height={18}
-                            className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4"
+                            className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4 xl:h-[24px] xl:w-[24px]"
                           />
                           <div>
-                            <p className="text-sm sm:text-[15px] font-semibold">{yearBuilt}</p>
-                            <p className="text-gray-600 mt-1">Year Built</p>
+                            <p className="text-sm sm:text-[15px] font-semibold xl:text-[21px]">{yearBuilt}</p>
+                            <p className="text-gray-600 mt-1 xl:text-[20px] xl:text-[#828081]">Year Built</p>
                           </div>
                         </div>
 
@@ -2586,11 +2561,11 @@ const PropertyPreview: React.FC = () => {
                             alt="Property Type"
                             width={18}
                             height={18}
-                            className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4"
+                            className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4 xl:h-[24px] xl:w-[24px]"
                           />
                           <div>
-                            <p className="text-sm sm:text-[15px] font-semibold">{propertyTypeShort}</p>
-                            <p className="text-gray-600 mt-1">Family Residence</p>
+                            <p className="text-sm sm:text-[15px] font-semibold xl:text-[21px]">{propertyTypeShort}</p>
+                            <p className="text-gray-600 mt-1 xl:text-[20px] xl:text-[#828081]">Family Residence</p>
                           </div>
                         </div>
 
@@ -2600,23 +2575,23 @@ const PropertyPreview: React.FC = () => {
                             alt="Sqft Area"
                             width={18}
                             height={18}
-                            className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4"
+                            className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4 xl:h-[24px] xl:w-[24px]"
                           />
                           <div>
-                            <p className="text-sm sm:text-[15px] font-semibold">
+                            <p className="text-sm sm:text-[15px] font-semibold xl:text-[21px]">
                               {sqftArea ? sqftArea.toLocaleString('en-US') : "N/A"}
                             </p>
-                            <p className="text-gray-600 mt-1">Sqft Area</p>
+                            <p className="text-gray-600 mt-1 xl:text-[20px] xl:text-[#828081]">Sqft Area</p>
                           </div>
                         </div>
 
                         <div className="border-l border-[#E3DCD2] pl-4 flex items-start gap-3">
-                          <div className="mt-0.5 text-[15px] font-bold text-gray-800 leading-none">$</div>
+                          <div className="mt-0.5 text-[15px] font-bold text-gray-800 leading-none xl:text-[18px]">$</div>
                           <div>
-                            <p className="text-[15px] font-semibold">
+                            <p className="text-[15px] font-semibold xl:text-[21px]">
                               {pricePerSqft ? `$${pricePerSqft}` : "N/A"}
                             </p>
-                            <p className="text-gray-600 mt-1">Price/sqft</p>
+                            <p className="text-gray-600 mt-1 xl:text-[20px] xl:text-[#828081]">Price/sqft</p>
                           </div>
                         </div>
                       </div>
@@ -2627,10 +2602,10 @@ const PropertyPreview: React.FC = () => {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <button
-                                className="flex items-center gap-3 text-sm sm:text-[15px] font-semibold text-gray-900 bg-[#F2F2F2] px-5 py-3 rounded-full border border-gray-300"
+                                className="flex items-center gap-3 text-sm sm:text-[15px] font-semibold text-gray-900 bg-[#F2F2F2] px-5 py-3 rounded-full border border-gray-300 xl:w-[260px] xl:h-[64px] xl:rounded-[32px] xl:text-[22px] xl:font-bold xl:gap-[16px]"
                                 onClick={() => setIsStreetViewOpen(true)}
                               >
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-gray-900">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="xl:h-[20px] xl:w-[20px]">
                                   <path
                                     d="M12 22s7-5.686 7-12A7 7 0 1 0 5 10c0 6.314 7 12 7 12Z"
                                     stroke="currentColor"
@@ -2654,15 +2629,15 @@ const PropertyPreview: React.FC = () => {
                 })()}
               </div>
 
-              <div className="hidden lg:block mt-4 lg:sticky lg:top-36 lg:self-start">
-                <div className="w-full rounded-[24px] bg-[#F6F2EE] shadow-[0_18px_70px_rgba(0,0,0,0.12)] border border-[#E8E2DC] p-5 sm:p-6">
+              <div className="hidden lg:block mt-4 xl:mt-[54px] lg:sticky lg:top-36 lg:self-start">
+                <div className="w-full rounded-[24px] bg-[#F6F2EE] shadow-[0_18px_70px_rgba(0,0,0,0.12)] border border-[#E8E2DC] p-5 sm:p-6 xl:w-[543px] min-[1536px]:max-[1919px]:w-[454px] xl:rounded-[16px] xl:p-[32px]">
                   {/* Header */}
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center gap-2 mb-2 xl:mb-[12px]">
                     <AskAiLogo className="w-7 h-7" />
-                    <h3 className="text-[20px] font-semibold text-gray-900">Ask AI</h3>
+                    <h3 className="text-[20px] font-semibold text-gray-900 xl:text-[22px]">Ask AI</h3>
                   </div>
 
-                  <div className="text-[16px] text-gray-700 leading-relaxed mb-5">
+                  <div className="text-[16px] text-gray-700 leading-relaxed mb-5 xl:text-[21px] xl:leading-[32px] xl:text-[#484747] xl:mb-[20px]">
                     {aiAnswer ? (
                       <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
                         <p className="font-semibold text-blue-800 mb-1">AI Answer:</p>
@@ -2674,15 +2649,15 @@ const PropertyPreview: React.FC = () => {
                   </div>
 
                   {/* Suggestions */}
-                  <div className="space-y-3 mb-6">
+                  <div className="space-y-3 mb-6 xl:space-y-[24px] xl:mb-[20px]">
                     {(aiSuggestions || []).map((label: string, index: number) => (
                       <button
                         key={index}
                         onClick={() => handleAskAIQuery(label)}
-                        className="w-full text-left rounded-xl bg-[#F1EEEA] px-4 py-3 cursor-pointer flex items-center justify-between text-[15px] text-gray-800 hover:bg-[#EAE6E1] transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
+                        className="w-full text-left rounded-xl bg-[#F1EEEA] px-4 py-3 cursor-pointer flex items-center justify-between text-[15px] text-gray-800 hover:bg-[#EAE6E1] transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.06)] xl:h-[60px] xl:rounded-[10px] xl:px-[25px] xl:text-[18px]"
                         disabled={askAIMutation.isPending}>
                         <span>{label}</span>
-                        <ChevronDown className="h-4 w-4 text-gray-600" />
+                        <ChevronDown className="h-4 w-4 text-gray-600 xl:h-[30px] xl:w-[30px]" />
                       </button>
                     ))}
                   </div>
@@ -2692,7 +2667,7 @@ const PropertyPreview: React.FC = () => {
                     <input
                       type="text"
                       placeholder="Ask me anything about this home..."
-                      className="w-full border border-[#D3CEC8] rounded-xl px-4 py-3 text-[15px] mb-5 outline-none bg-white focus:ring-0 focus:border-gray-500 transition-colors pr-12 placeholder:text-gray-500"
+                      className="w-full border border-[#D3CEC8] rounded-xl px-4 py-3 text-[15px] mb-5 outline-none bg-white focus:ring-0 focus:border-gray-500 transition-colors pr-12 placeholder:text-gray-500 xl:h-[60px] xl:rounded-[10px] xl:px-[25px] xl:text-[18px] xl:text-[#5A5A5A] xl:mb-[20px]"
                       value={askAIQuestion}
                       onChange={(e) => setAskAIQuestion(e.target.value)}
                       onKeyDown={(e) => {
@@ -2703,7 +2678,7 @@ const PropertyPreview: React.FC = () => {
                       disabled={askAIMutation.isPending}
                     />
                     {askAIMutation.isPending && (
-                      <div className="absolute right-4 top-3">
+                      <div className="absolute right-4 top-3 xl:top-[18px]">
                         <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
                       </div>
                     )}
@@ -2713,16 +2688,17 @@ const PropertyPreview: React.FC = () => {
                   <button
                     onClick={() => handleAskAIQuery(askAIQuestion)}
                     disabled={askAIMutation.isPending || !askAIQuestion.trim()}
-                    className="w-full bg-black text-white py-3.5 rounded-full text-[16px] font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-black text-white py-3.5 rounded-full text-[16px] font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed xl:h-[64px] xl:rounded-[32px] xl:text-[22px]"
                   >
                     {askAIMutation.isPending ? 'Thinking...' : 'Send'}
                   </button>
                 </div>
               </div>
+
             </div>
 
-            <div className="col-span-12 lg:col-span-8">
-              <div className="divide-y divide-gray-200 border-t border-gray-200 mt-4 sm:mt-6">
+            <div className="col-span-12 lg:col-span-8 xl:col-span-2">
+              <div className="divide-y divide-gray-200 border-t border-gray-200 mt-1 sm:mt-2 xl:w-[1169px] min-[1536px]:max-[1919px]:w-[978px] xl:mx-auto">
                 {/* Accordion List (Home Highlights, Schools, Offers, History, etc.) */}
                 {sections.map((section) => {
                   const anchorId =
@@ -2756,15 +2732,15 @@ const PropertyPreview: React.FC = () => {
                     >
                       <button
                         onClick={() => toggleSection(section.id)}
-                        className="w-full flex items-center justify-between py-3 sm:py-4 text-left focus:outline-none transition-all"
+                        className="w-full flex items-center justify-between py-2 sm:py-3 text-left focus:outline-none transition-all xl:h-[140px] xl:py-0"
                       >
-                        <span className="font-semibold text-sm sm:text-[16px] text-gray-900">
+                        <span className="font-bold text-sm sm:text-[16px] text-gray-900 xl:w-[304px] xl:h-[54px] xl:text-[32px] xl:leading-[54px]">
                           {section.title}
                         </span>
-                        <span className="ml-3 shrink-0 inline-flex items-center gap-2 sm:gap-3">
+                        <span className="ml-3 shrink-0 inline-flex items-center gap-2 sm:gap-3 xl:justify-end">
                           {poweredBy && (
-                            <span className="inline-flex items-center gap-1 sm:gap-1.5">
-                              <span className="text-[10px] sm:text-[11px] font-normal text-gray-500 whitespace-nowrap">
+                            <span className="hidden xl:inline-flex items-center gap-2">
+                              <span className="text-[12px] font-normal text-gray-500 whitespace-nowrap">
                                 Powered by
                               </span>
                               {poweredByLogoSrc ? (
@@ -2773,19 +2749,19 @@ const PropertyPreview: React.FC = () => {
                                   alt={`Powered by ${poweredBy}`}
                                   width={poweredBy === 'SnapInterest' ? 106 : 84}
                                   height={30}
-                                  className="h-5 sm:h-6 w-auto object-contain"
+                                  className="h-[24px] w-auto object-contain"
                                 />
                               ) : (
-                                <span className="text-[11px] font-normal text-gray-500">
+                                <span className="text-[12px] font-normal text-gray-500">
                                   {poweredBy}
                                 </span>
                               )}
                             </span>
                           )}
                           {openSection === section.id ? (
-                            <ChevronUp className="text-gray-600 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5" />
+                            <ChevronUp className="text-gray-800 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5 xl:w-[30px] xl:h-[30px]" strokeWidth={2.5} />
                           ) : (
-                            <ChevronDown className="text-gray-600 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5" />
+                            <ChevronDown className="text-gray-800 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5 xl:w-[30px] xl:h-[30px]" strokeWidth={2.5} />
                           )}
                         </span>
                       </button>
@@ -2805,7 +2781,7 @@ const PropertyPreview: React.FC = () => {
                                   ? 'forecast-content'
                                   : undefined
                           }
-                          className="pb-3 sm:pb-4"
+                          className="pb-3 sm:pb-4 xl:text-[20px] xl:leading-[32px]"
                         >
                           {section.content}
                         </div>
@@ -2837,6 +2813,7 @@ const PropertyPreview: React.FC = () => {
 
 
 
+            </div>
           </div>
 
         </>

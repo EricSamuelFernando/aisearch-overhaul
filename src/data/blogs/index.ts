@@ -12,6 +12,13 @@ import blog9SmartSprinklers from './blog-9-smart-sprinklers';
 import blog10WaterHeater from './blog-10-water-heater';
 import blog11StandaloneFreezers from './blog-11-standalone-freezers';
 import blog12Refrigerators2026 from './blog-12-refrigerators-2026';
+import blog13WasherDryerRoi from './blog-13-washer-dryer-roi';
+import blog14GasInductionDualFuelRange from './blog-14-gas-induction-dual-fuel-range';
+import blog15Dishwashers2026 from './blog-15-dishwashers-2026';
+import blog16ForeverHomeReimagined from './blog-16-forever-home-reimagined';
+import blog17ForeclosureMythVsReality from './blog-17-foreclosure-myth-vs-reality';
+import blog18CoLivingSharedEquity2026 from './blog-18-co-living-shared-equity-2026';
+import blog19DigitalNomadTaxHavens2026 from './blog-19-digital-nomad-tax-havens-2026';
 
 // Add new blog files here — one import per blog
 export const articles: Article[] = [
@@ -28,6 +35,13 @@ export const articles: Article[] = [
   blog10WaterHeater,
   blog11StandaloneFreezers,
   blog12Refrigerators2026,
+  blog13WasherDryerRoi,
+  blog14GasInductionDualFuelRange,
+  blog15Dishwashers2026,
+  blog16ForeverHomeReimagined,
+  blog17ForeclosureMythVsReality,
+  blog18CoLivingSharedEquity2026,
+  blog19DigitalNomadTaxHavens2026,
 ];
 
 export const getArticleById = (id: string): Article | null =>

@@ -5039,8 +5039,12 @@ const CustomMap: React.FC<Props> = ({
       if (!geometry || !mapInstance) return;
       suppressNextOnIdleRef.current = true;
       userMovedMapRef.current = false;
-      if (geometry.viewport) {
-        mapInstance.fitBounds(geometry.viewport, 50);
+      // Prefer bounds over viewport: bounds covers the full extent of the place
+      // (entire city polygon), while viewport is just the recommended display crop
+      // which can cut off the boundary drawn by the Feature Layer.
+      const targetBounds = (geometry as any).bounds ?? geometry.viewport;
+      if (targetBounds) {
+        mapInstance.fitBounds(targetBounds, 60);
         return;
       }
       const location = geometry.location;

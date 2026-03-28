@@ -1,21 +1,10 @@
 'use client';
 
-import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import {
-  Search,
-  Home,
-  DollarSign,
-  TrendingUp,
-  FileText,
-  ArrowUpRight,
-} from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { ArrowUpRight } from 'lucide-react';
 
 export default function BlogHero() {
-  const [activeCategory, setActiveCategory] = useState('All Articles');
-  const [searchQuery, setSearchQuery] = useState('');
 
   return (
     <section className="relative w-full bg-[#FFF6EC] overflow-hidden">
@@ -32,58 +21,16 @@ export default function BlogHero() {
       </div>
 
       {/* CONTENT */}
-      <div className="w-full py-8 sm:py-10">
+      <div className="w-full py- sm:py-">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
           {/* FEATURE GRID */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 lg:gap-16 items-start mb-12">
-
-            {/* LEFT FEATURE */}
-            <div className="relative max-w-xl">
-              <Link href="/blog/featured">
-                <ArrowUpRight className="absolute top-0 right-0 w-5 h-5 text-[#1B1B1B]" />
-              </Link>
-
-              <span className="text-xs sm:text-sm font-semibold text-[#F07639]">
-                Customer Success
-              </span>
-
-              <h1 className="mt-3 text-xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold text-[#1B1B1B] leading-tight">
-                5 Ways Technology is Changing How Nigerians Buy Homes
-              </h1>
-
-              <p className="mt-4 text-sm sm:text-base text-[#545454] leading-relaxed">
-                Real estate isn’t just bricks and land anymore — it’s algorithms,
-                virtual tours, and instant connections. Here’s how tech is reshaping
-                the home-buying journey.
-              </p>
-
-              <Link
-                href="/blog/real-estate-insights"
-                className="mt-6 flex items-center gap-3"
-              >
-                <Image
-                  src="/assets/images/blog_profile.png"
-                  alt="Alec Whitten"
-                  width={40}
-                  height={40}
-                  className="rounded-full object-cover sm:w-12 sm:h-12"
-                />
-                <div>
-                  <p className="text-sm font-semibold text-[#1B1B1B]">
-                    Alec Whitten
-                  </p>
-                  <p className="text-xs sm:text-sm text-[#6B6B6B]">
-                    17 Jan 2022
-                  </p>
-                </div>
-              </Link>
-            </div>
+          <div className="flex justify-center mb-12">
 
             {/* RIGHT FEATURE */}
             <Link
               href="/blog/featured"
-              className="group rounded-2xl overflow-hidden max-w-xl"
+              className="group rounded-2xl overflow-hidden max-w-xl hidden"
             >
               <div className="relative w-full h-[220px] sm:h-[260px] md:h-[320px] lg:h-[360px] rounded-2xl overflow-hidden">
                 <Image
@@ -135,5 +82,6 @@ export default function BlogHero() {
         </div>
       </div>
     </section>
+
   );
 }

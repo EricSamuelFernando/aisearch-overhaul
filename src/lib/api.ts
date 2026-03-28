@@ -40,6 +40,8 @@ export type SearchPayload = {
     use_cache?: boolean | null;
     system_prompt?: string | null;
     assistant_mode?: string | null;
+    user_name?: string | null
+    user_local_hour?: number
 };
 
 export type RentVsBuyPayload = {
@@ -90,6 +92,7 @@ export async function searchProperties(payload: SearchPayload, signal?: AbortSig
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
                 ...getAuthHeaders(),
+                ...(payload.userid ? { 'x-user-id': payload.userid } : {}),
             },
             body: JSON.stringify(payload),
             signal,
@@ -112,12 +115,14 @@ export async function searchProperties(payload: SearchPayload, signal?: AbortSig
 
     // Use the local Next.js proxy to bypass CORS (hits our src/app/api/search/route.ts)
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const userIdHeader = payload.userid;
     const res = await fetch(`${baseUrl}/api/search`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
             "Accept": "application/json",
             ...getAuthHeaders(),
+            ...(userIdHeader ? { "x-user-id": userIdHeader } : {}),
         },
         body: JSON.stringify({
             ...payload,
@@ -125,13 +130,21 @@ export async function searchProperties(payload: SearchPayload, signal?: AbortSig
             query: payload.query,
             session_id: payload.session_id,
             from_browse: payload.from_browse ?? false,
-            use_cache: payload.use_cache ?? true,
+            use_cache: payload.use_cache ?? false,
         }),
         signal,
     });
 
     if (!res.ok) {
-        throw new Error("Backend request failed");
+        const errorBody = await res.json().catch(() => null);
+        // Backend sometimes returns a non-200 status but still includes valid data.
+        // Use it rather than discarding it.
+        if (errorBody?.properties || errorBody?.final_response) {
+            console.warn('[API] Non-200 response but usable data found, status:', res.status);
+            return errorBody;
+        }
+        console.error('[API] Search failed:', res.status, errorBody);
+        throw new Error(errorBody?.error || `Backend request failed (${res.status})`);
     }
 
     const data = await res.json();

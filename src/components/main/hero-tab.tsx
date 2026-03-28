@@ -2063,14 +2063,15 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     }, [pendingImage]);
 
     useEffect(() => {
-        if (!isSearching || !sessionId) return;
+        const sessionForThinking = activeSessionId;
+        if (!isSearching || !sessionForThinking) return;
 
         let cancelled = false;
         let intervalId: ReturnType<typeof setInterval> | null = null;
 
         const pollThinking = async () => {
             try {
-                const progress: ThinkingProgressResponse = await fetchThinkingProgress(sessionId);
+                const progress: ThinkingProgressResponse = await fetchThinkingProgress(sessionForThinking);
                 if (cancelled) return;
                 if (Array.isArray(progress?.steps) && progress.steps.length > 0) {
                     setThinkingSteps(progress?.steps as any);
@@ -2090,7 +2091,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             cancelled = true;
             if (intervalId) clearInterval(intervalId);
         };
-    }, [isSearching, sessionId]);
+    }, [isSearching, activeSessionId]);
 
     // Auto-scroll to bottom when conversation updates.
     useEffect(() => {
@@ -2314,8 +2315,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const handleSearchSubmit = async (queryToSearch: string) => {
         if (!queryToSearch.trim() || isSearching || isSearchingRef.current) return;
 
+        // Conversational messages (hi, hello, thanks…) must never trigger MLS routing — "hi"
+        // matches the Hawaii state abbreviation "HI" which fools hasStateToken().
+        const isConversationalQuery = /^(hi|hello|hey|howdy|greetings|good\s+(morning|afternoon|evening)|thanks?|thank\s+you|ok|okay|sure|awesome|great|cool)$/i.test(queryToSearch.trim());
+
         // Auto-route: MLS-style queries go to browse results, natural-language stays in AI chat.
-        let allowMlsRoute = !pendingLocationImage;
+        let allowMlsRoute = !pendingLocationImage && !isConversationalQuery;
         if (allowMlsRoute) {
             const trimmedQuery = normalizeLocationInput(queryToSearch);
             if (!hasLikelyMlsIdentifier(trimmedQuery)) {
@@ -2506,6 +2511,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 query: queryToSearch,
                 session_id: activeSessionId,
                 from_browse: false,
+                user_name: user?.firstname || undefined,
+                user_local_hour: new Date().getHours(),
             }, newController.signal);
 
             console.log("Backend Response:", responseData);

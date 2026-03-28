@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Browse AI chat icon glow (activated state) ──────────────── */
+@keyframes browse-ai-glow {
+  0%, 100% { box-shadow: 0 0 10px 4px rgba(232, 128, 76, 0.55), 0 8px 32px rgba(0,0,0,0.14); }
+  33%       { box-shadow: 0 0 14px 6px rgba(232, 76, 133, 0.60), 0 8px 32px rgba(0,0,0,0.14); }
+  66%       { box-shadow: 0 0 12px 5px rgba(166, 78, 186, 0.55), 0 8px 32px rgba(0,0,0,0.14); }
+}
+
+.browse-ai-active-glow {
+  animation: browse-ai-glow 2.5s ease-in-out infinite;
+}
+
 /* ── BETA Button (Uiverse animated pill) ─────────────────────── */
 .uiverse {
   --duration: 7s;
@@ -1201,6 +1212,15 @@ body {
   display: none !important;
 }
 
+/* Homepage: force wider expanded AI chat shell (overrides breakpoint caps). */
+.home-hero .home-hero-search-wrap.home-hero-search-wrap--expanded {
+  max-width: min(96vw, 68rem) !important;
+}
+
+.home-hero-shell.home-hero-shell--expanded {
+  justify-content: flex-start !important;
+}
+
 /* Fix: Sonner toast and its container are positioned top-right, overlapping
    the navbar buttons. Since all toasts are informational (no close/action buttons),
    make the entire toaster area non-interactive so clicks pass through to the navbar. */
@@ -1812,7 +1832,7 @@ input:-webkit-autofill {
 }
 
 .company-page-hero__desktop-mid-row {
-  margin-top: 0.75rem;
+  margin-top: 0.95rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1822,8 +1842,8 @@ input:-webkit-autofill {
 .company-page-hero__desktop-display {
   white-space: nowrap;
   font-size: clamp(2.7rem, 4vw, 4rem);
-  font-weight: 500;
-  line-height: 0.88;
+  /* font-weight: 500; */
+  line-height: 1.06;
   letter-spacing: -0.055em;
   color: #ffffff;
 }
@@ -1833,7 +1853,7 @@ input:-webkit-autofill {
 }
 
 .company-page-hero__desktop-line {
-  margin-top: 0.2rem;
+  margin-top: 0.35rem;
 }
 
 .company-page-hero__desktop-image {
@@ -1858,7 +1878,7 @@ input:-webkit-autofill {
 
 .company-page-hero__desktop-script-wrap {
   position: relative;
-  margin-top: 0.95rem;
+  margin-top: 1.15rem;
   display: inline-block;
   width: fit-content;
   align-self: center;
@@ -1869,25 +1889,25 @@ input:-webkit-autofill {
   font-size: clamp(2.2rem, 3vw, 3.3rem);
   font-weight: 300;
   font-style: italic;
-  line-height: 0.92;
+  line-height: 1.12;
   letter-spacing: -0.04em;
   color: #ffffff;
 }
 
 .company-page-hero__desktop-script-wrap .company-page-hero__desktop-script {
-  padding-right: clamp(3.2rem, 3.8vw, 4.35rem);
+  padding-right: clamp(3.5rem, 4.2vw, 4.8rem);
 }
 
 .company-page-hero__desktop-script--second {
-  margin-top: 0.2rem;
+  margin-top: 0.6rem;
 }
 
 .company-page-hero__desktop-hand {
   position: absolute;
-  right: -4px;
-  top: -1.55rem;
-  height: clamp(72px, 6vw, 102px);
-  width: clamp(72px, 6vw, 102px);
+  right: -28px;
+  top: -2.7rem;
+  height: clamp(80px, 6.6vw, 112px);
+  width: clamp(80px, 6.6vw, 112px);
 }
 
 .company-page-hero__desktop-copy {
@@ -2349,6 +2369,10 @@ input:-webkit-autofill {
 
 .home-hero-search-wrap--expanded {
   max-width: min(100%, 42rem) !important;
+}
+
+.home-hero-shell--expanded {
+  justify-content: flex-start !important;
 }
 
 @media (max-width: 767px) {

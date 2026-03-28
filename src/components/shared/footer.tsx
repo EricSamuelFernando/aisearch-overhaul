@@ -107,13 +107,9 @@ function Footer() {
                 .map((item) => (
                   <li key={item.href ?? item.title}>
                     {item.title === 'Insight' ? (
-                      <span
-                        title="Expert Insights Coming Your Way"
-                        className="cursor-pointer text-white/50"
-                        aria-disabled="true"
-                      >
+                      <Link href="/blog" className="hover:text-white">
                         {item.title}
-                      </span>
+                      </Link>
                     ) : (
                       <Link href={item.href!} className="hover:text-white">
                         {item.title}

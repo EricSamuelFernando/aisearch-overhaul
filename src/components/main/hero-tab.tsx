@@ -172,6 +172,25 @@ const classifySuggestionIntent = (value: string): SmartSuggestionIntent => {
     return 'nl';
 };
 
+const classifyQueryIntent = async (query: string): Promise<'location' | 'natural'> => {
+    try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 4500);
+        const res = await fetch('/api/classify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query }),
+            signal: controller.signal,
+        });
+        clearTimeout(timeout);
+        if (!res.ok) return 'natural';
+        const data = await res.json();
+        return data.intent === 'location' ? 'location' : 'natural';
+    } catch {
+        return 'natural'; // safe default: never wrongly redirect
+    }
+};
+
 const geocodeValidateLocation = (value: string) =>
     new Promise<boolean>((resolve) => {
         if (typeof window === 'undefined' || !window.google?.maps?.Geocoder) {
@@ -1156,6 +1175,15 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             dispatch(initializeTempUserId());
         }
     }, [dispatch, tempUserId]);
+
+    // Warmup ping: fire silently on mount so the AI Lambda is initialized
+    // before the user submits their first query.
+    useEffect(() => {
+        const aiBase = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI
+            || process.env.NEXT_PUBLIC_API_BASE_URL
+            || 'http://127.0.0.1:5000';
+        fetch(`${aiBase}/health`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+    }, []);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [showSuggestions, setShowSuggestions] = useState(false);
@@ -2311,6 +2339,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
     const handleSearchSubmit = async (queryToSearch: string) => {
         if (!queryToSearch.trim() || isSearching || isSearchingRef.current) return;
+        // Lock immediately so concurrent submits (during the async classify await) are dropped.
+        isSearchingRef.current = true;
 
         // Conversational messages (hi, hello, thanks…) must never trigger MLS routing — "hi"
         // matches the Hawaii state abbreviation "HI" which fools hasStateToken().
@@ -2320,25 +2350,24 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         let allowMlsRoute = !pendingLocationImage && !isConversationalQuery;
         if (allowMlsRoute) {
             const trimmedQuery = normalizeLocationInput(queryToSearch);
-            if (!hasLikelyMlsIdentifier(trimmedQuery)) {
-                const classification = classifyLocationQuery(trimmedQuery);
-                if (classification === 'invalid') {
+            if (hasLikelyMlsIdentifier(trimmedQuery)) {
+                // Bare MLS ID or 6-12 digit number — unambiguous, no LLM needed
+                allowMlsRoute = true;
+            } else {
+                // Use LLM classification for everything else
+                const intent = await classifyQueryIntent(queryToSearch);
+                if (intent === 'natural') {
                     allowMlsRoute = false;
-                } else if (classification === 'borderline') {
-                    const geocodedValid = await geocodeValidateLocation(trimmedQuery);
-                    if (!geocodedValid) {
-                        allowMlsRoute = false;
-                    }
                 }
             }
+        }
 
-            if (allowMlsRoute) {
-                const destination = `/buy/browse?q=${encodeURIComponent(queryToSearch.trim())}`;
-                if (typeof window !== 'undefined') {
-                    window.location.assign(destination);
-                }
-                return;
+        if (allowMlsRoute) {
+            const destination = `/buy/browse?q=${encodeURIComponent(queryToSearch.trim())}`;
+            if (typeof window !== 'undefined') {
+                window.location.assign(destination);
             }
+            return;
         }
         setMlsBypassMode(false);
         setMlsBypassModeEnabled(false);

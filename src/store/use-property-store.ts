@@ -72,6 +72,14 @@ interface PropertyStore {
   drawFilteredPropertyIds: string[] | null;
   setDrawFilteredPropertyIds: (ids: string[] | null) => void;
 
+  // Map UI Controls (AI-driven)
+  mapOverlay: 'none' | 'schools';
+  setMapOverlay: (overlay: 'none' | 'schools') => void;
+  activePOICategories: string[];
+  setActivePOICategories: (keys: string[]) => void;
+  clearDrawSignal: number;
+  incrementClearDrawSignal: () => void;
+
   // AI Search Session
   sessionId: string | null;
   setSessionId: (id: string | null) => void;
@@ -262,6 +270,14 @@ export const usePropertyStore = create<PropertyStore>((set) => ({
   // Map Drawing Filter implementation
   drawFilteredPropertyIds: null,
   setDrawFilteredPropertyIds: (drawFilteredPropertyIds) => set({ drawFilteredPropertyIds }),
+
+  // Map UI Controls (AI-driven)
+  mapOverlay: 'none',
+  setMapOverlay: (mapOverlay) => set({ mapOverlay }),
+  activePOICategories: [],
+  setActivePOICategories: (activePOICategories) => set({ activePOICategories }),
+  clearDrawSignal: 0,
+  incrementClearDrawSignal: () => set((state) => ({ clearDrawSignal: state.clearDrawSignal + 1 })),
 
   // AI Search Session
   sessionId: null,

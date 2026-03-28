@@ -227,6 +227,11 @@ function PropertyBrowseView({ }: Props) {
     toggleSubCategory,
     drawFilteredPropertyIds,
     setDrawFilteredPropertyIds,
+    mapOverlay,
+    setMapOverlay,
+    activePOICategories,
+    clearDrawSignal,
+    incrementClearDrawSignal,
     sessionId,
   } = usePropertyStore();
 
@@ -261,8 +266,6 @@ function PropertyBrowseView({ }: Props) {
   );
   const mapRef = useRef<HTMLDivElement>(null);
   const [isMapPinned, setIsMapPinned] = useState(true);
-  const [mapOverlay, setMapOverlay] = useState<'none' | 'schools'>('none');
-  const [clearDrawSignal, setClearDrawSignal] = useState(0);
   const [showCompactFilters, setShowCompactFilters] = useState(false);
   const [searchSubmitNonce, setSearchSubmitNonce] = useState(0);
   const [topSearchValue, setTopSearchValue] = useState(query);
@@ -578,11 +581,12 @@ function PropertyBrowseView({ }: Props) {
         return;
       }
       const requestVersion = ++searchRequestVersionRef.current;
-      // Stable key that identifies the location query.
-      const querySearchKey = `mls||${queryText}`;
+      // Stable key that identifies the location query + active filters.
+      const querySearchKey = `mls||${queryText}||${JSON.stringify(activeSearchFilters)}`;
       const fingerprint = JSON.stringify({
         mode: 'mls',
         query: queryText,
+        ...activeSearchFilters,
         ...body,
         latitude:
           typeof body?.latitude === 'number' ? Number(body.latitude.toFixed(3)) : body?.latitude,
@@ -610,6 +614,7 @@ function PropertyBrowseView({ }: Props) {
           searchUrl,
           {
             ...body,
+            ...activeSearchFilters,
             query: queryText,
             radius: 20,
             from_browse: true,
@@ -664,7 +669,7 @@ function PropertyBrowseView({ }: Props) {
         setIsLoading(false);
       }
     }, 1000),
-    [query, clearProperties, addProperties, setSearchedQuery, setLastSearchKey, setIsLoading, dispatch],
+    [query, activeSearchFilters, clearProperties, addProperties, setSearchedQuery, setLastSearchKey, setIsLoading, dispatch],
   );
 
   useEffect(() => {
@@ -697,7 +702,7 @@ function PropertyBrowseView({ }: Props) {
 
     // Back-navigation cache check: if we already have results for this exact
     // query in the Zustand store, show them instantly.
-    const querySearchKey = `mls||${query.trim()}`;
+    const querySearchKey = `mls||${query.trim()}||${activeSearchFiltersKey}`;
     const { lastSearchKey, allProperties: cachedProps } = usePropertyStore.getState();
     if (!isManualResubmit && cachedProps.length > 0 && lastSearchKey === querySearchKey) {
       setIsLoading(false); // clear the store's initial isLoading:true
@@ -705,7 +710,7 @@ function PropertyBrowseView({ }: Props) {
     }
 
     sendSearchRequest({});
-  }, [isSearchModeReady, query, sendSearchRequest, isMlsMode, setIsLoading, searchSubmitNonce]);
+  }, [isSearchModeReady, query, activeSearchFiltersKey, sendSearchRequest, isMlsMode, setIsLoading, searchSubmitNonce]);
 
   if (currentView === 'map') {
     return (
@@ -739,6 +744,7 @@ function PropertyBrowseView({ }: Props) {
                 }}
                 onMeasureStateChange={setMobileMeasureState}
                 clearDrawSignal={clearDrawSignal}
+                externalActivePOICategories={activePOICategories}
                 useOverlayResultsRail
                 hideControls={mobileSheetMode !== 'collapsed'}
                 onMapMove={(center) => {
@@ -1100,7 +1106,7 @@ function PropertyBrowseView({ }: Props) {
                         type="button"
                         onClick={() => {
                           setDrawFilteredPropertyIds(null);
-                          setClearDrawSignal((prev) => prev + 1);
+                          incrementClearDrawSignal();
                         }}
                         className="rounded-full bg-orange-50 px-2.5 py-1 text-orange-700 hover:bg-orange-100"
                       >
@@ -1264,8 +1270,9 @@ function PropertyBrowseView({ }: Props) {
                 }
               }}
               clearDrawSignal={clearDrawSignal}
+              externalActivePOICategories={activePOICategories}
               onMapMove={(center) => {
-                // AI search is query-based â€” map panning should not re-fetch (properties already loaded)
+                // AI search is query-based — map panning should not re-fetch (properties already loaded)
                 // Only MLS mode is geo-based and needs map-move re-requests
                 if (!isMlsMode) return;
                 if (!query.trim()) return;

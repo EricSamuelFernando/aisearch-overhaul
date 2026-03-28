@@ -160,6 +160,16 @@ const blog6BbqStrategy: Article = {
     { label: 'Snaphomz Integration & ROI', href: '#snaphomz-integration' },
     { label: 'Conclusion', href: '#conclusion' },
   ],
+  aiSummary: {
+    summary: 'Choosing between gas, pellet, and charcoal grills in 2026 is a Total Cost of Ownership decision. Weber, Traeger, Napoleon, and Big Green Egg each serve distinct lifestyles — from quick weeknight cooking to weekend low-and-slow sessions. This guide breaks down fuel costs, lifespan, electrical requirements, and outdoor kitchen design to help you make a grill investment that pays off both culinarily and at resale.',
+    keyPoints: [
+      'Gas grills (Weber Genesis) win on convenience; pellet grills (Traeger) win on set-and-forget flavor and versatility.',
+      'Big Green Egg\'s ceramic construction lasts 20+ years — the lowest total cost per year over the long run.',
+      'Annual fuel costs vary significantly: propane ~$200, pellets ~$300, charcoal ~$150 — factor this into your 5-year budget.',
+      'Pellet grills require a 120V outlet nearby; plan electrical access before installing in an outdoor kitchen.',
+      'A quality outdoor kitchen with a built-in grill can add 5–10% to perceived home value — use Snappredict to verify ROI in your market.',
+    ],
+  },
 };
 
 export default blog6BbqStrategy;

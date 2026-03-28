@@ -3,6 +3,11 @@ export interface TocItem {
   href: string;
 }
 
+export interface AiSummary {
+  summary: string;
+  keyPoints: string[];
+}
+
 export interface Article {
   id: string;
   title: string;
@@ -15,4 +20,5 @@ export interface Article {
   date: string;
   readTime: string;
   tableOfContents?: TocItem[];
+  aiSummary?: AiSummary;
 }

@@ -182,6 +182,31 @@ export default function BlogArticleDetail({ articleId }: { articleId: string }) 
         </div>
       </section>
 
+      {/* AI Summary */}
+      {article.aiSummary && (
+        <section className="w-full bg-[#FFF6EC] px-6 lg:px-12 pb-2">
+          <div className="max-w-7xl mx-auto">
+            <div className="rounded-2xl border border-[#F07639]/30 bg-white px-6 py-5">
+              <div className="flex items-center gap-2 mb-3">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F07639" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+                </svg>
+                <span className="text-sm font-semibold text-[#F07639] uppercase tracking-wide">AI Summary</span>
+              </div>
+              <p className="text-sm text-[#565453] leading-relaxed mb-4">{article.aiSummary.summary}</p>
+              <ul className="space-y-2">
+                {article.aiSummary.keyPoints.map((point, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-[#1B1B1B]">
+                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-[#F07639] flex-shrink-0" />
+                    {point}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Article Content */}
       <article className="w-full bg-[#FFF6EC] py-14">
         <div className="max-w-7xl mx-auto px-6 lg:px-12">

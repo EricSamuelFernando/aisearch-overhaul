@@ -1101,6 +1101,7 @@ export default function Home() {
   const carouselSlideRefs = useRef<Array<HTMLDivElement | null>>([]);
   const AUTOPLAY_DELAY = 4000;
   const isMobileCarousel = useMediaQuery('(max-width: 639px)');
+  const isShortDesktop = useMediaQuery('(min-width: 1280px) and (max-height: 700px)');
 
   const { tempUserId } = useAppSelector(
     (state: RootState) => state.propertyPreference
@@ -1282,7 +1283,7 @@ export default function Home() {
       <MainNavPages />
 
       {/* ================= HERO SECTION ================= */}
-      <section
+     <section
         ref={heroSectionRef}
         className="home-hero relative -mt-24 min-h-[610px] bg-[#170800] pt-28 text-white sm:min-h-[650px] md:min-h-[620px] md:h-[620px] md:max-h-[620px] md:pt-24 lg:min-h-[680px] lg:h-[680px] lg:max-h-[680px] xl:min-h-[740px] xl:h-[740px] xl:max-h-[740px]"
       >
@@ -1290,17 +1291,7 @@ export default function Home() {
           {/* ================= DESKTOP ARC ================= */}
 
           <div className="hidden md:flex w-full justify-center items-center overflow-visible">
-            <div
-              className="home-hero-arc absolute left-1/2 top-28 md:h-[700px] md:w-[880px] lg:top-32 lg:h-[780px] lg:w-[1040px] xl:top-36 xl:h-[850px] xl:w-[1200px] -translate-x-1/2 md:translate-y-20 lg:translate-y-24 xl:translate-y-24"
-              style={
-                isHomeSearchActive
-                  ? ({
-                    ['--home-hero-arc-radius' as any]: 'clamp(430px, 40vw, 680px)',
-                    ['--home-hero-card-size' as any]: 'clamp(122px, 10.4vw, 162px)'
-                  } as React.CSSProperties)
-                  : undefined
-              }
-            >
+            <div className="home-hero-arc absolute left-1/2 top-24 md:h-[700px] md:w-[880px] lg:top-28 lg:h-[780px] lg:w-[1040px] xl:top-32 xl:h-[850px] xl:w-[1200px] -translate-x-1/2">
               {/* Image 1 */}
               <div
                 className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform"
@@ -1571,25 +1562,17 @@ export default function Home() {
         </div>
 
 
-        <section
-          className={`home-hero-shell relative z-30 flex h-full flex-col items-center justify-start px-4 pb-2 pt-[13.2rem] text-center sm:pb-4 sm:pt-[15rem] md:pb-12 md:pt-24 ${isHomeSearchActive ? 'home-hero-shell--expanded' : ''
-            }`}
-          style={isHomeSearchActive ? { justifyContent: 'flex-start' } : undefined}
-        >
+        <section className="home-hero-shell relative z-30 flex h-full flex-col items-center justify-start px-4 pb-2 pt-[13.2rem] text-center sm:pb-4 sm:pt-[15rem] md:pb-12 md:pt-24">
 
           {/* ================= TEXT + SEARCH ================= */}
           <div
             ref={heroContentRef}
-            className={`home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-3 transition-transform duration-300 md:gap-5 md:-mt-2 lg:-mt-4 ${isHomeSearchActive ? '' : 'md:translate-y-10 lg:translate-y-12'}`}
+            className={`home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-3 md:gap-5 md:-mt-2 lg:-mt-4 ${isShortDesktop ? 'translate-y-16' : ''}`}
           >
 
-            <h1 className="home-hero-title max-w-[348px] text-[2.58rem] font-normal leading-[1.08] tracking-[-0.04em] sm:max-w-[380px] sm:text-[2.8rem] md:max-w-none md:text-[2.05rem] md:font-medium md:leading-snug md:tracking-tight lg:text-[2.2rem] xl:text-[2.55rem] 2xl:text-[3.05rem]">
+            <h1 className="home-hero-title max-w-[340px] text-[2.55rem] font-medium leading-[1.06] tracking-[-0.03em] sm:max-w-[380px] sm:text-[2.8rem] md:max-w-none md:leading-snug md:tracking-tight md:text-[2.05rem] lg:text-[2.2rem] xl:text-[2.55rem] 2xl:text-[3.05rem]">
               <span className="block">Buying a home</span>
-              <span className="block whitespace-nowrap md:hidden">
-                should be <span className="font-normal">Very</span>{' '}
-                <span className="font-extralight italic tracking-[-0.035em]">Easy</span>
-              </span>
-              <span className="hidden md:block">
+              <span className="block">
                 should be{' '}
                 <span className="font-extralight italic">Very Easy</span>
               </span>
@@ -1600,10 +1583,7 @@ export default function Home() {
             </p>
 
             <div className="relative w-full flex justify-center text-black">
-              <div
-                className={`home-hero-search-wrap mx-auto w-full transition-all duration-300 ${isHomeSearchActive ? 'home-hero-search-wrap--expanded' : ''}`}
-                style={isHomeSearchActive ? { maxWidth: 'min(96vw, 68rem)' } : undefined}
-              >
+              <div className={`home-hero-search-wrap mx-auto w-full transition-all duration-300 ${isHomeSearchActive ? 'home-hero-search-wrap--expanded' : ''}`}>
                 <HeroSearchForm
                   onSearchStateChange={(isActive) => setIsHomeSearchActive(isActive)}
                   onSuggestionsOpen={(open) => setIsSearchSuggestionsOpen(open)}
@@ -1786,4 +1766,3 @@ export default function Home() {
     </>
   );
 }
-

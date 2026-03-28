@@ -165,6 +165,16 @@ const blog5CurbAppeal: Article = {
     { label: 'FAQs', href: '#faqs' },
     { label: 'Conclusion', href: '#conclusion' },
   ],
+  aiSummary: {
+    summary: 'This guide covers 10 fast, high-ROI curb appeal upgrades any homeowner can complete in a single weekend. From pressure washing and fresh paint to strategic lighting and potted plants, each project includes materials, step-by-step plans, and realistic cost estimates. Strong curb appeal signals a well-maintained home and can convert a few hundred dollars of effort into thousands in perceived value.',
+    keyPoints: [
+      'Pressure washing and decluttering delivers the highest ROI for under $100 — the single best starting point.',
+      'A freshly painted front door is one of the best-returning small investments in home improvement.',
+      'New hardware, exterior lighting, and fresh mulch create a professional look for under $300 total.',
+      'Clean edging and seasonal potted plants signal easy maintenance — a key psychological trigger for buyers.',
+      'Use Snaphomz tools to model how these upgrades impact your home\'s estimated market value before you start.',
+    ],
+  },
 };
 
 export default blog5CurbAppeal;

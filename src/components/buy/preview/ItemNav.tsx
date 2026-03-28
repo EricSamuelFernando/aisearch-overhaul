@@ -289,36 +289,86 @@ function ItemNav({ cardRef }: Props) {
   return (
     <div
       ref={navSection}
-      className="w-full bg-white px-4 py-3 sm:px-6 md:px-8 shadow-sm"
+      className="w-full bg-white py-3 shadow-sm xl:py-0 xl:h-[70.1px]"
     >
-      {/* MOBILE: Two rows  */}
-      <div className='flex flex-col gap-2 md:flex-row md:items-center md:justify-between'>
+      <div className="mx-auto w-full max-w-[1920px] px-2 sm:px-4 md:px-6 xl:px-[78px] min-[1536px]:max-[1919px]:px-[52px] min-[1920px]:px-[94px]">
+        {/* MOBILE: Two rows  */}
+        <div className='flex flex-col gap-2 md:flex-row md:items-center md:justify-between xl:grid xl:grid-cols-[64px_1fr_206px] xl:items-center xl:gap-0 xl:h-[70px]'>
 
-        {/* Row 1 (Back + Share + Save) */}
-        <div className='flex items-center justify-between w-full md:w-auto'>
-          {/* Back */}
-          <button
-            onClick={() => router.back()}
-            className='flex items-center gap-1 text-sm font-medium text-black hover:opacity-80'
-          >
-            <ChevronLeft className='h-4 w-4' />
-            <span>Back</span>
-          </button>
-
-          {/* Right: Share + Save */}
-          <div className='flex items-center gap-4 md:hidden'>
-            {/* Share */}
+          {/* Row 1 (Back + Share + Save) */}
+          <div className='flex items-center justify-between w-full md:w-auto xl:w-[64px] xl:justify-start'>
+            {/* Back */}
             <button
-              onClick={handleShare}
-              className='flex items-center gap-2 text-[#818181] hover:text-black'
+              onClick={() => router.back()}
+              className='flex items-center gap-1 text-sm font-medium text-black hover:opacity-80 xl:text-[16px] xl:leading-[24px] xl:w-[64px] xl:h-[24px]'
             >
-              <Icons.Share className='h-4 w-4' />
+              <ChevronLeft className='h-4 w-4 xl:h-[16px] xl:w-[16px]' />
+              <span>Back</span>
             </button>
 
-            {/* Save */}
-            <SnapzHeartButton
-              isActive={isFavored}
-              size={20}
+            {/* Right: Share + Save */}
+            <div className='flex items-center gap-4 md:hidden'>
+              {/* Share */}
+              <button
+                onClick={handleShare}
+                className='flex items-center gap-2 text-[#818181] hover:text-black'
+              >
+                <Icons.Share className='h-4 w-4' />
+              </button>
+
+              {/* Save */}
+              <SnapzHeartButton
+                isActive={isFavored}
+                size={20}
+                onClick={() => {
+                  if (isLoggedIn) {
+                    const propertyImage = propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.public?.imageUrl || propertyData?.image || '/assets/images/property-placeholder.jpg';
+                    openCollectionModal(propertyId, propertyImage, fetchSnaps);
+                  } else {
+                    router.push('/login');
+                  }
+                }}
+                className='text-[#818181] hover:text-black'
+              />
+            </div>
+          </div>
+
+          {/* Row 2 (Nav Tabs) */}
+          <div className='flex items-center justify-start overflow-x-auto scrollbar-hide snap-x snap-mandatory md:flex-1 md:justify-center md:overflow-visible md:gap-4 xl:w-[1088.5px] xl:h-[70.1px] xl:flex-none xl:justify-self-center xl:justify-center xl:gap-[32px]'>
+            {navItems.map((item) => (
+              <Link
+                key={item.hash}
+                href={item.hash}
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (typeof window !== 'undefined') {
+                    window.history.pushState(null, '', item.hash);
+                    setHash(item.hash);
+                    window.dispatchEvent(new CustomEvent('preview-nav', { detail: item.hash }));
+                  }
+                }}
+                className={cn(
+                  'snap-start whitespace-nowrap px-4 py-2 text-sm font-medium text-[#818181] hover:border-b-[2px] hover:border-black hover:text-black xl:px-[12px] xl:py-[20px] xl:text-[18px] xl:h-full xl:flex xl:items-center',
+                  hash === item.hash &&
+                  'border-b-[2px] border-black bg-[#F8F8F8] text-black'
+                )}
+              >
+                {item.title}
+              </Link>
+            ))}
+          </div>
+
+          {/* Desktop only: Share + Save (right side) */}
+          <div className='hidden md:flex items-center gap-4 ml-2 xl:ml-0 xl:w-[206px] xl:h-[33px] xl:justify-end'>
+            <button
+              onClick={handleShare}
+              className='flex items-center gap-2 text-black hover:text-black xl:text-[16px]'
+            >
+              <Icons.Share className='h-4 w-4 xl:h-[16px] xl:w-[16px]' />
+              <span>Share</span>
+            </button>
+
+            <button
               onClick={() => {
                 if (isLoggedIn) {
                   const propertyImage = propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.public?.imageUrl || propertyData?.image || '/assets/images/property-placeholder.jpg';
@@ -327,58 +377,24 @@ function ItemNav({ cardRef }: Props) {
                   router.push('/login');
                 }
               }}
-              className='text-[#818181] hover:text-black'
-            />
-          </div>
-        </div>
-
-        {/* Row 2 (Nav Tabs) */}
-        <div className='flex items-center justify-start overflow-x-auto scrollbar-hide snap-x snap-mandatory md:flex-1 md:justify-center md:overflow-visible md:gap-4'>
-          {navItems.map((item) => (
-            <Link
-              key={item.hash}
-              href={item.hash}
-              onClick={(e) => {
-                e.preventDefault();
-                if (typeof window !== 'undefined') {
-                  window.history.pushState(null, '', item.hash);
-                  setHash(item.hash);
-                  window.dispatchEvent(new CustomEvent('preview-nav', { detail: item.hash }));
-                }
-              }}
-              className={cn(
-                'snap-start whitespace-nowrap px-4 py-2 text-sm font-medium text-[#818181] hover:border-b-[2px] hover:border-black hover:text-black',
-                hash === item.hash &&
-                'border-b-[2px] border-black bg-[#F8F8F8] text-black'
-              )}
+              className='flex items-center gap-2 text-black hover:text-black xl:text-[16px]'
             >
-              {item.title}
-            </Link>
-          ))}
-        </div>
-
-        {/* Desktop only: Share + Save (right side) */}
-        <div className='hidden md:flex items-center gap-4 ml-2'>
-          <button
-            onClick={handleShare}
-            className='flex items-center gap-2 text-[#818181] hover:text-black'
-          >
-            <Icons.Share className='h-4 w-4' />
-          </button>
-
-          <SnapzHeartButton
-            isActive={isFavored}
-            size={20}
-            onClick={() => {
-              if (isLoggedIn) {
-                const propertyImage = propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.public?.imageUrl || propertyData?.image || '/assets/images/property-placeholder.jpg';
-                openCollectionModal(propertyId, propertyImage, fetchSnaps);
-              } else {
-                router.push('/login');
-              }
-            }}
-            className='text-[#818181] hover:text-black'
-          />
+              <SnapzHeartButton
+                isActive={isFavored}
+                size={20}
+                onClick={() => {
+                  if (isLoggedIn) {
+                    const propertyImage = propertyData?.listing?.media?.primaryListingImageUrl || propertyData?.public?.imageUrl || propertyData?.image || '/assets/images/property-placeholder.jpg';
+                    openCollectionModal(propertyId, propertyImage, fetchSnaps);
+                  } else {
+                    router.push('/login');
+                  }
+                }}
+                className='text-black hover:text-black xl:h-[16px] xl:w-[16px]'
+              />
+              <span>Save</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

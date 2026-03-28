@@ -1558,9 +1558,13 @@ export default function Home() {
             className="home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-3 md:gap-5 md:-mt-2 lg:-mt-4"
           >
 
-            <h1 className="home-hero-title max-w-[340px] text-[2.55rem] font-medium leading-[1.06] tracking-[-0.03em] sm:max-w-[380px] sm:text-[2.8rem] md:max-w-none md:leading-snug md:tracking-tight md:text-[2.05rem] lg:text-[2.2rem] xl:text-[2.55rem] 2xl:text-[3.05rem]">
+            <h1 className="home-hero-title max-w-[348px] text-[2.58rem] font-normal leading-[1.08] tracking-[-0.04em] sm:max-w-[380px] sm:text-[2.8rem] md:max-w-none md:text-[2.05rem] md:font-medium md:leading-snug md:tracking-tight lg:text-[2.2rem] xl:text-[2.55rem] 2xl:text-[3.05rem]">
               <span className="block">Buying a home</span>
-              <span className="block">
+              <span className="block whitespace-nowrap md:hidden">
+                should be <span className="font-normal">Very</span>{' '}
+                <span className="font-extralight italic tracking-[-0.035em]">Easy</span>
+              </span>
+              <span className="hidden md:block">
                 should be{' '}
                 <span className="font-extralight italic">Very Easy</span>
               </span>

@@ -5047,7 +5047,13 @@ const CustomMap: React.FC<Props> = ({
       // which can cut off the boundary drawn by the Feature Layer.
       const targetBounds = (geometry as any).bounds ?? geometry.viewport;
       if (targetBounds) {
-        mapInstance.fitBounds(targetBounds, 60);
+        // The listings panel overlays the left ~44vw of the map container (max 620px).
+        // Using asymmetric padding shifts the effective center into the visible right
+        // portion so the city boundary is never hidden behind the panel.
+        const leftPanelWidth = typeof window !== 'undefined'
+          ? Math.min(620, Math.round(window.innerWidth * 0.44)) + 40
+          : 60;
+        mapInstance.fitBounds(targetBounds, { top: 60, right: 60, bottom: 60, left: leftPanelWidth });
         return;
       }
       const location = geometry.location;
@@ -5765,7 +5771,10 @@ const CustomMap: React.FC<Props> = ({
       // If a city/place boundary is active, always fit to the place bounds so
       // the full boundary polygon stays visible after markers load.
       if (selectedPlaceId && searchPlaceBoundsRef.current) {
-        mapInstance.fitBounds(searchPlaceBoundsRef.current, 60);
+        const leftPanelWidth = typeof window !== 'undefined'
+          ? Math.min(620, Math.round(window.innerWidth * 0.44)) + 40
+          : 60;
+        mapInstance.fitBounds(searchPlaceBoundsRef.current, { top: 60, right: 60, bottom: 60, left: leftPanelWidth });
         lastAutoFitQueryRef.current = currentQueryKey;
         return;
       }

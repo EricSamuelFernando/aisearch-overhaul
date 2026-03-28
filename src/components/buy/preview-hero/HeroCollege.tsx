@@ -82,7 +82,7 @@ const HeroCollege: React.FC<React.PropsWithChildren<CarouselProps>> = ({
     <div
       // GRID FIX: Start with a single column on mobile, switch to 12-column grid on md screens
       className={cn(
-        'relative h-[300px] md:h-[500px] w-full select-none rounded-lg overflow-hidden grid grid-cols-1 md:grid-cols-12 gap-2',
+        'relative h-[300px] md:h-[500px] xl:h-[569px] w-full select-none overflow-hidden grid grid-cols-1 md:grid-cols-12 gap-2 xl:grid-cols-[847.793px_321px] min-[1536px]:max-[1919px]:grid-cols-[710px_268px] xl:gap-[10px] xl:rounded-[20px]',
         className,
       )}
     >
@@ -91,14 +91,14 @@ const HeroCollege: React.FC<React.PropsWithChildren<CarouselProps>> = ({
       {/* --- 1. Main Image (Always 12 columns on mobile, 9 on desktop) --- */}
       <div
         // COL-SPAN FIX: Use col-span-12 for mobile, then md:col-span-9 for desktop
-        className='relative col-span-12 md:col-span-9 h-full w-full'
+        className='relative col-span-12 md:col-span-9 xl:col-span-1 h-full w-full'
         onClick={() => onImageClick && onImageClick(currentIndex)} // Click handler on the main image container
       >
         {renderImage(
           imageURLs[currentIndex]?.highRes,
           currentIndex,
           // ROUNDING FIX: Only round the right edge on desktop if it's the 9-column layout
-          'rounded-lg md:rounded-r-none',
+          'rounded-lg md:rounded-r-none xl:rounded-l-[20px] xl:rounded-r-none',
           true
         )}
 
@@ -157,7 +157,7 @@ const HeroCollege: React.FC<React.PropsWithChildren<CarouselProps>> = ({
       </div>
 
       {/* --- 2. Side Images & Button (Hidden on mobile, visible on desktop) --- */}
-      <div className='hidden md:col-span-3 md:grid grid-rows-2 gap-2 h-full w-full'>
+      <div className='hidden md:col-span-3 xl:col-span-1 md:grid grid-rows-2 gap-2 xl:gap-[10px] xl:grid-rows-[285px_275px] min-[1536px]:max-[1919px]:grid-rows-[285px_275px] h-full w-full'>
 
         {/* Top side image */}
         <div
@@ -167,7 +167,7 @@ const HeroCollege: React.FC<React.PropsWithChildren<CarouselProps>> = ({
           {imageURLs.length > 1 && renderImage(
             imageURLs[secondImageIndex]?.highRes,
             secondImageIndex,
-            'rounded-lg',
+            'rounded-lg xl:rounded-tr-[20px] xl:rounded-tl-none',
           )}
         </div>
 
@@ -179,11 +179,11 @@ const HeroCollege: React.FC<React.PropsWithChildren<CarouselProps>> = ({
           {imageURLs.length > 2 && renderImage(
             imageURLs[thirdImageIndex]?.highRes,
             thirdImageIndex,
-            'rounded-lg',
+            'rounded-lg xl:rounded-br-[20px] xl:rounded-bl-none',
           )}
 
           {/* 'Show all photos' button overlay (Desktop) */}
-          <div className='absolute inset-x-0 bottom-4 flex justify-center z-10'>
+          <div className='absolute inset-x-0 bottom-4 xl:bottom-[39px] flex justify-center z-10'>
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -193,9 +193,9 @@ const HeroCollege: React.FC<React.PropsWithChildren<CarouselProps>> = ({
                   onImageClick && onImageClick(currentIndex);
                 }
               }}
-              className='flex items-center space-x-2 rounded-lg bg-white/90 px-4 py-2 text-sm font-semibold text-gray-800 shadow-xl border border-gray-200 hover:bg-white transition-colors'
+              className='flex items-center space-x-2 rounded-lg bg-white/90 px-4 py-2 text-sm font-semibold text-gray-800 shadow-xl border border-gray-200 hover:bg-white transition-colors xl:w-[211px] xl:h-[46px] xl:rounded-[10px] xl:border-black xl:text-[20px] xl:font-medium'
             >
-              <LayoutGridIcon className='h-4 w-4' />
+              <LayoutGridIcon className='h-4 w-4 xl:h-[24px] xl:w-[24px]' />
               <span>Show all photos</span>
             </button>
           </div>

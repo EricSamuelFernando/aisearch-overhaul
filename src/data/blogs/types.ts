@@ -21,4 +21,5 @@ export interface Article {
   readTime: string;
   tableOfContents?: TocItem[];
   aiSummary?: AiSummary;
+  tags?: string[];
 }

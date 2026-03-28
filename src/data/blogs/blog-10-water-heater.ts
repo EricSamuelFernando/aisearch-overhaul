@@ -123,6 +123,16 @@ const blog10WaterHeater: Article = {
     { label: 'Snaphomz Integration & Rentvsbuy',      href: '#snaphomz-integration' },
     { label: 'Conclusion',                            href: '#conclusion' },
   ],
+  aiSummary: {
+    summary: 'Tankless water heaters have become the 2026 standard for smart buyers, offering 20+ year lifespans versus 10–13 years for traditional tank models. This guide compares Rheem, Rinnai, A.O. Smith, and Navien on upfront cost, efficiency ratings, and 20-year TCO — revealing when the higher installation cost is justified and when it isn\'t.',
+    keyPoints: [
+      'Tankless heaters cost more upfront ($1,000–$3,500 installed) but save ~$100/year in energy over a tank model.',
+      'Rheem leads on value; Rinnai on performance; Navien on condensing efficiency for the highest energy savings.',
+      'Gas line upgrades and new venting add $500–$2,000 to installation — always get a plumber\'s quote before budgeting.',
+      'Heat pump water heaters (HPWH) are the most efficient option in climates where gas isn\'t available or practical.',
+      'Use the Snaphomz Rentvsbuy tool to model whether a water heater upgrade makes financial sense before purchasing a home.',
+    ],
+  },
 };
 
 export default blog10WaterHeater;

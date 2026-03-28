@@ -335,10 +335,6 @@ export async function POST(request: NextRequest) {
       delete (mergedPayload as Record<string, any>).additional_criteria;
     }
     const pageSize = isMapViewportRefresh ? 24 : 50;
-    // const requestedMax = Number(process.env.MLS_DIRECT_MAX_RESULTS || 200);
-    // const maxResults = isMapViewportRefresh
-    //   ? pageSize
-    //   : Math.min(500, Number.isFinite(requestedMax) && requestedMax > 0 ? requestedMax : 200);
     const maxResults = isMapViewportRefresh ? pageSize : 70;
 
     const aggregateRaw: any[] = [];
@@ -397,9 +393,12 @@ export async function POST(request: NextRequest) {
       if (pagesFetched >= 10) break;
     }
 
-    const scopedRecords = applyLocationScope(aggregateRaw, mergedPayload, isMapViewportRefresh);
-
-    const filteredRecords = scopedRecords
+    // Location scoping is already handled upstream — the MLS API receives city/state/zip/address
+    // as explicit search params and returns only matching results. Applying a second city-name
+    // filter here is redundant and inconsistent: MLS records often store city names differently
+    // (suburb names, varying capitalisation, missing fields), so the post-filter arbitrarily
+    // drops valid in-scope listings and produces different counts on each call.
+    const filteredRecords = aggregateRaw
       .filter(isActiveListing)
       .filter((r) => !isLeaseOrRentalLike(r))
       .filter((r) => !isDisallowedCategory(r));
@@ -456,7 +455,7 @@ export async function POST(request: NextRequest) {
             upstreamStatus: lastUpstream?.status,
             pagesFetched,
             aggregated: aggregateRaw.length,
-            scoped: scopedRecords.length,
+            scoped: filteredRecords.length,
             partialUpstreamFailure,
           }
           : undefined,

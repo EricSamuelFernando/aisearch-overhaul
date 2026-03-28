@@ -135,6 +135,39 @@ export async function searchProperties(payload: SearchPayload, signal?: AbortSig
         signal,
     });
 
+    // Lambda cold-start: first request may return 504/502 while the container initializes.
+    // Retry once after a short wait — by then the Lambda is warm and responds immediately.
+    if ((res.status === 504 || res.status === 502 || res.status === 503) && !signal?.aborted) {
+        console.warn('[API] Cold-start likely (status', res.status, '), retrying in 2s…');
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        const retryRes = await fetch(`${baseUrl}/api/search`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                ...getAuthHeaders(),
+                ...(userIdHeader ? { 'x-user-id': userIdHeader } : {}),
+            },
+            body: JSON.stringify({
+                ...payload,
+                userid: payload.userid,
+                query: payload.query,
+                session_id: payload.session_id,
+                from_browse: payload.from_browse ?? false,
+                use_cache: payload.use_cache ?? false,
+            }),
+            signal,
+        });
+        if (retryRes.ok) {
+            const retryData = await retryRes.json();
+            console.log('[API] Retry succeeded:', { session_id: retryData.session_id });
+            return retryData;
+        }
+        const retryError = await retryRes.json().catch(() => null);
+        console.error('[API] Retry also failed:', retryRes.status, retryError);
+        throw new Error(retryError?.error || `Backend request failed (${retryRes.status})`);
+    }
+
     if (!res.ok) {
         const errorBody = await res.json().catch(() => null);
         // Backend sometimes returns a non-200 status but still includes valid data.

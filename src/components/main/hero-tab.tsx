@@ -347,6 +347,78 @@ const INITIAL_AI_TRY_ASKING_SUGGESTIONS: Suggestion[] = [
     { id: 'try-3', text: "Explain what an HOA is like I'm 5." },
     { id: 'try-4', text: 'What is the monthly payment on a $240,000 loan at 6% for 30 years?' },
 ];
+
+// ── Proactive Greeting Helpers ──────────────────────────────────────────────
+const SNAPHOMZ_LAST_SEARCH_KEY = 'snaphomz_last_search';
+
+function getTimeGreeting(): string {
+    const h = new Date().getHours();
+    if (h >= 5 && h < 12) return 'Good morning';
+    if (h >= 12 && h < 17) return 'Good afternoon';
+    if (h >= 17 && h < 22) return 'Good evening';
+    return 'Hey';
+}
+
+function getLastSearchSummary(userId?: string): string | null {
+    try {
+        if (!userId) return null; // anonymous users never show last search
+        const key = `${SNAPHOMZ_LAST_SEARCH_KEY}_${userId}`;
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        if (Date.now() - (data.ts || 0) > 30 * 24 * 60 * 60 * 1000) return null;
+        return data.summary || null;
+    } catch { return null; }
+}
+
+const PROACTIVE_TEMPLATES_NO_NAME: Array<(time: string) => string> = [
+    (time) => `${time}! I'm here to help you find your perfect home.\n\nWhat are you looking for today?`,
+    (time) => `${time}! Ready to help you search smarter.\n\nTell me what kind of home you have in mind.`,
+    (time) => `${time}! Let's find you the perfect place.\n\nWhat would you like to search for?`,
+];
+
+const PROACTIVE_TEMPLATES_NAMED: Array<(time: string, name: string) => string> = [
+    (time, name) => `${time}, ${name}! I'm here to help you find your perfect home.\n\nWhat are you looking for today?`,
+    (time, name) => `${time}, ${name}! Ready to help you search smarter.\n\nTell me what kind of home you have in mind.`,
+    (time, name) => `${time}, ${name}! Let's find you the perfect place.\n\nWhat would you like to search for?`,
+];
+
+const PROACTIVE_TEMPLATES_RETURNING: Array<(time: string, name: string, search: string) => string> = [
+    (time, name, search) => `${time}, ${name}! Welcome back.\n\nLast time you were looking at **${search}** homes. Want to pick up that search, or start fresh?`,
+    (time, name, search) => `${time}, ${name}! Good to see you again.\n\nYou were searching for **${search}** homes last time. Continue where you left off?`,
+    (time, name, search) => `${time}, ${name}! Welcome back.\n\nShall we pick up your **${search}** search, or explore something new today?`,
+];
+
+function buildProactiveGreeting(userName?: string, userId?: string): string {
+    const time = getTimeGreeting();
+    const lastSearch = getLastSearchSummary(userId);
+    const name = userName?.trim();
+    const idx = Math.floor(Math.random() * 3);
+    if (lastSearch && name) return PROACTIVE_TEMPLATES_RETURNING[idx](time, name, lastSearch);
+    if (name) return PROACTIVE_TEMPLATES_NAMED[idx](time, name);
+    return PROACTIVE_TEMPLATES_NO_NAME[idx](time);
+}
+
+const PROACTIVE_SUGGESTION_SETS: string[][] = [
+    // Set A — Search + Finance + Education
+    [
+        '3-bed homes in Austin under $600K with a pool',
+        'Can I afford a home on $9,000/month income?',
+        'Explain closing costs like I\'m 5',
+    ],
+    // Set B — Finance WOW + Comparison + Concepts
+    [
+        'What\'s my monthly payment on a $450,000 home?',
+        'Compare Austin vs Denver for a first-time buyer',
+        'What is PMI and will I have to pay it?',
+    ],
+];
+
+function buildProactiveSuggestions(): string[] {
+    const idx = Math.floor(Math.random() * PROACTIVE_SUGGESTION_SETS.length);
+    return PROACTIVE_SUGGESTION_SETS[idx];
+}
+// ────────────────────────────────────────────────────────────────────────────
 const CURATED_AI_SEARCH_TEMPLATES: string[] = [
     '3-bedroom homes near top-rated schools in Manhattan Beach',
     'Homes in Irvine under $900k with low HOA',
@@ -979,6 +1051,17 @@ const sanitizeAssistantOutput = (rawText: string) => {
         })
         .join('\n');
 
+    // Remove markdown links [text](url) entirely — no external URLs or company references shown
+    cleaned = cleaned
+        .split('\n')
+        .map((line) => line.replace(/\[([^\]]+)\]\([^)]+\)/g, '').trimEnd())
+        .filter((line) => {
+            const t = line.trim();
+            // Drop lines that are now empty or just a bare bullet/dash after link removal
+            return t !== '' && t !== '-' && t !== '•' && t !== '*';
+        })
+        .join('\n');
+
     cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
     const uniqueSuggestions = Array.from(
         new Set(
@@ -1002,7 +1085,7 @@ const formatMessageContent = (text: string) => {
     const flushList = (idx: number) => {
         if (currentListItems.length > 0) {
             formattedElements.push(
-                <ul key={`ul-${idx}`} className="list-disc pl-5 mb-4 space-y-1 text-gray-600">
+                <ul key={`ul-${idx}`} className="list-disc pl-5 mb-4 space-y-1 text-gray-800">
                     {currentListItems}
                 </ul>
             );
@@ -1034,7 +1117,7 @@ const formatMessageContent = (text: string) => {
         if (trimmed.startsWith('- ')) {
             const content = trimmed.substring(2);
             currentListItems.push(
-                <li key={`li-${index}`} className="mb-1 text-gray-600">
+                <li key={`li-${index}`} className="mb-1 text-gray-800">
                     {renderTextWithBold(content)}
                 </li>
             );
@@ -1058,7 +1141,7 @@ const formatMessageContent = (text: string) => {
         } else {
             // Paragraph
             formattedElements.push(
-                <p key={`p-${index}`} className="mb-2 text-gray-600">
+                <p key={`p-${index}`} className="mb-2 text-gray-800">
                     {renderTextWithBold(trimmed)}
                 </p>
             );
@@ -1203,6 +1286,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const requestStartedAtRef = useRef<number | null>(null);
     // Controls expansion state (Collapsed Search Bar vs Expanded Chat UI)
     const [isExpanded, setIsExpanded] = useState(false);
+    // Proactive greeting shown on fresh chat open (UI-only, not stored in chatHistory)
+    const [showProactiveGreeting, setShowProactiveGreeting] = useState(false);
+    const [proactiveGreetingText, setProactiveGreetingText] = useState('');
+    const [proactiveSuggestions, setProactiveSuggestions] = useState<string[]>([]);
+    const [proactiveGreetingComplete, setProactiveGreetingComplete] = useState(false);
     const [typedPlaceholder, setTypedPlaceholder] = useState("");
     const [showAttachMenu, setShowAttachMenu] = useState(false);
     const [showAttachTooltip, setShowAttachTooltip] = useState(false);
@@ -1646,12 +1734,18 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         setNearbySchoolsById({});
         if (onSearchStateChange) onSearchStateChange(true, '');
 
+        // Show proactive greeting on fresh chat open
+        setProactiveGreetingText(buildProactiveGreeting(user?.firstname, user?.id));
+        setProactiveSuggestions(buildProactiveSuggestions());
+        setProactiveGreetingComplete(false);
+        setShowProactiveGreeting(true);
+
         if (options?.focusInput) {
             setTimeout(() => {
                 searchInputRef.current?.focus();
             }, 120);
         }
-    }, [onSearchStateChange, setChatHistory, setExpandedPropertyId, setIsExpanded, setIsMenuOpen, setIsSearching, setNearbySchoolsById, setSearchTerm, setSelectedPropertyId, setSessionId]);
+    }, [onSearchStateChange, setChatHistory, setExpandedPropertyId, setIsExpanded, setIsMenuOpen, setIsSearching, setNearbySchoolsById, setSearchTerm, setSelectedPropertyId, setSessionId, user?.firstname]);
 
     useEffect(() => {
         const handleOpenSearch = (event: Event) => {
@@ -2372,6 +2466,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         setMlsBypassMode(false);
         setMlsBypassModeEnabled(false);
         trackAiQueryForSuggestions(queryToSearch);
+        setShowProactiveGreeting(false); // Hide proactive greeting once user sends first message
         setIsExpanded(true); // Immediate UI response
         if (onSearchStateChange) {
             onSearchStateChange(true, queryToSearch);
@@ -2789,6 +2884,22 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     intent: responseData.intent
                 };
                 setChatHistory(prev => [...prev, aiMsg]);
+
+                // Persist last search context for proactive greeting on next session
+                if (mappedProps.length > 0) {
+                    try {
+                        const p = mappedProps[0];
+                        const city = p.city || '';
+                        const state = p.state || '';
+                        const beds = p.beds ? `${p.beds}-bed` : '';
+                        const location = [city, state].filter(Boolean).join(', ');
+                        const summary = [location, beds].filter(Boolean).join(' · ');
+                        if (summary && user?.id) {
+                            const key = `${SNAPHOMZ_LAST_SEARCH_KEY}_${user.id}`;
+                            localStorage.setItem(key, JSON.stringify({ summary, ts: Date.now() }));
+                        }
+                    } catch (_) { /* localStorage unavailable */ }
+                }
 
             } else {
                 // Empty results
@@ -3566,6 +3677,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         setExpandedPropertyId(null);
         setIsMenuOpen(false);
         if (onSearchStateChange) onSearchStateChange(true, '');
+        // Show proactive greeting on new session
+        setProactiveGreetingText(buildProactiveGreeting(user?.firstname, user?.id));
+        setProactiveSuggestions(buildProactiveSuggestions());
+        setProactiveGreetingComplete(false);
+        setShowProactiveGreeting(true);
 
         setTimeout(() => {
             searchContainerRef.current?.scrollIntoView({
@@ -3579,6 +3695,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     };
     const closeExpandedChat = () => {
         setIsExpanded(false);
+        setShowProactiveGreeting(false);
         resetPendingImageSelection();
         setSearchTerm('');
         setShowSuggestions(false);
@@ -3921,16 +4038,13 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                 }
                                             }}
                                             onFocus={() => {
-                                                setShowSuggestions(true);
-                                                const trimmedSearch = searchTerm.trim();
-                                                if (trimmedSearch) {
-                                                    const focusIntent = classifySuggestionIntent(trimmedSearch);
-                                                    if (focusIntent === 'nl') {
-                                                        clearMlsSuggestionState();
-                                                    } else {
-                                                        fetchAddressSuggestions(trimmedSearch);
-                                                    }
-                                                }
+                                                // Collapsed search box clicked — open chat with proactive greeting
+                                                setIsExpanded(true);
+                                                setProactiveGreetingText(buildProactiveGreeting(user?.firstname, user?.id));
+                                                setProactiveSuggestions(buildProactiveSuggestions());
+                                                setProactiveGreetingComplete(false);
+                                                setShowProactiveGreeting(true);
+                                                if (onSearchStateChange) onSearchStateChange(true, '');
                                                 onSuggestionsOpen?.(true);
                                                 setShowAiModeTip(false);
                                                 if (aiModeTipTimerRef.current) {
@@ -4216,6 +4330,48 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                 className="mobile-no-scrollbar flex flex-col gap-4 w-full min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-0 sm:pr-2 pb-2 sm:pb-2"
                                 style={{ overflowAnchor: 'none' }}
                             >
+                                {/* Proactive Greeting — UI-only, shown on fresh chat open, never stored in chatHistory */}
+                                {showProactiveGreeting && chatHistory.length === 0 && proactiveGreetingText && (
+                                    <div className="flex flex-col gap-6 w-full animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                        <div className="flex items-start gap-3 sm:gap-5 px-1">
+                                            <div className="flex-shrink-0 mt-1 w-[34px] h-[34px] sm:w-[45px] sm:h-[45.18px] flex items-center justify-center">
+                                                <Image
+                                                    src="/assets/images/Group14455(1).svg"
+                                                    alt="Snaphomz AI"
+                                                    width={45}
+                                                    height={45}
+                                                    className="w-[34px] h-[34px] sm:w-[45px] sm:h-[45.18px] object-contain"
+                                                />
+                                            </div>
+                                            <div className="flex-1 min-w-0 space-y-2 sm:space-y-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-bold text-black text-sm tracking-tight">Snaphomz AI</span>
+                                                </div>
+                                                <div className="text-gray-800 text-[15px] sm:text-[17px] leading-relaxed text-left font-normal break-words">
+                                                    <AssistantResponseText
+                                                        text={proactiveGreetingText}
+                                                        animate={true}
+                                                        speedMs={12}
+                                                        onProgress={() => scrollChatToBottom('auto')}
+                                                        onComplete={() => setProactiveGreetingComplete(true)}
+                                                    />
+                                                </div>
+                                                {/* Rotating suggestion chips — shown only after greeting animation completes */}
+                                                {proactiveGreetingComplete && <div className="flex flex-wrap gap-2 pt-1">
+                                                    {proactiveSuggestions.map((suggestion) => (
+                                                        <button
+                                                            key={suggestion}
+                                                            onMouseDown={() => handleSearchSubmit(suggestion)}
+                                                            className="text-sm px-3.5 py-1.5 rounded-full border border-gray-200 bg-white text-gray-600 hover:border-[#F58634] hover:text-[#F58634] transition-colors cursor-pointer"
+                                                        >
+                                                            {suggestion}
+                                                        </button>
+                                                    ))}
+                                                </div>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                                 {chatHistory.map((msg) => (
                                     <div key={msg.id} className={`flex flex-col w-full min-w-0 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                                         {msg.role === 'user' ? (
@@ -4322,7 +4478,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
                                                             return (
                                                                 <>
-                                                                    <div className="text-gray-600 text-[15px] sm:text-[17px] leading-relaxed text-left font-normal break-words">
+                                                                    <div className="text-gray-800 text-[15px] sm:text-[17px] leading-relaxed text-left font-normal break-words">
                                                                         {(() => {
                                                                             const shouldAnimateResponse =
                                                                                 msg.id === latestAssistantTextMessageId && !completedAnswerAnimations[msg.id];
@@ -5019,6 +5175,17 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                     e.target.style.height = e.target.scrollHeight + 'px';
                                                 }}
                                                 onFocus={() => {
+                                                    if (!isExpanded) {
+                                                        // First click on collapsed search box — open chat with proactive greeting
+                                                        setIsExpanded(true);
+                                                        setProactiveGreetingText(buildProactiveGreeting(user?.firstname, user?.id));
+                                                        setProactiveSuggestions(buildProactiveSuggestions());
+                                                        setProactiveGreetingComplete(false);
+                                                        setShowProactiveGreeting(true);
+                                                        if (onSearchStateChange) onSearchStateChange(true, '');
+                                                        return;
+                                                    }
+                                                    // Already expanded — existing suggestions behavior
                                                     setShowSuggestions(true);
                                                     const trimmedSearch = searchTerm.trim();
                                                     if (trimmedSearch) {

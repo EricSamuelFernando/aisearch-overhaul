@@ -5082,8 +5082,24 @@ const CustomMap: React.FC<Props> = ({
               shortName: undefined,
               types,
             };
-            updateSearchBounds(place?.geometry ?? null);
-            focusQueryGeometry(place?.geometry ?? null);
+            // findPlaceFromQuery geometry only has viewport, not bounds.
+            // Call getDetails to get the full geometry (including bounds) so
+            // fitBounds shows the entire city polygon without cropping.
+            if (place?.place_id) {
+              service.getDetails(
+                { placeId: place.place_id, fields: ['geometry'] },
+                (detail, detailStatus) => {
+                  const geo = detailStatus === google.maps.places.PlacesServiceStatus.OK
+                    ? detail?.geometry ?? place?.geometry
+                    : place?.geometry;
+                  updateSearchBounds(geo ?? null);
+                  focusQueryGeometry(geo ?? null);
+                },
+              );
+            } else {
+              updateSearchBounds(place?.geometry ?? null);
+              focusQueryGeometry(place?.geometry ?? null);
+            }
             return;
           }
         }

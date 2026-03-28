@@ -1273,7 +1273,7 @@ export default function Home() {
     { left: '-7.2%', top: '43.7%', width: '23.3%', height: '35.6%', rotation: -42, src: '/assets/images/home-landing-3.png', imageScale: 1.08, objectPosition: 'center center' },
     { left: '19.8%', top: '25.9%', width: '23.3%', height: '35.6%', rotation: -15, src: '/assets/images/home-landing-4.png', imageScale: 0.98, objectPosition: 'center center' },
     { left: '48.8%', top: '24.9%', width: '23.3%', height: '35.6%', rotation: 14, src: '/assets/images/home-landing5.png', imageScale: 1.02, objectPosition: 'center center' },
-    { left: '77.7%', top: '40.7%', width: '23.3%', height: '35.6%', rotation: 36, src: '/assets/images/home-landing-6.png', imageScale: 0.98, objectPosition: 'center 52%' },
+    { left: '73.6%', top: '45.5%', width: '24.6%', height: '37.2%', rotation: 36, src: '/assets/images/home-landing6s.png', imageScale: 1.14, objectPosition: 'center 51%' },
     { left: '97.7%', top: '75.6%', width: '23.3%', height: '35.6%', rotation: 22, src: '/assets/images/home-landing4.png', imageScale: 1.08, objectPosition: 'center center' },
   ];
 
@@ -1583,9 +1583,13 @@ export default function Home() {
             className={`home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-3 transition-transform duration-300 md:gap-5 md:-mt-2 lg:-mt-4 ${isHomeSearchActive ? '' : 'md:translate-y-10 lg:translate-y-12'}`}
           >
 
-            <h1 className="home-hero-title max-w-[340px] text-[2.55rem] font-medium leading-[1.06] tracking-[-0.03em] sm:max-w-[380px] sm:text-[2.8rem] md:max-w-none md:leading-snug md:tracking-tight md:text-[2.05rem] lg:text-[2.2rem] xl:text-[2.55rem] 2xl:text-[3.05rem]">
+            <h1 className="home-hero-title max-w-[348px] text-[2.58rem] font-normal leading-[1.08] tracking-[-0.04em] sm:max-w-[380px] sm:text-[2.8rem] md:max-w-none md:text-[2.05rem] md:font-medium md:leading-snug md:tracking-tight lg:text-[2.2rem] xl:text-[2.55rem] 2xl:text-[3.05rem]">
               <span className="block">Buying a home</span>
-              <span className="block">
+              <span className="block whitespace-nowrap md:hidden">
+                should be <span className="font-normal">Very</span>{' '}
+                <span className="font-extralight italic tracking-[-0.035em]">Easy</span>
+              </span>
+              <span className="hidden md:block">
                 should be{' '}
                 <span className="font-extralight italic">Very Easy</span>
               </span>

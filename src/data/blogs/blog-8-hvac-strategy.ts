@@ -146,6 +146,16 @@ const blog8HvacStrategy: Article = {
     { label: 'Snaphomz Integration',                href: '#snaphomz-integration' },
     { label: 'Conclusion',                          href: '#conclusion' },
   ],
+  aiSummary: {
+    summary: 'In 2026, HVAC systems are evaluated on SEER2 efficiency ratings, electrical panel capacity, and long-term reliability — not just brand name. This guide compares Carrier, Trane, Lennox, and Mitsubishi across upfront cost, energy performance, and resale impact, showing how the right system lowers energy bills, improves air quality, and adds measurable home value.',
+    keyPoints: [
+      'SEER2 replaced SEER in 2023 — the new federal minimum is 14.3 SEER2; higher ratings mean lower monthly energy costs.',
+      'Mitsubishi mini-splits excel in zone-specific efficiency; Trane leads in whole-home reliability and longevity.',
+      'HVAC replacement costs $5,000–$15,000 but typically returns 70–80% at resale in most U.S. markets.',
+      'Buyers increasingly request HVAC service history — a documented, recent system is a strong negotiating asset.',
+      'Use Snapdisclosures to check HVAC age and brand in seller disclosures before making an offer on any home.',
+    ],
+  },
 };
 
 export default blog8HvacStrategy;

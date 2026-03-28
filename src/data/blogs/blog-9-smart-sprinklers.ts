@@ -126,6 +126,16 @@ const blog9SmartSprinklers: Article = {
     { label: 'Snaphomz Integration & Snapgrad',       href: '#snaphomz-integration' },
     { label: 'Conclusion',                            href: '#conclusion' },
   ],
+  aiSummary: {
+    summary: 'Smart sprinkler systems like Rachio and Orbit B-hyve automate lawn care while cutting water usage by up to 50%, directly improving curb appeal and property value. This guide compares top systems by cost, features, and ROI, and explains how school district quality amplifies the return on a well-maintained exterior. Data tools like Snapgrad help homeowners model the exact value impact of irrigation investments.',
+    keyPoints: [
+      'Rachio 3 leads in AI-driven weather-based scheduling; Orbit B-hyve delivers strong value at a lower price point.',
+      'Smart irrigation cuts water bills by 30–50% through real-time weather adjustments — savings that compound annually.',
+      'Homes in top school districts see amplified curb appeal returns — lawn quality directly affects perceived neighborhood fit.',
+      'Rain Bird and Hunter are the professional-grade choices for complex multi-zone properties and irrigation contractors.',
+      'Snapgrad helps buyers score neighborhood desirability so you can model whether lawn investment matches the market tier.',
+    ],
+  },
 };
 
 export default blog9SmartSprinklers;

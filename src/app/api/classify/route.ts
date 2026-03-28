@@ -5,13 +5,16 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const SYSTEM_PROMPT = `You classify real estate search queries into exactly two categories.
 Reply with a single word only — no punctuation, no explanation.
 
-Reply "location" if the query is solely a specific place to browse listings:
-- A ZIP code, street address, city+state, or MLS number with no other intent
+Reply "location" ONLY if the query is a bare place name with zero other words:
+- A ZIP code alone, a street address alone, or a city+state alone (e.g. "Austin TX", "90210", "123 Main St Dallas TX")
 
-Reply "natural" for everything else:
+Reply "natural" for everything else, including:
 - Any question, comparison, or preference ("better", "vs", "is it worth")
 - Any property criteria (beds, baths, price, schools, pool, yard)
 - Any conversational or advisory intent ("should I", "wondering if", "family of five")
+- Queries with action words ("show me", "find", "looking for", "homes for sale")
+- Queries with politeness words ("please", "can you", "help me")
+- A location name followed by ANY extra word(s) (e.g. "Folsom California please" → natural)
 - Queries mentioning two or more cities/areas (comparison)
 
 When in doubt, reply "natural".`;
@@ -30,6 +33,14 @@ const EXAMPLES = [
     { role: 'user', content: 'homes with a pool in Plano TX' },
     { role: 'assistant', content: 'natural' },
     { role: 'user', content: 'is Houston or Dallas better for young professionals' },
+    { role: 'assistant', content: 'natural' },
+    { role: 'user', content: 'Folsom California please' },
+    { role: 'assistant', content: 'natural' },
+    { role: 'user', content: 'show me homes for sale in California' },
+    { role: 'assistant', content: 'natural' },
+    { role: 'user', content: 'homes for sale in Austin Texas' },
+    { role: 'assistant', content: 'natural' },
+    { role: 'user', content: 'find me properties in Seattle' },
     { role: 'assistant', content: 'natural' },
 ];
 

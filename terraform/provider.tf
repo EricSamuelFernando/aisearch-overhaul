@@ -9,11 +9,15 @@ terraform {
 }
 
 provider "aws" {
-  region = "us-west-1"
+  region     = "us-west-1"
+  access_key = "AKIARDFCLRJNG3Z4WP7L"
+  secret_key = "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"
 }
 
 # ACM certificates for CloudFront must exist in us-east-1
 provider "aws" {
-  alias  = "us_east_1"
-  region = "us-east-1"
+  alias      = "us_east_1"
+  region     = "us-east-1"
+  access_key = "AKIARDFCLRJNG3Z4WP7L"
+  secret_key = "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"
 }

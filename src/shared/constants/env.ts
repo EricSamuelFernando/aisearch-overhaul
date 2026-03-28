@@ -59,7 +59,7 @@ export const AI_BACKEND_BASE_URI = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI
 
 // All search URLs now use NEXT_PUBLIC_API_BASE_URL (new AI search backend — Neo4j + MLS)
 export const PROPERTY_SEARCH_AI_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:5000'}/api/search`;
-export const MLS_SEARCH_LIVE_URL = 'https://demo.snaphomz.com/api/mls/search';
+export const MLS_SEARCH_LIVE_URL = '/api/mls/search';
 
 export const PROPERTY_DETAIL_SEARCH_AI_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:5000'}/api/get_data`;
 

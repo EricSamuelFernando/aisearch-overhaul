@@ -3046,7 +3046,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         // Address-like heuristics
         const hasHouseNumber = /\b\d{1,6}\b/.test(trimmed);
         const hasStreetKeyword = /\b(st|street|ave|avenue|rd|road|blvd|boulevard|dr|drive|ln|lane|ct|court|way|pl|place|cir|circle|pkwy|parkway|ter|terrace|hwy|highway)\b/i.test(trimmed);
-        const hasCommaAddressShape = /,/.test(trimmed) && /[a-z]/i.test(trimmed);
+        // Exclude "City, ST" and "City, State" patterns — those are locations, not addresses
+        const isCityStatePattern = /^[a-z\s]+,\s*([a-z]{2}|alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new\s+hampshire|new\s+jersey|new\s+mexico|new\s+york|north\s+carolina|north\s+dakota|ohio|oklahoma|oregon|pennsylvania|rhode\s+island|south\s+carolina|south\s+dakota|tennessee|texas|utah|vermont|virginia|washington|west\s+virginia|wisconsin|wyoming)$/i.test(trimmed);
+        const hasCommaAddressShape = /,/.test(trimmed) && /[a-z]/i.test(trimmed) && !isCityStatePattern;
         const isAddressLike = trimmed.length >= 3 && (hasHouseNumber || hasStreetKeyword || hasCommaAddressShape);
 
         if (trimmed.length < 3) {
@@ -3127,21 +3129,23 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                             return;
                         }
 
-                        const locationTypeHints = new Set([
-                            'locality',
-                            'administrative_area_level_1',
-                            'administrative_area_level_2',
-                            'sublocality',
-                            'neighborhood',
-                            'postal_town',
-                        ]);
+                        // Priority order: city/locality first, then ZIP, then everything else
+                        const typePriority = (types: string[]): number => {
+                            if (types.includes('locality') || types.includes('postal_town')) return 0;
+                            if (types.includes('administrative_area_level_2')) return 1;
+                            if (types.includes('neighborhood') || types.includes('sublocality')) return 2;
+                            if (types.includes('administrative_area_level_1')) return 3;
+                            if (types.includes('postal_code')) return 4;
+                            return 5; // streets, addresses last
+                        };
 
-                        const filtered = predictions.filter((prediction: any) => {
-                            const types = Array.isArray(prediction?.types) ? prediction.types : [];
-                            return types.some((t: string) => locationTypeHints.has(t));
+                        const sorted = [...predictions].sort((a: any, b: any) => {
+                            const aTypes = Array.isArray(a?.types) ? a.types : [];
+                            const bTypes = Array.isArray(b?.types) ? b.types : [];
+                            return typePriority(aTypes) - typePriority(bTypes);
                         });
-                        const source = filtered.length > 0 ? filtered : predictions;
-                        const mapped: LocationSuggestion[] = source.slice(0, 8).map((prediction: any) => ({
+
+                        const mapped: LocationSuggestion[] = sorted.slice(0, 8).map((prediction: any) => ({
                             placeId: String(prediction?.place_id || prediction?.id || prediction?.description || ''),
                             description: String(
                                 prediction?.description ||

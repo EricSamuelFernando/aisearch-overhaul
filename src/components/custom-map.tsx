@@ -3307,15 +3307,19 @@ const toMarkerKey = (
 ) => `${id ?? 'no-id'}:${lat.toFixed(6)}:${lng.toFixed(6)}:${index}`;
 
 const resolveListingId = (item: any): string | undefined => {
+  // Support both flat and { data: {...} } wrapped shapes — must match BuyPropertyCards
+  const d = item?.data || item;
   const raw =
-    item?.id ??
-    item?.listingId ??
-    item?.listing_id ??
-    item?.listing?.id ??
-    item?.listing?.listingId ??
-    item?.mlsId ??
-    item?.mls_id ??
-    item?.propertyId;
+    d?.id ??
+    d?.listingId ??
+    d?.listing_id ??
+    d?.listing?.id ??
+    d?.listing?.listingId ??
+    d?.ListingKey ??
+    d?.ListingId ??
+    d?.mlsId ??
+    d?.mls_id ??
+    d?.propertyId;
   if (raw === undefined || raw === null || raw === '') return undefined;
   return String(raw);
 };
@@ -3352,6 +3356,8 @@ const CustomMap: React.FC<Props> = ({
   const [currentMapZoom, setCurrentMapZoom] = useState<number>(zoom);
   const [selectedMarker, setSelectedMarker] = useState<any>(null);
   const [hoveredMarker, setHoveredMarker] = useState<any>(null);
+  const [hoverCardPixel, setHoverCardPixel] = useState<{ x: number; y: number } | null>(null);
+  const hoverClearTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [measureMode, setMeasureMode] = useState(false);
   const [measureStart, setMeasureStart] = useState<google.maps.LatLngLiteral | null>(null);
@@ -5638,6 +5644,20 @@ const CustomMap: React.FC<Props> = ({
     }
   }, [isTouchDevice, mapInstance, useOverlayResultsRail]);
 
+  const scheduleHoverClear = useCallback((markerKey: string) => {
+    if (hoverClearTimerRef.current) clearTimeout(hoverClearTimerRef.current);
+    hoverClearTimerRef.current = setTimeout(() => {
+      setHoveredMarker((prev: any) => prev?.markerKey === markerKey ? null : prev);
+    }, 120);
+  }, []);
+
+  const cancelHoverClear = useCallback(() => {
+    if (hoverClearTimerRef.current) {
+      clearTimeout(hoverClearTimerRef.current);
+      hoverClearTimerRef.current = null;
+    }
+  }, []);
+
   const centerOnMarker = useCallback((position: google.maps.LatLngLiteral) => {
     if (!mapInstance) return;
     panMarkerIntoVisibleArea(position);
@@ -5719,6 +5739,46 @@ const CustomMap: React.FC<Props> = ({
     };
   }, [previewAnchorMarker]);
 
+  useEffect(() => {
+    if (!previewAnchorMarker) {
+      setHoverCardPixel(null);
+      return;
+    }
+    const projection = projectionOverlayRef.current?.getProjection?.();
+    if (!projection) {
+      setHoverCardPixel(null);
+      return;
+    }
+    const pixel = projection.fromLatLngToContainerPixel(
+      new google.maps.LatLng(previewAnchorMarker.lat, previewAnchorMarker.lng),
+    );
+    if (pixel) setHoverCardPixel({ x: pixel.x, y: pixel.y });
+    else setHoverCardPixel(null);
+  }, [previewAnchorMarker]);
+
+  const hoverCardStyle = useMemo(() => {
+    if (!hoverCardPixel || !mapInstance) return null;
+    const CARD_W = 300;
+    const CARD_H = 278;
+    const PILL_ANCHOR_Y = 40; // anchorY for normal marker (pixels from lat/lng to top of pill)
+    const GAP = 4;
+    const mapDiv = mapInstance.getDiv();
+    const mapW = mapDiv?.clientWidth ?? 800;
+
+    const { x, y } = hoverCardPixel;
+    // preferred: card bottom sits just above the pill top
+    const pillTop = y - PILL_ANCHOR_Y;
+    let top: number;
+    if (pillTop - GAP - CARD_H >= 4) {
+      top = pillTop - GAP - CARD_H;
+    } else {
+      // not enough room above: show below the anchor point
+      top = y + GAP;
+    }
+    let left = Math.round(x - CARD_W / 2);
+    left = Math.max(8, Math.min(mapW - CARD_W - 8, left));
+    return { top, left };
+  }, [hoverCardPixel, mapInstance]);
 
   const onLoad = useCallback((map: google.maps.Map) => {
     setMap(map);
@@ -6532,13 +6592,12 @@ const CustomMap: React.FC<Props> = ({
               options={{ clickable: !drawMode && isMarkerVisible, visible: isMarkerVisible }}
               onMouseOver={() => {
                 if (drawMode || !isMarkerVisible || isTouchDevice) return;
+                cancelHoverClear();
                 setHoveredMarker(marker);
               }}
               onMouseOut={() => {
                 if (isTouchDevice) return;
-                setHoveredMarker((prev: any) =>
-                  prev?.markerKey === marker.markerKey ? null : prev,
-                );
+                scheduleHoverClear(marker.markerKey);
               }}
               onClick={() => {
                 if (drawMode || !isMarkerVisible) return;
@@ -6570,58 +6629,7 @@ const CustomMap: React.FC<Props> = ({
           );
         })}
 
-        {hoverPreview ? (
-          <InfoWindow
-            position={hoverPreview.position}
-            onCloseClick={() => {
-              setHoveredMarker(null);
-              if (isTouchDevice) {
-                setSelectedMarker(null);
-              }
-            }}
-            options={{
-              disableAutoPan: true,
-              pixelOffset: new google.maps.Size(0, -42),
-              maxWidth: 320,
-            }}
-          >
-            <div
-              className="snaphomz-info-window w-[300px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl"
-              style={{ animation: 'snaphomzMapCardIn 180ms ease-out' }}
-            >
-              <div className="relative h-40 w-full overflow-hidden bg-gray-100">
-                {hoverPreview.image ? (
-                  <img
-                    src={hoverPreview.image}
-                    alt={hoverPreview.address}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-xs text-gray-500">
-                    No photo available
-                  </div>
-                )}
-                <div className="absolute left-2 top-2 z-10 rounded-full bg-[#78de2a] px-2 py-0.5 text-[10px] font-semibold text-black shadow-sm">
-                  {hoverPreview.statusLabel}
-                </div>
-              </div>
-              <div className="space-y-2 px-4 py-3">
-                <div className="text-[15px] font-bold leading-none text-gray-900">
-                  {hoverPreview.priceText}
-                </div>
-                {hoverPreview.meta ? (
-                  <div className="text-[11px] leading-4 text-gray-600">
-                    {hoverPreview.meta}
-                  </div>
-                ) : null}
-                <div className="line-clamp-2 min-h-[2rem] text-[12px] leading-4 text-gray-800">{hoverPreview.address}</div>
-                <div className="pt-1 text-[10px] uppercase tracking-wide text-gray-400">
-                  {hoverPreview.listingType}
-                </div>
-              </div>
-            </div>
-          </InfoWindow>
-        ) : null}
+        {/* hover card is now rendered as a custom positioned div outside GoogleMap */}
 
         {measureRoute && (
           <DirectionsRenderer
@@ -6817,6 +6825,56 @@ const CustomMap: React.FC<Props> = ({
           </InfoWindow>
         )}
       </GoogleMap>
+
+      {/* Smart-positioned hover card — rendered outside GoogleMap so it can't be clipped */}
+      {hoverPreview && hoverCardStyle ? (
+        <div
+          className="pointer-events-auto absolute z-[60]"
+          style={{ top: hoverCardStyle.top, left: hoverCardStyle.left }}
+          onMouseEnter={cancelHoverClear}
+          onMouseLeave={() => {
+            setHoveredMarker(null);
+            setHoverCardPixel(null);
+          }}
+        >
+          <div
+            className="w-[300px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl"
+            style={{ animation: 'snaphomzMapCardIn 180ms ease-out' }}
+          >
+            <div className="relative h-40 w-full overflow-hidden bg-gray-100">
+              {hoverPreview.image ? (
+                <img
+                  src={hoverPreview.image}
+                  alt={hoverPreview.address}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-xs text-gray-500">
+                  No photo available
+                </div>
+              )}
+              <div className="absolute left-2 top-2 z-10 rounded-full bg-[#78de2a] px-2 py-0.5 text-[10px] font-semibold text-black shadow-sm">
+                {hoverPreview.statusLabel}
+              </div>
+            </div>
+            <div className="space-y-2 px-4 py-3">
+              <div className="text-[15px] font-bold leading-none text-gray-900">
+                {hoverPreview.priceText}
+              </div>
+              {hoverPreview.meta ? (
+                <div className="text-[11px] leading-4 text-gray-600">
+                  {hoverPreview.meta}
+                </div>
+              ) : null}
+              <div className="line-clamp-2 min-h-[2rem] text-[12px] leading-4 text-gray-800">{hoverPreview.address}</div>
+              <div className="pt-1 text-[10px] uppercase tracking-wide text-gray-400">
+                {hoverPreview.listingType}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <style>{`
         @keyframes snaphomzMapCardIn {
           from { opacity: 0; transform: translateY(8px) scale(0.98); }

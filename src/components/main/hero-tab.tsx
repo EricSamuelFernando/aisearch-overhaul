@@ -2448,10 +2448,18 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 // Bare MLS ID or 6-12 digit number — unambiguous, no LLM needed
                 allowMlsRoute = true;
             } else {
-                // Use LLM classification for everything else
-                const intent = await classifyQueryIntent(queryToSearch);
-                if (intent === 'natural') {
+                // Use the local classifier first — covers the vast majority of queries instantly.
+                // Only fall back to the LLM for borderline cases (ambiguous city/neighborhood names
+                // with no state token and no intent keywords), which are rare.
+                const localIntent = classifyLocationQuery(queryToSearch);
+                if (localIntent === 'valid') {
+                    allowMlsRoute = true;
+                } else if (localIntent === 'invalid') {
                     allowMlsRoute = false;
+                } else {
+                    // borderline — ambiguous short query; ask the LLM
+                    const intent = await classifyQueryIntent(queryToSearch);
+                    allowMlsRoute = intent === 'location';
                 }
             }
         }

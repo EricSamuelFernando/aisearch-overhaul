@@ -136,14 +136,27 @@ function BuyPropertyCards({
   }, [selectedProperty, normalizedProperties, visibleCount]);
   useEffect(() => {
     if (!selectedProperty) return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
     const raf = requestAnimationFrame(() => {
-      const element = document.getElementById(String(selectedProperty));
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-      }
+      const escaped = CSS.escape(String(selectedProperty));
+      const element = container.querySelector<HTMLElement>(`#${escaped}`);
+      console.log('[BuyPropertyCards] scroll effect — selectedProperty:', selectedProperty, 'element found:', !!element, 'visibleCount:', visibleCount, 'overlayMode:', overlayMode);
+      if (!element) return;
+      // Directly scroll the container to center the element — avoids the
+      // scrollIntoView + overflow-hidden ancestor interaction that silently no-ops.
+      const containerRect = container.getBoundingClientRect();
+      const elementRect = element.getBoundingClientRect();
+      const scrollTarget =
+        container.scrollTop +
+        (elementRect.top - containerRect.top) -
+        container.clientHeight / 2 +
+        element.clientHeight / 2;
+      console.log('[BuyPropertyCards] scrollTarget:', scrollTarget, 'containerScrollTop:', container.scrollTop, 'elementTop:', elementRect.top, 'containerTop:', containerRect.top, 'clientHeight:', container.clientHeight, 'elemHeight:', element.clientHeight);
+      container.scrollTo({ top: Math.max(0, scrollTarget), behavior: 'instant' as ScrollBehavior });
     });
     return () => cancelAnimationFrame(raf);
-  }, [selectedProperty, visibleCount]);
+  }, [selectedProperty, visibleCount, overlayMode]);
 
   const visibleProperties = useMemo(
     () => normalizedProperties.slice(0, visibleCount),
@@ -186,18 +199,17 @@ function BuyPropertyCards({
                 {visibleProperties.map((prop: any, index: number) => {
                   const listingId = resolveListingId(prop) ?? `listing-${index}`;
                   const isSelected = String(listingId) === String(selectedProperty);
+                  if (isSelected) console.log('[BuyPropertyCards] isSelected=true for listingId:', listingId, 'selectedProperty:', selectedProperty, 'overlayMode:', overlayMode);
                   return (
                     <div
                       key={listingId}
                       id={String(listingId)}
-                      className={cn(
-                        isSelected
-                          ? overlayMode
-                            ? "relative rounded-xl shadow-md before:pointer-events-none before:absolute before:inset-0 before:rounded-xl before:ring-2 before:ring-inset before:ring-orange-400 before:content-[''] before:z-20"
-                            : 'bg-white p-1 bg-orange-500 rounded-2xl shadow-xl'
-                          : '',
-                        'transition duration-300 ease-in-out',
-                      )}
+                      className={cn('transition duration-300 ease-in-out', isSelected && !overlayMode ? 'bg-orange-500 rounded-2xl p-1 shadow-xl' : '')}
+                      style={
+                        isSelected && overlayMode
+                          ? { outline: '3px solid #f97316', outlineOffset: '2px', borderRadius: '12px', boxShadow: '0 4px 16px rgba(249,115,22,0.3)' }
+                          : undefined
+                      }
                     >
                       <PropertyComponents
                         {...prop}

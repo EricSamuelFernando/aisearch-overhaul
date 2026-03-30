@@ -1905,39 +1905,7 @@ const PropertyPreview: React.FC = () => {
   const toggleSection = (section: string) => {
     const nextSection = openSection === section ? null : section;
     setOpenSection(nextSection);
-    if (nextSection) {
-      const sectionToHash: Record<string, string> = {
-        home: '#overview',
-        offers: '#property',
-        schools: '#schools',
-        college: '#schools',
-        interest: '#forecast',
-        payment: '#forecast',
-      };
-      const hash = sectionToHash[nextSection];
-      if (hash) {
-        window.dispatchEvent(new CustomEvent('preview-nav', { detail: { hash, source: 'dropdown' } }));
-      }
-
-      const sectionToScrollId: Record<string, string> = {
-        home: 'home-highlights',
-        offers: 'property',
-        schools: 'schools',
-        college: 'college',
-        interest: 'forecast',
-        payment: 'payment',
-      };
-      const scrollId = sectionToScrollId[nextSection];
-      if (scrollId) {
-        window.requestAnimationFrame(() => {
-          window.setTimeout(() => {
-            const el = document.getElementById(scrollId);
-            if (!el) return;
-            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }, 300);
-        });
-      }
-    }
+    // No label highlight or auto-scroll on dropdown open
   };
 
   const propertyTags = Array.isArray((proprtyData as any)?.tags) ? (proprtyData as any).tags : [];
@@ -2130,24 +2098,7 @@ const PropertyPreview: React.FC = () => {
     };
   }, [openSectionForHash]);
 
-  React.useEffect(() => {
-    if (!openSection) return;
-
-    const sectionToHash: Record<string, string> = {
-      home: '#overview',
-      offers: '#property',
-      schools: '#schools',
-      college: '#schools',
-      interest: '#forecast',
-      payment: '#forecast',
-    };
-
-    const hash = sectionToHash[openSection];
-    if (!hash) return;
-
-    window.history.replaceState(null, '', hash);
-    window.dispatchEvent(new CustomEvent('preview-nav', { detail: { hash, source: 'dropdown' } }));
-  }, [openSection]);
+  // No navbar highlighting from dropdown open
 
 
   React.useEffect(() => {

@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react';
-import { searchProperties, cancelActiveTask, fetchHistory, fetchSessionDetails, clearHistoryAPI, suggestAddresses, fetchThinkingProgress } from '@/lib/api';
+import { searchProperties, cancelActiveTask, fetchHistory, fetchSessionDetails, clearHistoryAPI, suggestAddresses, fetchThinkingProgress, streamChat } from '@/lib/api';
 import { useAppDispatch, useAppSelector } from '@/lib/hook';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { initializeTempUserId, incrementSearchCount } from '@/slices/onboarding/property-preference';
@@ -1268,7 +1268,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         const aiBase = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI
             || process.env.NEXT_PUBLIC_API_BASE_URL
             || 'http://127.0.0.1:5000';
-        fetch(`${aiBase}/health`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+        fetch(`${aiBase}/health`, { method: 'GET', mode: 'no-cors' }).catch(() => { });
     }, []);
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -1369,11 +1369,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             media.addListener(updateViewport);
         }
         return () => {
-            if (media.addEventListener) {
-                media.removeEventListener('change', updateViewport);
-            } else {
-                media.removeListener(updateViewport);
-            }
+            media.removeEventListener('change', updateViewport);
+
         };
     }, []);
 

@@ -302,7 +302,7 @@ export default function BrowseAIChat() {
   return (
     <div
       ref={containerRef}
-      className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-3"
+      className="fixed bottom-5 right-3 left-auto translate-x-0 z-50 flex flex-col items-center gap-3 md:bottom-8 md:left-1/2 md:right-auto md:-translate-x-1/2"
     >
       {/* ── Floating chat history ─────────────────────────────────────────── */}
       {hasMessages && (
@@ -352,7 +352,7 @@ export default function BrowseAIChat() {
           'flex items-center bg-white rounded-full border border-gray-200',
           'transition-all duration-300 ease-out overflow-hidden',
           expanded
-            ? 'w-[440px] pl-3 pr-2.5 py-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.14)]'
+            ? 'w-[calc(100vw-32px)] max-w-[440px] md:w-[440px] pl-3 pr-2.5 py-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.14)]'
             : 'w-[58px] h-[58px] justify-center cursor-pointer hover:shadow-[0_12px_40px_rgba(0,0,0,0.20)]',
           !expanded && hasMessages && !loading ? 'browse-ai-active-glow' : 'shadow-[0_8px_32px_rgba(0,0,0,0.14)]',
         ].join(' ')}

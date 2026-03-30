@@ -1213,12 +1213,14 @@ body {
 }
 
 /* Homepage: force wider expanded AI chat shell (overrides breakpoint caps). */
-.home-hero .home-hero-search-wrap.home-hero-search-wrap--expanded {
-  max-width: min(96vw, 68rem) !important;
-}
+@media (min-width: 768px) {
+  .home-hero .home-hero-search-wrap.home-hero-search-wrap--expanded {
+    max-width: min(96vw, 68rem) !important;
+  }
 
-.home-hero-shell.home-hero-shell--expanded {
-  justify-content: flex-start !important;
+  .home-hero-shell.home-hero-shell--expanded {
+    justify-content: flex-start !important;
+  }
 }
 
 /* Fix: Sonner toast and its container are positioned top-right, overlapping
@@ -2371,8 +2373,10 @@ input:-webkit-autofill {
   max-width: min(100%, 42rem) !important;
 }
 
-.home-hero-shell--expanded {
-  justify-content: flex-start !important;
+@media (min-width: 768px) {
+  .home-hero-shell--expanded {
+    justify-content: flex-start !important;
+  }
 }
 
 @media (max-width: 767px) {

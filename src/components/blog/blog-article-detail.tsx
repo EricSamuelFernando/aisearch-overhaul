@@ -150,7 +150,7 @@ export default function BlogArticleDetail({ articleId }: { articleId: string }) 
                     src={article.image}
                     alt={article.title}
                     fill
-                    className="object-cover"
+                    className="object-cover object-top"
                     priority
                     sizes="100vw"
                   />

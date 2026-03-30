@@ -19,6 +19,9 @@ import blog16ForeverHomeReimagined from './blog-16-forever-home-reimagined';
 import blog17ForeclosureMythVsReality from './blog-17-foreclosure-myth-vs-reality';
 import blog18CoLivingSharedEquity2026 from './blog-18-co-living-shared-equity-2026';
 import blog19DigitalNomadTaxHavens2026 from './blog-19-digital-nomad-tax-havens-2026';
+import blog20ProptechSuperApp2026 from './blog-20-proptech-super-app-2026';
+import blog213dPrintingHousingSurge2026 from './blog-21-3d-printing-housing-surge-2026';
+import blog22ZeroDownEquitySharing2026 from './blog-22-zero-down-equity-sharing-2026';
 
 // Add new blog files here — one import per blog
 export const articles: Article[] = [
@@ -42,6 +45,9 @@ export const articles: Article[] = [
   blog17ForeclosureMythVsReality,
   blog18CoLivingSharedEquity2026,
   blog19DigitalNomadTaxHavens2026,
+  blog20ProptechSuperApp2026,
+  blog213dPrintingHousingSurge2026,
+  blog22ZeroDownEquitySharing2026,
 ];
 
 export const getArticleById = (id: string): Article | null =>

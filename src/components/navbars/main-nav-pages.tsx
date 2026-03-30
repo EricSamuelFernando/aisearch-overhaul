@@ -63,8 +63,16 @@ function MainNavPages() {
     return 'text-white';
   };
 
+  const isPropertyPreviewRoute = React.useMemo(
+    () => /^\/buy\/[^/]+\/prop\/preview/.test(pathname || '') || pathname === '/buy/preview',
+    [pathname]
+  );
+
   // Determine background color based on route for scrolled state
   const getBackgroundColor = () => {
+    if (isPropertyPreviewRoute) {
+      return 'bg-[#F9F6EF]';
+    }
     if (pathname === '/' || pathname?.startsWith('/home') || pathname === '/home' || pathname === '/home/buy') {
       return 'bg-black';
     } else if (pathname?.startsWith('/buy')) {
@@ -101,6 +109,9 @@ function MainNavPages() {
     if (!isScrolled) return 'bg-transparent';
 
     // Inline the background color logic to ensure pathname is used correctly
+    if (isPropertyPreviewRoute) {
+      return 'bg-[#F9F6EF]';
+    }
     if (pathname === '/' || pathname?.startsWith('/home') || pathname === '/home' || pathname === '/home/buy') {
       return 'bg-black';
     } else if (pathname?.startsWith('/buy')) {
@@ -249,17 +260,26 @@ function MainNavPages() {
     };
   }, []);
 
+  React.useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (!headerHeight) return;
+    document.documentElement.style.setProperty('--main-header-height', `${headerHeight}px`);
+  }, [headerHeight]);
+
+  const isCompactHeader = isScrolled && !isPropertyPreviewRoute;
+
   // Build header className
   const headerClassName = React.useMemo(() => {
     const baseClasses = 'fixed left-0 right-0 top-0 z-50 w-full transition-all duration-300';
     const backgroundClasses = isScrolled
-      ? `${scrollBackgroundClass} shadow-lg py-2`
+      ? `${scrollBackgroundClass} shadow-lg`
       : (pathname === '/do-not-sell-or-share'
-        ? 'bg-black py-4'
-        : (pathname?.startsWith('/buy') ? 'bg-white py-4' : 'bg-transparent py-4'));
+        ? 'bg-black'
+        : (isPropertyPreviewRoute ? 'bg-[#F9F6EF]' : (pathname?.startsWith('/buy') ? 'bg-white' : 'bg-transparent')));
+    const paddingClass = isCompactHeader ? 'py-2' : 'py-4';
 
-    return `${baseClasses} ${finalTextColorClass} ${backgroundClasses}`;
-  }, [finalTextColorClass, isScrolled, scrollBackgroundClass]);
+    return `${baseClasses} ${finalTextColorClass} ${backgroundClasses} ${paddingClass}`;
+  }, [finalTextColorClass, isScrolled, scrollBackgroundClass, pathname, isCompactHeader]);
 
   const isListingPanelWhite =
     pathname?.startsWith('/buy/browse') ||
@@ -289,7 +309,7 @@ function MainNavPages() {
               width={160}
               unoptimized
               alt="logo"
-              className={`transition-all duration-300 object-contain ${isScrolled
+              className={`transition-all duration-300 object-contain ${isCompactHeader
                 ? 'h-10 w-32 md:h-10 md:w-32'
                 : 'h-10 w-32 md:h-12 md:w-36'
                 }`}
@@ -512,7 +532,11 @@ function MainNavPages() {
 
       {/* <div style={{ paddingTop: isScrolled ? "60px" : "80px" }}></div> */}
       {pathname !== '/company' && (
-        <div style={{ paddingTop: isScrolled ? '60px' : '80px' }} />
+        <div
+          style={{
+            paddingTop: headerHeight ? `${headerHeight}px` : (isCompactHeader ? '60px' : '80px'),
+          }}
+        />
       )}
 
 

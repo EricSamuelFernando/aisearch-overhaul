@@ -213,8 +213,8 @@ type Props = {
 
 const navItems = [
   { hash: '#overview', title: 'Overview' },
-  { hash: '#property', title: 'Property' },
   { hash: '#schools', title: 'Schools' },
+  { hash: '#property', title: 'Property' },
   { hash: '#forecast', title: 'Forecast' },
   { hash: '#comparables', title: 'Comparables' },
 ];
@@ -271,6 +271,24 @@ function ItemNav({ cardRef }: Props) {
     setHash(window.location.hash as string);
   }, [params]);
 
+  useEffect(() => {
+    const handlePreviewNav = (event: Event) => {
+      const customEvent = event as CustomEvent<string | { hash?: string }>;
+      if (typeof customEvent.detail === 'string') {
+        setHash(customEvent.detail);
+        return;
+      }
+      if (customEvent.detail && typeof customEvent.detail === 'object' && typeof customEvent.detail.hash === 'string') {
+        setHash(customEvent.detail.hash);
+      }
+    };
+    window.addEventListener('preview-nav', handlePreviewNav);
+    return () => {
+      window.removeEventListener('preview-nav', handlePreviewNav);
+    };
+  }, []);
+
+
   const handleShare = async () => {
     if (navigator.share) {
       try {
@@ -289,7 +307,9 @@ function ItemNav({ cardRef }: Props) {
   return (
     <div
       ref={navSection}
-      className="w-full bg-white py-3 shadow-sm xl:py-0 xl:h-[70.1px]"
+      id="property-preview-nav"
+      className="sticky z-40 w-full bg-white py-3 shadow-sm xl:py-0 xl:h-[70.1px]"
+      style={{ top: 'var(--main-header-height, 80px)' }}
     >
       <div className="mx-auto w-full max-w-[1920px] px-2 sm:px-4 md:px-6 xl:px-[78px] min-[1536px]:max-[1919px]:px-[52px] min-[1920px]:px-[94px]">
         {/* MOBILE: Two rows  */}

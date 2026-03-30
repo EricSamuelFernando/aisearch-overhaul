@@ -36,9 +36,13 @@ export function NavigationListPages({ isScrolled = false }: { isScrolled?: boole
   };
 
   const baseTextColorClass = getTextColor(pathname || '');
+  const isLightNav =
+    pathname?.startsWith('/buy') ||
+    pathname === '/sell' ||
+    pathname?.startsWith('/agents');
   // When scrolled, use appropriate text color based on page type (light pages use black, dark pages use white)
   const textColorClass = isScrolled
-    ? (pathname === '/sell' ? 'text-black' : 'text-white')
+    ? (isLightNav ? 'text-black' : 'text-white')
     : baseTextColorClass;
 
   // Add special class for company page dropdowns

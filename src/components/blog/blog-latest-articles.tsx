@@ -20,6 +20,32 @@ interface Article {
 }
 
 
+// HIDDEN — uncomment to re-enable these blogs:
+// {
+//   id: '1',
+//   title: 'The Human Side of Real Estate: Why Agents Still Matter',
+//   excerpt: 'Even in a tech-driven world, people remain at the heart of every great deal.',
+//   image: '/assets/images/blog_agentedge1.jpg',
+//   category: 'Customer Success',
+//   author: 'Remy Watson',
+//   authorImage: '/assets/images/blog_profile.png',
+//   date: '24 Jan 2024',
+//   readTime: '8 min read',
+//   tags: ['This is a Tag', 'This is a Tag', 'This is a Tag'],
+// },
+// {
+//   id: '2',
+//   title: 'What No One Tells You About Your First Home Purchase',
+//   excerpt: 'Tips, lessons, and red flags every first-time buyer should know before signing that dotted line.',
+//   image: '/assets/images/blog_agentedge2.jpg',
+//   category: 'Customer Success',
+//   author: 'Alex Johnson',
+//   authorImage: '/assets/images/blog_profile.png',
+//   date: '22 Jan 2024',
+//   readTime: '8 min read',
+//   tags: ['This is a Tag', 'This is a Tag', 'This is a Tag'],
+// },
+
 const articles: Article[] = [
   {
     id: '1',
@@ -44,6 +70,30 @@ const articles: Article[] = [
     date: '22 Jan 2024',
     readTime: '8 min read',
     tags: ['This is a Tag', 'This is a Tag', 'This is a Tag'],
+  },
+  {
+    id: '3d-printing-affordable-housing-supply-surge-2026',
+    title: '3D Printing & The Affordable Supply Surge: An Investigative Whitepaper',
+    excerpt: 'Whitepaper analyzing the Print to Own housing trend. Explore how 3D printing solves inventory shortages and why printed homes offer higher resale value in 2026.',
+    image: '/assets/images/Blogs/Blog 17/3d-printing-supply-surge-printed-homes-taking-over-2026_photo_01.jpeg',
+    category: 'Market Trends',
+    author: 'Nrupen Mandava',
+    authorImage: '/assets/images/Blogs/Profile/ChatGPT Image Mar 25, 2026, 10_58_30 AM.png',
+    date: '30 Mar 2026',
+    readTime: '13 min read',
+    tags: ['3D Printing', 'Affordable Housing', 'Construction Tech', 'Real Estate 2026'],
+  },
+  {
+    id: 'proptech-super-app-era-2026-critique',
+    title: "The PropTech 'Super-App' Era: A 2026 Critique",
+    excerpt: "In 2026, 'Super-Apps' combine search, finance, and closing. We critique how this impacts buyer choice, agent commissions, and why platforms like Snaphomz are leading the change.",
+    image: '/assets/images/Blogs/Blog 16/proptech-super-app-2026-critique_photo_03.jpeg',
+    category: 'Market Trends',
+    author: 'Nrupen Mandava',
+    authorImage: '/assets/images/Blogs/Profile/ChatGPT Image Mar 25, 2026, 10_58_30 AM.png',
+    date: '29 Mar 2026',
+    readTime: '12 min read',
+    tags: ['PropTech', 'Super-App', 'Real Estate Tech', 'Future of Real Estate'],
   },
   {
     id: 'gas-vs-induction-vs-dual-fuel-best-range-2026',
@@ -225,6 +275,18 @@ const articles: Article[] = [
     readTime: '11 min read',
     tags: ['Remote Work', 'Digital Nomad', 'Tax Havens', 'Real Estate Investing'],
   },
+  {
+    id: 'zero-down-alternative-financing-equity-sharing-2026',
+    title: 'Zero-Down & Alternative Financing 2.0: An Investigative Report',
+    excerpt: 'Investigative report on how Equity Sharing and Social Down Payments replace FHA loans for millennials in 2026. Learn benefits and avoid equity traps.',
+    image: '/assets/images/Blogs/Blog 18/zero-down-2-0-equity-sharing-avoid-traps-2026_photo_03.jpeg',
+    category: 'Market Trends',
+    author: 'Nrupen Mandava',
+    authorImage: '/assets/images/Blogs/Profile/ChatGPT Image Mar 25, 2026, 10_58_30 AM.png',
+    date: '13 Mar 2026',
+    readTime: '14 min read',
+    tags: ['Equity Sharing', 'Zero Down', 'First Time Buyer', 'Alternative Financing'],
+  },
 ];
 
 export default function BlogLatestArticles({
@@ -236,11 +298,11 @@ export default function BlogLatestArticles({
     <section className="py-16 px-4 md:px-10 bg-[#FFF6EC]">
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {articles.map((article) => (
+          {articles.filter((a) => a.id !== '1' && a.id !== '2').map((article) => (
             <Link
               key={article.id}
               href={`/blog/${article.id}`}
-              className="group rounded-2xl overflow-hidden max-w-xl"
+              className={`group rounded-2xl overflow-hidden max-w-xl ${article.id === '1' || article.id === '2' ? 'hidden' : ''}`}
             >
               {/* Image */}
               <div className="relative w-full h-[360px] rounded-2xl overflow-hidden">

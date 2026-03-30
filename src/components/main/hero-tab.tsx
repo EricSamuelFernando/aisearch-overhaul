@@ -2672,7 +2672,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                             // Show thinking steps in real-time
                             setThinkingSteps(prev => [
                                 ...prev,
-                                { id: Date.now().toString(), title: evt.step, source: evt.source || 'Nova', status: 'active' as const },
+                                { id: Date.now().toString(), label: evt.step, title: evt.step, source: evt.source || 'Nova', status: 'active' as const },
                             ]);
                         } else if (evt.type === 'token') {
                             _streamText += evt.text;

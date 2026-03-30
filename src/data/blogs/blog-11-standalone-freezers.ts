@@ -148,6 +148,16 @@ const blog11StandaloneFreezers: Article = {
     { label: 'Snaphomz Integration & Conversations', href: '#snaphomz-integration' },
     { label: 'Conclusion',                           href: '#conclusion' },
   ],
+  aiSummary: {
+    summary: 'A standalone freezer is one of the highest-ROI appliances a household can add, turning bulk buying into $600+ in annual savings for just $35–50/year in electricity costs. This guide compares Danby, GE, Kenmore, and Arctic King across size, features, and price — and explains the electrical infrastructure requirements homeowners must verify before installing in a garage.',
+    keyPoints: [
+      'A 7 cu. ft. freezer costs ~$250 and pays for itself in under 6 months through bulk grocery and avoided takeout savings.',
+      'Electricity cost is negligible at ~$35–50/year — far less than the monthly savings from a single bulk meat purchase.',
+      'GE\'s garage-ready chest models operate in 0°F–110°F ambient temperatures — critical for uninsulated garages.',
+      'Arctic King offers entry-level bulk storage for under $200, ideal for testing the strategy before committing to premium models.',
+      'Use Snaphomz Conversations to ask listing agents directly about garage electrical capacity before buying a home.',
+    ],
+  },
 };
 
 export default blog11StandaloneFreezers;

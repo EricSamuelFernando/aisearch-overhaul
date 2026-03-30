@@ -26,8 +26,7 @@ function Page() {
   return (
     <div className="min-h-screen flex flex-col bg-white">
       <main className="flex-1 w-full">
-        <section className="mx-auto w-full max-w-7xl px-4 pt-4 sm:pt-6 md:px-8 md:pt-8 pb-20 md:pb-24">
-          {/* Prevent child overflow */}
+        <section className="w-full p-0">
           <div className="w-full min-w-0">
             <PropertyPreview />
           </div>

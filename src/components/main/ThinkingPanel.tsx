@@ -71,6 +71,17 @@ function detectIntent(query: string): QueryIntent {
 
     if (/\bwhat\s+is\b|\bhow\s+does\b|\bwhen\s+should\b|\bexplain\b|\btell\s+me\s+about\b|\bpmi\b|\bescrow\b|\bclosing\s+cost\b|\bdti\b|\bcredit\s+score\b|\bfha\b|\bconventional\b|\barm\b|\brefinanc/i.test(q)) return 'qa_advisory';
 
+    // Comparison and advisory queries: "wondering if X is better than Y", "which city is better",
+    // "should I buy in X or Y", "for a family of five", city-vs-city questions.
+    if (
+        /\bwonder(?:ing)?\b|\bwhich\s+(?:city|area|neighborhood|place|location)\b/.test(q) ||
+        /\bis\s+(?:\w+\s+){0,4}better\s+(?:or|than|for)\b/.test(q) ||
+        /\bfor\s+(?:a\s+)?(?:(?:my|our)\s+)?family\b|\bfor\s+(?:us|our\s+family)\b/.test(q) ||
+        /\bshould\s+(?:i|we)\s+(?:buy|live|move|consider|choose|go\s+with)\b/.test(q) ||
+        /\b(?:vs|versus)\s+[a-z]/.test(q) ||
+        /\badvice\b|\badvise\b|\brecommend\b/.test(q)
+    ) return 'qa_advisory';
+
     if (/\b(first|second|third|1st|2nd|3rd|property\s+[#\d]+|#\d+|that\s+(?:house|home|property|one))\b/i.test(q)) return 'reference';
 
     return 'property_search';

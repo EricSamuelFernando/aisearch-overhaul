@@ -9,13 +9,15 @@ import {
 export const runtime = 'nodejs';
 
 type UpstreamResult = { ok: boolean; status: number; json: any };
+type UpstreamCallSource = 'upstream_mls' | 'recent_cache' | 'inflight_cache';
+type TracedUpstreamResult = UpstreamResult & { source: UpstreamCallSource; endpoint: string };
 
-const MLS_PAGE_CACHE_TTL_MS = 3000;
+const MLS_PAGE_CACHE_TTL_MS = 60000;
 const mlsPageInflight = new Map<string, Promise<UpstreamResult>>();
 const mlsPageRecentCache = new Map<string, { expiresAt: number; value: UpstreamResult }>();
 const BACKEND_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:5000';
 const BACKEND_INGEST_URL = `${BACKEND_BASE}/api/mls/ingest`;
-const INGEST_MAX_RECORDS = 200;
+const INGEST_MAX_RECORDS = 20;
 
 const stableKey = (value: any): string => {
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
@@ -24,13 +26,14 @@ const stableKey = (value: any): string => {
   return `{${keys.map((k) => `${JSON.stringify(k)}:${stableKey(value[k])}`).join(',')}}`;
 };
 
-const dedupedMlsSearchPagePost = async (payload: Record<string, any>): Promise<UpstreamResult> => {
+const dedupedMlsSearchPagePost = async (payload: Record<string, any>): Promise<TracedUpstreamResult> => {
   const key = stableKey(payload);
   const now = Date.now();
+  const endpoint = '/v2/MLSSearch';
 
   const cached = mlsPageRecentCache.get(key);
   if (cached && cached.expiresAt > now) {
-    return cached.value;
+    return { ...cached.value, source: 'recent_cache', endpoint };
   }
   if (cached) {
     mlsPageRecentCache.delete(key);
@@ -38,16 +41,17 @@ const dedupedMlsSearchPagePost = async (payload: Record<string, any>): Promise<U
 
   const inflight = mlsPageInflight.get(key);
   if (inflight) {
-    return inflight;
+    const inflightValue = await inflight;
+    return { ...inflightValue, source: 'inflight_cache', endpoint };
   }
 
-  const promise = realEstatePost('/v2/MLSSearch', payload)
+  const promise = realEstatePost(endpoint, payload)
     .then((result) => {
       mlsPageRecentCache.set(key, {
         expiresAt: Date.now() + MLS_PAGE_CACHE_TTL_MS,
         value: result,
       });
-      return result;
+      return { ...result, source: 'upstream_mls' as const, endpoint };
     })
     .finally(() => {
       mlsPageInflight.delete(key);
@@ -283,8 +287,14 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
     const query = String(body?.query || '').trim();
+    const requestId = `mls-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+    const logPrefix = `[Browse MLS][${requestId}]`;
 
     if (!query) {
+      console.log(`${logPrefix} rejected request: missing query`, {
+        source: body?.debug_source || 'unknown',
+        from_browse: body?.from_browse ?? false,
+      });
       return NextResponse.json(
         { error: 'query is required' },
         { status: 400 },
@@ -293,6 +303,15 @@ export async function POST(request: NextRequest) {
 
     const payload = buildMlsSearchPayloadFromQuery(query);
     const isMapViewportRefresh = body?.latitude !== undefined && body?.longitude !== undefined;
+    console.log(`${logPrefix} incoming request`, {
+      query,
+      source: body?.debug_source || 'unknown',
+      from_browse: body?.from_browse ?? false,
+      isMapViewportRefresh,
+      latitude: body?.latitude,
+      longitude: body?.longitude,
+      radius: body?.radius,
+    });
 
     // Merge explicit UI filters from browse/filter drawers when present.
     const mergedPayload = {
@@ -334,16 +353,16 @@ export async function POST(request: NextRequest) {
     ) {
       delete (mergedPayload as Record<string, any>).additional_criteria;
     }
-    const pageSize = isMapViewportRefresh ? 24 : 50;
+    const pageSize = 20;
     // const requestedMax = Number(process.env.MLS_DIRECT_MAX_RESULTS || 200);
     // const maxResults = isMapViewportRefresh
     //   ? pageSize
     //   : Math.min(500, Number.isFinite(requestedMax) && requestedMax > 0 ? requestedMax : 200);
-    const maxResults = isMapViewportRefresh ? pageSize : 70;
+    const maxResults = 20;
 
     const aggregateRaw: any[] = [];
     const seenKeys = new Set<string>();
-    let lastUpstream: { ok: boolean; status: number; json: any } | null = null;
+    let lastUpstream: TracedUpstreamResult | null = null;
     let partialUpstreamFailure:
       | { status: number; body: any; pagePayload: Record<string, any> }
       | null = null;
@@ -356,8 +375,21 @@ export async function POST(request: NextRequest) {
         size: Math.min(pageSize, maxResults - aggregateRaw.length),
         resultIndex,
       };
+      console.log(`${logPrefix} call -> local_dedupe_layer`, {
+        call: 'dedupedMlsSearchPagePost',
+        payload: pagePayload,
+      });
       const upstream = await dedupedMlsSearchPagePost(pagePayload);
       pagesFetched += 1;
+      const pageRecords = extractMlsSearchRecords(upstream.json);
+      console.log(`${logPrefix} call -> ${upstream.source}`, {
+        endpoint: upstream.endpoint,
+        status: upstream.status,
+        ok: upstream.ok,
+        page: pagesFetched,
+        resultIndex,
+        recordsReturned: pageRecords.length,
+      });
 
       if (!upstream.ok) {
         if (aggregateRaw.length > 0) {
@@ -379,8 +411,6 @@ export async function POST(request: NextRequest) {
         );
       }
       lastUpstream = upstream;
-
-      const pageRecords = extractMlsSearchRecords(upstream.json);
       if (!pageRecords.length) break;
 
       for (const rec of pageRecords) {
@@ -397,9 +427,12 @@ export async function POST(request: NextRequest) {
       if (pagesFetched >= 10) break;
     }
 
-    const scopedRecords = applyLocationScope(aggregateRaw, mergedPayload, isMapViewportRefresh);
-
-    const filteredRecords = scopedRecords
+    // Location scoping is already handled upstream — the MLS API receives city/state/zip/address
+    // as explicit search params and returns only matching results. Applying a second city-name
+    // filter here is redundant and inconsistent: MLS records often store city names differently
+    // (suburb names, varying capitalisation, missing fields), so the post-filter arbitrarily
+    // drops valid in-scope listings and produces different counts on each call.
+    const filteredRecords = aggregateRaw
       .filter(isActiveListing)
       .filter((r) => !isLeaseOrRentalLike(r))
       .filter((r) => !isDisallowedCategory(r));
@@ -421,6 +454,11 @@ export async function POST(request: NextRequest) {
         ? `Found ${countHint} property match${Number(countHint) === 1 ? '' : 'es'} from MLS.`
         : 'No MLS listings matched that search. Try adding a city/ZIP or adjusting filters.';
 
+    console.log(`${logPrefix} call -> backend_ingest`, {
+      endpoint: BACKEND_INGEST_URL,
+      source: 'mls_bypass',
+      records: Math.min(aggregateRaw.length, INGEST_MAX_RECORDS),
+    });
     void fetch(BACKEND_INGEST_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -430,6 +468,16 @@ export async function POST(request: NextRequest) {
       }),
       cache: 'no-store',
     }).catch(() => null);
+
+    console.log(`${logPrefix} completed`, {
+      query,
+      finalCallType: lastUpstream?.source || 'none',
+      pagesFetched,
+      aggregatedRecords: aggregateRaw.length,
+      scopedRecords: filteredRecords.length,
+      finalProperties: properties.length,
+      partialUpstreamFailure,
+    });
 
     return NextResponse.json({
       intent: 'property',
@@ -456,7 +504,7 @@ export async function POST(request: NextRequest) {
             upstreamStatus: lastUpstream?.status,
             pagesFetched,
             aggregated: aggregateRaw.length,
-            scoped: scopedRecords.length,
+            scoped: filteredRecords.length,
             partialUpstreamFailure,
           }
           : undefined,

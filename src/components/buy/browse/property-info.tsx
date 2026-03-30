@@ -618,6 +618,7 @@ function PropertyBrowseView({ }: Props) {
             query: queryText,
             radius: 20,
             from_browse: true,
+            debug_source: 'browse_maps_page',
             user: user?.id
           });
 

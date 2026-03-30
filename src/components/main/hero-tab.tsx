@@ -1,11 +1,11 @@
 'use client';
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react';
 import { searchProperties, cancelActiveTask, fetchHistory, fetchSessionDetails, clearHistoryAPI, suggestAddresses, fetchThinkingProgress } from '@/lib/api';
 import { useAppDispatch, useAppSelector } from '@/lib/hook';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { initializeTempUserId, incrementSearchCount } from '@/slices/onboarding/property-preference';
 import { usePropertyStore } from '@/store/use-property-store';
-import type { AddressSuggestion, ThinkingProgressResponse } from '@/lib/api';
+import type { AddressSuggestion, ThinkingProgressResponse, SSEEvent } from '@/lib/api';
 import { setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
@@ -1325,6 +1325,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const [pendingImageStatus, setPendingImageStatus] = useState<'idle' | 'processing' | 'ready'>('idle');
     const [submittedImage, setSubmittedImage] = useState<File | null>(null);
     const [snapSearchInProgress, setSnapSearchInProgress] = useState(false);
+    const [chatViewportHeight, setChatViewportHeight] = useState<number | null>(null);
+    const [isDesktopViewport, setIsDesktopViewport] = useState(false);
     const [isClearingHistory, setIsClearingHistory] = useState(false);
     const [carouselEdges, setCarouselEdges] = useState<Record<string, { atStart: boolean; atEnd: boolean }>>({});
     const aiSuggestions = React.useMemo(
@@ -1354,6 +1356,25 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         setMlsBypassMode(false);
         setAiModeActive(true);
         setMlsBypassModeEnabled(false);
+    }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const media = window.matchMedia('(min-width: 768px)');
+        const updateViewport = () => setIsDesktopViewport(media.matches);
+        updateViewport();
+        if (media.addEventListener) {
+            media.addEventListener('change', updateViewport);
+        } else {
+            media.addListener(updateViewport);
+        }
+        return () => {
+            if (media.addEventListener) {
+                media.removeEventListener('change', updateViewport);
+            } else {
+                media.removeListener(updateViewport);
+            }
+        };
     }, []);
 
     useEffect(() => {
@@ -1870,6 +1891,90 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             window.clearTimeout(t1);
         };
     }, [isExpanded, scrollChatToBottom]);
+
+    useEffect(() => {
+        if (!isExpanded || !isDesktopViewport) return;
+        let isCancelled = false;
+        const timers: number[] = [];
+        const attemptFocus = () => {
+            if (isCancelled) return;
+            const input = searchInputRef.current;
+            if (!input) return;
+            if (document.activeElement === input) return;
+            try {
+                input.focus({ preventScroll: true });
+            } catch {
+                input.focus();
+            }
+        };
+        const delays = [0, 120, 260, 420, 700, 1000];
+        delays.forEach((delay) => {
+            const timer = window.setTimeout(attemptFocus, delay);
+            timers.push(timer);
+        });
+        return () => {
+            isCancelled = true;
+            timers.forEach((timer) => window.clearTimeout(timer));
+        };
+    }, [isExpanded, isDesktopViewport]);
+
+    useLayoutEffect(() => {
+        if (!isExpanded) {
+            setChatViewportHeight(null);
+            return;
+        }
+
+        const updateHeight = () => {
+            const el = chatLayoutRef.current;
+            if (!el) return;
+            const top = el.getBoundingClientRect().top;
+            if (!Number.isFinite(top)) return;
+            const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+            const minHeight = isDesktopViewport ? 560 : 420;
+            const next = Math.max(minHeight, Math.floor(viewportHeight - top));
+            setChatViewportHeight(next);
+        };
+
+        const raf = window.requestAnimationFrame(updateHeight);
+        const t1 = window.setTimeout(updateHeight, 120);
+        const t2 = window.setTimeout(updateHeight, 360);
+        const t3 = window.setTimeout(updateHeight, 720);
+        const t4 = window.setTimeout(updateHeight, 1200);
+        const scrollContainer =
+            (document.querySelector('main') as HTMLElement | null) ||
+            document.scrollingElement ||
+            document.documentElement;
+        let scrollStopTimer: number | null = null;
+        const stopScrollListener = () => {
+            if (scrollContainer) {
+                scrollContainer.removeEventListener('scroll', handleScroll);
+            }
+        };
+        const handleScroll = () => {
+            updateHeight();
+            if (scrollStopTimer) window.clearTimeout(scrollStopTimer);
+            scrollStopTimer = window.setTimeout(stopScrollListener, 200);
+        };
+        if (scrollContainer) {
+            scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+            scrollStopTimer = window.setTimeout(stopScrollListener, 1200);
+        }
+        window.addEventListener('resize', updateHeight);
+        window.visualViewport?.addEventListener('resize', updateHeight);
+        return () => {
+            window.cancelAnimationFrame(raf);
+            window.clearTimeout(t1);
+            window.clearTimeout(t2);
+            window.clearTimeout(t3);
+            window.clearTimeout(t4);
+            if (scrollStopTimer) window.clearTimeout(scrollStopTimer);
+            if (scrollContainer) {
+                scrollContainer.removeEventListener('scroll', handleScroll);
+            }
+            window.removeEventListener('resize', updateHeight);
+            window.visualViewport?.removeEventListener('resize', updateHeight);
+        };
+    }, [isExpanded, isDesktopViewport]);
 
     useEffect(() => {
         if (!showAttachMenu) return;
@@ -2632,20 +2737,77 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 return;
             }
 
-            // All messages route through LangGraph via /api/search.
+            // All messages route through /api/chat (SSE streaming).
             // Nova Planner handles routing internally: property search, Q&A, SnapInterest,
-            // rent-vs-buy, school lookup, etc. The response contract is identical regardless
-            // of intent — properties=[] for text-only answers, properties=[...] for search results.
+            // rent-vs-buy, school lookup, etc.
             setThinkingIntentHint("search");
 
-            responseData = await searchProperties({
-                userid: user?.id || tempUserId || 'anonymous',
-                query: queryToSearch,
-                session_id: activeSessionId,
-                from_browse: false,
-                user_name: user?.firstname || undefined,
-                user_local_hour: new Date().getHours(),
-            }, newController.signal);
+            // ── Open SSE stream ────────────────────────────────────────────
+            const sseResponse = await streamChat(
+                {
+                    query: queryToSearch,
+                    session_id: activeSessionId,
+                    user_name: user?.firstname || undefined,
+                    user_local_hour: new Date().getHours(),
+                },
+                user?.id || tempUserId || undefined,
+                newController.signal
+            );
+
+            if (!sseResponse.ok || !sseResponse.body) {
+                throw new Error(`Chat stream failed with status ${sseResponse.status}`);
+            }
+
+            // ── Read stream and accumulate into responseData ───────────────
+            const _sseAccum: Record<string, any> = {};
+            let _streamText = '';
+            const reader = sseResponse.body.getReader();
+            const decoder = new TextDecoder();
+            let _buf = '';
+
+            outer: while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                _buf += decoder.decode(value, { stream: true });
+                const parts = _buf.split('\n\n');
+                _buf = parts.pop() ?? '';
+                for (const part of parts) {
+                    const line = part.trim();
+                    if (!line.startsWith('data: ')) continue;
+                    try {
+                        const evt = JSON.parse(line.slice(6)) as SSEEvent;
+                        if (evt.type === 'thinking') {
+                            // Show thinking steps in real-time
+                            setThinkingSteps(prev => [
+                                ...prev,
+                                { id: Date.now().toString(), label: evt.step, title: evt.step, source: evt.source || 'Nova', status: 'active' as const },
+                            ]);
+                        } else if (evt.type === 'token') {
+                            _streamText += evt.text;
+                        } else if (evt.type === 'properties') {
+                            _sseAccum.properties = evt.data;
+                        } else if (evt.type === 'suggestions') {
+                            _sseAccum.suggestions = evt.data;
+                        } else if (evt.type === 'metadata') {
+                            _sseAccum.intent = (evt as any).intent || _sseAccum.intent;
+                            _sseAccum.metadata = evt;
+                        } else if (evt.type === 'done') {
+                            if ((evt as any).session_id) _sseAccum.session_id = (evt as any).session_id;
+                        } else if (evt.type === 'error') {
+                            throw new Error((evt as any).message || 'Stream error');
+                        }
+                    } catch (parseErr) {
+                        if (parseErr instanceof Error && parseErr.message && !parseErr.message.startsWith('Stream error')) {
+                            console.warn('[SSE] Parse error:', parseErr, line);
+                        } else {
+                            throw parseErr;
+                        }
+                    }
+                }
+            }
+
+            _sseAccum.response = _streamText;
+            responseData = _sseAccum;
 
             console.log("Backend Response:", responseData);
 
@@ -3979,14 +4141,15 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
             {/* Animated Container: Transitions from Pill (Search Bar) to Box (Chat UI) */}
             <motion.div
-                layout
+                ref={chatLayoutRef}
                 initial={false}
                 animate={{
                     borderRadius: isExpanded ? 32 : 12, // 32px (rounded-3xl) vs 12px (rounded-xl) - Rectangular with soft corners
                     padding: isExpanded ? 16 : 8, // keep expanded layout comfortable on mobile
                 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full ${respectParentWidth ? 'max-w-none' : (isExpanded ? 'max-w-[1150px]' : (isSellSearch ? 'w-[92vw] max-w-[500px] sm:max-w-[560px] md:w-[600px] md:max-w-none lg:w-[660px] xl:w-[700px]' : 'max-w-[460px] lg:max-w-[480px] xl:max-w-[820px] min-[1280px]:max-[1440px]:max-w-[640px]'))
+                style={isExpanded && chatViewportHeight ? { height: `${chatViewportHeight}px`, maxHeight: `${chatViewportHeight}px` } : undefined}
+                className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative w-full flex flex-col ${isExpanded ? 'min-h-[560px] overflow-hidden' : 'overflow-visible'} ${respectParentWidth ? 'max-w-none' : (isExpanded ? 'max-w-[1150px]' : (isSellSearch ? 'w-[92vw] max-w-[500px] sm:max-w-[560px] md:w-[600px] md:max-w-none lg:w-[660px] xl:w-[700px]' : 'max-w-[460px] lg:max-w-[480px] xl:max-w-[820px] min-[1280px]:max-[1440px]:max-w-[640px]'))
                     }`}
             >
                 <input
@@ -4316,13 +4479,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     ) : (
                         /* State 2: Expanded Chat UI */
                         <motion.div
-                            ref={chatLayoutRef}
                             key="chat-ui"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ duration: 0.2, delay: 0.1 }}
                             onClickCapture={handleExpandedChatClickCapture}
-                            className="flex flex-col gap-0 w-full h-[560px] sm:h-[580px] md:h-[600px] lg:h-[600px] overflow-hidden"
+                            className="flex h-full min-h-0 w-full flex-1 flex-col gap-0 overflow-hidden"
                         >
                             <div className="flex items-center w-full px-1 relative z-50">
                                 {renderNewChatControl('relative sm:hidden flex-shrink-0', 'top-full mt-3', 'w-72 max-w-[82vw]', 'mobile')}
@@ -5146,7 +5308,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                             </div>
 
                             {/* Footer / Related Questions & Search */}
-                            <div className="mt-0 border-t border-gray-100/70 bg-white/95 backdrop-blur-md z-30 px-3 pt-1 pb-[max(env(safe-area-inset-bottom),0.1rem)] sm:px-0 sm:pt-1 sm:pb-0.5">
+                            <div className="mt-auto sm:mt-0 border-t border-gray-100/70 bg-white/95 backdrop-blur-md z-30 px-3 pt-1 pb-[max(env(safe-area-inset-bottom),0.1rem)] sm:px-0 sm:pt-1 sm:pb-0.5">
                                 {/* 1. Related Questions (Removed - now dynamic per message) */}
 
                                 {/* 2. New Large Search Bar + Controls */}
@@ -5176,6 +5338,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             )}
                                             <textarea
                                                 ref={searchInputRef}
+                                                autoFocus={isExpanded && isDesktopViewport}
                                                 value={searchTerm}
                                                 onChange={(e) => {
                                                     const val = e.target.value;

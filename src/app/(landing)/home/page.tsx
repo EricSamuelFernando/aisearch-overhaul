@@ -1562,7 +1562,9 @@ export default function Home() {
         </div>
 
 
-        <section className="home-hero-shell relative z-30 flex h-full flex-col items-center justify-start px-4 pb-2 pt-[13.2rem] text-center sm:pb-4 sm:pt-[15rem] md:pb-12 md:pt-24">
+        <section
+          className={`home-hero-shell relative z-30 flex h-full flex-col items-center justify-start px-4 pb-2 pt-[13.2rem] text-center sm:pb-4 sm:pt-[15rem] md:pb-12 md:pt-24 ${isHomeSearchActive ? 'home-hero-shell--expanded' : ''}`}
+        >
 
           {/* ================= TEXT + SEARCH ================= */}
           <div

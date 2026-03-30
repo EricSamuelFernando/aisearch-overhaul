@@ -216,6 +216,48 @@ export async function searchProperties(payload: SearchPayload, signal?: AbortSig
 //   return res.json();
 // }
 
+// ── Streaming chat (/api/chat) ───────────────────────────────────────────────
+
+export type ChatPayload = {
+    query: string;
+    session_id?: string | null;
+    user_name?: string | null;
+    user_local_hour?: number;
+};
+
+export type SSEEvent =
+    | { type: 'thinking'; step: string; source?: string }
+    | { type: 'token'; text: string }
+    | { type: 'properties'; data: any[] }
+    | { type: 'suggestions'; data: string[] }
+    | { type: 'metadata'; intent?: string; result_count?: number; [key: string]: any }
+    | { type: 'done'; session_id?: string }
+    | { type: 'error'; message: string };
+
+/**
+ * Opens an SSE stream to /api/chat.
+ * Returns the raw Response — callers read response.body as a ReadableStream.
+ * Pass an AbortController signal to cancel mid-stream.
+ */
+export async function streamChat(
+    payload: ChatPayload,
+    userId?: string,
+    signal?: AbortSignal
+): Promise<Response> {
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    return fetch(`${baseUrl}/api/chat`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream',
+            ...getAuthHeaders(),
+            ...(userId ? { 'x-user-id': userId } : {}),
+        },
+        body: JSON.stringify(payload),
+        signal,
+    });
+}
+
 export async function askQuestion(payload: QuestionPayload, signal?: AbortSignal) {
     if (isMlsBypassModeEnabled()) {
         return {

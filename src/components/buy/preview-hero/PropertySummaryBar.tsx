@@ -383,7 +383,7 @@ const TopCollegesSection = ({
 
       {/* Footer Disclaimer */}
       <p className="text-[11px] text-gray-400 mt-8 pt-4 border-t border-gray-200">
-        School ratings are provided by Snaphomecollege.org. This information should only be used as a reference.
+        School ratings are provided by SnapGrad. This information should only be used as a reference.
         Proximity or boundaries shown here are not a guarantee of enrollment. Please reach out to schools directly to verify all information and enrollment eligibility.
       </p>
     </section>

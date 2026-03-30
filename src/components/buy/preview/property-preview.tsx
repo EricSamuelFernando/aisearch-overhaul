@@ -241,6 +241,10 @@ function getDayCountFromUTC(dateStr: string) {
 const PropertyPreview: React.FC = () => {
   const leftSection = React.useRef<HTMLDivElement>(null);
   const cardRef = React.useRef<HTMLDivElement>(null);
+  const askAiRailRef = React.useRef<HTMLDivElement>(null);
+  const comparablesRef = React.useRef<HTMLDivElement>(null);
+  const suppressHashChangeRef = React.useRef(false);
+  const [askAiRailHeight, setAskAiRailHeight] = React.useState<number | null>(null);
   const [proprtyData, setPropertyData] = React.useState<ProprtyData | undefined>();
   const [propertyDatas, setpropertyDatas] = React.useState<any>(null);
   interface PropertyDetails {
@@ -1899,7 +1903,9 @@ const PropertyPreview: React.FC = () => {
   const [topEstimatedMonthlyPayment, setTopEstimatedMonthlyPayment] = React.useState<number | null>(null);
 
   const toggleSection = (section: string) => {
-    setOpenSection(openSection === section ? null : section);
+    const nextSection = openSection === section ? null : section;
+    setOpenSection(nextSection);
+    // No label highlight or auto-scroll on dropdown open
   };
 
   const propertyTags = Array.isArray((proprtyData as any)?.tags) ? (proprtyData as any).tags : [];
@@ -2080,23 +2086,44 @@ const PropertyPreview: React.FC = () => {
 
 
   React.useEffect(() => {
-    const handleHashChange = () => {
-      openSectionForHash(window.location.hash);
-    };
-
-    window.addEventListener('hashchange', handleHashChange);
     const handlePreviewNav = (event: Event) => {
-      const customEvent = event as CustomEvent<string>;
+      const customEvent = event as CustomEvent<string | { hash?: string; source?: string }>;
       if (typeof customEvent.detail === 'string') {
         openSectionForHash(customEvent.detail);
       }
     };
     window.addEventListener('preview-nav', handlePreviewNav);
     return () => {
-      window.removeEventListener('hashchange', handleHashChange);
       window.removeEventListener('preview-nav', handlePreviewNav);
     };
   }, [openSectionForHash]);
+
+  // No navbar highlighting from dropdown open
+
+
+  React.useEffect(() => {
+    const updateAskAiRail = () => {
+      const rail = askAiRailRef.current;
+      const comparables = comparablesRef.current;
+      if (!rail || !comparables) return;
+
+      const railTop = rail.getBoundingClientRect().top + window.scrollY;
+      const comparablesBottom = comparables.getBoundingClientRect().bottom + window.scrollY;
+      const height = Math.max(0, comparablesBottom - railTop);
+      setAskAiRailHeight(height || null);
+    };
+
+    const rafUpdate = () => window.requestAnimationFrame(updateAskAiRail);
+    updateAskAiRail();
+
+    window.addEventListener('resize', rafUpdate);
+    window.addEventListener('load', rafUpdate);
+    return () => {
+      window.removeEventListener('resize', rafUpdate);
+      window.removeEventListener('load', rafUpdate);
+    };
+  }, []);
+
 
   // Generate unique IDs for SVG gradients and masks
   const svgId = React.useId();
@@ -2111,8 +2138,7 @@ const PropertyPreview: React.FC = () => {
   return (
     <div>
       <ItemNav cardRef={cardRef} />
-      <div className='mt-14 sm:mt-12 md:mt-12 lg:mt-14' />
-      <div id="overview" className="scroll-mt-28" />
+      <div id="overview" className="scroll-mt-28 h-px" />
 
       {/* Contact Agent Dialog */}
       <Dialog open={isContactAgentDialogOpen} onOpenChange={setIsContactAgentDialogOpen}>
@@ -2249,7 +2275,7 @@ const PropertyPreview: React.FC = () => {
         </div>
       ) : transformData.display ? (
         <>
-          <div className="mx-auto w-full max-w-[1920px] px-2 sm:px-4 md:px-6 xl:px-[78px] min-[1536px]:max-[1919px]:px-[52px] min-[1920px]:px-[94px]">
+          <div className="mx-auto w-full max-w-[1920px] px-2 pt-6 sm:px-4 sm:pt-8 md:px-6 xl:px-[78px] min-[1536px]:max-[1919px]:px-[52px] min-[1920px]:px-[94px]">
             <div className='grid w-full grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-12 lg:gap-7 xl:grid-cols-[847.793px_321px_543px] min-[1536px]:max-[1919px]:grid-cols-[710px_268px_454px] xl:gap-0 h-auto transition-all duration-300 ease-in-out'>
 
             <div className="col-span-12 lg:col-span-8 xl:col-span-2 flex flex-col xl:pr-[24px]" ref={leftSection}>
@@ -2282,7 +2308,7 @@ const PropertyPreview: React.FC = () => {
                 preloadedData={propertyDatas} // Pass existing data to prevent re-fetch
               />
               {/* Top Section: Price/Address and Agent Card */}
-              <div className="mt-3 w-full flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_479px] min-[1536px]:max-[1919px]:grid-cols-[minmax(0,1fr)_454px] lg:items-start lg:gap-6 xl:gap-[20px] mb-4">
+              <div className="mt-6 sm:mt-8 w-full flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_479px] min-[1536px]:max-[1919px]:grid-cols-[minmax(0,1fr)_454px] lg:items-start lg:gap-6 xl:gap-[20px] mb-4">
                 {/* Left: Price and Address */}
                 <div className="space-y-1 w-full lg:flex-1">
                   <div className='inline-flex items-baseline gap-1'>
@@ -2299,17 +2325,16 @@ const PropertyPreview: React.FC = () => {
 
                 {/* Right: Agent Card */}
                 <div className="w-full">
-                  <div className="rounded-[16px] bg-[#F5E6D3] shadow-sm px-3 sm:px-4 py-3 flex items-center justify-center xl:w-[479px] min-[1536px]:max-[1919px]:w-[454px] xl:h-[110px] xl:px-[20px] xl:py-[22px]">
-                    <div className="flex items-center justify-center w-full gap-2 sm:gap-3 xl:w-[399px] min-[1536px]:max-[1919px]:w-[370px] xl:h-[60px]">
+                  <div className="rounded-[16px] bg-[#F5E6D3] shadow-sm px-3 sm:px-4 py-3 flex items-center justify-start xl:w-[479px] min-[1536px]:max-[1919px]:w-[454px] xl:h-[110px] xl:px-[20px] xl:py-[22px]">
+                    <div className="flex items-center justify-start w-full gap-2 sm:gap-3 xl:w-[399px] min-[1536px]:max-[1919px]:w-[370px] xl:h-[60px]">
                       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                         <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden shrink-0 xl:h-[60px] xl:w-[60px]">
                           {transformData?.prop?.listingAgent?.photo && transformData?.prop?.listingAgent?.photo !== "" ? (
-                            <Image
+                            <img
                               src={transformData.prop.listingAgent.photo}
                               alt={transformData?.prop?.listingAgent?.fullName || "Agent"}
-                              width={60}
-                              height={60}
                               className="rounded-full object-cover w-full h-full"
+                              loading="lazy"
                             />
                           ) : (
                             <span className="text-sm sm:text-base font-semibold text-gray-600 xl:text-[22px]">
@@ -2437,8 +2462,12 @@ const PropertyPreview: React.FC = () => {
             </div>
 
 
-            <div className="col-span-12 lg:col-span-4 xl:col-span-1 lg:row-span-2 mt-4 lg:mt-0 xl:pl-[24px]">
-              <div className="w-full rounded-2xl bg-[#F9F6EF] shadow-sm border border-[#EFE7DC] p-4 sm:p-5 md:p-6 xl:w-[543px] min-[1536px]:max-[1919px]:w-[454px] xl:h-[569px] xl:rounded-[20px] xl:bg-[#FAF9F5] xl:border-none xl:px-[32px] xl:py-[26px]">
+            <div
+              ref={askAiRailRef}
+              className="col-span-12 lg:col-span-4 xl:col-span-1 lg:row-span-2 mt-4 lg:mt-0 xl:pl-[24px]"
+              style={askAiRailHeight ? { minHeight: `${askAiRailHeight}px` } : undefined}
+            >
+              <div className="w-full rounded-2xl bg-[#F9F6EF] shadow-sm border border-[#EFE7DC] p-4 sm:p-5 md:p-6 xl:w-[500px] min-[1536px]:max-[1919px]:w-[470px] xl:h-[569px] xl:rounded-[20px] xl:bg-[#FAF9F5] xl:border-none xl:px-[28px] xl:py-[22px]">
                 {(() => {
                   // Calculate dynamic values
                   const beds = transformData.prop?.property?.bedroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bedroomsTotal || 0;
@@ -2461,7 +2490,7 @@ const PropertyPreview: React.FC = () => {
                       </div>
 
                       {/* Top stats */}
-                      <div className="mt-4 grid grid-cols-3 gap-5 xl:mt-[20px] xl:h-[80px] xl:gap-[40px]">
+                      <div className="mt-4 grid grid-cols-3 gap-5 xl:mt-[20px] xl:h-[80px] xl:gap-[48px]">
                         <div>
                           <p className="text-2xl sm:text-[30px] font-semibold leading-none xl:text-[40px]">{beds}</p>
                           <p className="text-xs sm:text-[13px] text-gray-600 mt-1 xl:text-[21px] xl:text-[#1D1D1D]">beds</p>
@@ -2485,12 +2514,26 @@ const PropertyPreview: React.FC = () => {
                         const openHouseRaw =
                           transformData.prop?.openHouse ??
                           transformData.prop?.OpenHouse ??
+                          (transformData.prop as any)?.['open house'] ??
                           transformData.prop?.openHouses ??
                           transformData.prop?.open_houses ??
+                          transformData.prop?.property?.openHouse ??
+                          (transformData.prop?.property as any)?.['open house'] ??
+                          transformData.prop?.property?.openHouses ??
                           propertyDatas?.data?.openHouse ??
                           propertyDatas?.data?.OpenHouse ??
+                          (propertyDatas?.data as any)?.['open house'] ??
                           propertyDatas?.data?.openHouses ??
                           propertyDatas?.data?.open_houses ??
+                          propertyDatas?.data?.property?.openHouse ??
+                          (propertyDatas?.data?.property as any)?.['open house'] ??
+                          propertyDatas?.data?.property?.openHouses ??
+                          propertyDatas?.property_detail?.data?.openHouse ??
+                          propertyDatas?.property_detail?.data?.openHouses ??
+                          (propertyDatas?.property_detail?.data as any)?.['open house'] ??
+                          propertyDatas?.property_detail?.data?.propertyInfo?.openHouse ??
+                          (propertyDatas?.property_detail?.data?.propertyInfo as any)?.['open house'] ??
+                          propertyDatas?.property_detail?.data?.propertyInfo?.openHouses ??
                           null;
 
                         const formatDate = (value: any) => {
@@ -2508,12 +2551,53 @@ const PropertyPreview: React.FC = () => {
                           if (typeof oh === 'string') return oh.trim() || null;
                           if (Array.isArray(oh)) return formatOpenHouse(oh[0]);
                           if (typeof oh === 'object') {
+                            const displayText =
+                              oh.display ??
+                              oh.label ??
+                              oh.text ??
+                              oh.description ??
+                              oh.Display ??
+                              oh.Label ??
+                              oh.Text ??
+                              oh.Description ??
+                              null;
+                            if (typeof displayText === 'string' && displayText.trim()) {
+                              return displayText.trim();
+                            }
+
                             const start =
-                              oh.startTime ?? oh.start ?? oh.startDate ?? oh.StartTime ?? oh.OpenHouseStartTime ?? oh.start_time;
+                              oh.startTime ??
+                              oh.start ??
+                              oh.startDate ??
+                              oh.startDateTime ??
+                              oh.start_time ??
+                              oh.StartTime ??
+                              oh.OpenHouseStartTime ??
+                              oh.openHouseStartTime ??
+                              oh.StartDateTime ??
+                              oh.startTimeLocal ??
+                              oh.StartTimeLocal;
                             const end =
-                              oh.endTime ?? oh.end ?? oh.endDate ?? oh.EndTime ?? oh.OpenHouseEndTime ?? oh.end_time;
+                              oh.endTime ??
+                              oh.end ??
+                              oh.endDate ??
+                              oh.endDateTime ??
+                              oh.end_time ??
+                              oh.EndTime ??
+                              oh.OpenHouseEndTime ??
+                              oh.openHouseEndTime ??
+                              oh.EndDateTime ??
+                              oh.endTimeLocal ??
+                              oh.EndTimeLocal;
                             const date =
-                              oh.date ?? oh.Date ?? oh.openDate ?? oh.OpenHouseDate ?? oh.open_date ?? start;
+                              oh.date ??
+                              oh.Date ??
+                              oh.openDate ??
+                              oh.open_date ??
+                              oh.OpenHouseDate ??
+                              oh.openHouseDate ??
+                              oh.OpenDate ??
+                              start;
 
                             const startFmt = start ? formatDate(start) : null;
                             const endFmt = end ? formatDate(end) : null;
@@ -2528,11 +2612,11 @@ const PropertyPreview: React.FC = () => {
                         };
 
                         const openHouseValue = formatOpenHouse(openHouseRaw);
-                        if (!openHouseValue) return null;
+                        const openHouseDisplay = openHouseValue || "Not scheduled";
 
                         return (
-                          <p className="text-[13px] text-gray-700 mt-4 xl:mt-[16px] xl:text-[20px] xl:text-[#1D1D1D] xl:w-[371px]">
-                            Open : {openHouseValue}
+                          <p className="text-[13px] text-gray-700 mt-6 xl:mt-[32px] xl:text-[20px] xl:text-[#1D1D1D] xl:w-[371px]">
+                            Open : {openHouseDisplay}
                           </p>
                         );
                       })()}
@@ -2540,7 +2624,7 @@ const PropertyPreview: React.FC = () => {
                       <div className="h-px bg-[#E3DCD2] my-4 xl:my-[16px] xl:w-[438px]"></div>
 
                       {/* Middle grid info with SVG icons */}
-                      <div className="grid grid-cols-2 gap-y-4 text-xs sm:text-[13px] xl:gap-y-[24px]">
+                      <div className="grid grid-cols-2 gap-y-6 text-xs sm:text-[13px] xl:gap-y-[32px]">
                         <div className="flex items-start gap-3">
                           <Image
                             src="/assets/images/residental.png"
@@ -2597,12 +2681,12 @@ const PropertyPreview: React.FC = () => {
                       </div>
 
                       {/* Footer */}
-                      <div className="flex items-center justify-between gap-3 mt-5">
+                      <div className="flex items-center justify-between gap-3 mt-8">
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <button
-                                className="flex items-center gap-3 text-sm sm:text-[15px] font-semibold text-gray-900 bg-[#F2F2F2] px-5 py-3 rounded-full border border-gray-300 xl:w-[260px] xl:h-[64px] xl:rounded-[32px] xl:text-[22px] xl:font-bold xl:gap-[16px]"
+                                className="flex items-center justify-center gap-3 text-sm sm:text-[15px] font-semibold text-gray-900 bg-[#F2F2F2] px-5 py-3 rounded-full border border-gray-300 xl:w-[260px] xl:h-[64px] xl:rounded-[32px] xl:text-[22px] xl:font-bold xl:gap-[16px]"
                                 onClick={() => setIsStreetViewOpen(true)}
                               >
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="xl:h-[20px] xl:w-[20px]">
@@ -2629,15 +2713,15 @@ const PropertyPreview: React.FC = () => {
                 })()}
               </div>
 
-              <div className="hidden lg:block mt-4 xl:mt-[54px] lg:sticky lg:top-36 lg:self-start">
-                <div className="w-full rounded-[24px] bg-[#F6F2EE] shadow-[0_18px_70px_rgba(0,0,0,0.12)] border border-[#E8E2DC] p-5 sm:p-6 xl:w-[543px] min-[1536px]:max-[1919px]:w-[454px] xl:rounded-[16px] xl:p-[32px]">
+                <div className="hidden lg:block mt-4 xl:mt-[54px] lg:sticky lg:top-36 lg:self-start">
+                <div className="w-full rounded-[16px] bg-white shadow-[0_-4px_4px_rgba(189,189,189,0.1),0_125px_35px_rgba(189,189,189,0),0_80px_32px_rgba(189,189,189,0.01),0_45px_27px_rgba(189,189,189,0.05),0_20px_20px_rgba(189,189,189,0.09),0_5px_11px_rgba(189,189,189,0.1)] border border-transparent p-5 sm:p-6 xl:w-[500px] xl:p-[24px]">
                   {/* Header */}
-                  <div className="flex items-center gap-2 mb-2 xl:mb-[12px]">
-                    <AskAiLogo className="w-7 h-7" />
-                    <h3 className="text-[20px] font-semibold text-gray-900 xl:text-[22px]">Ask AI</h3>
+                  <div className="flex items-center gap-2 mb-3 xl:mb-4 xl:gap-[9px]">
+                    <AskAiLogo className="w-7 h-7 xl:h-[30.239px] xl:w-[30.122px]" />
+                    <h3 className="text-[20px] font-semibold text-gray-900 xl:text-[22px] xl:tracking-[-0.22px] xl:leading-[normal]">Ask AI</h3>
                   </div>
 
-                  <div className="text-[16px] text-gray-700 leading-relaxed mb-5 xl:text-[21px] xl:leading-[32px] xl:text-[#484747] xl:mb-[20px]">
+                  <div className="text-[16px] text-gray-700 leading-relaxed mb-5 xl:text-[18px] xl:leading-[28px] xl:text-[#484747] xl:mb-5">
                     {aiAnswer ? (
                       <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
                         <p className="font-semibold text-blue-800 mb-1">AI Answer:</p>
@@ -2649,12 +2733,12 @@ const PropertyPreview: React.FC = () => {
                   </div>
 
                   {/* Suggestions */}
-                  <div className="space-y-3 mb-6 xl:space-y-[24px] xl:mb-[20px]">
+                  <div className="space-y-3 mb-6 xl:space-y-4 xl:mb-6">
                     {(aiSuggestions || []).map((label: string, index: number) => (
                       <button
                         key={index}
                         onClick={() => handleAskAIQuery(label)}
-                        className="w-full text-left rounded-xl bg-[#F1EEEA] px-4 py-3 cursor-pointer flex items-center justify-between text-[15px] text-gray-800 hover:bg-[#EAE6E1] transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.06)] xl:h-[60px] xl:rounded-[10px] xl:px-[25px] xl:text-[18px]"
+                        className="w-full max-w-full text-left rounded-xl bg-[#F3F3F3] px-4 py-3 cursor-pointer flex items-center justify-between text-[15px] text-black hover:bg-[#EEEEEE] transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.06)] xl:h-[60px] xl:rounded-[10px] xl:px-[20px] xl:text-[16px] xl:leading-[24px] xl:tracking-[-0.18px]"
                         disabled={askAIMutation.isPending}>
                         <span>{label}</span>
                         <ChevronDown className="h-4 w-4 text-gray-600 xl:h-[30px] xl:w-[30px]" />
@@ -2667,7 +2751,7 @@ const PropertyPreview: React.FC = () => {
                     <input
                       type="text"
                       placeholder="Ask me anything about this home..."
-                      className="w-full border border-[#D3CEC8] rounded-xl px-4 py-3 text-[15px] mb-5 outline-none bg-white focus:ring-0 focus:border-gray-500 transition-colors pr-12 placeholder:text-gray-500 xl:h-[60px] xl:rounded-[10px] xl:px-[25px] xl:text-[18px] xl:text-[#5A5A5A] xl:mb-[20px]"
+                      className="w-full max-w-full border border-[#8C8C8C] rounded-xl px-4 py-3 text-[15px] mb-5 outline-none bg-white focus:ring-0 focus:border-gray-500 transition-colors pr-12 placeholder:text-gray-500 xl:h-[60px] xl:rounded-[10px] xl:px-[20px] xl:text-[16px] xl:text-[#5A5A5A] xl:leading-[24px] xl:tracking-[-0.18px] xl:mb-5"
                       value={askAIQuestion}
                       onChange={(e) => setAskAIQuestion(e.target.value)}
                       onKeyDown={(e) => {
@@ -2688,7 +2772,7 @@ const PropertyPreview: React.FC = () => {
                   <button
                     onClick={() => handleAskAIQuery(askAIQuestion)}
                     disabled={askAIMutation.isPending || !askAIQuestion.trim()}
-                    className="w-full bg-black text-white py-3.5 rounded-full text-[16px] font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed xl:h-[64px] xl:rounded-[32px] xl:text-[22px]"
+                    className="w-full bg-black text-white py-3.5 rounded-full text-[16px] font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed xl:h-[64px] xl:rounded-[42px] xl:text-[24px]"
                   >
                     {askAIMutation.isPending ? 'Thinking...' : 'Send'}
                   </button>
@@ -2708,9 +2792,13 @@ const PropertyPreview: React.FC = () => {
                         ? 'property'
                         : section.id === 'schools'
                           ? 'schools'
-                          : section.id === 'interest'
-                            ? 'forecast'
-                            : undefined;
+                          : section.id === 'college'
+                            ? 'college'
+                            : section.id === 'interest'
+                              ? 'forecast'
+                              : section.id === 'payment'
+                                ? 'payment'
+                                : undefined;
                   const poweredBy =
                     section.id === 'schools' || section.id === 'college'
                       ? 'SnapGrad'
@@ -2734,7 +2822,9 @@ const PropertyPreview: React.FC = () => {
                         onClick={() => toggleSection(section.id)}
                         className="w-full flex items-center justify-between py-2 sm:py-3 text-left focus:outline-none transition-all xl:h-[140px] xl:py-0"
                       >
-                        <span className="font-bold text-sm sm:text-[16px] text-gray-900 xl:w-[304px] xl:h-[54px] xl:text-[32px] xl:leading-[54px]">
+                        <span
+                          className={`font-bold text-sm sm:text-[16px] text-gray-900 xl:w-[304px] xl:h-[54px] xl:text-[32px] xl:leading-[54px] ${section.id === 'offers' || section.id === 'interest' ? 'whitespace-nowrap' : ''}`}
+                        >
                           {section.title}
                         </span>
                         <span className="ml-3 shrink-0 inline-flex items-center gap-2 sm:gap-3 xl:justify-end">
@@ -2781,7 +2871,7 @@ const PropertyPreview: React.FC = () => {
                                   ? 'forecast-content'
                                   : undefined
                           }
-                          className="pb-3 sm:pb-4 xl:text-[20px] xl:leading-[32px]"
+                          className="pb-3 sm:pb-4 text-base sm:text-[17px] xl:text-[20px] xl:leading-[32px]"
                         >
                           {section.content}
                         </div>
@@ -2791,7 +2881,7 @@ const PropertyPreview: React.FC = () => {
                 })}
 
                 {/* Nearby Homes Section (Similar Homes) */}
-                <div id="comparables" className="pb-6 sm:pb-8 md:pb-12 mb-12 sm:mb-16 md:mb-20 scroll-mt-28">
+                <div id="comparables" ref={comparablesRef} className="pb-6 sm:pb-8 md:pb-12 mb-12 sm:mb-16 md:mb-20 scroll-mt-28">
                   {/* <h2 className='text-xl font-bold mt-8 mb-4'>Similar homes</h2> */}
                   {(propertyDatas?.nearbyHomes?.length || propertyDatas?.offtheMarket?.length || propertyDatas?.offTheMarket?.length) ? (
                     <NearbyHomesSection

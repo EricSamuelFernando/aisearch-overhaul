@@ -5,7 +5,7 @@ import { useAppDispatch, useAppSelector } from '@/lib/hook';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { initializeTempUserId, incrementSearchCount } from '@/slices/onboarding/property-preference';
 import { usePropertyStore } from '@/store/use-property-store';
-import type { AddressSuggestion, ThinkingProgressResponse } from '@/lib/api';
+import type { AddressSuggestion, ThinkingProgressResponse, SSEEvent } from '@/lib/api';
 import { setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
@@ -2734,20 +2734,77 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 return;
             }
 
-            // All messages route through LangGraph via /api/search.
+            // All messages route through /api/chat (SSE streaming).
             // Nova Planner handles routing internally: property search, Q&A, SnapInterest,
-            // rent-vs-buy, school lookup, etc. The response contract is identical regardless
-            // of intent — properties=[] for text-only answers, properties=[...] for search results.
+            // rent-vs-buy, school lookup, etc.
             setThinkingIntentHint("search");
 
-            responseData = await searchProperties({
-                userid: user?.id || tempUserId || 'anonymous',
-                query: queryToSearch,
-                session_id: activeSessionId,
-                from_browse: false,
-                user_name: user?.firstname || undefined,
-                user_local_hour: new Date().getHours(),
-            }, newController.signal);
+            // ── Open SSE stream ────────────────────────────────────────────
+            const sseResponse = await streamChat(
+                {
+                    query: queryToSearch,
+                    session_id: activeSessionId,
+                    user_name: user?.firstname || undefined,
+                    user_local_hour: new Date().getHours(),
+                },
+                user?.id || tempUserId || undefined,
+                newController.signal
+            );
+
+            if (!sseResponse.ok || !sseResponse.body) {
+                throw new Error(`Chat stream failed with status ${sseResponse.status}`);
+            }
+
+            // ── Read stream and accumulate into responseData ───────────────
+            const _sseAccum: Record<string, any> = {};
+            let _streamText = '';
+            const reader = sseResponse.body.getReader();
+            const decoder = new TextDecoder();
+            let _buf = '';
+
+            outer: while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                _buf += decoder.decode(value, { stream: true });
+                const parts = _buf.split('\n\n');
+                _buf = parts.pop() ?? '';
+                for (const part of parts) {
+                    const line = part.trim();
+                    if (!line.startsWith('data: ')) continue;
+                    try {
+                        const evt = JSON.parse(line.slice(6)) as SSEEvent;
+                        if (evt.type === 'thinking') {
+                            // Show thinking steps in real-time
+                            setThinkingSteps(prev => [
+                                ...prev,
+                                { id: Date.now().toString(), label: evt.step, title: evt.step, source: evt.source || 'Nova', status: 'active' as const },
+                            ]);
+                        } else if (evt.type === 'token') {
+                            _streamText += evt.text;
+                        } else if (evt.type === 'properties') {
+                            _sseAccum.properties = evt.data;
+                        } else if (evt.type === 'suggestions') {
+                            _sseAccum.suggestions = evt.data;
+                        } else if (evt.type === 'metadata') {
+                            _sseAccum.intent = (evt as any).intent || _sseAccum.intent;
+                            _sseAccum.metadata = evt;
+                        } else if (evt.type === 'done') {
+                            if ((evt as any).session_id) _sseAccum.session_id = (evt as any).session_id;
+                        } else if (evt.type === 'error') {
+                            throw new Error((evt as any).message || 'Stream error');
+                        }
+                    } catch (parseErr) {
+                        if (parseErr instanceof Error && parseErr.message && !parseErr.message.startsWith('Stream error')) {
+                            console.warn('[SSE] Parse error:', parseErr, line);
+                        } else {
+                            throw parseErr;
+                        }
+                    }
+                }
+            }
+
+            _sseAccum.response = _streamText;
+            responseData = _sseAccum;
 
             console.log("Backend Response:", responseData);
 

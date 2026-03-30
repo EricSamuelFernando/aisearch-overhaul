@@ -62,54 +62,7 @@ const blog14GasInductionDualFuelRange: Article = {
     <h2 id="fuel-comparison">Gas vs. Induction vs. Dual-Fuel: The Technical Breakdown</h2>
     <p>The fuel choice is the biggest decision you will make. Each technology has real trade-offs in 2026 — here's how they stack up honestly.</p>
 
-    <table style="width:100%; border-collapse:collapse; margin-bottom:1rem;">
-      <thead>
-        <tr style="background:#f5f5f5;">
-          <th style="text-align:left; padding:10px; border:1px solid #ddd;">Feature</th>
-          <th style="text-align:left; padding:10px; border:1px solid #ddd;">Gas</th>
-          <th style="text-align:left; padding:10px; border:1px solid #ddd;">Induction</th>
-          <th style="text-align:left; padding:10px; border:1px solid #ddd;">Dual-Fuel</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td style="padding:10px; border:1px solid #ddd;">Energy efficiency</td>
-          <td style="padding:10px; border:1px solid #ddd;">~40%</td>
-          <td style="padding:10px; border:1px solid #ddd;">~85%</td>
-          <td style="padding:10px; border:1px solid #ddd;">~70% (mixed)</td>
-        </tr>
-        <tr style="background:#fafafa;">
-          <td style="padding:10px; border:1px solid #ddd;">Speed (boil test)</td>
-          <td style="padding:10px; border:1px solid #ddd;">~8 min</td>
-          <td style="padding:10px; border:1px solid #ddd;">~4 min</td>
-          <td style="padding:10px; border:1px solid #ddd;">~4 min (cooktop)</td>
-        </tr>
-        <tr>
-          <td style="padding:10px; border:1px solid #ddd;">Cookware requirement</td>
-          <td style="padding:10px; border:1px solid #ddd;">Any</td>
-          <td style="padding:10px; border:1px solid #ddd;">Magnetic only</td>
-          <td style="padding:10px; border:1px solid #ddd;">Any (gas top)</td>
-        </tr>
-        <tr style="background:#fafafa;">
-          <td style="padding:10px; border:1px solid #ddd;">Indoor air quality</td>
-          <td style="padding:10px; border:1px solid #ddd;">NO₂ / CO emissions</td>
-          <td style="padding:10px; border:1px solid #ddd;">Zero emissions</td>
-          <td style="padding:10px; border:1px solid #ddd;">Some emissions</td>
-        </tr>
-        <tr>
-          <td style="padding:10px; border:1px solid #ddd;">Price range</td>
-          <td style="padding:10px; border:1px solid #ddd;">$800–$10,000+</td>
-          <td style="padding:10px; border:1px solid #ddd;">$900–$8,000+</td>
-          <td style="padding:10px; border:1px solid #ddd;">$2,500–$15,000+</td>
-        </tr>
-        <tr style="background:#fafafa;">
-          <td style="padding:10px; border:1px solid #ddd;">Best for</td>
-          <td style="padding:10px; border:1px solid #ddd;">Searing, wok cooking</td>
-          <td style="padding:10px; border:1px solid #ddd;">Speed, safety, clean</td>
-          <td style="padding:10px; border:1px solid #ddd;">Baking + searing</td>
-        </tr>
-      </tbody>
-    </table>
+    <img src="/assets/images/Blogs/Blog 10/T1 (2).png" alt="Gas vs. Induction vs. Dual-Fuel comparison table" />
 
     <h3 id="gas">Gas: The Traditionalist's Choice</h3>
     <ul>

@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+
 /* ── Browse AI chat icon glow (activated state) ──────────────── */
 @keyframes browse-ai-glow {
   0%, 100% { box-shadow: 0 0 10px 4px rgba(232, 128, 76, 0.55), 0 8px 32px rgba(0,0,0,0.14); }
@@ -11,6 +12,11 @@
 
 .browse-ai-active-glow {
   animation: browse-ai-glow 2.5s ease-in-out infinite;
+}
+
+.property-preview-page,
+.property-preview-page * {
+  overflow-anchor: none;
 }
 
 /* ── BETA Button (Uiverse animated pill) ─────────────────────── */

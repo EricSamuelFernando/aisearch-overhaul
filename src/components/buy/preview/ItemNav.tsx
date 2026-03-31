@@ -452,9 +452,10 @@ function ItemNav({ cardRef }: Props) {
                   }
                 }}
                 className={cn(
-                  'snap-start whitespace-nowrap px-4 py-2 text-sm font-medium text-[#818181] hover:border-b-[2px] hover:border-black hover:text-black xl:px-[12px] xl:py-[20px] xl:text-[18px] xl:h-full xl:flex xl:items-center',
-                  hash === item.hash &&
-                  'border-b-[2px] border-black bg-[#F8F8F8] text-black'
+                  'snap-start whitespace-nowrap px-4 py-2 text-sm font-medium text-[#818181] xl:px-[12px] xl:py-[20px] xl:text-[18px] xl:h-full xl:flex xl:items-center',
+                  hash === item.hash
+                    ? 'border-b-[2px] border-black bg-[#F8F8F8] text-black'
+                    : 'xl:hover:border-b-[2px] xl:hover:border-black xl:hover:text-black'
                 )}
               >
                 {item.title}

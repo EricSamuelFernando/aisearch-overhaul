@@ -2067,12 +2067,21 @@ const PropertyPreview: React.FC = () => {
   }, [estimatedHouseValue, rentEstimate, rentDelta, projectedGainPct]);
 
 
-  const [openSection, setOpenSection] = React.useState<string | null>(null);
+  const [openSections, setOpenSections] = React.useState<Set<string>>(new Set());
   const [topEstimatedMonthlyPayment, setTopEstimatedMonthlyPayment] = React.useState<number | null>(null);
-  const toggleSection = (section: string, anchorEl?: HTMLElement | null) => {
-    const anchorTop = anchorEl ? anchorEl.getBoundingClientRect().top : null;
-    const nextSection = openSection === section ? null : section;
-    setOpenSection(nextSection);
+  const toggleSection = (section: string, preserveScroll = true) => {
+    const scrollY = typeof window !== 'undefined' && preserveScroll ? window.scrollY : null;
+    let nextSection: string | null = null;
+    setOpenSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(section)) {
+        next.delete(section);
+      } else {
+        next.add(section);
+        nextSection = section;
+      }
+      return next;
+    });
     // Keep navbar label in sync with dropdown open
     if (typeof window !== 'undefined' && nextSection) {
       const hash =
@@ -2097,14 +2106,9 @@ const PropertyPreview: React.FC = () => {
         );
       }
     }
-
-    if (typeof window !== 'undefined' && anchorEl && anchorTop !== null) {
+    if (typeof window !== 'undefined' && preserveScroll && scrollY !== null) {
       window.requestAnimationFrame(() => {
-        const nextTop = anchorEl.getBoundingClientRect().top;
-        const delta = nextTop - anchorTop;
-        if (delta !== 0) {
-          window.scrollBy({ top: delta, behavior: 'auto' });
-        }
+        window.scrollTo({ top: scrollY, behavior: 'auto' });
       });
     }
   };
@@ -2128,7 +2132,11 @@ const PropertyPreview: React.FC = () => {
     if (!target) return;
 
     if (target.section) {
-      setOpenSection(target.section);
+      setOpenSections((prev) => {
+        const next = new Set(prev);
+        next.add(target.section);
+        return next;
+      });
     }
 
     // After the accordion opens, scroll to the content area for that section.
@@ -3100,7 +3108,7 @@ const PropertyPreview: React.FC = () => {
                       className="border-b border-gray-200 scroll-mt-28"
                     >
                       <button
-                        onClick={(event) => toggleSection(section.id, event.currentTarget)}
+                        onClick={() => toggleSection(section.id)}
                         className="w-full flex items-center justify-between py-2 sm:py-3 text-left focus:outline-none transition-all xl:h-[140px] xl:py-0"
                       >
                         <span
@@ -3129,7 +3137,7 @@ const PropertyPreview: React.FC = () => {
                               )}
                             </span>
                           )}
-                          {openSection === section.id ? (
+                          {openSections.has(section.id) ? (
                             <ChevronUp className="text-gray-800 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5 xl:w-[30px] xl:h-[30px]" strokeWidth={2.5} />
                           ) : (
                             <ChevronDown className="text-gray-800 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5 xl:w-[30px] xl:h-[30px]" strokeWidth={2.5} />
@@ -3139,7 +3147,7 @@ const PropertyPreview: React.FC = () => {
 
                       {/* Accordion Content */}
                       <div
-                        className={`overflow-hidden ${openSection === section.id
+                        className={`overflow-hidden ${openSections.has(section.id)
                           ? "max-h-[2000px] opacity-100 translate-y-0"
                           : "max-h-0 opacity-0 -translate-y-1 pointer-events-none"
                           } transition-opacity transition-transform duration-300`}

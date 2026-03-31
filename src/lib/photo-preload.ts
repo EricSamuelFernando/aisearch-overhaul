@@ -48,12 +48,7 @@ export const preloadImageUrls = (
           inFlight -= 1;
           kick();
         };
-        if ('decode' in image) {
-          image.decode().then(done).catch(done);
-        } else {
-          image.onload = done;
-          image.onerror = done;
-        }
+        image.decode().then(done).catch(done);
       }
     };
 

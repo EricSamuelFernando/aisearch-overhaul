@@ -42,12 +42,7 @@ const HomeHighlights: React.FC<HomeHighlightsProps> = (props = defaultProps) => 
   // For the exact UI match, we will replicate the visible text and the red 'read more' link.
 
   return (
-    <div className="w-full max-w-4xl py-6 sm:py-10 px-3 sm:px-6 lg:px-8">
-
-      {/* --- Title --- */}
-      <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">
-        Home highlights
-      </h2>
+    <div className="w-full max-w-4xl pt-2 pb-6 sm:pt-3 sm:pb-8 px-3 sm:px-6 lg:px-8">
 
       {/* --- Highlight Tags --- */}
       <div className="flex flex-wrap gap-2 mb-5 sm:mb-8">

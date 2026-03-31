@@ -37,24 +37,38 @@ function SellHero() {
       <div className="fixed w-full z-50 top-0 left-0">
         <MainNavPages />
       </div>
-      <div className="text-black h-[540px] md:h-auto md:min-h-[135vh] relative pt-0 mt-0 overflow-hidden">
+      <div className="text-black h-[380px] md:h-auto md:min-h-[135vh] relative pt-0 mt-0 overflow-hidden">
         <HeroLayout
+          style={{ minHeight: '380px' }}
           className="
         relative 
-        h-[540px]
+        h-[380px]
         md:h-auto
         md:min-h-[135vh]
-        bg-[url('/assets/images/sell-hero.jpg')] 
-        bg-[length:100%_auto]
-        bg-[position:60%_center]
+        bg-[#F7F2EB]
+        md:bg-[url('/assets/images/sell-hero.jpg')] 
+        md:bg-[length:100%_auto]
+        md:bg-[position:60%_center]
         bg-no-repeat 
       "
         >
+          <div
+            className="absolute inset-0 z-0 bg-[url('/assets/images/sell-hero.jpg')] bg-no-repeat md:hidden"
+            style={{
+              backgroundSize: 'auto 136%',
+              backgroundPosition: 'center 84%',
+              WebkitMaskImage:
+                'linear-gradient(to bottom, rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.18) 18%, rgba(0, 0, 0, 0.68) 42%, #000 56%, #000 100%)',
+              maskImage:
+                'linear-gradient(to bottom, rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.18) 18%, rgba(0, 0, 0, 0.68) 42%, #000 56%, #000 100%)',
+            }}
+          ></div>
+
           {/* Overlay Image */}
-          <div className="absolute inset-0 bg-[url('/assets/images/hero-sell-bg.png')] bg-cover bg-center bg-no-repeat z-0"></div>
+          <div className="absolute inset-0 bg-[url('/assets/images/hero-sell-bg.png')] bg-cover bg-center bg-no-repeat z-[1]"></div>
 
           {/* Bottom Image */}
-          <div className="absolute bottom-0 left-0 right-0 bg-[url('/assets/images/hero-sell-bg-bottom.png')] bg-cover bg-center bg-no-repeat z-0 h-[40px] md:h-[140px]"></div>
+          <div className="absolute bottom-0 left-0 right-0 bg-[url('/assets/images/hero-sell-bg-bottom.png')] bg-cover bg-center bg-no-repeat z-[2] h-[40px] md:h-[140px]"></div>
 
           <div className="relative z-10 w-full max-w-[1440px] mx-auto flex flex-col items-center justify-start md:justify-center text-center px-4 pt-24 md:pt-0 pb-8 md:pb-0 h-full md:h-auto md:min-h-[135vh] gap-5 md:gap-8">
             {/* Mobile View - "Buying a home should be Very Easy" */}

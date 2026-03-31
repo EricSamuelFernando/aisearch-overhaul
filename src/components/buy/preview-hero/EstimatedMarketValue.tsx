@@ -41,38 +41,36 @@ const EstimatedMarketValue: React.FC<any> = ({ estimatedData }) => {
             </p>
 
             <div
-                className="  w-[300px] overflow-x-scroll 
-    md:w-full md:overflow-x-visible 
-    flex md:grid 
-    flex-nowrap md:flex-wrap 
-    md:grid-cols-3 
-    gap-4 md:gap-6 items-stretch 
-    scrollbar-hide 
-    snap-x snap-mandatory md:snap-none
-  "
-
+                className="w-full overflow-x-auto pr-4 md:pr-0
+    md:w-full md:overflow-x-visible
+    flex md:grid
+    flex-nowrap md:flex-wrap
+    md:grid-cols-3
+    gap-3 md:gap-6 items-stretch
+    scrollbar-hide
+    snap-x snap-mandatory md:snap-none"
             >
 
                 {/* Card 1: Estimated house value */}
-                <div className="bg-[#F4F4F4] p-5 rounded-lg shadow-sm border border-gray-100 flex flex-col justify-between h-full 
-                min-w-[85%] sm:min-w-[350px] md:min-w-0 md:w-auto 
+                <div className="bg-[#F4F4F4] p-4 md:p-5 rounded-lg shadow-sm border border-gray-100 flex flex-col justify-between h-full 
+                min-w-[74%] sm:min-w-[350px] md:min-w-0 md:w-auto 
                 snap-start md:col-span-1">
                     <div>
                         <p className="text-gray-700 text-sm mb-1">Estimated house value</p>
-                        <p className="text-2xl font-bold text-gray-900 mb-4">
+                        <p className="text-[1.85rem] md:text-2xl font-bold text-gray-900 mb-4 leading-none">
                             {data.houseValue}
                         </p>
                     </div>
                 </div>
 
                 {/* Card 2: Estimated Rent */}
-                <div className="bg-[#F4F4F4] p-5 rounded-lg shadow-sm border border-gray-100 flex flex-col justify-between h-full 
-                min-w-[85%] sm:min-w-[350px] md:min-w-0 md:w-auto 
+                <div className="bg-[#F4F4F4] p-4 md:p-5 rounded-lg shadow-sm border border-gray-100 flex flex-col justify-between h-full 
+                min-w-[74%] sm:min-w-[350px] md:min-w-0 md:w-auto 
                 snap-start md:col-span-1">
                     <div>
                         <p className="text-gray-700 text-sm mb-1">Estimated Rent</p>
                         <div className="flex items-center justify-between mb-4">
-                            <p className="text-2xl font-bold text-gray-900">
+                            <p className="text-[1.85rem] md:text-2xl font-bold text-gray-900 leading-none">
                                 {data.estimatedRent}
                             </p>
                             <span
@@ -90,12 +88,12 @@ const EstimatedMarketValue: React.FC<any> = ({ estimatedData }) => {
                 </div>
 
                 {/* Card 3: Projected % Gain (5Y) */}
-                <div className="bg-[#F4F4F4] p-5 rounded-lg shadow-sm border border-gray-100 flex flex-col justify-between h-full 
-                min-w-[85%] sm:min-w-[350px] md:min-w-0 md:w-auto 
+                <div className="bg-[#F4F4F4] p-4 md:p-5 rounded-lg shadow-sm border border-gray-100 flex flex-col justify-between h-full 
+                min-w-[74%] sm:min-w-[350px] md:min-w-0 md:w-auto 
                 snap-start md:col-span-1">
                     <div>
                         <p className="text-gray-700 text-sm mb-1">Projected % Gain (5Y)</p>
-                        <p className="text-2xl font-bold text-gray-900 mb-4">
+                        <p className="text-[1.85rem] md:text-2xl font-bold text-gray-900 mb-4 leading-none">
                             {data.projectedGain}
                         </p>
                     </div>

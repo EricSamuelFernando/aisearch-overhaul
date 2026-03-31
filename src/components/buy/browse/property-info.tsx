@@ -238,7 +238,8 @@ function PropertyBrowseView({ }: Props) {
   const [selectedProperty, setSelectedProperty] = useState<string>('');
 
   const featureFilteredProperties = useFilteredProperties();
-  const resultCount = featureFilteredProperties.length;
+  const [totalResultsCount, setTotalResultsCount] = useState<number | null>(null);
+  const resultCount = totalResultsCount !== null ? totalResultsCount : featureFilteredProperties.length;
 
   const dispatch = useAppDispatch();
   const { tempUserId } = useAppSelector((state: RootState) => state.propertyPreference);
@@ -251,6 +252,7 @@ function PropertyBrowseView({ }: Props) {
   const query = useMemo(() => deriveBrowseLocationQuery(rawQuery), [rawQuery]);
   const isMlsMode = true;
   const isSearchModeReady = true;
+  const PAGE_SIZE = 20;
 
   const activeSearchFilters = useMemo(() => ({
     bedrooms: Number(searchParams.get('bedRooms') || '') || undefined,
@@ -277,6 +279,17 @@ function PropertyBrowseView({ }: Props) {
   const [topSearchPromptIndex, setTopSearchPromptIndex] = useState(0);
   const [topSearchCharIndex, setTopSearchCharIndex] = useState(0);
   const [topSearchDeleting, setTopSearchDeleting] = useState(false);
+  const [nextResultIndex, setNextResultIndex] = useState<number | null>(null);
+  const [hasMoreResults, setHasMoreResults] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const searchResetKey = useMemo(
+    () => `mls||${query.trim()}||${activeSearchFiltersKey}||${searchSubmitNonce}`,
+    [query, activeSearchFiltersKey, searchSubmitNonce],
+  );
+  useEffect(() => {
+    setTotalResultsCount(null);
+  }, [query, activeSearchFiltersKey, searchSubmitNonce]);
+  const isLoadingMoreRef = useRef(false);
 
   const [mobileSheetMode, setMobileSheetMode] = useState<MobileSheetMode>('default');
   const [mobileMeasureState, setMobileMeasureState] = useState<{
@@ -607,6 +620,9 @@ function PropertyBrowseView({ }: Props) {
       isSearchingRef.current = true;
       setIsSearching(true);
       setIsLoading(true);
+      setIsLoadingMore(false);
+      setHasMoreResults(false);
+      setNextResultIndex(null);
       try {
         const searchUrl = MLS_SEARCH_LIVE_URL;
 
@@ -619,7 +635,10 @@ function PropertyBrowseView({ }: Props) {
             radius: 20,
             from_browse: true,
             debug_source: 'browse_maps_page',
-            user: user?.id
+            user: user?.id,
+            page_size: PAGE_SIZE,
+            result_index: 0,
+            pagination: true,
           });
 
         // Store search history
@@ -648,6 +667,27 @@ function PropertyBrowseView({ }: Props) {
           setLastSearchKey(querySearchKey);
           dispatch(incrementSearchCount());
           dispatch(setPropertyQuery(response.data?.final_response || response.data?.search_query));
+          const pagination = response?.data?.pagination;
+          const countHintRaw =
+            pagination?.result_count_hint ??
+            response?.data?.result_count_hint ??
+            response?.data?.total ??
+            response?.data?.result_count ??
+            response?.data?.count;
+          const countHint = Number(countHintRaw);
+          if (Number.isFinite(countHint)) {
+            setTotalResultsCount(countHint);
+          }
+          const nextIndex =
+            typeof pagination?.next_result_index === 'number'
+              ? pagination.next_result_index
+              : newProperties.length;
+          const hasMore =
+            typeof pagination?.has_more === 'boolean'
+              ? pagination.has_more
+              : newProperties.length >= PAGE_SIZE;
+          setNextResultIndex(hasMore ? nextIndex : null);
+          setHasMoreResults(hasMore);
         } else {
           clearProperties();
           warning({
@@ -670,8 +710,81 @@ function PropertyBrowseView({ }: Props) {
         setIsLoading(false);
       }
     }, 1000),
-    [query, activeSearchFilters, clearProperties, addProperties, setSearchedQuery, setLastSearchKey, setIsLoading, dispatch],
+    [
+      query,
+      activeSearchFilters,
+      clearProperties,
+      addProperties,
+      setSearchedQuery,
+      setLastSearchKey,
+      setIsLoading,
+      dispatch,
+      user?.id,
+      PAGE_SIZE,
+    ],
   );
+
+  const fetchMoreResults = useCallback(async () => {
+    const queryText = query.trim();
+    if (!queryText) return;
+    if (!hasMoreResults || nextResultIndex === null) return;
+    if (isLoadingMoreRef.current) return;
+    const requestVersion = searchRequestVersionRef.current;
+    isLoadingMoreRef.current = true;
+    setIsLoadingMore(true);
+    try {
+      const response = await axios.post(MLS_SEARCH_LIVE_URL, {
+        ...activeSearchFilters,
+        query: queryText,
+        radius: 20,
+        from_browse: true,
+        debug_source: 'browse_maps_page_infinite',
+        user: user?.id,
+        page_size: PAGE_SIZE,
+        result_index: nextResultIndex,
+        pagination: true,
+      });
+      if (requestVersion !== searchRequestVersionRef.current) return;
+      const newProperties = response?.data?.properties || response?.data?.records || response?.data?.result?.records;
+      if (Array.isArray(newProperties) && newProperties.length > 0) {
+        addProperties(newProperties);
+      }
+      const pagination = response?.data?.pagination;
+      const countHintRaw =
+        pagination?.result_count_hint ??
+        response?.data?.result_count_hint ??
+        response?.data?.total ??
+        response?.data?.result_count ??
+        response?.data?.count;
+      const countHint = Number(countHintRaw);
+      if (Number.isFinite(countHint)) {
+        setTotalResultsCount(countHint);
+      }
+      const nextIndex =
+        typeof pagination?.next_result_index === 'number'
+          ? pagination.next_result_index
+          : (nextResultIndex + (Array.isArray(newProperties) ? newProperties.length : 0));
+      const hasMore =
+        typeof pagination?.has_more === 'boolean'
+          ? pagination.has_more
+          : Array.isArray(newProperties) && newProperties.length >= PAGE_SIZE;
+      setNextResultIndex(hasMore ? nextIndex : null);
+      setHasMoreResults(hasMore);
+    } catch (err) {
+      console.error('Fetch more results failed:', err);
+    } finally {
+      isLoadingMoreRef.current = false;
+      setIsLoadingMore(false);
+    }
+  }, [
+    query,
+    activeSearchFilters,
+    addProperties,
+    hasMoreResults,
+    nextResultIndex,
+    user?.id,
+    PAGE_SIZE,
+  ]);
 
   useEffect(() => {
     cancelDebouncedSearchRef.current = () => {
@@ -707,11 +820,13 @@ function PropertyBrowseView({ }: Props) {
     const { lastSearchKey, allProperties: cachedProps } = usePropertyStore.getState();
     if (!isManualResubmit && cachedProps.length > 0 && lastSearchKey === querySearchKey) {
       setIsLoading(false); // clear the store's initial isLoading:true
+      setHasMoreResults(true);
+      setNextResultIndex(Math.max(cachedProps.length, PAGE_SIZE));
       return;
     }
 
     sendSearchRequest({});
-  }, [isSearchModeReady, query, activeSearchFiltersKey, sendSearchRequest, isMlsMode, setIsLoading, searchSubmitNonce]);
+  }, [isSearchModeReady, query, activeSearchFiltersKey, sendSearchRequest, isMlsMode, setIsLoading, searchSubmitNonce, PAGE_SIZE]);
 
   if (currentView === 'map') {
     return (
@@ -1000,6 +1115,10 @@ function PropertyBrowseView({ }: Props) {
                       propertiesOverride={featureFilteredProperties}
                       overlayMode
                       onOpenCompareModal={() => setComparisonModalOpen(true)}
+                      onRequestMore={fetchMoreResults}
+                      hasMoreResults={hasMoreResults}
+                      isLoadingMore={isLoadingMore}
+                      resetKey={searchResetKey}
                     />
                   </div>
                 ) : null}
@@ -1209,6 +1328,10 @@ function PropertyBrowseView({ }: Props) {
                     propertiesOverride={featureFilteredProperties}
                     overlayMode
                     onOpenCompareModal={() => setComparisonModalOpen(true)}
+                    onRequestMore={fetchMoreResults}
+                    hasMoreResults={hasMoreResults}
+                    isLoadingMore={isLoadingMore}
+                    resetKey={searchResetKey}
                   />
                 </div>
               </div>
@@ -1240,7 +1363,14 @@ function PropertyBrowseView({ }: Props) {
             'col-span-5',
           )}
         >
-          <BuyPropertyCards selectedProperty={selectedProperty} propertiesOverride={featureFilteredProperties} />
+          <BuyPropertyCards
+            selectedProperty={selectedProperty}
+            propertiesOverride={featureFilteredProperties}
+            onRequestMore={fetchMoreResults}
+            hasMoreResults={hasMoreResults}
+            isLoadingMore={isLoadingMore}
+            resetKey={searchResetKey}
+          />
         </div>
 
         {currentView !== 'grid' ? (

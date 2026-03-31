@@ -33,6 +33,7 @@ import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypas
 
 import { useSelector } from 'react-redux';
 import CategorizedPhotosModal from '../CategorizedPhotosModal'; // Import the new modal
+import { preloadImageUrls } from '@/lib/photo-preload';
 import PropertyDetailsCard from '../propertyDetailsCard';
 import { BookmarkCheck, ChevronDown, ChevronUp, Info, Loader2, Mail, Star, ArrowRight } from 'lucide-react';
 import { EstimatedMarketValue } from '../preview-hero/EstimatedMarketValue';
@@ -113,34 +114,6 @@ const toPositiveIntegerOrNull = (value: unknown): number | null => {
   return Math.abs(intValue);
 };
 
-const AskAiLogo = ({ className = '' }: { className?: string }) => {
-  const uid = React.useId();
-  const gradientId = `${uid}-ask-ai-gradient`;
-  const mask1Id = `${uid}-ask-ai-mask-1`;
-  const mask2Id = `${uid}-ask-ai-mask-2`;
-
-  return (
-    <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-      <path d="M15.0645 1C22.8233 0.998533 29.122 7.31736 29.1221 15.1211V25.0967C29.1221 26.201 28.6985 27.1986 28.0068 27.9336L28.0049 27.9355C27.2517 28.7409 26.1847 29.2393 25.001 29.2393H5.12109C2.85069 29.2393 1 27.3893 1 25.0986V15.123C1 7.31903 7.30043 1 15.0645 1Z" fill="black" stroke={`url(#${gradientId})`} strokeWidth="2" />
-      <mask id={mask1Id} fill="white">
-        <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" />
-      </mask>
-      <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" fill="white" stroke="white" strokeWidth="4" mask={`url(#${mask1Id})`} />
-      <mask id={mask2Id} fill="white">
-        <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" />
-      </mask>
-      <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" fill="white" stroke="white" strokeWidth="4" mask={`url(#${mask2Id})`} />
-      <defs>
-        <linearGradient id={gradientId} x1="15.061" y1="0" x2="15.061" y2="30.2391" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#E8804C" />
-          <stop offset="0.5" stopColor="#E84C85" />
-          <stop offset="0.75" stopColor="#A64EBA" />
-          <stop offset="1" stopColor="#654FEF" />
-        </linearGradient>
-      </defs>
-    </svg>
-  );
-};
 
 const hasUsablePropertyData = (response: any): boolean => {
   if (typeof response?.statusCode === 'number' && response.statusCode >= 400) {
@@ -168,6 +141,63 @@ const hasUsablePropertyData = (response: any): boolean => {
     data?.listPrice !== undefined && data?.listPrice !== null && data?.listPrice !== ''
   );
   return hasAddress || hasPropertyNode || hasMedia || hasPrice;
+};
+
+const PREVIEW_CACHE_PREFIX = 'snaphomz:preview:data:v1';
+const PREVIEW_CACHE_TTL_MS = 15 * 60 * 1000;
+const SCHOOLS_CACHE_PREFIX = 'snaphomz:preview:schools:v1';
+const SCHOOLS_CACHE_TTL_MS = 30 * 60 * 1000;
+
+const readPreviewCache = (listingKey: string) => {
+  if (typeof window === 'undefined' || !listingKey) return null;
+  try {
+    const raw = window.sessionStorage.getItem(`${PREVIEW_CACHE_PREFIX}:${listingKey}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.ts || !parsed?.data) return null;
+    if (Date.now() - parsed.ts > PREVIEW_CACHE_TTL_MS) return null;
+    return parsed.data;
+  } catch {
+    return null;
+  }
+};
+
+const writePreviewCache = (listingKey: string, data: any) => {
+  if (typeof window === 'undefined' || !listingKey || !data) return;
+  try {
+    window.sessionStorage.setItem(
+      `${PREVIEW_CACHE_PREFIX}:${listingKey}`,
+      JSON.stringify({ ts: Date.now(), data })
+    );
+  } catch {
+    // ignore cache errors
+  }
+};
+
+const readSchoolsCache = (coordKey: string) => {
+  if (typeof window === 'undefined' || !coordKey) return null;
+  try {
+    const raw = window.sessionStorage.getItem(`${SCHOOLS_CACHE_PREFIX}:${coordKey}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.ts || !Array.isArray(parsed?.data)) return null;
+    if (Date.now() - parsed.ts > SCHOOLS_CACHE_TTL_MS) return null;
+    return parsed.data;
+  } catch {
+    return null;
+  }
+};
+
+const writeSchoolsCache = (coordKey: string, data: any[]) => {
+  if (typeof window === 'undefined' || !coordKey || !Array.isArray(data)) return;
+  try {
+    window.sessionStorage.setItem(
+      `${SCHOOLS_CACHE_PREFIX}:${coordKey}`,
+      JSON.stringify({ ts: Date.now(), data })
+    );
+  } catch {
+    // ignore cache errors
+  }
 };
 
 
@@ -328,17 +358,30 @@ const PropertyPreview: React.FC = () => {
   const [collegeReadinessLoading, setCollegeReadinessLoading] = React.useState(false);
 
 
+  const [askAIContextId, setAskAIContextId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setAskAIContextId(null);
+  }, [propertyData?.listingId, propertyDatas?.data?.listingId, property?.listingId, id]);
+
   const handleAskAIQuery = (query: string) => {
     if (!query.trim()) return;
 
     setUserQuestionDisplay(query);
     setAskAIQuestion(query); // Keep input synced if needed, or clear it
 
-    askAIMutation.mutate({ question: query }, {
+    askAIMutation.mutate({
+      query,
+      context: askAIContextId ? undefined : askAIContextPayload,
+      contextId: askAIContextId,
+    }, {
       onSuccess: (data) => {
         setAiAnswer(data.answer);
         if (data.suggestions && data.suggestions.length > 0) {
           setAiSuggestions(data.suggestions);
+        }
+        if (data.context_id) {
+          setAskAIContextId(data.context_id);
         }
         setAskAIQuestion(''); // Clear input after successful send
       }
@@ -1124,6 +1167,7 @@ const PropertyPreview: React.FC = () => {
         setTags(data?.data?.tags);
         setPropertyDetails(data?.property_detail);
         persistPreviewContext(data?.data, data);
+        writePreviewCache(String(primaryListingId || listingId || id || ''), data);
 
         // Fetch nearby homes from the new API
         try {
@@ -1141,11 +1185,15 @@ const PropertyPreview: React.FC = () => {
             });
             if (nearbyResponse.ok) {
               const nearbyData = await nearbyResponse.json();
-              setpropertyDatas((prev: any) => ({
-                ...prev,
-                nearbyHomes: nearbyData.nearbyHomes || [],
-                offtheMarket: nearbyData.offtheMarket || []
-              }));
+              setpropertyDatas((prev: any) => {
+                const next = {
+                  ...prev,
+                  nearbyHomes: nearbyData.nearbyHomes || [],
+                  offtheMarket: nearbyData.offtheMarket || []
+                };
+                writePreviewCache(String(primaryListingId || listingId || id || ''), next);
+                return next;
+              });
             }
           } else {
             console.warn("[get_nearby_homes] Skipping fetch because coordinates are missing");
@@ -1172,6 +1220,11 @@ const PropertyPreview: React.FC = () => {
           setTags(fallbackListing?.tags || []);
           setPropertyDetails(data?.property_detail ?? null);
           persistPreviewContext(fallbackListing, data);
+          writePreviewCache(String(primaryListingId || listingId || id || ''), {
+            data: fallbackListing,
+            property_detail: data?.property_detail ?? null,
+            nearbyHomes: data?.nearbyHomes ?? [],
+          });
 
           // Fetch nearby homes for fallback as well
           if (fallbackListing) {
@@ -1190,11 +1243,15 @@ const PropertyPreview: React.FC = () => {
                 });
                 if (nearbyResponse.ok) {
                   const nearbyData = await nearbyResponse.json();
-                  setpropertyDatas((prev: any) => ({
-                    ...prev,
-                    nearbyHomes: nearbyData.nearbyHomes || [],
-                    offtheMarket: nearbyData.offtheMarket || []
-                  }));
+                  setpropertyDatas((prev: any) => {
+                    const next = {
+                      ...prev,
+                      nearbyHomes: nearbyData.nearbyHomes || [],
+                      offtheMarket: nearbyData.offtheMarket || []
+                    };
+                    writePreviewCache(String(primaryListingId || listingId || id || ''), next);
+                    return next;
+                  });
                 }
               } else {
                 console.warn("[get_nearby_homes] Skipping fetch because coordinates are missing in fallback data");
@@ -1268,6 +1325,15 @@ const PropertyPreview: React.FC = () => {
     const key = String(targetListingId);
     if (hasFetchedForIdRef.current === key) return; // already fetching/fetched for this ID
     hasFetchedForIdRef.current = key;
+    const cached = readPreviewCache(key);
+    if (cached && hasUsablePropertyData(cached)) {
+      setpropertyDatas(cached);
+      setPropertyData(cached?.data);
+      setTags(cached?.data?.tags);
+      setPropertyDetails(cached?.property_detail);
+      setLoading(false);
+      return;
+    }
     getPropertyDetails(key);
   }, [id, listingId, propertyId, property?.listingId]);
 
@@ -1587,6 +1653,13 @@ const PropertyPreview: React.FC = () => {
     if (hasFetchedSchoolsForRef.current === coordKey) return;
     hasFetchedSchoolsForRef.current = coordKey;
 
+    const cachedSchools = readSchoolsCache(coordKey);
+    if (cachedSchools && cachedSchools.length > 0) {
+      setNearbySchools(cachedSchools);
+      setSchoolsLoading(false);
+      return;
+    }
+
     if (!authRestBaseUrl) {
       setSchoolsError('Auth service URL is not configured');
       return;
@@ -1615,6 +1688,7 @@ const PropertyPreview: React.FC = () => {
         }));
 
         setNearbySchools(transformedSchools);
+        writeSchoolsCache(coordKey, transformedSchools);
       } catch (err) {
         console.error('Error fetching nearby schools:', err);
         setSchoolsError(err instanceof Error ? err.message : 'Failed to load schools');
@@ -1727,6 +1801,100 @@ const PropertyPreview: React.FC = () => {
       prop,
     };
   }, [proprtyData, id]);
+
+  const askAIContextPayload = React.useMemo(() => {
+    const prop = transformData.prop || {};
+    const detailInfo = propertyDatas?.property_detail?.data?.propertyInfo || {};
+    const listing = propertyData?.listing || propertyData || {};
+    const address =
+      prop?.address?.unparsedAddress ||
+      detailInfo?.address?.address ||
+      listing?.address?.unparsedAddress ||
+      propertyData?.public?.address?.label ||
+      '';
+    const city =
+      prop?.address?.city ||
+      detailInfo?.address?.city ||
+      listing?.address?.city ||
+      propertyData?.public?.address?.city ||
+      '';
+    const state =
+      prop?.address?.stateOrProvince ||
+      detailInfo?.address?.stateOrProvince ||
+      listing?.address?.stateOrProvince ||
+      propertyData?.public?.address?.state ||
+      '';
+    const zip =
+      prop?.address?.zipCode ||
+      detailInfo?.address?.zip ||
+      listing?.address?.zipCode ||
+      propertyData?.public?.address?.zip ||
+      '';
+    const price =
+      prop?.listPrice ||
+      propertyDatas?.data?.listPrice ||
+      detailInfo?.listPrice ||
+      detailInfo?.listPriceLow ||
+      listing?.listPriceLow ||
+      listing?.listPrice ||
+      propertyData?.listPrice ||
+      listing?.price ||
+      '';
+    const beds =
+      prop?.property?.bedroomsTotal ||
+      detailInfo?.bedroomsTotal ||
+      listing?.property?.bedroomsTotal ||
+      propertyData?.property?.bedroomsTotal ||
+      '';
+    const baths =
+      prop?.property?.bathroomsTotal ||
+      detailInfo?.bathroomsTotal ||
+      listing?.property?.bathroomsTotal ||
+      propertyData?.property?.bathroomsTotal ||
+      '';
+    const sqft =
+      prop?.property?.livingArea ||
+      detailInfo?.livingSquareFeet ||
+      listing?.property?.livingArea ||
+      propertyData?.property?.livingArea ||
+      propertyData?.property?.livingSquareFeet ||
+      '';
+    const yearBuilt =
+      prop?.property?.yearBuilt ||
+      detailInfo?.yearBuilt ||
+      listing?.property?.yearBuilt ||
+      propertyData?.property?.yearBuilt ||
+      '';
+    const propertyType =
+      prop?.property?.propertyType ||
+      detailInfo?.propertyType ||
+      listing?.property?.propertyType ||
+      propertyData?.property?.propertyType ||
+      '';
+    const status = mostRecentStatus || prop?.mostRecentStatus || listing?.mostRecentStatus || '';
+    const remarks = (prop?.remarks || prop?.publicRemarks || listing?.publicRemarks || '').toString().trim();
+    const trimmedRemarks = remarks.length > 420 ? `${remarks.slice(0, 420)}...` : remarks;
+
+    return {
+      address,
+      city,
+      state,
+      zip,
+      price,
+      beds,
+      baths,
+      sqft,
+      yearBuilt,
+      propertyType,
+      status,
+      remarks: trimmedRemarks,
+    };
+  }, [
+    transformData.prop,
+    propertyDatas,
+    propertyData,
+    mostRecentStatus,
+  ]);
 
   // console.log(transformData, "propertyDatas")
   const [showAllSchools, setShowAllSchools] = React.useState(false);
@@ -1897,13 +2065,50 @@ const PropertyPreview: React.FC = () => {
   }, [estimatedHouseValue, rentEstimate, rentDelta, projectedGainPct]);
 
 
-  const [openSection, setOpenSection] = React.useState<string | null>(null);
+  const [openSections, setOpenSections] = React.useState<Set<string>>(new Set());
   const [topEstimatedMonthlyPayment, setTopEstimatedMonthlyPayment] = React.useState<number | null>(null);
-
-  const toggleSection = (section: string) => {
-    const nextSection = openSection === section ? null : section;
-    setOpenSection(nextSection);
-    // No label highlight or auto-scroll on dropdown open
+  const toggleSection = (section: string, preserveScroll = true) => {
+    const scrollY = typeof window !== 'undefined' && preserveScroll ? window.scrollY : null;
+    let nextSection: string | null = null;
+    setOpenSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(section)) {
+        next.delete(section);
+      } else {
+        next.add(section);
+        nextSection = section;
+      }
+      return next;
+    });
+    // Keep navbar label in sync with dropdown open
+    if (typeof window !== 'undefined' && nextSection) {
+      const hash =
+        nextSection === 'home'
+          ? '#home-highlights'
+          : nextSection === 'offers'
+            ? '#property'
+            : nextSection === 'schools'
+              ? '#schools'
+              : nextSection === 'college'
+                ? '#college'
+                : nextSection === 'interest'
+                  ? '#forecast'
+                  : nextSection === 'payment'
+                    ? '#payment'
+                    : '';
+      if (hash) {
+        window.dispatchEvent(
+          new CustomEvent('preview-nav', {
+            detail: { hash, source: 'dropdown' },
+          }),
+        );
+      }
+    }
+    if (typeof window !== 'undefined' && preserveScroll && scrollY !== null) {
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ top: scrollY, behavior: 'auto' });
+      });
+    }
   };
 
   const propertyTags = Array.isArray((proprtyData as any)?.tags) ? (proprtyData as any).tags : [];
@@ -1925,7 +2130,11 @@ const PropertyPreview: React.FC = () => {
     if (!target) return;
 
     if (target.section) {
-      setOpenSection(target.section);
+      setOpenSections((prev) => {
+        const next = new Set(prev);
+        next.add(target.section);
+        return next;
+      });
     }
 
     // After the accordion opens, scroll to the content area for that section.
@@ -2056,6 +2265,8 @@ const PropertyPreview: React.FC = () => {
   const [isCategorizedModalOpen, setIsCategorizedModalOpen] = React.useState(false); // New state
   const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
   const [isInfoTooltipOpen, setIsInfoTooltipOpen] = React.useState(false);
+  const [preloadedCategorization, setPreloadedCategorization] = React.useState<any>(null);
+  const preloadedListingIdRef = React.useRef<string | null>(null);
 
   const images = React.useMemo(() => {
     if (transformData.prop?.media?.photosList?.length) {
@@ -2088,6 +2299,15 @@ const PropertyPreview: React.FC = () => {
       const customEvent = event as CustomEvent<string | { hash?: string; source?: string }>;
       if (typeof customEvent.detail === 'string') {
         openSectionForHash(customEvent.detail);
+        return;
+      }
+      if (customEvent.detail && typeof customEvent.detail === 'object') {
+        if (customEvent.detail.source === 'dropdown') {
+          return;
+        }
+        if (typeof customEvent.detail.hash === 'string') {
+          openSectionForHash(customEvent.detail.hash);
+        }
       }
     };
     window.addEventListener('preview-nav', handlePreviewNav);
@@ -2096,8 +2316,98 @@ const PropertyPreview: React.FC = () => {
     };
   }, [openSectionForHash]);
 
+  React.useEffect(() => {
+    const resolvedListingId = String(propertyDatas?.data?.listingId || listingId || property?.listingId || '');
+    const resolvedPropertyId = String(propertyDatas?.data?.propertyId || property?.propertyId || '');
+    const hasPhotos = !!transformData.prop?.media?.photosList?.length;
+    if (!resolvedListingId || !resolvedPropertyId || !hasPhotos) return;
+    if (preloadedListingIdRef.current === resolvedListingId) return;
+    preloadedListingIdRef.current = resolvedListingId;
+
+    const baseUrl = (
+      process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI ||
+      process.env.NEXT_PUBLIC_API_BASE_URL ||
+      'https://demo-new-ai.snaphomz.com'
+    ).replace(/\/+$/, '');
+
+    const runPrefetch = () => {
+      fetch(`${baseUrl}/api/image_categorization`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          listingId: parseInt(resolvedListingId, 10),
+          propertyId: parseInt(resolvedPropertyId, 10),
+        }),
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data) setPreloadedCategorization(data);
+        })
+        .catch(() => {
+          // Silent prefetch failure to avoid impacting page load
+        });
+    };
+
+    if ('requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(runPrefetch, { timeout: 1500 });
+    } else {
+      setTimeout(runPrefetch, 0);
+    }
+  }, [
+    propertyDatas?.data?.listingId,
+    propertyDatas?.data?.propertyId,
+    listingId,
+    property?.listingId,
+    property?.propertyId,
+    transformData.prop?.media?.photosList?.length,
+  ]);
+
+  React.useEffect(() => {
+    const photos = transformData.prop?.media?.photosList || [];
+    if (!Array.isArray(photos) || photos.length === 0) return;
+    const urls = photos.map((img: any) => img?.highRes || img?.lowRes);
+    preloadImageUrls(urls, { maxConcurrent: 4, maxTotal: 24, idleTimeoutMs: 1200 });
+  }, [transformData.prop?.media?.photosList]);
+
+  React.useEffect(() => {
+    if (!preloadedCategorization) return;
+    const images =
+      preloadedCategorization?.categorization?.categorized_images ||
+      preloadedCategorization?.data?.categorization?.categorized_images ||
+      {};
+    const urls: string[] = [];
+    Object.values(images).forEach((items: any) => {
+      if (!Array.isArray(items)) return;
+      items.forEach((item: any) => {
+        if (item?.url) urls.push(item.url);
+      });
+    });
+    preloadImageUrls(urls, { maxConcurrent: 6, idleTimeoutMs: 3000 });
+  }, [preloadedCategorization]);
   // No navbar highlighting from dropdown open
 
+  React.useEffect(() => {
+    const updateAskAiRail = () => {
+      const rail = askAiRailRef.current;
+      const comparables = comparablesRef.current;
+      if (!rail || !comparables) return;
+
+      const railTop = rail.getBoundingClientRect().top + window.scrollY;
+      const comparablesBottom = comparables.getBoundingClientRect().bottom + window.scrollY;
+      const height = Math.max(0, comparablesBottom - railTop);
+      setAskAiRailHeight(height || null);
+    };
+
+    const rafUpdate = () => window.requestAnimationFrame(updateAskAiRail);
+    updateAskAiRail();
+
+    window.addEventListener('resize', rafUpdate);
+    window.addEventListener('load', rafUpdate);
+    return () => {
+      window.removeEventListener('resize', rafUpdate);
+      window.removeEventListener('load', rafUpdate);
+    };
+  }, []);
 
   // Generate unique IDs for SVG gradients and masks
   const svgId = React.useId();
@@ -2110,7 +2420,7 @@ const PropertyPreview: React.FC = () => {
   const isInviteActionPending = contactActionInProgress === "invite" && isAnyContactActionPending;
 
   return (
-    <div>
+    <div className="property-preview-page">
       <ItemNav cardRef={cardRef} />
       <div id="overview" className="scroll-mt-28 h-px" />
 
@@ -2279,7 +2589,7 @@ const PropertyPreview: React.FC = () => {
                 baths={Number(transformData.prop?.property?.bathroomsTotal || propertyDatas?.data?.property?.bathroomsTotal || 0)}
                 sqft={Number(transformData.prop?.property?.livingArea || propertyDatas?.data?.property?.livingArea || 0)}
                 description={transformData.prop?.remarks || propertyDatas?.data?.property?.description || ""}
-                preloadedData={propertyDatas} // Pass existing data to prevent re-fetch
+                preloadedData={preloadedCategorization || propertyDatas} // Prefer background categorization
               />
               {/* Top Section: Price/Address and Agent Card */}
               <div className="mt-6 sm:mt-8 w-full flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_479px] min-[1536px]:max-[1919px]:grid-cols-[minmax(0,1fr)_454px] lg:items-start lg:gap-6 xl:gap-[20px] mb-4">
@@ -2752,7 +3062,10 @@ const PropertyPreview: React.FC = () => {
             </div>
 
             <div className="col-span-12 lg:col-span-8 xl:col-span-2">
-              <div className="divide-y divide-gray-200 border-t border-gray-200 mt-1 sm:mt-2 xl:w-[1169px] min-[1536px]:max-[1919px]:w-[978px] xl:mx-auto">
+              <div
+                className="divide-y divide-gray-200 border-t border-gray-200 mt-1 sm:mt-2 xl:w-[1169px] min-[1536px]:max-[1919px]:w-[978px] xl:mx-auto"
+                data-scroll-anchor="off"
+              >
                 {/* Accordion List (Home Highlights, Schools, Offers, History, etc.) */}
                 {sections.map((section) => {
                   const anchorId =
@@ -2818,7 +3131,7 @@ const PropertyPreview: React.FC = () => {
                               )}
                             </span>
                           )}
-                          {openSection === section.id ? (
+                          {openSections.has(section.id) ? (
                             <ChevronUp className="text-gray-800 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5 xl:w-[30px] xl:h-[30px]" strokeWidth={2.5} />
                           ) : (
                             <ChevronDown className="text-gray-800 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5 xl:w-[30px] xl:h-[30px]" strokeWidth={2.5} />
@@ -2828,8 +3141,10 @@ const PropertyPreview: React.FC = () => {
 
                       {/* Accordion Content */}
                       <div
-                        className={`overflow-hidden transition-all duration-300 ${openSection === section.id ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0"
-                          }`}
+                        className={`overflow-hidden ${openSections.has(section.id)
+                          ? "max-h-[2000px] opacity-100 translate-y-0"
+                          : "max-h-0 opacity-0 -translate-y-1 pointer-events-none"
+                          } transition-opacity transition-transform duration-300`}
                       >
                         <div
                           id={
@@ -2965,3 +3280,31 @@ const PropertyPreview: React.FC = () => {
 };
 
 export { PropertyPreview };
+const AskAiLogo = ({ className = '' }: { className?: string }) => {
+  const uid = React.useId();
+  const gradientId = `${uid}-ask-ai-gradient`;
+  const mask1Id = `${uid}-ask-ai-mask-1`;
+  const mask2Id = `${uid}-ask-ai-mask-2`;
+
+  return (
+    <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <path d="M15.0645 1C22.8233 0.998533 29.122 7.31736 29.1221 15.1211V25.0967C29.1221 26.201 28.6985 27.1986 28.0068 27.9336L28.0049 27.9355C27.2517 28.7409 26.1847 29.2393 25.001 29.2393H5.12109C2.85069 29.2393 1 27.3893 1 25.0986V15.123C1 7.31903 7.30043 1 15.0645 1Z" fill="black" stroke={`url(#${gradientId})`} strokeWidth="2" />
+      <mask id={mask1Id} fill="white">
+        <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" />
+      </mask>
+      <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" fill="white" stroke="white" strokeWidth="4" mask={`url(#${mask1Id})`} />
+      <mask id={mask2Id} fill="white">
+        <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" />
+      </mask>
+      <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" fill="white" stroke="white" strokeWidth="4" mask={`url(#${mask2Id})`} />
+      <defs>
+        <linearGradient id={gradientId} x1="15.061" y1="0" x2="15.061" y2="30.2391" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#E8804C" />
+          <stop offset="0.5" stopColor="#E84C85" />
+          <stop offset="0.75" stopColor="#A64EBA" />
+          <stop offset="1" stopColor="#654FEF" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+};

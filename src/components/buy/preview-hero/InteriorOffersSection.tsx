@@ -90,7 +90,7 @@ const InteriorOffersSection = ({ BathRoomAndBedRoom, features, featureList }: In
   const { bedroomsAndBathrooms, primaryBedroom, appliances } = staticFeatures;
 
   return (
-    <div className="max-w-4xl py-8">
+    <div className="max-w-4xl pt-2 pb-6">
 
       {/* --- Interior Tab (Gray Bar) --- */}
       <div className="bg-gray-100 p-3 rounded-t-lg mb-6">

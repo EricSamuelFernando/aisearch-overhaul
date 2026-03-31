@@ -266,7 +266,8 @@ jobs:
             aws lambda update-alias \
               --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
               --name ${{ env.ENVIRONMENT }} \
-              --function-version $LAMBDA_VERSION
+              --function-version $LAMBDA_VERSION \
+              --routing-config AdditionalVersionWeights={}
             echo "Lambda alias '${{ env.ENVIRONMENT }}' updated to point to version: $LAMBDA_VERSION"
           else
             echo "Alias '${{ env.ENVIRONMENT }}' does not exist. Creating alias and pointing it to version $LAMBDA_VERSION..."

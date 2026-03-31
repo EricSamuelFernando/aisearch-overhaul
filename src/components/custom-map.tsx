@@ -3410,6 +3410,15 @@ const CustomMap: React.FC<Props> = ({
   const userMovedMapRef = React.useRef(false);
   const lastAutoFitQueryRef = React.useRef<string | null>(null);
   const suppressNextOnIdleRef = React.useRef(false);
+  const lastDataClickAtRef = React.useRef<number | null>(null);
+  const suppressMapClickRef = React.useRef(false);
+  const suppressMapClickTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastDragEndAtRef = React.useRef<number | null>(null);
+  const preserveTouchSelectionRef = React.useRef(false);
+  const selectedSchoolMarkerRef = React.useRef<google.maps.Marker | null>(null);
+  const selectedSearchMarkerRef = React.useRef<google.maps.Marker | null>(null);
+  const skipNextMapClickRef = React.useRef(false);
+  const skipNextMapClickTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const districtPolygonCacheRef = React.useRef<Map<string, DistrictPolygonCacheEntry>>(new Map());
   const drawPolygonRef = React.useRef<google.maps.Polygon | null>(null);
@@ -3584,16 +3593,25 @@ const CustomMap: React.FC<Props> = ({
     [clearMeasureRouteState],
   );
 
-  const centerOnMeasurePoint = useCallback((position: google.maps.LatLngLiteral) => {
-    if (!mapInstance) return;
-    mapInstance.panTo(position);
-  }, [mapInstance]);
-
   const schoolCategoryColor = '#B22148';
   const closeLocationTooltips = useCallback(() => {
     setClickedDistrictName(null);
     setSelectedSchool(null);
     setSelectedSearchPlace(null);
+    preserveTouchSelectionRef.current = false;
+    skipNextMapClickRef.current = false;
+    if (skipNextMapClickTimerRef.current) {
+      clearTimeout(skipNextMapClickTimerRef.current);
+      skipNextMapClickTimerRef.current = null;
+    }
+    if (selectedSchoolMarkerRef.current) {
+      selectedSchoolMarkerRef.current.setMap(null);
+      selectedSchoolMarkerRef.current = null;
+    }
+    if (selectedSearchMarkerRef.current) {
+      selectedSearchMarkerRef.current.setMap(null);
+      selectedSearchMarkerRef.current = null;
+    }
   }, []);
 
   const quickCategories = useMemo(
@@ -4248,6 +4266,29 @@ const CustomMap: React.FC<Props> = ({
     return { polygons, bounds };
   }, []);
 
+  const findDistrictNameAtLatLng = useCallback(
+    (latLng: google.maps.LatLng) => {
+      if (!google?.maps?.geometry?.poly?.containsLocation) return null;
+      const cache = districtPolygonCacheRef.current;
+      for (const feature of matchedDistricts) {
+        const id = getDistrictId(feature);
+        const cached = cache.get(id);
+        if (!cached) continue;
+        for (let i = 0; i < cached.polygons.length; i += 1) {
+          const polygon = cached.polygons[i];
+          const bounds = cached.bounds[i];
+          if (bounds && !bounds.contains(latLng)) continue;
+          if (google.maps.geometry.poly.containsLocation(latLng, polygon)) {
+            const name = (feature.properties as any)?.DistrictName as string | undefined;
+            return name ?? null;
+          }
+        }
+      }
+      return null;
+    },
+    [matchedDistricts, getDistrictId],
+  );
+
   useEffect(() => {
     if (!isLoaded || !mapInstance || districtFeatures.length === 0) return;
 
@@ -4342,11 +4383,14 @@ const CustomMap: React.FC<Props> = ({
 
     mapInstance.data.setStyle({
       fillColor: '#1d4ed8',
-      fillOpacity: 0,
+      // On touch devices, a tiny fill opacity improves tap hit-testing
+      // without visually changing the border-only look.
+      fillOpacity: isTouchDevice ? 0.02 : 0,
       strokeColor: '#1d4ed8',
       strokeWeight: 2,
+      clickable: true,
     });
-  }, [isLoaded, mapInstance, matchedDistricts, showDistricts]);
+  }, [isLoaded, mapInstance, matchedDistricts, showDistricts, isTouchDevice]);
 
   const formatMarkerPriceCompact = (value?: number) => {
     if (!Number.isFinite(value as number) || !value || value <= 0) return '$0';
@@ -4595,17 +4639,33 @@ const CustomMap: React.FC<Props> = ({
   }, [activeCategoryKeys]);
 
   const clearSearchMarkers = useCallback(() => {
-    searchMarkersRef.current.forEach((marker) => marker.setMap(null));
-    searchMarkersRef.current = [];
-    setSelectedSearchPlace((prev) => (prev?.categoryKey ? prev : null));
-  }, []);
+    const preserved = isTouchDevice && preserveTouchSelectionRef.current
+      ? selectedSearchMarkerRef.current
+      : null;
+    searchMarkersRef.current.forEach((marker) => {
+      if (preserved && marker === preserved) return;
+      marker.setMap(null);
+    });
+    searchMarkersRef.current = preserved ? [preserved] : [];
+    if (!isTouchDevice || !preserveTouchSelectionRef.current) {
+      setSelectedSearchPlace((prev) => (prev?.categoryKey ? prev : null));
+    }
+  }, [isTouchDevice]);
 
   const clearCategoryMarkers = useCallback((categoryKey: string) => {
     const existing = categoryMarkersRef.current[categoryKey] ?? [];
-    existing.forEach((marker) => marker.setMap(null));
-    categoryMarkersRef.current[categoryKey] = [];
-    setSelectedSearchPlace((prev) => (prev?.categoryKey === categoryKey ? null : prev));
-  }, []);
+    const preserved = isTouchDevice && preserveTouchSelectionRef.current
+      ? selectedSearchMarkerRef.current
+      : null;
+    existing.forEach((marker) => {
+      if (preserved && marker === preserved) return;
+      marker.setMap(null);
+    });
+    categoryMarkersRef.current[categoryKey] = preserved ? [preserved] : [];
+    if (!isTouchDevice || !preserveTouchSelectionRef.current) {
+      setSelectedSearchPlace((prev) => (prev?.categoryKey === categoryKey ? null : prev));
+    }
+  }, [isTouchDevice]);
 
   const clearAllCategoryMarkers = useCallback(() => {
     Object.keys(categoryMarkersRef.current).forEach((key) => clearCategoryMarkers(key));
@@ -4815,6 +4875,10 @@ const CustomMap: React.FC<Props> = ({
               visible: isPointInsideActiveDrawPolygon(loc),
             });
             marker.addListener('click', () => {
+              if (isTouchDevice) {
+                preserveTouchSelectionRef.current = true;
+              }
+              selectedSearchMarkerRef.current = marker;
               setClickedDistrictName(null);
               setSelectedSchool(null);
               const position = { lat: loc.lat(), lng: loc.lng() };
@@ -4829,12 +4893,14 @@ const CustomMap: React.FC<Props> = ({
               if (sameSelected) {
                 searchDetailsRequestRef.current += 1;
                 setSelectedSearchPlace(null);
+                preserveTouchSelectionRef.current = false;
+                if (selectedSearchMarkerRef.current) {
+                  selectedSearchMarkerRef.current.setMap(null);
+                  selectedSearchMarkerRef.current = null;
+                }
                 return;
               }
 
-              if (!measureModeRef.current) {
-                centerOnMeasurePoint(position);
-              }
               applyMeasurePointFromMarker(position, 'poi');
               attachPlaceMarkerClick(place, position, setSelectedSearchPlace, opts?.categoryKey);
             });
@@ -4861,7 +4927,6 @@ const CustomMap: React.FC<Props> = ({
     [
       applyMeasurePointFromMarker,
       attachPlaceMarkerClick,
-      centerOnMeasurePoint,
       clearCategoryMarkers,
       clearSearchMarkers,
       isPointInsideActiveDrawPolygon,
@@ -5205,12 +5270,21 @@ const CustomMap: React.FC<Props> = ({
     if (!isLoaded || !mapInstance) return;
 
     const clearSchoolMarkers = () => {
-      schoolMarkersRef.current.forEach((marker) => marker.setMap(null));
-      schoolMarkersRef.current = [];
-      setSelectedSchool(null);
+      const preserved = isTouchDevice && preserveTouchSelectionRef.current
+        ? selectedSchoolMarkerRef.current
+        : null;
+      schoolMarkersRef.current.forEach((marker) => {
+        if (preserved && marker === preserved) return;
+        marker.setMap(null);
+      });
+      schoolMarkersRef.current = preserved ? [preserved] : [];
+      if (!isTouchDevice || !preserveTouchSelectionRef.current) {
+        setSelectedSchool(null);
+      }
     };
 
     if (!showDistricts) {
+      preserveTouchSelectionRef.current = false;
       clearSchoolMarkers();
       return;
     }
@@ -5395,11 +5469,12 @@ const CustomMap: React.FC<Props> = ({
         });
 
         marker.addListener('click', () => {
+          if (isTouchDevice) {
+            preserveTouchSelectionRef.current = true;
+          }
+          selectedSchoolMarkerRef.current = marker;
           setClickedDistrictName(null);
           setSelectedSearchPlace(null);
-          if (!measureModeRef.current) {
-            centerOnMeasurePoint(position);
-          }
           const currentSchool = selectedSchoolRef.current;
           const sameSchoolSelected =
             !!currentSchool &&
@@ -5407,11 +5482,16 @@ const CustomMap: React.FC<Props> = ({
               (currentSchool.position?.lat === position.lat &&
                 currentSchool.position?.lng === position.lng));
 
-          if (sameSchoolSelected) {
-            schoolDetailsRequestRef.current += 1;
-            setSelectedSchool(null);
-            return;
-          }
+            if (sameSchoolSelected) {
+              schoolDetailsRequestRef.current += 1;
+              setSelectedSchool(null);
+              preserveTouchSelectionRef.current = false;
+              if (selectedSchoolMarkerRef.current) {
+                selectedSchoolMarkerRef.current.setMap(null);
+                selectedSchoolMarkerRef.current = null;
+              }
+              return;
+            }
 
           applyMeasurePointFromMarker(position, 'poi');
           if (place.place_id) {
@@ -5458,7 +5538,6 @@ const CustomMap: React.FC<Props> = ({
     getDistrictId,
     fetchPlaceDetails,
     applyMeasurePointFromMarker,
-    centerOnMeasurePoint,
     isPointInsideActiveDrawPolygon,
     isLocationInsideSelectedPlace,
     getActiveSearchBounds,
@@ -5540,23 +5619,78 @@ const CustomMap: React.FC<Props> = ({
       (event: google.maps.Data.MouseEvent) => {
         if (!showDistricts) return;
         recentDataClickRef.current = true;
+        lastDataClickAtRef.current = Date.now();
+        if (isTouchDevice) {
+          skipNextMapClickRef.current = true;
+          if (skipNextMapClickTimerRef.current) {
+            clearTimeout(skipNextMapClickTimerRef.current);
+          }
+          skipNextMapClickTimerRef.current = setTimeout(() => {
+            skipNextMapClickRef.current = false;
+            skipNextMapClickTimerRef.current = null;
+          }, 500);
+        }
         const name = event.feature.getProperty('DistrictName') as string | null;
         setClickedDistrictName(name ?? null);
         // Reset after the current event tick so the guard only blocks the
         // same-tick map onClick (if it fires), not any future outside clicks.
-        setTimeout(() => { recentDataClickRef.current = false; }, 0);
+        const delay = isTouchDevice ? 250 : 0;
+        setTimeout(() => { recentDataClickRef.current = false; }, delay);
       },
     );
 
     return () => {
       google.maps.event.removeListener(listener);
     };
-  }, [isLoaded, mapInstance, showDistricts]);
+  }, [isLoaded, mapInstance, showDistricts, isTouchDevice]);
 
   // Fires only for map background clicks (outside any Data feature).
   // The recentDataClickRef guard prevents it from clearing a name that was
   // just set by the Data layer click above.
+  const handleMapDragStart = useCallback(() => {
+    if (!isTouchDevice) return;
+    suppressMapClickRef.current = true;
+    if (suppressMapClickTimerRef.current) {
+      clearTimeout(suppressMapClickTimerRef.current);
+      suppressMapClickTimerRef.current = null;
+    }
+  }, [isTouchDevice]);
+
+  const handleMapDragEnd = useCallback(() => {
+    if (!isTouchDevice) return;
+    lastDragEndAtRef.current = Date.now();
+    if (suppressMapClickTimerRef.current) {
+      clearTimeout(suppressMapClickTimerRef.current);
+    }
+    suppressMapClickTimerRef.current = setTimeout(() => {
+      suppressMapClickRef.current = false;
+      suppressMapClickTimerRef.current = null;
+    }, 250);
+  }, [isTouchDevice]);
+
   const handleMapClick = useCallback((event?: google.maps.MapMouseEvent) => {
+    if (isTouchDevice && suppressMapClickRef.current) return;
+    if (isTouchDevice && lastDragEndAtRef.current && Date.now() - lastDragEndAtRef.current < 250) return;
+    if (isTouchDevice && lastDataClickAtRef.current && Date.now() - lastDataClickAtRef.current < 800) return;
+    if (isTouchDevice && skipNextMapClickRef.current) {
+      skipNextMapClickRef.current = false;
+      return;
+    }
+    if (isTouchDevice && showDistricts && event?.latLng) {
+      const name = findDistrictNameAtLatLng(event.latLng);
+      if (name) {
+        setClickedDistrictName(name);
+        skipNextMapClickRef.current = true;
+        if (skipNextMapClickTimerRef.current) {
+          clearTimeout(skipNextMapClickTimerRef.current);
+        }
+        skipNextMapClickTimerRef.current = setTimeout(() => {
+          skipNextMapClickRef.current = false;
+          skipNextMapClickTimerRef.current = null;
+        }, 500);
+        return;
+      }
+    }
     if (drawMode && isTouchDevice && event?.latLng) {
       const point = event.latLng.toJSON();
       mobileTapDrawPointsRef.current.push(point);
@@ -5586,6 +5720,15 @@ const CustomMap: React.FC<Props> = ({
     setSelectedSearchPlace(null);
     setSelectedMarker(null);
     setHoveredMarker(null);
+    preserveTouchSelectionRef.current = false;
+    if (selectedSchoolMarkerRef.current) {
+      selectedSchoolMarkerRef.current.setMap(null);
+      selectedSchoolMarkerRef.current = null;
+    }
+    if (selectedSearchMarkerRef.current) {
+      selectedSearchMarkerRef.current.setMap(null);
+      selectedSearchMarkerRef.current = null;
+    }
 
     if (!measureMode || !event?.latLng) return;
 
@@ -5601,20 +5744,36 @@ const CustomMap: React.FC<Props> = ({
     }
 
     setMeasureEnd(point);
-  }, [measureMode, measureStart, measureEnd, onMarkerClick, drawMode, isTouchDevice, mapInstance]);
+  }, [measureMode, measureStart, measureEnd, onMarkerClick, drawMode, isTouchDevice, mapInstance, showDistricts, findDistrictNameAtLatLng]);
 
   useEffect(() => {
     if (!isLoaded || !mapInstance) return;
     const listener = mapInstance.addListener('click', () => {
+      if (isTouchDevice && suppressMapClickRef.current) return;
+      if (isTouchDevice && lastDragEndAtRef.current && Date.now() - lastDragEndAtRef.current < 250) return;
+      if (isTouchDevice && lastDataClickAtRef.current && Date.now() - lastDataClickAtRef.current < 800) return;
+      if (isTouchDevice && skipNextMapClickRef.current) {
+        skipNextMapClickRef.current = false;
+        return;
+      }
       if (recentDataClickRef.current) return;
       setClickedDistrictName(null);
       setSelectedSchool(null);
       setSelectedSearchPlace(null);
+      preserveTouchSelectionRef.current = false;
+      if (selectedSchoolMarkerRef.current) {
+        selectedSchoolMarkerRef.current.setMap(null);
+        selectedSchoolMarkerRef.current = null;
+      }
+      if (selectedSearchMarkerRef.current) {
+        selectedSearchMarkerRef.current.setMap(null);
+        selectedSearchMarkerRef.current = null;
+      }
     });
     return () => {
       google.maps.event.removeListener(listener);
     };
-  }, [isLoaded, mapInstance]);
+  }, [isLoaded, mapInstance, isTouchDevice]);
 
   const panMarkerIntoVisibleArea = useCallback((position: google.maps.LatLngLiteral) => {
     if (!mapInstance) return;
@@ -5657,14 +5816,6 @@ const CustomMap: React.FC<Props> = ({
       hoverClearTimerRef.current = null;
     }
   }, []);
-
-  const centerOnMarker = useCallback((position: google.maps.LatLngLiteral) => {
-    if (!mapInstance) return;
-    panMarkerIntoVisibleArea(position);
-    if (!measureMode && !measureModeRef.current) {
-      mapInstance.setZoom(Math.max(zoom, 21));
-    }
-  }, [mapInstance, panMarkerIntoVisibleArea, zoom, measureMode]);
 
   const isSameMarker = useCallback((a: any, b: any) => {
     if (!a || !b) return false;
@@ -5930,12 +6081,29 @@ const CustomMap: React.FC<Props> = ({
     return () => document.removeEventListener('pointerdown', onPointerDown);
   }, [isTouchDevice, activeToolPanel]);
 
+  const districtNameOverlayPositionClass = isTouchDevice
+    ? 'top-[170px]'
+    : activeToolPanel === 'explore'
+      ? 'top-[68px] sm:top-[72px]'
+      : 'top-4 sm:top-5';
+  const districtNameOverlayHorizontalClass =
+    useOverlayResultsRail && !isTouchDevice
+      ? 'left-[calc(50%+min(22vw,310px))]'
+      : 'left-1/2';
+  const districtNameOverlayZClass = isTouchDevice ? 'z-[60]' : 'z-10';
 
 
   return isLoaded ? (
     <div className="relative w-full" style={{ height: containerStyle.height, minHeight: containerStyle.minHeight }}>
       {showDistricts && clickedDistrictName && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+        <div
+          className={cn(
+            'absolute -translate-x-1/2 pointer-events-none transition-all duration-200',
+            districtNameOverlayHorizontalClass,
+            districtNameOverlayPositionClass,
+            districtNameOverlayZClass,
+          )}
+        >
           <div className="rounded-full border border-gray-100 bg-white/95 px-5 py-2 text-sm font-semibold text-gray-900 shadow-lg backdrop-blur-sm whitespace-nowrap">
             {clickedDistrictName}
           </div>
@@ -6505,6 +6673,8 @@ const CustomMap: React.FC<Props> = ({
         center={DEFAULT_COORD}
         onUnmount={onUnmount}
         onClick={handleMapClick}
+        onDragStart={handleMapDragStart}
+        onDragEnd={handleMapDragEnd}
         onIdle={() => {
           if (drawMode || hasActiveDrawPolygon) return;
           if (suppressNextOnIdleRef.current) {
@@ -6621,7 +6791,6 @@ const CustomMap: React.FC<Props> = ({
                 }
                 setSelectedMarker(marker);
                 setHoveredMarker(marker);
-                centerOnMarker(markerPos);
                 applyMeasurePointFromMarker(markerPos, 'listing');
                 if (marker.id && onMarkerClick) onMarkerClick(marker.id);
               }}
@@ -6689,7 +6858,10 @@ const CustomMap: React.FC<Props> = ({
         {selectedSchool && (
           <InfoWindow
             position={selectedSchool.position}
-            onCloseClick={() => setSelectedSchool(null)}
+            onCloseClick={() => {
+              setSelectedSchool(null);
+              preserveTouchSelectionRef.current = false;
+            }}
             options={{
               disableAutoPan: true,
               pixelOffset: new google.maps.Size(0, -36),
@@ -6758,7 +6930,10 @@ const CustomMap: React.FC<Props> = ({
         {selectedSearchPlace && (
           <InfoWindow
             position={selectedSearchPlace.position}
-            onCloseClick={() => setSelectedSearchPlace(null)}
+            onCloseClick={() => {
+              setSelectedSearchPlace(null);
+              preserveTouchSelectionRef.current = false;
+            }}
             options={{
               disableAutoPan: true,
               pixelOffset: new google.maps.Size(0, -36),

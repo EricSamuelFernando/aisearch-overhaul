@@ -45,7 +45,6 @@ resource "aws_lambda_function_url" "this" {
   function_name = aws_lambda_function.this.function_name
 
   authorization_type = "NONE"
-  invoke_mode        = "RESPONSE_STREAM"
 
   cors {
     allow_origins = ["*"]

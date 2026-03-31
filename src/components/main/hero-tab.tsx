@@ -4480,7 +4480,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                             onClickCapture={handleExpandedChatClickCapture}
                             className="flex h-full min-h-0 w-full flex-1 flex-col gap-0 overflow-hidden"
                         >
-                            <div className="flex items-center w-full px-1 relative z-50">
+                            <div className="relative z-50 flex w-full items-center px-1 pt-2.5 pb-3 sm:pt-0 sm:pb-0">
                                 {renderNewChatControl('relative sm:hidden flex-shrink-0', 'top-full mt-3', 'w-72 max-w-[82vw]', 'mobile')}
 
                                 {/* Right: Close */}

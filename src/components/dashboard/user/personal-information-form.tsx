@@ -134,9 +134,9 @@ export function ProfileForm({ cb }: Props) {
         height={100}
         className="absolute top-2 right-2 object-contain"
       />
-      <div className="flex items-center gap-6">
+      <div className="flex items-start gap-4 sm:items-center sm:gap-6">
         {user?.profile ? (
-          <div className="relative group w-32 h-32 rounded-full overflow-hidden border-2 border-gray-300 shadow-md cursor-pointer">
+          <div className="relative group size-28 sm:size-32 shrink-0 rounded-full overflow-hidden border-2 border-gray-300 shadow-md cursor-pointer">
             <img
               src={getProfileImageUrl(user.profile)}
               alt="Profile"
@@ -147,12 +147,12 @@ export function ProfileForm({ cb }: Props) {
             </div>
           </div>
         ) : (
-          <div className="w-32 h-32 rounded-full bg-gray-200 border-2 border-gray-300 flex items-center justify-center text-gray-500 font-semibold">
+          <div className="size-28 sm:size-32 shrink-0 rounded-full bg-gray-200 border-2 border-gray-300 flex items-center justify-center text-gray-500 font-semibold">
             No Image
           </div>
         )}
 
-        <div>
+        <div className="min-w-0 flex-1">
           <label className="mb-2 block text-sm font-semibold text-gray-700">
             Select desired dimensions/aspect
           </label>
@@ -162,7 +162,7 @@ export function ProfileForm({ cb }: Props) {
               setSelectedDimension(e.target.value);
               setDimensionError('');
             }}
-            className="mb-3 w-48 rounded-md border border-gray-300 p-2 text-sm focus:border-black focus:outline-none"
+            className="mb-3 block w-full max-w-[11rem] sm:max-w-[12rem] rounded-md border border-gray-300 p-2 text-sm focus:border-black focus:outline-none"
           >
             <option value="">Choose one</option>
             <option value="1:1|400x400">Square (1:1, e.g., 400x400)</option>

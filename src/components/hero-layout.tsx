@@ -5,9 +5,11 @@ import { cn } from '@/lib/utils';
 export const HeroLayout = ({
   children,
   className,
+  style,
 }: {
   children: React.ReactNode;
   className?: string;
+  style?: React.CSSProperties;
 }) => {
   return (
     <section
@@ -15,7 +17,7 @@ export const HeroLayout = ({
         'mx-auto w-full flex items-center justify-center ', 
         className
       )}
-      style={{ minHeight: '80vh' }}
+      style={{ minHeight: '80vh', ...style }}
     >
       {children}
     </section>

@@ -2178,7 +2178,7 @@ const PropertyPreview: React.FC = () => {
   const isInviteActionPending = contactActionInProgress === "invite" && isAnyContactActionPending;
 
   return (
-    <div>
+    <div className="property-preview-page">
       <ItemNav cardRef={cardRef} />
       <div id="overview" className="scroll-mt-28 h-px" />
 

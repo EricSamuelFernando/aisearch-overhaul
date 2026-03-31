@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import Image from 'next/image';
+import { preloadImageUrls } from '@/lib/photo-preload';
 
 interface CategorizedPhotosModalProps {
     isOpen: boolean;
@@ -33,6 +34,7 @@ const ROOM_ORDER = [
 const ROOM_ORDER_LOOKUP = new Map(ROOM_ORDER.map((label, idx) => [label, idx]));
 
 const API_BASE_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api`
+const CATEGORY_CACHE_PREFIX = 'photo_categorization_v1';
 
 export default function CategorizedPhotosModal({
     isOpen,
@@ -65,6 +67,18 @@ export default function CategorizedPhotosModal({
             return () => clearTimeout(timer);
         }
     }, [isOpen]);
+
+    useEffect(() => {
+        if (!cats) return;
+        const urls: string[] = [];
+        Object.values(cats).forEach((items: any) => {
+            if (!Array.isArray(items)) return;
+            items.forEach((item: any) => {
+                if (item?.url) urls.push(item.url);
+            });
+        });
+        preloadImageUrls(urls, { maxConcurrent: 6, maxTotal: 48, idleTimeoutMs: 2000 });
+    }, [cats]);
 
 
     // --- OLD IMPLEMENTATION (Redundant Fetch) ---
@@ -152,17 +166,42 @@ export default function CategorizedPhotosModal({
                 setAnalysis(analysisData);
             };
 
+            const cacheKey = `${CATEGORY_CACHE_PREFIX}:${listingId}:${propertyId}`;
+            const readCache = () => {
+                try {
+                    const raw = typeof window !== 'undefined' ? window.sessionStorage.getItem(cacheKey) : null;
+                    return raw ? JSON.parse(raw) : null;
+                } catch {
+                    return null;
+                }
+            };
+            const writeCache = (data: any) => {
+                try {
+                    if (typeof window === 'undefined') return;
+                    window.sessionStorage.setItem(cacheKey, JSON.stringify(data));
+                } catch {
+                    // Ignore cache errors
+                }
+            };
+
             // Used preloaded data if available AND has categorization, otherwise fetch
             const hasCategorization = preloadedData?.categorization?.categorized_images ||
                 preloadedData?.data?.categorization?.categorized_images;
 
             if (hasCategorization) {
                 console.log('Using preloaded data for CategorizedPhotosModal');
+                writeCache(preloadedData);
                 processData(preloadedData);
                 return;
             }
 
             if (listingId) {
+                const cached = readCache();
+                if (cached?.categorization?.categorized_images || cached?.data?.categorization?.categorized_images) {
+                    processData(cached);
+                    return;
+                }
+
                 setLoading(true);
 
                 const fetchCategorizedImages = async () => {
@@ -184,6 +223,7 @@ export default function CategorizedPhotosModal({
                         const data = await res.json();
 
                         console.log('Full API Response:', data); // Debug: see full response
+                        writeCache(data);
                         processData(data);
 
                     } catch (err) {

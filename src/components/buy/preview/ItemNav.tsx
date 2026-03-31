@@ -223,6 +223,7 @@ function ItemNav({ cardRef }: Props) {
   const navSection = useRef<HTMLDivElement>(null);
   const { openCollectionModal } = useCollectionModal();
   const [hash, setHash] = useState<string>('#overview');
+  const hashRef = useRef(hash);
   const { isLoggedIn } = useAuth();
   const params = useParams();
   const router = useRouter();
@@ -272,6 +273,10 @@ function ItemNav({ cardRef }: Props) {
   }, [params]);
 
   useEffect(() => {
+    hashRef.current = hash;
+  }, [hash]);
+
+  useEffect(() => {
     const handlePreviewNav = (event: Event) => {
       const customEvent = event as CustomEvent<string | { hash?: string }>;
       if (typeof customEvent.detail === 'string') {
@@ -285,6 +290,85 @@ function ItemNav({ cardRef }: Props) {
     window.addEventListener('preview-nav', handlePreviewNav);
     return () => {
       window.removeEventListener('preview-nav', handlePreviewNav);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const ids = navItems.map((item) => item.hash.replace('#', ''));
+    const getHeaderOffset = () => {
+      const rootValue = getComputedStyle(document.documentElement)
+        .getPropertyValue('--main-header-height')
+        .trim();
+      const parsed = parseFloat(rootValue);
+      const header = Number.isFinite(parsed) ? parsed : 80;
+      const navHeight = navSection.current?.getBoundingClientRect().height ?? 70;
+      return header + navHeight + 8;
+    };
+
+    const updateActiveHash = () => {
+      const offset = getHeaderOffset();
+      const elements = ids
+        .map((id) => document.getElementById(id))
+        .filter((el): el is HTMLElement => Boolean(el));
+      if (!elements.length) return;
+
+      const overviewEl = elements.find((el) => el.id === 'overview');
+      const nonOverview = elements.filter((el) => el.id !== 'overview');
+      let activeId = overviewEl?.id || elements[0].id;
+
+      const firstReal = nonOverview[0];
+      if (overviewEl && firstReal) {
+        const firstRealTop = firstReal.getBoundingClientRect().top - offset;
+        if (firstRealTop > 48) {
+          const nextHash = `#${overviewEl.id}`;
+          if (nextHash !== hashRef.current) {
+            hashRef.current = nextHash;
+            setHash(nextHash);
+          }
+          return;
+        }
+      }
+
+      let closestTop = Number.NEGATIVE_INFINITY;
+      for (const el of nonOverview.length ? nonOverview : elements) {
+        const top = el.getBoundingClientRect().top - offset;
+        if (top <= 16 && top > closestTop) {
+          closestTop = top;
+          activeId = el.id;
+        }
+      }
+
+      if (closestTop === Number.NEGATIVE_INFINITY) {
+        // Nothing is near the top line yet; keep current selection to avoid flicker.
+        return;
+      }
+
+      const nextHash = `#${activeId}`;
+      if (nextHash !== hashRef.current) {
+        hashRef.current = nextHash;
+        setHash(nextHash);
+      }
+    };
+
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(() => {
+        updateActiveHash();
+        ticking = false;
+      });
+    };
+
+    updateActiveHash();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    document.addEventListener('scroll', onScroll, { passive: true, capture: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      document.removeEventListener('scroll', onScroll, true);
     };
   }, []);
 

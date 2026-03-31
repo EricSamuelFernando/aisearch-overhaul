@@ -353,12 +353,18 @@ export async function POST(request: NextRequest) {
     ) {
       delete (mergedPayload as Record<string, any>).additional_criteria;
     }
-    const pageSize = 20;
+    const requestedPageSize = coerceNumber(body?.page_size ?? body?.pageSize ?? body?.size ?? body?.limit);
+    const requestedResultIndex = coerceNumber(body?.result_index ?? body?.resultIndex ?? body?.offset);
+    const isPaginatedRequest =
+      requestedPageSize !== undefined ||
+      requestedResultIndex !== undefined ||
+      body?.pagination === true;
+    const pageSize = Math.min(50, requestedPageSize ?? 20);
     // const requestedMax = Number(process.env.MLS_DIRECT_MAX_RESULTS || 200);
     // const maxResults = isMapViewportRefresh
     //   ? pageSize
     //   : Math.min(500, Number.isFinite(requestedMax) && requestedMax > 0 ? requestedMax : 200);
-    const maxResults = 20;
+    const maxResults = isPaginatedRequest ? pageSize : 20;
 
     const aggregateRaw: any[] = [];
     const seenKeys = new Set<string>();
@@ -366,8 +372,10 @@ export async function POST(request: NextRequest) {
     let partialUpstreamFailure:
       | { status: number; body: any; pagePayload: Record<string, any> }
       | null = null;
-    let resultIndex = 0;
+    const initialResultIndex = Math.max(0, requestedResultIndex ?? 0);
+    let resultIndex = initialResultIndex;
     let pagesFetched = 0;
+    let lastPageRecordCount = 0;
 
     while (aggregateRaw.length < maxResults) {
       const pagePayload = {
@@ -382,6 +390,7 @@ export async function POST(request: NextRequest) {
       const upstream = await dedupedMlsSearchPagePost(pagePayload);
       pagesFetched += 1;
       const pageRecords = extractMlsSearchRecords(upstream.json);
+      lastPageRecordCount = pageRecords.length;
       console.log(`${logPrefix} call -> ${upstream.source}`, {
         endpoint: upstream.endpoint,
         status: upstream.status,
@@ -421,7 +430,7 @@ export async function POST(request: NextRequest) {
         if (aggregateRaw.length >= maxResults) break;
       }
 
-      if (isMapViewportRefresh) break;
+      if (isPaginatedRequest || isMapViewportRefresh) break;
       if (pageRecords.length < (pagePayload.size || pageSize)) break;
       resultIndex += pageRecords.length;
       if (pagesFetched >= 10) break;
@@ -448,6 +457,16 @@ export async function POST(request: NextRequest) {
         lastUpstream?.json?.count ||
         lastUpstream?.json?.data?.resultCount) as number | undefined) ??
       properties.length;
+
+    const nextResultIndex = isPaginatedRequest
+      ? initialResultIndex + lastPageRecordCount
+      : null;
+    const countHintNumber = Number.isFinite(Number(countHint)) ? Number(countHint) : undefined;
+    const hasMore =
+      isPaginatedRequest &&
+      lastPageRecordCount > 0 &&
+      lastPageRecordCount >= pageSize &&
+      (countHintNumber ? nextResultIndex! < countHintNumber : true);
 
     const finalResponse =
       properties.length > 0
@@ -492,6 +511,15 @@ export async function POST(request: NextRequest) {
       search_query: query,
       final_response: finalResponse,
       answer: finalResponse,
+      pagination: isPaginatedRequest
+        ? {
+          result_index: initialResultIndex,
+          page_size: pageSize,
+          next_result_index: hasMore ? nextResultIndex : null,
+          has_more: hasMore,
+          result_count_hint: countHintNumber,
+        }
+        : undefined,
       metadata: {
         response_mode: 'cards_only',
         source: 'mls_bypass',

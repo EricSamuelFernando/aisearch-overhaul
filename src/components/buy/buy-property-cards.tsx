@@ -110,8 +110,9 @@ function BuyPropertyCards({
   const loadMoreRequestedRef = useRef(false);
   const prevLengthRef = useRef(0);
   const allowAutoLoadRef = useRef(false);
+  const lastScrollTargetRef = useRef<string | null>(null);
 
-  // Sentinel div at bottom of list — when it enters viewport, reveal next batch
+  // Sentinel div at bottom of list -- when it enters viewport, reveal next batch
   const sentinelRef = useRef<HTMLDivElement>(null);
   // Scroll container ref for overlayMode (overflow-y-auto div is the scroll root)
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -151,13 +152,12 @@ function BuyPropertyCards({
     setVisibleCount(INITIAL_VISIBLE);
     loadMoreRequestedRef.current = false;
     allowAutoLoadRef.current = false;
-    prevLengthRef.current = normalizedProperties.length;
     if (overlayMode) {
       scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
     } else if (typeof window !== 'undefined') {
       window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
     }
-  }, [resetKey, overlayMode, normalizedProperties.length]);
+  }, [resetKey, overlayMode]);
 
   useEffect(() => {
     if (overlayMode) {
@@ -186,7 +186,7 @@ function BuyPropertyCards({
   //   [normalizedProperties.length, itemsPerPage],
   // );
 
-  // IntersectionObserver on sentinel — reveals next LOAD_MORE_STEP cards when near bottom
+  // IntersectionObserver on sentinel -- reveals next LOAD_MORE_STEP cards when near bottom
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
@@ -239,31 +239,40 @@ function BuyPropertyCards({
     if (idx !== -1 && idx >= visibleCount) {
       setVisibleCount(idx + 1);
     }
-  }, [selectedProperty, normalizedProperties, visibleCount]);
-  useEffect(() => {
-    if (!selectedProperty) return;
+  }, [selectedProperty, normalizedProperties, visibleCount]);  useEffect(() => {
+    if (!selectedProperty) {
+      lastScrollTargetRef.current = null;
+      return;
+    }
+    const selectedId = String(selectedProperty);
+    if (lastScrollTargetRef.current === selectedId) return;
     const container = scrollContainerRef.current;
     if (!container) return;
     const raf = requestAnimationFrame(() => {
-      const escaped = CSS.escape(String(selectedProperty));
+      const escaped = CSS.escape(selectedId);
       const element = container.querySelector<HTMLElement>(`#${escaped}`);
-      console.log('[BuyPropertyCards] scroll effect — selectedProperty:', selectedProperty, 'element found:', !!element, 'visibleCount:', visibleCount, 'overlayMode:', overlayMode);
       if (!element) return;
-      // Directly scroll the container to center the element — avoids the
+      // Directly scroll the container to center the element - avoids the
       // scrollIntoView + overflow-hidden ancestor interaction that silently no-ops.
       const containerRect = container.getBoundingClientRect();
       const elementRect = element.getBoundingClientRect();
+      const isAlreadyVisible =
+        elementRect.top >= containerRect.top &&
+        elementRect.bottom <= containerRect.top + container.clientHeight;
+      if (isAlreadyVisible) {
+        lastScrollTargetRef.current = selectedId;
+        return;
+      }
       const scrollTarget =
         container.scrollTop +
         (elementRect.top - containerRect.top) -
         container.clientHeight / 2 +
         element.clientHeight / 2;
-      console.log('[BuyPropertyCards] scrollTarget:', scrollTarget, 'containerScrollTop:', container.scrollTop, 'elementTop:', elementRect.top, 'containerTop:', containerRect.top, 'clientHeight:', container.clientHeight, 'elemHeight:', element.clientHeight);
       container.scrollTo({ top: Math.max(0, scrollTarget), behavior: 'instant' as ScrollBehavior });
+      lastScrollTargetRef.current = selectedId;
     });
     return () => cancelAnimationFrame(raf);
   }, [selectedProperty, visibleCount, overlayMode]);
-
   const visibleProperties = useMemo(
     () => normalizedProperties.slice(0, visibleCount),
     [normalizedProperties, visibleCount],
@@ -337,7 +346,7 @@ function BuyPropertyCards({
               </>
             )}
           </div>
-          {/* Sentinel — sits below the last rendered card; observer fires ~400px before it */}
+          {/* Sentinel -- sits below the last rendered card; observer fires ~400px before it */}
           <div ref={sentinelRef} className="h-1 w-full" aria-hidden />
           {overlayMode && !isLoading && totalCount > 0 && !hasMore ? (
             <div className="mt-3 border-t border-gray-200 bg-white px-3 py-2 text-[10px] leading-5 text-gray-600">
@@ -415,3 +424,4 @@ function BuyPropertyCards({
 }
 
 export { BuyPropertyCards };
+

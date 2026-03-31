@@ -238,7 +238,8 @@ function PropertyBrowseView({ }: Props) {
   const [selectedProperty, setSelectedProperty] = useState<string>('');
 
   const featureFilteredProperties = useFilteredProperties();
-  const resultCount = featureFilteredProperties.length;
+  const [totalResultsCount, setTotalResultsCount] = useState<number | null>(null);
+  const resultCount = totalResultsCount !== null ? totalResultsCount : featureFilteredProperties.length;
 
   const dispatch = useAppDispatch();
   const { tempUserId } = useAppSelector((state: RootState) => state.propertyPreference);
@@ -281,7 +282,13 @@ function PropertyBrowseView({ }: Props) {
   const [nextResultIndex, setNextResultIndex] = useState<number | null>(null);
   const [hasMoreResults, setHasMoreResults] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [searchCycle, setSearchCycle] = useState(0);
+  const searchResetKey = useMemo(
+    () => `mls||${query.trim()}||${activeSearchFiltersKey}||${searchSubmitNonce}`,
+    [query, activeSearchFiltersKey, searchSubmitNonce],
+  );
+  useEffect(() => {
+    setTotalResultsCount(null);
+  }, [query, activeSearchFiltersKey, searchSubmitNonce]);
   const isLoadingMoreRef = useRef(false);
 
   const [mobileSheetMode, setMobileSheetMode] = useState<MobileSheetMode>('default');
@@ -660,8 +667,17 @@ function PropertyBrowseView({ }: Props) {
           setLastSearchKey(querySearchKey);
           dispatch(incrementSearchCount());
           dispatch(setPropertyQuery(response.data?.final_response || response.data?.search_query));
-          setSearchCycle((prev) => prev + 1);
           const pagination = response?.data?.pagination;
+          const countHintRaw =
+            pagination?.result_count_hint ??
+            response?.data?.result_count_hint ??
+            response?.data?.total ??
+            response?.data?.result_count ??
+            response?.data?.count;
+          const countHint = Number(countHintRaw);
+          if (Number.isFinite(countHint)) {
+            setTotalResultsCount(countHint);
+          }
           const nextIndex =
             typeof pagination?.next_result_index === 'number'
               ? pagination.next_result_index
@@ -734,6 +750,16 @@ function PropertyBrowseView({ }: Props) {
         addProperties(newProperties);
       }
       const pagination = response?.data?.pagination;
+      const countHintRaw =
+        pagination?.result_count_hint ??
+        response?.data?.result_count_hint ??
+        response?.data?.total ??
+        response?.data?.result_count ??
+        response?.data?.count;
+      const countHint = Number(countHintRaw);
+      if (Number.isFinite(countHint)) {
+        setTotalResultsCount(countHint);
+      }
       const nextIndex =
         typeof pagination?.next_result_index === 'number'
           ? pagination.next_result_index
@@ -1092,7 +1118,7 @@ function PropertyBrowseView({ }: Props) {
                       onRequestMore={fetchMoreResults}
                       hasMoreResults={hasMoreResults}
                       isLoadingMore={isLoadingMore}
-                      resetKey={searchCycle}
+                      resetKey={searchResetKey}
                     />
                   </div>
                 ) : null}
@@ -1305,7 +1331,7 @@ function PropertyBrowseView({ }: Props) {
                     onRequestMore={fetchMoreResults}
                     hasMoreResults={hasMoreResults}
                     isLoadingMore={isLoadingMore}
-                    resetKey={searchCycle}
+                    resetKey={searchResetKey}
                   />
                 </div>
               </div>
@@ -1343,7 +1369,7 @@ function PropertyBrowseView({ }: Props) {
             onRequestMore={fetchMoreResults}
             hasMoreResults={hasMoreResults}
             isLoadingMore={isLoadingMore}
-            resetKey={searchCycle}
+            resetKey={searchResetKey}
           />
         </div>
 

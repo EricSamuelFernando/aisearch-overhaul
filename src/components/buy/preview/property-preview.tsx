@@ -360,17 +360,30 @@ const PropertyPreview: React.FC = () => {
   const [collegeReadinessLoading, setCollegeReadinessLoading] = React.useState(false);
 
 
+  const [askAIContextId, setAskAIContextId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setAskAIContextId(null);
+  }, [propertyData?.listingId, propertyDatas?.data?.listingId, property?.listingId, id]);
+
   const handleAskAIQuery = (query: string) => {
     if (!query.trim()) return;
 
     setUserQuestionDisplay(query);
     setAskAIQuestion(query); // Keep input synced if needed, or clear it
 
-    askAIMutation.mutate({ question: query }, {
+    askAIMutation.mutate({
+      query,
+      context: askAIContextId ? undefined : askAIContextPayload,
+      contextId: askAIContextId,
+    }, {
       onSuccess: (data) => {
         setAiAnswer(data.answer);
         if (data.suggestions && data.suggestions.length > 0) {
           setAiSuggestions(data.suggestions);
+        }
+        if (data.context_id) {
+          setAskAIContextId(data.context_id);
         }
         setAskAIQuestion(''); // Clear input after successful send
       }
@@ -1790,6 +1803,100 @@ const PropertyPreview: React.FC = () => {
       prop,
     };
   }, [proprtyData, id]);
+
+  const askAIContextPayload = React.useMemo(() => {
+    const prop = transformData.prop || {};
+    const detailInfo = propertyDatas?.property_detail?.data?.propertyInfo || {};
+    const listing = propertyData?.listing || propertyData || {};
+    const address =
+      prop?.address?.unparsedAddress ||
+      detailInfo?.address?.address ||
+      listing?.address?.unparsedAddress ||
+      propertyData?.public?.address?.label ||
+      '';
+    const city =
+      prop?.address?.city ||
+      detailInfo?.address?.city ||
+      listing?.address?.city ||
+      propertyData?.public?.address?.city ||
+      '';
+    const state =
+      prop?.address?.stateOrProvince ||
+      detailInfo?.address?.stateOrProvince ||
+      listing?.address?.stateOrProvince ||
+      propertyData?.public?.address?.state ||
+      '';
+    const zip =
+      prop?.address?.zipCode ||
+      detailInfo?.address?.zip ||
+      listing?.address?.zipCode ||
+      propertyData?.public?.address?.zip ||
+      '';
+    const price =
+      prop?.listPrice ||
+      propertyDatas?.data?.listPrice ||
+      detailInfo?.listPrice ||
+      detailInfo?.listPriceLow ||
+      listing?.listPriceLow ||
+      listing?.listPrice ||
+      propertyData?.listPrice ||
+      listing?.price ||
+      '';
+    const beds =
+      prop?.property?.bedroomsTotal ||
+      detailInfo?.bedroomsTotal ||
+      listing?.property?.bedroomsTotal ||
+      propertyData?.property?.bedroomsTotal ||
+      '';
+    const baths =
+      prop?.property?.bathroomsTotal ||
+      detailInfo?.bathroomsTotal ||
+      listing?.property?.bathroomsTotal ||
+      propertyData?.property?.bathroomsTotal ||
+      '';
+    const sqft =
+      prop?.property?.livingArea ||
+      detailInfo?.livingSquareFeet ||
+      listing?.property?.livingArea ||
+      propertyData?.property?.livingArea ||
+      propertyData?.property?.livingSquareFeet ||
+      '';
+    const yearBuilt =
+      prop?.property?.yearBuilt ||
+      detailInfo?.yearBuilt ||
+      listing?.property?.yearBuilt ||
+      propertyData?.property?.yearBuilt ||
+      '';
+    const propertyType =
+      prop?.property?.propertyType ||
+      detailInfo?.propertyType ||
+      listing?.property?.propertyType ||
+      propertyData?.property?.propertyType ||
+      '';
+    const status = mostRecentStatus || prop?.mostRecentStatus || listing?.mostRecentStatus || '';
+    const remarks = (prop?.remarks || prop?.publicRemarks || listing?.publicRemarks || '').toString().trim();
+    const trimmedRemarks = remarks.length > 420 ? `${remarks.slice(0, 420)}...` : remarks;
+
+    return {
+      address,
+      city,
+      state,
+      zip,
+      price,
+      beds,
+      baths,
+      sqft,
+      yearBuilt,
+      propertyType,
+      status,
+      remarks: trimmedRemarks,
+    };
+  }, [
+    transformData.prop,
+    propertyDatas,
+    propertyData,
+    mostRecentStatus,
+  ]);
 
   // console.log(transformData, "propertyDatas")
   const [showAllSchools, setShowAllSchools] = React.useState(false);

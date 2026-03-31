@@ -871,7 +871,7 @@ const HOME_PAGE_TESTIMONIALS = [
   },
 ];
 
-const testimonialHeadingSize = 'text-[1.7rem] sm:text-[2.5rem] md:text-[3.95rem] leading-[0.98] tracking-tight';
+const testimonialHeadingSize = '!text-[2.2rem] sm:!text-[2.55rem] md:!text-[3.95rem] leading-[0.98] tracking-tight';
 
 // export default function Home() {
 //   const [isOpen, setIsOpen] = useState(false);

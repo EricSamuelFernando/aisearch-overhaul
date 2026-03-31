@@ -110,19 +110,19 @@ const ViewHistorySection = () => {
       </div>
 
       {totalPages > 1 && (
-        <div className='flex flex-col items-start gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between'>
+        <div className='flex flex-nowrap items-center justify-between gap-2 pt-2 sm:gap-3'>
           <button
-            className='rounded-full border border-black px-4 py-1 text-sm text-black disabled:opacity-50'
+            className='rounded-full border border-black px-3 sm:px-4 py-1 text-[13px] sm:text-sm text-black disabled:opacity-50'
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
           >
             Previous
           </button>
-          <p className='text-sm text-gray-600'>
+          <p className='flex-1 whitespace-nowrap text-center text-[13px] sm:text-sm text-gray-600'>
             Page {page} of {totalPages}
           </p>
           <button
-            className='rounded-full border border-black px-4 py-1 text-sm text-black disabled:opacity-50'
+            className='rounded-full border border-black px-3 sm:px-4 py-1 text-[13px] sm:text-sm text-black disabled:opacity-50'
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page >= totalPages}
           >

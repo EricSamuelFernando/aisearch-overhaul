@@ -2069,11 +2069,44 @@ const PropertyPreview: React.FC = () => {
 
   const [openSection, setOpenSection] = React.useState<string | null>(null);
   const [topEstimatedMonthlyPayment, setTopEstimatedMonthlyPayment] = React.useState<number | null>(null);
-
-  const toggleSection = (section: string) => {
+  const toggleSection = (section: string, anchorEl?: HTMLElement | null) => {
+    const anchorTop = anchorEl ? anchorEl.getBoundingClientRect().top : null;
     const nextSection = openSection === section ? null : section;
     setOpenSection(nextSection);
-    // No label highlight or auto-scroll on dropdown open
+    // Keep navbar label in sync with dropdown open
+    if (typeof window !== 'undefined' && nextSection) {
+      const hash =
+        nextSection === 'home'
+          ? '#home-highlights'
+          : nextSection === 'offers'
+            ? '#property'
+            : nextSection === 'schools'
+              ? '#schools'
+              : nextSection === 'college'
+                ? '#college'
+                : nextSection === 'interest'
+                  ? '#forecast'
+                  : nextSection === 'payment'
+                    ? '#payment'
+                    : '';
+      if (hash) {
+        window.dispatchEvent(
+          new CustomEvent('preview-nav', {
+            detail: { hash, source: 'dropdown' },
+          }),
+        );
+      }
+    }
+
+    if (typeof window !== 'undefined' && anchorEl && anchorTop !== null) {
+      window.requestAnimationFrame(() => {
+        const nextTop = anchorEl.getBoundingClientRect().top;
+        const delta = nextTop - anchorTop;
+        if (delta !== 0) {
+          window.scrollBy({ top: delta, behavior: 'auto' });
+        }
+      });
+    }
   };
 
   const propertyTags = Array.isArray((proprtyData as any)?.tags) ? (proprtyData as any).tags : [];
@@ -2260,6 +2293,15 @@ const PropertyPreview: React.FC = () => {
       const customEvent = event as CustomEvent<string | { hash?: string; source?: string }>;
       if (typeof customEvent.detail === 'string') {
         openSectionForHash(customEvent.detail);
+        return;
+      }
+      if (customEvent.detail && typeof customEvent.detail === 'object') {
+        if (customEvent.detail.source === 'dropdown') {
+          return;
+        }
+        if (typeof customEvent.detail.hash === 'string') {
+          openSectionForHash(customEvent.detail.hash);
+        }
       }
     };
     window.addEventListener('preview-nav', handlePreviewNav);
@@ -2372,7 +2414,7 @@ const PropertyPreview: React.FC = () => {
   const isInviteActionPending = contactActionInProgress === "invite" && isAnyContactActionPending;
 
   return (
-    <div>
+    <div className="property-preview-page">
       <ItemNav cardRef={cardRef} />
       <div id="overview" className="scroll-mt-28 h-px" />
 
@@ -3018,7 +3060,10 @@ const PropertyPreview: React.FC = () => {
             </div>
 
             <div className="col-span-12 lg:col-span-8 xl:col-span-2">
-              <div className="divide-y divide-gray-200 border-t border-gray-200 mt-1 sm:mt-2 xl:w-[1169px] min-[1536px]:max-[1919px]:w-[978px] xl:mx-auto">
+              <div
+                className="divide-y divide-gray-200 border-t border-gray-200 mt-1 sm:mt-2 xl:w-[1169px] min-[1536px]:max-[1919px]:w-[978px] xl:mx-auto"
+                data-scroll-anchor="off"
+              >
                 {/* Accordion List (Home Highlights, Schools, Offers, History, etc.) */}
                 {sections.map((section) => {
                   const anchorId =
@@ -3055,7 +3100,7 @@ const PropertyPreview: React.FC = () => {
                       className="border-b border-gray-200 scroll-mt-28"
                     >
                       <button
-                        onClick={() => toggleSection(section.id)}
+                        onClick={(event) => toggleSection(section.id, event.currentTarget)}
                         className="w-full flex items-center justify-between py-2 sm:py-3 text-left focus:outline-none transition-all xl:h-[140px] xl:py-0"
                       >
                         <span
@@ -3094,8 +3139,10 @@ const PropertyPreview: React.FC = () => {
 
                       {/* Accordion Content */}
                       <div
-                        className={`overflow-hidden transition-all duration-300 ${openSection === section.id ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0"
-                          }`}
+                        className={`overflow-hidden ${openSection === section.id
+                          ? "max-h-[2000px] opacity-100 translate-y-0"
+                          : "max-h-0 opacity-0 -translate-y-1 pointer-events-none"
+                          } transition-opacity transition-transform duration-300`}
                       >
                         <div
                           id={

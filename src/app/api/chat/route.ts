@@ -1,6 +1,10 @@
 import { NextRequest } from 'next/server';
 
+// AI_CHAT_LAMBDA_URL should point directly to the Lambda Function URL (not API Gateway)
+// so that RESPONSE_STREAM mode bypasses API Gateway's buffering and 29s timeout.
+// Falls back to API Gateway URL for local dev and if not set.
 const AI_BACKEND = (
+    process.env.AI_CHAT_LAMBDA_URL ||
     process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI ||
     process.env.NEXT_PUBLIC_API_BASE_URL ||
     'https://demo-new-ai.snaphomz.com'

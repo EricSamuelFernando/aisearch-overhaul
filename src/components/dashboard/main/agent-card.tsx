@@ -30,8 +30,8 @@ type AgentProp = {
 };
 
 function AgentCard({ agent, property }: any) {
-  const firstNameRaw = agent?.agent?.firstName || 'Daniel';
-  const lastNameRaw = agent?.agent?.lastName || 'Smith';
+  const firstNameRaw = agent?.agent?.firstName || agent?.firstName || 'Daniel';
+  const lastNameRaw = agent?.agent?.lastName || agent?.lastName || 'Smith';
   const { data: externalAgent } = useGetExternalAgentDetails(agent?.id);
   const {
     createUserAgentThreadMutation,
@@ -180,7 +180,13 @@ function AgentCard({ agent, property }: any) {
   const lastName = capitalize(lastNameRaw);
 
   const initials = `${firstName[0]}${lastName[0]}`;
-  const hasImage = agent?.imageUrl;
+  const imageUrl =
+    agent?.imageUrl ||
+    agent?.agent?.profile ||
+    agent?.profile ||
+    agent?.agent?.avatarUrl ||
+    agent?.avatarUrl;
+  const hasImage = Boolean(imageUrl);
 
   return (
     <div className='flex flex-1 cursor-pointer items-center justify-center gap-x-1 sm:gap-x-2'>
@@ -190,12 +196,12 @@ function AgentCard({ agent, property }: any) {
             <Image
               height={50}
               width={50}
-              src={agent.imageUrl}
+              src={imageUrl}
               objectFit='contain'
               alt='Agent'
               className='rounded-full object-cover w-[40px] h-[40px] sm:w-[45px] sm:h-[45px] md:w-[50px] md:h-[50px]'
             />
-          ) : agent?.agent?.firstName && agent?.agent?.lastName ? (
+          ) : (agent?.agent?.firstName || agent?.firstName) && (agent?.agent?.lastName || agent?.lastName) ? (
             <>
               <div className='flex h-[40px] w-[40px] sm:h-[45px] sm:w-[45px] md:h-[50px] md:w-[50px] items-center justify-center rounded-full bg-gray-400 text-white text-sm sm:text-base md:text-lg font-semibold'>
                 {initials}

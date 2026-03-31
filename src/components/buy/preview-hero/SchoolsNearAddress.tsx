@@ -66,7 +66,7 @@ const SchoolsNearAddress: React.FC<SchoolDistrictProps> = ({
   };
 
   return (
-    <div className="w-full py-6 sm:py-8">
+    <div className="w-full pt-2 pb-6 sm:pt-3 sm:pb-6">
 
       {/* --- Header Section --- */}
       <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1 break-words">

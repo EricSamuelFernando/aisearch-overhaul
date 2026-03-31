@@ -271,10 +271,8 @@ function getDayCountFromUTC(dateStr: string) {
 const PropertyPreview: React.FC = () => {
   const leftSection = React.useRef<HTMLDivElement>(null);
   const cardRef = React.useRef<HTMLDivElement>(null);
-  const askAiRailRef = React.useRef<HTMLDivElement>(null);
   const comparablesRef = React.useRef<HTMLDivElement>(null);
   const suppressHashChangeRef = React.useRef(false);
-  const [askAiRailHeight, setAskAiRailHeight] = React.useState<number | null>(null);
   const [proprtyData, setPropertyData] = React.useState<ProprtyData | undefined>();
   const [propertyDatas, setpropertyDatas] = React.useState<any>(null);
   interface PropertyDetails {
@@ -2748,11 +2746,7 @@ const PropertyPreview: React.FC = () => {
             </div>
 
 
-            <div
-              ref={askAiRailRef}
-              className="col-span-12 lg:col-span-4 xl:col-span-1 lg:row-span-2 mt-4 lg:mt-0 xl:pl-[24px]"
-              style={askAiRailHeight ? { minHeight: `${askAiRailHeight}px` } : undefined}
-            >
+            <div className="col-span-12 lg:col-span-4 xl:col-span-1 lg:row-span-2 mt-4 lg:mt-0 xl:pl-[24px]">
               <div className="w-full rounded-2xl bg-[#F9F6EF] shadow-sm border border-[#EFE7DC] p-4 sm:p-5 md:p-6 xl:w-[500px] min-[1536px]:max-[1919px]:w-[470px] xl:h-[569px] xl:rounded-[20px] xl:bg-[#FAF9F5] xl:border-none xl:px-[28px] xl:py-[22px]">
                 {(() => {
                   // Calculate dynamic values

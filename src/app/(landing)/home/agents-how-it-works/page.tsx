@@ -233,13 +233,13 @@ function HowItWorksPage({ defaultTab }: Props) {
                 <p className="mt-8 text-gray-700">
                   <span className="block italic text-sm text-gray-600">Ready to Get Started?</span>
                   <span className="block mt-1">
-                    Join agents closing deals faster.{' '}
+                    Join thousands of happy homeowners.{' '}
                     <LoginRegisterModal
                       label="Sign up free today"
                       initialStage={1}
                       variant="link"
                       className="p-0 text-orange-500 underline underline-offset-4 hover:text-orange-400"
-                      registerDefaults={{ userType: 'agent', startAt: 'send-code' }}
+                      registerDefaults={{ userType: 'buyer', startAt: 'send-code' }}
                     />
                   </span>
                 </p>

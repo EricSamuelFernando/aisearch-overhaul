@@ -257,15 +257,20 @@ const MonthlyMortgageCalculator: React.FC<MonthlyMortgageCalculatorProps> = ({
 
 
   const LabelWithTip = ({ label, tip }: { label: string; tip?: string }) => {
+    const [open, setOpen] = React.useState(false);
     return (
       <span className="inline-flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-gray-600">
         {tip ? (
-          <Tooltip disableHoverableContent={false}>
+          <Tooltip open={open} onOpenChange={setOpen} disableHoverableContent={false}>
             <TooltipTrigger asChild>
-              <span
-                role="button"
-                tabIndex={0}
-                className="mmc-tooltip-icon"
+              <button
+                type="button"
+                onPointerDown={(e) => e.preventDefault()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpen(!open);
+                }}
+                className="mmc-tooltip-icon outline-none"
                 aria-label={`${label} info`}
               >
                 <svg
@@ -276,13 +281,13 @@ const MonthlyMortgageCalculator: React.FC<MonthlyMortgageCalculatorProps> = ({
                 >
                   <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 22c-5.518 0-10-4.482-10-10s4.482-10 10-10 10 4.482 10 10-4.482 10-10 10zm-1-16h2v6h-2zm0 8h2v2h-2z" />
                 </svg>
-              </span>
+              </button>
             </TooltipTrigger>
             <TooltipContent
               side="top"
               align="center"
               sideOffset={4}
-              className="max-w-[240px] rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-xs leading-relaxed text-white shadow-xl animate-none data-[state=closed]:animate-none data-[side=top]:slide-in-from-bottom-0 data-[side=bottom]:slide-in-from-top-0 data-[side=left]:slide-in-from-right-0 data-[side=right]:slide-in-from-left-0"
+              className="max-w-[240px] rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-xs leading-relaxed text-white shadow-xl"
             >
               <p className="normal-case">{tip}</p>
             </TooltipContent>

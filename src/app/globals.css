@@ -1818,7 +1818,7 @@ input:-webkit-autofill {
 }
 
 .company-page-hero__desktop {
-  min-height: 35.5rem;
+  min-height: 40rem;
   align-items: center;
   justify-content: center;
   padding: 6.25rem 1.5rem 3.5rem;
@@ -1922,7 +1922,7 @@ input:-webkit-autofill {
 .company-page-hero__desktop-copy {
   margin-top: 2rem;
   max-width: 720px;
-  color: #d9c7b8;
+  color: #ceb28b;
   font-size: clamp(0.82rem, 0.9vw, 0.95rem);
   line-height: 1.38;
   letter-spacing: -0.015em;
@@ -1935,7 +1935,7 @@ input:-webkit-autofill {
 
 @media (min-width: 640px) and (max-width: 899px) {
   .company-page-hero__desktop {
-    min-height: 31rem;
+    min-height: 35rem;
     padding-top: 5.55rem;
     padding-bottom: 2.7rem;
   }
@@ -1964,7 +1964,7 @@ input:-webkit-autofill {
 
 @media (min-width: 900px) and (max-width: 1279px) {
   .company-page-hero__desktop {
-    min-height: 33.5rem;
+    min-height: 37.5rem;
     padding-top: 5.9rem;
     padding-bottom: 3rem;
   }
@@ -1984,7 +1984,7 @@ input:-webkit-autofill {
 
 @media (min-width: 1280px) {
   .company-page-hero__desktop {
-    min-height: 37rem;
+    min-height: 42rem;
     padding-top: 6.2rem;
     padding-bottom: 3.5rem;
   }
@@ -2084,7 +2084,7 @@ input:-webkit-autofill {
 
 .company-page-hero__mobile-hand {
   position: absolute;
-  right: -15px;
+  right: -22px;
   top: -2.4rem;
   height: 98px;
   width: 98px;
@@ -2097,7 +2097,7 @@ input:-webkit-autofill {
   font-size: 0.78rem;
   line-height: 1.38;
   letter-spacing: -0.015em;
-  color: #D9C7B8;
+  color: #ceb28b;
 }
 
 .company-page-hero__mobile-copy-line {
@@ -2159,7 +2159,7 @@ input:-webkit-autofill {
   }
 
   .company-page-hero__mobile-hand {
-    right: -8px;
+    right: -14px;
     top: -2rem;
     height: 82px;
     width: 82px;
@@ -2214,7 +2214,7 @@ input:-webkit-autofill {
   }
 
   .company-page-hero__mobile-hand {
-    right: -11px;
+    right: -17px;
     top: -2.15rem;
     height: 90px;
     width: 90px;

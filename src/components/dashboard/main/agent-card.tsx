@@ -44,79 +44,79 @@ function AgentCard({ agent, property }: any) {
 
 
   const handleThreadGeneration = async () => {
-  try {
-    //  First check seller threads
-    debugger
-    console.log(agent)
-    console.log("agent",agent?.agent?.id)
-    getAllThreadsBySellerMutation.mutate(
-      { sellerAgentId: agent?.agent?.id },
-      {
-        onSuccess: (threads) => {
-          debugger
-          const existingThread = threads?.find  (
-            (thread: any) => thread?.sellerAgent?.id === agent?.agent?.id
-          );
-
-          console.log("Existing seller thread:", existingThread);
-          if (existingThread) {
-            router.push(`/dashboard/chat?type=messages&threadId=${existingThread.id}`);
-          } else {
-            // If no seller thread → check property threads
-            getAllThreadByPropertyMutation.mutate(
-              { propertyId: property?.propertyId, listingId: property?.listingId?.toString() || "" },
-              {
-                onSuccess: (data) => {
-                  const existingPropertyThread = data.data.get_threads_by_property?.find(
-                    (thread: any) => thread?.sellerAgent?.id === agent?.id
-                  );
-
-                  if (existingPropertyThread) {
-                    router.push(`/dashboard/chat?type=messages&threadId=${existingPropertyThread.id}`);
-                  } else {
-                    // 3️Otherwise create a new seller thread
-                    createUserAgentThreadMutation.mutate(
-                      {
-                        propertyId: property?.id,
-                        threadName: "Property Buyer Thread",
-                        propertyName: property?.propertyName,
-                        propertyImage: property?.propertyImage,
-                        listingId: property?.listingId?.toString() || "",
-                        propertyAddress: property?.propertyAddress,
-                        propertyOwnerId: property?.ownerId, // 👈 replace with real property owner if available
-                        sellerAgentId: agent?.id, // 👈 important
-                        userType: 'Buyer',
-                        userId: user?.id,
-                        roomId: uuidv4(),
-                        parentMessage: "Let's connect and talk",
-                      },
-                      {
-                        onSuccess: (data) => {
-                          router.push(`/dashboard/chat?type=messages&threadId=${data?.id}`);
-                        },
-                        onError: (error) => {
-                          console.error("Error creating seller thread: ", error);
-                        },
-                      }
-                    );
-                  }
-                },
-                onError: (error) => {
-                  console.error("Error checking property threads: ", error);
-                },
-              }
+    try {
+      //  First check seller threads
+      debugger
+      console.log(agent)
+      console.log("agent", agent?.agent?.id)
+      getAllThreadsBySellerMutation.mutate(
+        { sellerAgentId: agent?.agent?.id },
+        {
+          onSuccess: (threads) => {
+            debugger
+            const existingThread = threads?.find(
+              (thread: any) => thread?.sellerAgent?.id === agent?.agent?.id
             );
-          }
-        },
-        onError: (error) => {
-          console.error("Error fetching seller threads: ", error);
-        },
-      }
-    );
-  } catch (error) {
-    console.error(error);
-  }
-};
+
+            console.log("Existing seller thread:", existingThread);
+            if (existingThread) {
+              router.push(`/dashboard/chat?type=messages&threadId=${existingThread.id}`);
+            } else {
+              // If no seller thread → check property threads
+              getAllThreadByPropertyMutation.mutate(
+                { propertyId: property?.propertyId, listingId: property?.listingId?.toString() || "" },
+                {
+                  onSuccess: (data) => {
+                    const existingPropertyThread = data.data.get_threads_by_property?.find(
+                      (thread: any) => thread?.sellerAgent?.id === agent?.id
+                    );
+
+                    if (existingPropertyThread) {
+                      router.push(`/dashboard/chat?type=messages&threadId=${existingPropertyThread.id}`);
+                    } else {
+                      // 3️Otherwise create a new seller thread
+                      createUserAgentThreadMutation.mutate(
+                        {
+                          propertyId: property?.id,
+                          threadName: "Property Buyer Thread",
+                          propertyName: property?.propertyName,
+                          propertyImage: property?.propertyImage,
+                          listingId: property?.listingId?.toString() || "",
+                          propertyAddress: property?.propertyAddress,
+                          propertyOwnerId: property?.ownerId, // 👈 replace with real property owner if available
+                          sellerAgentId: agent?.id, // 👈 important
+                          userType: 'Buyer',
+                          userId: user?.id,
+                          roomId: uuidv4(),
+                          parentMessage: "Let's connect and talk",
+                        },
+                        {
+                          onSuccess: (data) => {
+                            router.push(`/dashboard/chat?type=messages&threadId=${data?.id}`);
+                          },
+                          onError: (error) => {
+                            console.error("Error creating seller thread: ", error);
+                          },
+                        }
+                      );
+                    }
+                  },
+                  onError: (error) => {
+                    console.error("Error checking property threads: ", error);
+                  },
+                }
+              );
+            }
+          },
+          onError: (error) => {
+            console.error("Error fetching seller threads: ", error);
+          },
+        }
+      );
+    } catch (error) {
+      console.error(error);
+    }
+  };
   // const handleThreadGeneration = async () => {
   //   try {
   //     // First, check if a thread already exists for this property

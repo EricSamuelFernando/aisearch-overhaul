@@ -1098,6 +1098,7 @@ export const useUserAuthApi = (handleCb?: () => void) => {
             participantId
             agentId
             engagementId
+            threadId
           }
         }
       `;

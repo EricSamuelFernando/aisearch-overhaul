@@ -31,7 +31,7 @@ import { NewFeatureCard } from './multi-feature-card';
 import { PROPERTY_DETAIL_SEARCH_AI_URL } from "@/shared/constants/env"
 import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 
-import { useSelector } from 'react-redux';
+
 import CategorizedPhotosModal from '../CategorizedPhotosModal'; // Import the new modal
 import PropertyDetailsCard from '../propertyDetailsCard';
 import { BookmarkCheck, ChevronDown, ChevronUp, Info, Search, Loader2, X, Star, ArrowRight } from 'lucide-react';
@@ -67,8 +67,9 @@ import { error } from '@/components/alert/notify';
 import { AgentDirectoryBox } from '@/components/start-process/agent-directory-box';
 import { AgentCard } from '@/components/start-process/agent-card';
 import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { setEngagedProperty } from '@/slices/property/property-slice';
+import { CoBuyerForm } from '@/components/property/manage/add-cobuyer';
 import { SocketContext } from '@/providers/socket.context';
 import { success } from '@/components/alert/notify';
 import type { WebSocketClient } from '@/lib/websocket-client';
@@ -280,6 +281,7 @@ const PropertyPreview: React.FC = () => {
   const [isContactAgentDialogOpen, setIsContactAgentDialogOpen] = React.useState(false);
   const [isSearchAgentModalOpen, setIsSearchAgentModalOpen] = React.useState(false);
   const [isInviteAgentModalOpen, setIsInviteAgentModalOpen] = React.useState(false);
+  const [isCoBuyerInviteDialogOpen, setIsCoBuyerInviteDialogOpen] = React.useState(false);
   const [engagementIdForModal, setEngagementIdForModal] = React.useState<string | null>(null);
   const [isProcessingInvitation, setIsProcessingInvitation] = React.useState(false);
   const [contactActionInProgress, setContactActionInProgress] = React.useState<"search" | "invite" | null>(null);
@@ -381,10 +383,15 @@ const PropertyPreview: React.FC = () => {
   }, [previewSearchValue, router]);
 
   React.useEffect(() => {
-    if (id) {
-      getEngagedPropertyByPropertyId.mutate(id)
+    if (id && currentUser?.id) {
+      dispatch(setEngagedProperty({}));
+      // Passing both IDs to ensure unique lookup for the current user
+      getEngagedPropertyByPropertyId.mutate({ propertyId: id, userId: currentUser.id })
+    } else if (id && !currentUser?.id) {
+      // If no user, clear the engagement state
+      dispatch(setEngagedProperty({}));
     }
-  }, [id])
+  }, [id, currentUser?.id])
 
   React.useEffect(() => {
     if (!currentUser?.id) return;
@@ -597,6 +604,10 @@ const PropertyPreview: React.FC = () => {
     return emailRegex.test(email);
   };
 
+  const handleInviteCoBuyer = () => {
+    setIsCoBuyerInviteDialogOpen(true);
+  };
+
   const handleInviteAgent = () => {
     if (isProcessingInvitation) {
       return; // Prevent multiple simultaneous calls
@@ -778,7 +789,11 @@ const PropertyPreview: React.FC = () => {
               mainElement.scrollTo({ top: 0, behavior: 'auto' });
             }
           }
-          router.push('/dashboard/buyer?tab=messages');
+          if (response.threadId) {
+            router.push(`/dashboard/buyer?tab=messages&threadId=${response.threadId}`);
+          } else {
+            router.push('/dashboard/buyer?tab=messages');
+          }
         } else {
           error({ message: message || 'Failed to send invitation' });
         }
@@ -2237,7 +2252,29 @@ const PropertyPreview: React.FC = () => {
             >
               {isInviteActionPending ? "Creating..." : "Invite Agent"}
             </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleInviteCoBuyer();
+              }}
+              disabled={isAnyContactActionPending}
+              className="w-full bg-white text-black border-2 border-black px-6 py-3 rounded-full text-base font-normal hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Invite Co-Buyer
+            </button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Co-Buyer Invite Dialog */}
+      <Dialog open={isCoBuyerInviteDialogOpen} onOpenChange={setIsCoBuyerInviteDialogOpen}>
+        <DialogContent className='rounded-none py-8 sm:max-w-xl'>
+          <CoBuyerForm 
+            setShowDialog={setIsCoBuyerInviteDialogOpen}
+            showDialog={isCoBuyerInviteDialogOpen}
+          />
         </DialogContent>
       </Dialog>
 
@@ -2455,13 +2492,58 @@ const PropertyPreview: React.FC = () => {
 
                 {/* Right: Schedule A Tour Button */}
                 <div className="w-full flex flex-col gap-2">
-                  <button
-                    className="w-full bg-black text-white px-4 sm:px-6 lg:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-normal border border-black hover:bg-gray-900 transition-colors"
-                    onClick={handleContactAgent}
-                    disabled={propertyEngagementMutation.isPending}
-                  >
-                    {propertyEngagementMutation.isPending ? "Creating..." : "Schedule a Tour"}
-                  </button>
+                  {(() => {
+                    // Find any participant associated with this engagement
+                    const activeParticipant = engagedProperty?.participants?.find((p: any) => p.is_accepted === 'accepted');
+                    const pendingParticipant = engagedProperty?.participants?.find((p: any) => p.is_accepted === 'pending' || !p.is_accepted);
+                    const participant = activeParticipant || pendingParticipant;
+
+                    if (participant) {
+                      const isAccepted = activeParticipant !== undefined;
+                      const displayName = participant.agent?.firstName 
+                        ? `${participant.agent.firstName} ${participant.agent.lastName || ''}`
+                        : participant.agent?.email || 'Your Agent';
+
+                      return (
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl">
+                            <div className="flex flex-col">
+                              <span className="text-[10px] sm:text-xs text-gray-500 uppercase font-bold tracking-wider">
+                                {isAccepted ? 'Your Agent' : 'Invitation Sent'}
+                              </span>
+                              <span className="text-xs sm:text-sm font-semibold truncate max-w-[120px] sm:max-w-[160px]">
+                                {displayName}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => {
+                                const threadId = participant?.threadId;
+                                if (threadId) {
+                                  router.push(`/dashboard/buyer?tab=messages&threadId=${threadId}`);
+                                } else {
+                                  // Fallback: If no threadId yet, open the contact/invite modal
+                                  handleContactAgent();
+                                }
+                              }}
+                              className="bg-[#E8804C] text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:bg-[#d6703c] transition-colors shadow-sm"
+                            >
+                              Chat
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <button
+                        className="w-full bg-black text-white px-4 sm:px-6 lg:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-normal border border-black hover:bg-gray-900 transition-colors"
+                        onClick={handleContactAgent}
+                        disabled={propertyEngagementMutation.isPending}
+                      >
+                        {propertyEngagementMutation.isPending ? "Creating..." : "Schedule a Tour"}
+                      </button>
+                    );
+                  })()}
                 </div>
               </div>
 

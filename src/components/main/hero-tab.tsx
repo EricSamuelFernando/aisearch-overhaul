@@ -204,10 +204,7 @@ const geocodeValidateLocation = (value: string) =>
                 address: value,
                 componentRestrictions: { country: 'us' },
             },
-            (
-                results: google.maps.GeocoderResult[] | null,
-                status: google.maps.GeocoderStatus
-            ) => {
+            (results: any, status: any) => {
                 if (status !== 'OK' || !results || results.length === 0) {
                     resolve(false);
                     return;

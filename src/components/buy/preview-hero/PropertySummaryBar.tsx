@@ -116,7 +116,7 @@ const TopCollegesSection = ({
 
   if (loading) {
     return (
-      <section className="p-6 w-full mt-4">
+      <section className="pt-2 pb-6 w-full">
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
         </div>
@@ -126,7 +126,7 @@ const TopCollegesSection = ({
 
   if (error) {
     return (
-      <section className="p-6 w-full mt-4">
+      <section className="pt-2 pb-6 w-full">
         <div className="text-center py-12 text-gray-600 bg-gray-50 rounded-xl border border-dashed border-gray-200">
           <p className="max-w-md mx-auto">{error}</p>
         </div>
@@ -136,7 +136,7 @@ const TopCollegesSection = ({
 
   if (!data) {
     return (
-      <section className="p-6 w-full mt-4">
+      <section className="pt-2 pb-6 w-full">
         <div className="text-center py-12 text-gray-600 bg-gray-50 rounded-xl border border-dashed border-gray-200">
           <p className="max-w-md mx-auto">College readiness data is currently unavailable for this area.</p>
         </div>
@@ -173,7 +173,7 @@ const TopCollegesSection = ({
   // If no data at all, show message
   if (topColleges.length === 0 && topMajors.length === 0 && diversityData.length === 0) {
     return (
-      <section className="p-6 w-full mt-4">
+      <section className="pt-2 pb-6 w-full">
         <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-6">
           College Readiness
         </h2>
@@ -185,7 +185,7 @@ const TopCollegesSection = ({
   }
 
   return (
-    <section className="p-6 w-full mt-4">
+    <section className="pt-2 pb-6 w-full">
       <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-6">
         Top Colleges Attended by Graduates From{' '}
         <span className="text-orange-600">
@@ -383,7 +383,7 @@ const TopCollegesSection = ({
 
       {/* Footer Disclaimer */}
       <p className="text-[11px] text-gray-400 mt-8 pt-4 border-t border-gray-200">
-        School ratings are provided by Snaphomecollege.org. This information should only be used as a reference.
+        School ratings are provided by SnapGrad. This information should only be used as a reference.
         Proximity or boundaries shown here are not a guarantee of enrollment. Please reach out to schools directly to verify all information and enrollment eligibility.
       </p>
     </section>

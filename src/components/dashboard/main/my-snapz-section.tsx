@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useSelector } from 'react-redux';
 import { v4 as uuidv4 } from 'uuid';
@@ -294,6 +295,17 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
     }
   }, [userData?.id]);
 
+  useEffect(() => {
+    if (!isRequestsModalOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isRequestsModalOpen]);
+
   const handleRequestAction = (id: string, action: 'accept' | 'reject') => {
     const status = action === 'accept' ? 'accepted' : 'rejected';
     updateSnapzById.mutateAsync(
@@ -330,6 +342,87 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
   const snapList = useMemo(() => snaps || [], [snaps]);
   const myFavSnap = useMemo(() => snapList.find(s => s.name === 'My Favourite'), [snapList]);
   const filteredSnapList = useMemo(() => snapList.filter(s => s.name !== 'My Favourite'), [snapList]);
+  const requestsModal =
+    isRequestsModalOpen && typeof document !== 'undefined'
+      ? createPortal(
+          <div
+            className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]"
+            onClick={() => setIsRequestsModalOpen(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Pending snapz requests"
+              className="relative mx-auto w-full max-w-[500px] rounded-2xl bg-white p-4 shadow-2xl sm:p-6 max-h-[calc(100vh-2rem)] overflow-y-auto"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="min-h-[200px] space-y-4">
+                {pendingRequests.length === 0 ? (
+                  <div className="flex h-full items-center justify-center">
+                    <p className="py-4 text-center text-gray-500">No requests available yet.</p>
+                  </div>
+                ) : (
+                  pendingRequests.map((req, idx) => (
+                    <div
+                      key={idx}
+                      className="flex flex-col gap-3 rounded-lg bg-gray-50 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4"
+                    >
+                      <div className="flex items-center space-x-4">
+                        {req?.snap?.user?.image ? (
+                          <img
+                            src={req?.snap?.user?.image}
+                            alt={req?.snap?.user?.firstName}
+                            className="h-10 w-10 rounded-full"
+                          />
+                        ) : (
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-sm font-bold text-gray-600">
+                            {req?.snap?.user?.firstName?.charAt(0).toUpperCase()}
+                            {req?.snap?.user?.lastName?.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+
+                        <div>
+                          <p className="text-sm text-gray-900">
+                            <span className="font-bold">
+                              {req?.snap?.user?.firstName} {req?.snap?.user?.lastName}
+                            </span>{' '}
+                            has invited you to join their snapz -{' '}
+                            <span className="font-bold">{req?.snap?.name}</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 self-end sm:self-auto">
+                        <Button
+                          size="sm"
+                          className="h-8 bg-black px-3 text-xs text-white hover:bg-gray-800"
+                          onClick={() => handleRequestAction(req.id, 'accept')}
+                        >
+                          Accept
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 border-black px-3 text-xs text-black hover:bg-gray-100"
+                          onClick={() => handleRequestAction(req.id, 'reject')}
+                        >
+                          Decline
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="mt-6 flex justify-end">
+                <Button variant="outline" onClick={() => setIsRequestsModalOpen(false)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
 
   return (
     <div className="space-y-4">
@@ -501,75 +594,7 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
         onClose={() => setIsCreateSnapModalOpen(false)}
         onCreate={handleCreateNewSnap}
       />
-
-      {isRequestsModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="mx-3 w-full max-w-[500px] rounded-2xl bg-white p-4 shadow-2xl sm:mx-0 sm:p-6">
-            <div className="min-h-[200px] space-y-4">
-              {pendingRequests.length === 0 ? (
-                <div className="flex h-full items-center justify-center">
-                  <p className="py-4 text-center text-gray-500">No requests available yet.</p>
-                </div>
-              ) : (
-                pendingRequests.map((req, idx) => (
-                  <div
-                    key={idx}
-                    className="flex flex-col gap-3 rounded-lg bg-gray-50 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4"
-                  >
-                    <div className="flex items-center space-x-4">
-                      {req?.snap?.user?.image ? (
-                        <img
-                          src={req?.snap?.user?.image}
-                          alt={req?.snap?.user?.firstName}
-                          className="h-10 w-10 rounded-full"
-                        />
-                      ) : (
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-sm font-bold text-gray-600">
-                          {req?.snap?.user?.firstName?.charAt(0).toUpperCase()}
-                          {req?.snap?.user?.lastName?.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-
-                      <div>
-                        <p className="text-sm text-gray-900">
-                          <span className="font-bold">
-                            {req?.snap?.user?.firstName} {req?.snap?.user?.lastName}
-                          </span>{' '}
-                          has invited you to join their snapz -{' '}
-                          <span className="font-bold">{req?.snap?.name}</span>
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2 self-end sm:self-auto">
-                      <Button
-                        size="sm"
-                        className="h-8 bg-black px-3 text-xs text-white hover:bg-gray-800"
-                        onClick={() => handleRequestAction(req.id, 'accept')}
-                      >
-                        Accept
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 border-black px-3 text-xs text-black hover:bg-gray-100"
-                        onClick={() => handleRequestAction(req.id, 'reject')}
-                      >
-                        Decline
-                      </Button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-            <div className="mt-6 flex justify-end">
-              <Button variant="outline" onClick={() => setIsRequestsModalOpen(false)}>
-                Close
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {requestsModal}
     </div>
   );
 };

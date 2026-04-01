@@ -1,11 +1,11 @@
 'use client';
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { searchProperties, cancelActiveTask, fetchHistory, fetchSessionDetails, clearHistoryAPI, suggestAddresses, fetchThinkingProgress } from '@/lib/api';
+import React, { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react';
+import { searchProperties, cancelActiveTask, fetchHistory, fetchSessionDetails, clearHistoryAPI, suggestAddresses, fetchThinkingProgress, streamChat } from '@/lib/api';
 import { useAppDispatch, useAppSelector } from '@/lib/hook';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { initializeTempUserId, incrementSearchCount } from '@/slices/onboarding/property-preference';
 import { usePropertyStore } from '@/store/use-property-store';
-import type { AddressSuggestion, ThinkingProgressResponse } from '@/lib/api';
+import type { AddressSuggestion, ThinkingProgressResponse, SSEEvent } from '@/lib/api';
 import { setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
@@ -71,6 +71,7 @@ interface ChatMessage {
     isForecast?: boolean;
     forecastData?: ForecastPoint[];
     map?: any;
+    stoppedThinking?: boolean;
 }
 
 type ForecastPoint = { date: string; rate: number };
@@ -169,6 +170,25 @@ const classifySuggestionIntent = (value: string): SmartSuggestionIntent => {
     if (locationClassification === 'valid') return 'mls';
     if (locationClassification === 'borderline') return 'mixed';
     return 'nl';
+};
+
+const classifyQueryIntent = async (query: string): Promise<'location' | 'natural'> => {
+    try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 4500);
+        const res = await fetch('/api/classify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query }),
+            signal: controller.signal,
+        });
+        clearTimeout(timeout);
+        if (!res.ok) return 'natural';
+        const data = await res.json();
+        return data.intent === 'location' ? 'location' : 'natural';
+    } catch {
+        return 'natural'; // safe default: never wrongly redirect
+    }
 };
 
 const geocodeValidateLocation = (value: string) =>
@@ -327,6 +347,78 @@ const INITIAL_AI_TRY_ASKING_SUGGESTIONS: Suggestion[] = [
     { id: 'try-3', text: "Explain what an HOA is like I'm 5." },
     { id: 'try-4', text: 'What is the monthly payment on a $240,000 loan at 6% for 30 years?' },
 ];
+
+// ── Proactive Greeting Helpers ──────────────────────────────────────────────
+const SNAPHOMZ_LAST_SEARCH_KEY = 'snaphomz_last_search';
+
+function getTimeGreeting(): string {
+    const h = new Date().getHours();
+    if (h >= 5 && h < 12) return 'Good morning';
+    if (h >= 12 && h < 17) return 'Good afternoon';
+    if (h >= 17 && h < 22) return 'Good evening';
+    return 'Hey';
+}
+
+function getLastSearchSummary(userId?: string): string | null {
+    try {
+        if (!userId) return null; // anonymous users never show last search
+        const key = `${SNAPHOMZ_LAST_SEARCH_KEY}_${userId}`;
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        if (Date.now() - (data.ts || 0) > 30 * 24 * 60 * 60 * 1000) return null;
+        return data.summary || null;
+    } catch { return null; }
+}
+
+const PROACTIVE_TEMPLATES_NO_NAME: Array<(time: string) => string> = [
+    (time) => `${time}! I'm here to help you find your perfect home.\n\nWhat are you looking for today?`,
+    (time) => `${time}! Ready to help you search smarter.\n\nTell me what kind of home you have in mind.`,
+    (time) => `${time}! Let's find you the perfect place.\n\nWhat would you like to search for?`,
+];
+
+const PROACTIVE_TEMPLATES_NAMED: Array<(time: string, name: string) => string> = [
+    (time, name) => `${time}, ${name}! I'm here to help you find your perfect home.\n\nWhat are you looking for today?`,
+    (time, name) => `${time}, ${name}! Ready to help you search smarter.\n\nTell me what kind of home you have in mind.`,
+    (time, name) => `${time}, ${name}! Let's find you the perfect place.\n\nWhat would you like to search for?`,
+];
+
+const PROACTIVE_TEMPLATES_RETURNING: Array<(time: string, name: string, search: string) => string> = [
+    (time, name, search) => `${time}, ${name}! Welcome back.\n\nLast time you were looking at **${search}** homes. Want to pick up that search, or start fresh?`,
+    (time, name, search) => `${time}, ${name}! Good to see you again.\n\nYou were searching for **${search}** homes last time. Continue where you left off?`,
+    (time, name, search) => `${time}, ${name}! Welcome back.\n\nShall we pick up your **${search}** search, or explore something new today?`,
+];
+
+function buildProactiveGreeting(userName?: string, userId?: string): string {
+    const time = getTimeGreeting();
+    const lastSearch = getLastSearchSummary(userId);
+    const name = userName?.trim();
+    const idx = Math.floor(Math.random() * 3);
+    if (lastSearch && name) return PROACTIVE_TEMPLATES_RETURNING[idx](time, name, lastSearch);
+    if (name) return PROACTIVE_TEMPLATES_NAMED[idx](time, name);
+    return PROACTIVE_TEMPLATES_NO_NAME[idx](time);
+}
+
+const PROACTIVE_SUGGESTION_SETS: string[][] = [
+    // Set A — Search + Finance + Education
+    [
+        '3-bed homes in Austin under $600K with a pool',
+        'Can I afford a home on $9,000/month income?',
+        'Explain closing costs like I\'m 5',
+    ],
+    // Set B — Finance WOW + Comparison + Concepts
+    [
+        'What\'s my monthly payment on a $450,000 home?',
+        'Compare Austin vs Denver for a first-time buyer',
+        'What is PMI and will I have to pay it?',
+    ],
+];
+
+function buildProactiveSuggestions(): string[] {
+    const idx = Math.floor(Math.random() * PROACTIVE_SUGGESTION_SETS.length);
+    return PROACTIVE_SUGGESTION_SETS[idx];
+}
+// ────────────────────────────────────────────────────────────────────────────
 const CURATED_AI_SEARCH_TEMPLATES: string[] = [
     '3-bedroom homes near top-rated schools in Manhattan Beach',
     'Homes in Irvine under $900k with low HOA',
@@ -959,6 +1051,17 @@ const sanitizeAssistantOutput = (rawText: string) => {
         })
         .join('\n');
 
+    // Remove markdown links [text](url) entirely — no external URLs or company references shown
+    cleaned = cleaned
+        .split('\n')
+        .map((line) => line.replace(/\[([^\]]+)\]\([^)]+\)/g, '').trimEnd())
+        .filter((line) => {
+            const t = line.trim();
+            // Drop lines that are now empty or just a bare bullet/dash after link removal
+            return t !== '' && t !== '-' && t !== '•' && t !== '*';
+        })
+        .join('\n');
+
     cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
     const uniqueSuggestions = Array.from(
         new Set(
@@ -982,7 +1085,7 @@ const formatMessageContent = (text: string) => {
     const flushList = (idx: number) => {
         if (currentListItems.length > 0) {
             formattedElements.push(
-                <ul key={`ul-${idx}`} className="list-disc pl-5 mb-4 space-y-1 text-gray-600">
+                <ul key={`ul-${idx}`} className="list-disc pl-5 mb-4 space-y-1 text-gray-800">
                     {currentListItems}
                 </ul>
             );
@@ -1014,7 +1117,7 @@ const formatMessageContent = (text: string) => {
         if (trimmed.startsWith('- ')) {
             const content = trimmed.substring(2);
             currentListItems.push(
-                <li key={`li-${index}`} className="mb-1 text-gray-600">
+                <li key={`li-${index}`} className="mb-1 text-gray-800">
                     {renderTextWithBold(content)}
                 </li>
             );
@@ -1038,7 +1141,7 @@ const formatMessageContent = (text: string) => {
         } else {
             // Paragraph
             formattedElements.push(
-                <p key={`p-${index}`} className="mb-2 text-gray-600">
+                <p key={`p-${index}`} className="mb-2 text-gray-800">
                     {renderTextWithBold(trimmed)}
                 </p>
             );
@@ -1141,7 +1244,7 @@ const normalizePoolValue = (value: any): boolean | null => {
 
 
 
-export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchActive, searchType, onSuggestionsOpen }: { placeholderText?: string, onSearchStateChange?: (isActive: boolean, searchTerm: string) => void, isSearchActive?: boolean, searchType?: string, showOutline?: boolean, disableAutoExpand?: boolean, onSuggestionsOpen?: (open: boolean) => void }) => {
+export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchActive, searchType, onSuggestionsOpen, respectParentWidth = false }: { placeholderText?: string, onSearchStateChange?: (isActive: boolean, searchTerm: string) => void, isSearchActive?: boolean, searchType?: string, showOutline?: boolean, disableAutoExpand?: boolean, onSuggestionsOpen?: (open: boolean) => void, respectParentWidth?: boolean }) => {
     // --- Hooks & State ---
     const dispatch = useAppDispatch();
     const { user } = useAuth();
@@ -1155,6 +1258,15 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             dispatch(initializeTempUserId());
         }
     }, [dispatch, tempUserId]);
+
+    // Warmup ping: fire silently on mount so the AI Lambda is initialized
+    // before the user submits their first query.
+    useEffect(() => {
+        const aiBase = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI
+            || process.env.NEXT_PUBLIC_API_BASE_URL
+            || 'http://127.0.0.1:5000';
+        fetch(`${aiBase}/health`, { method: 'GET', mode: 'no-cors' }).catch(() => { });
+    }, []);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [showSuggestions, setShowSuggestions] = useState(false);
@@ -1174,6 +1286,11 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const requestStartedAtRef = useRef<number | null>(null);
     // Controls expansion state (Collapsed Search Bar vs Expanded Chat UI)
     const [isExpanded, setIsExpanded] = useState(false);
+    // Proactive greeting shown on fresh chat open (UI-only, not stored in chatHistory)
+    const [showProactiveGreeting, setShowProactiveGreeting] = useState(false);
+    const [proactiveGreetingText, setProactiveGreetingText] = useState('');
+    const [proactiveSuggestions, setProactiveSuggestions] = useState<string[]>([]);
+    const [proactiveGreetingComplete, setProactiveGreetingComplete] = useState(false);
     const [typedPlaceholder, setTypedPlaceholder] = useState("");
     const [showAttachMenu, setShowAttachMenu] = useState(false);
     const [showAttachTooltip, setShowAttachTooltip] = useState(false);
@@ -1205,6 +1322,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const [pendingImageStatus, setPendingImageStatus] = useState<'idle' | 'processing' | 'ready'>('idle');
     const [submittedImage, setSubmittedImage] = useState<File | null>(null);
     const [snapSearchInProgress, setSnapSearchInProgress] = useState(false);
+    const [chatViewportHeight, setChatViewportHeight] = useState<number | null>(null);
+    const [isDesktopViewport, setIsDesktopViewport] = useState(false);
     const [isClearingHistory, setIsClearingHistory] = useState(false);
     const [carouselEdges, setCarouselEdges] = useState<Record<string, { atStart: boolean; atEnd: boolean }>>({});
     const aiSuggestions = React.useMemo(
@@ -1234,6 +1353,22 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         setMlsBypassMode(false);
         setAiModeActive(true);
         setMlsBypassModeEnabled(false);
+    }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const media = window.matchMedia('(min-width: 768px)');
+        const updateViewport = () => setIsDesktopViewport(media.matches);
+        updateViewport();
+        if (media.addEventListener) {
+            media.addEventListener('change', updateViewport);
+        } else {
+            media.addListener(updateViewport);
+        }
+        return () => {
+            media.removeEventListener('change', updateViewport);
+
+        };
     }, []);
 
     useEffect(() => {
@@ -1525,6 +1660,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const [awaitingSnapConfirmation, setAwaitingSnapConfirmation] = useState(false);
     const [snapConfirmationMessageId, setSnapConfirmationMessageId] = useState<string | null>(null);
     const chatBottomRef = useRef<HTMLDivElement>(null);
+    const autoScrollEnabledRef = useRef(true);
     const searchContainerRef = useRef<HTMLDivElement>(null);
     const searchInputRef = useRef<HTMLTextAreaElement>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
@@ -1537,11 +1673,62 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const [expandedSchoolLists, setExpandedSchoolLists] = useState<Record<string, boolean>>({});
     const [nearbySchoolsById, setNearbySchoolsById] = useState<Record<string, { status: 'idle' | 'loading' | 'ready' | 'error'; schools: any[]; error?: string; schoolType?: string; fallbackUsed?: boolean }>>({});
 
-    const scrollChatToBottom = React.useCallback((behavior: ScrollBehavior = 'auto') => {
+    const scrollChatToBottom = React.useCallback((behavior: ScrollBehavior = 'auto', options?: { force?: boolean }) => {
         const container = chatBottomRef.current?.parentElement;
         if (!container) return;
+        if (!options?.force && !autoScrollEnabledRef.current) return;
         container.scrollTo({ top: container.scrollHeight, behavior });
     }, []);
+
+    useEffect(() => {
+        if (!isExpanded) return;
+        let cancelled = false;
+        const attachScrollListener = () => {
+            if (cancelled) return;
+            const container = chatBottomRef.current?.parentElement;
+            if (!container) {
+                window.setTimeout(attachScrollListener, 80);
+                return;
+            }
+
+            let lastScrollTop = container.scrollTop;
+            const disableAutoScroll = () => {
+                autoScrollEnabledRef.current = false;
+            };
+            const updateAutoScroll = () => {
+                const distance = container.scrollHeight - container.scrollTop - container.clientHeight;
+                const delta = container.scrollTop - lastScrollTop;
+                if (delta < 0) {
+                    autoScrollEnabledRef.current = false;
+                } else if (distance <= 32) {
+                    autoScrollEnabledRef.current = true;
+                } else {
+                    autoScrollEnabledRef.current = false;
+                }
+                lastScrollTop = container.scrollTop;
+            };
+
+            updateAutoScroll();
+            container.addEventListener('scroll', updateAutoScroll, { passive: true });
+            container.addEventListener('wheel', disableAutoScroll, { passive: true });
+            container.addEventListener('touchstart', disableAutoScroll, { passive: true });
+            container.addEventListener('touchmove', disableAutoScroll, { passive: true });
+            container.addEventListener('pointerdown', disableAutoScroll, { passive: true });
+            return () => {
+                container.removeEventListener('scroll', updateAutoScroll);
+                container.removeEventListener('wheel', disableAutoScroll);
+                container.removeEventListener('touchstart', disableAutoScroll);
+                container.removeEventListener('touchmove', disableAutoScroll);
+                container.removeEventListener('pointerdown', disableAutoScroll);
+            };
+        };
+
+        const detach = attachScrollListener();
+        return () => {
+            cancelled = true;
+            if (detach) detach();
+        };
+    }, [isExpanded]);
 
     const startNewChat = React.useCallback((options?: { focusInput?: boolean }) => {
         setShowAiModeTip(false);
@@ -1552,6 +1739,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         setIsExpanded(true);
         setSearchTerm('');
         setChatHistory([]);
+        setCompletedAnswerAnimations({});
         setSessionId(null);
         setIsSearching(false);
         setCurrentQuery('');
@@ -1564,12 +1752,18 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         setNearbySchoolsById({});
         if (onSearchStateChange) onSearchStateChange(true, '');
 
+        // Show proactive greeting on fresh chat open
+        setProactiveGreetingText(buildProactiveGreeting(user?.firstname, user?.id));
+        setProactiveSuggestions(buildProactiveSuggestions());
+        setProactiveGreetingComplete(false);
+        setShowProactiveGreeting(true);
+
         if (options?.focusInput) {
             setTimeout(() => {
                 searchInputRef.current?.focus();
             }, 120);
         }
-    }, [onSearchStateChange, setChatHistory, setExpandedPropertyId, setIsExpanded, setIsMenuOpen, setIsSearching, setNearbySchoolsById, setSearchTerm, setSelectedPropertyId, setSessionId]);
+    }, [onSearchStateChange, setChatHistory, setExpandedPropertyId, setIsExpanded, setIsMenuOpen, setIsSearching, setNearbySchoolsById, setSearchTerm, setSelectedPropertyId, setSessionId, user?.firstname]);
 
     useEffect(() => {
         const handleOpenSearch = (event: Event) => {
@@ -1675,6 +1869,106 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             window.clearTimeout(t2);
         };
     }, [isExpanded]);
+
+    useEffect(() => {
+        if (!isExpanded) return;
+        let attempts = 0;
+        const attemptScrollBottom = () => {
+            attempts += 1;
+            scrollChatToBottom('auto', { force: true });
+            if (attempts < 4) {
+                window.setTimeout(attemptScrollBottom, 140);
+            }
+        };
+        const t1 = window.setTimeout(attemptScrollBottom, 80);
+        return () => {
+            window.clearTimeout(t1);
+        };
+    }, [isExpanded, scrollChatToBottom]);
+
+    useEffect(() => {
+        if (!isExpanded || !isDesktopViewport) return;
+        let isCancelled = false;
+        const timers: number[] = [];
+        const attemptFocus = () => {
+            if (isCancelled) return;
+            const input = searchInputRef.current;
+            if (!input) return;
+            if (document.activeElement === input) return;
+            try {
+                input.focus({ preventScroll: true });
+            } catch {
+                input.focus();
+            }
+        };
+        const delays = [0, 120, 260, 420, 700, 1000];
+        delays.forEach((delay) => {
+            const timer = window.setTimeout(attemptFocus, delay);
+            timers.push(timer);
+        });
+        return () => {
+            isCancelled = true;
+            timers.forEach((timer) => window.clearTimeout(timer));
+        };
+    }, [isExpanded, isDesktopViewport]);
+
+    useLayoutEffect(() => {
+        if (!isExpanded) {
+            setChatViewportHeight(null);
+            return;
+        }
+
+        const updateHeight = () => {
+            const el = chatLayoutRef.current;
+            if (!el) return;
+            const top = el.getBoundingClientRect().top;
+            if (!Number.isFinite(top)) return;
+            const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+            const minHeight = isDesktopViewport ? 560 : 420;
+            const next = Math.max(minHeight, Math.floor(viewportHeight - top));
+            setChatViewportHeight(next);
+        };
+
+        const raf = window.requestAnimationFrame(updateHeight);
+        const t1 = window.setTimeout(updateHeight, 120);
+        const t2 = window.setTimeout(updateHeight, 360);
+        const t3 = window.setTimeout(updateHeight, 720);
+        const t4 = window.setTimeout(updateHeight, 1200);
+        const scrollContainer =
+            (document.querySelector('main') as HTMLElement | null) ||
+            document.scrollingElement ||
+            document.documentElement;
+        let scrollStopTimer: number | null = null;
+        const stopScrollListener = () => {
+            if (scrollContainer) {
+                scrollContainer.removeEventListener('scroll', handleScroll);
+            }
+        };
+        const handleScroll = () => {
+            updateHeight();
+            if (scrollStopTimer) window.clearTimeout(scrollStopTimer);
+            scrollStopTimer = window.setTimeout(stopScrollListener, 200);
+        };
+        if (scrollContainer) {
+            scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+            scrollStopTimer = window.setTimeout(stopScrollListener, 1200);
+        }
+        window.addEventListener('resize', updateHeight);
+        window.visualViewport?.addEventListener('resize', updateHeight);
+        return () => {
+            window.cancelAnimationFrame(raf);
+            window.clearTimeout(t1);
+            window.clearTimeout(t2);
+            window.clearTimeout(t3);
+            window.clearTimeout(t4);
+            if (scrollStopTimer) window.clearTimeout(scrollStopTimer);
+            if (scrollContainer) {
+                scrollContainer.removeEventListener('scroll', handleScroll);
+            }
+            window.removeEventListener('resize', updateHeight);
+            window.visualViewport?.removeEventListener('resize', updateHeight);
+        };
+    }, [isExpanded, isDesktopViewport]);
 
     useEffect(() => {
         if (!showAttachMenu) return;
@@ -1990,14 +2284,15 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     }, [pendingImage]);
 
     useEffect(() => {
-        if (!isSearching || !sessionId) return;
+        const sessionForThinking = activeSessionId;
+        if (!isSearching || !sessionForThinking) return;
 
         let cancelled = false;
         let intervalId: ReturnType<typeof setInterval> | null = null;
 
         const pollThinking = async () => {
             try {
-                const progress: ThinkingProgressResponse = await fetchThinkingProgress(sessionId);
+                const progress: ThinkingProgressResponse = await fetchThinkingProgress(sessionForThinking);
                 if (cancelled) return;
                 if (Array.isArray(progress?.steps) && progress.steps.length > 0) {
                     setThinkingSteps(progress?.steps as any);
@@ -2017,7 +2312,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             cancelled = true;
             if (intervalId) clearInterval(intervalId);
         };
-    }, [isSearching, sessionId]);
+    }, [isSearching, activeSessionId]);
 
     // Auto-scroll to bottom when conversation updates.
     useEffect(() => {
@@ -2240,34 +2535,50 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
     const handleSearchSubmit = async (queryToSearch: string) => {
         if (!queryToSearch.trim() || isSearching || isSearchingRef.current) return;
+        // Lock immediately so concurrent submits (during the async classify await) are dropped.
+        isSearchingRef.current = true;
 
-        // Auto-route: MLS-style queries go to browse results, natural-language stays in AI chat.
-        let allowMlsRoute = !pendingLocationImage;
+        // ── Bare-location routing ────────────────────────────────────────────
+        // Only route to browse immediately for inputs that are UNAMBIGUOUSLY
+        // a bare location with no other words — ZIP code, street address, or
+        // "City ST" / "City, ST" where the state token is at the END of the string.
+        //
+        // Everything else goes to the AI backend. The semantic layer (all-MiniLM-L6-v2)
+        // is the single source of truth for all ambiguous queries. This eliminates
+        // false positives from common English words matching state abbreviations
+        // (e.g. "in" → Indiana, "or" → Oregon, "me" → Maine).
+        const isBareLocation = (q: string): boolean => {
+            const trimmed = q.trim();
+            if (!trimmed || pendingLocationImage) return false;
+            // Bare MLS ID or 6-12 digit number
+            if (hasLikelyMlsIdentifier(trimmed)) return true;
+            // ZIP code alone (5 digits, optional +4)
+            if (/^\d{5}(?:-\d{4})?$/.test(trimmed)) return true;
+            // Street address alone: starts with number + has street suffix
+            if (hasStreetAddressPattern(trimmed)) return true;
+            // "City, ST" — state abbreviation after comma at end of string
+            if (/,\s*[A-Z]{2}$/i.test(trimmed)) return true;
+            // "City ST" — 2-letter state abbreviation as the LAST token only
+            if (/\s[A-Z]{2}$/i.test(trimmed) && US_STATE_ABBREVIATIONS.has(trimmed.split(/\s+/).pop()!.toUpperCase())) return true;
+            // Full state name as the LAST word(s) only (e.g. "Austin Texas", "Austin California")
+            const lower = trimmed.toLowerCase();
+            if (US_STATE_NAMES.some(name => lower.endsWith(` ${name}`))) return true;
+            return false;
+        };
+
+        const allowMlsRoute = isBareLocation(queryToSearch);
+
         if (allowMlsRoute) {
-            const trimmedQuery = normalizeLocationInput(queryToSearch);
-            if (!hasLikelyMlsIdentifier(trimmedQuery)) {
-                const classification = classifyLocationQuery(trimmedQuery);
-                if (classification === 'invalid') {
-                    allowMlsRoute = false;
-                } else if (classification === 'borderline') {
-                    const geocodedValid = await geocodeValidateLocation(trimmedQuery);
-                    if (!geocodedValid) {
-                        allowMlsRoute = false;
-                    }
-                }
+            const destination = `/buy/browse?q=${encodeURIComponent(queryToSearch.trim())}`;
+            if (typeof window !== 'undefined') {
+                window.location.assign(destination);
             }
-
-            if (allowMlsRoute) {
-                const destination = `/buy/browse?q=${encodeURIComponent(queryToSearch.trim())}`;
-                if (typeof window !== 'undefined') {
-                    window.location.assign(destination);
-                }
-                return;
-            }
+            return;
         }
         setMlsBypassMode(false);
         setMlsBypassModeEnabled(false);
         trackAiQueryForSuggestions(queryToSearch);
+        setShowProactiveGreeting(false); // Hide proactive greeting once user sends first message
         setIsExpanded(true); // Immediate UI response
         if (onSearchStateChange) {
             onSearchStateChange(true, queryToSearch);
@@ -2282,6 +2593,13 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         const userMsgId = Date.now().toString();
         const newMsg: ChatMessage = { id: userMsgId, role: 'user', content: queryToSearch };
         setChatHistory(prev => [...prev, newMsg]);
+        scrollChatToBottom('smooth', { force: true });
+        requestAnimationFrame(() => {
+            scrollChatToBottom('smooth', { force: true });
+        });
+        setTimeout(() => {
+            scrollChatToBottom('auto', { force: true });
+        }, 120);
 
         const normalizedInput = queryToSearch.trim().toLowerCase();
         const sanitizedInput = normalizedInput.replace(/[.!?,]/g, '').trim();
@@ -2415,18 +2733,77 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 return;
             }
 
-            // All messages route through LangGraph via /api/search.
+            // All messages route through /api/chat (SSE streaming).
             // Nova Planner handles routing internally: property search, Q&A, SnapInterest,
-            // rent-vs-buy, school lookup, etc. The response contract is identical regardless
-            // of intent — properties=[] for text-only answers, properties=[...] for search results.
+            // rent-vs-buy, school lookup, etc.
             setThinkingIntentHint("search");
 
-            responseData = await searchProperties({
-                userid: user?.id || tempUserId || 'anonymous',
-                query: queryToSearch,
-                session_id: activeSessionId,
-                from_browse: false,
-            }, newController.signal);
+            // ── Open SSE stream ────────────────────────────────────────────
+            const sseResponse = await streamChat(
+                {
+                    query: queryToSearch,
+                    session_id: activeSessionId,
+                    user_name: user?.firstname || undefined,
+                    user_local_hour: new Date().getHours(),
+                },
+                user?.id || tempUserId || undefined,
+                newController.signal
+            );
+
+            if (!sseResponse.ok || !sseResponse.body) {
+                throw new Error(`Chat stream failed with status ${sseResponse.status}`);
+            }
+
+            // ── Read stream and accumulate into responseData ───────────────
+            const _sseAccum: Record<string, any> = {};
+            let _streamText = '';
+            const reader = sseResponse.body.getReader();
+            const decoder = new TextDecoder();
+            let _buf = '';
+
+            outer: while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                _buf += decoder.decode(value, { stream: true });
+                const parts = _buf.split('\n\n');
+                _buf = parts.pop() ?? '';
+                for (const part of parts) {
+                    const line = part.trim();
+                    if (!line.startsWith('data: ')) continue;
+                    try {
+                        const evt = JSON.parse(line.slice(6)) as SSEEvent;
+                        if (evt.type === 'thinking') {
+                            // Show thinking steps in real-time
+                            setThinkingSteps(prev => [
+                                ...prev,
+                                { id: Date.now().toString(), label: evt.step, title: evt.step, source: evt.source || 'Nova', status: 'active' as const },
+                            ]);
+                        } else if (evt.type === 'token') {
+                            _streamText += evt.text;
+                        } else if (evt.type === 'properties') {
+                            _sseAccum.properties = evt.data;
+                        } else if (evt.type === 'suggestions') {
+                            _sseAccum.suggestions = evt.data;
+                        } else if (evt.type === 'metadata') {
+                            _sseAccum.intent = (evt as any).intent || _sseAccum.intent;
+                            _sseAccum.metadata = evt;
+                        } else if (evt.type === 'done') {
+                            if ((evt as any).session_id) _sseAccum.session_id = (evt as any).session_id;
+                        } else if (evt.type === 'error') {
+                            throw new Error((evt as any).message || 'Stream error');
+                        }
+                    } catch (parseErr) {
+                        if (parseErr instanceof Error && parseErr.message && !parseErr.message.startsWith('Stream error')) {
+                            console.warn('[SSE] Parse error:', parseErr, line);
+                        } else {
+                            throw parseErr;
+                        }
+                    }
+                }
+            }
+
+            _sseAccum.response = _streamText;
+            responseData = _sseAccum;
 
             console.log("Backend Response:", responseData);
 
@@ -2677,6 +3054,22 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                 };
                 setChatHistory(prev => [...prev, aiMsg]);
 
+                // Persist last search context for proactive greeting on next session
+                if (mappedProps.length > 0) {
+                    try {
+                        const p = mappedProps[0];
+                        const city = p.city || '';
+                        const state = p.state || '';
+                        const beds = p.beds ? `${p.beds}-bed` : '';
+                        const location = [city, state].filter(Boolean).join(', ');
+                        const summary = [location, beds].filter(Boolean).join(' · ');
+                        if (summary && user?.id) {
+                            const key = `${SNAPHOMZ_LAST_SEARCH_KEY}_${user.id}`;
+                            localStorage.setItem(key, JSON.stringify({ summary, ts: Date.now() }));
+                        }
+                    } catch (_) { /* localStorage unavailable */ }
+                }
+
             } else {
                 // Empty results
                 const aiMsgId = (Date.now() + 1).toString();
@@ -2727,6 +3120,34 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             isSearchingRef.current = false;
         }
     };
+
+    const handleStopSearch = React.useCallback(async () => {
+        if (!isSearching) return;
+        try {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+            if (sessionId) {
+                await cancelActiveTask(sessionId);
+            }
+            setChatHistory(prev => [
+                ...prev,
+                {
+                    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+                    role: 'assistant',
+                    content: '',
+                    stoppedThinking: true,
+                },
+            ]);
+        } finally {
+            requestStartedAtRef.current = null;
+            setLatestThoughtDurationMs(null);
+            setIsSearching(false);
+            isSearchingRef.current = false;
+            setThinkingSteps([]);
+            setThinkingIntentHint(undefined);
+        }
+    }, [isSearching, sessionId]);
 
     const handleFormSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -2794,7 +3215,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         // Address-like heuristics
         const hasHouseNumber = /\b\d{1,6}\b/.test(trimmed);
         const hasStreetKeyword = /\b(st|street|ave|avenue|rd|road|blvd|boulevard|dr|drive|ln|lane|ct|court|way|pl|place|cir|circle|pkwy|parkway|ter|terrace|hwy|highway)\b/i.test(trimmed);
-        const hasCommaAddressShape = /,/.test(trimmed) && /[a-z]/i.test(trimmed);
+        // Exclude "City, ST" and "City, State" patterns — those are locations, not addresses
+        const isCityStatePattern = /^[a-z\s]+,\s*([a-z]{2}|alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new\s+hampshire|new\s+jersey|new\s+mexico|new\s+york|north\s+carolina|north\s+dakota|ohio|oklahoma|oregon|pennsylvania|rhode\s+island|south\s+carolina|south\s+dakota|tennessee|texas|utah|vermont|virginia|washington|west\s+virginia|wisconsin|wyoming)$/i.test(trimmed);
+        const hasCommaAddressShape = /,/.test(trimmed) && /[a-z]/i.test(trimmed) && !isCityStatePattern;
         const isAddressLike = trimmed.length >= 3 && (hasHouseNumber || hasStreetKeyword || hasCommaAddressShape);
 
         if (trimmed.length < 3) {
@@ -2875,21 +3298,23 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                             return;
                         }
 
-                        const locationTypeHints = new Set([
-                            'locality',
-                            'administrative_area_level_1',
-                            'administrative_area_level_2',
-                            'sublocality',
-                            'neighborhood',
-                            'postal_town',
-                        ]);
+                        // Priority order: city/locality first, then ZIP, then everything else
+                        const typePriority = (types: string[]): number => {
+                            if (types.includes('locality') || types.includes('postal_town')) return 0;
+                            if (types.includes('administrative_area_level_2')) return 1;
+                            if (types.includes('neighborhood') || types.includes('sublocality')) return 2;
+                            if (types.includes('administrative_area_level_1')) return 3;
+                            if (types.includes('postal_code')) return 4;
+                            return 5; // streets, addresses last
+                        };
 
-                        const filtered = predictions.filter((prediction: any) => {
-                            const types = Array.isArray(prediction?.types) ? prediction.types : [];
-                            return types.some((t: string) => locationTypeHints.has(t));
+                        const sorted = [...predictions].sort((a: any, b: any) => {
+                            const aTypes = Array.isArray(a?.types) ? a.types : [];
+                            const bTypes = Array.isArray(b?.types) ? b.types : [];
+                            return typePriority(aTypes) - typePriority(bTypes);
                         });
-                        const source = filtered.length > 0 ? filtered : predictions;
-                        const mapped: LocationSuggestion[] = source.slice(0, 8).map((prediction: any) => ({
+
+                        const mapped: LocationSuggestion[] = sorted.slice(0, 8).map((prediction: any) => ({
                             placeId: String(prediction?.place_id || prediction?.id || prediction?.description || ''),
                             description: String(
                                 prediction?.description ||
@@ -3418,12 +3843,18 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const startNewChatSession = () => {
         setSearchTerm('');
         setChatHistory([]);
+        setCompletedAnswerAnimations({});
         setSessionId(null);
         setIsSearching(false);
         setSelectedPropertyId(null);
         setExpandedPropertyId(null);
         setIsMenuOpen(false);
         if (onSearchStateChange) onSearchStateChange(true, '');
+        // Show proactive greeting on new session
+        setProactiveGreetingText(buildProactiveGreeting(user?.firstname, user?.id));
+        setProactiveSuggestions(buildProactiveSuggestions());
+        setProactiveGreetingComplete(false);
+        setShowProactiveGreeting(true);
 
         setTimeout(() => {
             searchContainerRef.current?.scrollIntoView({
@@ -3437,6 +3868,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     };
     const closeExpandedChat = () => {
         setIsExpanded(false);
+        setShowProactiveGreeting(false);
         resetPendingImageSelection();
         setSearchTerm('');
         setShowSuggestions(false);
@@ -3573,6 +4005,14 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
                                                             setSessionId(item.id);
                                                             setChatHistory(recovered);
+                                                            setCompletedAnswerAnimations(
+                                                                recovered.reduce<Record<string, boolean>>((acc, message) => {
+                                                                    if (message.role === 'assistant' && typeof message.content === 'string' && message.content.trim()) {
+                                                                        acc[message.id] = true;
+                                                                    }
+                                                                    return acc;
+                                                                }, {})
+                                                            );
                                                             setIsSearching(false);
                                                             setIsMenuOpen(false);
                                                             setIsExpanded(true);
@@ -3597,6 +4037,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             setRecentSessions([]);
                                             setSearchTerm('');
                                             setChatHistory([]);
+                                            setCompletedAnswerAnimations({});
                                             setSessionId(null);
                                             setIsSearching(false);
                                             setProperties([]);
@@ -3696,14 +4137,15 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
             {/* Animated Container: Transitions from Pill (Search Bar) to Box (Chat UI) */}
             <motion.div
-                layout
+                ref={chatLayoutRef}
                 initial={false}
                 animate={{
                     borderRadius: isExpanded ? 32 : 12, // 32px (rounded-3xl) vs 12px (rounded-xl) - Rectangular with soft corners
                     padding: isExpanded ? 16 : 8, // keep expanded layout comfortable on mobile
                 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative overflow-visible w-full ${isExpanded ? 'max-w-[1150px]' : (isSellSearch ? 'w-[92vw] max-w-[500px] sm:max-w-[560px] md:w-[600px] md:max-w-none lg:w-[660px] xl:w-[700px]' : 'max-w-[460px] lg:max-w-[480px] xl:max-w-[820px] min-[1280px]:max-[1440px]:max-w-[640px]')
+                style={isExpanded && chatViewportHeight ? { height: `${chatViewportHeight}px`, maxHeight: `${chatViewportHeight}px` } : undefined}
+                className={`bg-white shadow-xl shadow-black/5 mx-auto bg-clip-padding relative w-full flex flex-col ${isExpanded ? 'min-h-[560px] overflow-hidden' : 'overflow-visible'} ${respectParentWidth ? 'max-w-none' : (isExpanded ? 'max-w-[1150px]' : (isSellSearch ? 'w-[92vw] max-w-[500px] sm:max-w-[560px] md:w-[600px] md:max-w-none lg:w-[660px] xl:w-[700px]' : 'max-w-[460px] lg:max-w-[480px] xl:max-w-[820px] min-[1280px]:max-[1440px]:max-w-[640px]'))
                     }`}
             >
                 <input
@@ -3770,16 +4212,13 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                 }
                                             }}
                                             onFocus={() => {
-                                                setShowSuggestions(true);
-                                                const trimmedSearch = searchTerm.trim();
-                                                if (trimmedSearch) {
-                                                    const focusIntent = classifySuggestionIntent(trimmedSearch);
-                                                    if (focusIntent === 'nl') {
-                                                        clearMlsSuggestionState();
-                                                    } else {
-                                                        fetchAddressSuggestions(trimmedSearch);
-                                                    }
-                                                }
+                                                // Collapsed search box clicked — open chat with proactive greeting
+                                                setIsExpanded(true);
+                                                setProactiveGreetingText(buildProactiveGreeting(user?.firstname, user?.id));
+                                                setProactiveSuggestions(buildProactiveSuggestions());
+                                                setProactiveGreetingComplete(false);
+                                                setShowProactiveGreeting(true);
+                                                if (onSearchStateChange) onSearchStateChange(true, '');
                                                 onSuggestionsOpen?.(true);
                                                 setShowAiModeTip(false);
                                                 if (aiModeTipTimerRef.current) {
@@ -4036,21 +4475,20 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     ) : (
                         /* State 2: Expanded Chat UI */
                         <motion.div
-                            ref={chatLayoutRef}
                             key="chat-ui"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ duration: 0.2, delay: 0.1 }}
                             onClickCapture={handleExpandedChatClickCapture}
-                            className="flex flex-col gap-6 w-full h-[560px] sm:h-[580px] md:h-[600px] lg:h-[600px] overflow-hidden"
+                            className="flex h-full min-h-0 w-full flex-1 flex-col gap-0 overflow-hidden"
                         >
-                            <div className="flex items-center w-full px-1 relative z-50">
+                            <div className="relative z-50 flex w-full items-center px-1 pt-2.5 pb-3 sm:pt-0 sm:pb-0">
                                 {renderNewChatControl('relative sm:hidden flex-shrink-0', 'top-full mt-3', 'w-72 max-w-[82vw]', 'mobile')}
 
                                 {/* Right: Close */}
                                 <button
                                     onClick={closeExpandedChat}
-                                    className="p-2 -mr-2 ml-auto text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-all"
+                                    className="p-1.5 -mr-2 ml-auto text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-all"
                                 >
                                     <X className="w-6 h-6" />
                                 </button>
@@ -4062,9 +4500,51 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                             {/* 2) AI Logic Section */}
                             {/* Chat History Loop */}
                             <div
-                                className="mobile-no-scrollbar flex flex-col gap-8 w-full min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-0 sm:pr-2 pb-20 sm:pb-8"
+                                className="mobile-no-scrollbar flex flex-col gap-4 w-full min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-0 sm:pr-2 pb-2 sm:pb-2"
                                 style={{ overflowAnchor: 'none' }}
                             >
+                                {/* Proactive Greeting — UI-only, shown on fresh chat open, never stored in chatHistory */}
+                                {showProactiveGreeting && chatHistory.length === 0 && proactiveGreetingText && (
+                                    <div className="flex flex-col gap-6 w-full animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                        <div className="flex items-start gap-3 sm:gap-5 px-1">
+                                            <div className="flex-shrink-0 mt-1 w-[34px] h-[34px] sm:w-[45px] sm:h-[45.18px] flex items-center justify-center">
+                                                <Image
+                                                    src="/assets/images/Group14455(1).svg"
+                                                    alt="Snaphomz AI"
+                                                    width={45}
+                                                    height={45}
+                                                    className="w-[34px] h-[34px] sm:w-[45px] sm:h-[45.18px] object-contain"
+                                                />
+                                            </div>
+                                            <div className="flex-1 min-w-0 space-y-2 sm:space-y-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-bold text-black text-sm tracking-tight">Snaphomz AI</span>
+                                                </div>
+                                                <div className="text-gray-800 text-[15px] sm:text-[17px] leading-relaxed text-left font-normal break-words">
+                                                    <AssistantResponseText
+                                                        text={proactiveGreetingText}
+                                                        animate={true}
+                                                        speedMs={12}
+                                                        onProgress={() => scrollChatToBottom('auto')}
+                                                        onComplete={() => setProactiveGreetingComplete(true)}
+                                                    />
+                                                </div>
+                                                {/* Rotating suggestion chips — shown only after greeting animation completes */}
+                                                {proactiveGreetingComplete && <div className="flex flex-wrap gap-2 pt-1">
+                                                    {proactiveSuggestions.map((suggestion) => (
+                                                        <button
+                                                            key={suggestion}
+                                                            onMouseDown={() => handleSearchSubmit(suggestion)}
+                                                            className="text-sm px-3.5 py-1.5 rounded-full border border-gray-200 bg-white text-gray-600 hover:border-[#F58634] hover:text-[#F58634] transition-colors cursor-pointer"
+                                                        >
+                                                            {suggestion}
+                                                        </button>
+                                                    ))}
+                                                </div>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                                 {chatHistory.map((msg) => (
                                     <div key={msg.id} className={`flex flex-col w-full min-w-0 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                                         {msg.role === 'user' ? (
@@ -4090,7 +4570,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                 )}
                                             </div>
                                         ) : (
-                                            <div className="flex flex-col gap-6 w-full animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                            <div className={`flex flex-col ${msg.relatedProperties?.length ? 'gap-1' : 'gap-6'} w-full animate-in fade-in slide-in-from-bottom-2 duration-500`}>
                                                 {msg.relatedProperties && msg.relatedProperties.length > 0 && (
                                                     <div className="order-1 flex items-start gap-3 sm:gap-5 px-1">
                                                         <div className="flex-shrink-0 mt-1 w-[34px] h-[34px] sm:w-[45px] sm:h-[45.18px] flex items-center justify-center">
@@ -4155,6 +4635,13 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
 
                                                         {(() => {
+                                                            if (msg.stoppedThinking) {
+                                                                return (
+                                                                    <div className="text-gray-400 text-[13px] sm:text-[14px] leading-relaxed text-left font-medium">
+                                                                        Stopped thinking
+                                                                    </div>
+                                                                );
+                                                            }
                                                             const sanitizedMessage = sanitizeAssistantOutput(msg.content || '');
                                                             const relatedQuestionCandidates =
                                                                 msg.relatedQuestions && msg.relatedQuestions.length > 0
@@ -4164,18 +4651,24 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
                                                             return (
                                                                 <>
-                                                                    <div className="text-gray-600 text-[15px] sm:text-[17px] leading-relaxed text-left font-normal break-words">
-                                                                        <AssistantResponseText
-                                                                            text={sanitizedMessage.cleanedText || msg.content || ''}
-                                                                            animate={msg.id === latestAssistantTextMessageId}
-                                                                            speedMs={8}
-                                                                            onProgress={msg.id === latestAssistantTextMessageId ? () => scrollChatToBottom('auto') : undefined}
-                                                                            onComplete={() =>
-                                                                                setCompletedAnswerAnimations((prev) =>
-                                                                                    prev[msg.id] ? prev : { ...prev, [msg.id]: true }
-                                                                                )
-                                                                            }
-                                                                        />
+                                                                    <div className="text-gray-800 text-[15px] sm:text-[17px] leading-relaxed text-left font-normal break-words">
+                                                                        {(() => {
+                                                                            const shouldAnimateResponse =
+                                                                                msg.id === latestAssistantTextMessageId && !completedAnswerAnimations[msg.id];
+                                                                            return (
+                                                                                <AssistantResponseText
+                                                                                    text={sanitizedMessage.cleanedText || msg.content || ''}
+                                                                                    animate={shouldAnimateResponse}
+                                                                                    speedMs={8}
+                                                                                    onProgress={shouldAnimateResponse ? () => scrollChatToBottom('auto') : undefined}
+                                                                                    onComplete={() =>
+                                                                                        setCompletedAnswerAnimations((prev) =>
+                                                                                            prev[msg.id] ? prev : { ...prev, [msg.id]: true }
+                                                                                        )
+                                                                                    }
+                                                                                />
+                                                                            );
+                                                                        })()}
                                                                     </div>
 
                                                                     {msg.clarification && (
@@ -4402,7 +4895,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                         })()}
                                                         <div
                                                             id={`carousel-${msg.id}`}
-                                                            className="flex flex-row items-stretch sm:items-center overflow-x-auto gap-4 sm:gap-5 md:gap-6 px-4 sm:px-8 md:px-10 py-4 sm:py-6 md:py-8 snap-x snap-mandatory no-scrollbar"
+                                                            className="flex flex-row items-stretch sm:items-center overflow-x-auto gap-3 sm:gap-4 md:gap-5 px-3 sm:px-6 md:px-8 py-1 sm:py-2.5 md:py-3.5 snap-x snap-mandatory no-scrollbar"
                                                             style={{ scrollBehavior: 'smooth' }}
                                                             onScroll={(event) => updateCarouselEdges(msg.id, event.currentTarget)}
                                                             ref={(el) => updateCarouselEdges(msg.id, el)}
@@ -4434,7 +4927,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                                         onClick={() => handlePropertyClick(property.id)}
                                                                         className={`
                                                                 group relative flex flex-col
-                                                                w-[86%] min-w-[86%] max-w-[86%] sm:min-w-[300px] sm:w-[300px] md:min-w-[360px] md:w-[360px] md:max-w-[360px] lg:min-w-[320px] lg:w-[320px] lg:max-w-[320px]
+                                                                w-[78%] min-w-[78%] max-w-[78%] sm:min-w-[250px] sm:w-[250px] md:min-w-[300px] md:w-[300px] md:max-w-[300px] lg:min-w-[270px] lg:w-[270px] lg:max-w-[270px]
                                                                 flex-shrink-0 rounded-2xl cursor-pointer snap-start sm:snap-center
                                                                 transition-all duration-300 ease-out border bg-white overflow-hidden
                                                                 ${isAnySelected
@@ -4451,7 +4944,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                                             <div className="absolute inset-0 bg-white/60 backdrop-blur-[0.5px] z-20 pointer-events-none transition-opacity duration-300" />
                                                                         )}
 
-                                                                        <div className="h-44 sm:h-48 md:h-56 lg:h-52 w-full relative overflow-hidden bg-gray-100 flex-shrink-0">
+                                                                        <div className="h-36 sm:h-40 md:h-48 lg:h-44 w-full relative overflow-hidden bg-gray-100 flex-shrink-0">
                                                                             <Image
                                                                                 src={property.image}
                                                                                 alt="Property"
@@ -4467,41 +4960,41 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                                             </div>
                                                                         </div>
 
-                                                                        <div className="p-5 flex flex-col gap-3">
+                                                                        <div className="p-3.5 flex flex-col gap-1.5">
                                                                             <div>
-                                                                                <h4 className="text-2xl font-bold text-gray-900 tracking-tight">{property.price}</h4>
-                                                                                <p className="text-sm text-gray-500 font-medium line-clamp-1 mt-1">{property.address}</p>
+                                                                                <h4 className="text-lg font-bold text-gray-900 tracking-tight">{property.price}</h4>
+                                                                                <p className="text-sm text-gray-500 font-medium line-clamp-1 mt-0.5">{property.address}</p>
                                                                             </div>
 
                                                                             {/* Premium Icons Stats */}
-                                                                            <div className="flex items-center justify-between text-xs font-semibold text-gray-600 border-t border-b border-gray-100 py-3">
+                                                                            <div className="flex items-center justify-between text-[11px] font-semibold text-gray-600 border-t border-b border-gray-100 py-1.5">
                                                                                 <span className='flex items-center gap-1.5'>
-                                                                                    <BedDouble className="w-4 h-4 text-gray-400 stroke-[1.5]" />
+                                                                                    <BedDouble className="w-3 h-3 text-gray-400 stroke-[1.5]" />
                                                                                     <span>{property.beds} Beds</span>
                                                                                 </span>
-                                                                                <div className="w-[1px] h-4 bg-gray-200"></div>
+                                                                                <div className="w-[1px] h-3.5 bg-gray-200"></div>
                                                                                 <span className='flex items-center gap-1.5'>
-                                                                                    <Bath className="w-4 h-4 text-gray-400 stroke-[1.5]" />
+                                                                                    <Bath className="w-3 h-3 text-gray-400 stroke-[1.5]" />
                                                                                     <span>{property.baths} Baths</span>
                                                                                 </span>
-                                                                                <div className="w-[1px] h-4 bg-gray-200"></div>
+                                                                                <div className="w-[1px] h-3.5 bg-gray-200"></div>
                                                                                 <span className='flex items-center gap-1.5'>
-                                                                                    <Scaling className="w-4 h-4 text-gray-400 stroke-[1.5]" />
+                                                                                    <Scaling className="w-3 h-3 text-gray-400 stroke-[1.5]" />
                                                                                     <span>{property.sqft} sqft</span>
                                                                                 </span>
                                                                             </div>
-                                                                            <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2 text-xs font-semibold text-gray-600">
+                                                                            <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50/60 px-2.5 py-1 text-[11px] font-semibold text-gray-600">
                                                                                 <span className="flex items-center gap-1.5">
-                                                                                    <Droplets className="w-4 h-4 text-gray-400 stroke-[1.5]" />
+                                                                                    <Droplets className="w-3 h-3 text-gray-400 stroke-[1.5]" />
                                                                                     Pool
                                                                                 </span>
-                                                                                <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${poolBadgeClass}`}>
+                                                                                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${poolBadgeClass}`}>
                                                                                     {poolLabel}
                                                                                 </span>
                                                                             </div>
 
                                                                             {/* Show More Button (Always Visible) */}
-                                                                            <div className="flex justify-end pt-2">
+                                                                            <div className="flex justify-end pt-1">
                                                                                 <button
                                                                                     onClick={(e) => handleExpandClick(property, e)}
                                                                                     className="flex items-center gap-1 text-xs font-bold text-[#F58634] hover:text-[#E07224] transition-colors"
@@ -4520,20 +5013,20 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                                     href={`${getMainSiteBaseUrl()}/buy/browse?q=${encodeURIComponent(msg.query_history_formatted || msg.query || '')}`}
                                                                     target="_blank"
                                                                     rel="noopener noreferrer"
-                                                                    className="group flex-shrink-0 snap-start sm:snap-start self-center relative flex h-40 w-40 sm:h-48 sm:w-48 flex-col items-center justify-center gap-0 rounded-full border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-orange-100 shadow-lg transition-all duration-300 hover:scale-105 hover:border-orange-500 hover:shadow-xl hover:shadow-orange-200/60 cursor-pointer"
+                                                                    className="group flex-shrink-0 snap-start sm:snap-start self-center relative flex h-24 w-24 min-h-[96px] min-w-[96px] max-h-[96px] max-w-[96px] sm:h-32 sm:w-32 sm:min-h-[128px] sm:min-w-[128px] sm:max-h-[128px] sm:max-w-[128px] flex-col items-center justify-center gap-0 rounded-full border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-orange-100 shadow-md transition-all duration-300 hover:scale-105 hover:border-orange-500 hover:shadow-lg hover:shadow-orange-200/60 cursor-pointer"
                                                                 >
                                                                     {/* Outer ring on hover */}
                                                                     <div className="pointer-events-none absolute inset-[-6px] rounded-full border-2 border-orange-200 opacity-0 transition-all duration-500 group-hover:opacity-100" />
 
                                                                     {/* Icon circle */}
-                                                                    <div className="mb-2 sm:mb-3 flex h-11 w-11 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-orange-500 text-white shadow-md transition-transform duration-300 group-hover:scale-110">
-                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                                    <div className="mb-1.5 sm:mb-2 flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-orange-500 text-white shadow-md transition-transform duration-300 group-hover:scale-110">
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                                                             <path d="M7 17L17 7" /><path d="M7 7h10v10" />
                                                                         </svg>
                                                                     </div>
 
                                                                     {/* Label */}
-                                                                    <span className="text-center text-xs sm:text-sm font-semibold leading-tight text-orange-600 px-3 sm:px-4">
+                                                                    <span className="text-center text-[9px] sm:text-[11px] font-semibold leading-tight text-orange-600 px-2 whitespace-normal sm:whitespace-nowrap tracking-tight">
                                                                         Show More Properties
                                                                     </span>
                                                                 </a>
@@ -4807,16 +5300,16 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                     />
                                 )}
 
-                                <div ref={chatBottomRef} className="h-2" />
+                                <div ref={chatBottomRef} className="h-1" />
                             </div>
 
                             {/* Footer / Related Questions & Search */}
-                            <div className="mt-2 border-t border-gray-100/70 bg-white/95 backdrop-blur-md z-30 px-3 pt-3 pb-[max(env(safe-area-inset-bottom),0.9rem)] sm:px-0 sm:pt-2 sm:pb-4">
+                            <div className="mt-auto sm:mt-0 border-t border-gray-100/70 bg-white/95 backdrop-blur-md z-30 px-3 pt-1 pb-[max(env(safe-area-inset-bottom),0.1rem)] sm:px-0 sm:pt-1 sm:pb-0.5">
                                 {/* 1. Related Questions (Removed - now dynamic per message) */}
 
                                 {/* 2. New Large Search Bar + Controls */}
-                                <div ref={searchContainerRef} className="mb-2 flex items-center gap-2 sm:mb-4 sm:gap-3">
-                                    {renderNewChatControl('relative hidden sm:block flex-shrink-0', 'bottom-full mb-3', 'w-80', 'desktop')}
+                                <div ref={searchContainerRef} className="mb-0 flex items-center gap-2 sm:gap-3 -translate-y-[2px]">
+                                    {renderNewChatControl('relative hidden sm:block flex-shrink-0 -translate-y-[4px]', 'bottom-full mb-3', 'w-80', 'desktop')}
 
                                     {/* Search Input */}
                                     <div className="flex-1 min-w-0">
@@ -4841,6 +5334,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                             )}
                                             <textarea
                                                 ref={searchInputRef}
+                                                autoFocus={isExpanded && isDesktopViewport}
                                                 value={searchTerm}
                                                 onChange={(e) => {
                                                     const val = e.target.value;
@@ -4855,6 +5349,17 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                     e.target.style.height = e.target.scrollHeight + 'px';
                                                 }}
                                                 onFocus={() => {
+                                                    if (!isExpanded) {
+                                                        // First click on collapsed search box — open chat with proactive greeting
+                                                        setIsExpanded(true);
+                                                        setProactiveGreetingText(buildProactiveGreeting(user?.firstname, user?.id));
+                                                        setProactiveSuggestions(buildProactiveSuggestions());
+                                                        setProactiveGreetingComplete(false);
+                                                        setShowProactiveGreeting(true);
+                                                        if (onSearchStateChange) onSearchStateChange(true, '');
+                                                        return;
+                                                    }
+                                                    // Already expanded — existing suggestions behavior
                                                     setShowSuggestions(true);
                                                     const trimmedSearch = searchTerm.trim();
                                                     if (trimmedSearch) {
@@ -4891,9 +5396,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                 }}
                                                 placeholder=""
                                                 rows={1}
-                                                className={`w-full bg-white text-gray-900 rounded-2xl sm:rounded-3xl overflow-y-hidden resize-none pl-4 sm:pl-5 ${pendingImage || pendingImagePreview ? 'min-h-[128px] max-h-48 sm:max-h-56 pt-[88px] pb-3 md:min-h-[108px] md:max-h-44 md:pt-[74px] md:pb-3 md:pl-4' : 'min-h-[64px] sm:min-h-[68px] max-h-32 sm:max-h-40 py-4 sm:py-[22px] md:min-h-[58px] md:py-[16px]'} pr-24 sm:pr-24 md:pr-28 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-[14px] sm:text-base md:text-[15px] placeholder:text-gray-400 font-normal leading-relaxed`}
+                                                className={`w-full bg-white text-gray-900 rounded-2xl sm:rounded-3xl overflow-y-hidden resize-none pl-4 sm:pl-5 ${pendingImage || pendingImagePreview ? 'min-h-[104px] max-h-40 sm:max-h-48 pt-[70px] pb-2 md:min-h-[92px] md:max-h-36 md:pt-[60px] md:pb-2 md:pl-4' : 'min-h-[48px] sm:min-h-[52px] max-h-24 sm:max-h-32 py-2.5 sm:py-[14px] md:min-h-[46px] md:py-[12px]'} pr-24 sm:pr-24 md:pr-28 border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 transition-all text-[14px] sm:text-base md:text-[15px] placeholder:text-gray-400 font-normal leading-relaxed`}
                                             />
-                                            <div className={`absolute right-2 sm:right-3 flex items-center gap-1.5 sm:gap-4 md:gap-2.5 ${(pendingImage || pendingImagePreview) ? 'bottom-2 md:top-1/2 md:-translate-y-1/2' : 'top-1/2 -translate-y-1/2'}`}>
+                                            <div className={`absolute right-2 sm:right-3 flex items-center gap-1.5 sm:gap-4 md:gap-2.5 ${(pendingImage || pendingImagePreview) ? 'bottom-2 md:top-1/2 md:translate-y-[calc(-50%-3px)]' : 'top-1/2 translate-y-[calc(-50%-3px)]'}`}>
                                                 <div className="hidden md:flex items-center gap-1.5 sm:gap-4 md:gap-2.5">
                                                     {/* Attach Icon & Menu */}
                                                     <div className="relative" ref={attachMenuRef}>
@@ -4969,7 +5474,17 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                 </button>
 
                                                 <button
-                                                    onClick={() => pendingImage ? submitPendingImage() : handleSearchSubmit(searchTerm)}
+                                                    onClick={() => {
+                                                        if (isSearching) {
+                                                            handleStopSearch();
+                                                            return;
+                                                        }
+                                                        if (pendingImage) {
+                                                            submitPendingImage();
+                                                            return;
+                                                        }
+                                                        handleSearchSubmit(searchTerm);
+                                                    }}
                                                     disabled={!!pendingImage && pendingImageStatus !== 'ready'}
                                                     className={`bg-black text-white w-10 h-10 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shadow-md ${pendingImage && pendingImageStatus !== 'ready' ? 'opacity-50 cursor-not-allowed hover:scale-100' : 'hover:bg-gray-800'}`}
                                                 >
@@ -4981,7 +5496,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                 </div>
 
                                 {/* 3. Disclaimer */}
-                                <div className="px-2 text-center">
+                                <div className="px-2 text-center pb-0">
                                     <p className="text-[11px] sm:text-xs text-gray-400">
                                         Snaphomz AI can make mistakes. Consider checking important information.
                                     </p>

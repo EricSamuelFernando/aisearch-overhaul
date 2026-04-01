@@ -40,6 +40,8 @@ export type SearchPayload = {
     use_cache?: boolean | null;
     system_prompt?: string | null;
     assistant_mode?: string | null;
+    user_name?: string | null
+    user_local_hour?: number
 };
 
 export type RentVsBuyPayload = {
@@ -90,6 +92,7 @@ export async function searchProperties(payload: SearchPayload, signal?: AbortSig
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
                 ...getAuthHeaders(),
+                ...(payload.userid ? { 'x-user-id': payload.userid } : {}),
             },
             body: JSON.stringify(payload),
             signal,
@@ -112,12 +115,14 @@ export async function searchProperties(payload: SearchPayload, signal?: AbortSig
 
     // Use the local Next.js proxy to bypass CORS (hits our src/app/api/search/route.ts)
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const userIdHeader = payload.userid;
     const res = await fetch(`${baseUrl}/api/search`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
             "Accept": "application/json",
             ...getAuthHeaders(),
+            ...(userIdHeader ? { "x-user-id": userIdHeader } : {}),
         },
         body: JSON.stringify({
             ...payload,
@@ -125,13 +130,54 @@ export async function searchProperties(payload: SearchPayload, signal?: AbortSig
             query: payload.query,
             session_id: payload.session_id,
             from_browse: payload.from_browse ?? false,
-            use_cache: payload.use_cache ?? true,
+            use_cache: payload.use_cache ?? false,
         }),
         signal,
     });
 
+    // Lambda cold-start: first request may return 504/502 while the container initializes.
+    // Retry once after a short wait — by then the Lambda is warm and responds immediately.
+    if ((res.status === 504 || res.status === 502 || res.status === 503) && !signal?.aborted) {
+        console.warn('[API] Cold-start likely (status', res.status, '), retrying in 2s…');
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        const retryRes = await fetch(`${baseUrl}/api/search`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                ...getAuthHeaders(),
+                ...(userIdHeader ? { 'x-user-id': userIdHeader } : {}),
+            },
+            body: JSON.stringify({
+                ...payload,
+                userid: payload.userid,
+                query: payload.query,
+                session_id: payload.session_id,
+                from_browse: payload.from_browse ?? false,
+                use_cache: payload.use_cache ?? false,
+            }),
+            signal,
+        });
+        if (retryRes.ok) {
+            const retryData = await retryRes.json();
+            console.log('[API] Retry succeeded:', { session_id: retryData.session_id });
+            return retryData;
+        }
+        const retryError = await retryRes.json().catch(() => null);
+        console.error('[API] Retry also failed:', retryRes.status, retryError);
+        throw new Error(retryError?.error || `Backend request failed (${retryRes.status})`);
+    }
+
     if (!res.ok) {
-        throw new Error("Backend request failed");
+        const errorBody = await res.json().catch(() => null);
+        // Backend sometimes returns a non-200 status but still includes valid data.
+        // Use it rather than discarding it.
+        if (errorBody?.properties || errorBody?.final_response) {
+            console.warn('[API] Non-200 response but usable data found, status:', res.status);
+            return errorBody;
+        }
+        console.error('[API] Search failed:', res.status, errorBody);
+        throw new Error(errorBody?.error || `Backend request failed (${res.status})`);
     }
 
     const data = await res.json();
@@ -169,6 +215,48 @@ export async function searchProperties(payload: SearchPayload, signal?: AbortSig
 //
 //   return res.json();
 // }
+
+// ── Streaming chat (/api/chat) ───────────────────────────────────────────────
+
+export type ChatPayload = {
+    query: string;
+    session_id?: string | null;
+    user_name?: string | null;
+    user_local_hour?: number;
+};
+
+export type SSEEvent =
+    | { type: 'thinking'; step: string; source?: string }
+    | { type: 'token'; text: string }
+    | { type: 'properties'; data: any[] }
+    | { type: 'suggestions'; data: string[] }
+    | { type: 'metadata'; intent?: string; result_count?: number; [key: string]: any }
+    | { type: 'done'; session_id?: string }
+    | { type: 'error'; message: string };
+
+/**
+ * Opens an SSE stream to /api/chat.
+ * Returns the raw Response — callers read response.body as a ReadableStream.
+ * Pass an AbortController signal to cancel mid-stream.
+ */
+export async function streamChat(
+    payload: ChatPayload,
+    userId?: string,
+    signal?: AbortSignal
+): Promise<Response> {
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    return fetch(`${baseUrl}/api/chat`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream',
+            ...getAuthHeaders(),
+            ...(userId ? { 'x-user-id': userId } : {}),
+        },
+        body: JSON.stringify(payload),
+        signal,
+    });
+}
 
 export async function askQuestion(payload: QuestionPayload, signal?: AbortSignal) {
     if (isMlsBypassModeEnabled()) {

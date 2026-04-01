@@ -53,6 +53,7 @@ resource "aws_cloudfront_distribution" "distribution" {
       https_port             = 443
       origin_protocol_policy = "https-only"
       origin_ssl_protocols   = ["TLSv1.2"]
+      origin_read_timeout    = 60
     }
   }
 
@@ -130,6 +131,19 @@ resource "aws_cloudfront_distribution" "distribution" {
     response_headers_policy_id = data.aws_cloudfront_response_headers_policy.response_header_policy.id
     target_origin_id           = "S3Origin"
   }
+
+  ordered_cache_behavior {
+    path_pattern               = "email-static/*"
+    viewer_protocol_policy     = "allow-all"
+    cache_policy_id            = data.aws_cloudfront_cache_policy.cache_optimized.id
+    origin_request_policy_id   = data.aws_cloudfront_origin_request_policy.origin_request_policy.id
+    allowed_methods            = ["GET", "HEAD", "OPTIONS"]
+    cached_methods             = ["GET", "HEAD", "OPTIONS"]
+    compress                   = true
+    response_headers_policy_id = data.aws_cloudfront_response_headers_policy.response_header_policy.id
+    target_origin_id           = "S3Origin"
+  }
+
 
   viewer_certificate {
     acm_certificate_arn      = var.acm_certificate_arn

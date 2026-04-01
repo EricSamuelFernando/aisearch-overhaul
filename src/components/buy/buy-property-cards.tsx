@@ -22,11 +22,16 @@ type Props = {
   propertiesOverride?: any[] | null;
   overlayMode?: boolean;
   onOpenCompareModal?: () => void;
+  onRequestMore?: () => void;
+  hasMoreResults?: boolean;
+  isLoadingMore?: boolean;
+  resetKey?: string | number;
 };
 
 // How many cards to show initially and how many to reveal per scroll trigger
 const INITIAL_VISIBLE = 12;
 const LOAD_MORE_STEP = 12;
+const PREFETCH_RATIO = 0.7;
 
 const resolveListingId = (item: any): string | undefined => {
   const data = item?.data || item;
@@ -45,12 +50,46 @@ const resolveListingId = (item: any): string | undefined => {
   return String(raw);
 };
 
+const resolveStableKey = (item: any, fallbackIndex: number): string => {
+  const data = item?.data || item;
+  const listing = item?.listing || item?.data?.listing || data?.listing || data;
+  const address = (
+    listing?.address?.unparsedAddress ??
+    data?.UnparsedAddress ??
+    data?.unparsedAddress ??
+    data?.address ??
+    ''
+  ).toString().toLowerCase().trim();
+  const city = (
+    listing?.address?.city ??
+    data?.City ??
+    data?.city ??
+    ''
+  ).toString().toLowerCase().trim();
+  const price =
+    listing?.listPriceLow ??
+    listing?.ListPrice ??
+    listing?.listPrice ??
+    data?.mostRecentPriceAmount ??
+    data?.price ??
+    '';
+  const lat = listing?.property?.latitude ?? data?.latitude ?? data?.lat ?? '';
+  const lng = listing?.property?.longitude ?? data?.longitude ?? data?.lon ?? data?.lng ?? '';
+  const signature = [address, city, price, lat, lng].filter(Boolean).join('|');
+  if (signature) return `sig-${signature}`;
+  return `listing-${fallbackIndex}`;
+};
+
 function BuyPropertyCards({
   forwardedRef,
   selectedProperty,
   propertiesOverride,
   overlayMode = false,
   onOpenCompareModal,
+  onRequestMore,
+  hasMoreResults = false,
+  isLoadingMore = false,
+  resetKey,
 }: Props) {
   const { currentView } = useProperty();
   // const { ref } = useInView();
@@ -68,8 +107,12 @@ function BuyPropertyCards({
   const [snaps, setSnaps] = useState<any[]>([]);
   // How many cards are currently revealed (grows as user scrolls)
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
+  const loadMoreRequestedRef = useRef(false);
+  const prevLengthRef = useRef(0);
+  const allowAutoLoadRef = useRef(false);
+  const lastScrollTargetRef = useRef<string | null>(null);
 
-  // Sentinel div at bottom of list — when it enters viewport, reveal next batch
+  // Sentinel div at bottom of list -- when it enters viewport, reveal next batch
   const sentinelRef = useRef<HTMLDivElement>(null);
   // Scroll container ref for overlayMode (overflow-y-auto div is the scroll root)
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -95,15 +138,55 @@ function BuyPropertyCards({
   // }, [currentView, overlayMode]);
 
   useEffect(() => {
-    setVisibleCount(INITIAL_VISIBLE);
+    const prevLength = prevLengthRef.current;
+    const nextLength = normalizedProperties.length;
+    if (prevLength === 0 || nextLength === 0 || nextLength < prevLength) {
+      setVisibleCount(INITIAL_VISIBLE);
+      loadMoreRequestedRef.current = false;
+    }
+    prevLengthRef.current = nextLength;
   }, [normalizedProperties.length]);
+
+  useEffect(() => {
+    if (resetKey === undefined) return;
+    setVisibleCount(INITIAL_VISIBLE);
+    loadMoreRequestedRef.current = false;
+    allowAutoLoadRef.current = false;
+    if (overlayMode) {
+      scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    } else if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    }
+  }, [resetKey, overlayMode]);
+
+  useEffect(() => {
+    if (overlayMode) {
+      const container = scrollContainerRef.current;
+      if (!container) return;
+      const handleScroll = () => {
+        if (container.scrollTop > 4) {
+          allowAutoLoadRef.current = true;
+        }
+      };
+      container.addEventListener('scroll', handleScroll, { passive: true });
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+    if (typeof window === 'undefined') return;
+    const handleWindowScroll = () => {
+      if (window.scrollY > 4) {
+        allowAutoLoadRef.current = true;
+      }
+    };
+    window.addEventListener('scroll', handleWindowScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleWindowScroll);
+  }, [overlayMode]);
 
   // const totalPages = useMemo(
   //   () => Math.max(1, Math.ceil(normalizedProperties.length / itemsPerPage)),
   //   [normalizedProperties.length, itemsPerPage],
   // );
 
-  // IntersectionObserver on sentinel — reveals next LOAD_MORE_STEP cards when near bottom
+  // IntersectionObserver on sentinel -- reveals next LOAD_MORE_STEP cards when near bottom
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
@@ -112,10 +195,20 @@ function BuyPropertyCards({
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
-          setVisibleCount((prev) => {
-            const next = Math.min(prev + LOAD_MORE_STEP, normalizedProperties.length);
-            return next > prev ? next : prev;
-          });
+          const nextVisible = Math.min(visibleCount + LOAD_MORE_STEP, normalizedProperties.length);
+          setVisibleCount((prev) => (nextVisible > prev ? nextVisible : prev));
+          const shouldRequestMore =
+            typeof onRequestMore === 'function' &&
+            hasMoreResults &&
+            !isLoadingMore &&
+            !loadMoreRequestedRef.current &&
+            allowAutoLoadRef.current &&
+            normalizedProperties.length > 0 &&
+            nextVisible / normalizedProperties.length >= PREFETCH_RATIO;
+          if (shouldRequestMore) {
+            loadMoreRequestedRef.current = true;
+            onRequestMore();
+          }
         }
       },
       { root, rootMargin: '400px', threshold: 0 },
@@ -123,7 +216,20 @@ function BuyPropertyCards({
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [overlayMode, normalizedProperties.length]);
+  }, [
+    overlayMode,
+    normalizedProperties.length,
+    visibleCount,
+    onRequestMore,
+    hasMoreResults,
+    isLoadingMore,
+  ]);
+
+  useEffect(() => {
+    if (!isLoadingMore) {
+      loadMoreRequestedRef.current = false;
+    }
+  }, [isLoadingMore]);
 
   useEffect(() => {
     if (!selectedProperty || !normalizedProperties.length) return;
@@ -133,18 +239,40 @@ function BuyPropertyCards({
     if (idx !== -1 && idx >= visibleCount) {
       setVisibleCount(idx + 1);
     }
-  }, [selectedProperty, normalizedProperties, visibleCount]);
-  useEffect(() => {
-    if (!selectedProperty) return;
+  }, [selectedProperty, normalizedProperties, visibleCount]);  useEffect(() => {
+    if (!selectedProperty) {
+      lastScrollTargetRef.current = null;
+      return;
+    }
+    const selectedId = String(selectedProperty);
+    if (lastScrollTargetRef.current === selectedId) return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
     const raf = requestAnimationFrame(() => {
-      const element = document.getElementById(String(selectedProperty));
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      const escaped = CSS.escape(selectedId);
+      const element = container.querySelector<HTMLElement>(`#${escaped}`);
+      if (!element) return;
+      // Directly scroll the container to center the element - avoids the
+      // scrollIntoView + overflow-hidden ancestor interaction that silently no-ops.
+      const containerRect = container.getBoundingClientRect();
+      const elementRect = element.getBoundingClientRect();
+      const isAlreadyVisible =
+        elementRect.top >= containerRect.top &&
+        elementRect.bottom <= containerRect.top + container.clientHeight;
+      if (isAlreadyVisible) {
+        lastScrollTargetRef.current = selectedId;
+        return;
       }
+      const scrollTarget =
+        container.scrollTop +
+        (elementRect.top - containerRect.top) -
+        container.clientHeight / 2 +
+        element.clientHeight / 2;
+      container.scrollTo({ top: Math.max(0, scrollTarget), behavior: 'instant' as ScrollBehavior });
+      lastScrollTargetRef.current = selectedId;
     });
     return () => cancelAnimationFrame(raf);
-  }, [selectedProperty, visibleCount]);
-
+  }, [selectedProperty, visibleCount, overlayMode]);
   const visibleProperties = useMemo(
     () => normalizedProperties.slice(0, visibleCount),
     [normalizedProperties, visibleCount],
@@ -184,20 +312,20 @@ function BuyPropertyCards({
             ) : (
               <>
                 {visibleProperties.map((prop: any, index: number) => {
-                  const listingId = resolveListingId(prop) ?? `listing-${index}`;
+                  const listingId = resolveListingId(prop);
+                  const stableKey = resolveStableKey(prop, index);
                   const isSelected = String(listingId) === String(selectedProperty);
+                  if (isSelected) console.log('[BuyPropertyCards] isSelected=true for listingId:', listingId, 'selectedProperty:', selectedProperty, 'overlayMode:', overlayMode);
                   return (
                     <div
-                      key={listingId}
-                      id={String(listingId)}
-                      className={cn(
-                        isSelected
-                          ? overlayMode
-                            ? "relative rounded-xl shadow-md before:pointer-events-none before:absolute before:inset-0 before:rounded-xl before:ring-2 before:ring-inset before:ring-orange-400 before:content-[''] before:z-20"
-                            : 'bg-white p-1 bg-orange-500 rounded-2xl shadow-xl'
-                          : '',
-                        'transition duration-300 ease-in-out',
-                      )}
+                      key={stableKey}
+                      id={String(listingId ?? stableKey)}
+                      className={cn('transition duration-300 ease-in-out', isSelected && !overlayMode ? 'bg-orange-500 rounded-2xl p-1 shadow-xl' : '')}
+                      style={
+                        isSelected && overlayMode
+                          ? { outline: '3px solid #f97316', outlineOffset: '2px', borderRadius: '12px', boxShadow: '0 4px 16px rgba(249,115,22,0.3)' }
+                          : undefined
+                      }
                     >
                       <PropertyComponents
                         {...prop}
@@ -208,10 +336,17 @@ function BuyPropertyCards({
                     </div>
                   );
                 })}
+                {isLoadingMore ? (
+                  <>
+                    {Array.from({ length: 4 }).map(() => (
+                      <PropCardLoader key={nanoid()} />
+                    ))}
+                  </>
+                ) : null}
               </>
             )}
           </div>
-          {/* Sentinel — sits below the last rendered card; observer fires ~400px before it */}
+          {/* Sentinel -- sits below the last rendered card; observer fires ~400px before it */}
           <div ref={sentinelRef} className="h-1 w-full" aria-hidden />
           {overlayMode && !isLoading && totalCount > 0 && !hasMore ? (
             <div className="mt-3 border-t border-gray-200 bg-white px-3 py-2 text-[10px] leading-5 text-gray-600">
@@ -289,3 +424,4 @@ function BuyPropertyCards({
 }
 
 export { BuyPropertyCards };
+

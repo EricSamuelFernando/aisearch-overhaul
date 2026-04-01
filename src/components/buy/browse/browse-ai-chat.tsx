@@ -1,9 +1,12 @@
 'use client';
 
-import { searchProperties } from '@/lib/api';
-import { useAppSelector } from '@/lib/hook';
 import { usePropertyStore } from '@/store/use-property-store';
+import { useAppDispatch } from '@/lib/hook';
+import { setPropertyView } from '@/slices/property/property-slice';
+import { useProperty } from '@/shared/hooks/useProperty';
+import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 function AskAiIcon({ size = 31 }: { size?: number }) {
   return (
@@ -29,79 +32,66 @@ function AskAiIcon({ size = 31 }: { size?: number }) {
   );
 }
 
-function mapProperty(p: any, index: number): any {
-  let mainImage = p.primaryListingImageUrl || p.primaryImage || p.imgSrc || p.image ||
-    'https://images.unsplash.com/photo-1600585154340-be6161a56a0c';
-  let gallery: string[] = [];
-  const rawPhotos = p.photoListJson || p.photoList;
-  if (rawPhotos) {
-    try {
-      const parsed = typeof rawPhotos === 'string' ? JSON.parse(rawPhotos) : rawPhotos;
-      if (Array.isArray(parsed))
-        gallery = parsed.map((x: any) => typeof x === 'string' ? x : x.highRes || x.midRes || x.url).filter(Boolean);
-    } catch { /* ignore */ }
-  } else if (Array.isArray(p.photos)) {
-    gallery = p.photos.map((x: any) => typeof x === 'string' ? x : x.highRes || x.midRes || x.url).filter(Boolean);
-  }
-  if (gallery.length > 0 && mainImage.includes('unsplash')) mainImage = gallery[0];
-  if (gallery.length === 0) gallery = [mainImage];
+type ChatMessage = { id: string; role: 'user' | 'assistant'; content: string };
 
-  const rawPrice =
-    p.price_display ?? p.listPrice ?? p.list_price ?? p.price_value ?? p.price ?? p.formattedPrice ?? p.asking_price;
-  let fmtPrice: string;
-  if (typeof rawPrice === 'number' && Number.isFinite(rawPrice)) {
-    fmtPrice = `$${rawPrice.toLocaleString()}`;
-  } else if (typeof rawPrice === 'string' && rawPrice.trim()) {
-    const numeric = Number(rawPrice.trim().replace(/[^0-9.]/g, ''));
-    fmtPrice = Number.isFinite(numeric) && numeric > 0 ? `$${numeric.toLocaleString()}` : rawPrice.trim();
-  } else {
-    fmtPrice = 'Price N/A';
-  }
-  const address = p.address || p.formattedAddress || p.fullAddress || (p.street ? `${p.street}, ${p.city}, ${p.state}` : 'Address Unavailable');
-  const listingId = p.listingId || p.listing_id || p.ListingId || p.mls_id || p.zpid;
-  const propertyId = p.propertyId || p.property_id || p.zpid || p.id;
-  const schools = (Array.isArray(p.nearby_schools || p.schools) ? (p.nearby_schools || p.schools) : []).slice(0, 3).map((s: any) => ({
-    name: s.name || 'Local School', type: s.type || 'School',
-    distance: s.distance ? `${s.distance} mi` : 'Nearby', rating: s.rating ? `${s.rating}/10` : 'N/A',
-  }));
-
-  return {
-    id: listingId || propertyId || `browse-ai-${index}`,
-    listingId, propertyId,
-    listingUrl: p.listing_url || p.url || p.hdpUrl,
-    displayIndex: p.display_index || p.displayIndex || index + 1,
-    image: mainImage, price: fmtPrice, address,
-    latitude: p.latitude || p.lat, longitude: p.longitude || p.lon || p.long,
-    city: p.city, state: p.state,
-    beds: p.beds || p.bedrooms || p.bedroomTotal || 0,
-    baths: p.baths || p.bathrooms || p.bathroomTotal || 0,
-    sqft: p.livingArea || p.sqft || 'N/A',
-    hasPool: p.hasPool || p.has_pool || p.pool || false,
-    type: p.propertyType || p.homeType || 'Residential',
-    description: p.description || 'Discover this distinct property in a prime location.',
-    features: p.features || ['Air Conditioning', 'Garage', 'Garden'],
-    schools,
-    insights: { price: fmtPrice, safety: 'Low', walkability: '85', climate: 'Sunny' },
-    images: gallery,
-  };
+interface BrowseAIDelta {
+  city: string | null;
+  state: string | null;
+  beds: number | null;
+  baths: number | null;
+  priceMin: number | null;
+  priceMax: number | null;
+  propertyType: string | null;
+  subcategories_add: string[];
+  subcategories_remove: string[];
+  clear_filters: boolean;
+  map_overlay: string | null;      // "schools" | "none" | null
+  poi_add: string[];               // restaurants | gyms | hospitals | parks
+  poi_remove: string[];
+  view_mode: string | null;        // "map" | "grid" | null
+  compare_mode: boolean | null;
+  clear_draw: boolean;
+  reply: string;
 }
 
-type ChatMessage = { id: string; role: 'user' | 'assistant'; content: string; propertyCount?: number };
-
 export default function BrowseAIChat() {
+  const router = useRouter();
+  const dispatch = useAppDispatch();
+  const { currentView } = useProperty();
   const [expanded, setExpanded] = useState(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [sessionId, setSessionId] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const user = useAppSelector((s: any) => s.auth?.user);
-  const { setAllProperties, setIsLoading, setSessionId: storeSetSessionId } = usePropertyStore();
+  // Current URL state — source of truth for what's on screen
+  const searchParams = useSearchParams();
+  const rawQ = searchParams.get('q') || '';
+  const urlParts = rawQ.split(',').map(s => s.trim());
+  const browseCity = urlParts[0] || null;
+  const stateCandidate = urlParts[1]?.toUpperCase();
+  const browseState = stateCandidate && /^[A-Z]{2}$/.test(stateCandidate) ? stateCandidate : null;
+
+  const {
+    allProperties,
+    setIsLoading,
+    clearProperties,
+    selectedSubCategories,
+    toggleSubCategory,
+    setSelectedSubCategories,
+    mapOverlay,
+    setMapOverlay,
+    activePOICategories,
+    setActivePOICategories,
+    isCompareMode,
+    setCompareMode,
+    incrementClearDrawSignal,
+    setDrawFilteredPropertyIds,
+  } = usePropertyStore();
 
   const hasMessages = messages.length > 0;
 
@@ -115,63 +105,192 @@ export default function BrowseAIChat() {
 
   useEffect(() => {
     function handler(e: MouseEvent) {
+      if (loading) return;
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setExpanded(false);
       }
     }
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, []);
+  }, [loading]);
 
   useEffect(() => () => { abortRef.current?.abort(); }, []);
+
+  function buildContext() {
+    const beds = searchParams.get('bedRooms') ? Number(searchParams.get('bedRooms')) : null;
+    const baths = searchParams.get('bathRooms') ? Number(searchParams.get('bathRooms')) : null;
+    const priceMin = searchParams.get('priceMin') ? Number(searchParams.get('priceMin')) : null;
+    const priceMax = searchParams.get('priceMax') ? Number(searchParams.get('priceMax')) : null;
+    const propertyType = searchParams.get('propertyType') || null;
+
+    // Top 10 visible listings for Q&A context
+    const topProperties = allProperties.slice(0, 10).map((p: any) => {
+      const d = p.data || p;
+      const listing = d.listing || d;
+      const addr = listing?.address?.unparsedAddress || d.address || '';
+      const price = listing?.listPriceLow ?? listing?.listPrice ?? listing?.ListPrice ?? d.price ?? 0;
+      const beds = d.beds ?? listing?.property?.bedroomsTotal ?? 0;
+      const baths = d.baths ?? listing?.property?.bathroomsTotal ?? 0;
+      return { address: addr, price: Number(price) || 0, beds: Number(beds) || 0, baths: Number(baths) || 0 };
+    });
+
+    return {
+      city: browseCity,
+      state: browseState,
+      beds,
+      baths,
+      priceMin,
+      priceMax,
+      propertyType,
+      activeSubCategories: selectedSubCategories,
+      mapOverlay: mapOverlay || 'none',
+      currentView: currentView || 'map',
+      isCompareMode: isCompareMode || false,
+      resultCount: allProperties.length,
+      topProperties,
+    };
+  }
+
+  function applyDelta(delta: BrowseAIDelta) {
+    const params = new URLSearchParams(searchParams.toString());
+
+    // Clear all non-location filters
+    if (delta.clear_filters) {
+      params.delete('bedRooms');
+      params.delete('bathRooms');
+      params.delete('priceMin');
+      params.delete('priceMax');
+      params.delete('propertyType');
+      setSelectedSubCategories([]);
+    }
+
+    // Location change — update ?q= param and clear stale cards immediately
+    if (delta.city) {
+      const newQ = delta.state ? `${delta.city}, ${delta.state}` : delta.city;
+      params.set('q', newQ);
+      clearProperties();
+    }
+
+    // Numeric filters — null = no change, 0 = delete, positive = set
+    if (delta.beds !== null) {
+      delta.beds === 0 ? params.delete('bedRooms') : params.set('bedRooms', String(delta.beds));
+    }
+    if (delta.baths !== null) {
+      delta.baths === 0 ? params.delete('bathRooms') : params.set('bathRooms', String(delta.baths));
+    }
+    if (delta.priceMin !== null) {
+      delta.priceMin === 0 ? params.delete('priceMin') : params.set('priceMin', String(delta.priceMin));
+    }
+    if (delta.priceMax !== null) {
+      delta.priceMax === 0 ? params.delete('priceMax') : params.set('priceMax', String(delta.priceMax));
+    }
+    if (delta.propertyType !== null) {
+      delta.propertyType === '' ? params.delete('propertyType') : params.set('propertyType', delta.propertyType);
+    }
+
+    // Subcategory toggles (client-side feature filter on loaded results)
+    delta.subcategories_add?.forEach(sc => {
+      if (!selectedSubCategories.includes(sc)) toggleSubCategory(sc);
+    });
+    delta.subcategories_remove?.forEach(sc => {
+      if (selectedSubCategories.includes(sc)) toggleSubCategory(sc);
+    });
+
+    // POI category toggles (restaurants, gyms, hospitals, parks)
+    if ((delta.poi_add?.length ?? 0) > 0 || (delta.poi_remove?.length ?? 0) > 0) {
+      let next = [...activePOICategories];
+      delta.poi_add?.forEach(k => { if (!next.includes(k)) next.push(k); });
+      delta.poi_remove?.forEach(k => { next = next.filter(x => x !== k); });
+      setActivePOICategories(next);
+    }
+
+    // Map overlay (schools district layer)
+    if (delta.map_overlay !== null && delta.map_overlay !== undefined) {
+      const overlay = delta.map_overlay === 'schools' ? 'schools' : 'none';
+      setMapOverlay(overlay);
+    }
+
+    // View mode (map / grid)
+    if (delta.view_mode === 'map' || delta.view_mode === 'grid') {
+      dispatch(setPropertyView(delta.view_mode));
+    }
+
+    // Compare mode
+    if (delta.compare_mode !== null && delta.compare_mode !== undefined) {
+      setCompareMode(delta.compare_mode);
+    }
+
+    // Clear drawn polygon
+    if (delta.clear_draw) {
+      setDrawFilteredPropertyIds(null);
+      incrementClearDrawSignal();
+    }
+
+    // Push URL change — property-info.tsx useEffect detects this and fires sendSearchRequest()
+    const hasUrlChange =
+      delta.city ||
+      delta.beds !== null ||
+      delta.baths !== null ||
+      delta.priceMin !== null ||
+      delta.priceMax !== null ||
+      delta.propertyType !== null ||
+      delta.clear_filters;
+
+    if (hasUrlChange) {
+      setIsLoading(true);
+      router.replace(`?${params.toString()}`, { scroll: false });
+    }
+  }
+
+  function clearChat() {
+    setMessages([]);
+  }
 
   async function send() {
     const query = input.trim();
     if (!query || loading) return;
 
-    setMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', content: query }]);
+    const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', content: query };
+    setMessages(prev => [...prev, userMsg]);
     setInput('');
     setLoading(true);
+    setExpanded(true);
 
     abortRef.current?.abort();
     abortRef.current = new AbortController();
 
     try {
-      setIsLoading(true);
-      const data = await searchProperties(
-        { userid: user?.id || 'anonymous', query, session_id: sessionId, from_browse: true },
-        abortRef.current.signal,
-      );
+      const context = buildContext();
+      // Last 6 messages = last 3 conversation turns
+      const history = messages.slice(-6).map(m => ({ role: m.role, content: m.content }));
 
-      if (data?.session_id) { setSessionId(data.session_id); storeSetSessionId(data.session_id); }
+      const res = await fetch('/api/browse-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: query, context, history }),
+        signal: abortRef.current.signal,
+      });
 
-      const rawProperties = data?.properties || data?.search_results || [];
-      const aiText = data?.final_response || data?.answer || data?.summary || data?.response;
-      let propertyCount = 0;
+      if (!res.ok) throw new Error(`Request failed (${res.status})`);
+      const delta: BrowseAIDelta = await res.json();
 
-      if (rawProperties.length > 0) {
-        setAllProperties(rawProperties.map(mapProperty) as any);
-        propertyCount = rawProperties.length;
-      }
+      applyDelta(delta);
 
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: aiText?.trim() || (propertyCount > 0
-          ? `Found ${propertyCount} propert${propertyCount === 1 ? 'y' : 'ies'} matching your search.`
-          : 'No results found for that query.'),
-        propertyCount: propertyCount || undefined,
+        content: delta.reply || 'Done.',
       }]);
     } catch (err: any) {
       if (err?.name === 'AbortError') return;
-      console.error('[BrowseAIChat] send error:', err);
-      const msg = err?.message?.includes('fetch') || err?.message?.includes('Failed')
-        ? 'Could not reach the AI backend. Make sure the search server is running.'
-        : (err?.message || 'Something went wrong. Please try again.');
-      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: msg }]);
+      console.error('[BrowseAIChat] error:', err);
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: 'Something went wrong. Please try again.',
+      }]);
     } finally {
       setLoading(false);
-      setIsLoading(false);
     }
   }
 
@@ -183,9 +302,9 @@ export default function BrowseAIChat() {
   return (
     <div
       ref={containerRef}
-      className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-3"
+      className="fixed bottom-5 right-3 left-auto translate-x-0 z-50 flex flex-col items-center gap-3 md:bottom-8 md:left-1/2 md:right-auto md:-translate-x-1/2"
     >
-      {/* ── Floating chat history (appears after first reply) ─────────────── */}
+      {/* ── Floating chat history ─────────────────────────────────────────── */}
       {hasMessages && (
         <div className="w-[440px] bg-white rounded-2xl shadow-[0_16px_48px_rgba(0,0,0,0.16)] border border-gray-100 overflow-hidden">
           <div className="max-h-[320px] overflow-y-auto px-4 py-4 space-y-3">
@@ -199,11 +318,6 @@ export default function BrowseAIChat() {
                     : 'bg-gray-50 text-gray-800 border border-gray-100 rounded-tl-sm',
                 ].join(' ')}>
                   <p className="whitespace-pre-wrap">{msg.content}</p>
-                  {msg.propertyCount && (
-                    <p className="mt-1.5 text-xs font-semibold text-orange-500">
-                      ↑ {msg.propertyCount} listings updated
-                    </p>
-                  )}
                 </div>
               </div>
             ))}
@@ -221,13 +335,14 @@ export default function BrowseAIChat() {
             )}
             <div ref={messagesEndRef} />
           </div>
-          {hasMessages && (
-            <div className="border-t border-gray-100 px-4 py-2 flex justify-end">
-              <button onClick={() => setMessages([])} className="text-xs text-gray-300 hover:text-gray-500 transition-colors">
-                Clear chat
-              </button>
-            </div>
-          )}
+          <div className="border-t border-gray-100 px-4 py-2 flex justify-end">
+            <button
+              onClick={clearChat}
+              className="text-xs text-gray-300 hover:text-gray-500 transition-colors"
+            >
+              Clear chat
+            </button>
+          </div>
         </div>
       )}
 
@@ -236,21 +351,23 @@ export default function BrowseAIChat() {
         className={[
           'flex items-center bg-white rounded-full border border-gray-200',
           'transition-all duration-300 ease-out overflow-hidden',
-          'shadow-[0_8px_32px_rgba(0,0,0,0.14)]',
           expanded
-            ? 'w-[440px] pl-3 pr-2.5 py-2.5'
+            ? 'w-[calc(100vw-32px)] max-w-[440px] md:w-[440px] pl-3 pr-2.5 py-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.14)]'
             : 'w-[58px] h-[58px] justify-center cursor-pointer hover:shadow-[0_12px_40px_rgba(0,0,0,0.20)]',
+          !expanded && hasMessages && !loading ? 'browse-ai-active-glow' : 'shadow-[0_8px_32px_rgba(0,0,0,0.14)]',
         ].join(' ')}
-        onMouseEnter={() => !expanded && setExpanded(true)}
         onClick={() => !expanded && setExpanded(true)}
       >
         <button
-          className="shrink-0 flex items-center justify-center transition-all duration-200 hover:scale-105"
+          className={`flex items-center justify-center transition-all duration-200 hover:scale-105 relative${expanded ? ' shrink-0' : ' w-full h-full'}`}
           style={expanded ? { marginRight: '8px' } : undefined}
           onClick={e => { if (expanded) { e.stopPropagation(); setExpanded(false); } }}
           aria-label="Toggle AI search"
         >
           <AskAiIcon size={expanded ? 28 : 38} />
+          {loading && !expanded && (
+            <span className="absolute inset-0 rounded-full animate-ping bg-orange-400 opacity-30" />
+          )}
         </button>
 
         {expanded && (
@@ -261,19 +378,19 @@ export default function BrowseAIChat() {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKey}
-              placeholder="Ask about these listings…"
+              placeholder={browseCity ? `Ask about listings in ${browseCity}…` : 'Ask about these listings…'}
               disabled={loading}
               className="flex-1 text-sm text-gray-800 placeholder-gray-400 bg-transparent outline-none disabled:opacity-50 min-w-0"
             />
             <button
               onClick={send}
               disabled={!input.trim() || loading}
-              className="shrink-0 w-9 h-9 rounded-full bg-orange-500 flex items-center justify-center disabled:opacity-40 hover:bg-orange-600 active:scale-90 transition-all ml-2"
+              className="shrink-0 w-[34px] h-[34px] min-w-[34px] min-h-[34px] aspect-square rounded-full bg-orange-500 flex items-center justify-center p-0 disabled:opacity-40 hover:bg-orange-600 active:scale-90 transition-all ml-2"
             >
               {loading ? (
                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
-                <svg viewBox="0 0 24 24" fill="white" className="w-4 h-4" style={{ transform: 'rotate(-45deg) translateY(-1px)' }}>
+                <svg viewBox="0 0 24 24" fill="white" className="w-[18px] h-[18px] block" style={{ transform: 'rotate(-45deg)' }}>
                   <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
                 </svg>
               )}

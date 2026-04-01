@@ -83,7 +83,7 @@ export default function OurClients({
       <div className="max-w-6xl mx-auto text-start pb-4 sm:pb-12">
         <h2
           className={cn(
-            'satoshi whitespace-nowrap text-[1.7rem] leading-tight sm:text-4xl font-medium text-left md:text-center',
+            'home-clients-title satoshi whitespace-nowrap text-[1.7rem] leading-tight sm:text-4xl font-medium text-left md:text-center',
             headingClassName
           )}
         >
@@ -161,38 +161,7 @@ export default function OurClients({
           ))}
         </Carousel>
 
-        {/* Pagination arrows — only shown when more testimonials exist than visible slides */}
-        {needsNavigation && <div
-          className="mt-6 md:mt-8 flex items-center justify-end gap-3"
-          style={{ paddingRight: isMobile ? 0 : 8 }}
-        >
-          <button
-            type="button"
-            aria-label="Previous testimonial"
-            disabled={!canScrollPrev}
-            onClick={() => embla?.scrollPrev()}
-            className={`flex items-center justify-center rounded-full transition-all duration-200 ${isMobile ? 'h-8 w-14' : 'h-10 w-[72px]'
-              } ${canScrollPrev
-                ? 'bg-[#F5EBDF] text-[#8B7A69] hover:bg-[#EEE1D1]'
-                : 'bg-[#F6EDE3] text-[#CDBEAE] cursor-not-allowed'
-              }`}
-          >
-            <IconArrowNarrowLeft size={18} stroke={1.9} />
-          </button>
-          <button
-            type="button"
-            aria-label="Next testimonial"
-            disabled={!canScrollNext}
-            onClick={() => embla?.scrollNext()}
-            className={`flex items-center justify-center rounded-full transition-all duration-200 ${isMobile ? 'h-8 w-14' : 'h-10 w-[72px]'
-              } ${canScrollNext
-                ? 'bg-[#F5EBDF] text-[#4A3726] hover:bg-[#EADBC8]'
-                : 'bg-[#F6EDE3] text-[#CDBEAE] cursor-not-allowed'
-              }`}
-          >
-            <IconArrowNarrowRight size={18} stroke={1.9} />
-          </button>
-        </div>}
+        {/* Pagination arrows removed */}
       </div>
     </section>
   );

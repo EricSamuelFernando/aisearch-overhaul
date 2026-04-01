@@ -59,8 +59,8 @@ interface FeatureListProps {
 
 const FeatureList: React.FC<FeatureListProps> = ({ title, items }) => (
   <div className="mb-6">
-    <h3 className="text-base font-semibold text-gray-900 mb-2">{title}</h3>
-    <ul className="list-disc ml-5 space-y-1 text-sm text-gray-700">
+    <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
+    <ul className="list-disc ml-5 space-y-1 text-base text-gray-700">
       {items.map((item, index) => (
         <li key={index} className="pl-1">
           {item}
@@ -90,16 +90,11 @@ const InteriorOffersSection = ({ BathRoomAndBedRoom, features, featureList }: In
   const { bedroomsAndBathrooms, primaryBedroom, appliances } = staticFeatures;
 
   return (
-    <div className="max-w-4xl py-8">
-
-      {/* --- Header --- */}
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">
-        What this place offers
-      </h2>
+    <div className="max-w-4xl pt-2 pb-6">
 
       {/* --- Interior Tab (Gray Bar) --- */}
       <div className="bg-gray-100 p-3 rounded-t-lg mb-6">
-        <p className="font-semibold text-gray-900">Interior</p>
+        <p className="font-semibold text-gray-900 text-base">Interior</p>
       </div>
 
       {/* --- Two-Column Content Grid --- */}
@@ -144,12 +139,6 @@ const InteriorOffersSection = ({ BathRoomAndBedRoom, features, featureList }: In
           />
         </div>
       </div>
-
-      {/* --- Show More Button --- */}
-      <button className="flex items-center mt-3 text-orange-600 font-medium hover:text-orange-700">
-        <ChevronDownIcon className="w-5 h-5 mr-1" aria-hidden="true" />
-        Show more
-      </button>
 
     </div>
   );

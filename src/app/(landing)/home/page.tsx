@@ -871,7 +871,7 @@ const HOME_PAGE_TESTIMONIALS = [
   },
 ];
 
-const testimonialHeadingSize = 'text-[1.7rem] sm:text-[2.5rem] md:text-[3.95rem] leading-[0.98] tracking-tight';
+const testimonialHeadingSize = '!text-[2.2rem] sm:!text-[2.55rem] md:!text-[3.95rem] leading-[0.98] tracking-tight';
 
 // export default function Home() {
 //   const [isOpen, setIsOpen] = useState(false);
@@ -1101,6 +1101,7 @@ export default function Home() {
   const carouselSlideRefs = useRef<Array<HTMLDivElement | null>>([]);
   const AUTOPLAY_DELAY = 4000;
   const isMobileCarousel = useMediaQuery('(max-width: 639px)');
+  const isShortDesktop = useMediaQuery('(min-width: 1280px) and (max-height: 700px)');
 
   const { tempUserId } = useAppSelector(
     (state: RootState) => state.propertyPreference
@@ -1223,9 +1224,23 @@ export default function Home() {
     };
   }, [isHomeSearchActive, isSearchSuggestionsOpen]);
 
+
   // Individual image rotation function
   const getImageRotation = (angle: number) => {
     return angle > 180 && angle < 360 ? 'rotate(358deg)' : 'rotate(0deg)';
+  };
+
+  const getOrbitCardTransform = (angle: number) => {
+    if (!isHomeSearchActive) {
+      return `translateX(-50%) rotate(${angle}deg) translateX(var(--home-hero-arc-radius, 430px))`;
+    }
+
+    const arcRadius = 620;
+    const flatten = 0.84;
+    const rad = (angle * Math.PI) / 180;
+    const x = Math.cos(rad) * arcRadius;
+    const y = Math.sin(rad) * arcRadius * flatten;
+    return `translateX(-50%) translate(${x}px, ${y}px) rotate(${angle}deg)`;
   };
 
   const cardImages = [
@@ -1245,13 +1260,22 @@ export default function Home() {
     '/assets/images/home-landing1.png',
   ];
 
-  const mobileHeroCards = [
-    { left: '-12.8%', top: '83%', width: '14.4%', height: '35.6%', rotation: -27, src: '/assets/images/home-landing1.png', imageScale: 1.08 },
-    { left: '-7.2%', top: '43.7%', width: '23.3%', height: '35.6%', rotation: -42, src: '/assets/images/home-landing-3.png', imageScale: 1.08 },
-    { left: '19.8%', top: '25.9%', width: '23.3%', height: '35.6%', rotation: -15, src: '/assets/images/home-landing-4.png', imageScale: 1.02 },
-    { left: '49.3%', top: '27.4%', width: '23.3%', height: '35.6%', rotation: 14, src: '/assets/images/home-landing-5.png', imageScale: 1.04 },
-    { left: '77.7%', top: '40.7%', width: '23.3%', height: '35.6%', rotation: 36, src: '/assets/images/home-landing-6.png', imageScale: 1.07 },
-    { left: '97.7%', top: '75.6%', width: '23.3%', height: '35.6%', rotation: 22, src: '/assets/images/home-landing4.png', imageScale: 1.08 },
+  const mobileHeroCards: Array<{
+    left: string;
+    top: string;
+    width: string;
+    height: string;
+    rotation: number;
+    src: string;
+    imageScale: number;
+    objectPosition: string;
+  }> = [
+    { left: '-12.8%', top: '83%', width: '14.4%', height: '35.6%', rotation: -27, src: '/assets/images/home-landing1.png', imageScale: 1.08, objectPosition: 'center center' },
+    { left: '-7.2%', top: '43.7%', width: '23.3%', height: '35.6%', rotation: -42, src: '/assets/images/home-landing-3.png', imageScale: 1.08, objectPosition: 'center center' },
+    { left: '19.8%', top: '25.9%', width: '23.3%', height: '35.6%', rotation: -15, src: '/assets/images/home-landing-4.png', imageScale: 0.98, objectPosition: 'center center' },
+    { left: '48.8%', top: '24.9%', width: '23.3%', height: '35.6%', rotation: 14, src: '/assets/images/home-landing5.png', imageScale: 1.02, objectPosition: 'center center' },
+    { left: '73.6%', top: '45.5%', width: '24.6%', height: '37.2%', rotation: 36, src: '/assets/images/home-landing6s.png', imageScale: 1.14, objectPosition: 'center 51%' },
+    { left: '97.7%', top: '75.6%', width: '23.3%', height: '35.6%', rotation: 22, src: '/assets/images/home-landing4.png', imageScale: 1.08, objectPosition: 'center center' },
   ];
 
   return (
@@ -1259,7 +1283,7 @@ export default function Home() {
       <MainNavPages />
 
       {/* ================= HERO SECTION ================= */}
-      <section
+     <section
         ref={heroSectionRef}
         className="home-hero relative -mt-24 min-h-[610px] bg-[#170800] pt-28 text-white sm:min-h-[650px] md:min-h-[620px] md:h-[620px] md:max-h-[620px] md:pt-24 lg:min-h-[680px] lg:h-[680px] lg:max-h-[680px] xl:min-h-[740px] xl:h-[740px] xl:max-h-[740px]"
       >
@@ -1271,7 +1295,7 @@ export default function Home() {
               {/* Image 1 */}
               <div
                 className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform"
-                style={{ transform: `rotate(0deg) translateX(var(--home-hero-arc-radius, 430px))` }}
+                style={{ transform: getOrbitCardTransform(0) }}
               >
                 <Image
                   src="/assets/images/home-landing8.png"
@@ -1287,7 +1311,7 @@ export default function Home() {
               {/* Image 2 */}
               <div
                 className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform"
-                style={{ transform: `rotate(25.71deg) translateX(var(--home-hero-arc-radius, 430px))` }}
+                style={{ transform: getOrbitCardTransform(25.71) }}
               >
                 <Image
                   src="/assets/images/home-landing1.png"
@@ -1303,7 +1327,7 @@ export default function Home() {
               {/* Image 3 */}
               <div
                 className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform"
-                style={{ transform: `rotate(51.43deg) translateX(var(--home-hero-arc-radius, 430px))` }}
+                style={{ transform: getOrbitCardTransform(51.43) }}
               >
                 <Image
                   src="/assets/images/home-landing6.png"
@@ -1319,7 +1343,7 @@ export default function Home() {
               {/* Image 4 */}
               <div
                 className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform"
-                style={{ transform: `rotate(77.14deg) translateX(var(--home-hero-arc-radius, 430px))` }}
+                style={{ transform: getOrbitCardTransform(77.14) }}
               >
                 <Image
                   src="/assets/images/home-landing3.png"
@@ -1335,7 +1359,7 @@ export default function Home() {
               {/* Image 5 */}
               <div
                 className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform"
-                style={{ transform: `rotate(102.86deg) translateX(var(--home-hero-arc-radius, 430px))` }}
+                style={{ transform: getOrbitCardTransform(102.86) }}
               >
                 <Image
                   src="/assets/images/home-landing4.png"
@@ -1351,7 +1375,7 @@ export default function Home() {
               {/* Image 6 */}
               <div
                 className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform"
-                style={{ transform: `rotate(128.57deg) translateX(var(--home-hero-arc-radius, 430px))` }}
+                style={{ transform: getOrbitCardTransform(128.57) }}
               >
                 <Image
                   src="/assets/images/home-landing3.png"
@@ -1367,7 +1391,7 @@ export default function Home() {
               {/* Image 7 */}
               <div
                 className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform"
-                style={{ transform: `rotate(154.29deg) translateX(var(--home-hero-arc-radius, 430px))` }}
+                style={{ transform: getOrbitCardTransform(154.29) }}
               >
                 <Image
                   src="/assets/images/home-landing2.png"
@@ -1383,7 +1407,7 @@ export default function Home() {
               {/* Image 8 */}
               <div
                 className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform"
-                style={{ transform: `rotate(180deg) translateX(var(--home-hero-arc-radius, 430px))` }}
+                style={{ transform: getOrbitCardTransform(180) }}
               >
                 <Image
                   src="/assets/images/home-landing1.png"
@@ -1399,7 +1423,7 @@ export default function Home() {
               {/* Image 9 */}
               <div
                 className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
-                style={{ transform: `rotate(205.71deg) translateX(var(--home-hero-arc-radius, 430px))`, }}
+                style={{ transform: getOrbitCardTransform(205.71) }}
               >
                 <Image
                   src="/assets/images/home-landing2.png"
@@ -1415,7 +1439,7 @@ export default function Home() {
               {/* Image 10 */}
               <div
                 className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl relative"
-                style={{ transform: `rotate(231.43deg) translateX(var(--home-hero-arc-radius, 430px))` }}
+                style={{ transform: getOrbitCardTransform(231.43) }}
               >
 
                 <Image
@@ -1445,7 +1469,7 @@ export default function Home() {
               {/* Image 11 */}
               <div
                 className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
-                style={{ transform: `rotate(257.14deg) translateX(var(--home-hero-arc-radius, 430px))` }}
+                style={{ transform: getOrbitCardTransform(257.14) }}
               >
                 <Image
                   src="/assets/images/home-landing4.png"
@@ -1461,7 +1485,7 @@ export default function Home() {
               {/* Image 12 */}
               <div
                 className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
-                style={{ transform: `rotate(282.86deg) translateX(var(--home-hero-arc-radius, 430px))` }}
+                style={{ transform: getOrbitCardTransform(282.86) }}
               >
                 <Image
                   src="/assets/images/home-landing5.png"
@@ -1477,7 +1501,7 @@ export default function Home() {
               {/* Image 13 */}
               <div
                 className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform transform overflow-hidden rounded-3xl"
-                style={{ transform: `rotate(308.57deg) translateX(var(--home-hero-arc-radius, 430px))` }}
+                style={{ transform: getOrbitCardTransform(308.57) }}
               >
                 <Image
                   src="/assets/images/home-landing6.png"
@@ -1493,7 +1517,7 @@ export default function Home() {
               {/* Image 14 */}
               <div
                 className="absolute left-1/2 top-[46%] h-[var(--home-hero-card-size)] w-[var(--home-hero-card-size)] -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl"
-                style={{ transform: `rotate(334.29deg) translateX(var(--home-hero-arc-radius, 430px))` }}
+                style={{ transform: getOrbitCardTransform(334.29) }}
               >
                 <Image
                   src="/assets/images/home-landing7.png"
@@ -1529,7 +1553,7 @@ export default function Home() {
                     width={95}
                     height={95}
                     className="h-full w-full object-cover"
-                    style={{ transform: `scale(${card.imageScale})` }}
+                    style={{ transform: `scale(${card.imageScale})`, objectPosition: card.objectPosition }}
                   />
                 </div>
               ))}
@@ -1538,12 +1562,14 @@ export default function Home() {
         </div>
 
 
-        <section className="home-hero-shell relative z-30 flex h-full flex-col items-center justify-start px-4 pb-2 pt-[13.2rem] text-center sm:pb-4 sm:pt-[15rem] md:pb-12 md:pt-24">
+        <section
+          className={`home-hero-shell relative z-30 flex h-full flex-col items-center justify-start px-4 pb-2 pt-[13.2rem] text-center sm:pb-4 sm:pt-[15rem] md:pb-12 md:pt-24 ${isHomeSearchActive ? 'home-hero-shell--expanded' : ''}`}
+        >
 
           {/* ================= TEXT + SEARCH ================= */}
           <div
             ref={heroContentRef}
-            className="home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-3 md:gap-5 md:-mt-2 lg:-mt-4 min-[1280px]:max-[1440px]:translate-x-20"
+            className={`home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-3 md:gap-5 md:-mt-2 lg:-mt-4 ${isShortDesktop ? 'translate-y-16' : ''}`}
           >
 
             <h1 className="home-hero-title max-w-[340px] text-[2.55rem] font-medium leading-[1.06] tracking-[-0.03em] sm:max-w-[380px] sm:text-[2.8rem] md:max-w-none md:leading-snug md:tracking-tight md:text-[2.05rem] lg:text-[2.2rem] xl:text-[2.55rem] 2xl:text-[3.05rem]">
@@ -1559,10 +1585,11 @@ export default function Home() {
             </p>
 
             <div className="relative w-full flex justify-center text-black">
-              <div className={`home-hero-search-wrap mx-auto w-full transition-all duration-300 ${isHomeSearchActive ? 'max-w-[1150px]' : 'max-w-[390px] lg:max-w-[420px] xl:max-w-[500px] 2xl:max-w-[660px] min-[1280px]:max-[1440px]:max-w-[340px]'}`}>
+              <div className={`home-hero-search-wrap mx-auto w-full transition-all duration-300 ${isHomeSearchActive ? 'home-hero-search-wrap--expanded' : ''}`}>
                 <HeroSearchForm
                   onSearchStateChange={(isActive) => setIsHomeSearchActive(isActive)}
                   onSuggestionsOpen={(open) => setIsSearchSuggestionsOpen(open)}
+                  respectParentWidth
                 />
               </div>
 
@@ -1741,4 +1768,3 @@ export default function Home() {
     </>
   );
 }
-

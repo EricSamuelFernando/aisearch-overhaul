@@ -220,7 +220,7 @@ export default function AccountPage() {
               View History
             </TabsTrigger>
           </TabsList>
-          <ScrollBar orientation="horizontal" />
+          <ScrollBar orientation="horizontal" className="hidden sm:flex" />
         </ScrollArea>
 
         <TabsContent value='my-snapz' className='mt-6 w-full'>

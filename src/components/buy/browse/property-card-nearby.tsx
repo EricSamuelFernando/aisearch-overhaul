@@ -65,6 +65,15 @@ const PropertyCardHomes: React.FC<PropertyCardProps> = ({
     listing?.listing?.standardStatus === 'Sold' ||
     listing?.listing?.standardStatus === 'Closed';
 
+  const primaryPhoto = listing?.listing?.media?.photosList?.[0];
+  const imageUrl =
+    primaryPhoto?.highRes ||
+    primaryPhoto?.midRes ||
+    primaryPhoto?.url ||
+    primaryPhoto?.lowRes ||
+    listing?.listing?.media?.primaryListingImageUrl ||
+    '';
+
   return (
     <div
       onClick={handleClick}
@@ -72,9 +81,9 @@ const PropertyCardHomes: React.FC<PropertyCardProps> = ({
     >
       {/* Full Image Background */}
       <div className="absolute inset-0 w-full h-full">
-        {listing?.listing?.media?.photosList?.[0]?.lowRes ? (
+        {imageUrl ? (
           <NImage
-            src={listing.listing.media.photosList[0].lowRes}
+            src={imageUrl}
             alt="property-image"
             fill
             unoptimized

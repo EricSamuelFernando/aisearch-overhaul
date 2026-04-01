@@ -958,3 +958,40 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
     updateSnapzById,
   };
 };
+
+export const useGetExternalAgentDetails = (userId?: string) => {
+  const isLocalhostRuntime =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1');
+
+  const GRAPHQL_URI = isLocalhostRuntime
+    ? 'http://localhost:4000/auth/graphql'
+    : process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
+    'http://localhost:4000/graphql';
+
+  return useQuery({
+    queryKey: ['getExternalAgentDetails', userId],
+    queryFn: async () => {
+      if (!userId) return null;
+      const response = await API.post(GRAPHQL_URI, {
+        query: `
+          query getExternalAgentDetails($userId: String!) {
+            getExternalAgentDetails(userId: $userId) {
+              id
+              firstName
+              lastName
+              email
+            }
+          }
+        `,
+        variables: { userId },
+      });
+      if (response.data?.errors) {
+        throw new Error(response.data.errors[0]?.message || 'Failed to fetch external agent details');
+      }
+      return response.data.data.getExternalAgentDetails;
+    },
+    enabled: !!userId,
+  });
+};

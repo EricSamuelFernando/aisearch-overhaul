@@ -2281,7 +2281,7 @@ const PropertyPreview: React.FC = () => {
 
       {/* Search Agent Modal - Large modal with agent directory */}
       <Dialog open={isSearchAgentModalOpen} onOpenChange={setIsSearchAgentModalOpen}>
-        <DialogContent className="max-w-6xl w-[96vw] sm:w-[95vw] h-[90vh] max-h-[90vh] overflow-hidden flex flex-col p-0">
+        <DialogContent className="max-w-6xl w-[96vw] sm:w-[95vw] h-[90vh] max-h-[90vh] overflow-hidden flex flex-col p-0 max-[640px]:top-3 max-[640px]:translate-y-0 max-[640px]:h-[calc(100dvh-1.5rem)] max-[640px]:max-h-[calc(100dvh-1.5rem)] max-[640px]:w-[calc(100vw-0.75rem)] max-[640px]:max-w-none max-[640px]:rounded-2xl">
           <DialogHeader className="flex-shrink-0 px-3 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b">
             <DialogTitle className="text-xl sm:text-2xl font-semibold">Search Agents</DialogTitle>
             <DialogDescription>

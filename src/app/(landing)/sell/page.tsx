@@ -20,7 +20,6 @@ function Sell() {
           heading={<>We Make It <span className="font-light">Easy</span></>}
           subtitle="Tailor your homebuying experience - your way, with the guidance you need."
           contentPreset="home"
-          disableCarousel
         />
        {/* <EstimatedRent />*/}
         {/* <MainTestimonial /> */}

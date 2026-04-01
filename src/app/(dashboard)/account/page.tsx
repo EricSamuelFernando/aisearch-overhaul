@@ -56,6 +56,8 @@ export default function AccountPage() {
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [searchedAgents, setSearchedAgents] = useState<SearchedAgent[]>([]);
+  const [invitingAgentId, setInvitingAgentId] = useState<string | null>(null);
+  const [invitedAgentIds, setInvitedAgentIds] = useState<Set<string>>(new Set());
   const { getAllAgentsQuery, searchAgentMutation, sendInviteMutation } = useUserAuthApi();
   const { data: userDocuments, isPending: isDocumentsPending } =
     useGetUserDocuments();
@@ -97,6 +99,7 @@ export default function AccountPage() {
       const response = await searchAgentMutation.mutateAsync(query);
       const results = response?.data?.get_agents ?? [];
       setSearchedAgents(results);
+      setInvitedAgentIds(new Set());
 
       if (!results.length) {
         error({ message: 'No agents found for that email.' });
@@ -145,7 +148,11 @@ export default function AccountPage() {
       return;
     }
 
-    setLoading(true);
+    if (invitingAgentId === agentId || invitedAgentIds.has(agentId)) {
+      return;
+    }
+
+    setInvitingAgentId(agentId);
 
     try {
       const response = await sendInviteMutation.mutateAsync(agentId);
@@ -153,8 +160,11 @@ export default function AccountPage() {
 
       if (invitationStatus?.success) {
         success({ message: invitationStatus?.message || 'Invitation sent successfully.' });
-        setAgentSearch('');
-        setSearchedAgents([]);
+        setInvitedAgentIds((prev) => {
+          const next = new Set(prev);
+          next.add(agentId);
+          return next;
+        });
         setSelectedIndex(-1);
       } else {
         error({ message: invitationStatus?.message || 'Failed to send invitation.' });
@@ -163,7 +173,7 @@ export default function AccountPage() {
       console.error('Error sending agent invitation', err);
       error({ message: 'Unable to send invitation right now.' });
     } finally {
-      setLoading(false);
+      setInvitingAgentId(null);
     }
   };
 
@@ -331,7 +341,7 @@ export default function AccountPage() {
 
             {/* Display searched agents from the search box */}
             {searchedAgents.map((suggestion, index) => (
-              <div key={`searched-${index}`} className="rounded-lg bg-white p-3 shadow-sm border border-ocOrange/30 bg-orange-50/10">
+              <div key={`searched-${index}`} className="rounded-lg bg-white p-3 shadow-sm border border-ocOrange/30 bg-orange-50/10 transition-shadow hover:shadow-md">
                 <div className="flex items-start justify-start gap-3">
                   <div className="flex h-16 w-16 items-center justify-center rounded-full bg-ocOrange/10 text-ocOrange font-bold text-lg">
                     {suggestion.email[0].toUpperCase()}
@@ -341,7 +351,20 @@ export default function AccountPage() {
                     <p className="break-all text-sm font-medium">{suggestion.email}</p>
                   </section>
                 </div>
-                {/* No button added as per user request */}
+                <div className="mt-4 flex justify-end">
+                  <Button
+                    type="button"
+                    onClick={() => sendAgentInvitation(suggestion.id)}
+                    disabled={loading || invitingAgentId === suggestion.id || invitedAgentIds.has(suggestion.id)}
+                    className="min-w-[120px]"
+                  >
+                    {invitingAgentId === suggestion.id
+                      ? 'Inviting...'
+                      : invitedAgentIds.has(suggestion.id)
+                        ? 'Invited'
+                        : 'Invite Agent'}
+                  </Button>
+                </div>
               </div>
             ))}
 

@@ -1087,3 +1087,42 @@ export const useGetUserThreadByProperty = (propertyId?: string) => {
     enabled: !!propertyId,
   });
 };
+
+export const useGetAnswersByUser = (userId?: string, propertyId?: string) => {
+  const isLocalhostRuntime =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1');
+
+  const GRAPHQL_URI = isLocalhostRuntime
+    ? 'http://localhost:4004/graphql'
+    : (process.env.NEXT_PUBLIC_PRE_APPROVE_SERIVCE_GRAPHQL_URL || 
+       'https://demo-api.snaphomz.com/pre-approve/graphql');
+
+  return useQuery({
+    queryKey: ['getAnswersByUser', userId, propertyId],
+    queryFn: async () => {
+      if (!userId || !propertyId) return null;
+      const response = await API.post(GRAPHQL_URI, {
+        query: `
+          query GetAnswersByUser($userId: String!, $propertyId: String!) {
+            getAnswersByUser(userId: $userId, propertyId: $propertyId) {
+              id
+              stepId
+              questionId
+              response {
+                answer
+              }
+            }
+          }
+        `,
+        variables: { userId, propertyId },
+      });
+      if (response.data?.errors) {
+        throw new Error(response.data.errors[0]?.message || 'Failed to fetch answers');
+      }
+      return response.data.data.getAnswersByUser;
+    },
+    enabled: !!userId && !!propertyId,
+  });
+};

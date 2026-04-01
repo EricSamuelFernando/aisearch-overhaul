@@ -5482,16 +5482,16 @@ const CustomMap: React.FC<Props> = ({
               (currentSchool.position?.lat === position.lat &&
                 currentSchool.position?.lng === position.lng));
 
-            if (sameSchoolSelected) {
-              schoolDetailsRequestRef.current += 1;
-              setSelectedSchool(null);
-              preserveTouchSelectionRef.current = false;
-              if (selectedSchoolMarkerRef.current) {
-                selectedSchoolMarkerRef.current.setMap(null);
-                selectedSchoolMarkerRef.current = null;
-              }
-              return;
+          if (sameSchoolSelected) {
+            schoolDetailsRequestRef.current += 1;
+            setSelectedSchool(null);
+            preserveTouchSelectionRef.current = false;
+            if (selectedSchoolMarkerRef.current) {
+              selectedSchoolMarkerRef.current.setMap(null);
+              selectedSchoolMarkerRef.current = null;
             }
+            return;
+          }
 
           applyMeasurePointFromMarker(position, 'poi');
           if (place.place_id) {
@@ -5676,20 +5676,49 @@ const CustomMap: React.FC<Props> = ({
       skipNextMapClickRef.current = false;
       return;
     }
-    if (isTouchDevice && showDistricts && event?.latLng) {
+    if (showDistricts && event?.latLng) {
       const name = findDistrictNameAtLatLng(event.latLng);
       if (name) {
         setClickedDistrictName(name);
-        skipNextMapClickRef.current = true;
-        if (skipNextMapClickTimerRef.current) {
-          clearTimeout(skipNextMapClickTimerRef.current);
+        if (isTouchDevice) {
+          skipNextMapClickRef.current = true;
+          if (skipNextMapClickTimerRef.current) {
+            clearTimeout(skipNextMapClickTimerRef.current);
+          }
+          skipNextMapClickTimerRef.current = setTimeout(() => {
+            skipNextMapClickRef.current = false;
+            skipNextMapClickTimerRef.current = null;
+          }, 500);
         }
-        skipNextMapClickTimerRef.current = setTimeout(() => {
-          skipNextMapClickRef.current = false;
-          skipNextMapClickTimerRef.current = null;
-        }, 500);
         return;
       }
+
+      // Fallback: use Geocoder for regions without GeoJSON boundaries (e.g. Florida)
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode({ location: event.latLng }, (results, status) => {
+        if (status === 'OK' && results?.[0]) {
+          const comp = results[0].address_components.find((c) =>
+            c.types.includes('school_district') || c.types.includes('administrative_area_level_2')
+          );
+          if (comp) {
+            let districtName = comp.long_name;
+            if (!districtName.toLowerCase().includes('district') && !districtName.toLowerCase().includes('school')) {
+              districtName = `${districtName} School District`;
+            }
+            setClickedDistrictName(districtName);
+
+            // If it's a touch device, we might want to handle debouncing similarly if we just resolved it
+            if (isTouchDevice) {
+              skipNextMapClickRef.current = true;
+              if (skipNextMapClickTimerRef.current) clearTimeout(skipNextMapClickTimerRef.current);
+              skipNextMapClickTimerRef.current = setTimeout(() => {
+                skipNextMapClickRef.current = false;
+                skipNextMapClickTimerRef.current = null;
+              }, 500);
+            }
+          }
+        }
+      });
     }
     if (drawMode && isTouchDevice && event?.latLng) {
       const point = event.latLng.toJSON();
@@ -6053,7 +6082,7 @@ const CustomMap: React.FC<Props> = ({
         toggleExploreCategory(key as keyof typeof quickCategories);
       }
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [externalActivePOICategories]);
 
   useEffect(() => {
@@ -6137,74 +6166,74 @@ const CustomMap: React.FC<Props> = ({
               </svg>
             </button>
 
-          {activeToolPanel === 'explore' && (
-            <div className="flex h-12 items-center gap-2 px-2">
-              <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pr-1 scrollbar-hide">
-                {onOverlayChange && (
-                  <button
-                    type="button"
-                    onClick={() => onOverlayChange(overlayValue === 'schools' ? 'none' : 'schools')}
-                    className={cn(
-                      'flex h-10 min-w-[68px] flex-col items-center justify-center gap-0.5 rounded-lg px-2 text-[10px] font-medium transition-colors',
-                      overlayValue === 'schools'
-                        ? 'bg-gray-200 text-gray-900'
-                        : 'text-gray-600 hover:bg-gray-200 hover:text-gray-900',
-                    )}
-                  >
-                    {renderSchoolExploreIcon()}
-                    <span className="leading-tight">Schools</span>
-                  </button>
-                )}
-                {Object.entries(quickCategories).map(([key, cfg]) => {
-                  const active = activeCategoryKeys.includes(key);
-                  const icon = renderExploreCategoryIcon(key as keyof typeof quickCategories);
-                  return (
+            {activeToolPanel === 'explore' && (
+              <div className="flex h-12 items-center gap-2 px-2">
+                <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pr-1 scrollbar-hide">
+                  {onOverlayChange && (
                     <button
-                      key={key}
                       type="button"
-                      onClick={() => toggleExploreCategory(key as keyof typeof quickCategories)}
+                      onClick={() => onOverlayChange(overlayValue === 'schools' ? 'none' : 'schools')}
                       className={cn(
                         'flex h-10 min-w-[68px] flex-col items-center justify-center gap-0.5 rounded-lg px-2 text-[10px] font-medium transition-colors',
-                        active ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-900',
+                        overlayValue === 'schools'
+                          ? 'bg-gray-200 text-gray-900'
+                          : 'text-gray-600 hover:bg-gray-200 hover:text-gray-900',
                       )}
                     >
-                      {icon ?? <span className="h-5 w-5" aria-hidden />}
-                      <span className="leading-tight">{cfg.label}</span>
+                      {renderSchoolExploreIcon()}
+                      <span className="leading-tight">Schools</span>
                     </button>
-                  );
-                })}
-              </div>
-
-              <form
-                className="flex shrink-0 items-center gap-2"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  submitExploreSearch();
-                }}
-              >
-                <div className="min-w-0">
-                  <input
-                    type="text"
-                    value={exploreSearchInput}
-                    onChange={(e) => setExploreSearchInput(e.target.value)}
-                    placeholder="Search places in view"
-                    className="block h-10 w-[200px] appearance-none rounded-md border border-gray-200 bg-white px-3 text-xs text-gray-900 placeholder:text-gray-400 outline-none ring-0 focus:border-gray-400 sm:w-[240px]"
-                    style={{
-                      lineHeight: '20px',
-                      paddingTop: 0,
-                      paddingBottom: 0,
-                    }}
-                  />
+                  )}
+                  {Object.entries(quickCategories).map(([key, cfg]) => {
+                    const active = activeCategoryKeys.includes(key);
+                    const icon = renderExploreCategoryIcon(key as keyof typeof quickCategories);
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => toggleExploreCategory(key as keyof typeof quickCategories)}
+                        className={cn(
+                          'flex h-10 min-w-[68px] flex-col items-center justify-center gap-0.5 rounded-lg px-2 text-[10px] font-medium transition-colors',
+                          active ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-900',
+                        )}
+                      >
+                        {icon ?? <span className="h-5 w-5" aria-hidden />}
+                        <span className="leading-tight">{cfg.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
-                <button
-                  type="submit"
-                  className="h-10 shrink-0 rounded-md bg-gray-900 px-3 text-xs font-semibold text-white hover:bg-black"
+
+                <form
+                  className="flex shrink-0 items-center gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    submitExploreSearch();
+                  }}
                 >
-                  Go
-                </button>
-              </form>
-            </div>
-          )}
+                  <div className="min-w-0">
+                    <input
+                      type="text"
+                      value={exploreSearchInput}
+                      onChange={(e) => setExploreSearchInput(e.target.value)}
+                      placeholder="Search places in view"
+                      className="block h-10 w-[200px] appearance-none rounded-md border border-gray-200 bg-white px-3 text-xs text-gray-900 placeholder:text-gray-400 outline-none ring-0 focus:border-gray-400 sm:w-[240px]"
+                      style={{
+                        lineHeight: '20px',
+                        paddingTop: 0,
+                        paddingBottom: 0,
+                      }}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="h-10 shrink-0 rounded-md bg-gray-900 px-3 text-xs font-semibold text-white hover:bg-black"
+                  >
+                    Go
+                  </button>
+                </form>
+              </div>
+            )}
           </div>
         </div>
       </div>

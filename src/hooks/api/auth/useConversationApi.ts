@@ -1033,3 +1033,57 @@ export const useGetExternalAgentDetails = (userId?: string) => {
     enabled: !!userId,
   });
 };
+
+export const useGetUserThreadByProperty = (propertyId?: string) => {
+  const isLocalhostRuntime =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1');
+
+  const GRAPHQL_URI = isLocalhostRuntime
+    ? 'http://localhost:4000/auth/graphql'
+    : process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
+    'http://localhost:4000/graphql';
+
+  return useQuery({
+    queryKey: ['getUserThreadByPropertyId', propertyId],
+    queryFn: async () => {
+      if (!propertyId) return null;
+      const response = await API.post(GRAPHQL_URI, {
+        query: `
+          query GetUserThreadByPropertyId($propertyId: String!) {
+            getUserThreadByPropertyId(propertyId: $propertyId) {
+              id
+              threadName
+              propertyId
+              roomId
+              propertyName
+              listingId
+              propertyAddress
+              unreadCount
+              parentMessage
+              buyerAgent {
+                id
+                firstName
+                lastName
+                email
+              }
+              sellerAgent {
+                id
+                firstName
+                lastName
+                email
+              }
+            }
+          }
+        `,
+        variables: { propertyId },
+      });
+      if (response.data?.errors) {
+        throw new Error(response.data.errors[0]?.message || 'Failed to fetch thread by property');
+      }
+      return response.data.data.getUserThreadByPropertyId;
+    },
+    enabled: !!propertyId,
+  });
+};

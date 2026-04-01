@@ -620,7 +620,7 @@ export interface EngagedPropertyInterface {
 }
 
 export interface EngagedPropertyDocumentsInterface {
-  id: string;
+  id: any;
   userId: string;
   propertyId: string;
   documentName: string;
@@ -674,7 +674,7 @@ function PropertyDetailLayout() {
   const getEngagedProperty = () => {
     setPropertyData({} as EngagedPropertyInterface);
     setLoading(true);
-    getEngagedPropertyByPropertyId.mutate(id, {
+    getEngagedPropertyByPropertyId.mutate({ propertyId: id as string, userId: currentUser?.id }, {
       onSuccess: (response) => {
         setLoading(false);
         console.log(response?.data)

@@ -31,7 +31,7 @@ import { NewFeatureCard } from './multi-feature-card';
 import { PROPERTY_DETAIL_SEARCH_AI_URL } from "@/shared/constants/env"
 import { isMlsBypassModeEnabled, setMlsBypassModeEnabled } from '@/lib/mls-bypass-mode';
 
-import { useSelector } from 'react-redux';
+
 import CategorizedPhotosModal from '../CategorizedPhotosModal'; // Import the new modal
 import { preloadImageUrls } from '@/lib/photo-preload';
 import PropertyDetailsCard from '../propertyDetailsCard';
@@ -68,8 +68,9 @@ import { error } from '@/components/alert/notify';
 import { AgentDirectoryBox } from '@/components/start-process/agent-directory-box';
 import { AgentCard } from '@/components/start-process/agent-card';
 import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { setEngagedProperty } from '@/slices/property/property-slice';
+import { CoBuyerForm } from '@/components/property/manage/add-cobuyer';
 import { SocketContext } from '@/providers/socket.context';
 import { success } from '@/components/alert/notify';
 import type { WebSocketClient } from '@/lib/websocket-client';
@@ -313,6 +314,7 @@ const PropertyPreview: React.FC = () => {
   const [isContactAgentDialogOpen, setIsContactAgentDialogOpen] = React.useState(false);
   const [isSearchAgentModalOpen, setIsSearchAgentModalOpen] = React.useState(false);
   const [isInviteAgentModalOpen, setIsInviteAgentModalOpen] = React.useState(false);
+  const [isCoBuyerInviteDialogOpen, setIsCoBuyerInviteDialogOpen] = React.useState(false);
   const [engagementIdForModal, setEngagementIdForModal] = React.useState<string | null>(null);
   const [isProcessingInvitation, setIsProcessingInvitation] = React.useState(false);
   const [contactActionInProgress, setContactActionInProgress] = React.useState<"search" | "invite" | null>(null);
@@ -392,10 +394,15 @@ const PropertyPreview: React.FC = () => {
 
 
   React.useEffect(() => {
-    if (id) {
-      getEngagedPropertyByPropertyId.mutate(id)
+    if (id && currentUser?.id) {
+      dispatch(setEngagedProperty({}));
+      // Passing both IDs to ensure unique lookup for the current user
+      getEngagedPropertyByPropertyId.mutate({ propertyId: id, userId: currentUser.id })
+    } else if (id && !currentUser?.id) {
+      // If no user, clear the engagement state
+      dispatch(setEngagedProperty({}));
     }
-  }, [id])
+  }, [id, currentUser?.id])
 
   React.useEffect(() => {
     if (!currentUser?.id) return;
@@ -611,6 +618,10 @@ const PropertyPreview: React.FC = () => {
     return emailRegex.test(email);
   };
 
+  const handleInviteCoBuyer = () => {
+    setIsCoBuyerInviteDialogOpen(true);
+  };
+
   const handleInviteAgent = () => {
     if (isProcessingInvitation) {
       return; // Prevent multiple simultaneous calls
@@ -778,7 +789,8 @@ const PropertyPreview: React.FC = () => {
               userId: currentUser?.id,
               bra_id: null,
               is_accepted: "pending",
-              agent: { id: agentId, email: inviteAgentEmail }
+              agent: { id: agentId, email: inviteAgentEmail },
+              threadId: response.threadId
             }];
             dispatch(setEngagedProperty({
               ...engagedProperty,
@@ -801,7 +813,11 @@ const PropertyPreview: React.FC = () => {
               mainElement.scrollTo({ top: 0, behavior: 'auto' });
             }
           }
-          router.push('/dashboard/buyer?tab=messages');
+          if (response.threadId) {
+            router.push(`/dashboard/buyer?tab=messages&threadId=${response.threadId}`);
+          } else {
+            router.push('/dashboard/buyer?tab=messages');
+          }
         } else {
           error({ message: message || 'Failed to send invitation' });
         }
@@ -2464,7 +2480,29 @@ const PropertyPreview: React.FC = () => {
             >
               {isInviteActionPending ? "Creating..." : "Invite Agent"}
             </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleInviteCoBuyer();
+              }}
+              disabled={isAnyContactActionPending}
+              className="w-full bg-white text-black border-2 border-black px-6 py-3 rounded-full text-base font-normal hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Invite Co-Buyer
+            </button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Co-Buyer Invite Dialog */}
+      <Dialog open={isCoBuyerInviteDialogOpen} onOpenChange={setIsCoBuyerInviteDialogOpen}>
+        <DialogContent className='rounded-none py-8 sm:max-w-xl'>
+          <CoBuyerForm
+            setShowDialog={setIsCoBuyerInviteDialogOpen}
+            showDialog={isCoBuyerInviteDialogOpen}
+          />
         </DialogContent>
       </Dialog>
 
@@ -2713,8 +2751,65 @@ const PropertyPreview: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Hero Highlights - moved below */}
-                {/* <div className="w-full">
+                {/* Right: Schedule A Tour Button */}
+                <div className="w-full flex flex-col gap-2">
+                  {(() => {
+                    // Find any participant associated with this engagement
+                    const activeParticipant = engagedProperty?.participants?.find((p: any) => p.is_accepted === 'accepted');
+                    const pendingParticipant = engagedProperty?.participants?.find((p: any) => p.is_accepted === 'pending' || !p.is_accepted);
+                    const participant = activeParticipant || pendingParticipant;
+
+                    if (participant) {
+                      const isAccepted = activeParticipant !== undefined;
+                      const displayName = participant.agent?.firstName
+                        ? `${participant.agent.firstName} ${participant.agent.lastName || ''}`
+                        : participant.agent?.email || 'Your Agent';
+
+                      return (
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl">
+                            <div className="flex flex-col">
+                              <span className="text-[10px] sm:text-xs text-gray-500 uppercase font-bold tracking-wider">
+                                {isAccepted ? 'Your Agent' : 'Invitation Sent'}
+                              </span>
+                              <span className="text-xs sm:text-sm font-semibold truncate max-w-[120px] sm:max-w-[160px]">
+                                {displayName}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => {
+                                const threadId = participant?.threadId;
+                                if (threadId) {
+                                  router.push(`/dashboard/buyer?tab=messages&threadId=${threadId}`);
+                                } else {
+                                  // Fallback: If no threadId yet but participant exists, go to messages tab
+                                  router.push(`/dashboard/buyer?tab=messages`);
+                                }
+                              }}
+                              className="bg-[#E8804C] text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:bg-[#d6703c] transition-colors shadow-sm"
+                            >
+                              Chat
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <button
+                        className="w-full bg-black text-white px-4 sm:px-6 lg:px-8 py-2 sm:py-3 rounded-full text-sm sm:text-base font-normal border border-black hover:bg-gray-900 transition-colors"
+                        onClick={handleContactAgent}
+                        disabled={propertyEngagementMutation.isPending}
+                      >
+                        {propertyEngagementMutation.isPending ? "Creating..." : "Schedule a Tour"}
+                      </button>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Hero Highlights - moved below */}
+              {/* <div className="w-full">
               <HeroHighlights
                 className="h-[210px] sm:h-[260px] md:h-[25.4rem] w-full shadow-lg hover:shadow-xl transition-shadow duration-300"
                 id={id}
@@ -2724,491 +2819,492 @@ const PropertyPreview: React.FC = () => {
             </div> */}
 
 
-                {/* Takeaways */}
-                <div className="hidden py-2 sm:py-3">
-                  <PropertyTakeawaysAI
-                    property={
-                      propertyDatas?.data ||
-                      propertyData?.listing ||
-                      propertyData?.public ||
-                      propertyData ||
-                      transformData.prop
-                    }
-                    nearbySchools={nearbySchools}
-                    collegeReadinessData={collegeReadinessData}
-                    collegeReadinessLoading={collegeReadinessLoading}
-                  />
-                </div>
-
-                {/* Estimated Market Value (image_60fd3b.png) */}
-                <div className='flex flex-wrap items-center justify-between gap-2 sm:gap-3 pt-2 pb-1 sm:pt-3 sm:pb-2 px-2 sm:px-0'>
-                  <EstimatedMarketValue estimatedData={estimatedMarketData} />
-                </div>
-
+              {/* Takeaways */}
+              <div className="hidden py-2 sm:py-3">
+                <PropertyTakeawaysAI
+                  property={
+                    propertyDatas?.data ||
+                    propertyData?.listing ||
+                    propertyData?.public ||
+                    propertyData ||
+                    transformData.prop
+                  }
+                  nearbySchools={nearbySchools}
+                  collegeReadinessData={collegeReadinessData}
+                  collegeReadinessLoading={collegeReadinessLoading}
+                />
               </div>
 
+              {/* Estimated Market Value (image_60fd3b.png) */}
+              <div className='flex flex-wrap items-center justify-between gap-2 sm:gap-3 pt-2 pb-1 sm:pt-3 sm:pb-2 px-2 sm:px-0'>
+                <EstimatedMarketValue estimatedData={estimatedMarketData} />
+              </div>
 
-              <div className="col-span-12 lg:col-span-4 xl:col-span-1 lg:row-span-2 mt-4 lg:mt-0 xl:pl-[24px]">
-                <div className="w-full rounded-2xl bg-[#F9F6EF] shadow-sm border border-[#EFE7DC] p-4 sm:p-5 md:p-6 xl:w-[500px] min-[1536px]:max-[1919px]:w-[470px] xl:h-[569px] xl:rounded-[20px] xl:bg-[#FAF9F5] xl:border-none xl:px-[28px] xl:py-[22px]">
-                  {(() => {
-                    // Calculate dynamic values
-                    const beds = transformData.prop?.property?.bedroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bedroomsTotal || 0;
-                    const baths = transformData.prop?.property?.bathroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bathroomsTotal || 0;
-                    const sqft = transformData.prop?.property?.livingArea || propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet || 0;
-                    const yearBuilt = transformData.prop?.property?.yearBuilt || propertyDatas?.property_detail?.data?.propertyInfo?.yearBuilt || "N/A";
-                    const propertyType = transformData.prop?.property?.propertyType || propertyDatas?.property_detail?.data?.propertyInfo?.propertyType || "N/A";
-                    const sqftArea = transformData.prop?.property?.livingArea || propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet || 0;
-                    const listPrice = transformData.prop?.listPrice || propertyDatas?.data?.listPrice || 0;
-                    const pricePerSqft = sqft && listPrice ? Math.round(listPrice / sqft) : 0;
-                    const status = mostRecentStatus || transformData.prop?.mostRecentStatus || "For sale";
-                    const propertyTypeShort = propertyType?.split(' ')[0] || "Single";
+            </div>
 
-                    return (
-                      <>
-                        {/* Status Badge */}
-                        <div className="inline-flex items-center gap-2 bg-white/70 px-3 py-1 rounded-full text-xs sm:text-[13px] font-medium text-gray-800 xl:w-[117px] xl:h-[30px] xl:rounded-[4px] xl:bg-[#F1F1F4] xl:text-[20px] xl:text-[#2A2A32]">
-                          <span className="h-[6px] w-[6px] rounded-full bg-red-500 xl:h-[12px] xl:w-[12px] xl:bg-[#EE6658]"></span>
-                          {status}
+
+            <div className="col-span-12 lg:col-span-4 xl:col-span-1 lg:row-span-2 mt-4 lg:mt-0 xl:pl-[24px]">
+              <div className="w-full rounded-2xl bg-[#F9F6EF] shadow-sm border border-[#EFE7DC] p-4 sm:p-5 md:p-6 xl:w-[500px] min-[1536px]:max-[1919px]:w-[470px] xl:h-[569px] xl:rounded-[20px] xl:bg-[#FAF9F5] xl:border-none xl:px-[28px] xl:py-[22px]">
+                {(() => {
+                  // Calculate dynamic values
+                  const beds = transformData.prop?.property?.bedroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bedroomsTotal || 0;
+                  const baths = transformData.prop?.property?.bathroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bathroomsTotal || 0;
+                  const sqft = transformData.prop?.property?.livingArea || propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet || 0;
+                  const yearBuilt = transformData.prop?.property?.yearBuilt || propertyDatas?.property_detail?.data?.propertyInfo?.yearBuilt || "N/A";
+                  const propertyType = transformData.prop?.property?.propertyType || propertyDatas?.property_detail?.data?.propertyInfo?.propertyType || "N/A";
+                  const sqftArea = transformData.prop?.property?.livingArea || propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet || 0;
+                  const listPrice = transformData.prop?.listPrice || propertyDatas?.data?.listPrice || 0;
+                  const pricePerSqft = sqft && listPrice ? Math.round(listPrice / sqft) : 0;
+                  const status = mostRecentStatus || transformData.prop?.mostRecentStatus || "For sale";
+                  const propertyTypeShort = propertyType?.split(' ')[0] || "Single";
+
+                  return (
+                    <>
+                      {/* Status Badge */}
+                      <div className="inline-flex items-center gap-2 bg-white/70 px-3 py-1 rounded-full text-xs sm:text-[13px] font-medium text-gray-800 xl:w-[117px] xl:h-[30px] xl:rounded-[4px] xl:bg-[#F1F1F4] xl:text-[20px] xl:text-[#2A2A32]">
+                        <span className="h-[6px] w-[6px] rounded-full bg-red-500 xl:h-[12px] xl:w-[12px] xl:bg-[#EE6658]"></span>
+                        {status}
+                      </div>
+
+                      {/* Top stats */}
+                      <div className="mt-4 grid grid-cols-3 gap-5 xl:mt-[20px] xl:h-[80px] xl:gap-[48px]">
+                        <div>
+                          <p className="text-2xl sm:text-[30px] font-semibold leading-none xl:text-[40px]">{beds}</p>
+                          <p className="text-xs sm:text-[13px] text-gray-600 mt-1 xl:text-[21px] xl:text-[#1D1D1D]">beds</p>
                         </div>
 
-                        {/* Top stats */}
-                        <div className="mt-4 grid grid-cols-3 gap-5 xl:mt-[20px] xl:h-[80px] xl:gap-[48px]">
-                          <div>
-                            <p className="text-2xl sm:text-[30px] font-semibold leading-none xl:text-[40px]">{beds}</p>
-                            <p className="text-xs sm:text-[13px] text-gray-600 mt-1 xl:text-[21px] xl:text-[#1D1D1D]">beds</p>
-                          </div>
-
-                          <div>
-                            <p className="text-2xl sm:text-[30px] font-semibold leading-none xl:text-[40px]">{baths}</p>
-                            <p className="text-xs sm:text-[13px] text-gray-600 mt-1 xl:text-[21px] xl:text-[#1D1D1D]">baths</p>
-                          </div>
-
-                          <div>
-                            <p className="text-2xl sm:text-[30px] font-semibold leading-none tracking-tight xl:text-[40px]">
-                              {sqft ? sqft.toLocaleString('en-US') : "0"}
-                            </p>
-                            <p className="text-xs sm:text-[13px] text-gray-600 mt-1 xl:text-[21px] xl:text-[#1D1D1D]">sqft</p>
-                          </div>
+                        <div>
+                          <p className="text-2xl sm:text-[30px] font-semibold leading-none xl:text-[40px]">{baths}</p>
+                          <p className="text-xs sm:text-[13px] text-gray-600 mt-1 xl:text-[21px] xl:text-[#1D1D1D]">baths</p>
                         </div>
 
-                        {/* Open house - optional, can be made dynamic if data is available */}
-                        {(() => {
-                          const openHouseRaw =
-                            transformData.prop?.openHouse ??
-                            transformData.prop?.OpenHouse ??
-                            (transformData.prop as any)?.['open house'] ??
-                            transformData.prop?.openHouses ??
-                            transformData.prop?.open_houses ??
-                            transformData.prop?.property?.openHouse ??
-                            (transformData.prop?.property as any)?.['open house'] ??
-                            transformData.prop?.property?.openHouses ??
-                            propertyDatas?.data?.openHouse ??
-                            propertyDatas?.data?.OpenHouse ??
-                            (propertyDatas?.data as any)?.['open house'] ??
-                            propertyDatas?.data?.openHouses ??
-                            propertyDatas?.data?.open_houses ??
-                            propertyDatas?.data?.property?.openHouse ??
-                            (propertyDatas?.data?.property as any)?.['open house'] ??
-                            propertyDatas?.data?.property?.openHouses ??
-                            propertyDatas?.property_detail?.data?.openHouse ??
-                            propertyDatas?.property_detail?.data?.openHouses ??
-                            (propertyDatas?.property_detail?.data as any)?.['open house'] ??
-                            propertyDatas?.property_detail?.data?.propertyInfo?.openHouse ??
-                            (propertyDatas?.property_detail?.data?.propertyInfo as any)?.['open house'] ??
-                            propertyDatas?.property_detail?.data?.propertyInfo?.openHouses ??
-                            null;
+                        <div>
+                          <p className="text-2xl sm:text-[30px] font-semibold leading-none tracking-tight xl:text-[40px]">
+                            {sqft ? sqft.toLocaleString('en-US') : "0"}
+                          </p>
+                          <p className="text-xs sm:text-[13px] text-gray-600 mt-1 xl:text-[21px] xl:text-[#1D1D1D]">sqft</p>
+                        </div>
+                      </div>
 
-                          const formatDate = (value: any) => {
-                            const d = value instanceof Date ? value : new Date(value);
-                            if (Number.isNaN(d.getTime())) return null;
-                            return {
-                              date: d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }),
-                              day: d.toLocaleDateString('en-US', { weekday: 'short' }),
-                              time: d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-                            };
+                      {/* Open house - optional, can be made dynamic if data is available */}
+                      {(() => {
+                        const openHouseRaw =
+                          transformData.prop?.openHouse ??
+                          transformData.prop?.OpenHouse ??
+                          (transformData.prop as any)?.['open house'] ??
+                          transformData.prop?.openHouses ??
+                          transformData.prop?.open_houses ??
+                          transformData.prop?.property?.openHouse ??
+                          (transformData.prop?.property as any)?.['open house'] ??
+                          transformData.prop?.property?.openHouses ??
+                          propertyDatas?.data?.openHouse ??
+                          propertyDatas?.data?.OpenHouse ??
+                          (propertyDatas?.data as any)?.['open house'] ??
+                          propertyDatas?.data?.openHouses ??
+                          propertyDatas?.data?.open_houses ??
+                          propertyDatas?.data?.property?.openHouse ??
+                          (propertyDatas?.data?.property as any)?.['open house'] ??
+                          propertyDatas?.data?.property?.openHouses ??
+                          propertyDatas?.property_detail?.data?.openHouse ??
+                          propertyDatas?.property_detail?.data?.openHouses ??
+                          (propertyDatas?.property_detail?.data as any)?.['open house'] ??
+                          propertyDatas?.property_detail?.data?.propertyInfo?.openHouse ??
+                          (propertyDatas?.property_detail?.data?.propertyInfo as any)?.['open house'] ??
+                          propertyDatas?.property_detail?.data?.propertyInfo?.openHouses ??
+                          null;
+
+                        const formatDate = (value: any) => {
+                          const d = value instanceof Date ? value : new Date(value);
+                          if (Number.isNaN(d.getTime())) return null;
+                          return {
+                            date: d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }),
+                            day: d.toLocaleDateString('en-US', { weekday: 'short' }),
+                            time: d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
                           };
+                        };
 
-                          const formatOpenHouse = (oh: any): string | null => {
-                            if (!oh) return null;
-                            if (typeof oh === 'string') return oh.trim() || null;
-                            if (Array.isArray(oh)) return formatOpenHouse(oh[0]);
-                            if (typeof oh === 'object') {
-                              const displayText =
-                                oh.display ??
-                                oh.label ??
-                                oh.text ??
-                                oh.description ??
-                                oh.Display ??
-                                oh.Label ??
-                                oh.Text ??
-                                oh.Description ??
-                                null;
-                              if (typeof displayText === 'string' && displayText.trim()) {
-                                return displayText.trim();
-                              }
-
-                              const start =
-                                oh.startTime ??
-                                oh.start ??
-                                oh.startDate ??
-                                oh.startDateTime ??
-                                oh.start_time ??
-                                oh.StartTime ??
-                                oh.OpenHouseStartTime ??
-                                oh.openHouseStartTime ??
-                                oh.StartDateTime ??
-                                oh.startTimeLocal ??
-                                oh.StartTimeLocal;
-                              const end =
-                                oh.endTime ??
-                                oh.end ??
-                                oh.endDate ??
-                                oh.endDateTime ??
-                                oh.end_time ??
-                                oh.EndTime ??
-                                oh.OpenHouseEndTime ??
-                                oh.openHouseEndTime ??
-                                oh.EndDateTime ??
-                                oh.endTimeLocal ??
-                                oh.EndTimeLocal;
-                              const date =
-                                oh.date ??
-                                oh.Date ??
-                                oh.openDate ??
-                                oh.open_date ??
-                                oh.OpenHouseDate ??
-                                oh.openHouseDate ??
-                                oh.OpenDate ??
-                                start;
-
-                              const startFmt = start ? formatDate(start) : null;
-                              const endFmt = end ? formatDate(end) : null;
-                              const dateFmt = date ? formatDate(date) : startFmt;
-
-                              if (dateFmt && startFmt) {
-                                const range = endFmt ? `${startFmt.time} - ${endFmt.time}` : startFmt.time;
-                                return `${dateFmt.day}(${dateFmt.date}), ${range}`;
-                              }
+                        const formatOpenHouse = (oh: any): string | null => {
+                          if (!oh) return null;
+                          if (typeof oh === 'string') return oh.trim() || null;
+                          if (Array.isArray(oh)) return formatOpenHouse(oh[0]);
+                          if (typeof oh === 'object') {
+                            const displayText =
+                              oh.display ??
+                              oh.label ??
+                              oh.text ??
+                              oh.description ??
+                              oh.Display ??
+                              oh.Label ??
+                              oh.Text ??
+                              oh.Description ??
+                              null;
+                            if (typeof displayText === 'string' && displayText.trim()) {
+                              return displayText.trim();
                             }
-                            return null;
-                          };
 
-                          const openHouseValue = formatOpenHouse(openHouseRaw);
-                          const openHouseDisplay = openHouseValue || "Not scheduled";
+                            const start =
+                              oh.startTime ??
+                              oh.start ??
+                              oh.startDate ??
+                              oh.startDateTime ??
+                              oh.start_time ??
+                              oh.StartTime ??
+                              oh.OpenHouseStartTime ??
+                              oh.openHouseStartTime ??
+                              oh.StartDateTime ??
+                              oh.startTimeLocal ??
+                              oh.StartTimeLocal;
+                            const end =
+                              oh.endTime ??
+                              oh.end ??
+                              oh.endDate ??
+                              oh.endDateTime ??
+                              oh.end_time ??
+                              oh.EndTime ??
+                              oh.OpenHouseEndTime ??
+                              oh.openHouseEndTime ??
+                              oh.EndDateTime ??
+                              oh.endTimeLocal ??
+                              oh.EndTimeLocal;
+                            const date =
+                              oh.date ??
+                              oh.Date ??
+                              oh.openDate ??
+                              oh.open_date ??
+                              oh.OpenHouseDate ??
+                              oh.openHouseDate ??
+                              oh.OpenDate ??
+                              start;
 
-                          return (
-                            <p className="text-[13px] text-gray-700 mt-6 xl:mt-[32px] xl:text-[20px] xl:text-[#1D1D1D] xl:w-[371px]">
-                              Open : {openHouseDisplay}
-                            </p>
-                          );
-                        })()}
+                            const startFmt = start ? formatDate(start) : null;
+                            const endFmt = end ? formatDate(end) : null;
+                            const dateFmt = date ? formatDate(date) : startFmt;
 
-                        <div className="h-px bg-[#E3DCD2] my-4 xl:my-[16px] xl:w-[438px]"></div>
-
-                        {/* Middle grid info with SVG icons */}
-                        <div className="grid grid-cols-2 gap-y-6 text-xs sm:text-[13px] xl:gap-y-[32px]">
-                          <div className="flex items-start gap-3">
-                            <Image
-                              src="/assets/images/residental.png"
-                              alt="Year Built"
-                              width={18}
-                              height={18}
-                              className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4 xl:h-[24px] xl:w-[24px]"
-                            />
-                            <div>
-                              <p className="text-sm sm:text-[15px] font-semibold xl:text-[21px]">{yearBuilt}</p>
-                              <p className="text-gray-600 mt-1 xl:text-[20px] xl:text-[#828081]">Year Built</p>
-                            </div>
-                          </div>
-
-                          <div className="border-l border-[#E3DCD2] pl-4 flex items-start gap-3">
-                            <Image
-                              src="/assets/images/residential-icon.svg"
-                              alt="Property Type"
-                              width={18}
-                              height={18}
-                              className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4 xl:h-[24px] xl:w-[24px]"
-                            />
-                            <div>
-                              <p className="text-sm sm:text-[15px] font-semibold xl:text-[21px]">{propertyTypeShort}</p>
-                              <p className="text-gray-600 mt-1 xl:text-[20px] xl:text-[#828081]">Family Residence</p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-start gap-3">
-                            <Image
-                              src="/assets/images/sqft-area-icon.svg"
-                              alt="Sqft Area"
-                              width={18}
-                              height={18}
-                              className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4 xl:h-[24px] xl:w-[24px]"
-                            />
-                            <div>
-                              <p className="text-sm sm:text-[15px] font-semibold xl:text-[21px]">
-                                {sqftArea ? sqftArea.toLocaleString('en-US') : "N/A"}
-                              </p>
-                              <p className="text-gray-600 mt-1 xl:text-[20px] xl:text-[#828081]">Sqft Area</p>
-                            </div>
-                          </div>
-
-                          <div className="border-l border-[#E3DCD2] pl-4 flex items-start gap-3">
-                            <div className="mt-0.5 text-[15px] font-bold text-gray-800 leading-none xl:text-[18px]">$</div>
-                            <div>
-                              <p className="text-[15px] font-semibold xl:text-[21px]">
-                                {pricePerSqft ? `$${pricePerSqft}` : "N/A"}
-                              </p>
-                              <p className="text-gray-600 mt-1 xl:text-[20px] xl:text-[#828081]">Price/sqft</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Footer */}
-                        <div className="flex items-center justify-between gap-3 mt-8">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button
-                                  className="flex items-center justify-center gap-3 text-sm sm:text-[15px] font-semibold text-gray-900 bg-[#F2F2F2] px-5 py-3 rounded-full border border-gray-300 xl:w-[260px] xl:h-[64px] xl:rounded-[32px] xl:text-[22px] xl:font-bold xl:gap-[16px]"
-                                  onClick={() => setIsStreetViewOpen(true)}
-                                >
-                                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="xl:h-[20px] xl:w-[20px]">
-                                    <path
-                                      d="M12 22s7-5.686 7-12A7 7 0 1 0 5 10c0 6.314 7 12 7 12Z"
-                                      stroke="currentColor"
-                                      strokeWidth="1.8"
-                                    />
-                                    <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.8" />
-                                  </svg>
-                                  Street view
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Open Street View</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-
-                          {/* Schedule a tour link hidden per updated design */}
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-
-                <div className="hidden lg:block mt-4 xl:mt-[54px] lg:sticky lg:top-36 lg:self-start">
-                  <div className="w-full rounded-[16px] bg-white shadow-[0_-4px_4px_rgba(189,189,189,0.1),0_125px_35px_rgba(189,189,189,0),0_80px_32px_rgba(189,189,189,0.01),0_45px_27px_rgba(189,189,189,0.05),0_20px_20px_rgba(189,189,189,0.09),0_5px_11px_rgba(189,189,189,0.1)] border border-transparent p-5 sm:p-6 xl:w-[500px] xl:p-[24px]">
-                    {/* Header */}
-                    <div className="flex items-center gap-2 mb-3 xl:mb-4 xl:gap-[9px]">
-                      <AskAiLogo className="w-7 h-7 xl:h-[30.239px] xl:w-[30.122px]" />
-                      <h3 className="text-[20px] font-semibold text-gray-900 xl:text-[22px] xl:tracking-[-0.22px] xl:leading-[normal]">Ask AI</h3>
-                    </div>
-
-                    <div className="text-[16px] text-gray-700 leading-relaxed mb-5 xl:text-[18px] xl:leading-[28px] xl:text-[#484747] xl:mb-5">
-                      {aiAnswer ? (
-                        <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                          <p className="font-semibold text-blue-800 mb-1">AI Answer:</p>
-                          <p>{aiAnswer}</p>
-                        </div>
-                      ) : (
-                        <p>Your AI real estate assistant. We&apos;ll answer pretty much any question about this home.</p>
-                      )}
-                    </div>
-
-                    {/* Suggestions */}
-                    <div className="space-y-3 mb-6 xl:space-y-4 xl:mb-6">
-                      {(aiSuggestions || []).map((label: string, index: number) => (
-                        <button
-                          key={index}
-                          onClick={() => handleAskAIQuery(label)}
-                          className="w-full max-w-full text-left rounded-xl bg-[#F3F3F3] px-4 py-3 cursor-pointer flex items-center justify-between text-[15px] text-black hover:bg-[#EEEEEE] transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.06)] xl:h-[60px] xl:rounded-[10px] xl:px-[20px] xl:text-[16px] xl:leading-[24px] xl:tracking-[-0.18px]"
-                          disabled={askAIMutation.isPending}>
-                          <span>{label}</span>
-                          <ChevronDown className="h-4 w-4 text-gray-600 xl:h-[30px] xl:w-[30px]" />
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Input */}
-                    <div className="relative">
-                      <input
-                        type="text"
-                        placeholder="Ask me anything about this home..."
-                        className="w-full max-w-full border border-[#8C8C8C] rounded-xl px-4 py-3 text-[15px] mb-5 outline-none bg-white focus:ring-0 focus:border-gray-500 transition-colors pr-12 placeholder:text-gray-500 xl:h-[60px] xl:rounded-[10px] xl:px-[20px] xl:text-[16px] xl:text-[#5A5A5A] xl:leading-[24px] xl:tracking-[-0.18px] xl:mb-5"
-                        value={askAIQuestion}
-                        onChange={(e) => setAskAIQuestion(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !askAIMutation.isPending) {
-                            handleAskAIQuery(askAIQuestion);
+                            if (dateFmt && startFmt) {
+                              const range = endFmt ? `${startFmt.time} - ${endFmt.time}` : startFmt.time;
+                              return `${dateFmt.day}(${dateFmt.date}), ${range}`;
+                            }
                           }
-                        }}
-                        disabled={askAIMutation.isPending}
-                      />
-                      {askAIMutation.isPending && (
-                        <div className="absolute right-4 top-3 xl:top-[18px]">
-                          <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                          return null;
+                        };
+
+                        const openHouseValue = formatOpenHouse(openHouseRaw);
+                        const openHouseDisplay = openHouseValue || "Not scheduled";
+
+                        return (
+                          <p className="text-[13px] text-gray-700 mt-6 xl:mt-[32px] xl:text-[20px] xl:text-[#1D1D1D] xl:w-[371px]">
+                            Open : {openHouseDisplay}
+                          </p>
+                        );
+                      })()}
+
+                      <div className="h-px bg-[#E3DCD2] my-4 xl:my-[16px] xl:w-[438px]"></div>
+
+                      {/* Middle grid info with SVG icons */}
+                      <div className="grid grid-cols-2 gap-y-6 text-xs sm:text-[13px] xl:gap-y-[32px]">
+                        <div className="flex items-start gap-3">
+                          <Image
+                            src="/assets/images/residental.png"
+                            alt="Year Built"
+                            width={18}
+                            height={18}
+                            className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4 xl:h-[24px] xl:w-[24px]"
+                          />
+                          <div>
+                            <p className="text-sm sm:text-[15px] font-semibold xl:text-[21px]">{yearBuilt}</p>
+                            <p className="text-gray-600 mt-1 xl:text-[20px] xl:text-[#828081]">Year Built</p>
+                          </div>
                         </div>
-                      )}
-                    </div>
 
-                    {/* Button */}
-                    <button
-                      onClick={() => handleAskAIQuery(askAIQuestion)}
-                      disabled={askAIMutation.isPending || !askAIQuestion.trim()}
-                      className="w-full bg-black text-white py-3.5 rounded-full text-[16px] font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed xl:h-[64px] xl:rounded-[42px] xl:text-[24px]"
-                    >
-                      {askAIMutation.isPending ? 'Thinking...' : 'Send'}
-                    </button>
-                  </div>
-                </div>
+                        <div className="border-l border-[#E3DCD2] pl-4 flex items-start gap-3">
+                          <Image
+                            src="/assets/images/residential-icon.svg"
+                            alt="Property Type"
+                            width={18}
+                            height={18}
+                            className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4 xl:h-[24px] xl:w-[24px]"
+                          />
+                          <div>
+                            <p className="text-sm sm:text-[15px] font-semibold xl:text-[21px]">{propertyTypeShort}</p>
+                            <p className="text-gray-600 mt-1 xl:text-[20px] xl:text-[#828081]">Family Residence</p>
+                          </div>
+                        </div>
 
-              </div>
+                        <div className="flex items-start gap-3">
+                          <Image
+                            src="/assets/images/sqft-area-icon.svg"
+                            alt="Sqft Area"
+                            width={18}
+                            height={18}
+                            className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4 xl:h-[24px] xl:w-[24px]"
+                          />
+                          <div>
+                            <p className="text-sm sm:text-[15px] font-semibold xl:text-[21px]">
+                              {sqftArea ? sqftArea.toLocaleString('en-US') : "N/A"}
+                            </p>
+                            <p className="text-gray-600 mt-1 xl:text-[20px] xl:text-[#828081]">Sqft Area</p>
+                          </div>
+                        </div>
 
-              <div className="col-span-12 lg:col-span-8 xl:col-span-2">
-                <div
-                  className="divide-y divide-gray-200 border-t border-gray-200 mt-1 sm:mt-2 xl:w-[1169px] min-[1536px]:max-[1919px]:w-[978px] xl:mx-auto"
-                  data-scroll-anchor="off"
-                >
-                  {/* Accordion List (Home Highlights, Schools, Offers, History, etc.) */}
-                  {sections.map((section) => {
-                    const anchorId =
-                      section.id === 'home'
-                        ? 'home-highlights'
-                        : section.id === 'offers'
-                          ? 'property'
-                          : section.id === 'schools'
-                            ? 'schools'
-                            : section.id === 'college'
-                              ? 'college'
-                              : section.id === 'interest'
-                                ? 'forecast'
-                                : section.id === 'payment'
-                                  ? 'payment'
-                                  : undefined;
-                    const poweredBy =
-                      section.id === 'schools' || section.id === 'college'
-                        ? 'SnapGrad'
-                        : section.id === 'payment' || section.id === 'interest'
-                          ? 'SnapInterest'
-                          : null;
-                    const poweredByLogoSrc =
-                      poweredBy === 'SnapGrad'
-                        ? '/assets/icons/SnapGrad-Logo-01.svg'
-                        : poweredBy === 'SnapInterest'
-                          ? '/assets/icons/SnapInterest-Logo-01.svg'
-                          : null;
-
-                    return (
-                      <div
-                        key={section.id}
-                        id={anchorId}
-                        className="border-b border-gray-200 scroll-mt-28"
-                      >
-                        <button
-                          onClick={() => toggleSection(section.id)}
-                          className="w-full flex items-center justify-between py-2 sm:py-3 text-left focus:outline-none transition-all xl:h-[140px] xl:py-0"
-                        >
-                          <span
-                            className={`font-bold text-sm sm:text-[16px] text-gray-900 xl:w-[304px] xl:h-[54px] xl:text-[32px] xl:leading-[54px] ${section.id === 'offers' || section.id === 'interest' ? 'whitespace-nowrap' : ''}`}
-                          >
-                            {section.title}
-                          </span>
-                          <span className="ml-3 shrink-0 inline-flex items-center gap-2 sm:gap-3 xl:justify-end">
-                            {poweredBy && (
-                              <span className="hidden xl:inline-flex items-center gap-2">
-                                <span className="text-[12px] font-normal text-gray-500 whitespace-nowrap">
-                                  Powered by
-                                </span>
-                                {poweredByLogoSrc ? (
-                                  <Image
-                                    src={poweredByLogoSrc}
-                                    alt={`Powered by ${poweredBy}`}
-                                    width={poweredBy === 'SnapInterest' ? 106 : 84}
-                                    height={30}
-                                    className="h-[24px] w-auto object-contain"
-                                  />
-                                ) : (
-                                  <span className="text-[12px] font-normal text-gray-500">
-                                    {poweredBy}
-                                  </span>
-                                )}
-                              </span>
-                            )}
-                            {openSections.has(section.id) ? (
-                              <ChevronUp className="text-gray-800 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5 xl:w-[30px] xl:h-[30px]" strokeWidth={2.5} />
-                            ) : (
-                              <ChevronDown className="text-gray-800 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5 xl:w-[30px] xl:h-[30px]" strokeWidth={2.5} />
-                            )}
-                          </span>
-                        </button>
-
-                        {/* Accordion Content */}
-                        <div
-                          className={`overflow-hidden ${openSections.has(section.id)
-                            ? "max-h-[2000px] opacity-100 translate-y-0"
-                            : "max-h-0 opacity-0 -translate-y-1 pointer-events-none"
-                            } transition-opacity transition-transform duration-300`}
-                        >
-                          <div
-                            id={
-                              section.id === 'offers'
-                                ? 'property-content'
-                                : section.id === 'schools'
-                                  ? 'schools-content'
-                                  : section.id === 'interest'
-                                    ? 'forecast-content'
-                                    : undefined
-                            }
-                            className="pb-3 sm:pb-4 text-base sm:text-[17px] xl:text-[20px] xl:leading-[32px]"
-                          >
-                            {section.content}
+                        <div className="border-l border-[#E3DCD2] pl-4 flex items-start gap-3">
+                          <div className="mt-0.5 text-[15px] font-bold text-gray-800 leading-none xl:text-[18px]">$</div>
+                          <div>
+                            <p className="text-[15px] font-semibold xl:text-[21px]">
+                              {pricePerSqft ? `$${pricePerSqft}` : "N/A"}
+                            </p>
+                            <p className="text-gray-600 mt-1 xl:text-[20px] xl:text-[#828081]">Price/sqft</p>
                           </div>
                         </div>
                       </div>
-                    );
-                  })}
 
-                  {/* Nearby Homes Section (Similar Homes) */}
-                  <div id="comparables" ref={comparablesRef} className="pb-6 sm:pb-8 md:pb-12 mb-12 sm:mb-16 md:mb-20 scroll-mt-28">
-                    {/* <h2 className='text-xl font-bold mt-8 mb-4'>Similar homes</h2> */}
-                    {(propertyDatas?.nearbyHomes?.length || propertyDatas?.offtheMarket?.length || propertyDatas?.offTheMarket?.length) ? (
-                      <NearbyHomesSection
-                        nearbyHomes={propertyDatas.nearbyHomes}
-                        soldHomes={propertyDatas?.offtheMarket || propertyDatas?.offTheMarket || []}
-                        currentProperty={currentCompareProperty}
-                        currentListingId={currentListingId}
-                      />
+                      {/* Footer */}
+                      <div className="flex items-center justify-between gap-3 mt-8">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                className="flex items-center justify-center gap-3 text-sm sm:text-[15px] font-semibold text-gray-900 bg-[#F2F2F2] px-5 py-3 rounded-full border border-gray-300 xl:w-[260px] xl:h-[64px] xl:rounded-[32px] xl:text-[22px] xl:font-bold xl:gap-[16px]"
+                                onClick={() => setIsStreetViewOpen(true)}
+                              >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="xl:h-[20px] xl:w-[20px]">
+                                  <path
+                                    d="M12 22s7-5.686 7-12A7 7 0 1 0 5 10c0 6.314 7 12 7 12Z"
+                                    stroke="currentColor"
+                                    strokeWidth="1.8"
+                                  />
+                                  <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.8" />
+                                </svg>
+                                Street view
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Open Street View</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+
+                        {/* Schedule a tour link hidden per updated design */}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+
+              <div className="hidden lg:block mt-4 xl:mt-[54px] lg:sticky lg:top-36 lg:self-start">
+                <div className="w-full rounded-[16px] bg-white shadow-[0_-4px_4px_rgba(189,189,189,0.1),0_125px_35px_rgba(189,189,189,0),0_80px_32px_rgba(189,189,189,0.01),0_45px_27px_rgba(189,189,189,0.05),0_20px_20px_rgba(189,189,189,0.09),0_5px_11px_rgba(189,189,189,0.1)] border border-transparent p-5 sm:p-6 xl:w-[500px] xl:p-[24px]">
+                  {/* Header */}
+                  <div className="flex items-center gap-2 mb-3 xl:mb-4 xl:gap-[9px]">
+                    <AskAiLogo className="w-7 h-7 xl:h-[30.239px] xl:w-[30.122px]" />
+                    <h3 className="text-[20px] font-semibold text-gray-900 xl:text-[22px] xl:tracking-[-0.22px] xl:leading-[normal]">Ask AI</h3>
+                  </div>
+
+                  <div className="text-[16px] text-gray-700 leading-relaxed mb-5 xl:text-[18px] xl:leading-[28px] xl:text-[#484747] xl:mb-5">
+                    {aiAnswer ? (
+                      <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                        <p className="font-semibold text-blue-800 mb-1">AI Answer:</p>
+                        <p>{aiAnswer}</p>
+                      </div>
                     ) : (
-                      <div className="flex items-center justify-center py-8 sm:py-12 px-4">
-                        <p className="text-gray-500 text-sm sm:text-base">Similar homes not available</p>
+                      <p>Your AI real estate assistant. We&apos;ll answer pretty much any question about this home.</p>
+                    )}
+                  </div>
+
+                  {/* Suggestions */}
+                  <div className="space-y-3 mb-6 xl:space-y-4 xl:mb-6">
+                    {(aiSuggestions || []).map((label: string, index: number) => (
+                      <button
+                        key={index}
+                        onClick={() => handleAskAIQuery(label)}
+                        className="w-full max-w-full text-left rounded-xl bg-[#F3F3F3] px-4 py-3 cursor-pointer flex items-center justify-between text-[15px] text-black hover:bg-[#EEEEEE] transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.06)] xl:h-[60px] xl:rounded-[10px] xl:px-[20px] xl:text-[16px] xl:leading-[24px] xl:tracking-[-0.18px]"
+                        disabled={askAIMutation.isPending}>
+                        <span>{label}</span>
+                        <ChevronDown className="h-4 w-4 text-gray-600 xl:h-[30px] xl:w-[30px]" />
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Input */}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Ask me anything about this home..."
+                      className="w-full max-w-full border border-[#8C8C8C] rounded-xl px-4 py-3 text-[15px] mb-5 outline-none bg-white focus:ring-0 focus:border-gray-500 transition-colors pr-12 placeholder:text-gray-500 xl:h-[60px] xl:rounded-[10px] xl:px-[20px] xl:text-[16px] xl:text-[#5A5A5A] xl:leading-[24px] xl:tracking-[-0.18px] xl:mb-5"
+                      value={askAIQuestion}
+                      onChange={(e) => setAskAIQuestion(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !askAIMutation.isPending) {
+                          handleAskAIQuery(askAIQuestion);
+                        }
+                      }}
+                      disabled={askAIMutation.isPending}
+                    />
+                    {askAIMutation.isPending && (
+                      <div className="absolute right-4 top-3 xl:top-[18px]">
+                        <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
                       </div>
                     )}
                   </div>
 
+                  {/* Button */}
+                  <button
+                    onClick={() => handleAskAIQuery(askAIQuestion)}
+                    disabled={askAIMutation.isPending || !askAIQuestion.trim()}
+                    className="w-full bg-black text-white py-3.5 rounded-full text-[16px] font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed xl:h-[64px] xl:rounded-[42px] xl:text-[24px]"
+                  >
+                    {askAIMutation.isPending ? 'Thinking...' : 'Send'}
+                  </button>
                 </div>
               </div>
 
-
-
-
             </div>
+
+            <div className="col-span-12 lg:col-span-8 xl:col-span-2">
+              <div
+                className="divide-y divide-gray-200 border-t border-gray-200 mt-1 sm:mt-2 xl:w-[1169px] min-[1536px]:max-[1919px]:w-[978px] xl:mx-auto"
+                data-scroll-anchor="off"
+              >
+                {/* Accordion List (Home Highlights, Schools, Offers, History, etc.) */}
+                {sections.map((section) => {
+                  const anchorId =
+                    section.id === 'home'
+                      ? 'home-highlights'
+                      : section.id === 'offers'
+                        ? 'property'
+                        : section.id === 'schools'
+                          ? 'schools'
+                          : section.id === 'college'
+                            ? 'college'
+                            : section.id === 'interest'
+                              ? 'forecast'
+                              : section.id === 'payment'
+                                ? 'payment'
+                                : undefined;
+                  const poweredBy =
+                    section.id === 'schools' || section.id === 'college'
+                      ? 'SnapGrad'
+                      : section.id === 'payment' || section.id === 'interest'
+                        ? 'SnapInterest'
+                        : null;
+                  const poweredByLogoSrc =
+                    poweredBy === 'SnapGrad'
+                      ? '/assets/icons/SnapGrad-Logo-01.svg'
+                      : poweredBy === 'SnapInterest'
+                        ? '/assets/icons/SnapInterest-Logo-01.svg'
+                        : null;
+
+                  return (
+                    <div
+                      key={section.id}
+                      id={anchorId}
+                      className="border-b border-gray-200 scroll-mt-28"
+                    >
+                      <button
+                        onClick={() => toggleSection(section.id)}
+                        className="w-full flex items-center justify-between py-2 sm:py-3 text-left focus:outline-none transition-all xl:h-[140px] xl:py-0"
+                      >
+                        <span
+                          className={`font-bold text-sm sm:text-[16px] text-gray-900 xl:w-[304px] xl:h-[54px] xl:text-[32px] xl:leading-[54px] ${section.id === 'offers' || section.id === 'interest' ? 'whitespace-nowrap' : ''}`}
+                        >
+                          {section.title}
+                        </span>
+                        <span className="ml-3 shrink-0 inline-flex items-center gap-2 sm:gap-3 xl:justify-end">
+                          {poweredBy && (
+                            <span className="hidden xl:inline-flex items-center gap-2">
+                              <span className="text-[12px] font-normal text-gray-500 whitespace-nowrap">
+                                Powered by
+                              </span>
+                              {poweredByLogoSrc ? (
+                                <Image
+                                  src={poweredByLogoSrc}
+                                  alt={`Powered by ${poweredBy}`}
+                                  width={poweredBy === 'SnapInterest' ? 106 : 84}
+                                  height={30}
+                                  className="h-[24px] w-auto object-contain"
+                                />
+                              ) : (
+                                <span className="text-[12px] font-normal text-gray-500">
+                                  {poweredBy}
+                                </span>
+                              )}
+                            </span>
+                          )}
+                          {openSections.has(section.id) ? (
+                            <ChevronUp className="text-gray-800 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5 xl:w-[30px] xl:h-[30px]" strokeWidth={2.5} />
+                          ) : (
+                            <ChevronDown className="text-gray-800 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5 xl:w-[30px] xl:h-[30px]" strokeWidth={2.5} />
+                          )}
+                        </span>
+                      </button>
+
+                      {/* Accordion Content */}
+                      <div
+                        className={`overflow-hidden ${openSections.has(section.id)
+                          ? "max-h-[2000px] opacity-100 translate-y-0"
+                          : "max-h-0 opacity-0 -translate-y-1 pointer-events-none"
+                          } transition-opacity transition-transform duration-300`}
+                      >
+                        <div
+                          id={
+                            section.id === 'offers'
+                              ? 'property-content'
+                              : section.id === 'schools'
+                                ? 'schools-content'
+                                : section.id === 'interest'
+                                  ? 'forecast-content'
+                                  : undefined
+                          }
+                          className="pb-3 sm:pb-4 text-base sm:text-[17px] xl:text-[20px] xl:leading-[32px]"
+                        >
+                          {section.content}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Nearby Homes Section (Similar Homes) */}
+                <div id="comparables" ref={comparablesRef} className="pb-6 sm:pb-8 md:pb-12 mb-12 sm:mb-16 md:mb-20 scroll-mt-28">
+                  {/* <h2 className='text-xl font-bold mt-8 mb-4'>Similar homes</h2> */}
+                  {(propertyDatas?.nearbyHomes?.length || propertyDatas?.offtheMarket?.length || propertyDatas?.offTheMarket?.length) ? (
+                    <NearbyHomesSection
+                      nearbyHomes={propertyDatas.nearbyHomes}
+                      soldHomes={propertyDatas?.offtheMarket || propertyDatas?.offTheMarket || []}
+                      currentProperty={currentCompareProperty}
+                      currentListingId={currentListingId}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center py-8 sm:py-12 px-4">
+                      <p className="text-gray-500 text-sm sm:text-base">Similar homes not available</p>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            </div>
+
+
+
+
           </div>
+        </div>
 
-        </>
-      ) : (
-        <div className='h-full w-full'>{notFound()}</div>
-      )}
+    </>
+  ) : (
+    <div className='h-full w-full'>{notFound()}</div>
+  )
+}
 
-      {/* Floating Ask AI Button - Mobile and Tablet Only */}
-      <div className="fixed bottom-4 sm:bottom-6 right-4 sm:right-6 z-50 lg:hidden">
-        <button
-          onClick={() => setIsAskAIModalOpen(true)}
-          className="w-12 h-12 sm:w-14 sm:h-14 bg-black rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow duration-300"
-        >
-          <AskAiLogo className="w-6 h-6 sm:w-7 sm:h-7" />
-        </button>
-      </div>
+{/* Floating Ask AI Button - Mobile and Tablet Only */ }
+<div className="fixed bottom-4 sm:bottom-6 right-4 sm:right-6 z-50 lg:hidden">
+  <button
+    onClick={() => setIsAskAIModalOpen(true)}
+    className="w-12 h-12 sm:w-14 sm:h-14 bg-black rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow duration-300"
+  >
+    <AskAiLogo className="w-6 h-6 sm:w-7 sm:h-7" />
+  </button>
+</div>
 
-      {/* Ask AI Modal */}
+{/* Ask AI Modal */ }
       <Dialog open={isAskAIModalOpen} onOpenChange={setIsAskAIModalOpen}>
         <DialogContent className="sm:max-w-md w-[95vw] max-h-[80vh] overflow-hidden rounded-2xl flex flex-col p-0">
           <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
@@ -3277,7 +3373,7 @@ const PropertyPreview: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
   );
 };
 

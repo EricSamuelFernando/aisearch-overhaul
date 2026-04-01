@@ -2337,6 +2337,7 @@ import {
   Maximize,
   ArrowLeft,
   ArrowDown,
+  Users,
 } from "lucide-react"
 import "swiper/css"
 import "swiper/css/navigation"
@@ -2611,6 +2612,7 @@ export default function ChatBoxComponent(props: any) {
   const [isInviteAgentModalOpen, setIsInviteAgentModalOpen] = useState(false);
   const [inviteAgentEmail, setInviteAgentEmail] = useState('');
   const [inviteAgentError, setInviteAgentError] = useState('');
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isCreatingThread, setIsCreatingThread] = useState(false);
   const [locallyReadThreadIds, setLocallyReadThreadIds] = useState<Record<string, number>>({});
   const [pendingNewMessageCount, setPendingNewMessageCount] = useState(0);
@@ -3077,6 +3079,8 @@ export default function ChatBoxComponent(props: any) {
     properties: AgentPropertySummary[];
     latestUpdatedAt: number;
     totalUnread: number;
+    participants?: any[];
+    allParticipants: any[];
   }
 
   const threadsForDisplay = useMemo(
@@ -3212,6 +3216,13 @@ export default function ChatBoxComponent(props: any) {
     };
 
     threadsForDisplay.forEach((thread: Thread) => {
+      const participants = [
+        ...(thread?.buyerAgent ? [thread.buyerAgent] : []),
+        ...(thread?.sellerAgent ? [thread.sellerAgent] : []),
+        ...(thread?.user ? [thread.user] : []),
+        ...(Array.isArray(thread?.participants) ? thread.participants.map(p => p.user || p) : []),
+      ].filter(Boolean);
+      
       const agentCandidate = resolveAgentCandidate(thread);
       const agentId = agentCandidate?.id;
       const propertyIdentifier = resolvePropertyIdentifier(thread);
@@ -3280,13 +3291,20 @@ export default function ChatBoxComponent(props: any) {
 
       // Do not infer unread from last message alone; rely on backend counts or socket updates.
 
-      if (agentId) {
-        let entry = groupMap.get(agentId);
-        if (!entry) {
-          entry = {
-            entryKey: agentId,
-            agentId,
+      const propertyGroupKey = 
+        thread?.engagementId || 
+        (thread?.listingId ? `listing_${thread.listingId}` : null) || 
+        (thread?.propertyId ? `prop_${thread.propertyId}` : null) || 
+        normalizeThreadId(thread?.id);
+      
+      if (propertyGroupKey) {
+        const existingEntry = groupMap.get(propertyGroupKey);
+        if (!existingEntry) {
+          const newEntry: AggregatedAgentThread = {
+            entryKey: propertyGroupKey,
+            agentId: agentId, // Primary agent representative
             baseThread: thread,
+            allParticipants: participants, // Initialize with this thread's participants
             properties:
               propertySummary && propertySummary.propertyId
                 ? [propertySummary]
@@ -3294,8 +3312,20 @@ export default function ChatBoxComponent(props: any) {
             latestUpdatedAt: updatedAt,
             totalUnread: unreadCount,
           };
-          groupMap.set(agentId, entry);
+          groupMap.set(propertyGroupKey, newEntry);
         } else {
+          const entry = existingEntry; // Type-safe reference
+          // Consolidate participants from all threads in this group
+          const existingIds = new Set(
+            entry.allParticipants.map((p: any) => p?.id || p?.email).filter(Boolean)
+          );
+          participants.forEach((p: any) => {
+            const id = p?.id || p?.email;
+            if (id && !existingIds.has(id)) {
+              entry.allParticipants.push(p);
+            }
+          });
+
           if (updatedAt > entry.latestUpdatedAt) {
             entry.baseThread = thread;
             entry.latestUpdatedAt = updatedAt;
@@ -3316,6 +3346,7 @@ export default function ChatBoxComponent(props: any) {
           entryKey:
             thread?.id || crypto.randomUUID?.() || Math.random().toString(36),
           baseThread: thread,
+          allParticipants: participants,
           properties:
             propertySummary && propertySummary.propertyId
               ? [propertySummary]
@@ -3326,10 +3357,16 @@ export default function ChatBoxComponent(props: any) {
       }
     });
 
-    const aggregated = [
-      ...Array.from(groupMap.values()),
-      ...standaloneEntries,
-    ];
+    const allGrouped = Array.from(groupMap.values()).map(entry => ({
+      ...entry,
+      participants: entry.allParticipants
+    }));
+    const allStandalone = standaloneEntries.map(entry => ({
+      ...entry,
+      participants: entry.allParticipants
+    }));
+
+    const aggregated = [...allGrouped, ...allStandalone];
 
     aggregated.sort(
       (a, b) => (b.latestUpdatedAt || 0) - (a.latestUpdatedAt || 0),
@@ -3599,51 +3636,66 @@ export default function ChatBoxComponent(props: any) {
       label: "Declined",
     },
   }
-  const acceptedParticipantsCount = useMemo(() => {
-    const baseParticipants = [
-      selectedThreadDetail?.user,
+
+  const [pendingParticipants, setPendingParticipants] = useState<any[]>([]);
+  const { getParticipantsByEngagement } = useUserAgentMessageApi();
+
+  useEffect(() => {
+    const engagementId = selectedThreadDetail?.engagementId;
+    if (engagementId) {
+      getParticipantsByEngagement.mutate(engagementId, {
+        onSuccess: (data) => {
+          setPendingParticipants(Array.isArray(data) ? data : []);
+        },
+        onError: (err) => {
+          console.error('[ChatBox] Error fetching pending participants:', err);
+        }
+      });
+    }
+  }, [selectedThreadDetail?.engagementId]);
+
+  const allParticipantsForHeader = useMemo(() => {
+    const list = [
       selectedThreadDetail?.buyerAgent,
       selectedThreadDetail?.sellerAgent,
-    ].filter(Boolean)
+      selectedThreadDetail?.user,
+      ...(Array.isArray(selectedThreadDetail?.participants) 
+        ? selectedThreadDetail.participants.map((p: any) => p?.user || p).filter(Boolean) 
+        : []),
+      ...(Array.isArray(threadParticipants) 
+        ? threadParticipants.map((p: any) => p?.user || p).filter(Boolean) 
+        : []),
+      ...pendingParticipants.map(p => p.agent || p.user || p)
+    ].filter(Boolean);
 
-    const invitedAcceptedParticipants = Array.isArray(selectedThreadDetail?.participants)
-      ? selectedThreadDetail.participants.filter((participant: any) => {
-        const rawStatus = String(
-          participant?.approvalStatus ??
-          participant?.status ??
-          participant?.inviteStatus ??
-          participant?.invitationStatus ??
-          "",
-        ).toLowerCase()
-        return (
-          participant?.is_accepted === true ||
-          participant?.isAccepted === true ||
-          rawStatus.includes("accept") ||
-          rawStatus.includes("approv") ||
-          rawStatus.includes("join")
-        )
-      })
-      : []
+    const uniqueMap = new Map();
+    list.forEach((p: any) => {
+      const id = p?.id || p?.email;
+      const isCurrentUserData = userData?.id && p?.id === userData.id;
+      const isCurrentUserEmail = userData?.email && p?.email === userData.email;
+      
+      if (id && !uniqueMap.has(id) && !isCurrentUserData && !isCurrentUserEmail) {
+        uniqueMap.set(id, p);
+      }
+    });
+    return Array.from(uniqueMap.values());
+  }, [selectedThreadDetail, userData?.id, userData?.email, pendingParticipants]);
 
-    const uniqueIds = new Set<string>()
-    const addByIdOrEmail = (value: any) => {
-      const id = String(value?.id || value?.user?.id || "").trim().toLowerCase()
-      const email = String(value?.email || value?.user?.email || "").trim().toLowerCase()
-      const key = id ? `id-${id}` : email ? `email-${email}` : ""
-      if (!key) return
-      uniqueIds.add(key)
-    }
+  const threadDisplayName = useMemo(() => {
+    if (allParticipantsForHeader.length === 0) return "Chat";
+    
+    const names = allParticipantsForHeader.map((p: any) => 
+      [p?.firstName, p?.lastName].filter(Boolean).join(' ') || p?.email || "User"
+    );
 
-    baseParticipants.forEach(addByIdOrEmail)
-    invitedAcceptedParticipants.forEach((participant: any) => addByIdOrEmail(participant?.user || participant))
+    if (names.length === 1) return names[0];
+    if (names.length === 2) return `${names[0]} & ${names[1]}`;
+    return `${names[0]}, ${names[1]} & ${names.length - 2} others`;
+  }, [allParticipantsForHeader]);
 
-    return uniqueIds.size
-  }, [
-    selectedThreadDetail?.buyerAgent,
-    selectedThreadDetail?.participants,
-    selectedThreadDetail?.sellerAgent,
-    selectedThreadDetail?.user,
-  ])
+  const acceptedParticipantsCount = useMemo(() => {
+    return allParticipantsForHeader.length + 1; // +1 for the current user
+  }, [allParticipantsForHeader]);
 
   const totalParticipantsCount = acceptedParticipantsCount
   const isInviteLimitReached = totalParticipantsCount >= MAX_INVITES_PER_CHAT
@@ -5239,16 +5291,6 @@ export default function ChatBoxComponent(props: any) {
         selectedThreadDetail,
         messages,
       )
-      if (
-        currentNegotiationStatus === "NEGOTIATION_PENDING" ||
-        currentNegotiationStatus === "OFFER_SENT"
-      ) {
-        error({
-          message:
-            "Negotiation is in progress. Resolve negotiation status before sending messages.",
-        })
-        return
-      }
       if (currentNegotiationStatus === "DECLINED") {
         error({
           message:
@@ -6006,7 +6048,10 @@ export default function ChatBoxComponent(props: any) {
 
       for (const propertyId of candidatePropertyIds) {
         try {
-          const engagementResponse: any = await getEngagedPropertyByPropertyId.mutateAsync(propertyId);
+          const engagementResponse: any = await getEngagedPropertyByPropertyId.mutateAsync({
+            propertyId,
+            userId: activeUserId,
+          });
           const engagement = engagementResponse?.data?.data?.getUserEngagementsByPropertyId;
           const engagementIdByProperty = String(engagement?.id || '').trim();
           if (!engagementIdByProperty) continue;
@@ -6272,16 +6317,9 @@ export default function ChatBoxComponent(props: any) {
     }
   };
 
-  const agentForHeader = (() => {
-    const candidates = [selectedThreadDetail?.buyerAgent, selectedThreadDetail?.sellerAgent].filter(Boolean) as any[];
-    if (userData?.id) {
-      const other = candidates.find((agent) => agent?.id && agent.id !== userData.id);
-      if (other) return other;
-    }
-    return candidates[0] || null;
-  })();
-  const agentNameForHeader =
-    [agentForHeader?.firstName, agentForHeader?.lastName].filter(Boolean).join(' ') || '';
+
+  const agentForHeader = allParticipantsForHeader[0] || null;
+  const agentNameForHeader = threadDisplayName;
   const agentImageForHeader = resolveProfileImage(agentForHeader);
   const normalizedNegotiationStatus = resolveThreadNegotiationStatus(
     selectedThreadDetail,
@@ -6374,7 +6412,7 @@ export default function ChatBoxComponent(props: any) {
     normalizedNegotiationStatus === "NEGOTIATION_PENDING" ||
     normalizedNegotiationStatus === "OFFER_SENT"
   const isNegotiationDeclined = normalizedNegotiationStatus === "DECLINED"
-  const shouldLockChatInput = isNegotiationInProgress || isNegotiationDeclined
+  const shouldLockChatInput = isNegotiationDeclined
 
   const wrapperClassName = embedded
     ? "max-w-full min-h-[calc(100vh-6rem)] flex flex-col"
@@ -6600,16 +6638,26 @@ export default function ChatBoxComponent(props: any) {
                 {displayedThreads.length ? (
                   displayedThreads.map((entry) => {
                     const thread = entry.baseThread;
-                    const participants = [
-                      ...(thread?.buyerAgent ? [thread.buyerAgent] : []),
-                      ...(thread?.sellerAgent ? [thread.sellerAgent] : []),
-                      ...(thread?.user ? [thread.user] : []),
-                      ...(Array.isArray(thread?.participants) ? thread.participants.map(p => p.user) : []),
-                    ];
-                    const lastMessage = thread?.messages?.[thread?.messages?.length - 1]
-                    const initials = getInitials(
-                      `${thread?.buyerAgent?.firstName || ''} ${thread?.user?.firstName || thread?.sellerAgent?.firstName || ''}`
+                    const participants = entry.participants || [];
+                    const participantsForName = participants.filter((p: any) => 
+                      (p?.id || p?.email) && (p?.id !== userData?.id && p?.email !== userData?.email)
                     );
+                    
+                    const participantCount = (participantsForName.length || 0) + (userData?.id ? 1 : 0);
+                    const agentName = (() => {
+                      if (participantsForName.length === 0) return 'Agent';
+                      const names = participantsForName.map((p: any) => 
+                        [p?.firstName, p?.lastName].filter(Boolean).join(' ') || p?.email || "User"
+                      );
+                      if (names.length === 1) return names[0];
+                      if (names.length === 2) return `${names[0]} & ${names[1]}`;
+                      return `${names[0]}, ${names[1]} & ${participantsForName.length - 2} others`;
+                    })();
+                    
+                    const agentImage = participantsForName.length === 1 ? resolveProfileImage(participantsForName[0]) : null;
+
+                    const lastMessage = thread?.messages?.[thread?.messages?.length - 1]
+                    const initials = getInitials(agentName);
                     const agentId =
                       entry.agentId ||
                       thread?.buyerAgent?.id ||
@@ -6638,17 +6686,6 @@ export default function ChatBoxComponent(props: any) {
                       }`;
                     const timestampColor = isActiveThread ? 'text-[#C4A189]' : 'text-gray-400';
                     const engagedLabelColor = isActiveThread ? 'text-[#B5571E]' : 'text-gray-500';
-                    const agentForThread = (() => {
-                      const candidates = [thread?.buyerAgent, thread?.sellerAgent].filter(Boolean) as any[];
-                      if (userData?.id) {
-                        const other = candidates.find((agent) => agent?.id && agent.id !== userData.id);
-                        if (other) return other;
-                      }
-                      return candidates[0] || null;
-                    })();
-                    const agentName =
-                      [agentForThread?.firstName, agentForThread?.lastName].filter(Boolean).join(' ') || 'Agent';
-                    const agentImage = resolveProfileImage(agentForThread);
 
                     return (
                       <div
@@ -6677,27 +6714,38 @@ export default function ChatBoxComponent(props: any) {
                                 {entryUnread}
                               </span>
                             )}
-                            {agentImage || thread?.image ? (
-                              <Image
-                                src={agentImage || resolveProfileImage(thread)}
-                                alt="Agent Avatar"
-                                width={50}
-                                height={50}
-                                className="rounded-full object-cover w-[40px] h-[40px] sm:w-[50px] sm:h-[50px]"
-                                priority
-                                unoptimized
-                              />
-                            ) : (
-                              <div className="rounded-full flex items-center justify-center font-semibold w-[40px] h-[40px] sm:w-[50px] sm:h-[50px] bg-gray-800 text-white">
-                                {getInitials(agentName)}
-                              </div>
-                            )}
+                            {participantsForName.length > 1 ? (
+                               <div className="rounded-full flex items-center justify-center font-semibold w-[40px] h-[40px] sm:w-[50px] sm:h-[50px] bg-indigo-600 text-white">
+                                 <Users className="h-5 w-5 sm:h-6 sm:w-6" />
+                               </div>
+                             ) : agentImage || thread?.image ? (
+                               <Image
+                                 src={agentImage || resolveProfileImage(thread)}
+                                 alt="Agent Avatar"
+                                 width={50}
+                                 height={50}
+                                 className="rounded-full object-cover w-[40px] h-[40px] sm:w-[50px] sm:h-[50px]"
+                                 priority
+                                 unoptimized
+                               />
+                             ) : (
+                               <div className="rounded-full flex items-center justify-center font-semibold w-[40px] h-[40px] sm:w-[50px] sm:h-[50px] bg-gray-800 text-white">
+                                 {getInitials(agentName)}
+                               </div>
+                             )}
                           </div>
 
                           <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-sm sm:text-base text-gray-900 truncate">
-                              {agentName}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-sm sm:text-base text-gray-900 truncate">
+                                {agentName}
+                              </p>
+                              {participantCount > 0 && (
+                                <Badge variant="secondary" className="px-1.5 py-0 h-5 text-[10px] bg-indigo-50 text-indigo-700 border-indigo-100">
+                                  {participantCount} participants
+                                </Badge>
+                              )}
+                            </div>
                             <p className={`text-xs font-medium ${engagedLabelColor}`}>
                               Engaged in - {engagedPropertiesCount}{' '}
                               {engagedPropertiesCount === 1 ? 'property' : 'properties'}
@@ -6862,7 +6910,36 @@ export default function ChatBoxComponent(props: any) {
                           <div className="flex items-start gap-3 flex-1">
                             {/* Avatar Container */}
                             <div className="relative flex-shrink-0">
-                              {agentImageForHeader || selectedThread?.image ? (
+                              {allParticipantsForHeader.length > 1 ? (
+                                <div className="flex -space-x-4 items-center">
+                                  {allParticipantsForHeader.slice(0, 3).map((p, idx) => {
+                                    const img = resolveProfileImage(p);
+                                    return (
+                                      <div key={p.id || idx} className="relative">
+                                        {img ? (
+                                          <Image
+                                            src={img}
+                                            alt="Agent"
+                                            width={50}
+                                            height={50}
+                                            className="rounded-full border-2 border-white object-cover w-10 h-10 sm:w-12 sm:h-12 shadow-sm"
+                                            unoptimized
+                                          />
+                                        ) : (
+                                          <div className="rounded-full border-2 border-white flex items-center justify-center bg-black text-white font-semibold w-10 h-10 sm:w-12 sm:h-12 text-xs sm:text-[10px] shadow-sm">
+                                            {getInitials([p?.firstName, p?.lastName].filter(Boolean).join(' ') || p?.email || "U")}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                  {allParticipantsForHeader.length > 3 && (
+                                    <div className="flex items-center justify-center bg-gray-100 text-gray-600 font-bold w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-white text-[10px] sm:text-xs z-10 shadow-sm ml-1">
+                                      +{allParticipantsForHeader.length - 3}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : agentImageForHeader || selectedThread?.image ? (
                                 <Image
                                   src={agentImageForHeader || selectedThread?.image}
                                   alt="Agent Avatar"
@@ -6881,16 +6958,24 @@ export default function ChatBoxComponent(props: any) {
                                 </div>
                               )}
                               {/* Online Indicator */}
-                              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                              {allParticipantsForHeader.length <= 1 && (
+                                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                              )}
                             </div>
 
                             {/* User Info */}
                             <div className="flex-1 min-w-0">
                               {/* User Name */}
-                              <p className="font-bold text-sm sm:text-base text-gray-900 truncate">
-                                {agentNameForHeader ||
-                                  `${selectedThreadDetail.buyerAgent?.firstName || ""} & ${selectedThreadDetail?.user?.firstName || selectedThreadDetail?.sellerAgent?.firstName || ""}`}
-                              </p>
+                              <div className="flex items-center gap-2">
+                                <p className="font-bold text-sm sm:text-base text-gray-900 truncate">
+                                  {threadDisplayName}
+                                </p>
+                                {allParticipantsForHeader.length > 1 && (
+                                  <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 border-indigo-100 text-[10px] hidden sm:flex">
+                                    Shared Chat
+                                  </Badge>
+                                )}
+                              </div>
 
                               {/* Participant Count */}
                               <div className="flex items-center gap-1.5 text-xs sm:text-sm text-gray-600 mt-1">
@@ -6937,33 +7022,15 @@ export default function ChatBoxComponent(props: any) {
                                     </button>
                                   </li>
                                   <li>
-                                    <InviteUserModal
-                                      threadId={selectedThreadDetail?.id || selectedThread}
-                                      onInviteSuccess={handleInviteSuccess}
-                                      onParticipantsRefresh={() => {
-                                        const activeThreadId = selectedThreadDetail?.id || selectedThread
-                                        if (activeThreadId) {
-                                          getThreadDetails(activeThreadId)
-                                        }
+                                    <button
+                                      className="w-full text-left px-4 py-2 hover:bg-gray-100"
+                                      onClick={() => {
+                                        setIsInviteModalOpen(true);
+                                        closeDropdown();
                                       }}
-                                      disableInvite={isInviteLimitReached}
-                                      disableInviteMessage={inviteLimitMessage}
-                                      blockedEmails={blockedInviteEmails}
-                                      currentUserEmail={userData?.email || user?.email}
-                                      currentUserData={userData}
-                                      propertyId={selectedThreadDetail?.propertyId || snapzPropertyId}
-                                      listingId={selectedThreadDetail?.listingId || snapzListingId}
-                                      engagementId={selectedThreadDetail?.engagementId}
-                                      propertyName={
-                                        selectedThreadDetail?.propertyName ||
-                                        propertyData?.listing?.courtesyOf
-                                      }
-                                      propertyAddress={
-                                        selectedThreadDetail?.propertyAddress ||
-                                        propertyData?.listing?.address?.unparsedAddress
-                                      }
-                                      propertyImage={snapzPropertyImage}
-                                    />
+                                    >
+                                      Invite User
+                                    </button>
                                   </li>
                                 </ul>
                               </div>
@@ -8178,6 +8245,33 @@ export default function ChatBoxComponent(props: any) {
           </div>
         </div>
       )}
+      <InviteUserModal
+        opened={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        threadId={selectedThreadDetail?.id || selectedThread}
+        onInviteSuccess={handleInviteSuccess}
+        onParticipantsRefresh={() => {
+          const activeThreadId = selectedThreadDetail?.id || selectedThread
+          if (activeThreadId) {
+            getThreadDetails(activeThreadId)
+          }
+        }}
+        disableInvite={isInviteLimitReached}
+        disableInviteMessage={inviteLimitMessage}
+        blockedEmails={blockedInviteEmails}
+        currentUserEmail={userData?.email || user?.email}
+        currentUserData={userData}
+        propertyId={selectedThreadDetail?.propertyId || snapzPropertyId}
+        listingId={selectedThreadDetail?.listingId || snapzListingId}
+        engagementId={selectedThreadDetail?.engagementId}
+        propertyName={
+          selectedThreadDetail?.propertyName ||
+          propertyData?.listing?.courtesyOf
+        }
+        propertyAddress={selectedThreadDetail?.propertyAddress || propertyData?.listing?.address?.unparsedAddress}
+        propertyImage={snapzPropertyImage}
+        roomId={selectedThreadDetail?.roomId}
+      />
     </div>
   )
 }

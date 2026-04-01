@@ -73,8 +73,8 @@ const MySnapzSection = ({ origin = 'account' }: MySnapzSectionProps) => {
     getAgents,
   } = useUserSnapAPIs();
   const { getAllSnapzRequest, updateSnapzById } = useAgentConversationApi();
+  const getAllPendingSnapzRequest = getAllSnapzRequest;
   const { notificationsQuery } = useNotificationApi();
-  const { getAllSnapzRequest: getAllPendingSnapzRequest } = useAgentConversationApi();
 
   const fetchInvitationUsers = async (page: number, search?: string) => {
     setIsLoading(true);

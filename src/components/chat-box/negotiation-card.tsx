@@ -69,7 +69,7 @@ const NegotiationCard: React.FC<NegotiationCardProps> = ({ tiers, onSelectTier, 
         if (!selectedTier) return;
         if (messageDirty) return;
         if (!Number.isFinite(resolvedCommission)) return;
-        setOfferMessage(`I want ${selectedTier.name} services at ${resolvedCommission}% commission.`);
+        setOfferMessage(`I want ${selectedTier.name || 'Tier'} services at ${resolvedCommission}% commission.`);
     }, [isOfferOpen, messageDirty, resolvedCommission, selectedTier]);
 
     const openOfferDialog = () => {
@@ -81,7 +81,7 @@ const NegotiationCard: React.FC<NegotiationCardProps> = ({ tiers, onSelectTier, 
         setMessageDirty(false);
         setOfferMessage(
             preferredTier
-                ? `I want ${preferredTier.name} services at ${defaultCommission}% commission.`
+                ? `I want ${preferredTier.name || 'Tier'} services at ${defaultCommission}% commission.`
                 : ''
         );
         setIsOfferOpen(true);
@@ -92,7 +92,7 @@ const NegotiationCard: React.FC<NegotiationCardProps> = ({ tiers, onSelectTier, 
         if (!Number.isFinite(resolvedCommission)) return;
         const message = offerMessage.trim().length
             ? offerMessage.trim()
-            : `I want ${selectedTier.name} services at ${resolvedCommission}% commission.`;
+            : `I want ${selectedTier.name || 'Tier'} services at ${resolvedCommission}% commission.`;
         onNegotiate({
             tierId: selectedTier.id,
             tierName: selectedTier.name,

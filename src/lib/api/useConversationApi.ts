@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
-import { success, error } from "../../components/alert/notify";
+import { success, error as notifyError } from "../../components/alert/notify";
 import { getAuthToken } from "../../lib/storage";
 
 export const useAgentConversationApi = (handleCb?: () => void) => {
@@ -66,9 +66,9 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
       if (handleCb) handleCb(); // Optional callback after success
     },
     onError: (error: any) => {
-      console.error('Error creating thread:', error);
+      console.error('Error fetching threads:', error);
       const errorMessage = error?.response?.data?.errors?.[0]?.message || error.message || 'An error occurred';
-      error({ message: errorMessage });
+      notifyError({ message: errorMessage });
     },
   });
 
@@ -568,7 +568,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
       if (response.status !== 200 || response.data.errors) {
         const errorMsg = response.data?.errors?.[0]?.message || 'Failed to add participant';
         // throw new Error(errorMsg);
-        error({ message: errorMsg });
+        notifyError({ message: errorMsg });
       }
       return response.data?.data?.addParticipantToConversationThread;
     },
@@ -956,7 +956,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
     onError: (error: any) => {
       const errorMessage =
         error?.response?.data?.errors?.[0]?.message || error.message || 'An error occurred';
-      error({ message: errorMessage });
+      notifyError({ message: errorMessage });
     },
   });
 

@@ -622,16 +622,17 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
 
             // Update engaged property state
             if (engagedProperty && participantId && returnedAgentId) {
-              const participent = [{
+              const newParticipant = {
                 id: participantId,
                 userId: wrapperCurrentUser?.id,
                 bra_id: null,
                 is_accepted: "pending",
-                agent: { ...selectedAgent, id: returnedAgentId, email: agentEmail }
-              }];
+                agent: { ...selectedAgent, id: returnedAgentId, email: agentEmail },
+                threadId: response.threadId // Capture threadId here
+              };
               dispatch(setEngagedProperty({
                 ...engagedProperty,
-                participants: participent
+                participants: [...(engagedProperty.participants || []), newParticipant]
               }));
             }
 
@@ -687,16 +688,17 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
             id: response?.data?.createParticipant?.id,
           });
           if (engagedProperty) {
-            const participent = [{
+            const newParticipant = {
               id: response?.data?.createParticipant?.id,
               userId: wrapperCurrentUser?.id,
               bra_id: null,
               is_accepted: "pending",
-              agent: selectedAgent
-            }];
+              agent: selectedAgent,
+              threadId: response?.data?.createParticipant?.threadId // Capture threadId here
+            };
             dispatch(setEngagedProperty({
               ...engagedProperty,
-              participants: participent
+              participants: [...(engagedProperty.participants || []), newParticipant]
             }));
           }
           success({

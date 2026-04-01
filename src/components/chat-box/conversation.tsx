@@ -1575,7 +1575,6 @@ export default function ConversationPageForBuyerAgentChat(props: any) {
                               </p>
 
                               <p className='w-[120px] truncate text-[10px] text-gray-500 sm:w-[160px] sm:text-xs md:w-[200px]'>
-                                {/* {decryptMessage(thread?.message || "")} */}
                                 {thread?.message || ''}
                               </p>
 

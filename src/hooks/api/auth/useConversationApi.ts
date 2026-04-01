@@ -941,6 +941,43 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
     },
   });
 
+  const removeAgentInvitation = useMutation({
+    mutationKey: ['deleteInvitation'],
+    mutationFn: async (data: any) => {
+      try {
+        const response = await API.post(
+          GRAPHQL_URI,
+          {
+            query: `
+              mutation DeleteInvitation($id: String!, $userId: String!, $agentId: String!, $status: String!) {
+                deleteInvitation(id: $id, userId: $userId, agentId: $agentId, status: $status) {
+                  success
+                  message
+                }
+              }
+            `,
+            variables: {
+              id: data.id,
+              userId: data.userId,
+              agentId: data.agentId,
+              status: data.status
+            },
+          }
+        );
+
+        if (response.status !== 200 || response.data?.errors) {
+          throw new Error(
+            response?.data?.errors?.[0]?.message || 'Failed to delete invitation',
+          );
+        }
+        return response;
+      } catch (error) {
+        console.error('Error deleting invitation:', error);
+        throw error;
+      }
+    },
+  });
+
   return {
     createThreadMutation,
     getAllThreadsMutation,
@@ -956,6 +993,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
     getConversationMessagesMutation,
     getAllSnapzRequest,
     updateSnapzById,
+    removeAgentInvitation,
   };
 };
 

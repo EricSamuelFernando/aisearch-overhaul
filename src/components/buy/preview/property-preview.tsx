@@ -766,7 +766,8 @@ const PropertyPreview: React.FC = () => {
               userId: currentUser?.id,
               bra_id: null,
               is_accepted: "pending",
-              agent: { id: agentId, email: inviteAgentEmail }
+              agent: { id: agentId, email: inviteAgentEmail },
+              threadId: response.threadId
             }];
             dispatch(setEngagedProperty({
               ...engagedProperty,
@@ -2521,8 +2522,8 @@ const PropertyPreview: React.FC = () => {
                                 if (threadId) {
                                   router.push(`/dashboard/buyer?tab=messages&threadId=${threadId}`);
                                 } else {
-                                  // Fallback: If no threadId yet, open the contact/invite modal
-                                  handleContactAgent();
+                                  // Fallback: If no threadId yet but participant exists, go to messages tab
+                                  router.push(`/dashboard/buyer?tab=messages`);
                                 }
                               }}
                               className="bg-[#E8804C] text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:bg-[#d6703c] transition-colors shadow-sm"

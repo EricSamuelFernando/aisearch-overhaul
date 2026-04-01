@@ -627,7 +627,8 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
                 userId: wrapperCurrentUser?.id,
                 bra_id: null,
                 is_accepted: "pending",
-                agent: { ...selectedAgent, id: returnedAgentId, email: agentEmail }
+                agent: { ...selectedAgent, id: returnedAgentId, email: agentEmail },
+                threadId: response.threadId // Capture threadId here
               };
               dispatch(setEngagedProperty({
                 ...engagedProperty,
@@ -692,7 +693,8 @@ export const AgentDirectoryWrapper: React.FC<AgentDirectoryWrapperProps> = ({
               userId: wrapperCurrentUser?.id,
               bra_id: null,
               is_accepted: "pending",
-              agent: selectedAgent
+              agent: selectedAgent,
+              threadId: response?.data?.createParticipant?.threadId // Capture threadId here
             };
             dispatch(setEngagedProperty({
               ...engagedProperty,

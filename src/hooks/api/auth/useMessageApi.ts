@@ -502,6 +502,155 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
   });
 
 
+  const partnerPropertyInvitation = useMutation({
+    mutationKey: ['create_partner_property_invite_request'],
+    mutationFn: async (inviteData: any) => {
+      const token = getAuthToken() || localStorage.getItem('userAccessToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await axios.post(
+        GRAPHQL_URI,
+        {
+          query: `
+             mutation CreatePartnerPropertyInviteRequest(
+  $createPartnerPropertyInviteRequestInput: CreatePartnerPropertyInviteRequestInput!
+) {
+  createPartnerPropertyInviteRequest(
+    createPartnerPropertyInviteRequestInput: $createPartnerPropertyInviteRequestInput
+  ) {
+    id
+    partnerId
+     status
+    roomId
+    threadId
+  }
+}
+
+            `,
+          variables: { createPartnerPropertyInviteRequestInput: inviteData }
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        }
+      )
+
+      if (response.status !== 200 || response.data?.errors) {
+        throw new Error(response.data?.errors?.[0]?.message || 'Failed to create invite request');
+      }
+
+      return response.data;
+    },
+    onSuccess: (data) => {
+      console.log('Invite request created:', data);
+      success({ message: 'Invitation sent to agent successfully!' });
+    },
+    onError: (err: any) => {
+      console.error('Error creating invite request:', err);
+      const errorMessage = err?.message || 'An error occurred while sending the invitation.';
+      error({ message: errorMessage });
+    }
+  });
+
+  const createExternalParticipant = useMutation({
+    mutationKey: ['createExternalParticipant'],
+    mutationFn: async (input: any) => {
+      const token = getAuthToken() || localStorage.getItem('userAccessToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await axios.post(
+        GRAPHQL_URI,
+        {
+          query: `
+            mutation createExternalParticipant($input: InviteExternalAgentInput!) {
+              createExternalParticipant(input: $input) {
+                success
+                message
+                participantId
+                threadId
+              }
+            }
+          `,
+          variables: { input }
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (response.data?.errors) {
+        throw new Error(response.data.errors[0]?.message || 'Failed to create participant');
+      }
+
+      return response.data.data.createExternalParticipant;
+    },
+    onSuccess: (data) => {
+      console.log('External participant created:', data);
+      success({ message: data?.message || 'Invitation sent successfully!' });
+    },
+    onError: (err: any) => {
+      console.error('Error creating external participant:', err);
+      const errorMessage = err?.message || 'An error occurred while sending the invitation.';
+      error({ message: errorMessage });
+    }
+  });
+
+
+  const getParticipantsByEngagement = useMutation({
+    mutationKey: ['getParticipantsByEngagement'],
+    mutationFn: async (engagementId: string) => {
+      const token = getAuthToken() || localStorage.getItem('userAccessToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await axios.post(
+        GRAPHQL_URI,
+        {
+          query: `
+            query getParticipantsByEngagement($engagementId: String!) {
+              getParticipantsByEngagement(engagementId: $engagementId) {
+                id
+                agentId
+                is_accepted
+                agentType
+                agent {
+                  id
+                  firstName
+                  lastName
+                  email
+                }
+              }
+            }
+          `,
+          variables: { engagementId }
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (response.data?.errors) {
+        throw new Error(response.data.errors[0]?.message || 'Failed to fetch participants');
+      }
+
+      return response.data.data.getParticipantsByEngagement;
+    }
+  });
+
+
   return {
     createUserAgentThreadMutation,
     getAllUserAgentThreadsMutation,
@@ -509,7 +658,10 @@ export const useUserAgentMessageApi = (handleCb?: () => void) => {
     getAllUserAgentMessagesMutation,
     addParticipantsToThread,
     getAllThreadByPropertyMutation,
-    getAllThreadsBySellerMutation
+    getAllThreadsBySellerMutation,
+    partnerPropertyInvitation,
+    createExternalParticipant,
+    getParticipantsByEngagement
   };
 };
 

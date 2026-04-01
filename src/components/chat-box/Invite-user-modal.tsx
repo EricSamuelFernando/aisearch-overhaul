@@ -28,6 +28,9 @@ interface InviteUserModalProps {
   propertyName?: string
   propertyAddress?: string
   propertyImage?: string
+  opened?: boolean
+  onClose?: () => void
+  roomId?: string
 }
 
 const InviteUserModal = ({
@@ -45,13 +48,25 @@ const InviteUserModal = ({
   propertyName,
   propertyAddress,
   propertyImage,
+  opened: controlledOpened,
+  onClose: controlledOnClose,
+  roomId,
 }: InviteUserModalProps) => {
   type InviteRole = 'buyer_agent' | 'co_buyer' | 'family_friends';
-  const [opened, { open, close }] = useDisclosure(false);
+  const [internalOpened, { open, close }] = useDisclosure(false);
+  const isControlled = typeof controlledOpened === 'boolean';
+  const isOpened = isControlled ? controlledOpened : internalOpened;
+  const closeAll = () => {
+    if (isControlled) {
+      controlledOnClose?.();
+    } else {
+      close();
+    }
+  };
   const router = useRouter();
 
   const { socket } = useContext(SocketContext);
-  const { addParticipantsToThread } = useUserAgentMessageApi();
+  const { addParticipantsToThread, partnerPropertyInvitation, createExternalParticipant } = useUserAgentMessageApi();
   const { propertyEngagementMutation } = usePropertyAPI();
   // const { externalAgentInvitationMutation } = useUserAuthApi();
   const { getEngagedPropertyByPropertyId } = useAgentConversationApi();
@@ -90,10 +105,10 @@ const InviteUserModal = ({
   };
 
   useEffect(() => {
-    if (disableInvite && opened) {
-      close();
+    if (disableInvite && isOpened) {
+      closeAll();
     }
-  }, [close, disableInvite, opened]);
+  }, [closeAll, disableInvite, isOpened]);
 
   const validateInviteInput = (): boolean => {
     if (disableInvite) {
@@ -119,9 +134,12 @@ const InviteUserModal = ({
 
     try {
       console.log('[Invite-user-modal] Looking for existing engagement for propertyId:', normalizedPropertyId);
-      const existingResponse: any = await getEngagedPropertyByPropertyId.mutateAsync(normalizedPropertyId);
+      const existingResponse: any = await getEngagedPropertyByPropertyId.mutateAsync({
+        propertyId: normalizedPropertyId,
+        userId: currentUserData?.id
+      });
       const existingEngagementId = existingResponse?.data?.data?.getUserEngagementsByPropertyId?.id;
-      if (existingEngagementId) {
+      if (existingEngagementId && String(existingEngagementId).trim() !== '') {
         console.log('[Invite-user-modal] Found existing engagement:', existingEngagementId);
         setEngagementId(existingEngagementId);
         return existingEngagementId;
@@ -151,9 +169,9 @@ const InviteUserModal = ({
       console.log('[Invite-user-modal] Engagement creation response:', createdResponse);
       const newEngagementId = createdResponse?.data?.createEngagement?.id;
 
-      if (!newEngagementId) {
-        console.error('[Invite-user-modal] No engagement ID in response:', createdResponse);
-        throw new Error('Failed to create engagement - no ID returned from server');
+      if (!newEngagementId || String(newEngagementId).trim() === '') {
+        console.error('[Invite-user-modal] No valid engagement ID in response:', createdResponse);
+        throw new Error('Failed to create engagement - no valid engagement ID returned from server');
       }
 
       // Validate that we got a reasonable engagement ID (UUID-like string)
@@ -319,109 +337,47 @@ const InviteUserModal = ({
       let inviteResponse: any = null;
       let graphQLErrors: any[] = [];
       if (effectiveInviteRole === 'buyer_agent') {
-        if (!actor?.id) {
-          error({ message: 'Please login to send invitation.' });
+        const currentEngagementId = await ensureEngagement();
+        if (!currentEngagementId) {
           setIsSubmitting(false);
           return;
         }
-        console.log('[Invite-user-modal] Ensuring engagement for buyer_agent invitation...');
-        const safeEngagementId = await ensureEngagement();
-        if (!safeEngagementId) {
-          console.error('[Invite-user-modal] Failed to get/create engagement');
-          setIsSubmitting(false);
-          return;
-        }
+
+        const invitePayload = {
+          agentType: 'BUYER_AGENT',
+          email: email.trim(),
+          userId: (currentUserData?.id && String(currentUserData.id).trim() !== '') ? currentUserData.id : undefined,
+          engagementId: (currentEngagementId && String(currentEngagementId).trim() !== '') ? currentEngagementId : undefined,
+          threadId: (threadId && String(threadId).trim() !== '') ? threadId : undefined,
+          is_accepted: 'pending',
+          status: 'pending',
+        };
+
+        console.log('[Invite-user-modal] Sending property invitation with payload:', invitePayload);
 
         try {
-          // const response: any = await externalAgentInvitationMutation.mutateAsync({
-          //   agentType: actor?.account_type,
-          //   userId: actor?.id,
-          //   email: email.trim(),
-          //   is_accepted: 'pending',
-          //   engagementId: safeEngagementId,
-          //   threadId,
-          // });
+          const response = await createExternalParticipant.mutateAsync(invitePayload);
+          console.log('[Invite-user-modal] Property engagement participant created:', response);
+          
+          if (response?.success === false) {
+            throw new Error(response?.message || 'Failed to send invitation');
+          }
 
-          // if (!response?.success) {
-          //   throw new Error(response?.message || 'Failed to send invitation');
-          // }
-          // inviteResponse = response;
-          // logInviteDeliveryDebug({
-          //   path: 'createExternalParticipant',
-          //   targetEmail: email.trim(),
-          //   role: effectiveInviteRole,
-          //   response: inviteResponse,
-          // });
-
-          // if (socket && response?.agentId && response?.participantId) {
-          //   socket.emit('send_property_invitation', {
-          //     reciepent: response.agentId,
-          //     userName: `${actor?.firstname || ''} ${actor?.lastname || ''}`.trim(),
-          //     userEmail: actor?.email,
-          //     propertyImage: safePropertyImage,
-          //     propertyAddress: safePropertyAddress,
-          //     id: response.participantId,
-          //   });
-          // }
-        } catch (externalInviteErr: any) {
-          console.error('[InviteUserModal][DeliveryDebug][Error]', {
-            path: 'createExternalParticipant',
-            threadId,
-            targetEmail: email.trim(),
-            role: effectiveInviteRole,
-            error: externalInviteErr?.response?.data || externalInviteErr,
-          });
-          throw externalInviteErr;
-        }
-
-        // Send email notification to the agent
-        const buyerName = `${actor?.firstname || ''} ${actor?.lastname || ''}`.trim();
-        const emailSuccess = await sendAgentInvitationEmail({
-          agentEmail: email.trim(),
-          buyerName,
-          buyerEmail: actor?.email,
-          propertyAddress: safePropertyAddress,
-          propertyImage: safePropertyImage,
-          invitationStatus: 'NEGOTIATION_PENDING',
-          participantId: inviteResponse?.participantId,
-          socket,
-        });
-
-        if (emailSuccess) {
-          console.log('[Invite-user-modal] Agent invitation email sent successfully');
-        } else {
-          console.warn('[Invite-user-modal] Email notification may not have been delivered');
-        }
-
-        // Redirect to messages with agent email as query parameter
-        // This will auto-open the negotiation flow
-        success({ message: 'Invitation sent successfully. Opening messages...' });
-        setTimeout(() => {
-          router.push(`/dashboard/chat?agentEmail=${encodeURIComponent(email.trim())}&focusLatest=1&showNegotiationCard=1`);
+          onInviteSuccess?.(email.trim(), effectiveInviteRole);
+          onParticipantsRefresh?.();
           setEmail('');
-          setInviteRole('buyer_agent');
-          setIsEmailValid(true);
-          close();
-        }, 500);
-        return;
-      } else {
-        const threadInviteResult: any = await sendThreadInviteByEmail(email.trim());
-        if (shouldLogInviteDeliveryDebug) {
-          console.info('[InviteUserModal][RuntimeProof][HookResult]', JSON.stringify(threadInviteResult ?? {}, null, 2));
-          console.info('[InviteUserModal][RuntimeProof][DataNode]', threadInviteResult?.data ?? null);
-          console.info('[InviteUserModal][RuntimeProof][MutationBody]', threadInviteResult?.mutationBody ?? '');
+          closeAll();
+          return;
+        } catch (err: any) {
+          console.error('[Invite-user-modal] Error sending property invitation:', err);
+          // Error notification is handled by the mutation hook
+          setIsSubmitting(false);
+          return;
         }
-        inviteResponse = threadInviteResult?.data ?? threadInviteResult;
-        graphQLErrors = Array.isArray(threadInviteResult?.graphQLErrors)
-          ? threadInviteResult.graphQLErrors
-          : [];
-        logInviteDeliveryDebug({
-          path: 'add_participant_to_thread',
-          targetEmail: email.trim(),
-          role: effectiveInviteRole,
-          response: inviteResponse,
-        });
       }
+      
+      // Standard participant addition for other roles (Co-buyer, Family/Friends)
+      const threadInviteResult: any = await sendThreadInviteByEmail(email.trim());
 
       const { statusRaw, statusNormalized } = normalizeDeliveryStatus(inviteResponse);
       const deliveryFailureReason =
@@ -473,7 +429,7 @@ const InviteUserModal = ({
         setEmail('');
         setInviteRole('buyer_agent');
         setIsEmailValid(true);
-        close();
+        closeAll();
       }, 120);
     } catch (err: any) {
       console.error('[InviteUserModal][DeliveryDebug][Error]', {
@@ -503,27 +459,29 @@ const InviteUserModal = ({
 
   return (
     <div>
-      <div className="relative group">
-        <button
-          className={`w-full text-left px-4 py-2 ${disableInvite ? "text-gray-400 cursor-not-allowed bg-gray-50" : "hover:bg-gray-100"}`}
-          onClick={() => {
-            if (disableInvite) return;
-            open();
-          }}
-          title={disableInvite ? (disableInviteMessage || 'Invites are blocked because this chat already has 5 participants.') : undefined}
-        >
-          Invite User
-        </button>
-        {disableInvite && (
-          <div className="hidden group-hover:block absolute left-2 right-2 top-full mt-1 z-10 rounded-md bg-black text-white text-[11px] px-2 py-1">
-            {disableInviteMessage || 'Invites are blocked because this chat already has 5 participants.'}
-          </div>
-        )}
-      </div>
+      {!isControlled && (
+        <div className="relative group">
+          <button
+            className={`w-full text-left px-4 py-2 ${disableInvite ? "text-gray-400 cursor-not-allowed bg-gray-50" : "hover:bg-gray-100"}`}
+            onClick={() => {
+              if (disableInvite) return;
+              open();
+            }}
+            title={disableInvite ? (disableInviteMessage || 'Invites are blocked because this chat already has 5 participants.') : undefined}
+          >
+            Invite User
+          </button>
+          {disableInvite && (
+            <div className="hidden group-hover:block absolute left-2 right-2 top-full mt-1 z-10 rounded-md bg-black text-white text-[11px] px-2 py-1">
+              {disableInviteMessage || 'Invites are blocked because this chat already has 5 participants.'}
+            </div>
+          )}
+        </div>
+      )}
 
       <CustomModal
-        isOpen={opened}
-        onClose={close}
+        isOpen={isOpened}
+        onClose={closeAll}
         className='backdrop-blur-sm'
         disableEscapeClose={false}
         closeDisabled={false}
@@ -570,7 +528,7 @@ const InviteUserModal = ({
                 setEmail('');
                 setInviteRole('buyer_agent');
                 setIsEmailValid(true);
-                close();
+                closeAll();
               }}
               style={{ marginTop: '20px' }}
             >

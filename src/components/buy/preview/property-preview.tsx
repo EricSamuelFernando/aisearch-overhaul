@@ -336,7 +336,7 @@ const PropertyPreview: React.FC = () => {
     setUserQuestionDisplay(query);
     setAskAIQuestion(query); // Keep input synced if needed, or clear it
 
-    askAIMutation.mutate({ question: query }, {
+    askAIMutation.mutate({ query }, {
       onSuccess: (data) => {
         setAiAnswer(data.answer);
         if (data.suggestions && data.suggestions.length > 0) {

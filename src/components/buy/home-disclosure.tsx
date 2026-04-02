@@ -135,7 +135,7 @@ export default function HomeDisclosure({
 
         {/* CTA Button */}
         <a
-          href="https://snapdisclosures.snaphomz.com/"
+          href="https://snapdisclosures.snaphomz.com/?utm_source=nav_bar"
           target="_blank"
           rel="noopener noreferrer"
           className="bg-orange-500 hover:bg-orange-600 transition text-white px-10 sm:px-12 py-2.5 rounded-full w-full sm:w-fit text-sm md:text-base block text-center"

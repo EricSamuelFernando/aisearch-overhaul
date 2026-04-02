@@ -30,7 +30,7 @@ export default function GetReadyForCollege({
             </p>*/}
 
             <a
-              href="https://snapgrad.snaphomz.com/"
+              href="https://snapgrad.snaphomz.com/?lat=0&lng=0&label=&source=&updatedAt=&utm_source=nav_bar"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex w-fit items-center justify-center rounded-full bg-black px-6 py-2 text-sm font-semibold text-white transition hover:opacity-90"

@@ -512,7 +512,7 @@ const OfferStrengthAnalyzer = () => {
               />
 
               <a
-                href="https://snapaudit.snaphomz.com/"
+                href="https://snapaudit.snaphomz.com/?utm_source=nav_bar"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-black text-white rounded-full px-6 py-2 hover:bg-gray-800 shrink-0 whitespace-nowrap inline-block text-center"

@@ -1938,16 +1938,65 @@ const PropertyPreview: React.FC = () => {
 
   const propertyCoords = React.useMemo(() => getPropertyLatLng(), [getPropertyLatLng]);
 
-  const [openSection, setOpenSection] = React.useState<string | null>(null);
+  const [openSections, setOpenSections] = React.useState<string[]>([]);
   const [topEstimatedMonthlyPayment, setTopEstimatedMonthlyPayment] = React.useState<number | null>(null);
 
   const toggleSection = (section: string) => {
-    setOpenSection(openSection === section ? null : section);
+    const isOpen = openSections.includes(section);
+    if (isOpen) {
+      setOpenSections((prev) => prev.filter((item) => item !== section));
+      if (typeof window !== 'undefined') {
+        const sectionToHash: Record<string, string> = {
+          home: '#overview',
+          offers: '#property',
+          schools: '#schools',
+          interest: '#forecast',
+        };
+        const currentHash = window.location.hash;
+        if (currentHash && currentHash === sectionToHash[section]) {
+          const { pathname, search } = window.location;
+          window.history.replaceState(null, '', `${pathname}${search}`);
+        }
+      }
+      return;
+    }
+
+    setOpenSections((prev) => [...prev, section]);
+
+    const sectionToScrollId: Record<string, string> = {
+      home: 'home-highlights',
+      offers: 'property',
+      schools: 'schools',
+      college: 'college',
+      interest: 'forecast',
+      payment: 'payment',
+    };
+    const scrollId = sectionToScrollId[section];
+    if (!scrollId) return;
+
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        const el = document.getElementById(scrollId);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 300);
+    });
   };
 
   const propertyTags = Array.isArray((proprtyData as any)?.tags) ? (proprtyData as any).tags : [];
 
   const openSectionForHash = React.useCallback((hash: string) => {
+    if (hash === '#comparables') {
+      window.requestAnimationFrame(() => {
+        window.setTimeout(() => {
+          const el = document.getElementById('comparables');
+          if (!el) return;
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 400);
+      });
+      return;
+    }
+
     const target =
       hash === '#home-highlights' || hash === '#home'
         ? { section: 'home', scrollId: 'home-highlights' }
@@ -1961,7 +2010,9 @@ const PropertyPreview: React.FC = () => {
 
     if (!target) return;
 
-    setOpenSection(target.section);
+    setOpenSections((prev) =>
+      prev.includes(target.section) ? prev : [...prev, target.section]
+    );
 
     // After the accordion opens, scroll to the content area for that section.
     // Wait 400ms to ensure the duration-300 accordion expansion animation completes
@@ -2563,6 +2614,7 @@ const PropertyPreview: React.FC = () => {
 
 
               {/* Decision Signals */}
+              {/* Decision Signals */}
               <div className="py-2 sm:py-3">
                 <BuyerDecisionSignals
                   listPrice={homePriceValue}
@@ -2581,6 +2633,22 @@ const PropertyPreview: React.FC = () => {
                     propertyData?.property?.livingArea ||
                     0
                   }
+                />
+              </div>
+
+              {/* Takeaways */}
+              <div className="hidden py-2 sm:py-3">
+                <PropertyTakeawaysAI
+                  property={
+                    propertyDatas?.data ||
+                    propertyData?.listing ||
+                    propertyData?.public ||
+                    propertyData ||
+                    transformData.prop
+                  }
+                  nearbySchools={nearbySchools}
+                  collegeReadinessData={collegeReadinessData}
+                  collegeReadinessLoading={collegeReadinessLoading}
                 />
               </div>
 
@@ -2880,7 +2948,7 @@ const PropertyPreview: React.FC = () => {
                               )}
                             </span>
                           )}
-                          {openSection === section.id ? (
+                          {openSections.includes(section.id) ? (
                             <ChevronUp className="text-gray-600 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5" />
                           ) : (
                             <ChevronDown className="text-gray-600 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5" />
@@ -2890,7 +2958,7 @@ const PropertyPreview: React.FC = () => {
 
                       {/* Accordion Content */}
                       <div
-                        className={`overflow-hidden transition-all duration-300 ${openSection === section.id ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0"
+                        className={`overflow-hidden transition-all duration-300 ${openSections.includes(section.id) ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0"
                           }`}
                       >
                         <div

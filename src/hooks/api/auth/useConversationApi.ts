@@ -360,6 +360,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
                   userId
                   bra_id
                   is_accepted
+                  threadId
                   agent{
                   email
                   id
@@ -401,14 +402,14 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
 
   const getEngagedPropertyByPropertyId = useMutation({
     mutationKey: ['getAllEngagedPropertyByPropertyId'],
-    mutationFn: async (propertyId: string) => {
+    mutationFn: async ({ propertyId, userId }: { propertyId: string, userId: string }) => {
       try {
         const response = await API.post(
           GRAPHQL_URI,
           {
             query: `
-              query getUserEngagementsByPropertyId($propertyId: String!) {
-                getUserEngagementsByPropertyId(propertyId: $propertyId) {
+              query getUserEngagementsByPropertyId($propertyId: String!, $userId: String!) {
+                getUserEngagementsByPropertyId(propertyId: $propertyId, userId: $userId) {
                   id
                   propertyId,
                   propertyImage,
@@ -449,6 +450,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
                     userId
                     bra_id
                     is_accepted
+                    threadId
                     agent{
                       email
                       id
@@ -461,6 +463,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
               }`,
             variables: {
               propertyId: propertyId,
+              userId: userId,
             },
           }
         );
@@ -476,11 +479,19 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
         throw error;
       }
     },
-    onSuccess: (data) => {
-      console.log('Fetched threads:', data);
+    onSuccess: (data: any) => {
+      console.log('Fetched threads response:', data);
       const engagement = data?.data?.data?.getUserEngagementsByPropertyId;
-      if (engagement) {
-        dispatch(setEngagedProperty(engagement));
+      // If the path above is actually correct for YOUR API response, keep it.
+      // But if data is the axios response, data.data is the graphql body.
+      // And data.data.data is the graphql data field.
+      // Let's make it more robust.
+      const actualData = data?.data?.data || data?.data || data;
+      const engagementResult = actualData?.getUserEngagementsByPropertyId;
+
+      if (engagementResult) {
+        console.log('Setting engaged property:', engagementResult);
+        dispatch(setEngagedProperty(engagementResult));
       }
     },
     onError: (error: any) => {
@@ -601,6 +612,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
                   userId
                   bra_id
                   is_accepted
+                  threadId
                   agent{
                   email
                   id
@@ -823,6 +835,11 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
   const getAllSnapzRequest = useMutation({
     mutationKey: ['get_snapz_request'],
     mutationFn: async (snapData: any) => {
+      const token = getAuthToken() || localStorage.getItem('userAccessToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
       const response = await API.post(
         GRAPHQL_URI,
         {
@@ -840,10 +857,6 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
                     email
                     firstName
                     lastName
-                  }
-                  favourites {
-                    id
-                    image
                   }
                 }
                 participant {
@@ -863,8 +876,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
 
       if (response.status !== 200 || response.data.errors) {
         throw new Error(
-          response.data?.errors?.[0]?.message ||
-          'Failed to fetch Snapz requests',
+          response.data?.errors?.[0]?.message || 'Failed to fetch Snapz requests'
         );
       }
 
@@ -886,6 +898,11 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
   const updateSnapzById = useMutation({
     mutationKey: ['update_snapz_participant'],
     mutationFn: async (input: any) => {
+      const token = getAuthToken() || localStorage.getItem('userAccessToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
       const response = await API.post(
         GRAPHQL_URI,
         {
@@ -905,8 +922,7 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
 
       if (response.status !== 200 || response.data.errors) {
         throw new Error(
-          response.data?.errors?.[0]?.message ||
-          'Failed to update Snapz participant',
+          response.data?.errors?.[0]?.message || 'Failed to update Snapz participant'
         );
       }
 
@@ -926,58 +942,39 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
   });
 
   const removeAgentInvitation = useMutation({
-    mutationKey: ['remove-agent-invitation'],
+    mutationKey: ['deleteInvitation'],
     mutationFn: async (data: any) => {
       try {
         const response = await API.post(
           GRAPHQL_URI,
           {
             query: `
-              mutation deleteInvitation(
-                $id: String!
-                $userId: String!
-                $agentId: String!
-                $status: String!
-              ) {
-                deleteInvitation(
-                  id: $id
-                  userId: $userId
-                  agentId: $agentId
-                  status: $status
-                ) {
-                  id
-                  message
+              mutation DeleteInvitation($id: String!, $userId: String!, $agentId: String!, $status: String!) {
+                deleteInvitation(id: $id, userId: $userId, agentId: $agentId, status: $status) {
                   success
+                  message
                 }
               }
             `,
             variables: {
-              ...data,
+              id: data.id,
+              userId: data.userId,
+              agentId: data.agentId,
+              status: data.status
             },
           }
         );
 
-        if (response.status !== 200) {
+        if (response.status !== 200 || response.data?.errors) {
           throw new Error(
-            response?.data?.errors?.[0]?.message || 'Failed to fetch threads',
+            response?.data?.errors?.[0]?.message || 'Failed to delete invitation',
           );
         }
         return response;
       } catch (error) {
-        console.error('Error fetching threads:', error);
+        console.error('Error deleting invitation:', error);
         throw error;
       }
-    },
-    onSuccess: (data) => {
-      console.log('Fetched threads:', data);
-    },
-    onError: (error: any) => {
-      console.error('Error fetching threads:', error);
-      const errorMessage =
-        error?.response?.data?.errors?.[0]?.message ||
-        error.message ||
-        'An error occurred';
-      // error({ message: errorMessage });
     },
   });
 
@@ -987,143 +984,145 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
     getAllThreadsByUserMutation,
     getAllThreadsByBuyerAgentsMutation,
     getAllConversationMessagesMutation,
-    getAllEngagedProperties,
+    getAllEngagedProperties, 
     getEngagedPropertyByPropertyId,
     deleteEngagedPropertyById,
     searchEngagedProperty,
     getThreadById,
     getAgentTiersForThreadMutation,
     getConversationMessagesMutation,
-    removeAgentInvitation,
     getAllSnapzRequest,
     updateSnapzById,
+    removeAgentInvitation,
   };
 };
-const GRAPHQL_URI =
-  process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
-  'http://localhost:4000/graphql';
 
-export const useGetExternalAgentDetails = (userId?: string) =>
-  useQuery({
+export const useGetExternalAgentDetails = (userId?: string) => {
+  const isLocalhostRuntime =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1');
+
+  const GRAPHQL_URI = isLocalhostRuntime
+    ? 'http://localhost:4000/auth/graphql'
+    : process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
+    'http://localhost:4000/graphql';
+
+  return useQuery({
     queryKey: ['getExternalAgentDetails', userId],
-    queryFn: async ({ queryKey }) => {
-      const [, uid] = queryKey;
-
-      const response = await API.post(
-        GRAPHQL_URI,
-        {
-          query: `
-            query GetExternalAgentDetails($userId: String!) {
-              getExternalAgentDetails(userId: $userId) {
-                 
-                email
-               
-              }
+    queryFn: async () => {
+      if (!userId) return null;
+      const response = await API.post(GRAPHQL_URI, {
+        query: `
+          query getExternalAgentDetails($userId: String!) {
+            getExternalAgentDetails(userId: $userId) {
+              id
+              firstName
+              lastName
+              email
             }
-          `,
-          variables: { userId: uid },
-        }
-      );
-
-      if (response.status !== 200 || response.data.errors) {
-        throw new Error(
-          response.data?.errors?.[0]?.message || 'Failed to fetch user details',
-        );
+          }
+        `,
+        variables: { userId },
+      });
+      if (response.data?.errors) {
+        throw new Error(response.data.errors[0]?.message || 'Failed to fetch external agent details');
       }
-
       return response.data.data.getExternalAgentDetails;
     },
-    enabled: !!userId, // Only runs if userId is provided
+    enabled: !!userId,
   });
+};
 
+export const useGetUserThreadByProperty = (propertyId?: string) => {
+  const isLocalhostRuntime =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1');
 
-export const useGetUserThreadByProperty = (propertyId?: string) =>
-  useQuery({
+  const GRAPHQL_URI = isLocalhostRuntime
+    ? 'http://localhost:4000/auth/graphql'
+    : process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
+    'http://localhost:4000/graphql';
+
+  return useQuery({
     queryKey: ['getUserThreadByPropertyId', propertyId],
-    queryFn: async ({ queryKey }) => {
-      const [, propId] = queryKey;
-
-      //const dispatch = useAppDispatch();
-
-      try {
-        const response = await API.post(
-          GRAPHQL_URI,
-          {
-            query: `
-                query GetUserThreadByPropertyId($propertyId: String!) {
-                  getUserThreadByPropertyId(propertyId: $propertyId) {
-                    id
-                    roomId
-                    threadName
-                    createdAt
-                    updatedAt
-                  }
-                }
-              `,
-            variables: { propertyId: propId },
+    queryFn: async () => {
+      if (!propertyId) return null;
+      const response = await API.post(GRAPHQL_URI, {
+        query: `
+          query GetUserThreadByPropertyId($propertyId: String!) {
+            getUserThreadByPropertyId(propertyId: $propertyId) {
+              id
+              threadName
+              propertyId
+              roomId
+              propertyName
+              listingId
+              propertyAddress
+              unreadCount
+              parentMessage
+              buyerAgent {
+                id
+                firstName
+                lastName
+                email
+              }
+              sellerAgent {
+                id
+                firstName
+                lastName
+                email
+              }
+            }
           }
-        );
-
-        if (response.status !== 200 || response.data.errors) {
-          throw new Error(response.data?.errors?.[0]?.message || 'Failed to fetch thread');
-        }
-
-        console.log()
-
-        const thread = response.data.data.getUserThreadByPropertyId;
-        //dispatch(setSelectedThreadInfo(thread));
-
-        return thread;
-      } catch (error: any) {
-        console.error('Error fetching user thread:', error.message || error);
-        throw error;
+        `,
+        variables: { propertyId },
+      });
+      if (response.data?.errors) {
+        throw new Error(response.data.errors[0]?.message || 'Failed to fetch thread by property');
       }
+      return response.data.data.getUserThreadByPropertyId;
     },
     enabled: !!propertyId,
   });
+};
 
+export const useGetAnswersByUser = (userId?: string, propertyId?: string) => {
+  const isLocalhostRuntime =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1');
 
-interface Answer {
-  stepId: string;
-  questionId: string;
-  response: string;
-}
+  const GRAPHQL_URI = isLocalhostRuntime
+    ? 'http://localhost:4004/graphql'
+    : (process.env.NEXT_PUBLIC_PRE_APPROVE_SERIVCE_GRAPHQL_URL || 
+       'https://demo-api.snaphomz.com/pre-approve/graphql');
 
-export const useGetAnswersByUser = (userId?: string, propertyId?: string) =>
-  useQuery({
+  return useQuery({
     queryKey: ['getAnswersByUser', userId, propertyId],
-    queryFn: async ({ queryKey }) => {
-      const [, uid, pid] = queryKey;
-
-      try {
-        const response = await API.post(
-          MORTGAGE_GRAPHQL_URI,
-          {
-            query: `
-                  query GetAnswersByUser($userId: String!, $propertyId: String!) {
-                    getAnswersByUser(userId: $userId, propertyId: $propertyId) {
-                      stepId
-                      questionId
-                      response
-                    }
-                  }
-                `,
-            variables: {
-              userId: uid,
-              propertyId: pid,
-            },
+    queryFn: async () => {
+      if (!userId || !propertyId) return null;
+      const response = await API.post(GRAPHQL_URI, {
+        query: `
+          query GetAnswersByUser($userId: String!, $propertyId: String!) {
+            getAnswersByUser(userId: $userId, propertyId: $propertyId) {
+              id
+              stepId
+              questionId
+              response {
+                answer
+              }
+            }
           }
-        );
-
-        if (response.status !== 200 || response.data.errors) {
-          throw new Error(response.data?.errors?.[0]?.message || 'Failed to fetch answers');
-        }
-
-        return response.data.data.getAnswersByUser as Answer[];
-      } catch (error: any) {
-        console.error('Error fetching answers:', error.message || error);
-        throw error;
+        `,
+        variables: { userId, propertyId },
+      });
+      if (response.data?.errors) {
+        throw new Error(response.data.errors[0]?.message || 'Failed to fetch answers');
       }
+      return response.data.data.getAnswersByUser;
     },
     enabled: !!userId && !!propertyId,
   });
+};

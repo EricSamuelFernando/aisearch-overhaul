@@ -148,7 +148,7 @@ function BuyerMessagesPanel() {
 
   return (
     <ChatBoxComponent
-      threadId={restoredThreadId}
+      threadId={routeThreadId || restoredThreadId}
       loading={loading}
       setLoading={setLoading}
       threads={threads}

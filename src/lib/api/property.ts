@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { success } from '../../components/alert/notify';
+import { success, error as notifyError } from '../../components/alert/notify';
 import { getAuthToken } from '../storage';
 import { useRouter } from 'next/navigation';
 
@@ -67,7 +67,7 @@ export const usePropertyServiceAPI = (handleCb?: () => void) => {
         error?.response?.data?.errors?.[0]?.message ||
         error.message ||
         'An error occurred';
-      error({ message: errorMessage });
+      notifyError({ message: errorMessage });
     },
   });
 
@@ -202,7 +202,7 @@ export const usePropertyServiceAPI = (handleCb?: () => void) => {
         error?.response?.data?.errors?.[0]?.message ||
         error.message ||
         'An unexpected error occurred';
-      error({ message: errorMessage });
+      notifyError({ message: errorMessage });
     },
   });
 
@@ -503,7 +503,7 @@ export const usePropertyServiceAPI = (handleCb?: () => void) => {
         error?.response?.data?.errors?.[0]?.message ||
         error.message ||
         'An error occurred';
-      error({ message: errorMessage });
+      notifyError({ message: errorMessage });
     },
   });
 
@@ -644,7 +644,7 @@ export const usePropertyServiceAPI = (handleCb?: () => void) => {
         error?.response?.data?.errors?.[0]?.message ||
         error.message ||
         'An unexpected error occurred';
-      error({ message: errorMessage });
+      notifyError({ message: errorMessage });
     },
   });
 
@@ -701,7 +701,7 @@ export const usePropertyServiceAPI = (handleCb?: () => void) => {
         error?.response?.data?.errors?.[0]?.message ||
         error.message ||
         'An unexpected error occurred';
-      error({ message: errorMessage });
+      notifyError({ message: errorMessage });
     },
   });
 

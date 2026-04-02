@@ -52,6 +52,19 @@ export const initialState: any = {
       count: 0,
     },
   ],
+  // Negotiation-specific unread counts (shown as badge beside "Negotiation" section heading)
+  negotiationUnreadCount: [] as { threadId: string; count: number }[],
+  // Pending counter-offer waiting for user action (used by agent app, kept here for shared context)
+  pendingCounterOffer: null as {
+    threadId: string;
+    tierId: string;
+    tierName: string;
+    offeredCommission: number;
+    message: string;
+    senderId: string;
+  } | null,
+  // Threads that have been closed by the buyer (remove from Negotiation list locally)
+  closedThreadIds: [] as string[],
 };
 
 
@@ -779,20 +792,45 @@ function SocketProvider({ children }: { children: ReactNode }) {
       const handleRecievedMessage = (messageData: any) => handleIncomingMessage(messageData, "recievedMessage");
 
       // Handle authoritative unread count pushed from backend
+      // threadPhase tells us which section badge to update:
+      //   'NEGOTIATION' + status in [NEGOTIATION_PENDING, OFFER_SENT, COUNTER_OFFER, DECLINED]
+      //     → negotiationUnreadCount (shown beside "Negotiation" heading)
+      //   'NEGOTIATION' + status = 'ACTIVE'
+      //     → conversationUnreadCount (shown beside "Main Messaging" heading)
       const handleUnreadCountUpdated = (data: any) => {
         const threadId = data?.threadId;
         const count = typeof data?.count === 'number' ? data.count : 0;
+        const threadPhase: string = data?.threadPhase || 'NEGOTIATION';
+        const threadStatus: string = data?.threadStatus || '';
         if (!threadId) return;
-        console.log(`[SocketContext] unread_count_updated: threadId=${threadId}, count=${count}`);
-        setState((prev: any) => ({
-          ...prev,
-          conversationUnreadCount: [
-            ...(Array.isArray(prev.conversationUnreadCount)
-              ? prev.conversationUnreadCount.filter((c: any) => c.threadId !== threadId)
-              : []),
-            { threadId, count },
-          ],
-        }));
+
+        const isMainMessaging = threadStatus === 'ACTIVE';
+        console.log(`[SocketContext] unread_count_updated: threadId=${threadId}, count=${count}, phase=${threadPhase}, status=${threadStatus}`);
+
+        setState((prev: any) => {
+          if (isMainMessaging) {
+            // Main Messaging section
+            return {
+              ...prev,
+              conversationUnreadCount: [
+                ...(Array.isArray(prev.conversationUnreadCount)
+                  ? prev.conversationUnreadCount.filter((c: any) => c.threadId !== threadId)
+                  : []),
+                { threadId, count },
+              ],
+            };
+          }
+          // Negotiation section
+          return {
+            ...prev,
+            negotiationUnreadCount: [
+              ...(Array.isArray(prev.negotiationUnreadCount)
+                ? prev.negotiationUnreadCount.filter((c: any) => c.threadId !== threadId)
+                : []),
+              { threadId, count },
+            ],
+          };
+        });
       };
 
       const handleNotificationCreated = (payload: any) => {
@@ -884,6 +922,68 @@ function SocketProvider({ children }: { children: ReactNode }) {
         console.log('[SocketContext] leaveRoom_response:', response);
       };
 
+      // Thread moved from Negotiation → Main Messaging section (BRA signed)
+      const handleNegotiationActivated = (payload: any) => {
+        console.log('[SocketContext] negotiation_activated:', payload);
+        const threadId = payload?.threadId;
+        // Move thread's unread count from negotiation bucket to conversation bucket
+        setState((prev: any) => {
+          const existingCount = prev.negotiationUnreadCount?.find(
+            (c: any) => c.threadId === threadId
+          )?.count ?? 0;
+          return {
+            ...prev,
+            negotiationUnreadCount: (prev.negotiationUnreadCount || []).filter(
+              (c: any) => c.threadId !== threadId
+            ),
+            conversationUnreadCount: [
+              ...(prev.conversationUnreadCount || []).filter((c: any) => c.threadId !== threadId),
+              { threadId, count: existingCount },
+            ],
+          };
+        });
+        // Refetch thread list so the UI re-categorises the thread
+        queryClient.invalidateQueries({ queryKey: ['threads'] });
+        queryClient.invalidateQueries({ queryKey: ['userThreads'] });
+      };
+
+      // Buyer closed a failed negotiation chat
+      const handleChatClosed = (payload: any) => {
+        console.log('[SocketContext] chat_closed:', payload);
+        const threadId = payload?.threadId;
+        if (!threadId) return;
+        setState((prev: any) => ({
+          ...prev,
+          closedThreadIds: [...(prev.closedThreadIds || []), threadId],
+          negotiationUnreadCount: (prev.negotiationUnreadCount || []).filter(
+            (c: any) => c.threadId !== threadId
+          ),
+        }));
+      };
+
+      // Counter-offer received — store it so the UI can prompt the user
+      const handleCounterOfferReceived = (payload: any) => {
+        console.log('[SocketContext] counter_offer_received:', payload);
+        setState((prev: any) => ({
+          ...prev,
+          pendingCounterOffer: {
+            threadId: payload?.threadId,
+            tierId: payload?.tierId,
+            tierName: payload?.tierName,
+            offeredCommission: payload?.offeredCommission,
+            message: payload?.message,
+            senderId: payload?.senderId,
+          },
+        }));
+      };
+
+      // Negotiation status changed (generic) — refetch threads to re-render section badge
+      const handleNegotiationStatusUpdated = (payload: any) => {
+        console.log('[SocketContext] negotiation_status_updated:', payload);
+        queryClient.invalidateQueries({ queryKey: ['threads'] });
+        queryClient.invalidateQueries({ queryKey: ['userThreads'] });
+      };
+
       socket.on("newMessage", handleNewMessage);
       socket.on("recievedMessage", handleRecievedMessage);
       socket.on("unread_count_updated", handleUnreadCountUpdated);
@@ -896,6 +996,10 @@ function SocketProvider({ children }: { children: ReactNode }) {
       socket.on("sendMessage_response", handleSendMessageResponse);
       socket.on("joinRoom_response", handleJoinRoomResponse);
       socket.on("leaveRoom_response", handleLeaveRoomResponse);
+      socket.on("negotiation_activated", handleNegotiationActivated);
+      socket.on("chat_closed", handleChatClosed);
+      socket.on("counter_offer_received", handleCounterOfferReceived);
+      socket.on("negotiation_status_updated", handleNegotiationStatusUpdated);
 
       return () => {
         socket.off("newMessage", handleNewMessage);
@@ -910,6 +1014,10 @@ function SocketProvider({ children }: { children: ReactNode }) {
         socket.off("sendMessage_response", handleSendMessageResponse);
         socket.off("joinRoom_response", handleJoinRoomResponse);
         socket.off("leaveRoom_response", handleLeaveRoomResponse);
+        socket.off("negotiation_activated", handleNegotiationActivated);
+        socket.off("chat_closed", handleChatClosed);
+        socket.off("counter_offer_received", handleCounterOfferReceived);
+        socket.off("negotiation_status_updated", handleNegotiationStatusUpdated);
       };
     }
   }, [messageThreads, socket, user?.id, queryClient]);

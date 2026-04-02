@@ -2538,33 +2538,35 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         // Lock immediately so concurrent submits (during the async classify await) are dropped.
         isSearchingRef.current = true;
 
-        // Conversational messages (hi, hello, thanks…) must never trigger MLS routing — "hi"
-        // matches the Hawaii state abbreviation "HI" which fools hasStateToken().
-        const isConversationalQuery = /^(hi|hello|hey|howdy|greetings|good\s+(morning|afternoon|evening)|thanks?|thank\s+you|ok|okay|sure|awesome|great|cool)$/i.test(queryToSearch.trim());
+        // ── Bare-location routing ────────────────────────────────────────────
+        // Only route to browse immediately for inputs that are UNAMBIGUOUSLY
+        // a bare location with no other words — ZIP code, street address, or
+        // "City ST" / "City, ST" where the state token is at the END of the string.
+        //
+        // Everything else goes to the AI backend. The semantic layer (all-MiniLM-L6-v2)
+        // is the single source of truth for all ambiguous queries. This eliminates
+        // false positives from common English words matching state abbreviations
+        // (e.g. "in" → Indiana, "or" → Oregon, "me" → Maine).
+        const isBareLocation = (q: string): boolean => {
+            const trimmed = q.trim();
+            if (!trimmed || pendingLocationImage) return false;
+            // Bare MLS ID or 6-12 digit number
+            if (hasLikelyMlsIdentifier(trimmed)) return true;
+            // ZIP code alone (5 digits, optional +4)
+            if (/^\d{5}(?:-\d{4})?$/.test(trimmed)) return true;
+            // Street address alone: starts with number + has street suffix
+            if (hasStreetAddressPattern(trimmed)) return true;
+            // "City, ST" — state abbreviation after comma at end of string
+            if (/,\s*[A-Z]{2}$/i.test(trimmed)) return true;
+            // "City ST" — 2-letter state abbreviation as the LAST token only
+            if (/\s[A-Z]{2}$/i.test(trimmed) && US_STATE_ABBREVIATIONS.has(trimmed.split(/\s+/).pop()!.toUpperCase())) return true;
+            // Full state name as the LAST word(s) only (e.g. "Austin Texas", "Austin California")
+            const lower = trimmed.toLowerCase();
+            if (US_STATE_NAMES.some(name => lower.endsWith(` ${name}`))) return true;
+            return false;
+        };
 
-        // Auto-route: MLS-style queries go to browse results, natural-language stays in AI chat.
-        let allowMlsRoute = !pendingLocationImage && !isConversationalQuery;
-        if (allowMlsRoute) {
-            const trimmedQuery = normalizeLocationInput(queryToSearch);
-            if (hasLikelyMlsIdentifier(trimmedQuery)) {
-                // Bare MLS ID or 6-12 digit number — unambiguous, no LLM needed
-                allowMlsRoute = true;
-            } else {
-                // Use the local classifier first — covers the vast majority of queries instantly.
-                // Only fall back to the LLM for borderline cases (ambiguous city/neighborhood names
-                // with no state token and no intent keywords), which are rare.
-                const localIntent = classifyLocationQuery(queryToSearch);
-                if (localIntent === 'valid') {
-                    allowMlsRoute = true;
-                } else if (localIntent === 'invalid') {
-                    allowMlsRoute = false;
-                } else {
-                    // borderline — ambiguous short query; ask the LLM
-                    const intent = await classifyQueryIntent(queryToSearch);
-                    allowMlsRoute = intent === 'location';
-                }
-            }
-        }
+        const allowMlsRoute = isBareLocation(queryToSearch);
 
         if (allowMlsRoute) {
             const destination = `/buy/browse?q=${encodeURIComponent(queryToSearch.trim())}`;

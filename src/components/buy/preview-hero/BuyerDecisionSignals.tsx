@@ -35,6 +35,12 @@ export interface BuyerDecisionSignalsProps {
   lng?: number | null;
   comps?: any[];
   sqft?: number;
+  listingId?: string | null;
+  propertyId?: string | null;
+  city?: string | null;
+  state?: string | null;
+  county?: string | null;
+  propertyType?: string | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -482,6 +488,241 @@ function NeighborhoodCompsCard({ comps, sqft }: Pick<BuyerDecisionSignalsProps, 
   );
 }
 
+// ─── Card 6: Home Condition ───────────────────────────────────────────────────
+
+const IconHome = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E8804C" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 12L12 3l9 9" />
+    <path d="M9 21V12h6v9" />
+    <path d="M3 12v9h18v-9" />
+  </svg>
+);
+
+const SEVERITY_COLOR: Record<string, string> = {
+  High: '#dc2626',
+  Medium: '#d97706',
+  Low: '#2563eb',
+  opportunity: '#7c3aed',
+};
+
+const AI_API_BASE = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api`;
+const CACHE_PREFIX = 'photo_categorization_v1';
+
+function readConditionCache(listingId: string, propertyId: string) {
+  try {
+    const raw = typeof window !== 'undefined'
+      ? window.sessionStorage.getItem(`${CACHE_PREFIX}:${listingId}:${propertyId}`)
+      : null;
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function extractAnalysis(data: any) {
+  return data?.categorization?.condition_analysis ||
+    data?.data?.categorization?.condition_analysis ||
+    data?.categorization?.analysis ||
+    data?.data?.categorization?.analysis ||
+    null;
+}
+
+function HomeConditionCard({ listingId, propertyId }: Pick<BuyerDecisionSignalsProps, 'listingId' | 'propertyId'>) {
+  const [analysis, setAnalysis] = React.useState<any>(null);
+  const [loading, setLoading] = React.useState(false);
+  const fetchedRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    if (!listingId) return;
+    const pid = propertyId || '';
+    const key = `${listingId}:${pid}`;
+    if (fetchedRef.current === key) return;
+    fetchedRef.current = key;
+
+    // Try cache first (written by CategorizedPhotosModal)
+    const cached = readConditionCache(listingId, pid);
+    const fromCache = extractAnalysis(cached);
+    if (fromCache) { setAnalysis(fromCache); return; }
+
+    setLoading(true);
+    fetch(`${AI_API_BASE}/image_categorization`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        listingId: parseInt(listingId, 10),
+        propertyId: pid ? parseInt(pid, 10) : undefined,
+      }),
+    })
+      .then((r) => r.json())
+      .then((data) => setAnalysis(extractAnalysis(data)))
+      .catch(() => setAnalysis(null))
+      .finally(() => setLoading(false));
+  }, [listingId, propertyId]);
+
+  if (loading) {
+    return (
+      <Card label="Home Condition" icon={<IconHome />}>
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-3 rounded animate-pulse" style={{ background: '#EDE0D0' }} />
+          ))}
+        </div>
+      </Card>
+    );
+  }
+
+  if (!analysis) {
+    return (
+      <Card label="Home Condition" icon={<IconHome />}>
+        <p className="text-[11px]" style={{ color: '#9A8878' }}>
+          {listingId ? 'Condition data unavailable for this listing.' : 'No listing data.'}
+        </p>
+      </Card>
+    );
+  }
+
+  const snapshot: { icon: string; text: string }[] = analysis.overall_snapshot || [];
+  const positives: any[] = analysis.positive_insights || [];
+  const roomSections: any[] = (analysis.room_sections || []).filter((r: any) => r.issues?.length > 0);
+  const totalIssues = roomSections.reduce((sum: number, r: any) => sum + (r.issue_count || r.issues?.length || 0), 0);
+  const highCount = roomSections.reduce((sum: number, r: any) => sum + (r.high_priority_count || 0), 0);
+
+  const tidbit = analysis.summary
+    ? analysis.summary.slice(0, 100) + (analysis.summary.length > 100 ? '…' : '')
+    : null;
+
+  return (
+    <Card label="Home Condition" icon={<IconHome />}>
+      {/* Snapshot pills */}
+      {snapshot.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-2">
+          {snapshot.slice(0, 2).map((s, i) => (
+            <span key={i} className="text-[10px] leading-snug" style={{ color: '#5A4A3A' }}>
+              {s.icon} {s.text}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {tidbit && !snapshot.length && (
+        <p className="text-[11px] leading-relaxed mb-2" style={{ color: '#5A4A3A' }}>{tidbit}</p>
+      )}
+
+      {/* Issue counts */}
+      <div className="flex gap-3 mb-2">
+        {totalIssues > 0 && (
+          <div className="flex flex-col">
+            <span className="text-[18px] font-bold leading-none" style={{ color: '#1A1512' }}>{totalIssues}</span>
+            <span className="text-[9px]" style={{ color: '#9A8878' }}>item{totalIssues !== 1 ? 's' : ''} flagged</span>
+          </div>
+        )}
+        {highCount > 0 && (
+          <div className="flex flex-col">
+            <span className="text-[18px] font-bold leading-none" style={{ color: SEVERITY_COLOR['High'] }}>{highCount}</span>
+            <span className="text-[9px]" style={{ color: '#9A8878' }}>high priority</span>
+          </div>
+        )}
+        {positives.length > 0 && (
+          <div className="flex flex-col">
+            <span className="text-[18px] font-bold leading-none" style={{ color: '#16a34a' }}>{positives.length}</span>
+            <span className="text-[9px]" style={{ color: '#9A8878' }}>standout{positives.length !== 1 ? 's' : ''}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Top issues by room */}
+      {roomSections.slice(0, 2).map((room: any) => (
+        <div key={room.area} className="flex items-center gap-1.5 mb-1">
+          <span
+            className="h-1.5 w-1.5 rounded-full flex-shrink-0"
+            style={{ background: SEVERITY_COLOR[room.issues[0]?.severity] || '#9A8878' }}
+          />
+          <span className="text-[10px] truncate" style={{ color: '#5A4A3A' }}>
+            <span className="font-medium capitalize">{room.title || room.area}</span>
+            {room.issues[0]?.title ? ` · ${room.issues[0].title}` : ''}
+          </span>
+        </div>
+      ))}
+
+      <button
+        className="mt-1 text-[10px] font-medium hover:opacity-70 transition-opacity text-left"
+        style={{ color: '#E8804C' }}
+        onClick={() => window.dispatchEvent(new CustomEvent('preview-nav', { detail: '#home-condition' }))}
+      >
+        Full report ↓
+      </button>
+    </Card>
+  );
+}
+
+// ─── Card 7: Municode Ordinance ───────────────────────────────────────────────
+
+const IconDoc = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E8804C" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+    <line x1="8" y1="13" x2="16" y2="13" />
+    <line x1="8" y1="17" x2="12" y2="17" />
+  </svg>
+);
+
+const STATE_ABBREV_MAP: Record<string, string> = {
+  Alabama: 'AL', Alaska: 'AK', Arizona: 'AZ', Arkansas: 'AR', California: 'CA',
+  Colorado: 'CO', Connecticut: 'CT', Delaware: 'DE', Florida: 'FL', Georgia: 'GA',
+  Hawaii: 'HI', Idaho: 'ID', Illinois: 'IL', Indiana: 'IN', Iowa: 'IA',
+  Kansas: 'KS', Kentucky: 'KY', Louisiana: 'LA', Maine: 'ME', Maryland: 'MD',
+  Massachusetts: 'MA', Michigan: 'MI', Minnesota: 'MN', Mississippi: 'MS', Missouri: 'MO',
+  Montana: 'MT', Nebraska: 'NE', Nevada: 'NV', 'New Hampshire': 'NH', 'New Jersey': 'NJ',
+  'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND',
+  Ohio: 'OH', Oklahoma: 'OK', Oregon: 'OR', Pennsylvania: 'PA', 'Rhode Island': 'RI',
+  'South Carolina': 'SC', 'South Dakota': 'SD', Tennessee: 'TN', Texas: 'TX', Utah: 'UT',
+  Vermont: 'VT', Virginia: 'VA', Washington: 'WA', 'West Virginia': 'WV',
+  Wisconsin: 'WI', Wyoming: 'WY',
+};
+
+function MunicodeCard({ city, state, county, propertyType }: Pick<BuyerDecisionSignalsProps, 'city' | 'state' | 'county' | 'propertyType'>) {
+  const stateAbbrev = state ? (STATE_ABBREV_MAP[state] || state).toLowerCase() : null;
+  const citySlug = city ? city.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') : null;
+
+  const municodeUrl = stateAbbrev && citySlug
+    ? `https://library.municode.com/${stateAbbrev}/${citySlug}`
+    : city
+      ? `https://library.municode.com/search?term=${encodeURIComponent([city, state].filter(Boolean).join(' '))}`
+      : 'https://library.municode.com';
+
+  const rows = [
+    { label: 'Type', value: propertyType || 'N/A' },
+    { label: 'City', value: city || 'N/A' },
+    { label: 'County', value: county || 'N/A' },
+    { label: 'State', value: state || 'N/A' },
+  ];
+
+  return (
+    <Card label="Municode Ordinance" icon={<IconDoc />}>
+      <div className="space-y-1.5 mb-3">
+        {rows.map((row) => (
+          <div key={row.label} className="flex items-baseline justify-between gap-2">
+            <span className="text-[9px] font-medium flex-shrink-0" style={{ color: '#9A8878' }}>{row.label}</span>
+            <span className="text-[10px] font-semibold text-right truncate" style={{ color: '#1A1512' }}>{row.value}</span>
+          </div>
+        ))}
+      </div>
+      <a
+        href={municodeUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex items-center gap-1 text-[10px] font-medium hover:opacity-70 transition-opacity"
+        style={{ color: '#E8804C' }}
+      >
+        View municipal code
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+          <polyline points="15 3 21 3 21 9" />
+          <line x1="10" y1="14" x2="21" y2="3" />
+        </svg>
+      </a>
+    </Card>
+  );
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export default function BuyerDecisionSignals(props: BuyerDecisionSignalsProps) {
@@ -506,6 +747,8 @@ export default function BuyerDecisionSignals(props: BuyerDecisionSignalsProps) {
         <SchoolsCard schools={props.schools} />
         <NeighborhoodCard lat={props.lat} lng={props.lng} />
         <NeighborhoodCompsCard comps={props.comps} sqft={props.sqft} />
+        <HomeConditionCard listingId={props.listingId} propertyId={props.propertyId} />
+        <MunicodeCard city={props.city} state={props.state} county={props.county} propertyType={props.propertyType} />
         {/* Trailing spacer so last card doesn't sit flush against edge */}
         <div className="flex-shrink-0 w-4" />
       </div>

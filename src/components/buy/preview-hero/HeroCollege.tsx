@@ -183,7 +183,7 @@ const HeroCollege: React.FC<React.PropsWithChildren<CarouselProps>> = ({
           )}
 
           {/* 'Show all photos' button overlay (Desktop) */}
-          <div className='absolute inset-x-0 bottom-4 xl:bottom-[39px] flex justify-center z-10'>
+          <div className='absolute inset-x-0 bottom-[36px] xl:bottom-[39px] flex justify-start pl-4 z-10'>
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -193,9 +193,9 @@ const HeroCollege: React.FC<React.PropsWithChildren<CarouselProps>> = ({
                   onImageClick && onImageClick(currentIndex);
                 }
               }}
-              className='flex items-center space-x-2 rounded-lg bg-white/90 px-4 py-2 text-sm font-semibold text-gray-800 shadow-xl border border-gray-200 hover:bg-white transition-colors xl:w-[211px] xl:h-[46px] xl:rounded-[10px] xl:border-black xl:text-[20px] xl:font-medium'
+              className='flex items-center justify-center space-x-2 w-full xl:w-[211px] h-[46px] rounded-[10px] bg-white/90 text-sm font-medium text-gray-800 shadow-xl border border-black hover:bg-white transition-colors'
             >
-              <LayoutGridIcon className='h-4 w-4 xl:h-[24px] xl:w-[24px]' />
+              <LayoutGridIcon className='h-[24px] w-[24px] shrink-0' />
               <span>Show all photos</span>
             </button>
           </div>

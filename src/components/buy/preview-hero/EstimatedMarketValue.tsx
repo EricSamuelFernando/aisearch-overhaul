@@ -32,11 +32,11 @@ const EstimatedMarketValue: React.FC<any> = ({ estimatedData }) => {
     const data = { ...defaultEstimatedData, ...(estimatedData || {}) };
 
     return (
-        <div className="bg-white p-2 md:p-2 w-full">
+        <div className="bg-white w-full">
             <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">
                 Estimated market value
             </h2>
-            <p className="text-base text-gray-600 mb-6 md:mb-8">
+            <p className="text-base text-gray-600 mb-3">
                 This is what this home is worth in the market
             </p>
 
@@ -57,7 +57,7 @@ const EstimatedMarketValue: React.FC<any> = ({ estimatedData }) => {
                 snap-start md:col-span-1">
                     <div>
                         <p className="text-gray-700 text-sm mb-1">Estimated house value</p>
-                        <p className="text-[1.85rem] md:text-2xl font-bold text-gray-900 mb-4 leading-none">
+                        <p className="text-[1.85rem] md:text-2xl font-bold text-gray-900 leading-none">
                             {data.houseValue}
                         </p>
                     </div>
@@ -69,7 +69,7 @@ const EstimatedMarketValue: React.FC<any> = ({ estimatedData }) => {
                 snap-start md:col-span-1">
                     <div>
                         <p className="text-gray-700 text-sm mb-1">Estimated Rent</p>
-                        <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center justify-between">
                             <p className="text-[1.85rem] md:text-2xl font-bold text-gray-900 leading-none">
                                 {data.estimatedRent}
                             </p>
@@ -93,7 +93,7 @@ const EstimatedMarketValue: React.FC<any> = ({ estimatedData }) => {
                 snap-start md:col-span-1">
                     <div>
                         <p className="text-gray-700 text-sm mb-1">Projected % Gain (5Y)</p>
-                        <p className="text-[1.85rem] md:text-2xl font-bold text-gray-900 mb-4 leading-none">
+                        <p className="text-[1.85rem] md:text-2xl font-bold text-gray-900 leading-none">
                             {data.projectedGain}
                         </p>
                     </div>

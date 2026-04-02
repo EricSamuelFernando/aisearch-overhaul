@@ -2951,6 +2951,12 @@ const PropertyPreview: React.FC = () => {
                       propertyData?.property?.livingArea ||
                       0
                     }
+                    listingId={String(propertyDatas?.data?.listingId || listingId || property?.listingId || '')}
+                    propertyId={String(propertyDatas?.data?.propertyId || property?.propertyId || '')}
+                    city={transformData.prop?.address?.city || proprtyData?.address?.city || propertyDatas?.data?.address?.city}
+                    state={transformData.prop?.address?.stateOrProvince || proprtyData?.address?.stateOrProvince || propertyDatas?.data?.address?.stateOrProvince}
+                    county={transformData.prop?.address?.countyOrParish || proprtyData?.address?.countyOrParish || propertyDatas?.data?.address?.countyOrParish}
+                    propertyType={transformData.prop?.property?.propertyType || proprtyData?.property?.propertyType || propertyDatas?.data?.property?.propertyType}
                   />
                 </div>
 
@@ -2971,7 +2977,7 @@ const PropertyPreview: React.FC = () => {
                 </div>
 
                 {/* Estimated Market Value (image_60fd3b.png) */}
-                <div className='flex flex-wrap items-center justify-between gap-2 sm:gap-3 py-2 sm:py-3 px-2 sm:px-0'>
+                <div className='flex flex-wrap items-center justify-between gap-2 sm:gap-3 pt-2 pb-0 px-2 sm:px-0'>
                   <EstimatedMarketValue estimatedData={estimatedMarketData} />
                 </div>
 
@@ -2980,8 +2986,7 @@ const PropertyPreview: React.FC = () => {
 
               <div
                 ref={askAiRailRef}
-                className="col-span-12 lg:col-span-4 xl:col-span-1 lg:row-span-2 mt-4 lg:mt-0 xl:pl-[24px]"
-                style={askAiRailHeight ? { minHeight: `${askAiRailHeight}px` } : undefined}
+                className="col-span-12 lg:col-span-4 xl:col-span-1 mt-4 lg:mt-0 xl:pl-[24px]"
               >
                 <div className="hidden lg:block w-full rounded-2xl bg-[#F9F6EF] shadow-sm border border-[#EFE7DC] p-4 sm:p-5 md:p-6 xl:w-[543px] min-[1536px]:max-[1919px]:w-[454px] xl:h-[569px] xl:rounded-[20px] xl:bg-[#FAF9F5] xl:border-none xl:px-[32px] xl:py-[26px]">
                   {(() => {
@@ -3405,8 +3410,8 @@ const PropertyPreview: React.FC = () => {
 
               </div>
 
-              <div className="col-span-12 lg:col-span-8">
-                <div className="mt-4 divide-y divide-gray-200 border-t border-gray-200 sm:mt-6">
+              <div className="col-span-12 lg:col-span-8 xl:col-span-2 min-[1536px]:col-span-2">
+                <div className="mt-2 divide-y divide-gray-200 border-t border-gray-200">
                   {sections.map((section) => {
                     const anchorId =
                       section.id === 'home'
@@ -3439,9 +3444,9 @@ const PropertyPreview: React.FC = () => {
                       >
                         <button
                           onClick={() => toggleSection(section.id)}
-                          className="w-full flex items-center justify-between py-3 sm:py-4 text-left focus:outline-none transition-all"
+                          className="w-full flex items-center justify-between py-8 text-left focus:outline-none transition-all"
                         >
-                          <span className="font-semibold text-sm sm:text-[16px] text-gray-900">
+                          <span className="font-bold text-[22px] text-gray-900">
                             {section.title}
                           </span>
                           <span className="ml-3 shrink-0 inline-flex items-center gap-2 sm:gap-3">
@@ -3466,9 +3471,9 @@ const PropertyPreview: React.FC = () => {
                               </span>
                             )}
                             {openSections.includes(section.id) ? (
-                              <ChevronUp className="h-4 w-4 text-gray-600 transition-transform duration-200 sm:h-5 sm:w-5" />
+                              <ChevronUp className="h-6 w-6 text-gray-700 transition-transform duration-200" />
                             ) : (
-                              <ChevronDown className="h-4 w-4 text-gray-600 transition-transform duration-200 sm:h-5 sm:w-5" />
+                              <ChevronDown className="h-6 w-6 text-gray-700 transition-transform duration-200" />
                             )}
                           </span>
                         </button>

@@ -140,7 +140,7 @@ export default function FindPerfectMortgage({
 
           {/* CTA */}
           <a
-            href="https://snapinterest.snaphomz.com/"
+            href="https://snapinterest.snaphomz.com/?utm_source=nav_bar"
             target="_blank"
             rel="noopener noreferrer"
             className="w-full bg-black text-white py-3 sm:py-4 rounded-full text-xs sm:text-sm font-semibold hover:opacity-90 transition block text-center"

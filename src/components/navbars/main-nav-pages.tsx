@@ -366,37 +366,37 @@ function MainNavPages() {
                         {
                           label: 'Disclosures',
                           Icon: FileText,
-                          href: 'https://snapdisclosures.snaphomz.com/',
+                          href: 'https://snapdisclosures.snaphomz.com/?utm_source=nav_bar',
                           tip: 'Clarity for every disclosure, explained simply.',
                         },
                         {
                           label: 'Rent vs. Buy',
                           Icon: ArrowLeftRight,
-                          href: 'https://rentvsbuy.snaphomz.com/',
+                          href: 'https://rentvsbuy.snaphomz.com/?utm_source=nav_bar',
                           tip: 'Compare renting vs buying with real assumptions.',
                         },
                         {
                           label: 'Grad',
                           Icon: GraduationCap,
-                          href: 'https://snapgrad.snaphomz.com/?lat=0&lng=0&label=&source=&updatedAt=',
+                          href: 'https://snapgrad.snaphomz.com/?lat=0&lng=0&label=&source=&updatedAt=&utm_source=nav_bar',
                           tip: 'Schools, colleges, and neighborhood fit insights.',
                         },
                         {
                           label: 'Audit',
                           Icon: ClipboardCheck,
-                          href: 'https://snapaudit.snaphomz.com/',
+                          href: 'https://snapaudit.snaphomz.com/?utm_source=nav_bar',
                           tip: 'Summarizes disclosures into clear, buyer-friendly insights and flags key risks fast.',
                         },
                         {
                           label: 'Pre approvals',
                           Icon: ShieldCheck,
-                          href: 'https://preapproval.snaphomz.com/',
+                          href: 'https://preapproval.snaphomz.com/?utm_source=nav_bar',
                           tip: 'Quick pre-approval flow and eligibility check.',
                         },
                         {
                           label: 'Interest',
                           Icon: TrendingUp,
-                          href: 'https://snapinterest.snaphomz.com/',
+                          href: 'https://snapinterest.snaphomz.com/?utm_source=nav_bar',
                           tip: "Track today's rates and simple projections.",
                         },
                       ].map(({ label, Icon, href, tip }) => (

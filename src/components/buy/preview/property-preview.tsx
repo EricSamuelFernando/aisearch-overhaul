@@ -1906,37 +1906,37 @@ const PropertyPreview: React.FC = () => {
   const [topEstimatedMonthlyPayment, setTopEstimatedMonthlyPayment] = React.useState<number | null>(null);
 
   const toggleSection = (section: string) => {
-      const isOpen = openSections.includes(section);
-      if (isOpen) {
-        setOpenSections((prev) => prev.filter((item) => item !== section));
-        if (typeof window !== 'undefined') {
-          const sectionToHash: Record<string, string> = {
-            home: '#overview',
-            offers: '#property',
-            schools: '#schools',
-            interest: '#forecast',
-          };
-          const currentHash = window.location.hash;
-          if (currentHash && currentHash === sectionToHash[section]) {
-            const { pathname, search } = window.location;
-            window.history.replaceState(null, '', `${pathname}${search}`);
-          }
+    const isOpen = openSections.includes(section);
+    if (isOpen) {
+      setOpenSections((prev) => prev.filter((item) => item !== section));
+      if (typeof window !== 'undefined') {
+        const sectionToHash: Record<string, string> = {
+          home: '#overview',
+          offers: '#property',
+          schools: '#schools',
+          interest: '#forecast',
+        };
+        const currentHash = window.location.hash;
+        if (currentHash && currentHash === sectionToHash[section]) {
+          const { pathname, search } = window.location;
+          window.history.replaceState(null, '', `${pathname}${search}`);
         }
-        return;
       }
+      return;
+    }
 
-      setOpenSections((prev) => [...prev, section]);
+    setOpenSections((prev) => [...prev, section]);
 
-      const sectionToScrollId: Record<string, string> = {
-        home: 'home-highlights',
-        offers: 'property',
-        schools: 'schools',
-        college: 'college',
-        interest: 'forecast',
-        payment: 'payment',
-      };
-      const scrollId = sectionToScrollId[section];
-      if (!scrollId) return;
+    const sectionToScrollId: Record<string, string> = {
+      home: 'home-highlights',
+      offers: 'property',
+      schools: 'schools',
+      college: 'college',
+      interest: 'forecast',
+      payment: 'payment',
+    };
+    const scrollId = sectionToScrollId[section];
+    if (!scrollId) return;
 
     window.requestAnimationFrame(() => {
       window.setTimeout(() => {
@@ -2820,108 +2820,108 @@ const PropertyPreview: React.FC = () => {
           <div className="mx-auto w-full max-w-[1920px] px-2 sm:px-4 md:px-6 xl:px-[78px] min-[1536px]:max-[1919px]:px-[52px] min-[1920px]:px-[94px]">
             <div className='grid w-full grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-12 lg:gap-7 xl:grid-cols-[847.793px_321px_543px] min-[1536px]:max-[1919px]:grid-cols-[710px_268px_454px] xl:gap-0 h-auto transition-all duration-300 ease-in-out'>
 
-            <div className="col-span-12 lg:col-span-8 xl:col-span-2 flex flex-col xl:pr-[24px]" ref={leftSection}>
-              <HeroCollege
-                className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[28rem] xl:h-[569px] w-full rounded-lg xl:rounded-[20px] shadow-lg overflow-hidden'
-                imageURLs={
-                  transformData.prop?.media?.photosList?.length ?
-                    transformData.prop?.media?.photosList?.map((img: any) => img) || [] :
-                    (transformData.prop?.media?.primaryListingImageUrl ? [{ highRes: transformData.prop?.media?.primaryListingImageUrl }] : [])
-                }
-                onImageClick={handleImageClick}
-                onShowAllPhotos={() => setIsCategorizedModalOpen(true)}
-              />
+              <div className="col-span-12 lg:col-span-8 xl:col-span-2 flex flex-col xl:pr-[24px]" ref={leftSection}>
+                <HeroCollege
+                  className='h-[250px] sm:h-[300px] md:h-[350px] lg:h-[28rem] xl:h-[569px] w-full rounded-lg xl:rounded-[20px] shadow-lg overflow-hidden'
+                  imageURLs={
+                    transformData.prop?.media?.photosList?.length ?
+                      transformData.prop?.media?.photosList?.map((img: any) => img) || [] :
+                      (transformData.prop?.media?.primaryListingImageUrl ? [{ highRes: transformData.prop?.media?.primaryListingImageUrl }] : [])
+                  }
+                  onImageClick={handleImageClick}
+                  onShowAllPhotos={() => setIsCategorizedModalOpen(true)}
+                />
 
-              <CategorizedPhotosModal
-                isOpen={isCategorizedModalOpen}
-                onClose={() => setIsCategorizedModalOpen(false)}
-                listingId={String(propertyDatas?.data?.listingId || listingId || property?.listingId || '')}
-                propertyId={String(propertyDatas?.data?.propertyId || property?.propertyId || '')}
-                fallbackPhotos={transformData.prop?.media?.photosList?.map((img: any) => img.highRes) || []}
-                address={transformData.prop?.address?.unparsedAddress || propertyDatas?.data?.address?.unparsedAddress}
-                city={transformData.prop?.address?.city || propertyDatas?.data?.address?.city}
-                state={transformData.prop?.address?.stateOrProvince || propertyDatas?.data?.address?.stateOrProvince}
-                zip={transformData.prop?.address?.zipCode || propertyDatas?.data?.address?.zipCode}
-                price={transformData.prop?.listPrice || propertyDatas?.data?.listPrice}
-                beds={Number(transformData.prop?.property?.bedroomsTotal || propertyDatas?.data?.property?.bedroomsTotal || 0)}
-                baths={Number(transformData.prop?.property?.bathroomsTotal || propertyDatas?.data?.property?.bathroomsTotal || 0)}
-                sqft={Number(transformData.prop?.property?.livingArea || propertyDatas?.data?.property?.livingArea || 0)}
-                description={transformData.prop?.remarks || propertyDatas?.data?.property?.description || ""}
-                preloadedData={propertyDatas} // Pass existing data to prevent re-fetch
-              />
-              {/* Top Section: Price/Address and Agent Card */}
-              <div className="mt-6 w-full flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_479px] min-[1536px]:max-[1919px]:grid-cols-[minmax(0,1fr)_454px] lg:items-start lg:gap-6 xl:gap-[20px] mb-4">
-                {/* Left: Price and Address */}
-                <div className="space-y-1 w-full lg:flex-1">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className='inline-flex items-baseline gap-1'>
-                      <span className='text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-[40px] font-bold text-gray-900'>$</span>
-                      <h2 className='text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-[40px] font-bold text-gray-900 relative inline-block'>
-                        {transformData.prop?.listPrice ? transformData.prop.listPrice.toLocaleString('en-US') : '0'}
-                        <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#60A5FA]"></span>
-                      </h2>
+                <CategorizedPhotosModal
+                  isOpen={isCategorizedModalOpen}
+                  onClose={() => setIsCategorizedModalOpen(false)}
+                  listingId={String(propertyDatas?.data?.listingId || listingId || property?.listingId || '')}
+                  propertyId={String(propertyDatas?.data?.propertyId || property?.propertyId || '')}
+                  fallbackPhotos={transformData.prop?.media?.photosList?.map((img: any) => img.highRes) || []}
+                  address={transformData.prop?.address?.unparsedAddress || propertyDatas?.data?.address?.unparsedAddress}
+                  city={transformData.prop?.address?.city || propertyDatas?.data?.address?.city}
+                  state={transformData.prop?.address?.stateOrProvince || propertyDatas?.data?.address?.stateOrProvince}
+                  zip={transformData.prop?.address?.zipCode || propertyDatas?.data?.address?.zipCode}
+                  price={transformData.prop?.listPrice || propertyDatas?.data?.listPrice}
+                  beds={Number(transformData.prop?.property?.bedroomsTotal || propertyDatas?.data?.property?.bedroomsTotal || 0)}
+                  baths={Number(transformData.prop?.property?.bathroomsTotal || propertyDatas?.data?.property?.bathroomsTotal || 0)}
+                  sqft={Number(transformData.prop?.property?.livingArea || propertyDatas?.data?.property?.livingArea || 0)}
+                  description={transformData.prop?.remarks || propertyDatas?.data?.property?.description || ""}
+                  preloadedData={propertyDatas} // Pass existing data to prevent re-fetch
+                />
+                {/* Top Section: Price/Address and Agent Card */}
+                <div className="mt-6 w-full flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_479px] min-[1536px]:max-[1919px]:grid-cols-[minmax(0,1fr)_454px] lg:items-start lg:gap-6 xl:gap-[20px] mb-4">
+                  {/* Left: Price and Address */}
+                  <div className="space-y-1 w-full lg:flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className='inline-flex items-baseline gap-1'>
+                        <span className='text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-[40px] font-bold text-gray-900'>$</span>
+                        <h2 className='text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-[40px] font-bold text-gray-900 relative inline-block'>
+                          {transformData.prop?.listPrice ? transformData.prop.listPrice.toLocaleString('en-US') : '0'}
+                          <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#60A5FA]"></span>
+                        </h2>
+                      </div>
+                      <div className="lg:hidden inline-flex items-center gap-2 bg-[#FDE6D9] px-3 py-1 rounded-full text-xs font-medium text-[#2A2A32] shrink-0">
+                        <span className="h-[6px] w-[6px] rounded-full bg-[#E8804C]"></span>
+                        {statusLabel}
+                      </div>
                     </div>
-                    <div className="lg:hidden inline-flex items-center gap-2 bg-[#FDE6D9] px-3 py-1 rounded-full text-xs font-medium text-[#2A2A32] shrink-0">
-                      <span className="h-[6px] w-[6px] rounded-full bg-[#E8804C]"></span>
-                      {statusLabel}
+                    <p className='text-sm sm:text-base text-gray-600 leading-6 break-words xl:text-[21px] xl:leading-[32px] xl:text-[#1d1d1d]' style={{ fontFamily: "Satoshi" }}>
+                      {`${transformData.prop?.address?.unparsedAddress || propertyDatas?.property_detail?.data?.propertyInfo?.address?.address || "N/A"}, ${transformData.prop?.address?.city || propertyDatas?.property_detail?.data?.propertyInfo?.address?.city || "N/A"}, ${transformData.prop?.address?.stateOrProvince || propertyDatas?.property_detail?.data?.propertyInfo?.address?.stateOrProvince || "N/A"} ${transformData.prop?.address?.zipCode || propertyDatas?.property_detail?.data?.propertyInfo?.address?.zip || "N/A"}`}
+                    </p>
+
+                    <div className="mt-4 lg:hidden">
+                      {propertyDetailsBox}
+                    </div>
+
+                    <div className="mt-6 flex flex-col gap-3 lg:hidden">
+                      {startProcessButton}
+                      <div className="flex justify-center">{streetViewPill}</div>
                     </div>
                   </div>
-                  <p className='text-sm sm:text-base text-gray-600 leading-6 break-words xl:text-[21px] xl:leading-[32px] xl:text-[#1d1d1d]' style={{ fontFamily: "Satoshi" }}>
-                    {`${transformData.prop?.address?.unparsedAddress || propertyDatas?.property_detail?.data?.propertyInfo?.address?.address || "N/A"}, ${transformData.prop?.address?.city || propertyDatas?.property_detail?.data?.propertyInfo?.address?.city || "N/A"}, ${transformData.prop?.address?.stateOrProvince || propertyDatas?.property_detail?.data?.propertyInfo?.address?.stateOrProvince || "N/A"} ${transformData.prop?.address?.zipCode || propertyDatas?.property_detail?.data?.propertyInfo?.address?.zip || "N/A"}`}
-                  </p>
 
-                  <div className="mt-4 lg:hidden">
-                    {propertyDetailsBox}
-                  </div>
-
-              <div className="mt-6 flex flex-col gap-3 lg:hidden">
-                {startProcessButton}
-                <div className="flex justify-center">{streetViewPill}</div>
-              </div>
-                </div>
-
-                {/* Right: Agent Card */}
-                <div className="w-full">
-                  <div className="rounded-[16px] bg-[#F5E6D3] shadow-sm px-3 sm:px-4 py-3 flex items-center justify-start xl:w-[479px] min-[1536px]:max-[1919px]:w-[454px] xl:h-[110px] xl:px-[20px] xl:py-[22px]">
-                    <div className="flex items-center justify-start w-full gap-2 sm:gap-3 xl:w-[399px] min-[1536px]:max-[1919px]:w-[370px] xl:h-[60px]">
-                      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                        <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden shrink-0 xl:h-[60px] xl:w-[60px]">
-                          {transformData?.prop?.listingAgent?.photo && transformData?.prop?.listingAgent?.photo !== "" ? (
-                            <Image
-                              src={transformData.prop.listingAgent.photo}
-                              alt={transformData?.prop?.listingAgent?.fullName || "Agent"}
-                              width={60}
-                              height={60}
-                              className="rounded-full object-cover w-full h-full"
-                            />
-                          ) : (
-                            <span className="text-sm sm:text-base font-semibold text-gray-600 xl:text-[22px]">
-                              {transformData?.prop?.listingAgent?.fullName?.charAt(0) || "A"}
-                            </span>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs sm:text-sm font-bold text-gray-900 truncate xl:text-[24px] xl:leading-[28px]">
-                            {transformData?.prop?.listingAgent?.fullName || "Snaphomz Agent"}
-                          </p>
-                          <p className="text-xs text-gray-500 xl:text-[20px] xl:text-[#727070]">Listing Agent</p>
+                  {/* Right: Agent Card */}
+                  <div className="w-full">
+                    <div className="rounded-[16px] bg-[#F5E6D3] shadow-sm px-3 sm:px-4 py-3 flex items-center justify-start xl:w-[479px] min-[1536px]:max-[1919px]:w-[454px] xl:h-[110px] xl:px-[20px] xl:py-[22px]">
+                      <div className="flex items-center justify-start w-full gap-2 sm:gap-3 xl:w-[399px] min-[1536px]:max-[1919px]:w-[370px] xl:h-[60px]">
+                        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                          <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden shrink-0 xl:h-[60px] xl:w-[60px]">
+                            {transformData?.prop?.listingAgent?.photo && transformData?.prop?.listingAgent?.photo !== "" ? (
+                              <Image
+                                src={transformData.prop.listingAgent.photo}
+                                alt={transformData?.prop?.listingAgent?.fullName || "Agent"}
+                                width={60}
+                                height={60}
+                                className="rounded-full object-cover w-full h-full"
+                              />
+                            ) : (
+                              <span className="text-sm sm:text-base font-semibold text-gray-600 xl:text-[22px]">
+                                {transformData?.prop?.listingAgent?.fullName?.charAt(0) || "A"}
+                              </span>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs sm:text-sm font-bold text-gray-900 truncate xl:text-[24px] xl:leading-[28px]">
+                              {transformData?.prop?.listingAgent?.fullName || "Snaphomz Agent"}
+                            </p>
+                            <p className="text-xs text-gray-500 xl:text-[20px] xl:text-[#727070]">Listing Agent</p>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Bottom Section: Estimated Payment and Schedule A Tour Button (Desktop Only) */}
-              <div className="hidden lg:grid w-full gap-3 sm:gap-4 mb-4 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_479px] min-[1536px]:max-[1919px]:grid-cols-[minmax(0,1fr)_454px] lg:items-center lg:gap-6 xl:gap-[20px]">
-                {estimatedPaymentPill}
-                <div className="w-full flex flex-col gap-2">
-                  {startProcessButton}
+                {/* Bottom Section: Estimated Payment and Schedule A Tour Button (Desktop Only) */}
+                <div className="hidden lg:grid w-full gap-3 sm:gap-4 mb-4 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_479px] min-[1536px]:max-[1919px]:grid-cols-[minmax(0,1fr)_454px] lg:items-center lg:gap-6 xl:gap-[20px]">
+                  {estimatedPaymentPill}
+                  <div className="w-full flex flex-col gap-2">
+                    {startProcessButton}
+                  </div>
                 </div>
-              </div>
 
-              {/* Hero Highlights - moved below */}
-              {/* <div className="w-full">
+                {/* Hero Highlights - moved below */}
+                {/* <div className="w-full">
               <HeroHighlights
                 className="h-[210px] sm:h-[260px] md:h-[25.4rem] w-full shadow-lg hover:shadow-xl transition-shadow duration-300"
                 id={id}
@@ -2931,574 +2931,573 @@ const PropertyPreview: React.FC = () => {
             </div> */}
 
 
-              {/* Takeaways */}
-              <div className="hidden py-2 sm:py-3">
-                <PropertyTakeawaysAI
-                  property={
-                    propertyDatas?.data ||
-                    propertyData?.listing ||
-                    propertyData?.public ||
-                    propertyData ||
-                    transformData.prop
-                  }
-                  nearbySchools={nearbySchools}
-                  collegeReadinessData={collegeReadinessData}
-                  collegeReadinessLoading={collegeReadinessLoading}
-                />
+                {/* Takeaways */}
+                <div className="hidden py-2 sm:py-3">
+                  <PropertyTakeawaysAI
+                    property={
+                      propertyDatas?.data ||
+                      propertyData?.listing ||
+                      propertyData?.public ||
+                      propertyData ||
+                      transformData.prop
+                    }
+                    nearbySchools={nearbySchools}
+                    collegeReadinessData={collegeReadinessData}
+                    collegeReadinessLoading={collegeReadinessLoading}
+                  />
+                </div>
+
+                {/* Estimated Market Value (image_60fd3b.png) */}
+                <div className='flex flex-wrap items-center justify-between gap-2 sm:gap-3 pt-2 pb-1 sm:pt-3 sm:pb-2 px-2 sm:px-0'>
+                  <EstimatedMarketValue estimatedData={estimatedMarketData} />
+                </div>
+
               </div>
 
-              {/* Estimated Market Value (image_60fd3b.png) */}
-              <div className='flex flex-wrap items-center justify-between gap-2 sm:gap-3 pt-2 pb-1 sm:pt-3 sm:pb-2 px-2 sm:px-0'>
-                <EstimatedMarketValue estimatedData={estimatedMarketData} />
-              </div>
 
-            </div>
+              <div
+                ref={askAiRailRef}
+                className="col-span-12 lg:col-span-4 xl:col-span-1 lg:row-span-2 mt-4 lg:mt-0 xl:pl-[24px]"
+                style={askAiRailHeight ? { minHeight: `${askAiRailHeight}px` } : undefined}
+              >
+                <div className="hidden lg:block w-full rounded-2xl bg-[#F9F6EF] shadow-sm border border-[#EFE7DC] p-4 sm:p-5 md:p-6 xl:w-[543px] min-[1536px]:max-[1919px]:w-[454px] xl:h-[569px] xl:rounded-[20px] xl:bg-[#FAF9F5] xl:border-none xl:px-[32px] xl:py-[26px]">
+                  {(() => {
+                    // Calculate dynamic values
+                    const beds = transformData.prop?.property?.bedroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bedroomsTotal || 0;
+                    const baths = transformData.prop?.property?.bathroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bathroomsTotal || 0;
+                    const sqft = transformData.prop?.property?.livingArea || propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet || 0;
+                    const yearBuilt = transformData.prop?.property?.yearBuilt || propertyDatas?.property_detail?.data?.propertyInfo?.yearBuilt || "N/A";
+                    const propertyType = transformData.prop?.property?.propertyType || propertyDatas?.property_detail?.data?.propertyInfo?.propertyType || "N/A";
+                    const sqftArea = transformData.prop?.property?.livingArea || propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet || 0;
+                    const listPrice = transformData.prop?.listPrice || propertyDatas?.data?.listPrice || 0;
+                    const pricePerSqft = sqft && listPrice ? Math.round(listPrice / sqft) : 0;
+                    const status = mostRecentStatus || transformData.prop?.mostRecentStatus || "For sale";
+                    const propertyTypeShort = propertyType?.split(' ')[0] || "Single";
 
-
-            <div
-              ref={askAiRailRef}
-              className="col-span-12 lg:col-span-4 xl:col-span-1 lg:row-span-2 mt-4 lg:mt-0 xl:pl-[24px]"
-              style={askAiRailHeight ? { minHeight: `${askAiRailHeight}px` } : undefined}
-            >
-              <div className="hidden lg:block w-full rounded-2xl bg-[#F9F6EF] shadow-sm border border-[#EFE7DC] p-4 sm:p-5 md:p-6 xl:w-[543px] min-[1536px]:max-[1919px]:w-[454px] xl:h-[569px] xl:rounded-[20px] xl:bg-[#FAF9F5] xl:border-none xl:px-[32px] xl:py-[26px]">
-                {(() => {
-                  // Calculate dynamic values
-                  const beds = transformData.prop?.property?.bedroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bedroomsTotal || 0;
-                  const baths = transformData.prop?.property?.bathroomsTotal || propertyDatas?.property_detail?.data?.propertyInfo?.bathroomsTotal || 0;
-                  const sqft = transformData.prop?.property?.livingArea || propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet || 0;
-                  const yearBuilt = transformData.prop?.property?.yearBuilt || propertyDatas?.property_detail?.data?.propertyInfo?.yearBuilt || "N/A";
-                  const propertyType = transformData.prop?.property?.propertyType || propertyDatas?.property_detail?.data?.propertyInfo?.propertyType || "N/A";
-                  const sqftArea = transformData.prop?.property?.livingArea || propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet || 0;
-                  const listPrice = transformData.prop?.listPrice || propertyDatas?.data?.listPrice || 0;
-                  const pricePerSqft = sqft && listPrice ? Math.round(listPrice / sqft) : 0;
-                  const status = mostRecentStatus || transformData.prop?.mostRecentStatus || "For sale";
-                  const propertyTypeShort = propertyType?.split(' ')[0] || "Single";
-
-                  return (
-                    <>
-                      {/* Status Badge */}
-                      <div className="inline-flex items-center gap-2 bg-white/70 px-3 py-1 rounded-full text-xs sm:text-[13px] font-medium text-gray-800 xl:w-[117px] xl:h-[30px] xl:rounded-[4px] xl:bg-[#F1F1F4] xl:text-[20px] xl:text-[#2A2A32]">
-                        <span className="h-[6px] w-[6px] rounded-full bg-red-500 xl:h-[12px] xl:w-[12px] xl:bg-[#EE6658]"></span>
-                        {status}
-                      </div>
-
-                      {/* Top stats */}
-                      <div className="mt-6 grid grid-cols-3 gap-8 xl:mt-[20px] xl:h-[80px] xl:gap-[40px] pb-4">
-                        <div>
-                          <p className="text-2xl sm:text-[30px] font-semibold leading-none xl:text-[40px]">{beds}</p>
-                          <p className="text-xs sm:text-[13px] text-gray-600 mt-1 xl:text-[21px] xl:text-[#1D1D1D]">beds</p>
+                    return (
+                      <>
+                        {/* Status Badge */}
+                        <div className="inline-flex items-center gap-2 bg-white/70 px-3 py-1 rounded-full text-xs sm:text-[13px] font-medium text-gray-800 xl:w-[117px] xl:h-[30px] xl:rounded-[4px] xl:bg-[#F1F1F4] xl:text-[20px] xl:text-[#2A2A32]">
+                          <span className="h-[6px] w-[6px] rounded-full bg-red-500 xl:h-[12px] xl:w-[12px] xl:bg-[#EE6658]"></span>
+                          {status}
                         </div>
 
-                        <div>
-                          <p className="text-2xl sm:text-[30px] font-semibold leading-none xl:text-[40px]">{baths}</p>
-                          <p className="text-xs sm:text-[13px] text-gray-600 mt-1 xl:text-[21px] xl:text-[#1D1D1D]">baths</p>
+                        {/* Top stats */}
+                        <div className="mt-6 grid grid-cols-3 gap-8 xl:mt-[20px] xl:h-[80px] xl:gap-[40px] pb-4">
+                          <div>
+                            <p className="text-2xl sm:text-[30px] font-semibold leading-none xl:text-[40px]">{beds}</p>
+                            <p className="text-xs sm:text-[13px] text-gray-600 mt-1 xl:text-[21px] xl:text-[#1D1D1D]">beds</p>
+                          </div>
+
+                          <div>
+                            <p className="text-2xl sm:text-[30px] font-semibold leading-none xl:text-[40px]">{baths}</p>
+                            <p className="text-xs sm:text-[13px] text-gray-600 mt-1 xl:text-[21px] xl:text-[#1D1D1D]">baths</p>
+                          </div>
+
+                          <div>
+                            <p className="text-2xl sm:text-[30px] font-semibold leading-none tracking-tight xl:text-[40px]">
+                              {sqft ? sqft.toLocaleString('en-US') : "0"}
+                            </p>
+                            <p className="text-xs sm:text-[13px] text-gray-600 mt-1 xl:text-[21px] xl:text-[#1D1D1D]">sqft</p>
+                          </div>
                         </div>
 
-                        <div>
-                          <p className="text-2xl sm:text-[30px] font-semibold leading-none tracking-tight xl:text-[40px]">
-                            {sqft ? sqft.toLocaleString('en-US') : "0"}
-                          </p>
-                          <p className="text-xs sm:text-[13px] text-gray-600 mt-1 xl:text-[21px] xl:text-[#1D1D1D]">sqft</p>
-                        </div>
-                      </div>
+                        {/* Open house */}
+                        {(() => {
+                          const openHouseRaw =
+                            transformData.prop?.openHouse ??
+                            transformData.prop?.OpenHouse ??
+                            (transformData.prop as any)?.['open house'] ??
+                            transformData.prop?.openHouses ??
+                            transformData.prop?.open_houses ??
+                            transformData.prop?.property?.openHouse ??
+                            (transformData.prop?.property as any)?.['open house'] ??
+                            transformData.prop?.property?.openHouses ??
+                            propertyDatas?.data?.openHouse ??
+                            propertyDatas?.data?.OpenHouse ??
+                            (propertyDatas?.data as any)?.['open house'] ??
+                            propertyDatas?.data?.openHouses ??
+                            propertyDatas?.data?.open_houses ??
+                            propertyDatas?.data?.property?.openHouse ??
+                            (propertyDatas?.data?.property as any)?.['open house'] ??
+                            propertyDatas?.data?.property?.openHouses ??
+                            propertyDatas?.property_detail?.data?.openHouse ??
+                            propertyDatas?.property_detail?.data?.openHouses ??
+                            (propertyDatas?.property_detail?.data as any)?.['open house'] ??
+                            propertyDatas?.property_detail?.data?.propertyInfo?.openHouse ??
+                            (propertyDatas?.property_detail?.data?.propertyInfo as any)?.['open house'] ??
+                            propertyDatas?.property_detail?.data?.propertyInfo?.openHouses ??
+                            null;
 
-                      {/* Open house */}
-                      {(() => {
-                        const openHouseRaw =
-                          transformData.prop?.openHouse ??
-                          transformData.prop?.OpenHouse ??
-                          (transformData.prop as any)?.['open house'] ??
-                          transformData.prop?.openHouses ??
-                          transformData.prop?.open_houses ??
-                          transformData.prop?.property?.openHouse ??
-                          (transformData.prop?.property as any)?.['open house'] ??
-                          transformData.prop?.property?.openHouses ??
-                          propertyDatas?.data?.openHouse ??
-                          propertyDatas?.data?.OpenHouse ??
-                          (propertyDatas?.data as any)?.['open house'] ??
-                          propertyDatas?.data?.openHouses ??
-                          propertyDatas?.data?.open_houses ??
-                          propertyDatas?.data?.property?.openHouse ??
-                          (propertyDatas?.data?.property as any)?.['open house'] ??
-                          propertyDatas?.data?.property?.openHouses ??
-                          propertyDatas?.property_detail?.data?.openHouse ??
-                          propertyDatas?.property_detail?.data?.openHouses ??
-                          (propertyDatas?.property_detail?.data as any)?.['open house'] ??
-                          propertyDatas?.property_detail?.data?.propertyInfo?.openHouse ??
-                          (propertyDatas?.property_detail?.data?.propertyInfo as any)?.['open house'] ??
-                          propertyDatas?.property_detail?.data?.propertyInfo?.openHouses ??
-                          null;
-
-                        const formatDateTime = (value: any) => {
-                          if (!value) return null;
-                          if (typeof value === 'string') {
-                            const trimmed = value.trim();
-                            if (!trimmed) return null;
-                            const parsed = new Date(trimmed);
-                            if (!Number.isNaN(parsed.getTime())) {
-                              return parsed;
-                            }
-                            return trimmed;
-                          }
-                          if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
-                          return null;
-                        };
-
-                        const formatDayParen = (date: Date) =>
-                          `${date.toLocaleDateString('en-US', { weekday: 'short' })}(${date.toLocaleDateString('en-US', {
-                            month: 'numeric',
-                            day: 'numeric',
-                          })})`;
-
-                        const formatTime = (date: Date) =>
-                          date.toLocaleTimeString('en-US', {
-                            hour: 'numeric',
-                            minute: '2-digit',
-                          });
-
-                        const formatOpenHouse = (oh: any): string | null => {
-                          if (!oh) return null;
-                          if (typeof oh === 'string') return oh.trim() || null;
-                          if (Array.isArray(oh)) return formatOpenHouse(oh[0]);
-                          if (typeof oh === 'object') {
-                            const displayText =
-                              oh.display ??
-                              oh.label ??
-                              oh.text ??
-                              oh.description ??
-                              oh.Display ??
-                              oh.Label ??
-                              oh.Text ??
-                              oh.Description ??
-                              null;
-                            if (typeof displayText === 'string' && displayText.trim()) {
-                              return displayText.trim();
-                            }
-
-                            const start =
-                              oh.startTime ??
-                              oh.start ??
-                              oh.startDate ??
-                              oh.startDateTime ??
-                              oh.start_time ??
-                              oh.StartTime ??
-                              oh.OpenHouseStartTime ??
-                              oh.openHouseStartTime ??
-                              oh.StartDateTime ??
-                              oh.startTimeLocal ??
-                              oh.StartTimeLocal;
-                            const end =
-                              oh.endTime ??
-                              oh.end ??
-                              oh.endDate ??
-                              oh.endDateTime ??
-                              oh.end_time ??
-                              oh.EndTime ??
-                              oh.OpenHouseEndTime ??
-                              oh.openHouseEndTime ??
-                              oh.EndDateTime ??
-                              oh.endTimeLocal ??
-                              oh.EndTimeLocal;
-                            const date =
-                              oh.date ??
-                              oh.Date ??
-                              oh.openDate ??
-                              oh.open_date ??
-                              oh.OpenHouseDate ??
-                              oh.openHouseDate ??
-                              oh.OpenDate ??
-                              start;
-
-                            const startDate = start ? formatDateTime(start) : null;
-                            const endDate = end ? formatDateTime(end) : null;
-                            const dateDate = date ? formatDateTime(date) : null;
-
-                            if (startDate instanceof Date && endDate instanceof Date) {
-                              const startDay = formatDayParen(startDate);
-                              const endDay = formatDayParen(endDate);
-                              const startTime = formatTime(startDate);
-                              const endTime = formatTime(endDate);
-                              if (startDay === endDay) {
-                                return `${startDay}, ${startTime} - ${endTime}`;
+                          const formatDateTime = (value: any) => {
+                            if (!value) return null;
+                            if (typeof value === 'string') {
+                              const trimmed = value.trim();
+                              if (!trimmed) return null;
+                              const parsed = new Date(trimmed);
+                              if (!Number.isNaN(parsed.getTime())) {
+                                return parsed;
                               }
-                              return `${startDay}, ${startTime} - ${endDay}, ${endTime}`;
+                              return trimmed;
                             }
+                            if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+                            return null;
+                          };
 
-                            if (startDate instanceof Date) {
-                              return `${formatDayParen(startDate)}, ${formatTime(startDate)}`;
+                          const formatDayParen = (date: Date) =>
+                            `${date.toLocaleDateString('en-US', { weekday: 'short' })}(${date.toLocaleDateString('en-US', {
+                              month: 'numeric',
+                              day: 'numeric',
+                            })})`;
+
+                          const formatTime = (date: Date) =>
+                            date.toLocaleTimeString('en-US', {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                            });
+
+                          const formatOpenHouse = (oh: any): string | null => {
+                            if (!oh) return null;
+                            if (typeof oh === 'string') return oh.trim() || null;
+                            if (Array.isArray(oh)) return formatOpenHouse(oh[0]);
+                            if (typeof oh === 'object') {
+                              const displayText =
+                                oh.display ??
+                                oh.label ??
+                                oh.text ??
+                                oh.description ??
+                                oh.Display ??
+                                oh.Label ??
+                                oh.Text ??
+                                oh.Description ??
+                                null;
+                              if (typeof displayText === 'string' && displayText.trim()) {
+                                return displayText.trim();
+                              }
+
+                              const start =
+                                oh.startTime ??
+                                oh.start ??
+                                oh.startDate ??
+                                oh.startDateTime ??
+                                oh.start_time ??
+                                oh.StartTime ??
+                                oh.OpenHouseStartTime ??
+                                oh.openHouseStartTime ??
+                                oh.StartDateTime ??
+                                oh.startTimeLocal ??
+                                oh.StartTimeLocal;
+                              const end =
+                                oh.endTime ??
+                                oh.end ??
+                                oh.endDate ??
+                                oh.endDateTime ??
+                                oh.end_time ??
+                                oh.EndTime ??
+                                oh.OpenHouseEndTime ??
+                                oh.openHouseEndTime ??
+                                oh.EndDateTime ??
+                                oh.endTimeLocal ??
+                                oh.EndTimeLocal;
+                              const date =
+                                oh.date ??
+                                oh.Date ??
+                                oh.openDate ??
+                                oh.open_date ??
+                                oh.OpenHouseDate ??
+                                oh.openHouseDate ??
+                                oh.OpenDate ??
+                                start;
+
+                              const startDate = start ? formatDateTime(start) : null;
+                              const endDate = end ? formatDateTime(end) : null;
+                              const dateDate = date ? formatDateTime(date) : null;
+
+                              if (startDate instanceof Date && endDate instanceof Date) {
+                                const startDay = formatDayParen(startDate);
+                                const endDay = formatDayParen(endDate);
+                                const startTime = formatTime(startDate);
+                                const endTime = formatTime(endDate);
+                                if (startDay === endDay) {
+                                  return `${startDay}, ${startTime} - ${endTime}`;
+                                }
+                                return `${startDay}, ${startTime} - ${endDay}, ${endTime}`;
+                              }
+
+                              if (startDate instanceof Date) {
+                                return `${formatDayParen(startDate)}, ${formatTime(startDate)}`;
+                              }
+
+                              if (dateDate instanceof Date) {
+                                return `${formatDayParen(dateDate)}`;
+                              }
+
+                              return startDate || dateDate || null;
                             }
+                            return null;
+                          };
 
-                            if (dateDate instanceof Date) {
-                              return `${formatDayParen(dateDate)}`;
-                            }
+                          const openHouseValue = formatOpenHouse(openHouseRaw);
+                          const openHouseDisplay = openHouseValue || 'Not scheduled';
 
-                            return startDate || dateDate || null;
-                          }
-                          return null;
-                        };
+                          return (
+                            <p className="text-[13px] text-gray-700 mt-11 text-center xl:mt-[28px] xl:text-[20px] xl:text-[#1D1D1D] xl:w-[371px]">
+                              Open : {openHouseDisplay}
+                            </p>
+                          );
+                        })()}
 
-                        const openHouseValue = formatOpenHouse(openHouseRaw);
-                        const openHouseDisplay = openHouseValue || 'Not scheduled';
+                        <div className="h-px bg-[#E3DCD2] my-5 xl:my-[16px] xl:w-[438px]"></div>
 
-                        return (
-                          <p className="text-[13px] text-gray-700 mt-11 text-center xl:mt-[28px] xl:text-[20px] xl:text-[#1D1D1D] xl:w-[371px]">
-                            Open : {openHouseDisplay}
-                          </p>
-                        );
-                      })()}
-
-            <div className="h-px bg-[#E3DCD2] my-5 xl:my-[16px] xl:w-[438px]"></div>
-
-            {/* Mobile details list */}
-            <div className="lg:hidden block w-full mt-4 rounded-[28px] bg-[#FDF4E6] px-6 py-6">
-              <div className="flex items-center justify-between gap-4 py-2">
-                <div className="flex items-center gap-3">
-                  <Image
-                    src="/assets/images/residental.png"
-                    alt="Year Built"
-                    width={18}
-                    height={18}
-                    className="h-5 w-5"
-                  />
-                  <span className="text-[15px] text-gray-500">Year Built</span>
-                </div>
-                <span className="text-[18px] font-semibold text-gray-900">{yearBuilt}</span>
-              </div>
-
-              <div className="flex items-center justify-between gap-4 py-2">
-                <div className="flex items-center gap-3">
-                  <Image
-                    src="/assets/images/residential-icon.svg"
-                    alt="Property Type"
-                    width={18}
-                    height={18}
-                    className="h-5 w-5"
-                  />
-                  <span className="text-[15px] text-gray-500">Family Residence</span>
-                </div>
-                <span className="text-[18px] font-semibold text-gray-900">{propertyTypeShort}</span>
-              </div>
-
-              <div className="flex items-center justify-between gap-4 py-2">
-                <div className="flex items-center gap-3">
-                  <Image
-                    src="/assets/images/sqft-area-icon.svg"
-                    alt="Sqft Area"
-                    width={18}
-                    height={18}
-                    className="h-5 w-5"
-                  />
-                  <span className="text-[15px] text-gray-500">Sqft Area</span>
-                </div>
-                <span className="text-[18px] font-semibold text-gray-900">
-                  {sqftArea ? sqftArea.toLocaleString('en-US') : "N/A"}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between gap-4 py-2">
-                <div className="flex items-center gap-3">
-                  <div className="text-[18px] font-semibold text-gray-900">$</div>
-                  <span className="text-[15px] text-gray-500">Price/sqft</span>
-                </div>
-                <span className="text-[18px] font-semibold text-gray-900">
-                  {pricePerSqft ? `$${pricePerSqft}` : "N/A"}
-                </span>
-              </div>
-            </div>
-
-            {/* Desktop grid info with SVG icons */}
-            <div className="hidden lg:grid grid-cols-2 gap-y-10 text-xs sm:text-[13px] xl:gap-y-[40px]">
-              <div className="flex items-start gap-3">
-                <Image
-                  src="/assets/images/residental.png"
-                  alt="Year Built"
-                            width={18}
-                            height={18}
-                            className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4 xl:h-[24px] xl:w-[24px]"
-                          />
-                          <div>
-                            <p className="text-sm sm:text-[15px] font-semibold xl:text-[21px]">{yearBuilt}</p>
-                            <p className="text-gray-600 mt-1 xl:text-[20px] xl:text-[#828081]">Year Built</p>
+                        {/* Mobile details list */}
+                        <div className="lg:hidden block w-full mt-4 rounded-[28px] bg-[#FDF4E6] px-6 py-6">
+                          <div className="flex items-center justify-between gap-4 py-2">
+                            <div className="flex items-center gap-3">
+                              <Image
+                                src="/assets/images/residental.png"
+                                alt="Year Built"
+                                width={18}
+                                height={18}
+                                className="h-5 w-5"
+                              />
+                              <span className="text-[15px] text-gray-500">Year Built</span>
+                            </div>
+                            <span className="text-[18px] font-semibold text-gray-900">{yearBuilt}</span>
                           </div>
-                        </div>
 
-                        <div className="border-l border-[#E3DCD2] pl-4 flex items-start gap-3">
-                          <Image
-                            src="/assets/images/residential-icon.svg"
-                            alt="Property Type"
-                            width={18}
-                            height={18}
-                            className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4 xl:h-[24px] xl:w-[24px]"
-                          />
-                          <div>
-                            <p className="text-sm sm:text-[15px] font-semibold xl:text-[21px]">{propertyTypeShort}</p>
-                            <p className="text-gray-600 mt-1 xl:text-[20px] xl:text-[#828081]">Family Residence</p>
+                          <div className="flex items-center justify-between gap-4 py-2">
+                            <div className="flex items-center gap-3">
+                              <Image
+                                src="/assets/images/residential-icon.svg"
+                                alt="Property Type"
+                                width={18}
+                                height={18}
+                                className="h-5 w-5"
+                              />
+                              <span className="text-[15px] text-gray-500">Family Residence</span>
+                            </div>
+                            <span className="text-[18px] font-semibold text-gray-900">{propertyTypeShort}</span>
                           </div>
-                        </div>
 
-                        <div className="flex items-start gap-3">
-                          <Image
-                            src="/assets/images/sqft-area-icon.svg"
-                            alt="Sqft Area"
-                            width={18}
-                            height={18}
-                            className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4 xl:h-[24px] xl:w-[24px]"
-                          />
-                          <div>
-                            <p className="text-sm sm:text-[15px] font-semibold xl:text-[21px]">
+                          <div className="flex items-center justify-between gap-4 py-2">
+                            <div className="flex items-center gap-3">
+                              <Image
+                                src="/assets/images/sqft-area-icon.svg"
+                                alt="Sqft Area"
+                                width={18}
+                                height={18}
+                                className="h-5 w-5"
+                              />
+                              <span className="text-[15px] text-gray-500">Sqft Area</span>
+                            </div>
+                            <span className="text-[18px] font-semibold text-gray-900">
                               {sqftArea ? sqftArea.toLocaleString('en-US') : "N/A"}
-                            </p>
-                            <p className="text-gray-600 mt-1 xl:text-[20px] xl:text-[#828081]">Sqft Area</p>
-                          </div>
-                        </div>
-
-                        <div className="border-l border-[#E3DCD2] pl-4 flex items-start gap-3">
-                          <div className="mt-0.5 text-[15px] font-bold text-gray-800 leading-none xl:text-[18px]">$</div>
-                          <div>
-                            <p className="text-[15px] font-semibold xl:text-[21px]">
-                              {pricePerSqft ? `$${pricePerSqft}` : "N/A"}
-                            </p>
-                            <p className="text-gray-600 mt-1 xl:text-[20px] xl:text-[#828081]">Price/sqft</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Footer */}
-                      <div className="flex items-center justify-center gap-3 mt-10">
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button
-                                className="flex items-center justify-center gap-3 text-sm sm:text-[15px] font-semibold text-gray-900 bg-[#F2F2F2] px-5 py-3 rounded-full border border-gray-300 xl:w-[260px] xl:h-[64px] xl:rounded-[32px] xl:text-[22px] xl:font-bold xl:gap-[16px]"
-                                onClick={() => setIsStreetViewOpen(true)}
-                              >
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="xl:h-[20px] xl:w-[20px]">
-                                  <path
-                                    d="M12 22s7-5.686 7-12A7 7 0 1 0 5 10c0 6.314 7 12 7 12Z"
-                                    stroke="currentColor"
-                                    strokeWidth="1.8"
-                                  />
-                                  <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.8" />
-                                </svg>
-                                Street view
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Open Street View</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-
-                        {/* Schedule a tour link hidden per updated design */}
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-
-              <div className="hidden lg:block mt-4 xl:mt-[40px] lg:sticky lg:top-36 lg:self-start">
-                <div className="w-full rounded-2xl bg-white shadow-lg border border-[#EDEDED] p-4 sm:p-5 md:p-6 xl:w-[500px] min-[1536px]:max-[1919px]:w-[430px] xl:rounded-[14px] xl:p-[24px] xl:shadow-[0px_-4px_4px_0px_rgba(189,189,189,0.1),0px_125px_35px_0px_rgba(189,189,189,0),0px_80px_32px_0px_rgba(189,189,189,0.01),0px_45px_27px_0px_rgba(189,189,189,0.05),0px_20px_20px_0px_rgba(189,189,189,0.09),0px_5px_11px_0px_rgba(189,189,189,0.1)]">
-                  {/* Header */}
-                  <div className="flex items-center gap-2 mb-2 xl:mb-[12px]">
-                    <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M15.0645 1C22.8233 0.998533 29.122 7.31736 29.1221 15.1211V25.0967C29.1221 26.201 28.6985 27.1986 28.0068 27.9336L28.0049 27.9355C27.2517 28.7409 26.1847 29.2393 25.001 29.2393H5.12109C2.85069 29.2393 1 27.3893 1 25.0986V15.123C1 7.31903 7.30043 1 15.0645 1Z" fill="black" stroke={`url(#${gradientId})`} style={{ fill: 'black', fillOpacity: 1 }} strokeWidth="2" />
-                      <mask id={mask1Id} fill="white">
-                        <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" />
-                      </mask>
-                      <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" fill="white" stroke="white" style={{ fill: 'white', fillOpacity: 1, stroke: 'white', strokeOpacity: 1 }} strokeWidth="4" mask={`url(#${mask1Id})`} />
-                      <mask id={mask2Id} fill="white">
-                        <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" />
-                      </mask>
-                      <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" fill="white" stroke="white" style={{ fill: 'white', fillOpacity: 1, stroke: 'white', strokeOpacity: 1 }} strokeWidth="4" mask={`url(#${mask2Id})`} />
-                      <defs>
-                        <linearGradient id={gradientId} x1="15.061" y1="0" x2="15.061" y2="30.2391" gradientUnits="userSpaceOnUse">
-                          <stop stopColor="#E8804C" style={{ stopColor: 'color(display-p3 0.9098 0.5020 0.2980)' }} stopOpacity="1" />
-                          <stop offset="0.5" stopColor="#E84C85" style={{ stopColor: 'color(display-p3 0.9098 0.2980 0.5224)' }} stopOpacity="1" />
-                          <stop offset="0.75" stopColor="#A64EBA" style={{ stopColor: 'color(display-p3 0.6521 0.3044 0.7303)' }} stopOpacity="1" />
-                          <stop offset="1" stopColor="#654FEF" style={{ stopColor: 'color(display-p3 0.3944 0.3107 0.9382)' }} stopOpacity="1" />
-                        </linearGradient>
-                      </defs>
-                    </svg>
-                    <h3 className="text-[18px] font-semibold xl:text-[20px]">Ask AI</h3>
-                  </div>
-
-                  <div className="text-[14px] text-gray-600 leading-relaxed mb-4 xl:text-[18px] xl:leading-[26px] xl:text-[#484747] xl:mb-[16px]">
-                    {aiAnswer ? (
-                      <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                        <p className="font-semibold text-blue-800 mb-1">AI Answer:</p>
-                        <p>{aiAnswer}</p>
-                      </div>
-                    ) : (
-                      <p>Your AI real estate assistant. We&apos;ll answer pretty much any question about this home.</p>
-                    )}
-                  </div>
-
-                  {/* Suggestions */}
-                  <div className="space-y-3 mb-5 xl:space-y-[16px] xl:mb-[16px]">
-                    {(aiSuggestions || []).map((label: string, index: number) => (
-                      <button
-                        key={index}
-                        onClick={() => handleAskAIQuery(label)}
-                        className="w-full text-left rounded-xl bg-[#F6F6F6] px-4 py-2.5 cursor-pointer flex items-center justify-between text-[14px] hover:bg-[#F0F0F0] transition-colors xl:h-[52px] xl:rounded-[10px] xl:bg-[#F3F3F3] xl:px-[20px] xl:text-[16px]"
-                        disabled={askAIMutation.isPending}>
-                        <span>{label}</span>
-                        <ChevronDown className="h-4 w-4 text-gray-600 xl:h-[24px] xl:w-[24px]" />
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Input */}
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Ask me anything about this home..."
-                      className="w-full border border-[#D9D9D9] rounded-xl px-4 py-2.5 text-[14px] mb-4 outline-none focus:ring-0 focus:border-gray-400 transition-colors pr-12 xl:h-[52px] xl:rounded-[10px] xl:border-[#8C8C8C] xl:px-[20px] xl:text-[16px] xl:text-[#5A5A5A] xl:mb-[16px]"
-                      value={askAIQuestion}
-                      onChange={(e) => setAskAIQuestion(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !askAIMutation.isPending) {
-                          handleAskAIQuery(askAIQuestion);
-                        }
-                      }}
-                      disabled={askAIMutation.isPending}
-                    />
-                    {askAIMutation.isPending && (
-                      <div className="absolute right-4 top-3 xl:top-[18px]">
-                        <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Button */}
-                  <button
-                    onClick={() => handleAskAIQuery(askAIQuestion)}
-                    disabled={askAIMutation.isPending || !askAIQuestion.trim()}
-                    className="w-full bg-black text-white py-2.5 rounded-full text-[15px] font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed xl:h-[52px] xl:rounded-[28px] xl:text-[18px]"
-                  >
-                    {askAIMutation.isPending ? 'Thinking...' : 'Send'}
-                  </button>
-                </div>
-              </div>
-
-            </div>
-
-            <div className="col-span-12 lg:col-span-8 xl:col-span-2">
-              <div className="divide-y divide-gray-200 border-t border-gray-200 mt-1 sm:mt-2 xl:w-[1169px] min-[1536px]:max-[1919px]:w-[978px] xl:mx-auto">
-                {/* Accordion List (Home Highlights, Schools, Offers, History, etc.) */}
-                {sections.map((section) => {
-                  const anchorId =
-                    section.id === 'home'
-                      ? 'home-highlights'
-                      : section.id === 'offers'
-                        ? 'property'
-                        : section.id === 'schools'
-                          ? 'schools'
-                          : section.id === 'interest'
-                            ? 'forecast'
-                            : undefined;
-                  const poweredBy =
-                    section.id === 'schools' || section.id === 'college'
-                      ? 'SnapGrad'
-                      : section.id === 'payment' || section.id === 'interest'
-                        ? 'SnapInterest'
-                        : null;
-                  const poweredByLogoSrc =
-                    poweredBy === 'SnapGrad'
-                      ? '/assets/icons/SnapGrad-Logo-01.svg'
-                      : poweredBy === 'SnapInterest'
-                        ? '/assets/icons/SnapInterest-Logo-01.svg'
-                        : null;
-
-                  return (
-                    <div
-                      key={section.id}
-                      id={anchorId}
-                      className="border-b border-gray-200 scroll-mt-28"
-                    >
-                      <button
-                        onClick={() => toggleSection(section.id)}
-                        className="w-full flex items-center justify-between py-2 sm:py-3 text-left focus:outline-none transition-all xl:h-[140px] xl:py-0"
-                      >
-                        <span
-                          className={`font-bold text-sm sm:text-[16px] text-gray-900 xl:w-[304px] xl:h-[54px] xl:text-[32px] xl:leading-[54px] ${section.id === 'offers' || section.id === 'interest' || section.id === 'payment' ? 'whitespace-nowrap' : ''}`}
-                        >
-                          {section.title}
-                        </span>
-                        <span className="ml-3 shrink-0 inline-flex items-center gap-2 sm:gap-3 xl:justify-end">
-                          {poweredBy && (
-                            <span className="hidden xl:inline-flex items-center gap-2">
-                              <span className="text-[12px] font-normal text-gray-500 whitespace-nowrap">
-                                Powered by
-                              </span>
-                              {poweredByLogoSrc ? (
-                                <Image
-                                  src={poweredByLogoSrc}
-                                  alt={`Powered by ${poweredBy}`}
-                                  width={poweredBy === 'SnapInterest' ? 106 : 84}
-                                  height={30}
-                                  className="h-[32px] w-auto object-contain"
-                                />
-                              ) : (
-                                <span className="text-[12px] font-normal text-gray-500">
-                                  {poweredBy}
-                                </span>
-                              )}
                             </span>
-                          )}
-                          {openSections.includes(section.id) ? (
-                            <ChevronUp className="text-gray-800 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5 xl:w-[30px] xl:h-[30px]" strokeWidth={2.5} />
-                          ) : (
-                            <ChevronDown className="text-gray-800 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5 xl:w-[30px] xl:h-[30px]" strokeWidth={2.5} />
-                          )}
-                        </span>
-                      </button>
+                          </div>
 
-                      {/* Accordion Content */}
-                      <div
-                        className={`overflow-hidden transition-[max-height,opacity,transform] duration-400 ease-in-out ${
-                          openSections.includes(section.id)
-                            ? "max-h-[3000px] opacity-100 translate-y-0"
-                            : "max-h-0 opacity-0 -translate-y-1"
-                        }`}
-                      >
-                        <div
-                          id={
-                            section.id === 'offers'
-                              ? 'property-content'
-                              : section.id === 'schools'
-                                ? 'schools-content'
-                                : section.id === 'interest'
-                                  ? 'forecast-content'
-                                  : undefined
-                          }
-                          className="pb-3 sm:pb-4 xl:text-[20px] xl:leading-[32px]"
-                        >
-                          {section.content}
+                          <div className="flex items-center justify-between gap-4 py-2">
+                            <div className="flex items-center gap-3">
+                              <div className="text-[18px] font-semibold text-gray-900">$</div>
+                              <span className="text-[15px] text-gray-500">Price/sqft</span>
+                            </div>
+                            <span className="text-[18px] font-semibold text-gray-900">
+                              {pricePerSqft ? `$${pricePerSqft}` : "N/A"}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
 
-                {/* Nearby Homes Section (Similar Homes) */}
-                <div id="comparables" ref={comparablesRef} className="pb-6 sm:pb-8 md:pb-12 mb-12 sm:mb-16 md:mb-20 scroll-mt-28">
-                  {/* <h2 className='text-xl font-bold mt-8 mb-4'>Similar homes</h2> */}
-                  {(propertyDatas?.nearbyHomes?.length || propertyDatas?.offtheMarket?.length || propertyDatas?.offTheMarket?.length) ? (
-                    <NearbyHomesSection
-                      nearbyHomes={propertyDatas.nearbyHomes}
-                      soldHomes={propertyDatas?.offtheMarket || propertyDatas?.offTheMarket || []}
-                      currentProperty={currentCompareProperty}
-                      currentListingId={currentListingId}
-                    />
-                  ) : (
-                    <div className="flex items-center justify-center py-8 sm:py-12 px-4">
-                      <p className="text-gray-500 text-sm sm:text-base">Similar homes not available</p>
+                        {/* Desktop grid info with SVG icons */}
+                        <div className="hidden lg:grid grid-cols-2 gap-y-10 text-xs sm:text-[13px] xl:gap-y-[40px]">
+                          <div className="flex items-start gap-3">
+                            <Image
+                              src="/assets/images/residental.png"
+                              alt="Year Built"
+                              width={18}
+                              height={18}
+                              className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4 xl:h-[24px] xl:w-[24px]"
+                            />
+                            <div>
+                              <p className="text-sm sm:text-[15px] font-semibold xl:text-[21px]">{yearBuilt}</p>
+                              <p className="text-gray-600 mt-1 xl:text-[20px] xl:text-[#828081]">Year Built</p>
+                            </div>
+                          </div>
+
+                          <div className="border-l border-[#E3DCD2] pl-4 flex items-start gap-3">
+                            <Image
+                              src="/assets/images/residential-icon.svg"
+                              alt="Property Type"
+                              width={18}
+                              height={18}
+                              className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4 xl:h-[24px] xl:w-[24px]"
+                            />
+                            <div>
+                              <p className="text-sm sm:text-[15px] font-semibold xl:text-[21px]">{propertyTypeShort}</p>
+                              <p className="text-gray-600 mt-1 xl:text-[20px] xl:text-[#828081]">Family Residence</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-start gap-3">
+                            <Image
+                              src="/assets/images/sqft-area-icon.svg"
+                              alt="Sqft Area"
+                              width={18}
+                              height={18}
+                              className="mt-0.5 h-3 w-3 sm:h-4 sm:w-4 xl:h-[24px] xl:w-[24px]"
+                            />
+                            <div>
+                              <p className="text-sm sm:text-[15px] font-semibold xl:text-[21px]">
+                                {sqftArea ? sqftArea.toLocaleString('en-US') : "N/A"}
+                              </p>
+                              <p className="text-gray-600 mt-1 xl:text-[20px] xl:text-[#828081]">Sqft Area</p>
+                            </div>
+                          </div>
+
+                          <div className="border-l border-[#E3DCD2] pl-4 flex items-start gap-3">
+                            <div className="mt-0.5 text-[15px] font-bold text-gray-800 leading-none xl:text-[18px]">$</div>
+                            <div>
+                              <p className="text-[15px] font-semibold xl:text-[21px]">
+                                {pricePerSqft ? `$${pricePerSqft}` : "N/A"}
+                              </p>
+                              <p className="text-gray-600 mt-1 xl:text-[20px] xl:text-[#828081]">Price/sqft</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-center gap-3 mt-10">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  className="flex items-center justify-center gap-3 text-sm sm:text-[15px] font-semibold text-gray-900 bg-[#F2F2F2] px-5 py-3 rounded-full border border-gray-300 xl:w-[260px] xl:h-[64px] xl:rounded-[32px] xl:text-[22px] xl:font-bold xl:gap-[16px]"
+                                  onClick={() => setIsStreetViewOpen(true)}
+                                >
+                                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="xl:h-[20px] xl:w-[20px]">
+                                    <path
+                                      d="M12 22s7-5.686 7-12A7 7 0 1 0 5 10c0 6.314 7 12 7 12Z"
+                                      stroke="currentColor"
+                                      strokeWidth="1.8"
+                                    />
+                                    <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.8" />
+                                  </svg>
+                                  Street view
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Open Street View</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+
+                          {/* Schedule a tour link hidden per updated design */}
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+
+                <div className="hidden lg:block mt-4 xl:mt-[40px] lg:sticky lg:top-36 lg:self-start">
+                  <div className="w-full rounded-2xl bg-white shadow-lg border border-[#EDEDED] p-4 sm:p-5 md:p-6 xl:w-[500px] min-[1536px]:max-[1919px]:w-[430px] xl:rounded-[14px] xl:p-[24px] xl:shadow-[0px_-4px_4px_0px_rgba(189,189,189,0.1),0px_125px_35px_0px_rgba(189,189,189,0),0px_80px_32px_0px_rgba(189,189,189,0.01),0px_45px_27px_0px_rgba(189,189,189,0.05),0px_20px_20px_0px_rgba(189,189,189,0.09),0px_5px_11px_0px_rgba(189,189,189,0.1)]">
+                    {/* Header */}
+                    <div className="flex items-center gap-2 mb-2 xl:mb-[12px]">
+                      <svg width="31" height="31" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M15.0645 1C22.8233 0.998533 29.122 7.31736 29.1221 15.1211V25.0967C29.1221 26.201 28.6985 27.1986 28.0068 27.9336L28.0049 27.9355C27.2517 28.7409 26.1847 29.2393 25.001 29.2393H5.12109C2.85069 29.2393 1 27.3893 1 25.0986V15.123C1 7.31903 7.30043 1 15.0645 1Z" fill="black" stroke={`url(#${gradientId})`} style={{ fill: 'black', fillOpacity: 1 }} strokeWidth="2" />
+                        <mask id={mask1Id} fill="white">
+                          <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" />
+                        </mask>
+                        <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" fill="white" stroke="white" style={{ fill: 'white', fillOpacity: 1, stroke: 'white', strokeOpacity: 1 }} strokeWidth="4" mask={`url(#${mask1Id})`} />
+                        <mask id={mask2Id} fill="white">
+                          <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" />
+                        </mask>
+                        <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" fill="white" stroke="white" style={{ fill: 'white', fillOpacity: 1, stroke: 'white', strokeOpacity: 1 }} strokeWidth="4" mask={`url(#${mask2Id})`} />
+                        <defs>
+                          <linearGradient id={gradientId} x1="15.061" y1="0" x2="15.061" y2="30.2391" gradientUnits="userSpaceOnUse">
+                            <stop stopColor="#E8804C" style={{ stopColor: 'color(display-p3 0.9098 0.5020 0.2980)' }} stopOpacity="1" />
+                            <stop offset="0.5" stopColor="#E84C85" style={{ stopColor: 'color(display-p3 0.9098 0.2980 0.5224)' }} stopOpacity="1" />
+                            <stop offset="0.75" stopColor="#A64EBA" style={{ stopColor: 'color(display-p3 0.6521 0.3044 0.7303)' }} stopOpacity="1" />
+                            <stop offset="1" stopColor="#654FEF" style={{ stopColor: 'color(display-p3 0.3944 0.3107 0.9382)' }} stopOpacity="1" />
+                          </linearGradient>
+                        </defs>
+                      </svg>
+                      <h3 className="text-[18px] font-semibold xl:text-[20px]">Ask AI</h3>
                     </div>
-                  )}
+
+                    <div className="text-[14px] text-gray-600 leading-relaxed mb-4 xl:text-[18px] xl:leading-[26px] xl:text-[#484747] xl:mb-[16px]">
+                      {aiAnswer ? (
+                        <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                          <p className="font-semibold text-blue-800 mb-1">AI Answer:</p>
+                          <p>{aiAnswer}</p>
+                        </div>
+                      ) : (
+                        <p>Your AI real estate assistant. We&apos;ll answer pretty much any question about this home.</p>
+                      )}
+                    </div>
+
+                    {/* Suggestions */}
+                    <div className="space-y-3 mb-5 xl:space-y-[16px] xl:mb-[16px]">
+                      {(aiSuggestions || []).map((label: string, index: number) => (
+                        <button
+                          key={index}
+                          onClick={() => handleAskAIQuery(label)}
+                          className="w-full text-left rounded-xl bg-[#F6F6F6] px-4 py-2.5 cursor-pointer flex items-center justify-between text-[14px] hover:bg-[#F0F0F0] transition-colors xl:h-[52px] xl:rounded-[10px] xl:bg-[#F3F3F3] xl:px-[20px] xl:text-[16px]"
+                          disabled={askAIMutation.isPending}>
+                          <span>{label}</span>
+                          <ChevronDown className="h-4 w-4 text-gray-600 xl:h-[24px] xl:w-[24px]" />
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Input */}
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Ask me anything about this home..."
+                        className="w-full border border-[#D9D9D9] rounded-xl px-4 py-2.5 text-[14px] mb-4 outline-none focus:ring-0 focus:border-gray-400 transition-colors pr-12 xl:h-[52px] xl:rounded-[10px] xl:border-[#8C8C8C] xl:px-[20px] xl:text-[16px] xl:text-[#5A5A5A] xl:mb-[16px]"
+                        value={askAIQuestion}
+                        onChange={(e) => setAskAIQuestion(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !askAIMutation.isPending) {
+                            handleAskAIQuery(askAIQuestion);
+                          }
+                        }}
+                        disabled={askAIMutation.isPending}
+                      />
+                      {askAIMutation.isPending && (
+                        <div className="absolute right-4 top-3 xl:top-[18px]">
+                          <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Button */}
+                    <button
+                      onClick={() => handleAskAIQuery(askAIQuestion)}
+                      disabled={askAIMutation.isPending || !askAIQuestion.trim()}
+                      className="w-full bg-black text-white py-2.5 rounded-full text-[15px] font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed xl:h-[52px] xl:rounded-[28px] xl:text-[18px]"
+                    >
+                      {askAIMutation.isPending ? 'Thinking...' : 'Send'}
+                    </button>
+                  </div>
                 </div>
 
               </div>
-            </div>
+
+              <div className="col-span-12 lg:col-span-8 xl:col-span-2">
+                <div className="divide-y divide-gray-200 border-t border-gray-200 mt-1 sm:mt-2 xl:w-[1169px] min-[1536px]:max-[1919px]:w-[978px] xl:mx-auto">
+                  {/* Accordion List (Home Highlights, Schools, Offers, History, etc.) */}
+                  {sections.map((section) => {
+                    const anchorId =
+                      section.id === 'home'
+                        ? 'home-highlights'
+                        : section.id === 'offers'
+                          ? 'property'
+                          : section.id === 'schools'
+                            ? 'schools'
+                            : section.id === 'interest'
+                              ? 'forecast'
+                              : undefined;
+                    const poweredBy =
+                      section.id === 'schools' || section.id === 'college'
+                        ? 'SnapGrad'
+                        : section.id === 'payment' || section.id === 'interest'
+                          ? 'SnapInterest'
+                          : null;
+                    const poweredByLogoSrc =
+                      poweredBy === 'SnapGrad'
+                        ? '/assets/icons/SnapGrad-Logo-01.svg'
+                        : poweredBy === 'SnapInterest'
+                          ? '/assets/icons/SnapInterest-Logo-01.svg'
+                          : null;
+
+                    return (
+                      <div
+                        key={section.id}
+                        id={anchorId}
+                        className="border-b border-gray-200 scroll-mt-28"
+                      >
+                        <button
+                          onClick={() => toggleSection(section.id)}
+                          className="w-full flex items-center justify-between py-2 sm:py-3 text-left focus:outline-none transition-all xl:h-[140px] xl:py-0"
+                        >
+                          <span
+                            className={`font-bold text-sm sm:text-[16px] text-gray-900 xl:w-[304px] xl:h-[54px] xl:text-[32px] xl:leading-[54px] ${section.id === 'offers' || section.id === 'interest' || section.id === 'payment' ? 'whitespace-nowrap' : ''}`}
+                          >
+                            {section.title}
+                          </span>
+                          <span className="ml-3 shrink-0 inline-flex items-center gap-2 sm:gap-3 xl:justify-end">
+                            {poweredBy && (
+                              <span className="hidden xl:inline-flex items-center gap-2">
+                                <span className="text-[12px] font-normal text-gray-500 whitespace-nowrap">
+                                  Powered by
+                                </span>
+                                {poweredByLogoSrc ? (
+                                  <Image
+                                    src={poweredByLogoSrc}
+                                    alt={`Powered by ${poweredBy}`}
+                                    width={poweredBy === 'SnapInterest' ? 106 : 84}
+                                    height={30}
+                                    className="h-[32px] w-auto object-contain"
+                                  />
+                                ) : (
+                                  <span className="text-[12px] font-normal text-gray-500">
+                                    {poweredBy}
+                                  </span>
+                                )}
+                              </span>
+                            )}
+                            {openSections.includes(section.id) ? (
+                              <ChevronUp className="text-gray-800 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5 xl:w-[30px] xl:h-[30px]" strokeWidth={2.5} />
+                            ) : (
+                              <ChevronDown className="text-gray-800 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5 xl:w-[30px] xl:h-[30px]" strokeWidth={2.5} />
+                            )}
+                          </span>
+                        </button>
+
+                        {/* Accordion Content */}
+                        <div
+                          className={`overflow-hidden transition-[max-height,opacity,transform] duration-400 ease-in-out ${openSections.includes(section.id)
+                              ? "max-h-[3000px] opacity-100 translate-y-0"
+                              : "max-h-0 opacity-0 -translate-y-1"
+                            }`}
+                        >
+                          <div
+                            id={
+                              section.id === 'offers'
+                                ? 'property-content'
+                                : section.id === 'schools'
+                                  ? 'schools-content'
+                                  : section.id === 'interest'
+                                    ? 'forecast-content'
+                                    : undefined
+                            }
+                            className="pb-3 sm:pb-4 xl:text-[20px] xl:leading-[32px]"
+                          >
+                            {section.content}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Nearby Homes Section (Similar Homes) */}
+                  <div id="comparables" ref={comparablesRef} className="pb-6 sm:pb-8 md:pb-12 mb-12 sm:mb-16 md:mb-20 scroll-mt-28">
+                    {/* <h2 className='text-xl font-bold mt-8 mb-4'>Similar homes</h2> */}
+                    {(propertyDatas?.nearbyHomes?.length || propertyDatas?.offtheMarket?.length || propertyDatas?.offTheMarket?.length) ? (
+                      <NearbyHomesSection
+                        nearbyHomes={propertyDatas.nearbyHomes}
+                        soldHomes={propertyDatas?.offtheMarket || propertyDatas?.offTheMarket || []}
+                        currentProperty={currentCompareProperty}
+                        currentListingId={currentListingId}
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center py-8 sm:py-12 px-4">
+                        <p className="text-gray-500 text-sm sm:text-base">Similar homes not available</p>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+              </div>
 
 
 

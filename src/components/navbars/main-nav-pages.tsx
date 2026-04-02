@@ -94,6 +94,12 @@ function MainNavPages() {
     pathname === '/sell' ||
     pathname?.startsWith('/agents');
 
+  const isHomeRoute =
+    pathname === '/' ||
+    pathname === '/home' ||
+    pathname?.startsWith('/home');
+  const showAnnouncementBar = isHomeRoute && !isScrolled;
+
   // When scrolled, use appropriate text color based on background
   const finalTextColorClass = isScrolled
     ? (isLightNav ? 'text-black' : 'text-white')
@@ -270,7 +276,7 @@ function MainNavPages() {
 
   // Build header className
   const headerClassName = React.useMemo(() => {
-    const baseClasses = 'fixed left-0 right-0 top-0 z-50 w-full transition-all duration-300';
+    const baseClasses = `fixed left-0 right-0 ${showAnnouncementBar ? 'top-8 z-40' : 'top-0 z-50'} w-full transition-all duration-300`;
     const backgroundClasses = isScrolled
       ? `${scrollBackgroundClass} shadow-lg`
       : (pathname === '/do-not-sell-or-share'
@@ -286,11 +292,18 @@ function MainNavPages() {
     /^\/buy\/[^/]+\/prop\/preview/.test(pathname || '');
 
   return (
-    <>
-      <header
-        ref={headerRef}
-        className={`${headerClassName} ${pathname === '/company' ? 'company-navbar' : ''}`}
-      >
+      <>
+        {showAnnouncementBar && (
+          <div className="fixed left-0 right-0 top-0 z-50 h-8 w-full bg-black">
+            <div className="mx-auto flex h-full max-w-[1920px] items-center justify-center px-4 text-center text-[11px] sm:text-xs text-[#E8804C] tracking-wide">
+              We&apos;re in Alpha — Redefining Real Estate with Seamless Transactions. Beta Lands May 2026.
+            </div>
+          </div>
+        )}
+        <header
+          ref={headerRef}
+          className={`${headerClassName} ${pathname === '/company' ? 'company-navbar' : ''}`}
+        >
 
 
         <div className="relative mx-auto flex w-full max-w-[1920px] items-center justify-between px-4 md:px-8 xl:px-[78px]">

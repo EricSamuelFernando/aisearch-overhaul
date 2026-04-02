@@ -159,28 +159,28 @@ function useCognitoGoogleAuth(handleCb?: () => void) {
       let formattedDomain = cognitoDomain.trim();
 
       // Validate domain format - should NOT be the API endpoint
-      if (formattedDomain.includes('cognito-idp.') && formattedDomain.includes('.amazonaws.com')) {
-        error({
-          message: 'Configuration Error: NEXT_PUBLIC_COGNITO_DOMAIN should be your Cognito Hosted UI domain (e.g., your-domain.auth.us-east-1.amazoncognito.com), not the API endpoint (cognito-idp.us-east-1.amazonaws.com). Please check your Cognito User Pool → App integration → Domain section.'
-        });
-        return;
-      }
+      // if (formattedDomain.includes('cognito-idp.') && formattedDomain.includes('.amazonaws.com')) {
+      //   error({
+      //     message: 'Configuration Error: NEXT_PUBLIC_COGNITO_DOMAIN should be your Cognito Hosted UI domain (e.g., your-domain.auth.us-east-1.amazoncognito.com), not the API endpoint (cognito-idp.us-east-1.amazonaws.com). Please check your Cognito User Pool → App integration → Domain section.'
+      //   });
+      //   return;
+      // }
 
-      // Validate domain doesn't contain "cognito-idp.auth" (common mistake)
-      if (formattedDomain.includes('cognito-idp.auth')) {
-        error({
-          message: 'Configuration Error: Domain contains "cognito-idp.auth" which is incorrect. The correct format is: your-domain.auth.region.amazoncognito.com (without "cognito-idp"). Please check your Cognito User Pool → App integration → Domain section for the correct Hosted UI domain.'
-        });
-        return;
-      }
+      // // Validate domain doesn't contain "cognito-idp.auth" (common mistake)
+      // if (formattedDomain.includes('cognito-idp.auth')) {
+      //   error({
+      //     message: 'Configuration Error: Domain contains "cognito-idp.auth" which is incorrect. The correct format is: your-domain.auth.region.amazoncognito.com (without "cognito-idp"). Please check your Cognito User Pool → App integration → Domain section for the correct Hosted UI domain.'
+      //   });
+      //   return;
+      // }
 
-      // Validate it's a Hosted UI domain format
-      if (!formattedDomain.includes('.auth.') || !formattedDomain.includes('.amazoncognito.com')) {
-        error({
-          message: 'Configuration Error: NEXT_PUBLIC_COGNITO_DOMAIN should be in format: your-domain.auth.region.amazoncognito.com. Please check your Cognito User Pool → App integration → Domain section.'
-        });
-        return;
-      }
+      // // Validate it's a Hosted UI domain format
+      // if (!formattedDomain.includes('.auth.') || !formattedDomain.includes('.amazoncognito.com')) {
+      //   error({
+      //     message: 'Configuration Error: NEXT_PUBLIC_COGNITO_DOMAIN should be in format: your-domain.auth.region.amazoncognito.com. Please check your Cognito User Pool → App integration → Domain section.'
+      //   });
+      //   return;
+      // }
 
       if (!formattedDomain.startsWith('http://') && !formattedDomain.startsWith('https://')) {
         formattedDomain = `https://${formattedDomain}`;

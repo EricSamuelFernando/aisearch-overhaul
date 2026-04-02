@@ -11,13 +11,17 @@ import { ButtonLoader } from '@/components/loader';
 import { PasswordInput2 } from '@/components/password-input-2';
 import { Button } from '@/components/ui/button';
 import { AuthButton } from '@/components/AuthButton';
+import { LastUsedTag } from '@/components/LastUsedTag';
+import { useLastAuthMethod } from '@/hooks/useLastAuthMethod';
 import useCognitoGoogleAuth from '@/hooks/api/auth/useCognitoGoogleAuth';
 
 export const LoginPageForm = () => {
   const router = useRouter();
   const { cognitoGoogleLogin } = useCognitoGoogleAuth();
+  const { lastMethod, setLastMethod } = useLastAuthMethod();
 
   const handleGoogleLogin = () => {
+    setLastMethod('google');
     cognitoGoogleLogin();
   };
   const { loginMutation  } = useUserAuthApi();
@@ -50,6 +54,7 @@ export const LoginPageForm = () => {
       <form
         className='mx-auto flex flex-col items-center justify-center space-y-5 pb-5'
         onSubmit={form.onSubmit((values) => {
+          setLastMethod('email');
           loginMutation.mutate({
             ...values,
             isBack:true
@@ -80,6 +85,7 @@ export const LoginPageForm = () => {
           >
             {loginMutation.isPending ? <ButtonLoader /> : null}
             Continue
+            {lastMethod === 'email' ? <LastUsedTag /> : null}
           </Button>
           <AuthButton
             className='justify-center gap-x-4'
@@ -87,6 +93,7 @@ export const LoginPageForm = () => {
             imageAlt='Google Logo'
             text='Continue with Google'
             onClick={handleGoogleLogin}
+            badge={lastMethod === 'google' ? <LastUsedTag /> : null}
           />
           
         </div>

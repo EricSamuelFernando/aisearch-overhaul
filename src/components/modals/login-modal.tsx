@@ -10,6 +10,8 @@ import { PasswordInput2 } from '@/components/password-input-2';
 import { Button } from '@/components/ui/button';
 import { ButtonLoader } from '@/components/loader';
 import { AuthButton } from '@/components/AuthButton';
+import { LastUsedTag } from '@/components/LastUsedTag';
+import { useLastAuthMethod } from '@/hooks/useLastAuthMethod';
 import { useUserAuthApi } from '@/hooks/api/auth/useUserAuthApi';
 import useCognitoGoogleAuth from '@/hooks/api/auth/useCognitoGoogleAuth';
 import { cn } from '@/lib/utils';
@@ -35,6 +37,7 @@ export const LoginModal = ({
 
   const { loginMutation } = useUserAuthApi(loginSuccessCallback);
   const { cognitoGoogleLogin } = useCognitoGoogleAuth();
+  const { lastMethod, setLastMethod } = useLastAuthMethod();
 
   const form = useForm({
     initialValues: {
@@ -56,6 +59,7 @@ export const LoginModal = ({
     if (magicLogin) {
       onSubmit(values.email);
     } else {
+      setLastMethod('email');
       loginMutation.mutate(values);
     }
   };
@@ -120,6 +124,7 @@ export const LoginModal = ({
           >
             {(loginMutation.isPending) && <ButtonLoader />}
             {magicLogin ? 'Send Magic Link' : 'Continue'}
+            {!magicLogin && lastMethod === 'email' ? <LastUsedTag /> : null}
           </Button>
 
           {/* <Button className='h-12 w-full max-w-xl text-lg cursor-pointer font-bold'>
@@ -138,7 +143,8 @@ export const LoginModal = ({
             imageSrc='/assets/images/google.svg'
             imageAlt='Google Logo'
             text='Continue with Google'
-            onClick={cognitoGoogleLogin}
+            onClick={() => { setLastMethod('google'); cognitoGoogleLogin(); }}
+            badge={lastMethod === 'google' ? <LastUsedTag /> : null}
           />
         </div>
 

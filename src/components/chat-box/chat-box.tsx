@@ -6453,15 +6453,15 @@ export default function ChatBoxComponent(props: any) {
         </DialogContent>
       </Dialog>
       <Dialog open={isSearchAgentModalOpen} onOpenChange={setIsSearchAgentModalOpen}>
-        <DialogContent className="max-w-6xl w-[95vw] h-[90vh] max-h-[90vh] overflow-hidden flex flex-col p-0">
-          <DialogHeader>
+        <DialogContent className="max-w-6xl w-[95vw] h-[90vh] max-h-[90vh] overflow-hidden flex flex-col p-0 max-[640px]:top-3 max-[640px]:translate-y-0 max-[640px]:h-[calc(100dvh-1.5rem)] max-[640px]:max-h-[calc(100dvh-1.5rem)] max-[640px]:w-[calc(100vw-0.75rem)] max-[640px]:max-w-none max-[640px]:rounded-2xl">
+          <DialogHeader className="flex-shrink-0 px-4 pt-5 pb-3 border-b sm:px-6 sm:pt-6 sm:pb-4">
             <DialogTitle className="text-2xl font-semibold">Search Agents</DialogTitle>
             <DialogDescription>
               Browse and search for agents to start a new chat.
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-            <div className="flex-1 overflow-y-auto px-6 pb-6 min-h-0">
+            <div className="flex-1 overflow-y-auto px-4 pb-4 min-h-0 sm:px-6 sm:pb-6">
               <AgentDirectoryWrapper
                 engagementId=""
                 propertyId=""

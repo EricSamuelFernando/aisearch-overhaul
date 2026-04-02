@@ -3,6 +3,8 @@
 import { useModalContext } from '@/providers/modal-provider';
 import { useAuthModal, useAuthModalActions } from '@/shared/hooks/useAuthModal';
 import { AuthButton } from './AuthButton';
+import { LastUsedTag } from './LastUsedTag';
+import { useLastAuthMethod } from '@/hooks/useLastAuthMethod';
 import { Icons } from './icons';
 import { Button } from '@/components/ui/button';
 import { setAuthToken } from '@/slices/auth/register.slices';
@@ -23,6 +25,7 @@ export const AuthButtons = ({ origin }: { origin?: 'page' | 'modal' }) => {
   const { navBtn, currentScreen } = useAuthModal();
   const { closeModal } = useModalContext();
   const router = useRouter();
+  const { lastMethod, setLastMethod } = useLastAuthMethod();
 
   const googleLoginMutation = useMutation({
     mutationKey: ['google-login-mutation'],
@@ -71,6 +74,7 @@ export const AuthButtons = ({ origin }: { origin?: 'page' | 'modal' }) => {
 
   // Handle Google login button click
   const handleGoogleLogin = () => {
+    setLastMethod('google');
     // Simulate getting a Google token (you should replace this with actual logic)
     const googleData = { token: 'your-google-token' };
 
@@ -80,6 +84,7 @@ export const AuthButtons = ({ origin }: { origin?: 'page' | 'modal' }) => {
   };
 
   const handleButtonClick = () => {
+    setLastMethod('email');
     setScreen(navBtn);
   };
 
@@ -104,6 +109,7 @@ export const AuthButtons = ({ origin }: { origin?: 'page' | 'modal' }) => {
           imageAlt='Google Logo'
           text='Continue with Google'
           onClick={handleGoogleLogin}
+          badge={lastMethod === 'google' ? <LastUsedTag /> : null}
         />
         {/* <AuthButton
           imageSrc='/assets/images/facebook.svg'
@@ -124,6 +130,7 @@ export const AuthButtons = ({ origin }: { origin?: 'page' | 'modal' }) => {
           imageAlt='Email'
           text='Continue with Email'
           onClick={handleButtonClick}
+          badge={lastMethod === 'email' ? <LastUsedTag /> : null}
         />
       </div>
     </section>

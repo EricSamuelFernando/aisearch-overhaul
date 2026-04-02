@@ -45,6 +45,7 @@ import InterestRateForecast from '../preview-hero/InterestRateForecast';
 import MonthlyMortgageCalculator from '../preview-hero/MonthlyMortgageCalculator';
 import NearbyHomesSection from '../preview-hero/NearbyHomesSection';
 import PropertyTakeawaysAI from '../preview-hero/PropertyTakeawaysAI';
+import BuyerDecisionSignals from '../preview-hero/BuyerDecisionSignals';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAgentConversationApi } from '@/hooks/api/auth/useConversationApi';
@@ -1902,6 +1903,8 @@ const PropertyPreview: React.FC = () => {
   }, [estimatedHouseValue, rentEstimate, rentDelta, projectedGainPct]);
 
 
+  const propertyCoords = React.useMemo(() => getPropertyLatLng(), [getPropertyLatLng]);
+
   const [openSections, setOpenSections] = React.useState<string[]>([]);
   const [topEstimatedMonthlyPayment, setTopEstimatedMonthlyPayment] = React.useState<number | null>(null);
 
@@ -1950,7 +1953,6 @@ const PropertyPreview: React.FC = () => {
   const propertyTags = Array.isArray((proprtyData as any)?.tags) ? (proprtyData as any).tags : [];
 
   const openSectionForHash = React.useCallback((hash: string) => {
-    // Comparables is not inside an accordion — just scroll directly
     if (hash === '#comparables') {
       window.requestAnimationFrame(() => {
         window.setTimeout(() => {
@@ -1977,11 +1979,9 @@ const PropertyPreview: React.FC = () => {
 
     if (!target) return;
 
-    if (target.section) {
-      setOpenSections((prev) =>
-        prev.includes(target.section) ? prev : [...prev, target.section]
-      );
-    }
+    setOpenSections((prev) =>
+      prev.includes(target.section) ? prev : [...prev, target.section]
+    );
 
     // After the accordion opens, scroll to the content area for that section.
     // Wait 400ms to ensure the duration-300 accordion expansion animation completes
@@ -2931,21 +2931,51 @@ const PropertyPreview: React.FC = () => {
             </div> */}
 
 
-                {/* Takeaways */}
-                <div className="hidden py-2 sm:py-3">
-                  <PropertyTakeawaysAI
-                    property={
-                      propertyDatas?.data ||
-                      propertyData?.listing ||
-                      propertyData?.public ||
-                      propertyData ||
-                      transformData.prop
-                    }
-                    nearbySchools={nearbySchools}
-                    collegeReadinessData={collegeReadinessData}
-                    collegeReadinessLoading={collegeReadinessLoading}
-                  />
-                </div>
+              {/* Decision Signals */}
+              {/* Decision Signals */}
+              <div className="py-2 sm:py-3">
+                <BuyerDecisionSignals
+                  listPrice={homePriceValue}
+                  hoaMonthly={hoaMonthly}
+                  taxPercent={taxPercentValue}
+                  estimatedMonthlyPayment={topEstimatedMonthlyPayment}
+                  schools={nearbySchools}
+                  projectionSignals={projectionSignals}
+                  lat={propertyCoords?.lat}
+                  lng={propertyCoords?.lng}
+                  comps={propertyDatas?.offtheMarket || propertyDatas?.offTheMarket || []}
+                  sqft={
+                    proprtyData?.property?.livingArea ||
+                    propertyDatas?.data?.property?.livingArea ||
+                    propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet ||
+                    propertyData?.property?.livingArea ||
+                    0
+                  }
+                />
+              </div>
+
+              {/* Takeaways */}
+              <div className="hidden py-2 sm:py-3">
+                <PropertyTakeawaysAI
+                  property={
+                    propertyDatas?.data ||
+                    propertyData?.listing ||
+                    propertyData?.public ||
+                    propertyData ||
+                    transformData.prop
+                  }
+                  nearbySchools={nearbySchools}
+                  collegeReadinessData={collegeReadinessData}
+                  collegeReadinessLoading={collegeReadinessLoading}
+                />
+              </div>
+
+              {/* Estimated Market Value (image_60fd3b.png) */}
+              <div className='flex flex-wrap items-center justify-between gap-2 sm:gap-3 py-2 sm:py-3 px-2 sm:px-0'>
+                <EstimatedMarketValue estimatedData={estimatedMarketData} />
+              </div>
+
+            </div>
 
                 {/* Estimated Market Value (image_60fd3b.png) */}
                 <div className='flex flex-wrap items-center justify-between gap-2 sm:gap-3 pt-2 pb-1 sm:pt-3 sm:pb-2 px-2 sm:px-0'>
@@ -3382,38 +3412,79 @@ const PropertyPreview: React.FC = () => {
 
               </div>
 
-              <div className="col-span-12 lg:col-span-8 xl:col-span-2">
-                <div className="divide-y divide-gray-200 border-t border-gray-200 mt-1 sm:mt-2 xl:w-[1169px] min-[1536px]:max-[1919px]:w-[978px] xl:mx-auto">
-                  {/* Accordion List (Home Highlights, Schools, Offers, History, etc.) */}
-                  {sections.map((section) => {
-                    const anchorId =
-                      section.id === 'home'
-                        ? 'home-highlights'
-                        : section.id === 'offers'
-                          ? 'property'
-                          : section.id === 'schools'
-                            ? 'schools'
-                            : section.id === 'interest'
-                              ? 'forecast'
-                              : undefined;
-                    const poweredBy =
-                      section.id === 'schools' || section.id === 'college'
-                        ? 'SnapGrad'
-                        : section.id === 'payment' || section.id === 'interest'
-                          ? 'SnapInterest'
-                          : null;
-                    const poweredByLogoSrc =
-                      poweredBy === 'SnapGrad'
-                        ? '/assets/icons/SnapGrad-Logo-01.svg'
-                        : poweredBy === 'SnapInterest'
-                          ? '/assets/icons/SnapInterest-Logo-01.svg'
-                          : null;
+            <div className="col-span-12 lg:col-span-8">
+              <div className="divide-y divide-gray-200 border-t border-gray-200 mt-4 sm:mt-6">
+                {/* Accordion List (Home Highlights, Schools, Offers, History, etc.) */}
+                {sections.map((section) => {
+                  const anchorId =
+                    section.id === 'home'
+                      ? 'home-highlights'
+                      : section.id === 'offers'
+                        ? 'property'
+                        : section.id === 'schools'
+                          ? 'schools'
+                          : section.id === 'interest'
+                            ? 'forecast'
+                            : undefined;
+                  const poweredBy =
+                    section.id === 'schools' || section.id === 'college'
+                      ? 'SnapGrad'
+                      : section.id === 'payment' || section.id === 'interest'
+                        ? 'SnapInterest'
+                        : null;
+                  const poweredByLogoSrc =
+                    poweredBy === 'SnapGrad'
+                      ? '/assets/icons/SnapGrad-Logo-01.svg'
+                      : poweredBy === 'SnapInterest'
+                        ? '/assets/icons/SnapInterest-Logo-01.svg'
+                        : null;
 
-                    return (
+                  return (
+                    <div
+                      key={section.id}
+                      id={anchorId}
+                      className="border-b border-gray-200 scroll-mt-28"
+                    >
+                      <button
+                        onClick={() => toggleSection(section.id)}
+                        className="w-full flex items-center justify-between py-3 sm:py-4 text-left focus:outline-none transition-all"
+                      >
+                        <span className="font-semibold text-sm sm:text-[16px] text-gray-900">
+                          {section.title}
+                        </span>
+                        <span className="ml-3 shrink-0 inline-flex items-center gap-2 sm:gap-3">
+                          {poweredBy && (
+                            <span className="inline-flex items-center gap-1 sm:gap-1.5">
+                              <span className="text-[10px] sm:text-[11px] font-normal text-gray-500 whitespace-nowrap">
+                                Powered by
+                              </span>
+                              {poweredByLogoSrc ? (
+                                <Image
+                                  src={poweredByLogoSrc}
+                                  alt={`Powered by ${poweredBy}`}
+                                  width={poweredBy === 'SnapInterest' ? 106 : 84}
+                                  height={30}
+                                  className="h-5 sm:h-6 w-auto object-contain"
+                                />
+                              ) : (
+                                <span className="text-[11px] font-normal text-gray-500">
+                                  {poweredBy}
+                                </span>
+                              )}
+                            </span>
+                          )}
+                          {openSections.includes(section.id) ? (
+                            <ChevronUp className="text-gray-600 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5" />
+                          ) : (
+                            <ChevronDown className="text-gray-600 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5" />
+                          )}
+                        </span>
+                      </button>
+
+                      {/* Accordion Content */}
                       <div
-                        key={section.id}
-                        id={anchorId}
-                        className="border-b border-gray-200 scroll-mt-28"
+                        className={`overflow-hidden transition-all duration-300 ${openSections.includes(section.id) ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0"
+                          }`}
                       >
                         <button
                           onClick={() => toggleSection(section.id)}

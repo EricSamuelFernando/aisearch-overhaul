@@ -12,6 +12,7 @@ export type AuthButtonProps = {
   textColor?: string;
   borderColor?: string;
   textClassName?: string;
+  badge?: React.ReactNode;
 };
 
 const AuthButton: React.FC<AuthButtonProps> = ({
@@ -24,6 +25,7 @@ const AuthButton: React.FC<AuthButtonProps> = ({
   textColor = 'text-black',
   borderColor = 'border-grey-210',
   textClassName,
+  badge,
 }) => (
   <Button
     variant='outline'
@@ -42,6 +44,7 @@ const AuthButton: React.FC<AuthButtonProps> = ({
     <span className={cn(`text-lg font-bold`, textColor, textClassName)}>
       {text}
     </span>
+    {badge}
   </Button>
 );
 

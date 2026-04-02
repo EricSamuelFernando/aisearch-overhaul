@@ -45,6 +45,7 @@ import InterestRateForecast from '../preview-hero/InterestRateForecast';
 import MonthlyMortgageCalculator from '../preview-hero/MonthlyMortgageCalculator';
 import NearbyHomesSection from '../preview-hero/NearbyHomesSection';
 import PropertyTakeawaysAI from '../preview-hero/PropertyTakeawaysAI';
+import BuyerDecisionSignals from '../preview-hero/BuyerDecisionSignals';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAgentConversationApi } from '@/hooks/api/auth/useConversationApi';
@@ -1935,6 +1936,8 @@ const PropertyPreview: React.FC = () => {
   }, [estimatedHouseValue, rentEstimate, rentDelta, projectedGainPct]);
 
 
+  const propertyCoords = React.useMemo(() => getPropertyLatLng(), [getPropertyLatLng]);
+
   const [openSection, setOpenSection] = React.useState<string | null>(null);
   const [topEstimatedMonthlyPayment, setTopEstimatedMonthlyPayment] = React.useState<number | null>(null);
 
@@ -2559,19 +2562,25 @@ const PropertyPreview: React.FC = () => {
             </div> */}
 
 
-              {/* Takeaways */}
+              {/* Decision Signals */}
               <div className="py-2 sm:py-3">
-                <PropertyTakeawaysAI
-                  property={
-                    propertyDatas?.data ||
-                    propertyData?.listing ||
-                    propertyData?.public ||
-                    propertyData ||
-                    transformData.prop
+                <BuyerDecisionSignals
+                  listPrice={homePriceValue}
+                  hoaMonthly={hoaMonthly}
+                  taxPercent={taxPercentValue}
+                  estimatedMonthlyPayment={topEstimatedMonthlyPayment}
+                  schools={nearbySchools}
+                  projectionSignals={projectionSignals}
+                  lat={propertyCoords?.lat}
+                  lng={propertyCoords?.lng}
+                  comps={propertyDatas?.offtheMarket || propertyDatas?.offTheMarket || []}
+                  sqft={
+                    proprtyData?.property?.livingArea ||
+                    propertyDatas?.data?.property?.livingArea ||
+                    propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet ||
+                    propertyData?.property?.livingArea ||
+                    0
                   }
-                  nearbySchools={nearbySchools}
-                  collegeReadinessData={collegeReadinessData}
-                  collegeReadinessLoading={collegeReadinessLoading}
                 />
               </div>
 

@@ -2561,8 +2561,9 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
             // "City ST" — 2-letter state abbreviation as the LAST token only
             if (/\s[A-Z]{2}$/i.test(trimmed) && US_STATE_ABBREVIATIONS.has(trimmed.split(/\s+/).pop()!.toUpperCase())) return true;
             // Full state name as the LAST word(s) only (e.g. "Austin Texas", "Austin California")
+            // Guard: if the query contains natural language intent keywords, don't treat it as a bare location
             const lower = trimmed.toLowerCase();
-            if (US_STATE_NAMES.some(name => lower.endsWith(` ${name}`))) return true;
+            if (US_STATE_NAMES.some(name => lower.endsWith(` ${name}`)) && !hasLocationIntentKeywords(lower)) return true;
             return false;
         };
 

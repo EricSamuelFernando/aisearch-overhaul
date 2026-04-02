@@ -1945,6 +1945,18 @@ const PropertyPreview: React.FC = () => {
   const propertyTags = Array.isArray((proprtyData as any)?.tags) ? (proprtyData as any).tags : [];
 
   const openSectionForHash = React.useCallback((hash: string) => {
+    // Comparables is not inside an accordion — just scroll directly
+    if (hash === '#comparables') {
+      window.requestAnimationFrame(() => {
+        window.setTimeout(() => {
+          const el = document.getElementById('comparables');
+          if (!el) return;
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 400);
+      });
+      return;
+    }
+
     const target =
       hash === '#home-highlights' || hash === '#home'
         ? { section: 'home', scrollId: 'home-highlights' }

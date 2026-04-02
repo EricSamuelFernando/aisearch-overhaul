@@ -1905,13 +1905,13 @@ const PropertyPreview: React.FC = () => {
 
   const propertyCoords = React.useMemo(() => getPropertyLatLng(), [getPropertyLatLng]);
 
-  const [openSections, setOpenSections] = React.useState<string[]>([]);
+  const [openSections, setOpenSections] = React.useState<any>([]);
   const [topEstimatedMonthlyPayment, setTopEstimatedMonthlyPayment] = React.useState<number | null>(null);
 
   const toggleSection = (section: string) => {
-    const isOpen = openSections.includes(section);
+    const isOpen = openSections?.includes(section);
     if (isOpen) {
-      setOpenSections((prev) => prev.filter((item) => item !== section));
+      setOpenSections((prev: any) => prev?.filter((item: any) => item !== section));
       if (typeof window !== 'undefined') {
         const sectionToHash: Record<string, string> = {
           home: '#overview',
@@ -1928,7 +1928,7 @@ const PropertyPreview: React.FC = () => {
       return;
     }
 
-    setOpenSections((prev) => [...prev, section]);
+    setOpenSections((prev: any) => [...prev, section]);
 
     const sectionToScrollId: Record<string, string> = {
       home: 'home-highlights',
@@ -1979,7 +1979,7 @@ const PropertyPreview: React.FC = () => {
 
     if (!target) return;
 
-    setOpenSections((prev) =>
+    setOpenSections((prev: any) =>
       prev.includes(target.section) ? prev : [...prev, target.section]
     );
 
@@ -2931,54 +2931,47 @@ const PropertyPreview: React.FC = () => {
             </div> */}
 
 
-              {/* Decision Signals */}
-              {/* Decision Signals */}
-              <div className="py-2 sm:py-3">
-                <BuyerDecisionSignals
-                  listPrice={homePriceValue}
-                  hoaMonthly={hoaMonthly}
-                  taxPercent={taxPercentValue}
-                  estimatedMonthlyPayment={topEstimatedMonthlyPayment}
-                  schools={nearbySchools}
-                  projectionSignals={projectionSignals}
-                  lat={propertyCoords?.lat}
-                  lng={propertyCoords?.lng}
-                  comps={propertyDatas?.offtheMarket || propertyDatas?.offTheMarket || []}
-                  sqft={
-                    proprtyData?.property?.livingArea ||
-                    propertyDatas?.data?.property?.livingArea ||
-                    propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet ||
-                    propertyData?.property?.livingArea ||
-                    0
-                  }
-                />
-              </div>
+                {/* Decision Signals */}
+                {/* Decision Signals */}
+                <div className="py-2 sm:py-3">
+                  <BuyerDecisionSignals
+                    listPrice={homePriceValue}
+                    hoaMonthly={hoaMonthly}
+                    taxPercent={taxPercentValue}
+                    estimatedMonthlyPayment={topEstimatedMonthlyPayment}
+                    schools={nearbySchools}
+                    projectionSignals={projectionSignals}
+                    lat={propertyCoords?.lat}
+                    lng={propertyCoords?.lng}
+                    comps={propertyDatas?.offtheMarket || propertyDatas?.offTheMarket || []}
+                    sqft={
+                      proprtyData?.property?.livingArea ||
+                      propertyDatas?.data?.property?.livingArea ||
+                      propertyDatas?.property_detail?.data?.propertyInfo?.livingSquareFeet ||
+                      propertyData?.property?.livingArea ||
+                      0
+                    }
+                  />
+                </div>
 
-              {/* Takeaways */}
-              <div className="hidden py-2 sm:py-3">
-                <PropertyTakeawaysAI
-                  property={
-                    propertyDatas?.data ||
-                    propertyData?.listing ||
-                    propertyData?.public ||
-                    propertyData ||
-                    transformData.prop
-                  }
-                  nearbySchools={nearbySchools}
-                  collegeReadinessData={collegeReadinessData}
-                  collegeReadinessLoading={collegeReadinessLoading}
-                />
-              </div>
-
-              {/* Estimated Market Value (image_60fd3b.png) */}
-              <div className='flex flex-wrap items-center justify-between gap-2 sm:gap-3 py-2 sm:py-3 px-2 sm:px-0'>
-                <EstimatedMarketValue estimatedData={estimatedMarketData} />
-              </div>
-
-            </div>
+                {/* Takeaways */}
+                <div className="hidden py-2 sm:py-3">
+                  <PropertyTakeawaysAI
+                    property={
+                      propertyDatas?.data ||
+                      propertyData?.listing ||
+                      propertyData?.public ||
+                      propertyData ||
+                      transformData.prop
+                    }
+                    nearbySchools={nearbySchools}
+                    collegeReadinessData={collegeReadinessData}
+                    collegeReadinessLoading={collegeReadinessLoading}
+                  />
+                </div>
 
                 {/* Estimated Market Value (image_60fd3b.png) */}
-                <div className='flex flex-wrap items-center justify-between gap-2 sm:gap-3 pt-2 pb-1 sm:pt-3 sm:pb-2 px-2 sm:px-0'>
+                <div className='flex flex-wrap items-center justify-between gap-2 sm:gap-3 py-2 sm:py-3 px-2 sm:px-0'>
                   <EstimatedMarketValue estimatedData={estimatedMarketData} />
                 </div>
 
@@ -3412,93 +3405,49 @@ const PropertyPreview: React.FC = () => {
 
               </div>
 
-            <div className="col-span-12 lg:col-span-8">
-              <div className="divide-y divide-gray-200 border-t border-gray-200 mt-4 sm:mt-6">
-                {/* Accordion List (Home Highlights, Schools, Offers, History, etc.) */}
-                {sections.map((section) => {
-                  const anchorId =
-                    section.id === 'home'
-                      ? 'home-highlights'
-                      : section.id === 'offers'
-                        ? 'property'
-                        : section.id === 'schools'
-                          ? 'schools'
-                          : section.id === 'interest'
-                            ? 'forecast'
-                            : undefined;
-                  const poweredBy =
-                    section.id === 'schools' || section.id === 'college'
-                      ? 'SnapGrad'
-                      : section.id === 'payment' || section.id === 'interest'
-                        ? 'SnapInterest'
-                        : null;
-                  const poweredByLogoSrc =
-                    poweredBy === 'SnapGrad'
-                      ? '/assets/icons/SnapGrad-Logo-01.svg'
-                      : poweredBy === 'SnapInterest'
-                        ? '/assets/icons/SnapInterest-Logo-01.svg'
-                        : null;
+              <div className="col-span-12 lg:col-span-8">
+                <div className="mt-4 divide-y divide-gray-200 border-t border-gray-200 sm:mt-6">
+                  {sections.map((section) => {
+                    const anchorId =
+                      section.id === 'home'
+                        ? 'home-highlights'
+                        : section.id === 'offers'
+                          ? 'property'
+                          : section.id === 'schools'
+                            ? 'schools'
+                            : section.id === 'interest'
+                              ? 'forecast'
+                              : undefined;
+                    const poweredBy =
+                      section.id === 'schools' || section.id === 'college'
+                        ? 'SnapGrad'
+                        : section.id === 'payment' || section.id === 'interest'
+                          ? 'SnapInterest'
+                          : null;
+                    const poweredByLogoSrc =
+                      poweredBy === 'SnapGrad'
+                        ? '/assets/icons/SnapGrad-Logo-01.svg'
+                        : poweredBy === 'SnapInterest'
+                          ? '/assets/icons/SnapInterest-Logo-01.svg'
+                          : null;
 
-                  return (
-                    <div
-                      key={section.id}
-                      id={anchorId}
-                      className="border-b border-gray-200 scroll-mt-28"
-                    >
-                      <button
-                        onClick={() => toggleSection(section.id)}
-                        className="w-full flex items-center justify-between py-3 sm:py-4 text-left focus:outline-none transition-all"
-                      >
-                        <span className="font-semibold text-sm sm:text-[16px] text-gray-900">
-                          {section.title}
-                        </span>
-                        <span className="ml-3 shrink-0 inline-flex items-center gap-2 sm:gap-3">
-                          {poweredBy && (
-                            <span className="inline-flex items-center gap-1 sm:gap-1.5">
-                              <span className="text-[10px] sm:text-[11px] font-normal text-gray-500 whitespace-nowrap">
-                                Powered by
-                              </span>
-                              {poweredByLogoSrc ? (
-                                <Image
-                                  src={poweredByLogoSrc}
-                                  alt={`Powered by ${poweredBy}`}
-                                  width={poweredBy === 'SnapInterest' ? 106 : 84}
-                                  height={30}
-                                  className="h-5 sm:h-6 w-auto object-contain"
-                                />
-                              ) : (
-                                <span className="text-[11px] font-normal text-gray-500">
-                                  {poweredBy}
-                                </span>
-                              )}
-                            </span>
-                          )}
-                          {openSections.includes(section.id) ? (
-                            <ChevronUp className="text-gray-600 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5" />
-                          ) : (
-                            <ChevronDown className="text-gray-600 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5" />
-                          )}
-                        </span>
-                      </button>
-
-                      {/* Accordion Content */}
+                    return (
                       <div
-                        className={`overflow-hidden transition-all duration-300 ${openSections.includes(section.id) ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0"
-                          }`}
+                        key={section.id}
+                        id={anchorId}
+                        className="border-b border-gray-200 scroll-mt-28"
                       >
                         <button
                           onClick={() => toggleSection(section.id)}
-                          className="w-full flex items-center justify-between py-2 sm:py-3 text-left focus:outline-none transition-all xl:h-[140px] xl:py-0"
+                          className="w-full flex items-center justify-between py-3 sm:py-4 text-left focus:outline-none transition-all"
                         >
-                          <span
-                            className={`font-bold text-sm sm:text-[16px] text-gray-900 xl:w-[304px] xl:h-[54px] xl:text-[32px] xl:leading-[54px] ${section.id === 'offers' || section.id === 'interest' || section.id === 'payment' ? 'whitespace-nowrap' : ''}`}
-                          >
+                          <span className="font-semibold text-sm sm:text-[16px] text-gray-900">
                             {section.title}
                           </span>
-                          <span className="ml-3 shrink-0 inline-flex items-center gap-2 sm:gap-3 xl:justify-end">
+                          <span className="ml-3 shrink-0 inline-flex items-center gap-2 sm:gap-3">
                             {poweredBy && (
-                              <span className="hidden xl:inline-flex items-center gap-2">
-                                <span className="text-[12px] font-normal text-gray-500 whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1 sm:gap-1.5">
+                                <span className="text-[10px] sm:text-[11px] font-normal text-gray-500 whitespace-nowrap">
                                   Powered by
                                 </span>
                                 {poweredByLogoSrc ? (
@@ -3507,52 +3456,98 @@ const PropertyPreview: React.FC = () => {
                                     alt={`Powered by ${poweredBy}`}
                                     width={poweredBy === 'SnapInterest' ? 106 : 84}
                                     height={30}
-                                    className="h-[32px] w-auto object-contain"
+                                    className="h-5 sm:h-6 w-auto object-contain"
                                   />
                                 ) : (
-                                  <span className="text-[12px] font-normal text-gray-500">
+                                  <span className="text-[11px] font-normal text-gray-500">
                                     {poweredBy}
                                   </span>
                                 )}
                               </span>
                             )}
                             {openSections.includes(section.id) ? (
-                              <ChevronUp className="text-gray-800 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5 xl:w-[30px] xl:h-[30px]" strokeWidth={2.5} />
+                              <ChevronUp className="h-4 w-4 text-gray-600 transition-transform duration-200 sm:h-5 sm:w-5" />
                             ) : (
-                              <ChevronDown className="text-gray-800 transition-transform duration-200 w-4 h-4 sm:w-5 sm:h-5 xl:w-[30px] xl:h-[30px]" strokeWidth={2.5} />
+                              <ChevronDown className="h-4 w-4 text-gray-600 transition-transform duration-200 sm:h-5 sm:w-5" />
                             )}
                           </span>
                         </button>
 
-                        {/* Accordion Content */}
                         <div
-                          className={`overflow-hidden transition-[max-height,opacity,transform] duration-400 ease-in-out ${openSections.includes(section.id)
-                              ? "max-h-[3000px] opacity-100 translate-y-0"
-                              : "max-h-0 opacity-0 -translate-y-1"
-                            }`}
+                          className={`overflow-hidden transition-all duration-300 ${openSections.includes(section.id) ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}
                         >
-                          <div
-                            id={
-                              section.id === 'offers'
-                                ? 'property-content'
-                                : section.id === 'schools'
-                                  ? 'schools-content'
-                                  : section.id === 'interest'
-                                    ? 'forecast-content'
-                                    : undefined
-                            }
-                            className="pb-3 sm:pb-4 xl:text-[20px] xl:leading-[32px]"
+                          <button
+                            onClick={() => toggleSection(section.id)}
+                            className="w-full flex items-center justify-between py-2 sm:py-3 text-left focus:outline-none transition-all xl:h-[140px] xl:py-0"
                           >
-                            {section.content}
+                            <span
+                              className={`font-bold text-sm text-gray-900 sm:text-[16px] xl:h-[54px] xl:w-[304px] xl:text-[32px] xl:leading-[54px] ${section.id === 'offers' || section.id === 'interest' || section.id === 'payment' ? 'whitespace-nowrap' : ''}`}
+                            >
+                              {section.title}
+                            </span>
+                            <span className="ml-3 shrink-0 inline-flex items-center gap-2 sm:gap-3 xl:justify-end">
+                              {poweredBy && (
+                                <span className="hidden xl:inline-flex items-center gap-2">
+                                  <span className="whitespace-nowrap text-[12px] font-normal text-gray-500">
+                                    Powered by
+                                  </span>
+                                  {poweredByLogoSrc ? (
+                                    <Image
+                                      src={poweredByLogoSrc}
+                                      alt={`Powered by ${poweredBy}`}
+                                      width={poweredBy === 'SnapInterest' ? 106 : 84}
+                                      height={30}
+                                      className="h-[32px] w-auto object-contain"
+                                    />
+                                  ) : (
+                                    <span className="text-[12px] font-normal text-gray-500">
+                                      {poweredBy}
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+                              {openSections.includes(section.id) ? (
+                                <ChevronUp
+                                  className="h-4 w-4 text-gray-800 transition-transform duration-200 sm:h-5 sm:w-5 xl:h-[30px] xl:w-[30px]"
+                                  strokeWidth={2.5}
+                                />
+                              ) : (
+                                <ChevronDown
+                                  className="h-4 w-4 text-gray-800 transition-transform duration-200 sm:h-5 sm:w-5 xl:h-[30px] xl:w-[30px]"
+                                  strokeWidth={2.5}
+                                />
+                              )}
+                            </span>
+                          </button>
+
+                          <div
+                            className={`overflow-hidden transition-[max-height,opacity,transform] duration-400 ease-in-out ${openSections.includes(section.id) ? 'max-h-[3000px] translate-y-0 opacity-100' : 'max-h-0 -translate-y-1 opacity-0'}`}
+                          >
+                            <div
+                              id={
+                                section.id === 'offers'
+                                  ? 'property-content'
+                                  : section.id === 'schools'
+                                    ? 'schools-content'
+                                    : section.id === 'interest'
+                                      ? 'forecast-content'
+                                      : undefined
+                              }
+                              className="pb-3 sm:pb-4 xl:text-[20px] xl:leading-[32px]"
+                            >
+                              {section.content}
+                            </div>
                           </div>
                         </div>
                       </div>
                     );
                   })}
 
-                  {/* Nearby Homes Section (Similar Homes) */}
-                  <div id="comparables" ref={comparablesRef} className="pb-6 sm:pb-8 md:pb-12 mb-12 sm:mb-16 md:mb-20 scroll-mt-28">
-                    {/* <h2 className='text-xl font-bold mt-8 mb-4'>Similar homes</h2> */}
+                  <div
+                    id="comparables"
+                    ref={comparablesRef}
+                    className="mb-12 scroll-mt-28 pb-6 sm:mb-16 sm:pb-8 md:mb-20 md:pb-12"
+                  >
                     {(propertyDatas?.nearbyHomes?.length || propertyDatas?.offtheMarket?.length || propertyDatas?.offTheMarket?.length) ? (
                       <NearbyHomesSection
                         nearbyHomes={propertyDatas.nearbyHomes}
@@ -3561,21 +3556,15 @@ const PropertyPreview: React.FC = () => {
                         currentListingId={currentListingId}
                       />
                     ) : (
-                      <div className="flex items-center justify-center py-8 sm:py-12 px-4">
-                        <p className="text-gray-500 text-sm sm:text-base">Similar homes not available</p>
+                      <div className="flex items-center justify-center px-4 py-8 sm:py-12">
+                        <p className="text-sm text-gray-500 sm:text-base">Similar homes not available</p>
                       </div>
                     )}
                   </div>
-
                 </div>
               </div>
-
-
-
-
             </div>
           </div>
-
         </>
       ) : (
         <div className='h-full w-full'>{notFound()}</div>

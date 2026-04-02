@@ -80,7 +80,18 @@ const NearbyHomesSection = ({ nearbyHomes, soldHomes, currentProperty, currentLi
     ? offMarketHomes
     : saleHomes.filter((home: any) => soldStatuses.has(getListingStatus(home)));
 
-  const filteredHomes = activeTab === 'For Sale' ? forSaleHomes : soldTabHomes;
+  // Exclude the current property from both tabs
+  const isCurrentProperty = (home: any) => {
+    const listing = home?.listing || home;
+    const homeListingId = home?.listingId || listing?.listingId || listing?.mlsNumber;
+    const homePropertyId = home?.propertyId || listing?.propertyId;
+    const currentPropId = currentProperty?.propertyId || currentProperty?.id;
+    if (currentListingId && homeListingId && String(homeListingId) === String(currentListingId)) return true;
+    if (currentPropId && homePropertyId && String(homePropertyId) === String(currentPropId)) return true;
+    return false;
+  };
+
+  const filteredHomes = (activeTab === 'For Sale' ? forSaleHomes : soldTabHomes).filter((home: any) => !isCurrentProperty(home));
 
   const combinedHomes = useMemo(() => {
     const seen = new Set<string>();

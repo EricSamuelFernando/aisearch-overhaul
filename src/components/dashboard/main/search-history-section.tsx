@@ -10,16 +10,42 @@ interface HistoryMeta {
 }
 
 const formatTimestamp = (value: string) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
+  if (!value) return 'N/A';
+  
+  let dateString = value.trim();
+  if (!dateString) return 'N/A';
+
+  // If the value doesn't contain a timezone offset or 'Z', 
+  // assume it's UTC and append 'Z' for proper parsing.
+  if (!dateString.includes('Z') && !dateString.includes('+') && !/[-+]\d{2}:\d{2}$/.test(dateString)) {
+    // Convert "YYYY-MM-DD HH:mm:ss" to ISO "YYYY-MM-DDTHH:mm:ssZ"
+    dateString = dateString.replace(' ', 'T') + 'Z';
+  }
+
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return value; // Return raw value if parsing fails
+
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+    }).format(date);
+  } catch (e) {
+    // Fallback to standard toLocaleString if Intl fails
+    return date.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  }
 };
 
 const SearchHistorySection = () => {

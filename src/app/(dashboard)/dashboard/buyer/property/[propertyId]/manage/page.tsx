@@ -25,7 +25,7 @@ function ManagePropertyPage({ params }: { params: { propertyId: string } }) {
   const [propertytDocuments, setPropertyDocuments] = useState<EngagedPropertyDocumentsInterface>();
   const [loading, setLoading] = useState(true);
   const [propertyData, setPropertyData] = useState<EngagedPropertyInterface>();
-  const propertyId = params.propertyId || ""
+  const propertyId:any = params.propertyId || ""
   const agent = engagedProperty?.buyerAgent?.user
   const firstNameRaw = agent?.firstName || 'Daniel';
   const lastNameRaw = agent?.lastName || 'Smith';

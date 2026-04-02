@@ -941,6 +941,43 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
     },
   });
 
+  const removeAgentInvitation = useMutation({
+    mutationKey: ['deleteInvitation'],
+    mutationFn: async (data: any) => {
+      try {
+        const response = await API.post(
+          GRAPHQL_URI,
+          {
+            query: `
+              mutation DeleteInvitation($id: String!, $userId: String!, $agentId: String!, $status: String!) {
+                deleteInvitation(id: $id, userId: $userId, agentId: $agentId, status: $status) {
+                  success
+                  message
+                }
+              }
+            `,
+            variables: {
+              id: data.id,
+              userId: data.userId,
+              agentId: data.agentId,
+              status: data.status
+            },
+          }
+        );
+
+        if (response.status !== 200 || response.data?.errors) {
+          throw new Error(
+            response?.data?.errors?.[0]?.message || 'Failed to delete invitation',
+          );
+        }
+        return response;
+      } catch (error) {
+        console.error('Error deleting invitation:', error);
+        throw error;
+      }
+    },
+  });
+
   return {
     createThreadMutation,
     getAllThreadsMutation,
@@ -956,5 +993,136 @@ export const useAgentConversationApi = (handleCb?: () => void) => {
     getConversationMessagesMutation,
     getAllSnapzRequest,
     updateSnapzById,
+    removeAgentInvitation,
   };
+};
+
+export const useGetExternalAgentDetails = (userId?: string) => {
+  const isLocalhostRuntime =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1');
+
+  const GRAPHQL_URI = isLocalhostRuntime
+    ? 'http://localhost:4000/auth/graphql'
+    : process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
+    'http://localhost:4000/graphql';
+
+  return useQuery({
+    queryKey: ['getExternalAgentDetails', userId],
+    queryFn: async () => {
+      if (!userId) return null;
+      const response = await API.post(GRAPHQL_URI, {
+        query: `
+          query getExternalAgentDetails($userId: String!) {
+            getExternalAgentDetails(userId: $userId) {
+              id
+              firstName
+              lastName
+              email
+            }
+          }
+        `,
+        variables: { userId },
+      });
+      if (response.data?.errors) {
+        throw new Error(response.data.errors[0]?.message || 'Failed to fetch external agent details');
+      }
+      return response.data.data.getExternalAgentDetails;
+    },
+    enabled: !!userId,
+  });
+};
+
+export const useGetUserThreadByProperty = (propertyId?: string) => {
+  const isLocalhostRuntime =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1');
+
+  const GRAPHQL_URI = isLocalhostRuntime
+    ? 'http://localhost:4000/auth/graphql'
+    : process.env.NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL ||
+    'http://localhost:4000/graphql';
+
+  return useQuery({
+    queryKey: ['getUserThreadByPropertyId', propertyId],
+    queryFn: async () => {
+      if (!propertyId) return null;
+      const response = await API.post(GRAPHQL_URI, {
+        query: `
+          query GetUserThreadByPropertyId($propertyId: String!) {
+            getUserThreadByPropertyId(propertyId: $propertyId) {
+              id
+              threadName
+              propertyId
+              roomId
+              propertyName
+              listingId
+              propertyAddress
+              unreadCount
+              parentMessage
+              buyerAgent {
+                id
+                firstName
+                lastName
+                email
+              }
+              sellerAgent {
+                id
+                firstName
+                lastName
+                email
+              }
+            }
+          }
+        `,
+        variables: { propertyId },
+      });
+      if (response.data?.errors) {
+        throw new Error(response.data.errors[0]?.message || 'Failed to fetch thread by property');
+      }
+      return response.data.data.getUserThreadByPropertyId;
+    },
+    enabled: !!propertyId,
+  });
+};
+
+export const useGetAnswersByUser = (userId?: string, propertyId?: string) => {
+  const isLocalhostRuntime =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1');
+
+  const GRAPHQL_URI = isLocalhostRuntime
+    ? 'http://localhost:4004/graphql'
+    : (process.env.NEXT_PUBLIC_PRE_APPROVE_SERIVCE_GRAPHQL_URL || 
+       'https://demo-api.snaphomz.com/pre-approve/graphql');
+
+  return useQuery({
+    queryKey: ['getAnswersByUser', userId, propertyId],
+    queryFn: async () => {
+      if (!userId || !propertyId) return null;
+      const response = await API.post(GRAPHQL_URI, {
+        query: `
+          query GetAnswersByUser($userId: String!, $propertyId: String!) {
+            getAnswersByUser(userId: $userId, propertyId: $propertyId) {
+              id
+              stepId
+              questionId
+              response {
+                answer
+              }
+            }
+          }
+        `,
+        variables: { userId, propertyId },
+      });
+      if (response.data?.errors) {
+        throw new Error(response.data.errors[0]?.message || 'Failed to fetch answers');
+      }
+      return response.data.data.getAnswersByUser;
+    },
+    enabled: !!userId && !!propertyId,
+  });
 };

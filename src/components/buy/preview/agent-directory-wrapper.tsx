@@ -154,8 +154,31 @@ function agentMatchesLocation(agent: any, rawQuery: string): boolean {
     }
   }
 
-  return locationClean.includes(queryClean);
+  // return locationClean.includes(queryClean);
+  // Fallback 1: simple substring match
+  if (locationClean.includes(queryClean)) {
+    return true;
+  }
+
+  // Fallback 2: if agent's location mapped to a known token, but query is partially typed
+  if (mappedLocationToken && !queryToken) {
+    const agentMapping = LOCATION_MAPPINGS.find(
+      (m) => m.token.toLowerCase() === mappedLocationToken
+    );
+    if (agentMapping) {
+      const queryLower = queryClean.toLowerCase();
+      if (
+        agentMapping.city.toLowerCase().includes(queryLower) ||
+        agentMapping.synonyms.some((s) => s.startsWith(queryLower) || queryLower.startsWith(s))
+      ) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
+
 
 function normalizeNameForSearch(raw: string): string {
   if (!raw) return '';

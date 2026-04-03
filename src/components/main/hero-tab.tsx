@@ -622,26 +622,103 @@ const parseNumericValue = (value: any): number | null => {
     return Number.isFinite(parsed) ? parsed : null;
 };
 
+const DEFAULT_CARD_IMAGE_URL = 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c';
+
+const parsePropertyImageArray = (source: any): string[] => {
+    if (!source) return [];
+    if (Array.isArray(source)) {
+        return source
+            .map((item: any) => {
+                if (typeof item === 'string') return item.trim();
+                if (!item || typeof item !== 'object') return '';
+                return (
+                    item.highRes ||
+                    item.midRes ||
+                    item.url ||
+                    item.href ||
+                    item.src ||
+                    item.lowRes ||
+                    ''
+                ).toString().trim();
+            })
+            .filter(Boolean);
+    }
+    if (typeof source === 'string') {
+        const trimmed = source.trim();
+        if (!trimmed) return [];
+        if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+            try {
+                const parsed = JSON.parse(trimmed);
+                return parsePropertyImageArray(parsed);
+            } catch {
+                return [];
+            }
+        }
+        return [trimmed];
+    }
+    return [];
+};
+
+const dedupeImageUrls = (urls: string[]): string[] => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    urls.forEach((url) => {
+        const trimmed = String(url || '').trim();
+        if (!trimmed) return;
+        if (seen.has(trimmed)) return;
+        seen.add(trimmed);
+        out.push(trimmed);
+    });
+    return out;
+};
+
+const resolvePropertyCardImages = (property: any): { mainImage: string; galleryImages: string[]; fallbackUsed: boolean } => {
+    const primaryCandidates = [
+        property?.image_url,
+        property?.primaryListingImageUrl,
+        property?.media_primaryListingImageUrl,
+        property?.mediaPrimaryListingImageUrl,
+        property?.primaryImage,
+        property?.imgSrc,
+        property?.image,
+        property?.media?.primaryListingImageUrl,
+    ];
+
+    const galleryCandidates = dedupeImageUrls([
+        ...parsePropertyImageArray(property?.photos),
+        ...parsePropertyImageArray(property?.photoList),
+        ...parsePropertyImageArray(property?.photoListJson),
+        ...parsePropertyImageArray(property?.media?.photosList),
+        ...parsePropertyImageArray(property?.images),
+    ]);
+
+    const primaryImage = primaryCandidates
+        .map((candidate) => (typeof candidate === 'string' ? candidate.trim() : ''))
+        .find((candidate) => Boolean(candidate));
+
+    let mainImage = primaryImage || galleryCandidates[0] || DEFAULT_CARD_IMAGE_URL;
+    let galleryImages = galleryCandidates;
+    if (!galleryImages.length && mainImage) {
+        galleryImages = [mainImage];
+    }
+    if (!mainImage && galleryImages.length) {
+        mainImage = galleryImages[0];
+    }
+    if (!mainImage) {
+        mainImage = DEFAULT_CARD_IMAGE_URL;
+    }
+
+    return {
+        mainImage,
+        galleryImages: dedupeImageUrls(galleryImages),
+        fallbackUsed: mainImage === DEFAULT_CARD_IMAGE_URL && galleryImages.length === 0,
+    };
+};
+
 const buildPreviewFallbackListing = (property: any) => {
     const listingId = resolveListingId(property);
     const propertyId = resolvePropertyId(property);
-    const imageCandidates = Array.isArray(property?.images)
-        ? property.images
-        : Array.isArray(property?.photos)
-            ? property.photos
-            : [];
-    const galleryImages = imageCandidates
-        .map((img: any) => {
-            if (typeof img === 'string') return img;
-            return img?.highRes || img?.midRes || img?.lowRes || img?.url || null;
-        })
-        .filter(Boolean);
-    const primaryImage =
-        property?.image ||
-        property?.primaryListingImageUrl ||
-        property?.primaryImage ||
-        galleryImages[0] ||
-        null;
+    const { mainImage: primaryImage, galleryImages } = resolvePropertyCardImages(property);
     const photosList = (galleryImages.length ? galleryImages : primaryImage ? [primaryImage] : []).map((url: string) => ({
         lowRes: url,
         midRes: url,
@@ -791,53 +868,7 @@ const extractPropertyOrdinalFromQuery = (query: string): number | null => {
 
 const mapSnapProperties = (rawProperties: any[]) => {
     return (rawProperties || []).map((p: any, index: number) => {
-        let mainImage =
-            p.primaryListingImageUrl ||
-            p.primaryImage ||
-            p.imgSrc ||
-            p.image ||
-            'https://images.unsplash.com/photo-1600585154340-be6161a56a0c';
-
-        let galleryImages: string[] = [];
-
-        const parseImageArray = (source: any) => {
-            if (!source) return [];
-            if (Array.isArray(source)) {
-                return source
-                    .map((x: any) => {
-                        if (typeof x === 'string') return x;
-                        return x?.highRes || x?.midRes || x?.url || x?.lowRes || null;
-                    })
-                    .filter(Boolean);
-            }
-            if (typeof source === 'string') {
-                try {
-                    const parsed = JSON.parse(source);
-                    return parseImageArray(parsed);
-                } catch {
-                    return [];
-                }
-            }
-            return [];
-        };
-
-        galleryImages = parseImageArray(p.photoListJson);
-        if (!galleryImages.length) {
-            galleryImages = parseImageArray(p.photoList);
-        }
-        if (!galleryImages.length) {
-            galleryImages = parseImageArray(p.photos);
-        }
-
-        if (galleryImages.length > 0 && mainImage.includes('unsplash')) {
-            mainImage = galleryImages[0];
-        }
-        if (galleryImages.length === 0 && !mainImage.includes('unsplash')) {
-            galleryImages = [mainImage];
-        }
-        if (galleryImages.length === 0) {
-            galleryImages = [mainImage];
-        }
+        const { mainImage, galleryImages, fallbackUsed } = resolvePropertyCardImages(p);
 
         const fmtPrice = getCanonicalPriceForCard(p);
         const streetAddr = p.address || p.formattedAddress || p.fullAddress || p.street;
@@ -875,6 +906,16 @@ const mapSnapProperties = (rawProperties: any[]) => {
         const cardId = cardIdentity ?? buildStableFallbackId(p, 'snap', index);
         const listingUrl = p.listing_url || p.url || p.hdpUrl;
 
+        console.log("[CHAT][CARD_IMAGE_MAP]", {
+            listing_id: listingId || propertyId || cardId,
+            address: p.address || p.formattedAddress || p.fullAddress || p.street,
+            image_url: p.image_url,
+            primaryListingImageUrl: p.primaryListingImageUrl,
+            media_primaryListingImageUrl: p.media_primaryListingImageUrl,
+            photo_count: galleryImages.length,
+            fallback_used: fallbackUsed,
+        });
+
         return {
             id: cardId,
             listingId,
@@ -890,7 +931,7 @@ const mapSnapProperties = (rawProperties: any[]) => {
             state: p.state,
             beds: p.beds || p.bedrooms || p.bedroomTotal || 0,
             baths: p.baths || p.bathrooms || p.bathroomTotal || 0,
-            sqft: p.livingArea || p.sqft || 'N/A',
+            sqft: extractSqftValue(p),
             schoolRating: schools[0]?.rating || 'N/A',
             type: p.propertyType || p.homeType || 'Residential',
             description: p.description || `Match score: ${p.similarity_score?.toFixed(1) || 'N/A'}% - Found via image recognition`,
@@ -1240,6 +1281,21 @@ const normalizePoolValue = (value: any): boolean | null => {
         if (["no", "n", "false", "0"].includes(v)) return false;
     }
     return null;
+};
+
+const extractSqftValue = (property: any): number | null =>
+    parseNumericValue(
+        property?.sqft ??
+        property?.livingArea ??
+        property?.living_area ??
+        property?.property?.livingArea ??
+        property?.property_livingArea
+    );
+
+const formatSqftLabel = (sqft: any): string => {
+    const numericSqft = parseNumericValue(sqft);
+    if (numericSqft === null || numericSqft <= 0) return "--";
+    return `${Math.round(numericSqft).toLocaleString()} sqft`;
 };
 
 
@@ -2828,64 +2884,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
 
             if (Array.isArray(rawProperties)) {
                 const mappedProps = rawProperties.map((p: any, index: number) => {
-                    // 1. Image Extraction Priority
-                    let mainImage =
-                        p.primaryListingImageUrl ||
-                        p.primaryImage ||
-                        p.imgSrc ||
-                        p.image ||
-                        'https://images.unsplash.com/photo-1600585154340-be6161a56a0c';
-
-                    let galleryImages: string[] = [];
-
-                    // Try to get photo list
-                    let rawPhotos = null;
-                    if (p.photoListJson) {
-                        rawPhotos = p.photoListJson;
-                        try {
-                            const parsed = typeof p.photoListJson === 'string' ? JSON.parse(p.photoListJson) : p.photoListJson;
-                            if (Array.isArray(parsed)) {
-                                galleryImages = parsed.map((x: any) => {
-                                    if (typeof x === 'string') return x;
-                                    return x.highRes || x.midRes || x.url || x.lowRes || null;
-                                }).filter(Boolean);
-                            }
-                        } catch (e) { console.error("Error parsing photoListJson:", e); }
-                    } else if (p.photoList) {
-                        rawPhotos = p.photoList;
-                        try {
-                            const parsed = typeof p.photoList === 'string' ? JSON.parse(p.photoList) : p.photoList;
-                            if (Array.isArray(parsed)) {
-                                galleryImages = parsed.map((x: any) => {
-                                    if (typeof x === 'string') return x;
-                                    return x.highRes || x.midRes || x.url || x.lowRes || null;
-                                }).filter(Boolean);
-                            }
-                        } catch (e) { console.error("Error parsing photoList:", e); }
-                    } else if (p.photos && Array.isArray(p.photos)) {
-                        galleryImages = p.photos.map((x: any) => {
-                            if (typeof x === 'string') return x;
-                            return x.highRes || x.midRes || x.url || x.lowRes || null;
-                        }).filter(Boolean);
-                    }
-
-                    console.log(`[DEBUG] Property ${p.id} photos:`, {
-                        extractedCount: galleryImages.length,
-                        firstURL: galleryImages[0]
-                    });
-
-                    // If we have gallery images but no main image, use first gallery image
-                    if (galleryImages.length > 0 && mainImage.includes('unsplash')) {
-                        mainImage = galleryImages[0];
-                    }
-                    // If we have main image but no gallery, use main image as gallery
-                    if (galleryImages.length === 0 && !mainImage.includes('unsplash')) {
-                        galleryImages = [mainImage];
-                    }
-                    // Fallback if both empty
-                    if (galleryImages.length === 0) {
-                        galleryImages = [mainImage];
-                    }
+                    const { mainImage, galleryImages, fallbackUsed } = resolvePropertyCardImages(p);
 
                     // 2. Details Extraction
                     const fmtPrice = getCanonicalPriceForCard(p);
@@ -2923,6 +2922,16 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     const cardId = cardIdentity ?? buildStableFallbackId(p, 'search', index);
                     const listingUrl = p.listing_url || p.url || p.hdpUrl;
 
+                    console.log("[CHAT][CARD_IMAGE_MAP]", {
+                        listing_id: listingId || propertyId || cardId,
+                        address: p.address || p.formattedAddress || p.fullAddress || p.street,
+                        image_url: p.image_url,
+                        primaryListingImageUrl: p.primaryListingImageUrl,
+                        media_primaryListingImageUrl: p.media_primaryListingImageUrl,
+                        photo_count: galleryImages.length,
+                        fallback_used: fallbackUsed,
+                    });
+
                     return {
                         id: cardId,
                         listingId,
@@ -2938,7 +2947,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                         state: p.state,
                         beds: p.beds || p.bedrooms || p.bedroomTotal || 0,
                         baths: p.baths || p.bathrooms || p.bathroomTotal || 0,
-                        sqft: p.livingArea || p.sqft || 'N/A',
+                        sqft: extractSqftValue(p),
                         hasPool: hasPool,
                         schoolRating: schools[0]?.rating || 'N/A',
                         type: p.propertyType || p.homeType || 'Residential',
@@ -3968,7 +3977,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                                 const lastAiIndex = recovered.map(m => m.role).lastIndexOf('assistant');
                                                                 if (lastAiIndex !== -1) {
                                                                     const mappedProps = details.last_results.map((p: any, index: number) => {
-                                                                        const mainImage = p.primaryListingImageUrl || p.primaryImage || p.imgSrc || p.image || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c';
+                                                                        const { mainImage, galleryImages } = resolvePropertyCardImages(p);
                                                                         const fmtPrice = getCanonicalPriceForCard(p);
                                                                         const address = p.address || p.formattedAddress || (p.street ? `${p.street}, ${p.city}, ${p.state}` : 'Address Unavailable');
                                                                         const listingId = resolveListingId(p);
@@ -3986,13 +3995,20 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                                             address: address,
                                                                             beds: p.beds || p.bedrooms || p.bedroomTotal || 0,
                                                                             baths: p.baths || p.bathrooms || p.bathroomTotal || 0,
-                                                                            sqft: p.livingArea || p.sqft || 'N/A',
+                                                                            sqft: extractSqftValue(p),
                                                                             type: 'Residential',
-                                                                            hasPool: p.hasPool,
+                                                                            hasPool: normalizePoolValue(
+                                                                                p.hasPool ??
+                                                                                p.has_pool ??
+                                                                                p.propertyHasPool ??
+                                                                                p.pool ??
+                                                                                p.poolPresent ??
+                                                                                p.pool_present
+                                                                            ),
                                                                             features: p.features || [],
                                                                             schools: [],
                                                                             insights: { price: fmtPrice, safety: 'N/A', walkability: 'N/A', climate: 'N/A' },
-                                                                            images: [mainImage]
+                                                                            images: galleryImages.length ? galleryImages : [mainImage]
                                                                         };
                                                                     });
                                                                     recovered[lastAiIndex].relatedProperties = mappedProps;
@@ -4909,12 +4925,13 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                                     Number.isFinite(Number(property.displayIndex))
                                                                         ? Number(property.displayIndex)
                                                                         : idx + 1;
+                                                                const hasKnownPool = property.hasPool === true || property.hasPool === false;
                                                                 const poolLabel =
                                                                     property.hasPool === true
                                                                         ? "Yes"
                                                                         : property.hasPool === false
                                                                             ? "No"
-                                                                            : "N/A";
+                                                                            : "";
                                                                 const poolBadgeClass =
                                                                     property.hasPool === true
                                                                         ? "bg-emerald-50 text-emerald-700 border-emerald-200"
@@ -4981,18 +4998,20 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                                                 <div className="w-[1px] h-3.5 bg-gray-200"></div>
                                                                                 <span className='flex items-center gap-1.5'>
                                                                                     <Scaling className="w-3 h-3 text-gray-400 stroke-[1.5]" />
-                                                                                    <span>{property.sqft} sqft</span>
+                                                                                    <span>{formatSqftLabel(property.sqft)}</span>
                                                                                 </span>
                                                                             </div>
-                                                                            <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50/60 px-2.5 py-1 text-[11px] font-semibold text-gray-600">
-                                                                                <span className="flex items-center gap-1.5">
-                                                                                    <Droplets className="w-3 h-3 text-gray-400 stroke-[1.5]" />
-                                                                                    Pool
-                                                                                </span>
-                                                                                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${poolBadgeClass}`}>
-                                                                                    {poolLabel}
-                                                                                </span>
-                                                                            </div>
+                                                                            {hasKnownPool && (
+                                                                                <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50/60 px-2.5 py-1 text-[11px] font-semibold text-gray-600">
+                                                                                    <span className="flex items-center gap-1.5">
+                                                                                        <Droplets className="w-3 h-3 text-gray-400 stroke-[1.5]" />
+                                                                                        Pool
+                                                                                    </span>
+                                                                                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${poolBadgeClass}`}>
+                                                                                        {poolLabel}
+                                                                                    </span>
+                                                                                </div>
+                                                                            )}
 
                                                                             {/* Show More Button (Always Visible) */}
                                                                             <div className="flex justify-end pt-1">

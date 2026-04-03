@@ -207,11 +207,21 @@ jobs:
 
       - name: Upload public subfolders to s3 (parallel)
         run: |
-          aws s3 sync .next/static/ s3://${{ env.S3_BUCKET }}/_next/static/ --delete &
+          # Sync non-CSS/JS static files
+          aws s3 sync .next/static/ s3://${{ env.S3_BUCKET }}/_next/static/ --delete --exclude "*.css" --exclude "*.js" &
+          # Sync CSS with correct MIME type
+          aws s3 sync .next/static/ s3://${{ env.S3_BUCKET }}/_next/static/ --exclude "*" --include "*.css" --content-type "text/css" &
+          # Sync JS with correct MIME type
+          aws s3 sync .next/static/ s3://${{ env.S3_BUCKET }}/_next/static/ --exclude "*" --include "*.js" --content-type "application/javascript" &
           aws s3 sync public/assets/ s3://${{ env.S3_BUCKET }}/assets/ --delete &
           aws s3 sync public/logos/  s3://${{ env.S3_BUCKET }}/logos/  --delete &
           aws s3 sync public/data/   s3://${{ env.S3_BUCKET }}/data/   --delete &
           wait
+          # Fix content-type on any previously uploaded CSS/JS files already in S3
+          aws s3 cp s3://${{ env.S3_BUCKET }}/_next/static/css/ s3://${{ env.S3_BUCKET }}/_next/static/css/ \
+            --recursive --content-type "text/css" --metadata-directive REPLACE
+          aws s3 cp s3://${{ env.S3_BUCKET }}/_next/static/chunks/ s3://${{ env.S3_BUCKET }}/_next/static/chunks/ \
+            --recursive --content-type "application/javascript" --metadata-directive REPLACE
           echo "Public subfolders uploaded to s3 successfully"
 
       - name: Invalidate CloudFront cache

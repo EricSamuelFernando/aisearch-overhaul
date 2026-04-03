@@ -2986,7 +2986,7 @@ const PropertyPreview: React.FC = () => {
 
               <div
                 ref={askAiRailRef}
-                className="col-span-12 lg:col-span-4 xl:col-span-1 mt-4 lg:mt-0 xl:pl-[24px]"
+                className="col-span-12 lg:col-span-4 xl:col-span-1 lg:row-span-2 mt-4 lg:mt-0 xl:pl-[24px]"
               >
                 <div className="hidden lg:block w-full rounded-2xl bg-[#F9F6EF] shadow-sm border border-[#EFE7DC] p-4 sm:p-5 md:p-6 xl:w-[543px] min-[1536px]:max-[1919px]:w-[454px] xl:h-[569px] xl:rounded-[20px] xl:bg-[#FAF9F5] xl:border-none xl:px-[32px] xl:py-[26px]">
                   {(() => {
@@ -3411,7 +3411,7 @@ const PropertyPreview: React.FC = () => {
               </div>
 
               <div className="col-span-12 lg:col-span-8 xl:col-span-2 min-[1536px]:col-span-2">
-                <div className="mt-2 divide-y divide-gray-200 border-t border-gray-200">
+                <div className="mt-1 sm:mt-2 divide-y divide-gray-200 border-t border-gray-200 xl:w-[1169px] min-[1536px]:max-[1919px]:w-[978px] xl:mx-auto">
                   {sections.map((section) => {
                     const anchorId =
                       section.id === 'home'
@@ -3444,12 +3444,14 @@ const PropertyPreview: React.FC = () => {
                       >
                         <button
                           onClick={() => toggleSection(section.id)}
-                          className="w-full flex items-center justify-between py-8 text-left focus:outline-none transition-all"
+                          className="w-full flex items-center justify-between py-8 text-left focus:outline-none transition-all xl:h-[140px] xl:py-0"
                         >
-                          <span className="font-bold text-[22px] text-gray-900">
+                          <span
+                            className={`font-bold text-[22px] text-gray-900 xl:text-[32px] xl:leading-[54px] xl:h-[54px] xl:w-[304px] ${section.id === 'offers' || section.id === 'interest' || section.id === 'payment' ? 'whitespace-nowrap' : ''}`}
+                          >
                             {section.title}
                           </span>
-                          <span className="ml-3 shrink-0 inline-flex items-center gap-2 sm:gap-3">
+                          <span className="ml-3 shrink-0 inline-flex items-center gap-2 sm:gap-3 xl:justify-end">
                             {poweredBy && (
                               <span className="inline-flex items-center gap-1 sm:gap-1.5">
                                 <span className="text-[10px] sm:text-[11px] font-normal text-gray-500 whitespace-nowrap">
@@ -3461,7 +3463,7 @@ const PropertyPreview: React.FC = () => {
                                     alt={`Powered by ${poweredBy}`}
                                     width={poweredBy === 'SnapInterest' ? 106 : 84}
                                     height={30}
-                                    className="h-5 sm:h-6 w-auto object-contain"
+                                    className="h-7 sm:h-8 xl:h-[38px] w-auto object-contain"
                                   />
                                 ) : (
                                   <span className="text-[11px] font-normal text-gray-500">
@@ -3471,9 +3473,9 @@ const PropertyPreview: React.FC = () => {
                               </span>
                             )}
                             {openSections.includes(section.id) ? (
-                              <ChevronUp className="h-6 w-6 text-gray-700 transition-transform duration-200" />
+                              <ChevronUp className="h-6 w-6 text-gray-700 transition-transform duration-200 xl:h-[30px] xl:w-[30px]" strokeWidth={2.5} />
                             ) : (
-                              <ChevronDown className="h-6 w-6 text-gray-700 transition-transform duration-200" />
+                              <ChevronDown className="h-6 w-6 text-gray-700 transition-transform duration-200 xl:h-[30px] xl:w-[30px]" strokeWidth={2.5} />
                             )}
                           </span>
                         </button>
@@ -3481,67 +3483,19 @@ const PropertyPreview: React.FC = () => {
                         <div
                           className={`overflow-hidden transition-all duration-300 ${openSections.includes(section.id) ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}
                         >
-                          <button
-                            onClick={() => toggleSection(section.id)}
-                            className="w-full flex items-center justify-between py-2 sm:py-3 text-left focus:outline-none transition-all xl:h-[140px] xl:py-0"
-                          >
-                            <span
-                              className={`font-bold text-sm text-gray-900 sm:text-[16px] xl:h-[54px] xl:w-[304px] xl:text-[32px] xl:leading-[54px] ${section.id === 'offers' || section.id === 'interest' || section.id === 'payment' ? 'whitespace-nowrap' : ''}`}
-                            >
-                              {section.title}
-                            </span>
-                            <span className="ml-3 shrink-0 inline-flex items-center gap-2 sm:gap-3 xl:justify-end">
-                              {poweredBy && (
-                                <span className="hidden xl:inline-flex items-center gap-2">
-                                  <span className="whitespace-nowrap text-[12px] font-normal text-gray-500">
-                                    Powered by
-                                  </span>
-                                  {poweredByLogoSrc ? (
-                                    <Image
-                                      src={poweredByLogoSrc}
-                                      alt={`Powered by ${poweredBy}`}
-                                      width={poweredBy === 'SnapInterest' ? 106 : 84}
-                                      height={30}
-                                      className="h-[32px] w-auto object-contain"
-                                    />
-                                  ) : (
-                                    <span className="text-[12px] font-normal text-gray-500">
-                                      {poweredBy}
-                                    </span>
-                                  )}
-                                </span>
-                              )}
-                              {openSections.includes(section.id) ? (
-                                <ChevronUp
-                                  className="h-4 w-4 text-gray-800 transition-transform duration-200 sm:h-5 sm:w-5 xl:h-[30px] xl:w-[30px]"
-                                  strokeWidth={2.5}
-                                />
-                              ) : (
-                                <ChevronDown
-                                  className="h-4 w-4 text-gray-800 transition-transform duration-200 sm:h-5 sm:w-5 xl:h-[30px] xl:w-[30px]"
-                                  strokeWidth={2.5}
-                                />
-                              )}
-                            </span>
-                          </button>
-
                           <div
-                            className={`overflow-hidden transition-[max-height,opacity,transform] duration-400 ease-in-out ${openSections.includes(section.id) ? 'max-h-[3000px] translate-y-0 opacity-100' : 'max-h-0 -translate-y-1 opacity-0'}`}
+                            id={
+                              section.id === 'offers'
+                                ? 'property-content'
+                                : section.id === 'schools'
+                                  ? 'schools-content'
+                                  : section.id === 'interest'
+                                    ? 'forecast-content'
+                                    : undefined
+                            }
+                            className="pb-3 sm:pb-4 xl:text-[20px] xl:leading-[32px]"
                           >
-                            <div
-                              id={
-                                section.id === 'offers'
-                                  ? 'property-content'
-                                  : section.id === 'schools'
-                                    ? 'schools-content'
-                                    : section.id === 'interest'
-                                      ? 'forecast-content'
-                                      : undefined
-                              }
-                              className="pb-3 sm:pb-4 xl:text-[20px] xl:leading-[32px]"
-                            >
-                              {section.content}
-                            </div>
+                            {section.content}
                           </div>
                         </div>
                       </div>

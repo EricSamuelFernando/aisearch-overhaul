@@ -244,7 +244,7 @@ export async function streamChat(
     userId?: string,
     signal?: AbortSignal
 ): Promise<Response> {
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const baseUrl = process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI || 'https://demo-new-ai.snaphomz.com';
     return fetch(`${baseUrl}/api/chat`, {
         method: 'POST',
         headers: {

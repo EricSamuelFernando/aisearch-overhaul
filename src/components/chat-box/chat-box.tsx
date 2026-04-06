@@ -2544,6 +2544,7 @@ export default function ChatBoxComponent(props: any) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [showUnreadOnly, setShowUnreadOnly] = useState(false)
+  const [showNegotiationOnly, setShowNegotiationOnly] = useState(false)
   const toggleDropdown = () => setIsDropdownOpen((prev) => !prev)
   const closeDropdown = () => setIsDropdownOpen(false)
   const [message, setMessage] = useState("")
@@ -2661,8 +2662,12 @@ export default function ChatBoxComponent(props: any) {
         hasOfferSignal = true;
       }
 
-      const isNotification = messageType === "notification";
-      const isInitialInvitationMessage = normalizedText === "let's connect and talk";
+      const isNotification = messageType === "notification" || messageType === "system";
+      const isInitialInvitationMessage =
+        normalizedText === "let's connect and talk" ||
+        normalizedText.includes("agent invited to property") ||
+        normalizedText.includes("negotiate");
+
       if (!isNotification && !isInitialInvitationMessage) {
         hasMeaningfulChatMessage = true;
       }
@@ -2671,9 +2676,12 @@ export default function ChatBoxComponent(props: any) {
     if (hasDeclinedSignal) return "DECLINED";
     if (hasAcceptedSignal) return "ACCEPTED";
     if (hasOfferSignal) {
+      // If we have an offer, and THEN meaningful chat messages, it might be in active discussion (Phase 2)
       return hasMeaningfulChatMessage ? "ACCEPTED" : "OFFER_SENT";
     }
-    if (hasMeaningfulChatMessage) return "ACCEPTED";
+
+    // Default to PENDING for property threads if no specific offer/acceptance signal exists.
+    // Even if chat exists, we keep the negotiation options open until terms are settled.
     return "NEGOTIATION_PENDING";
   }, []);
 
@@ -3381,8 +3389,15 @@ export default function ChatBoxComponent(props: any) {
         (entry) => (entry.totalUnread || 0) > 0,
       );
     }
+    if (showNegotiationOnly) {
+      return aggregatedThreads.filter((entry) => {
+        const thread = entry.baseThread;
+        const status = resolveThreadNegotiationStatus(thread, thread?.messages);
+        return status === "NEGOTIATION_PENDING" || status === "OFFER_SENT";
+      });
+    }
     return aggregatedThreads;
-  }, [aggregatedThreads, showUnreadOnly]);
+  }, [aggregatedThreads, showUnreadOnly, showNegotiationOnly, resolveThreadNegotiationStatus]);
 
   useEffect(() => {
     const threadIds = displayedThreads
@@ -6568,16 +6583,17 @@ export default function ChatBoxComponent(props: any) {
             </div>
 
             {/* Toggle Buttons */}
-            <div className="p-2 px-4  border-b flex justify-center items-center">
+            <div className="p-2 px-4 border-b flex justify-center items-center">
               <div className="flex w-full gap-2 rounded-full bg-gray-100 p-1 shadow-sm">
                 <Button
                   size="sm"
                   variant="ghost"
                   onClick={() => {
                     setShowUnreadOnly(false)
+                    setShowNegotiationOnly?.(false)
                     setIsRead(false)
                   }}
-                  className={`h-10 w-full text-gray-600 rounded-full px-4 py-2 ${!showUnreadOnly ? "bg-white shadow text-gray-800" : ""}`}
+                  className={`h-10 w-full text-gray-600 rounded-full px-4 py-2 ${!showUnreadOnly && !showNegotiationOnly ? "bg-white shadow text-gray-800" : ""}`}
                 >
                   All
                 </Button>
@@ -6586,6 +6602,7 @@ export default function ChatBoxComponent(props: any) {
                   variant="ghost"
                   onClick={() => {
                     setShowUnreadOnly(true)
+                    setShowNegotiationOnly?.(false)
                     setIsRead(false)
                   }}
                   className={`h-10 w-full rounded-full px-4 py-2 ${showUnreadOnly
@@ -6605,6 +6622,23 @@ export default function ChatBoxComponent(props: any) {
                     >
                       {unreadMessageCount}
                     </span>
+                  </span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setShowNegotiationOnly?.(true)
+                    setShowUnreadOnly(false)
+                    setIsRead(false)
+                  }}
+                  className={`h-10 w-full rounded-full px-4 py-2 ${showNegotiationOnly
+                    ? "bg-orange-50 shadow text-orange-700"
+                    : "text-gray-600"
+                    }`}
+                >
+                  <span className="flex items-center justify-center gap-2">
+                    <span>Negotiation</span>
                   </span>
                 </Button>
               </div>

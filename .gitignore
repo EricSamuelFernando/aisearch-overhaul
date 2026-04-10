@@ -41,6 +41,9 @@ next-env.d.ts
 .vscode
 .DS_Store
  
+# AI Assistant — SQLite DB and MLS raw samples
+.data/
+
 # Yarn
 .yarn/*
 !.yarn/patches

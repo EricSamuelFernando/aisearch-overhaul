@@ -42,6 +42,7 @@ function DashboardLayout({ children }: Readonly<Props>) {
 
   const navClass = isSpecialPage ? 'bg-[#F7F2EB]' : 'bg-primary-100';
   const isChatPage = pathname === '/dashboard/chat';
+  const isAIAssistantPage = pathname === '/dashboard/ai-assistant';
 
   // Check if modal should show — ONLY using AI API
   useEffect(() => {
@@ -124,10 +125,10 @@ function DashboardLayout({ children }: Readonly<Props>) {
       />
       <DashboardNav navClass={navClass} />
       <section className="flex-grow">
-        <div className={`${isChatPage ? "" : 'mt-[5.5rem]'}`}>{children}</div>
+        <div className={`${isChatPage || isAIAssistantPage ? "" : 'mt-[5.5rem]'}`}>{children}</div>
       </section>
       {/* Footer placed normally at the bottom */}
-      {!isChatPage && (
+      {!isChatPage && !isAIAssistantPage && (
         <footer className="mt-4">
           <Footer />
         </footer>

@@ -797,7 +797,6 @@ import { useMediaQuery } from '@mantine/hooks';
 
 import MainTestimonial from '../../../components/main-testimonial';
 import { ChooseYourMeans } from '@/components/buy/choose-your-means';
-import { HeroSearchForm } from '@/components/main/hero-tab';
 import { WeMakeItEasy } from '@/components/buy/we-make-it-easy';
 import { OfferStrengthAnalyzer } from '@/components/buy/offer-strength-analyzer';
 import GetReadyForCollege from '@/components/buy/get-ready-for-college';
@@ -816,6 +815,7 @@ import BuyOrRent from '@/components/buy/buy-or-rent';
 import FindPerfectMortgage from '@/components/buy/find-your-mortgage';
 import HomeDisclosure from '@/components/buy/home-disclosure';
 import Footer from '@/components/shared/footer';
+import LandingAIChat from '@/components/ai-assistant/LandingAIChat';
 
 const questions = [
   {
@@ -1584,61 +1584,8 @@ export default function Home() {
               First end-to-end guided real estate platform
             </p>
 
-            <div className="relative w-full flex justify-center text-black">
-              <div className={`home-hero-search-wrap mx-auto w-full transition-all duration-300 ${isHomeSearchActive ? 'home-hero-search-wrap--expanded' : ''}`}>
-                <HeroSearchForm
-                  onSearchStateChange={(isActive) => setIsHomeSearchActive(isActive)}
-                  onSuggestionsOpen={(open) => setIsSearchSuggestionsOpen(open)}
-                  respectParentWidth
-                />
-              </div>
-
-              {/* <div className="mt-4 flex justify-center gap-4 text-sm text-white">
-                <Radio
-                  value="nlp"
-                  label="Search by Location"
-                  size="xs"
-                  checked={searchMethod === 'nlp'}
-                  onChange={() => setSearchMethod('nlp')}
-                />
-                <Radio
-                  value="address"
-                  label="Search by Full Address"
-                  size="xs"
-                  checked={searchMethod === 'address'}
-                  onChange={() => setSearchMethod('address')}
-                />
-              </div> */}
-            </div>
-
-            <div className="home-hero-meta mt-2 flex items-center justify-center transition-all duration-200 md:-mt-3 md:gap-x-3">
-              <span className={`whitespace-nowrap text-[0.82rem] font-medium transition-colors md:text-[1rem] ${heroMetaTextClass}`}>
-                Conversational Search,
-              </span>
-              <div className="home-hero-meta-copy flex items-center gap-2">
-                <span
-                  className={`whitespace-nowrap text-[0.82rem] font-bold underline transition-colors md:text-[1rem] ${heroMetaAccentClass}`}
-                >
-                  Powered by Snaphomz AI.
-                </span>
-                <button className="uiverse home-hero-beta">
-                  <div className="wrapper">
-                    <span>BETA</span>
-                    <div className="circle circle-12"></div>
-                    <div className="circle circle-11"></div>
-                    <div className="circle circle-10"></div>
-                    <div className="circle circle-9"></div>
-                    <div className="circle circle-8"></div>
-                    <div className="circle circle-7"></div>
-                    <div className="circle circle-6"></div>
-                    <div className="circle circle-5"></div>
-                    <div className="circle circle-4"></div>
-                    <div className="circle circle-3"></div>
-                    <div className="circle circle-2"></div>
-                    <div className="circle circle-1"></div>
-                  </div>
-                </button>
-              </div>
+            <div className="relative w-full flex justify-center">
+              <LandingAIChat />
             </div>
 
           </div>

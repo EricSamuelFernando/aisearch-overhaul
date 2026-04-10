@@ -67,7 +67,7 @@ export async function searchListings(params: MLSSearchParams): Promise<MLSListin
 
   const normalized = records.map(normalizeListing);
 
-  // Belt-and-suspenders: strip any lease/rental results that slipped through
+  // Strip lease/rental results
   const filtered = normalized.filter((l) => {
     const pt = (l.property_type ?? "").toLowerCase();
     return !pt.includes("lease") && !pt.includes("rental");
@@ -77,7 +77,20 @@ export async function searchListings(params: MLSSearchParams): Promise<MLSListin
     console.log(`[MLS] filtered out ${normalized.length - filtered.length} lease/rental record(s)`);
   }
 
-  return filtered;
+  // Deduplicate by address — API sometimes returns the same property twice
+  const seen = new Set<string>();
+  const deduped = filtered.filter((l) => {
+    const key = l.full_address.toLowerCase().trim();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  if (deduped.length !== filtered.length) {
+    console.log(`[MLS] deduplicated ${filtered.length - deduped.length} duplicate(s)`);
+  }
+
+  return deduped;
 }
 
 // Exact field paths confirmed from live RealEstateAPI.com v2 response.

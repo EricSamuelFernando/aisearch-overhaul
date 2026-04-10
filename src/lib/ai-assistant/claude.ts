@@ -5,15 +5,46 @@ export const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-/** Minimal prompt for the Haiku tool-use call — just enough to extract search params fast. */
-export const INTENT_SYSTEM_PROMPT = `You are a real estate search assistant. Your only job is to decide whether to call search_mls.
+/** System prompt for Groq intent extraction — must be explicit to avoid small model errors. */
+export const INTENT_SYSTEM_PROMPT = `You are a real estate search router. You have exactly two tools: search_mls and answer_user.
 
-Call search_mls when the user wants to find, browse, filter, or re-show properties.
-Do NOT call it for general questions, greetings, or advice.
+RULE: Call search_mls whenever the user's message contains ANY of:
+- A city or location name
+- A price, budget, or dollar amount
+- A bedroom or bathroom count
+- A property feature (pool, waterfront, garage, etc.)
+- Words like "show", "find", "search", "filter", "homes", "houses", "listings", "properties"
+- A follow-up that modifies a prior search ("raise the budget", "add a pool", "make it 4 beds", "show those again", "what about X instead")
 
-Extract all search criteria mentioned: city, state (2-letter code), price range, beds, baths, pool, waterfront, sqft, year built. Prices like "1 million" = 1000000, "500k" = 500000.`;
+EXAMPLES — all of these must call search_mls:
+- "show me homes in Morgan Hill" → search_mls city=Morgan Hill state=CA
+- "show me homes in Morgan Hill, raise the budget to 1.5 million" → search_mls city=Morgan Hill state=CA listing_price_max=1500000
+- "raise the budget to 2 million" → search_mls, keep last city/beds, set listing_price_max=2000000
+- "now show me Dallas" → search_mls city=Dallas state=TX, keep all other filters from last search
+- "what about Austin instead" → search_mls city=Austin state=TX, keep filters
+- "filter to ones with a pool" → search_mls, keep last city/price/beds, add has_pool=true
+- "show me those again" → search_mls with exact same params as last search
+- "4 bed homes in Miami under $700k" → search_mls
+- "anything cheaper?" → search_mls, lower the price max by ~30%
 
-export function buildSystemPrompt(profile: BuyerProfile): string {
+For follow-up refinements: read the conversation history to find the last search_mls parameters, then apply the user's changes on top.
+
+ONLY call answer_user for:
+- Pure greetings with zero property intent ("hi", "hello", "thanks")
+- Questions about a specific already-shown listing ("what's the HOA on that second one?")
+- General real estate knowledge with no search needed ("what is cap rate?")
+
+NEVER respond with text — always call one of the two tools.
+
+Parameter rules:
+- state: always 2-letter code (TX, CA, FL, NY, CO, AZ etc.)
+- "700k" = 700000, "1.5 million" = 1500000, "2M" = 2000000
+- "under $500k" → listing_price_max: 500000
+- "between 1 and 3 million" → listing_price_min: 1000000, listing_price_max: 3000000
+- "4 bed" → bedrooms_min: 4
+- Default size: 6, max: 12`;
+
+export function buildSystemPrompt(profile: BuyerProfile, memoryContext = ""): string {
   const hasProfile =
     profile.preferredLocations.length > 0 ||
     profile.budgetMax !== null ||
@@ -33,6 +64,7 @@ export function buildSystemPrompt(profile: BuyerProfile): string {
     : "\n## Known Buyer Profile\nNo profile data yet — learn from this conversation.\n";
 
   return `You are a sharp, knowledgeable real estate assistant for Snaphomz. Help users find homes by searching MLS listings and summarising results clearly.
+${memoryContext ? `\n${memoryContext}\n` : ""}
 
 ${profileSummary}
 
@@ -49,13 +81,6 @@ When you call search_mls, the server returns live listing data. Summarise it —
 - Use bullet format: address, price, beds/baths, key features, days on market if notable
 - Call out price-per-sqft when it's a good deal
 - If zero results: suggest one or two filter relaxations and offer to retry
-
-## Updating the Buyer Profile
-When the user reveals a clear preference, append a profile update at the end of your response (stripped server-side — invisible to the user):
-[PROFILE_UPDATE]
-{ "budgetMax": 500000, "mustHaves": ["pool"], "preferredLocations": ["Austin, TX"] }
-[/PROFILE_UPDATE]
-Only include fields that changed. Use arrays for list fields.
 
 ## Tone
 - Direct and confident. No filler like "Great question!" or "Certainly!".

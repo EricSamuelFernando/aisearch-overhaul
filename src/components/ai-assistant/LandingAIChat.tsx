@@ -15,10 +15,7 @@ interface Message {
 }
 
 function cleanContent(text: string): string {
-  return text
-    .replace(/\[PROFILE_UPDATE\][\s\S]*?\[\/PROFILE_UPDATE\]/g, '')
-    .replace(/```mls_search[\s\S]*?```/g, '')
-    .trim();
+  return text.replace(/```mls_search[\s\S]*?```/g, '').trim();
 }
 
 function getUserId(): string {
@@ -192,11 +189,11 @@ export default function LandingAIChat() {
   const lastMsgIndex = messages.length - 1;
 
   return (
-    <div className={`w-full max-w-[680px] mx-auto transition-all duration-500 ${isExpanded ? 'max-h-[600px]' : 'max-h-[160px]'}`}>
+    <div className={`w-full max-w-[680px] mx-auto transition-all duration-500 ${isExpanded ? 'max-h-[800px]' : 'max-h-[160px]'}`}>
 
       {/* Chat messages */}
       {isExpanded && (
-        <div ref={scrollContainerRef} className="h-[460px] overflow-y-auto mb-3 rounded-2xl bg-[#1a0800] border border-white/10 p-4 space-y-4 scrollbar-hide">
+        <div ref={scrollContainerRef} className="h-[660px] overflow-y-auto mb-3 rounded-2xl bg-[#1a0800] border border-white/10 p-4 space-y-4 scrollbar-hide">
           {messages.map((m, i) => {
             const clean = cleanContent(m.content);
             const isUser = m.role === 'user';

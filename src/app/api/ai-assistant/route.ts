@@ -1,11 +1,13 @@
 import { NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import Groq from "groq-sdk";
-import { anthropic, buildSystemPrompt, INTENT_SYSTEM_PROMPT } from "@/lib/ai-assistant/claude";
+import { anthropic, buildSearchSystemPrompt, buildConversationalSystemPrompt, INTENT_SYSTEM_PROMPT } from "@/lib/ai-assistant/claude";
 import { searchListings, formatListingsForPrompt } from "@/lib/ai-assistant/mls";
 import {
   loadProfile,
   loadHistory,
+  loadSearchContext,
+  saveSearchContext,
   appendMessage,
   extractAndUpdateProfile,
 } from "@/lib/ai-assistant/memory";
@@ -34,7 +36,8 @@ const TOOLS: Groq.Chat.ChatCompletionTool[] = [
       description:
         "Search MLS for real estate listings. Call this when the user wants to find, " +
         "browse, filter, or re-show properties — including follow-ups like 'now show me X', " +
-        "'what about Dallas instead', 'filter to ones with a pool', 'show those again'.",
+        "'what about Dallas instead', 'filter to ones with a pool', 'show those again'. " +
+        "Do NOT call this if the user is asking about a specific listing already shown.",
       parameters: {
         type: "object",
         properties: {
@@ -60,11 +63,33 @@ const TOOLS: Groq.Chat.ChatCompletionTool[] = [
   {
     type: "function",
     function: {
+      name: "reference_listing",
+      description:
+        "User is asking about a specific listing that was already shown in a previous turn — " +
+        "e.g. 'tell me more about the second house', 'what year was the first one built', " +
+        "'how big is listing #3', 'tell me about that last one'. " +
+        "Never call this for a new search. Always prefer this over search_mls when listings were already shown.",
+      parameters: {
+        type: "object",
+        properties: {
+          listing_index: {
+            type: "integer",
+            description: "1-based position of the listing the user is referring to (1 = first tile shown, 2 = second, etc.)",
+          },
+        },
+        required: ["listing_index"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "answer_user",
       description:
-        "Answer a conversational question that does NOT require searching for listings. " +
-        "Use this for greetings, questions about a specific listing already shown, " +
-        "general real estate advice, or anything that doesn't need a new MLS search.",
+        "Answer a general conversational question that does NOT involve listings. " +
+        "Use this for greetings, general real estate advice, mortgage questions, " +
+        "neighborhood questions, or anything that doesn't reference a specific shown listing " +
+        "and doesn't need a new MLS search.",
       parameters: {
         type: "object",
         properties: {
@@ -102,24 +127,58 @@ export async function POST(req: NextRequest) {
         const memoryPromise = getUserMemoryContext(userId, message);
 
         // Redis is fast (~30ms)
-        const [profile, history] = await Promise.all([
+        const [profile, history, searchCtx] = await Promise.all([
           loadProfile(userId),
           loadHistory(userId, 20),
+          loadSearchContext(userId),
         ]);
         log("profile + history loaded", T0);
 
         await appendMessage(userId, { role: "user", content: message });
 
+        // Build Claude messages — if an assistant turn showed listings, append a
+        // numbered block so Claude can answer positional follow-ups ("the second home").
         const conversationMessages: Anthropic.MessageParam[] = [
-          ...history.map((m) => ({
-            role: m.role as "user" | "assistant",
-            content: m.content,
-          })),
+          ...history.flatMap((m) => {
+            const base: Anthropic.MessageParam = {
+              role: m.role as "user" | "assistant",
+              content: m.content,
+            };
+            if (m.role === "assistant" && m.listings && m.listings.length > 0) {
+              const listingBlock = m.listings
+                .map(
+                  (l, i) =>
+                    `#${i + 1}: ${l.full_address} — $${l.listing_price?.toLocaleString()}, ${l.bedrooms}bd/${l.bathrooms}ba, ${l.living_area?.toLocaleString()} sqft${l.year_built ? `, built ${l.year_built}` : ""}`,
+                )
+                .join("\n");
+              return [
+                base,
+                {
+                  role: "user" as const,
+                  content: `[Listings shown to user in the previous turn]\n${listingBlock}\n[End of listings]`,
+                },
+                {
+                  role: "assistant" as const,
+                  content: "Got it — I have those listings as context.",
+                },
+              ];
+            }
+            return [base];
+          }),
           { role: "user", content: message },
         ];
 
         // ── Step 1: Groq routing (~1-2s) — race Supermemory in parallel ─────────
         console.log("\x1b[36m[AI]\x1b[0m \x1b[35m→ Groq routing call\x1b[0m");
+
+        // Build the search context block injected into Groq so implicit carry-over
+        // queries ("such homes", "same filters in X") always have concrete params.
+        const searchCtxBlock = searchCtx
+          ? `\n## Last search context\nLocation: ${searchCtx.resolvedLocation}\nFilters: ${Object.entries(searchCtx.params)
+              .filter(([, v]) => v !== undefined)
+              .map(([k, v]) => `${k}=${v}`)
+              .join(", ")}\n`
+          : "";
 
         const [groqResponse, memoryContext] = await Promise.all([
           groq.chat.completions.create({
@@ -127,11 +186,13 @@ export async function POST(req: NextRequest) {
             max_tokens: 256,
             temperature: 0,
             messages: [
-              { role: "system", content: INTENT_SYSTEM_PROMPT },
+              { role: "system", content: INTENT_SYSTEM_PROMPT + searchCtxBlock },
               ...history.slice(-8).map((m) => ({
                 role: m.role as "user" | "assistant",
                 content: m.role === "assistant"
-                  ? "[assistant responded with listings/answer]"
+                  ? m.listings && m.listings.length > 0
+                    ? `[showed ${m.listings.length} listings: ${m.listings.map((l, i) => `#${i + 1} ${l.full_address}`).join(", ")}]`
+                    : "[assistant responded with answer]"
                   : m.content,
               })),
               { role: "user", content: message },
@@ -149,8 +210,6 @@ export async function POST(req: NextRequest) {
         log("Groq routing done", T0);
         if (memoryContext) log("memory context ready", T0);
 
-        const systemPrompt = buildSystemPrompt(profile, memoryContext);
-
         const toolCall = groqResponse.choices[0].message.tool_calls?.[0];
         const toolName = toolCall?.function.name;
 
@@ -162,7 +221,7 @@ export async function POST(req: NextRequest) {
           const convStream = await anthropic.messages.create({
             model: "claude-sonnet-4-6",
             max_tokens: 512,
-            system: systemPrompt,
+            system: buildConversationalSystemPrompt(profile, memoryContext),
             messages: conversationMessages,
             stream: true,
           });
@@ -184,6 +243,93 @@ export async function POST(req: NextRequest) {
           extractAndUpdateProfile(userId, message, fullResp);
           writeMemory(userId, `User asked: ${message}\nAssistant answered: ${fullResp}`);
 
+          controller.close();
+          return;
+        }
+
+        // ── reference_listing → look up from history, focus single tile ─────
+        if (toolName === "reference_listing") {
+          console.log("\x1b[36m[AI]\x1b[0m reference_listing path");
+          const { listing_index } = JSON.parse(toolCall.function.arguments) as { listing_index: number };
+
+          // Find the most recent assistant turn that has listings
+          const lastListingTurn = [...history].reverse().find((m) => m.listings && m.listings.length > 0);
+          const targetListing = lastListingTurn?.listings?.[listing_index - 1];
+
+          if (!targetListing) {
+            // No listing found at that index — fall through to conversational answer
+            const fallbackStream = await anthropic.messages.create({
+              model: "claude-sonnet-4-6",
+              max_tokens: 512,
+              system: buildConversationalSystemPrompt(profile, memoryContext),
+              messages: conversationMessages,
+              stream: true,
+            });
+            let fallbackResp = "";
+            for await (const ev of fallbackStream) {
+              if (ev.type === "content_block_delta" && ev.delta.type === "text_delta") {
+                fallbackResp += ev.delta.text;
+                send({ type: "token", text: ev.delta.text });
+              }
+            }
+            send({ type: "done" });
+            await appendMessage(userId, { role: "assistant", content: fallbackResp });
+            extractAndUpdateProfile(userId, message, fallbackResp);
+            writeMemory(userId, `User asked: ${message}\nAssistant answered: ${fallbackResp}`);
+            controller.close();
+            return;
+          }
+
+          // Emit a single focused tile immediately — no MLS call needed
+          send({ type: "listing_focus", data: targetListing, index: listing_index });
+          log(`listing_focus tile emitted (index ${listing_index})`, T0);
+
+          // Build a focused listing block for Claude
+          const focusedListingText = [
+            `Address: ${targetListing.full_address}`,
+            `Price: $${targetListing.listing_price?.toLocaleString()}`,
+            `Bedrooms: ${targetListing.bedrooms}`,
+            `Bathrooms: ${targetListing.bathrooms}`,
+            `Living area: ${targetListing.living_area?.toLocaleString()} sqft`,
+            targetListing.lot_size ? `Lot size: ${targetListing.lot_size?.toLocaleString()} sqft` : null,
+            targetListing.year_built ? `Year built: ${targetListing.year_built}` : null,
+            targetListing.has_pool != null ? `Pool: ${targetListing.has_pool ? "Yes" : "No"}` : null,
+            targetListing.days_on_market != null ? `Days on market: ${targetListing.days_on_market}` : null,
+            targetListing.description ? `Description: ${targetListing.description}` : null,
+          ]
+            .filter(Boolean)
+            .join("\n");
+
+          const focusStream = await anthropic.messages.create({
+            model: "claude-sonnet-4-6",
+            max_tokens: 512,
+            system: buildConversationalSystemPrompt(profile, memoryContext),
+            messages: [
+              ...conversationMessages.slice(0, -1), // history without current message
+              {
+                role: "user",
+                content: `${message}\n\n[Listing #${listing_index} details]\n${focusedListingText}\n[End of listing]`,
+              },
+            ],
+            stream: true,
+          });
+
+          let focusResp = "";
+          let firstToken = true;
+          for await (const ev of focusStream) {
+            if (ev.type === "content_block_delta" && ev.delta.type === "text_delta") {
+              if (firstToken) { log("first token", T0); firstToken = false; }
+              focusResp += ev.delta.text;
+              send({ type: "token", text: ev.delta.text });
+            }
+          }
+
+          send({ type: "done" });
+          log("DONE — reference_listing", T0);
+
+          await appendMessage(userId, { role: "assistant", content: focusResp });
+          extractAndUpdateProfile(userId, message, focusResp);
+          writeMemory(userId, `User asked about listing #${listing_index} (${targetListing.full_address}): ${message}\nAssistant answered: ${focusResp}`);
           controller.close();
           return;
         }
@@ -213,7 +359,7 @@ export async function POST(req: NextRequest) {
         const summaryStream = await anthropic.messages.create({
           model: "claude-sonnet-4-6",
           max_tokens: 512,
-          system: systemPrompt,
+          system: buildSearchSystemPrompt(profile, memoryContext),
           messages: [
             { role: "user", content: message },
             { role: "assistant", content: "Searching MLS now..." },
@@ -239,7 +385,12 @@ export async function POST(req: NextRequest) {
         send({ type: "done" });
         log("DONE — total", T0);
 
-        await appendMessage(userId, { role: "assistant", content: fullResponse });
+        await appendMessage(userId, { role: "assistant", content: fullResponse, listings });
+        saveSearchContext(userId, {
+          params: searchParams,
+          resolvedLocation: [searchParams.city, searchParams.state].filter(Boolean).join(", ") || "Unknown",
+          appliedAt: new Date().toISOString(),
+        });
         extractAndUpdateProfile(userId, message, fullResponse);
         writeMemory(
           userId,

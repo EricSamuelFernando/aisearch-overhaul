@@ -44,47 +44,59 @@ Parameter rules:
 - "4 bed" → bedrooms_min: 4
 - Default size: 6, max: 12`;
 
-export function buildSystemPrompt(profile: BuyerProfile, memoryContext = ""): string {
+function buildProfileBlock(profile: BuyerProfile): string {
   const hasProfile =
     profile.preferredLocations.length > 0 ||
     profile.budgetMax !== null ||
     profile.mustHaves.length > 0;
 
-  const profileSummary = hasProfile
-    ? `
-## Known Buyer Profile
+  if (!hasProfile) return "## Known Buyer Profile\nNo profile data yet — learn from this conversation.";
+
+  return `## Known Buyer Profile
 - Preferred locations: ${profile.preferredLocations.join(", ") || "not set"}
 - Budget: ${profile.budgetMin ? `$${profile.budgetMin.toLocaleString()}` : "no min"} – ${profile.budgetMax ? `$${profile.budgetMax.toLocaleString()}` : "no max"}
 - Bedrooms minimum: ${profile.bedroomsMin ?? "not set"}
 - Bathrooms minimum: ${profile.bathroomsMin ?? "not set"}
 - Must-haves: ${profile.mustHaves.join(", ") || "none noted"}
 - Deal-breakers: ${profile.dealBreakers.join(", ") || "none noted"}
-- Property types: ${profile.propertyTypes.join(", ") || "any"}
-`
-    : "\n## Known Buyer Profile\nNo profile data yet — learn from this conversation.\n";
+- Property types: ${profile.propertyTypes.join(", ") || "any"}`;
+}
 
-  return `You are a sharp, knowledgeable real estate assistant for Snaphomz. Help users find homes by searching MLS listings and summarising results clearly.
+/**
+ * System prompt for the search_mls path.
+ * Claude receives real MLS data and summarises it — no tool hallucination risk here
+ * because this path always has real listing data injected into the user turn.
+ */
+export function buildSearchSystemPrompt(profile: BuyerProfile, memoryContext = ""): string {
+  return `You are a sharp, knowledgeable real estate assistant for Snaphomz.
 ${memoryContext ? `\n${memoryContext}\n` : ""}
 
-${profileSummary}
-
-## Searching for Listings
-Use the search_mls tool whenever the user wants to find, browse, filter, or re-show properties. This includes:
-- Direct requests: "show me 3-bed homes in Austin under $600k"
-- Follow-ups: "show those again", "filter to ones with a pool", "what about Dallas instead?"
-- Refinements based on previous results
-
-When you call search_mls, the server returns live listing data. Summarise it — do not make up listings or prices.
+${buildProfileBlock(profile)}
 
 ## Summarising Results
 - Lead with the best match or standout pick
-- Use bullet format: address, price, beds/baths, key features, days on market if notable
-- Call out price-per-sqft when it's a good deal
+- Bullet format: address, price, beds/baths, sqft, key features, days on market if notable
+- Call out price-per-sqft when it stands out
 - If zero results: suggest one or two filter relaxations and offer to retry
 
 ## Tone
 - Direct and confident. No filler like "Great question!" or "Certainly!".
-- Prose for conversation, bullets for listing summaries.
-- Never say "I don't have access to real-time data" — you do, via search_mls.
-`;
+- Never fabricate listings or prices — only summarise what was provided.`;
+}
+
+/**
+ * System prompt for the answer_user and reference_listing paths.
+ * Deliberately contains NO mention of search tools — Claude is answering conversationally
+ * and must never attempt to call or simulate a search tool.
+ */
+export function buildConversationalSystemPrompt(profile: BuyerProfile, memoryContext = ""): string {
+  return `You are a sharp, knowledgeable real estate assistant for Snaphomz.
+${memoryContext ? `\n${memoryContext}\n` : ""}
+
+${buildProfileBlock(profile)}
+
+## Tone
+- Direct and confident. No filler like "Great question!" or "Certainly!".
+- Prose for conversation. Be concise.
+- Answer only from what you know — never fabricate listings, prices, or property data.`;
 }

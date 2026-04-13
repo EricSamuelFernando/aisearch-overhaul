@@ -1,6 +1,13 @@
 export interface AIAssistantMessage {
   role: "user" | "assistant";
   content: string;
+  listings?: MLSListing[];
+}
+
+export interface SearchContext {
+  params: MLSSearchParams;
+  resolvedLocation: string; // human-readable e.g. "Las Vegas, NV"
+  appliedAt: string;        // ISO timestamp
 }
 
 export interface BuyerProfile {

@@ -1,15 +1,17 @@
 import Groq from "groq-sdk";
 import { getRedis } from "./db";
-import { BuyerProfile, AIAssistantMessage } from "@/types/ai-assistant";
+import { BuyerProfile, AIAssistantMessage, SearchContext } from "@/types/ai-assistant";
 
-const PROFILE_TTL = 60 * 60 * 24 * 90; // 90 days
-const HISTORY_TTL = 60 * 60 * 24 * 30; // 30 days
+const PROFILE_TTL      = 60 * 60 * 24 * 90; // 90 days
+const HISTORY_TTL      = 60 * 60 * 24 * 30; // 30 days
+const SEARCH_CTX_TTL   = 60 * 60 * 24 * 7;  // 7 days — last search context
 const HISTORY_MAX = 40;
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-function profileKey(userId: string) { return `profile:${userId}`; }
-function historyKey(userId: string) { return `history:${userId}`; }
+function profileKey(userId: string)      { return `profile:${userId}`; }
+function historyKey(userId: string)      { return `history:${userId}`; }
+function searchCtxKey(userId: string)    { return `search_ctx:${userId}`; }
 
 const DEFAULT_PROFILE = (userId: string): BuyerProfile => ({
   userId,
@@ -39,6 +41,16 @@ export async function loadHistory(userId: string, limit = 20): Promise<AIAssista
   const redis = getRedis();
   const items = await redis.lrange<AIAssistantMessage>(historyKey(userId), -limit, -1);
   return items ?? [];
+}
+
+export async function loadSearchContext(userId: string): Promise<SearchContext | null> {
+  const redis = getRedis();
+  return redis.get<SearchContext>(searchCtxKey(userId));
+}
+
+export async function saveSearchContext(userId: string, ctx: SearchContext): Promise<void> {
+  const redis = getRedis();
+  await redis.set(searchCtxKey(userId), ctx, { ex: SEARCH_CTX_TTL });
 }
 
 export async function appendMessage(userId: string, message: AIAssistantMessage): Promise<void> {

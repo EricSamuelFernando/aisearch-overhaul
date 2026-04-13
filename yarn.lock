@@ -12371,6 +12371,11 @@ supercluster@^8.0.1:
   dependencies:
     kdbush "^4.0.2"
 
+supermemory@^4.21.1:
+  version "4.21.1"
+  resolved "https://registry.npmjs.org/supermemory/-/supermemory-4.21.1.tgz"
+  integrity sha512-KayOHtD94g7O+yN2qxaHEO5UIXtDl+duaKuhW7gvaraVtP1RHxFn80Pb5s5rKmqIvC+ruaARRlgMw7s/y+6LGQ==
+
 supports-color@^7.1.0:
   version "7.2.0"
   resolved "https://registry.npmjs.org/supports-color/-/supports-color-7.2.0.tgz"

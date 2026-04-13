@@ -11,6 +11,7 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   listings?: MLSListing[];
+  focusedListing?: MLSListing;
   elapsed?: number;
 }
 
@@ -107,7 +108,7 @@ export default function LandingAIChat() {
           const line = part.trim();
           if (!line.startsWith('data: ')) continue;
           const jsonStr = line.slice(6);
-          let event: { type: string; data?: MLSListing[]; text?: string; message?: string };
+          let event: { type: string; data?: MLSListing | MLSListing[]; index?: number; text?: string; message?: string };
           try {
             event = JSON.parse(jsonStr);
           } catch {
@@ -115,15 +116,20 @@ export default function LandingAIChat() {
           }
 
           if (event.type === 'listings') {
-            const listings = event.data ?? [];
+            const listings = (event.data as MLSListing[]) ?? [];
             receivedListings = true;
             if (listings.length > 0) lastListingsRef.current = listings;
             setMessages((prev) => {
               const updated = [...prev];
-              updated[updated.length - 1] = {
-                ...updated[updated.length - 1],
-                listings,
-              };
+              updated[updated.length - 1] = { ...updated[updated.length - 1], listings };
+              return updated;
+            });
+          } else if (event.type === 'listing_focus') {
+            const listing = event.data as MLSListing;
+            receivedListings = true;
+            setMessages((prev) => {
+              const updated = [...prev];
+              updated[updated.length - 1] = { ...updated[updated.length - 1], focusedListing: listing };
               return updated;
             });
           } else if (event.type === 'token') {
@@ -139,21 +145,9 @@ export default function LandingAIChat() {
             });
           } else if (event.type === 'done') {
             const elapsed = (Date.now() - start) / 1000;
-            // If Claude summarized listings from history without a new MLS search,
-            // re-attach the last known listings so tiles still render
-            const carryover =
-              !receivedListings &&
-              lastListingsRef.current.length > 0 &&
-              /\$[\d,]+|\bbed|\bbath|\bsqft|\blisting/i.test(prose)
-                ? lastListingsRef.current
-                : undefined;
             setMessages((prev) => {
               const updated = [...prev];
-              updated[updated.length - 1] = {
-                ...updated[updated.length - 1],
-                elapsed,
-                ...(carryover ? { listings: carryover } : {}),
-              };
+              updated[updated.length - 1] = { ...updated[updated.length - 1], elapsed };
               return updated;
             });
           } else if (event.type === 'error') {
@@ -209,12 +203,19 @@ export default function LandingAIChat() {
                 )}
 
                 <div className="flex flex-col gap-2 max-w-[90%] min-w-0">
-                  {/* Listing tiles — rendered immediately when MLS responds */}
+                  {/* Full listing grid — rendered on new searches */}
                   {m.listings && m.listings.length > 0 && (
                     <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-1 px-1">
                       {m.listings.map((listing, idx) => (
                         <ListingTile key={listing.id || idx} listing={listing} index={idx} />
                       ))}
+                    </div>
+                  )}
+
+                  {/* Single focused tile — rendered when user asks about a specific listing */}
+                  {m.focusedListing && (
+                    <div className="w-fit ring-2 ring-[#e8804c]/60 rounded-2xl overflow-hidden">
+                      <ListingTile listing={m.focusedListing} index={0} />
                     </div>
                   )}
 
@@ -251,7 +252,7 @@ export default function LandingAIChat() {
                         <>
                           <span className="w-1.5 h-1.5 rounded-full bg-[#e8804c] animate-pulse" />
                           <span className="text-[10px] text-white/40">
-                            {m.listings ? 'summarizing' : 'thinking'}
+                            {m.listings ? 'summarizing' : m.focusedListing ? 'analyzing' : 'thinking'}
                           </span>
                           <LiveTimer startTime={streamStartTime} />
                         </>

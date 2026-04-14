@@ -66,6 +66,15 @@ function extractTopPickReason(text: string): string {
 }
 function getUserId(): string {
   if (typeof window === 'undefined') return 'anon';
+  // Use authenticated user's id if logged in
+  try {
+    const userDetails = localStorage.getItem('userDetails');
+    if (userDetails) {
+      const parsed = JSON.parse(userDetails);
+      if (parsed?.id) return parsed.id;
+    }
+  } catch {}
+  // Anonymous fallback — persist across page reloads
   let id = localStorage.getItem('snapz_ai_user_id');
   if (!id) {
     id = uuidv4();
@@ -236,7 +245,6 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
       const decoder = new TextDecoder();
       let buffer = '';
       let prose = '';
-      let receivedListings = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -262,7 +270,6 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
 
           if (event.type === 'listings') {
             const listings = (event.data as MLSListing[]) ?? [];
-            receivedListings = true;
             if (listings.length > 0) lastListingsRef.current = listings;
             setMessages((prev) => {
               const updated = [...prev];
@@ -271,7 +278,6 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
             });
           } else if (event.type === 'listing_focus') {
             const listing = event.data as MLSListing;
-            receivedListings = true;
             setMessages((prev) => {
               const updated = [...prev];
               updated[updated.length - 1] = { ...updated[updated.length - 1], focusedListing: listing };

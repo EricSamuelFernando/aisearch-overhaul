@@ -1,5 +1,8 @@
 import Groq from "groq-sdk";
 import { getRedis } from "./db";
+import { db } from "./db-pg";
+import { buyerProfiles } from "./schema";
+import { eq } from "drizzle-orm";
 import { BuyerProfile, AIAssistantMessage, SearchContext, PendingAction, MLSSearchParams } from "@/types/ai-assistant";
 
 const PROFILE_TTL         = 60 * 60 * 24 * 90; // 90 days
@@ -30,13 +33,71 @@ const DEFAULT_PROFILE = (userId: string): BuyerProfile => ({
 
 export async function loadProfile(userId: string): Promise<BuyerProfile> {
   const redis = getRedis();
-  const data = await redis.get<BuyerProfile>(profileKey(userId));
-  return data ?? DEFAULT_PROFILE(userId);
+  // 1. Redis cache hit — fastest path
+  const cached = await redis.get<BuyerProfile>(profileKey(userId));
+  if (cached) return cached;
+
+  // 2. Postgres — permanent storage
+  try {
+    const rows = await db.select().from(buyerProfiles).where(eq(buyerProfiles.userId, userId)).limit(1);
+    if (rows.length > 0) {
+      const row = rows[0];
+      const profile: BuyerProfile = {
+        userId:             row.userId,
+        preferredLocations: row.preferredLocations ?? [],
+        budgetMin:          row.budgetMin ?? null,
+        budgetMax:          row.budgetMax ?? null,
+        bedroomsMin:        row.bedroomsMin ?? null,
+        bathroomsMin:       row.bathroomsMin ?? null,
+        mustHaves:          row.mustHaves ?? [],
+        dealBreakers:       row.dealBreakers ?? [],
+        propertyTypes:      row.propertyTypes ?? [],
+        lastUpdated:        row.lastUpdated.toISOString(),
+      };
+      // Backfill Redis cache
+      await redis.set(profileKey(userId), profile, { ex: PROFILE_TTL });
+      return profile;
+    }
+  } catch (err) {
+    console.warn("[Memory] Postgres loadProfile failed, using default:", err instanceof Error ? err.message : err);
+  }
+
+  return DEFAULT_PROFILE(userId);
 }
 
 export async function saveProfile(profile: BuyerProfile): Promise<void> {
   const redis = getRedis();
-  await redis.set(profileKey(profile.userId), profile, { ex: PROFILE_TTL });
+  // Write to both in parallel
+  await Promise.all([
+    redis.set(profileKey(profile.userId), profile, { ex: PROFILE_TTL }),
+    db.insert(buyerProfiles).values({
+      userId:             profile.userId,
+      preferredLocations: profile.preferredLocations,
+      budgetMin:          profile.budgetMin ?? undefined,
+      budgetMax:          profile.budgetMax ?? undefined,
+      bedroomsMin:        profile.bedroomsMin ?? undefined,
+      bathroomsMin:       profile.bathroomsMin ?? undefined,
+      mustHaves:          profile.mustHaves,
+      dealBreakers:       profile.dealBreakers,
+      propertyTypes:      profile.propertyTypes,
+      lastUpdated:        new Date(profile.lastUpdated),
+    }).onConflictDoUpdate({
+      target: buyerProfiles.userId,
+      set: {
+        preferredLocations: profile.preferredLocations,
+        budgetMin:          profile.budgetMin ?? undefined,
+        budgetMax:          profile.budgetMax ?? undefined,
+        bedroomsMin:        profile.bedroomsMin ?? undefined,
+        bathroomsMin:       profile.bathroomsMin ?? undefined,
+        mustHaves:          profile.mustHaves,
+        dealBreakers:       profile.dealBreakers,
+        propertyTypes:      profile.propertyTypes,
+        lastUpdated:        new Date(profile.lastUpdated),
+      },
+    }).catch(err => {
+      console.warn("[Memory] Postgres saveProfile failed:", err instanceof Error ? err.message : err);
+    }),
+  ]);
 }
 
 export async function loadHistory(userId: string, limit = 20): Promise<AIAssistantMessage[]> {

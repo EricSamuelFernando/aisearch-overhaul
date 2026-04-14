@@ -10,6 +10,13 @@ export interface SearchContext {
   appliedAt: string;        // ISO timestamp
 }
 
+export interface PendingAction {
+  type: "search_mls";
+  params: MLSSearchParams;
+  description: string; // human-readable e.g. "search Sunset, Richmond with pool under $1M"
+  proposedAt: string;  // ISO timestamp
+}
+
 export interface BuyerProfile {
   userId: string;
   preferredLocations: string[];

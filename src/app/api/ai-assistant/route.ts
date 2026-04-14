@@ -8,8 +8,11 @@ import {
   loadHistory,
   loadSearchContext,
   saveSearchContext,
+  loadPendingAction,
+  clearPendingAction,
   appendMessage,
   extractAndUpdateProfile,
+  extractAndSavePendingAction,
 } from "@/lib/ai-assistant/memory";
 import { writeMemory, getUserMemoryContext } from "@/lib/ai-assistant/supermemory";
 import { rankListingPhotos } from "@/lib/ai-assistant/vision";
@@ -166,10 +169,11 @@ export async function POST(req: NextRequest) {
         const memoryPromise = getUserMemoryContext(userId, message);
 
         // Redis is fast (~30ms)
-        const [profile, history, searchCtx] = await Promise.all([
+        const [profile, history, searchCtx, pendingAction] = await Promise.all([
           loadProfile(userId),
           loadHistory(userId, 20),
           loadSearchContext(userId),
+          loadPendingAction(userId),
         ]);
         log("profile + history loaded", T0);
 
@@ -219,13 +223,21 @@ export async function POST(req: NextRequest) {
               .join(", ")}\n`
           : "";
 
+        // If Claude proposed a search in the previous turn, inject it so short
+        // affirmatives ("yes", "do that", "go ahead") correctly trigger search_mls.
+        const pendingActionBlock = pendingAction
+          ? `\n## Pending proposed action\nThe assistant proposed a search last turn: "${pendingAction.description}"\nParams: ${Object.entries(pendingAction.params)
+              .map(([k, v]) => `${k}=${v}`)
+              .join(", ")}\nIf the user confirms (e.g. "yes", "do that", "go ahead", "sure", "yes please"), call search_mls with these params.\n`
+          : "";
+
         const [groqResponse, memoryContext] = await Promise.all([
           groq.chat.completions.create({
             model: "llama-3.3-70b-versatile",
             max_tokens: 256,
             temperature: 0,
             messages: [
-              { role: "system", content: INTENT_SYSTEM_PROMPT + searchCtxBlock },
+              { role: "system", content: INTENT_SYSTEM_PROMPT + searchCtxBlock + pendingActionBlock },
               ...history.slice(-8).map((m) => ({
                 role: m.role as "user" | "assistant",
                 content: m.role === "assistant"
@@ -280,6 +292,7 @@ export async function POST(req: NextRequest) {
 
           await appendMessage(userId, { role: "assistant", content: fullResp });
           extractAndUpdateProfile(userId, message, fullResp);
+          extractAndSavePendingAction(userId, fullResp); // replaces any stale pending action
           writeMemory(userId, `User asked: ${message}\nAssistant answered: ${fullResp}`);
 
           controller.close();
@@ -529,6 +542,7 @@ export async function POST(req: NextRequest) {
         log("DONE — total", T0);
 
         await appendMessage(userId, { role: "assistant", content: fullResponse, listings });
+        clearPendingAction(userId); // consumed — clear so it doesn't re-trigger
         saveSearchContext(userId, {
           params: searchParams,
           resolvedLocation: [searchParams.city, searchParams.state].filter(Boolean).join(", ") || "Unknown",

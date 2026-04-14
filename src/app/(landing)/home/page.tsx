@@ -1080,6 +1080,7 @@ export default function Home() {
   const [isOpen, setIsOpen] = useState(false);
   const [searchMethod, setSearchMethod] = useState('');
   const [isHomeSearchActive, setIsHomeSearchActive] = useState(false);
+  const [isChatExpanded, setIsChatExpanded] = useState(false);
   const [isSearchSuggestionsOpen, setIsSearchSuggestionsOpen] = useState(false);
   const [homeSectionsOffset, setHomeSectionsOffset] = useState(0);
   const homeSectionGap = 80;
@@ -1202,7 +1203,7 @@ export default function Home() {
 
     const updateOffset = () => {
       if (!heroSectionRef.current || !heroContentRef.current) return;
-      if (!isHomeSearchActive && !isSearchSuggestionsOpen) {
+      if (!isChatExpanded && !isSearchSuggestionsOpen) {
         setHomeSectionsOffset(0);
         return;
       }
@@ -1222,7 +1223,7 @@ export default function Home() {
       resizeObserver.disconnect();
       window.removeEventListener('resize', updateOffset);
     };
-  }, [isHomeSearchActive, isSearchSuggestionsOpen]);
+  }, [isChatExpanded, isSearchSuggestionsOpen]);
 
 
   // Individual image rotation function
@@ -1585,7 +1586,7 @@ export default function Home() {
             </p>
 
             <div className="relative w-full flex justify-center">
-              <LandingAIChat />
+              <LandingAIChat onExpandedChange={setIsChatExpanded} />
             </div>
 
           </div>

@@ -16,9 +16,54 @@ interface Message {
 }
 
 function cleanContent(text: string): string {
-  return text.replace(/```mls_search[\s\S]*?```/g, '').trim();
+  const stripped = text.replace(/```mls_search[\s\S]*?```/g, '');
+  const lines = stripped.split('\n').filter((line) => {
+    // Remove markdown horizontal rules and table separator rows
+    if (/^\s*-{3,}\s*$/.test(line)) return false;
+    if (/^\s*\|?(?:\s*:?-+:?\s*\|)+\s*:?-+:?\s*\|?\s*$/.test(line)) return false;
+    return true;
+  });
+  return lines.join('\n').trim();
 }
 
+function extractPlainText(text: string): string {
+  const withoutLinks = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+  const lines = withoutLinks
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .filter((line) => {
+      if (/top pick/i.test(line)) return false;
+      if (/want to filter/i.test(line)) return false;
+      if (/best value pick/i.test(line)) return false;
+      if (/all results/i.test(line)) return false;
+      if (/days on market/i.test(line)) return false;
+      if (/view listing/i.test(line)) return false;
+      if (/\$\s?\d/.test(line) && /\|/.test(line)) return false;
+      if (/[—-]\s*\$?\d/.test(line) && /\|/.test(line)) return false;
+      if (/^\d+\s/.test(line) && /\|/.test(line)) return false;
+      return true;
+    });
+
+  return lines.join('\n').trim();
+}
+
+function extractFooterText(text: string): string {
+  const withoutLinks = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+  const line = withoutLinks
+    .split('\n')
+    .map((l) => l.trim())
+    .find((l) => /want to filter/i.test(l));
+  return line ? line.trim() : '';
+}
+function extractTopPickReason(text: string): string {
+  const withoutLinks = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+  const line = withoutLinks
+    .split('\n')
+    .map((l) => l.trim())
+    .find((l) => /days on market/i.test(l) || /motivated/i.test(l) || /seller/i.test(l));
+  return line ? line.replace(/^[^a-z0-9]+/i, '').trim() : '';
+}
 function getUserId(): string {
   if (typeof window === 'undefined') return 'anon';
   let id = localStorage.getItem('snapz_ai_user_id');
@@ -35,16 +80,111 @@ const SUGGESTIONS = [
   'Show me 4 bed homes in Dallas under $700k',
 ];
 
+function AskAiIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M15.0645 1C22.8233 0.998533 29.122 7.31736 29.1221 15.1211V25.0967C29.1221 26.201 28.6985 27.1986 28.0068 27.9336L28.0049 27.9355C27.2517 28.7409 26.1847 29.2393 25.001 29.2393H5.12109C2.85069 29.2393 1 27.3893 1 25.0986V15.123C1 7.31903 7.30043 1 15.0645 1Z" fill="black" stroke="url(#baiGradLanding)" strokeWidth="2" />
+      <mask id="baiM1Landing" fill="white">
+        <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" />
+      </mask>
+      <path d="M13.8984 14.6399C13.8984 13.9833 13.7691 13.3331 13.5178 12.7265C13.2666 12.1198 12.8983 11.5687 12.434 11.1044C11.9697 10.6401 11.4185 10.2718 10.8119 10.0205C10.2052 9.76922 9.55505 9.63989 8.89844 9.63989C8.24183 9.63989 7.59165 9.76922 6.98502 10.0205C6.37839 10.2718 5.8272 10.6401 5.3629 11.1044C4.89861 11.5687 4.53031 12.1198 4.27904 12.7265C4.02777 13.3331 3.89844 13.9833 3.89844 14.6399H5.79297C5.79297 14.2321 5.87329 13.8283 6.02936 13.4515C6.18542 13.0747 6.41417 12.7324 6.70254 12.444C6.99091 12.1556 7.33325 11.9269 7.71003 11.7708C8.0868 11.6147 8.49062 11.5344 8.89844 11.5344C9.30625 11.5344 9.71008 11.6147 10.0868 11.7708C10.4636 11.9269 10.806 12.1556 11.0943 12.444C11.3827 12.7324 11.6115 13.0747 11.7675 13.4515C11.9236 13.8283 12.0039 14.2321 12.0039 14.6399H13.8984Z" fill="white" stroke="white" strokeWidth="4" mask="url(#baiM1Landing)" />
+      <mask id="baiM2Landing" fill="white">
+        <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" />
+      </mask>
+      <path d="M25.8984 14.6399C25.8984 13.3138 25.3717 12.042 24.434 11.1044C23.4963 10.1667 22.2245 9.63989 20.8984 9.63989C19.5724 9.63989 18.3006 10.1667 17.3629 11.1044C16.4252 12.042 15.8984 13.3138 15.8984 14.6399L17.7526 14.6399C17.7526 13.8056 18.0841 13.0054 18.674 12.4155C19.264 11.8255 20.0641 11.4941 20.8984 11.4941C21.7328 11.4941 22.5329 11.8255 23.1229 12.4155C23.7128 13.0054 24.0442 13.8056 24.0442 14.6399H25.8984Z" fill="white" stroke="white" strokeWidth="4" mask="url(#baiM2Landing)" />
+      <defs>
+        <linearGradient id="baiGradLanding" x1="15.061" y1="0" x2="15.061" y2="30.2391" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#E8804C" />
+          <stop offset="0.5" stopColor="#E84C85" />
+          <stop offset="0.75" stopColor="#A64EBA" />
+          <stop offset="1" stopColor="#654FEF" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
 function LiveTimer({ startTime }: { startTime: number }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setElapsed((Date.now() - startTime) / 1000), 100);
     return () => clearInterval(id);
   }, [startTime]);
-  return <span className="text-[10px] text-white/40 ml-1">{elapsed.toFixed(1)}s</span>;
+  return <span className="text-[10px] text-gray-400 ml-1">{elapsed.toFixed(1)}s</span>;
 }
 
-export default function LandingAIChat() {
+function ListingsRow({ listings }: { listings: MLSListing[] }) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateScrollState = useCallback(() => {
+    const el = rowRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setCanScrollLeft(scrollLeft > 4);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    updateScrollState();
+  }, [listings, updateScrollState]);
+
+  useEffect(() => {
+    const el = rowRef.current;
+    if (!el) return;
+    const handle = () => updateScrollState();
+    el.addEventListener('scroll', handle, { passive: true });
+    window.addEventListener('resize', handle);
+    return () => {
+      el.removeEventListener('scroll', handle);
+      window.removeEventListener('resize', handle);
+    };
+  }, [updateScrollState]);
+
+  const scrollBy = (direction: 'left' | 'right') => {
+    const el = rowRef.current;
+    if (!el) return;
+    const amount = Math.min(320, el.clientWidth * 0.9);
+    el.scrollBy({ left: direction === 'left' ? -amount : amount, behavior: 'smooth' });
+  };
+
+  return (
+    <div className="relative">
+      {canScrollLeft && (
+        <button
+          type="button"
+          onClick={() => scrollBy('left')}
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-gray-200 text-gray-600 shadow-md flex items-center justify-center"
+          aria-label="Scroll left"
+        >
+          <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+      )}
+      {canScrollRight && (
+        <button
+          type="button"
+          onClick={() => scrollBy('right')}
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-[#e8804c] text-white shadow-md flex items-center justify-center"
+          aria-label="Scroll right"
+        >
+          <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      )}
+      <div ref={rowRef} className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">
+        {listings.map((listing, idx) => (
+          <ListingTile key={listing.id || idx} listing={listing} index={idx} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?: (expanded: boolean) => void }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -55,6 +195,11 @@ export default function LandingAIChat() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   // Persist last fetched listings so follow-up responses can re-attach them
   const lastListingsRef = useRef<MLSListing[]>([]);
+
+  useEffect(() => {
+    onExpandedChange?.(isExpanded);
+  }, [isExpanded, onExpandedChange]);
+
 
 
   useEffect(() => {
@@ -183,98 +328,186 @@ export default function LandingAIChat() {
   const lastMsgIndex = messages.length - 1;
 
   return (
-    <div className={`w-full max-w-[680px] mx-auto transition-all duration-500 ${isExpanded ? 'max-h-[800px]' : 'max-h-[160px]'}`}>
+    <div className={`w-full mx-auto transition-all duration-500 ${isExpanded ? 'max-w-[860px] max-h-[880px]' : 'max-w-[680px] max-h-[160px]'}`}>
 
-      {/* Chat messages */}
+      {/* Chat messages + input panel */}
       {isExpanded && (
-        <div ref={scrollContainerRef} className="h-[660px] overflow-y-auto mb-3 rounded-2xl bg-[#1a0800] border border-white/10 p-4 space-y-4 scrollbar-hide">
-          {messages.map((m, i) => {
-            const clean = cleanContent(m.content);
-            const isUser = m.role === 'user';
-            const isThinking = !isUser && !clean && !m.listings && loading && i === lastMsgIndex;
-            const isStreaming = !isUser && loading && i === lastMsgIndex && (!!clean || !!m.listings);
+        <div className="relative rounded-2xl bg-white border border-gray-200 shadow-sm overflow-hidden">
+          <div className="flex items-start justify-end px-4 pt-3">
+            <button
+              type="button"
+              onClick={() => setIsExpanded(false)}
+              className="w-[32px] h-[32px] text-gray-400 hover:text-gray-600 flex items-center justify-center"
+              aria-label="Close chat"
+            >
+              <svg viewBox="0 0 24 24" className="w-[15px] h-[15px]" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6l-12 12" />
+              </svg>
+            </button>
+          </div>
+          <div ref={scrollContainerRef} className="h-[720px] overflow-y-auto px-4 pb-4 space-y-4 chat-scrollbar">
+            {messages.map((m, i) => {
+              const clean = cleanContent(m.content);
+              const isUser = m.role === 'user';
+              const isThinking = !isUser && !clean && !m.listings && loading && i === lastMsgIndex;
+              const isStreaming = !isUser && loading && i === lastMsgIndex && (!!clean || !!m.listings);
 
-            return (
-              <div key={i} className={`flex ${isUser ? 'justify-end' : 'justify-start'} gap-2`}>
-                {!isUser && (
-                  <div className="w-6 h-6 rounded-full bg-[#e8804c] flex-shrink-0 flex items-center justify-center text-white text-[10px] mt-0.5">
-                    ✦
-                  </div>
-                )}
-
-                <div className="flex flex-col gap-2 max-w-[90%] min-w-0">
-                  {/* Full listing grid — rendered on new searches */}
-                  {m.listings && m.listings.length > 0 && (
-                    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-1 px-1">
-                      {m.listings.map((listing, idx) => (
-                        <ListingTile key={listing.id || idx} listing={listing} index={idx} />
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Single focused tile — rendered when user asks about a specific listing */}
-                  {m.focusedListing && (
-                    <div className="w-fit ring-2 ring-[#e8804c]/60 rounded-2xl overflow-hidden">
-                      <ListingTile listing={m.focusedListing} index={0} />
-                    </div>
-                  )}
-
-                  {/* Prose summary — streams in after tiles */}
+              return (
+                <div key={i} className={`flex ${isUser ? 'justify-end' : 'justify-start'} gap-2`}>
                   {!isUser && (
-                    <div className={`rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed bg-[#2d1400] text-white rounded-bl-sm border border-white/10 ${!clean && !isThinking ? 'hidden' : ''}`}>
+                    <div className="w-6 h-6 flex-shrink-0 flex items-center justify-center mt-0.5">
+                      <AskAiIcon size={20} />
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-2 max-w-[90%] min-w-0">
+                    {/* Full listing grid — rendered on new searches */}
+                  {m.listings && m.listings.length > 0 && (
+                    <ListingsRow listings={m.listings} />
+                  )}
+
+                    {/* Single focused tile — rendered when user asks about a specific listing */}
+                    {m.focusedListing && (
+                      <div className="w-fit ring-2 ring-primary-main/40 rounded-2xl overflow-hidden">
+                        <ListingTile listing={m.focusedListing} index={0} />
+                      </div>
+                    )}
+
+                    {/* Prose summary — streams in after tiles */}
+                  {!isUser && (
+                      <div className={`text-sm leading-relaxed text-gray-900 text-left ${!clean && !isThinking ? 'hidden' : ''}`}>
                       {isThinking ? (
-                        <span className="flex gap-0.5 items-center opacity-60">
+                        <span className="flex gap-0.5 items-center text-gray-400">
                           <span className="animate-bounce">.</span>
                           <span className="animate-bounce delay-75">.</span>
                           <span className="animate-bounce delay-150">.</span>
                         </span>
                       ) : (
-                        <div className="prose prose-sm prose-invert max-w-none prose-p:my-0.5 prose-ul:my-1 prose-li:my-0">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {clean || m.content}
-                          </ReactMarkdown>
-                        </div>
+                        m.listings || m.focusedListing || /top pick|best value pick|all results/i.test(clean || m.content) ? (
+                          <div className="text-gray-700 whitespace-pre-line space-y-3 text-left">
+                            <div>{extractPlainText(clean || m.content)}</div>
+                            {m.listings && m.listings.length > 0 && (
+                              <>
+                                <div className="font-semibold text-gray-900">Best Value Pick</div>
+                                <ul className="text-gray-800">
+                                  {[m.listings[0]].map((listing, idx) => {
+                                    const reason = extractTopPickReason(clean || m.content);
+                                    return (
+                                      <li key={listing?.id || idx}>
+                                        {listing.full_address}
+                                        {listing.city ? `, ${listing.city}` : ''}
+                                        {listing.state ? `, ${listing.state}` : ''}
+                                        {reason ? (
+                                          <div className="text-gray-500 text-[13px] mt-1">
+                                            {reason}
+                                          </div>
+                                        ) : null}
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                                <div className="font-semibold text-gray-900">All Results</div>
+                                <ol className="list-decimal pl-5 text-gray-800">
+                                  {m.listings.slice(1).map((listing, idx) => (
+                                    <li key={listing.id || idx}>
+                                      {listing.full_address}
+                                      {listing.city ? `, ${listing.city}` : ''}
+                                      {listing.state ? `, ${listing.state}` : ''}
+                                    </li>
+                                  ))}
+                                </ol>
+                                {extractFooterText(clean || m.content) ? (
+                                  <div className="text-gray-600">
+                                    {extractFooterText(clean || m.content)}
+                                  </div>
+                                ) : null}
+                              </>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="prose prose-sm max-w-none prose-p:my-0 prose-ul:my-0 prose-li:my-0 prose-hr:hidden prose-table:border-0 prose-th:border-0 prose-td:border-0">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {clean || m.content}
+                            </ReactMarkdown>
+                          </div>
+                        )
                       )}
                     </div>
                   )}
 
-                  {/* User bubble */}
-                  {isUser && (
-                    <div className="rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed bg-[#e8804c] text-white rounded-br-sm">
-                      <p className="whitespace-pre-wrap">{m.content}</p>
-                    </div>
-                  )}
+                    {/* User bubble */}
+                    {isUser && (
+                      <div className="rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed bg-white text-gray-900 rounded-br-sm border border-gray-200 shadow-sm">
+                        <p className="whitespace-pre-wrap">{m.content}</p>
+                      </div>
+                    )}
 
-                  {/* Elapsed timer */}
-                  {!isUser && (
-                    <div className="flex items-center gap-1 px-1">
-                      {isStreaming && streamStartTime ? (
-                        <>
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#e8804c] animate-pulse" />
-                          <span className="text-[10px] text-white/40">
-                            {m.listings ? 'summarizing' : m.focusedListing ? 'analyzing' : 'thinking'}
-                          </span>
-                          <LiveTimer startTime={streamStartTime} />
-                        </>
-                      ) : isThinking && streamStartTime ? (
-                        <>
-                          <span className="w-1.5 h-1.5 rounded-full bg-white/30 animate-pulse" />
-                          <span className="text-[10px] text-white/40">thinking</span>
-                          <LiveTimer startTime={streamStartTime} />
-                        </>
-                      ) : m.elapsed != null ? (
-                        <>
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-500/60" />
-                          <span className="text-[10px] text-white/40">{m.elapsed.toFixed(1)}s</span>
-                        </>
-                      ) : null}
-                    </div>
-                  )}
+                    {/* Elapsed timer */}
+                    {!isUser && (
+                      <div className="flex items-center gap-1 px-1">
+                        {isStreaming && streamStartTime ? (
+                          <>
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary-main animate-pulse" />
+                            <span className="text-[10px] text-gray-400">
+                              {m.listings ? 'summarizing' : m.focusedListing ? 'analyzing' : 'thinking'}
+                            </span>
+                            <LiveTimer startTime={streamStartTime} />
+                          </>
+                        ) : isThinking && streamStartTime ? (
+                          <>
+                            <span className="w-1.5 h-1.5 rounded-full bg-gray-300 animate-pulse" />
+                            <span className="text-[10px] text-gray-400">thinking</span>
+                            <LiveTimer startTime={streamStartTime} />
+                          </>
+                        ) : m.elapsed != null ? (
+                          <>
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500/60" />
+                            <span className="text-[10px] text-gray-400">{m.elapsed.toFixed(1)}s</span>
+                          </>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
                 </div>
+              );
+            })}
+            <div ref={bottomRef} />
+          </div>
+
+          <div className="border-t border-gray-200 px-4 py-3">
+            <div className="flex items-center gap-2 bg-white rounded-full border border-gray-200 px-3 py-2 shadow-sm">
+              <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center">
+                <AskAiIcon size={22} />
               </div>
-            );
-          })}
-          <div ref={bottomRef} />
+              <textarea
+                ref={textareaRef}
+                className="flex-1 resize-none bg-transparent text-gray-900 placeholder-gray-400 text-sm focus:outline-none min-h-[24px] max-h-[120px] overflow-y-auto leading-relaxed"
+                placeholder="Ask anything about homes, neighborhoods, budgets…"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={loading}
+                rows={1}
+              />
+              <button
+                onClick={() => sendMessage()}
+                disabled={loading || !input.trim()}
+                className="flex-shrink-0 w-[38px] h-[38px] rounded-full bg-black text-white flex items-center justify-center disabled:opacity-100 disabled:bg-black hover:bg-black/90 transition-colors"
+                aria-label="Send"
+              >
+                {loading ? (
+                  <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 4.75c.3 0 .58.12.79.33l5.5 5.5a1.125 1.125 0 1 1-1.59 1.59L13.125 8.6V19a1.125 1.125 0 1 1-2.25 0V8.6l-3.57 3.57a1.125 1.125 0 1 1-1.59-1.59l5.5-5.5c.21-.21.49-.33.79-.33Z" />
+                  </svg>
+                )}
+              </button>
+            </div>
+            <p className="mt-2 text-center text-[11px] text-gray-400">
+              Snaphomz AI can make mistakes. Consider checking important information.
+            </p>
+          </div>
         </div>
       )}
 
@@ -285,7 +518,7 @@ export default function LandingAIChat() {
             <button
               key={s}
               onClick={() => sendMessage(s)}
-              className="text-xs px-3 py-1.5 rounded-full border border-white/20 text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+              className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
             >
               {s}
             </button>
@@ -293,40 +526,39 @@ export default function LandingAIChat() {
         </div>
       )}
 
-      {/* Input bar */}
-      <div className="flex items-end gap-2 bg-white rounded-2xl px-4 py-3 shadow-xl">
-        <div className="w-7 h-7 rounded-full bg-[#1a0900] flex-shrink-0 flex items-center justify-center mb-0.5">
-          <span className="text-white text-xs">✦</span>
+      {/* Input bar (collapsed state) */}
+      {!isExpanded && (
+        <div className="flex items-center gap-2 bg-white rounded-full px-3 py-2 shadow-xl border border-gray-200">
+          <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center">
+            <AskAiIcon size={22} />
+          </div>
+          <textarea
+            ref={textareaRef}
+            className="flex-1 resize-none bg-transparent text-gray-900 placeholder-gray-400 text-sm focus:outline-none min-h-[24px] max-h-[120px] overflow-y-auto leading-relaxed"
+            placeholder="Ask anything about homes, neighborhoods, budgets…"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={loading}
+            rows={1}
+          />
+          <button
+            onClick={() => sendMessage()}
+            disabled={loading || !input.trim()}
+            className="flex-shrink-0 w-[38px] h-[38px] rounded-full bg-black text-white flex items-center justify-center disabled:opacity-100 disabled:bg-black hover:bg-black/90 transition-colors"
+            aria-label="Send"
+          >
+            {loading ? (
+              <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <svg className="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 4.75c.3 0 .58.12.79.33l5.5 5.5a1.125 1.125 0 1 1-1.59 1.59L13.125 8.6V19a1.125 1.125 0 1 1-2.25 0V8.6l-3.57 3.57a1.125 1.125 0 1 1-1.59-1.59l5.5-5.5c.21-.21.49-.33.79-.33Z" />
+              </svg>
+            )}
+          </button>
         </div>
-        <textarea
-          ref={textareaRef}
-          className="flex-1 resize-none bg-transparent text-gray-900 placeholder-gray-400 text-sm focus:outline-none min-h-[24px] max-h-[120px] overflow-y-auto leading-relaxed"
-          placeholder="Ask anything about homes, neighborhoods, budgets…"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={loading}
-          rows={1}
-        />
-        <button
-          onClick={() => sendMessage()}
-          disabled={loading || !input.trim()}
-          className="flex-shrink-0 w-9 h-9 rounded-xl bg-[#e8804c] text-white flex items-center justify-center disabled:opacity-40 hover:bg-orange-600 transition-colors mb-0.5"
-          aria-label="Send"
-        >
-          {loading ? (
-            <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
-            </svg>
-          )}
-        </button>
-      </div>
+      )}
 
-      <p className="text-center text-[11px] text-white/40 mt-2">
-        Enter to send · Shift+Enter for new line
-      </p>
     </div>
   );
 }

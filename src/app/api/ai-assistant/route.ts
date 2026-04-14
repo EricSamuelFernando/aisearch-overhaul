@@ -12,7 +12,9 @@ import {
   extractAndUpdateProfile,
 } from "@/lib/ai-assistant/memory";
 import { writeMemory, getUserMemoryContext } from "@/lib/ai-assistant/supermemory";
-import { MLSSearchParams } from "@/types/ai-assistant";
+import { rankListingPhotos } from "@/lib/ai-assistant/vision";
+import { getBatchCachedRankings, setBatchCachedRankings } from "@/lib/ai-assistant/photo-cache";
+import { MLSSearchParams, PhotoRankResult } from "@/types/ai-assistant";
 
 export const runtime = "nodejs";
 
@@ -55,6 +57,29 @@ const TOOLS: Groq.Chat.ChatCompletionTool[] = [
           year_built_max:     { type: "integer", description: "Maximum year built" },
           days_on_market_max: { type: "integer", description: "Maximum days on market" },
           size:               { type: "integer", description: "Number of results, default 6 max 12" },
+          visual_query: {
+            type: "string",
+            description:
+              "Visual/aesthetic feature the user wants to see in listing photos. " +
+              "Set ONLY when user describes something visual that cannot be expressed as an MLS filter. " +
+              "Examples: 'blue painted kitchen cabinets', 'bright natural sunlight through large windows', " +
+              "'open concept kitchen flowing into living room', 'hardwood floors', 'vaulted ceilings', " +
+              "'modern white interior', 'mountain view from inside'. " +
+              "Do NOT set for pool, waterfront, bedrooms, price — those are MLS filters.",
+          },
+          room_hint: {
+            type: "string",
+            enum: ["kitchen", "bathroom", "living_room", "bedroom", "exterior", "backyard", "any"],
+            description: "Which room the visual_query refers to. Helps prioritize which photos to score.",
+          },
+          description_keywords: {
+            type: "string",
+            description:
+              "Comma-separated terms to search in listing text descriptions. " +
+              "Use for features that may not be photographed: library, wine cellar, theater, solar panels. " +
+              "Include synonyms: 'library,study,bookshelf,bookshelves,reading room'. " +
+              "Set alongside visual_query whenever the feature is rare or architectural.",
+          },
         },
         required: [],
       },
@@ -100,6 +125,20 @@ const TOOLS: Groq.Chat.ChatCompletionTool[] = [
     },
   },
 ];
+
+/**
+ * Score a listing description against keyword terms.
+ * Returns 0–0.75 so text matches always show "Best match" badge (≥0.5)
+ * but never outrank a strong photo match (vision can score up to 1.0).
+ */
+function scoreByDescription(description: string | undefined, keywords: string[]): number {
+  if (!description || keywords.length === 0) return 0;
+  const desc = description.toLowerCase();
+  const hits = keywords.filter((kw) => kw.length > 2 && desc.includes(kw.toLowerCase())).length;
+  if (hits === 0) return 0;
+  // 1 hit → 0.60, more hits scale toward 0.75
+  return Math.min(0.60 + (hits / keywords.length) * 0.15, 0.75);
+}
 
 export async function POST(req: NextRequest) {
   const encoder = new TextEncoder();
@@ -335,18 +374,112 @@ export async function POST(req: NextRequest) {
         }
 
         // ── search_mls → fetch listings, stream summary ───────────────────────
-        const searchParams: MLSSearchParams = JSON.parse(toolCall.function.arguments);
+        // Declared here so they're in scope for vision merge and controller await
+        let visionPromise: Promise<void> | null = null;
+        const textScoreMap = new Map<string, number>(); // listingId → description text score
+
+        const rawParams = JSON.parse(toolCall.function.arguments);
+
+        // Extract visual fields before passing params to MLS (they are not MLS API fields)
+        const visualQuery: string | undefined = rawParams.visual_query;
+        const roomHint: string = rawParams.room_hint ?? "any";
+        const descKeywords: string[] = rawParams.description_keywords
+          ? (rawParams.description_keywords as string).split(",").map((k: string) => k.trim()).filter(Boolean)
+          : [];
+        delete rawParams.visual_query;
+        delete rawParams.room_hint;
+        delete rawParams.description_keywords;
+
+        const searchParams: MLSSearchParams = rawParams;
+        // For visual queries, fetch more candidates so vision has a larger pool to score
+        if (visualQuery && !searchParams.size) {
+          searchParams.size = 12;
+        }
         console.log(`\x1b[36m[AI]\x1b[0m search params: ${JSON.stringify(searchParams)}`);
+        if (visualQuery) {
+          console.log(`\x1b[36m[AI]\x1b[0m \x1b[35mvisual_query:\x1b[0m "${visualQuery}" room_hint="${roomHint}"`);
+        }
 
         let listings: Awaited<ReturnType<typeof searchListings>> = [];
         let listingsText = "";
 
         try {
+          // ── Visual search: check Redis cache before MLS call so cached
+          //    rankings can be injected into the listings SSE immediately ──
+          let cacheMap = new Map<string, PhotoRankResult | null>();
+
           listings = await searchListings(searchParams);
           log(`MLS returned ${listings.length} listing(s)`, T0);
+
+          // ── Text scoring: instant, zero API cost — runs against listing descriptions
+          if (visualQuery && descKeywords.length > 0 && listings.length > 0) {
+            for (const l of listings) {
+              const score = scoreByDescription(l.description, descKeywords);
+              if (score > 0) textScoreMap.set(l.id, score);
+            }
+            if (textScoreMap.size > 0) {
+              log(`description text match: ${textScoreMap.size}/${listings.length} listing(s)`, T0);
+              // Apply text scores immediately so initial card order reflects text evidence
+              listings = listings.map((l) => {
+                const textScore = textScoreMap.get(l.id) ?? 0;
+                return textScore > 0 ? { ...l, bestScore: textScore } : l;
+              });
+            }
+          }
+
+          if (visualQuery && listings.length > 0) {
+            // Batch cache lookup — fast Redis call (~10ms)
+            cacheMap = await getBatchCachedRankings(
+              listings.map((l) => l.id),
+              visualQuery,
+            );
+
+            // Apply cached rankings inline — these listings already have correct photo order
+            // before the "listings" SSE event fires, so cards render with best photo instantly
+            let cacheHits = 0;
+            listings = listings.map((l) => {
+              const cached = cacheMap.get(l.id);
+              if (cached) {
+                cacheHits++;
+                return { ...l, photos: cached.rankedPhotos, bestScore: cached.bestScore };
+              }
+              return l;
+            });
+            if (cacheHits > 0) log(`photo_rank cache hit: ${cacheHits}/${listings.length}`, T0);
+            // Pre-sort: cache hits with scores bubble up; uncached (no score) hold at end
+            listings.sort((a, b) => (b.bestScore ?? -1) - (a.bestScore ?? -1));
+          }
+
           send({ type: "listings", data: listings });
           log("tiles emitted to client", T0);
           listingsText = formatListingsForPrompt(listings);
+
+          // ── For listings NOT in cache: start vision in parallel with Claude.
+          //    We store the promise so we can await it before closing the
+          //    SSE controller — fixes "Controller is already closed" error.
+          if (visualQuery && listings.length > 0) {
+            const uncachedListings = listings.filter((l) => !cacheMap.get(l.id));
+
+            if (uncachedListings.length > 0) {
+              console.log(`\x1b[36m[AI]\x1b[0m \x1b[35mstarting vision for ${uncachedListings.length} uncached listing(s)\x1b[0m`);
+
+              visionPromise = rankListingPhotos(uncachedListings, visualQuery, roomHint)
+                .then(async (results) => {
+                  // Merge vision score with text score — take the higher of the two
+                  const merged = results.map((r) => {
+                    const textScore = textScoreMap.get(r.listingId) ?? 0;
+                    return textScore > r.bestScore ? { ...r, bestScore: textScore } : r;
+                  });
+                  send({ type: "photo_rank", data: merged });
+                  log(`photo_rank SSE sent for ${merged.length} listing(s)`, T0);
+                  await setBatchCachedRankings(visualQuery, merged);
+                  log("photo_rank cached", T0);
+                })
+                .catch((err) => {
+                  console.warn("\x1b[33m[Vision] ranking failed:\x1b[0m", err instanceof Error ? err.message : err);
+                });
+            }
+          }
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           console.error("\x1b[31m[MLS error]\x1b[0m", msg);
@@ -380,6 +513,16 @@ export async function POST(req: NextRequest) {
             fullResponse += event.delta.text;
             send({ type: "token", text: event.delta.text });
           }
+        }
+
+        // Wait for vision to finish before closing the SSE controller.
+        // Vision typically finishes alongside or before Claude. Cap wait at 8s
+        // so a slow/failing vision call never hangs the connection indefinitely.
+        if (visionPromise) {
+          await Promise.race([
+            visionPromise,
+            new Promise<void>((resolve) => setTimeout(resolve, 8000)),
+          ]);
         }
 
         send({ type: "done" });

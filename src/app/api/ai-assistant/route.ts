@@ -1,7 +1,13 @@
 import { NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import Groq from "groq-sdk";
-import { anthropic, buildSearchSystemPrompt, buildConversationalSystemPrompt, INTENT_SYSTEM_PROMPT } from "@/lib/ai-assistant/claude";
+import {
+  anthropic,
+  buildIntentSystemPrompt,
+  buildSearchSystemPrompt,
+  buildConversationalSystemPrompt,
+} from "@/lib/ai-assistant/claude";
+import { buildIntelligenceBlock, buildSearchMemoryContent, applyRelativeRefinement } from "@/lib/ai-assistant/intelligence";
 import { searchListings, formatListingsForPrompt } from "@/lib/ai-assistant/mls";
 import {
   loadProfile,
@@ -13,6 +19,7 @@ import {
   appendMessage,
   extractAndUpdateProfile,
   extractAndSavePendingAction,
+  recordSearchEvent,
 } from "@/lib/ai-assistant/memory";
 import { writeMemory, getUserMemoryContext } from "@/lib/ai-assistant/supermemory";
 import { rankListingPhotos } from "@/lib/ai-assistant/vision";
@@ -26,6 +33,7 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 function sseEvent(data: object): string {
   return `data: ${JSON.stringify(data)}\n\n`;
 }
+
 
 function log(label: string, ref: number) {
   const ms = Date.now() - ref;
@@ -41,8 +49,9 @@ const TOOLS: Groq.Chat.ChatCompletionTool[] = [
       description:
         "Search MLS for real estate listings. Call this when the user wants to find, " +
         "browse, filter, or re-show properties — including follow-ups like 'now show me X', " +
-        "'what about Dallas instead', 'filter to ones with a pool', 'show those again'. " +
-        "Do NOT call this if the user is asking about a specific listing already shown.",
+        "'what about Dallas instead', 'filter to ones with a pool', 'show those again', " +
+        "'pull those listings again', 're-run that search'. " +
+        "Do NOT call this if the user is asking about the details of one specific already-shown listing.",
       parameters: {
         type: "object",
         properties: {
@@ -103,16 +112,16 @@ const TOOLS: Groq.Chat.ChatCompletionTool[] = [
     function: {
       name: "reference_listing",
       description:
-        "User is asking about a specific listing that was already shown in a previous turn — " +
+        "User is asking about the details of ONE specific listing already shown in a previous turn — " +
         "e.g. 'tell me more about the second house', 'what year was the first one built', " +
-        "'how big is listing #3', 'tell me about that last one'. " +
-        "Never call this for a new search. Always prefer this over search_mls when listings were already shown.",
+        "'how big is listing #3'. " +
+        "Never call this to re-show all listings or run a new search.",
       parameters: {
         type: "object",
         properties: {
           listing_index: {
             type: "integer",
-            description: "1-based position of the listing the user is referring to (1 = first tile shown, 2 = second, etc.)",
+            description: "1-based position of the listing (1 = first tile shown, 2 = second, etc.)",
           },
         },
         required: ["listing_index"],
@@ -124,10 +133,9 @@ const TOOLS: Groq.Chat.ChatCompletionTool[] = [
     function: {
       name: "answer_user",
       description:
-        "Answer a general conversational question that does NOT involve listings. " +
-        "Use this for greetings, general real estate advice, mortgage questions, " +
-        "neighborhood questions, or anything that doesn't reference a specific shown listing " +
-        "and doesn't need a new MLS search.",
+        "Answer a general conversational question that does NOT involve property listings. " +
+        "Use for greetings, general real estate advice, mortgage questions, profile questions. " +
+        "Never use this if the user wants to find, re-show, or re-fetch any listings.",
       parameters: {
         type: "object",
         properties: {
@@ -178,7 +186,7 @@ export async function POST(req: NextRequest) {
         // Supermemory fires in background — never blocks Redis or Groq
         const memoryPromise = getUserMemoryContext(userId, message);
 
-        // Redis is fast (~30ms)
+        // Redis parallel load (~30ms) — profile now includes intelligence fields
         const [profile, history, searchCtx, pendingAction] = await Promise.all([
           loadProfile(userId),
           loadHistory(userId, 20),
@@ -189,8 +197,8 @@ export async function POST(req: NextRequest) {
 
         await appendMessage(userId, { role: "user", content: message });
 
-        // Build Claude messages — if an assistant turn showed listings, append a
-        // numbered block so Claude can answer positional follow-ups ("the second home").
+        // Build conversation history for Claude — inject listing context blocks
+        // so Claude can answer positional follow-ups ("the second home").
         const conversationMessages: Anthropic.MessageParam[] = [
           ...history.flatMap((m) => {
             const base: Anthropic.MessageParam = {
@@ -221,24 +229,68 @@ export async function POST(req: NextRequest) {
           { role: "user", content: message },
         ];
 
-        // ── Step 1: Groq routing (~1-2s) — race Supermemory in parallel ─────────
+        // ── Step 1: Groq routing (~1-2s) ─────────────────────────────────────
         console.log("\x1b[36m[AI]\x1b[0m \x1b[35m→ Groq routing call\x1b[0m");
 
-        // Build the search context block injected into Groq so implicit carry-over
-        // queries ("such homes", "same filters in X") always have concrete params.
+        // ── Pre-route pure affirmations in code — never let the LLM mishandle them ──
+        // A pure affirmation is a short message (≤5 words) with no search-intent words.
+        // If one is detected with no pending action and no search context, skip Groq entirely.
+        const SEARCH_WORDS = /\b(show|find|search|home|house|listing|propert|look|get|pull|fetch)\b/i;
+        const PURE_AFFIRMATION = /^(yes|yeah|sure|ok|okay|yep|yup|sounds good|makes sense|that works|got it|great|alright|cool|perfect|nice|awesome|fine)\.?!?\s*$/i;
+        const isPureAffirmation = PURE_AFFIRMATION.test(message.trim()) && !SEARCH_WORDS.test(message);
+
+        if (isPureAffirmation && !pendingAction && !searchCtx) {
+          // Nothing to confirm, nothing to search — answer conversationally
+          const memoryContext = await Promise.race([
+            memoryPromise,
+            new Promise<string>((resolve) => setTimeout(() => resolve(""), 2000)),
+          ]);
+          const ackStream = await anthropic.messages.create({
+            model: "claude-sonnet-4-6",
+            max_tokens: 256,
+            system: buildConversationalSystemPrompt(profile, memoryContext),
+            messages: [{ role: "user", content: message }],
+            stream: true,
+          });
+          let ackResp = "";
+          for await (const ev of ackStream) {
+            if (ev.type === "content_block_delta" && ev.delta.type === "text_delta") {
+              ackResp += ev.delta.text;
+              send({ type: "token", text: ev.delta.text });
+            }
+          }
+          send({ type: "done" });
+          await appendMessage(userId, { role: "assistant", content: ackResp });
+          controller.close();
+          return;
+        }
+
+        // Build buyer intelligence block from already-loaded profile (zero extra I/O)
+        const intelligenceBlock = buildIntelligenceBlock(profile);
+        if (intelligenceBlock) log("intelligence block ready", T0);
+
+        // Pre-compute relative refinements in JS — deterministic, no LLM arithmetic.
+        // Adjusted values are shown to Groq so it uses the exact numbers we computed.
+        const relativeDelta = searchCtx
+          ? applyRelativeRefinement(message, searchCtx.params)
+          : null;
+        const adjustedCtxParams = relativeDelta
+          ? { ...searchCtx!.params, ...relativeDelta }
+          : searchCtx?.params;
+
+        if (relativeDelta) log(`relative refinement applied: ${JSON.stringify(relativeDelta)}`, T0);
+
         const searchCtxBlock = searchCtx
-          ? `\n## Last search context\nLocation: ${searchCtx.resolvedLocation}\nFilters: ${Object.entries(searchCtx.params)
+          ? `\n## Last search context\nLocation: ${searchCtx.resolvedLocation}\nFilters: ${Object.entries(adjustedCtxParams!)
               .filter(([, v]) => v !== undefined)
               .map(([k, v]) => `${k}=${v}`)
-              .join(", ")}\n`
+              .join(", ")}\n${relativeDelta ? `Note: filters already pre-adjusted for the user's relative request — use these exact values.\n` : ""}`
           : "";
 
-        // If Claude proposed a search in the previous turn, inject it so short
-        // affirmatives ("yes", "do that", "go ahead") correctly trigger search_mls.
         const pendingActionBlock = pendingAction
           ? `\n## Pending proposed action\nThe assistant proposed a search last turn: "${pendingAction.description}"\nParams: ${Object.entries(pendingAction.params)
               .map(([k, v]) => `${k}=${v}`)
-              .join(", ")}\nIf the user confirms (e.g. "yes", "do that", "go ahead", "sure", "yes please"), call search_mls with these params.\n`
+              .join(", ")}\nIf the user confirms ("yes", "do that", "go ahead", "sure"), call search_mls with these params.\n`
           : "";
 
         const [groqResponse, memoryContext] = await Promise.all([
@@ -247,21 +299,26 @@ export async function POST(req: NextRequest) {
             max_tokens: 256,
             temperature: 0,
             messages: [
-              { role: "system", content: INTENT_SYSTEM_PROMPT + searchCtxBlock + pendingActionBlock },
+              {
+                role: "system",
+                // Intelligence block appended to base prompt — zero extra API call
+                content: buildIntentSystemPrompt(intelligenceBlock) + searchCtxBlock + pendingActionBlock,
+              },
               ...history.slice(-8).map((m) => ({
                 role: m.role as "user" | "assistant",
-                content: m.role === "assistant"
-                  ? m.listings && m.listings.length > 0
-                    ? `[showed ${m.listings.length} listings: ${m.listings.map((l, i) => `#${i + 1} ${l.full_address}`).join(", ")}]`
-                    : "[assistant responded with answer]"
-                  : m.content,
+                content:
+                  m.role === "assistant"
+                    ? m.listings && m.listings.length > 0
+                      ? `[showed ${m.listings.length} listings: ${m.listings.map((l, i) => `#${i + 1} ${l.full_address}`).join(", ")}]`
+                      : "[assistant responded with answer]"
+                    : m.content,
               })),
               { role: "user", content: message },
             ],
             tools: TOOLS,
             tool_choice: "required",
           }),
-          // Give Supermemory the same time Groq takes — if not done, resolve empty
+          // Give Supermemory the same window as Groq — resolves empty if slow
           Promise.race([
             memoryPromise,
             new Promise<string>((resolve) => setTimeout(() => resolve(""), 2000)),
@@ -273,7 +330,6 @@ export async function POST(req: NextRequest) {
 
         const toolCall = groqResponse.choices[0].message.tool_calls?.[0];
         const toolName = toolCall?.function.name;
-
         console.log(`\x1b[36m[AI]\x1b[0m tool: ${toolName ?? "none"}`);
 
         // ── answer_user → Sonnet handles it conversationally ─────────────────
@@ -296,30 +352,28 @@ export async function POST(req: NextRequest) {
               send({ type: "token", text: ev.delta.text });
             }
           }
-
           send({ type: "done" });
           log("DONE — conversational", T0);
 
           await appendMessage(userId, { role: "assistant", content: fullResp });
           extractAndUpdateProfile(userId, message, fullResp);
-          extractAndSavePendingAction(userId, fullResp); // replaces any stale pending action
-          writeMemory(userId, `User asked: ${message}\nAssistant answered: ${fullResp}`);
+          extractAndSavePendingAction(userId, fullResp);
+          writeMemory(userId, `User preference signal from conversation: ${message.slice(0, 200)}`);
 
           controller.close();
           return;
         }
 
-        // ── reference_listing → look up from history, focus single tile ─────
+        // ── reference_listing → look up from history, focus single tile ───────
         if (toolName === "reference_listing") {
           console.log("\x1b[36m[AI]\x1b[0m reference_listing path");
           const { listing_index } = JSON.parse(toolCall.function.arguments) as { listing_index: number };
 
-          // Find the most recent assistant turn that has listings
           const lastListingTurn = [...history].reverse().find((m) => m.listings && m.listings.length > 0);
           const targetListing = lastListingTurn?.listings?.[listing_index - 1];
 
           if (!targetListing) {
-            // No listing found at that index — fall through to conversational answer
+            // No listing at that index — fall through to conversational
             const fallbackStream = await anthropic.messages.create({
               model: "claude-sonnet-4-6",
               max_tokens: 512,
@@ -337,25 +391,23 @@ export async function POST(req: NextRequest) {
             send({ type: "done" });
             await appendMessage(userId, { role: "assistant", content: fallbackResp });
             extractAndUpdateProfile(userId, message, fallbackResp);
-            writeMemory(userId, `User asked: ${message}\nAssistant answered: ${fallbackResp}`);
+            writeMemory(userId, `User asked about listing but none found at index ${listing_index}.`);
             controller.close();
             return;
           }
 
-          // Emit a single focused tile immediately — no MLS call needed
           send({ type: "listing_focus", data: targetListing, index: listing_index });
           log(`listing_focus tile emitted (index ${listing_index})`, T0);
 
-          // Build a focused listing block for Claude
           const focusedListingText = [
             `Address: ${targetListing.full_address}`,
             `Price: $${targetListing.listing_price?.toLocaleString()}`,
             `Bedrooms: ${targetListing.bedrooms}`,
             `Bathrooms: ${targetListing.bathrooms}`,
             `Living area: ${targetListing.living_area?.toLocaleString()} sqft`,
-            targetListing.lot_size ? `Lot size: ${targetListing.lot_size?.toLocaleString()} sqft` : null,
-            targetListing.year_built ? `Year built: ${targetListing.year_built}` : null,
-            targetListing.has_pool != null ? `Pool: ${targetListing.has_pool ? "Yes" : "No"}` : null,
+            targetListing.lot_size    ? `Lot size: ${targetListing.lot_size?.toLocaleString()} sqft` : null,
+            targetListing.year_built  ? `Year built: ${targetListing.year_built}` : null,
+            targetListing.has_pool    != null ? `Pool: ${targetListing.has_pool ? "Yes" : "No"}` : null,
             targetListing.days_on_market != null ? `Days on market: ${targetListing.days_on_market}` : null,
             targetListing.description ? `Description: ${targetListing.description}` : null,
           ]
@@ -367,7 +419,7 @@ export async function POST(req: NextRequest) {
             max_tokens: 512,
             system: buildConversationalSystemPrompt(profile, memoryContext),
             messages: [
-              ...conversationMessages.slice(0, -1), // history without current message
+              ...conversationMessages.slice(0, -1),
               {
                 role: "user",
                 content: `${message}\n\n[Listing #${listing_index} details]\n${focusedListingText}\n[End of listing]`,
@@ -385,13 +437,15 @@ export async function POST(req: NextRequest) {
               send({ type: "token", text: ev.delta.text });
             }
           }
-
           send({ type: "done" });
           log("DONE — reference_listing", T0);
 
-          await appendMessage(userId, { role: "assistant", content: focusResp });
+          await appendMessage(userId, { role: "assistant", content: focusResp, focusedListing: targetListing });
           extractAndUpdateProfile(userId, message, focusResp);
-          writeMemory(userId, `User asked about listing #${listing_index} (${targetListing.full_address}): ${message}\nAssistant answered: ${focusResp}`);
+          writeMemory(
+            userId,
+            `User asked about listing #${listing_index} in ${targetListing.city}, ${targetListing.state} ($${targetListing.listing_price?.toLocaleString()}, ${targetListing.bedrooms}bd).`,
+          );
           controller.close();
           return;
         }
@@ -402,6 +456,32 @@ export async function POST(req: NextRequest) {
         const textScoreMap = new Map<string, number>(); // listingId → description text score
 
         const rawParams = JSON.parse(toolCall.function.arguments);
+
+        // Groq occasionally returns typed params as strings — coerce at the boundary
+        const NUMERIC_MLS_PARAMS = [
+          "listing_price_min", "listing_price_max",
+          "bedrooms_min", "bedrooms_max",
+          "bathrooms_min", "bathrooms_max",
+          "living_area_min", "living_area_max",
+          "year_built_min", "year_built_max",
+          "days_on_market_min", "days_on_market_max",
+          "size", "radius", "latitude", "longitude",
+        ] as const;
+        for (const key of NUMERIC_MLS_PARAMS) {
+          if (typeof rawParams[key] === "string") {
+            const n = Number(rawParams[key]);
+            rawParams[key] = isNaN(n) ? undefined : n;
+          }
+        }
+        const BOOLEAN_MLS_PARAMS = [
+          "has_pool", "has_basement",
+          "is_water_front", "is_water_view", "is_mountain_view",
+        ] as const;
+        for (const key of BOOLEAN_MLS_PARAMS) {
+          if (typeof rawParams[key] === "string") {
+            rawParams[key] = rawParams[key] === "true" ? true : rawParams[key] === "false" ? false : undefined;
+          }
+        }
 
         // Extract visual fields before passing params to MLS (they are not MLS API fields)
         const visualQuery: string | undefined = rawParams.visual_query;
@@ -553,17 +633,36 @@ export async function POST(req: NextRequest) {
         send({ type: "done" });
         log("DONE — total", T0);
 
+        const resolvedLocation =
+          [searchParams.city, searchParams.state].filter(Boolean).join(", ") || "Unknown";
+
+        // Persist history and context synchronously (fast, Redis)
         await appendMessage(userId, { role: "assistant", content: fullResponse, listings });
-        clearPendingAction(userId); // consumed — clear so it doesn't re-trigger
+        clearPendingAction(userId);
         saveSearchContext(userId, {
           params: searchParams,
-          resolvedLocation: [searchParams.city, searchParams.state].filter(Boolean).join(", ") || "Unknown",
+          resolvedLocation,
           appliedAt: new Date().toISOString(),
         });
+
+        // Fire-and-forget background tasks — never block the stream
+        // Pass the already-loaded profile to avoid an extra Redis round-trip
+        // Visual context forwarded so intelligence tracks aesthetic preferences
+        const visualCtx = visualQuery
+          ? { visualQuery, roomHint, visualConfidence, descKeywords }
+          : undefined;
+
+        recordSearchEvent(userId, searchParams, listings.length, profile, visualCtx);
         extractAndUpdateProfile(userId, message, fullResponse);
         writeMemory(
           userId,
-          `User searched: "${message}"\nFilters: ${JSON.stringify(searchParams)}\nResults: ${listingsText}\nSummary: ${fullResponse}`,
+          buildSearchMemoryContent(
+            searchParams,
+            listings.length,
+            resolvedLocation,
+            profile.searchCount + 1, // +1 because recordSearchEvent hasn't written yet
+            visualCtx,
+          ),
         );
 
       } catch (err) {
@@ -579,10 +678,10 @@ export async function POST(req: NextRequest) {
 
   return new Response(stream, {
     headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
+      "Content-Type":    "text/event-stream",
+      "Cache-Control":   "no-cache",
       "X-Accel-Buffering": "no",
-      "Connection": "keep-alive",
+      "Connection":      "keep-alive",
     },
   });
 }
@@ -591,7 +690,7 @@ export async function OPTIONS() {
   return new Response(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin":  "*",
       "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization, x-user-id",
     },

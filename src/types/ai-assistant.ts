@@ -2,6 +2,7 @@ export interface AIAssistantMessage {
   role: "user" | "assistant";
   content: string;
   listings?: MLSListing[];
+  focusedListing?: MLSListing;
 }
 
 export interface SearchContext {
@@ -19,6 +20,8 @@ export interface PendingAction {
 
 export interface BuyerProfile {
   userId: string;
+
+  // ── Stated preferences (extracted from conversation) ────────────────────
   preferredLocations: string[];
   budgetMin: number | null;
   budgetMax: number | null;
@@ -28,6 +31,41 @@ export interface BuyerProfile {
   dealBreakers: string[];
   propertyTypes: string[];
   lastUpdated: string;
+
+  // ── Behavioral intelligence (derived from actual search events) ──────────
+  // Frequency map of locations actually searched: { "Austin,TX": 4, "Dallas,TX": 1 }
+  topCities: Record<string, number>;
+  // Running averages of search params actually used
+  avgBudgetMax: number | null;
+  avgBudgetMin: number | null;
+  avgBedroomsMin: number | null;
+  // Feature flags used in searches: { "pool": 5, "waterfront": 2 }
+  featureFrequency: Record<string, number>;
+  // Lifetime counters
+  searchCount: number;
+  sessionCount: number;
+  lastActiveAt: string | null;
+  // Visual/aesthetic preferences — derived from visual_query searches
+  // e.g. { "hardwood floors": 4, "blue kitchen": 2, "big windows": 3 }
+  visualPreferences: Record<string, number>;
+}
+
+// Visual context extracted by Groq alongside standard search params.
+// Passed through the pipeline so memory can track aesthetic preferences.
+export interface VisualContext {
+  visualQuery?: string;
+  roomHint?: string;
+  visualConfidence?: "high" | "medium" | "low";
+  descKeywords?: string[];
+}
+
+// Raw search event — one row per MLS search made by the user
+export interface SearchEvent {
+  id: string;
+  userId: string;
+  params: MLSSearchParams;
+  resultCount: number;
+  searchedAt: string;
 }
 
 export interface MLSSearchParams {

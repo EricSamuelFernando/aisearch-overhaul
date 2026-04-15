@@ -3514,3 +3514,16 @@ input:-webkit-autofill {
 [data-sonner-toast] [data-close-button] {
   display: none !important;
 }
+
+/* Keep expanded home chat placement stable on shorter laptop viewports only. */
+@media (min-width: 1024px) and (max-height: 900px) {
+  .home-hero-shell.home-hero-shell--chat-open {
+    justify-content: flex-start !important;
+    padding-top: clamp(9.5rem, 14vh, 12rem) !important;
+    padding-bottom: 1.5rem !important;
+  }
+
+  .home-hero-shell.home-hero-shell--chat-open .home-hero-content.home-hero-content--chat-open {
+    margin-top: clamp(3.25rem, 8vh, 5rem) !important;
+  }
+}

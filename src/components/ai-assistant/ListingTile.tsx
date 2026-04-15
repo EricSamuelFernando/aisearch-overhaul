@@ -1,16 +1,29 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import { MLSListing } from '@/types/ai-assistant';
-import { BedDouble, Bath, Maximize2, Waves, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ExternalLink, Sparkles } from 'lucide-react';
+import {
+  BedDouble,
+  Bath,
+  Maximize2,
+  Waves,
+  MapPin,
+  ChevronDown,
+  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  Sparkles,
+} from 'lucide-react';
 
 interface Props {
   listing: MLSListing;
   index: number;
+  queryText?: string;
 }
 
-export default function ListingTile({ listing, index }: Props) {
+export default function ListingTile({ listing, index, queryText }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [isPhotoTransitioning, setIsPhotoTransitioning] = useState(false);
@@ -23,8 +36,6 @@ export default function ListingTile({ listing, index }: Props) {
     ? `$${listing.listing_price.toLocaleString()}`
     : 'Price N/A';
 
-  // When photos array changes (after photo_rank SSE reorders them),
-  // reset to index 0 so the best-match photo is shown immediately
   useEffect(() => {
     setPhotoIndex(0);
     setIsPhotoTransitioning(false);
@@ -69,17 +80,103 @@ export default function ListingTile({ listing, index }: Props) {
     [isPhotoTransitioning, photoIndex],
   );
 
-  // Show "Best match" badge when vision ranked this listing and the
-  // best-match photo is currently visible (index 0 after reorder)
   const showBestMatchBadge =
     listing.bestScore != null &&
     listing.bestScore >= 0.5 &&
     photoIndex === 0;
 
-  return (
-    <div className="flex-shrink-0 w-[260px] rounded-2xl bg-white shadow-md overflow-hidden border border-gray-100 flex flex-col">
+  const listingId = String(listing.id ?? '').trim();
+  const hasPreviewLink = listingId.length > 0;
+  const previewHref = (() => {
+    if (!hasPreviewLink) return '#';
+    const params = new URLSearchParams();
+    params.set('listingId', listingId);
+    if (listing.city) params.set('city', listing.city);
+    if (listing.state) params.set('province', listing.state);
+    if (listing.status) params.set('mostRecentStatus', listing.status);
+    return `/buy/${encodeURIComponent(listingId)}/prop/preview?${params.toString()}`;
+  })();
 
-      {/* ── Photo area ── */}
+  const displayAddress = (() => {
+    const full = String(listing.full_address ?? '').trim();
+    const noZip = full
+      ? full
+          .replace(/\s+\d{5}(?:-\d{4})?$/i, '')
+          .replace(/,\s*$/, '')
+          .trim()
+      : '';
+
+    const city = String(listing.city ?? '').trim();
+    const state = String(listing.state ?? '').trim();
+    const cityState = [city, state].filter(Boolean).join(', ');
+
+    if (!noZip) return cityState || 'Address unavailable';
+    if (!cityState) return noZip;
+
+    const lower = noZip.toLowerCase();
+    const hasCity = city ? lower.includes(city.toLowerCase()) : false;
+    const hasState = state ? lower.includes(state.toLowerCase()) : false;
+
+    return hasCity && hasState ? noZip : `${noZip}, ${cityState}`;
+  })();
+
+  const hasPool = Boolean(listing.has_pool);
+  const showMoreHighlights = useMemo(() => {
+    const q = (queryText ?? '').toLowerCase();
+
+    const builtMention = /\b(year\s*built|built\s*year|built\s+in|constructed\s+in|construction\s+year)\b/i.test(q);
+    const domMention = /\b(dom|days?\s+on\s+market)\b/i.test(q);
+    const lotMention = /\b(lot\s*size|lot)\b/i.test(q);
+    const poolMention = /\b(pool|swimming\s*pool)\b/i.test(q);
+
+    const domRequested = (() => {
+      const m = q.match(/(\d+)\s*days?\s*(?:on\s*market|dom)\b/i);
+      return m ? Number(m[1]) : null;
+    })();
+
+    const builtRequested = (() => {
+      const m =
+        q.match(/\bbuilt\s*(?:in|year)?\s*(\d{4})\b/i) ||
+        q.match(/\byear\s*built\s*(\d{4})\b/i) ||
+        q.match(/\bconstructed\s*in\s*(\d{4})\b/i);
+      return m ? Number(m[1]) : null;
+    })();
+
+    const wantsPoolNo = /\b(no|without)\s+pool\b/i.test(q);
+    const wantsPoolYes = poolMention && !wantsPoolNo;
+
+    const built = builtRequested != null
+      ? Number(listing.year_built) === builtRequested
+      : builtMention;
+    const dom = domRequested != null
+      ? Number(listing.days_on_market) === domRequested
+      : domMention;
+    const lot = lotMention;
+    const pool = poolMention
+      ? wantsPoolYes
+        ? hasPool
+        : !hasPool
+      : false;
+
+    return {
+      built,
+      dom,
+      lot,
+      pool,
+      any: built || dom || lot || pool,
+    };
+  }, [queryText, listing.year_built, listing.days_on_market, hasPool]);
+
+  useEffect(() => {
+    if (showMoreHighlights.any) {
+      setExpanded(true);
+    }
+  }, [showMoreHighlights.any]);
+
+  const highlightClass =
+    'rounded-md bg-[#FFF7ED] ring-1 ring-[#FDBA74] px-1.5 py-0.5';
+  return (
+    <div className="self-start flex-shrink-0 w-[260px] rounded-2xl bg-white shadow-md overflow-hidden border border-gray-100 flex flex-col">
       <div className="relative h-[150px] bg-gray-100 group">
         {currentPhoto ? (
           <Image
@@ -87,7 +184,9 @@ export default function ListingTile({ listing, index }: Props) {
             src={currentPhoto}
             alt={`${listing.full_address} photo ${photoIndex + 1}`}
             fill
-            className={`object-cover transition-opacity duration-150 ${isPhotoTransitioning ? 'opacity-0' : 'opacity-100'}`}
+            className={`object-cover transition-opacity duration-150 ${
+              isPhotoTransitioning ? 'opacity-0' : 'opacity-100'
+            }`}
             unoptimized
           />
         ) : (
@@ -96,7 +195,6 @@ export default function ListingTile({ listing, index }: Props) {
           </div>
         )}
 
-        {/* Prev button */}
         {hasMultiplePhotos && (
           <button
             onClick={goToPrev}
@@ -107,7 +205,6 @@ export default function ListingTile({ listing, index }: Props) {
           </button>
         )}
 
-        {/* Next button */}
         {hasMultiplePhotos && (
           <button
             onClick={goToNext}
@@ -118,23 +215,20 @@ export default function ListingTile({ listing, index }: Props) {
           </button>
         )}
 
-        {/* Top-left: property type badge */}
         <div className="absolute top-2 left-2 z-10">
           <span className="text-[10px] font-semibold bg-gray-900/80 text-white px-2 py-0.5 rounded-md">
             {listing.property_type ?? 'Residential'}
           </span>
         </div>
 
-        {/* Top-right: listing number badge */}
         <div className="absolute top-2 right-2 z-10">
           <span className="text-[10px] font-bold bg-white text-gray-800 w-6 h-6 rounded-full flex items-center justify-center shadow">
             #{index + 1}
           </span>
         </div>
 
-        {/* Bottom: Best match badge + dot indicators */}
+
         <div className="absolute bottom-0 left-0 right-0 z-10 flex items-end justify-between px-2 pb-1.5">
-          {/* Best match badge — only when vision-ranked photo is active */}
           {showBestMatchBadge ? (
             <span className="flex items-center gap-0.5 text-[9px] font-semibold bg-[#e8804c] text-white px-1.5 py-0.5 rounded-md">
               <Sparkles className="w-2.5 h-2.5" />
@@ -144,7 +238,6 @@ export default function ListingTile({ listing, index }: Props) {
             <span />
           )}
 
-          {/* Dot indicators */}
           {hasMultiplePhotos && (
             <div className="flex gap-1 items-center">
               {photos.slice(0, 6).map((_, i) => (
@@ -160,98 +253,103 @@ export default function ListingTile({ listing, index }: Props) {
                 />
               ))}
               {photos.length > 6 && (
-                <span className="text-[8px] text-white/70 ml-0.5">+{photos.length - 6}</span>
+                <span className="text-[8px] text-white/70 ml-0.5">
+                  +{photos.length - 6}
+                </span>
               )}
             </div>
           )}
         </div>
       </div>
 
-      {/* ── Content ── */}
-      <div className="p-3 flex flex-col gap-2 flex-1">
-
-        {/* Price */}
-        <p className="text-xl font-bold text-gray-900">{priceFormatted}</p>
-
-        {/* Address */}
-        <p className="text-xs text-gray-500 leading-snug line-clamp-2">
-          {listing.full_address}
-          {listing.city ? `, ${listing.city}` : ''}
-          {listing.state ? `, ${listing.state}` : ''}
-        </p>
-
-        {/* Stats row */}
-        <div className="flex items-center gap-3 text-xs text-gray-700">
-          <span className="flex items-center gap-1">
-            <BedDouble className="w-3.5 h-3.5 text-gray-400" />
-            {listing.bedrooms ?? '–'} Beds
-          </span>
-          <span className="flex items-center gap-1">
-            <Bath className="w-3.5 h-3.5 text-gray-400" />
-            {listing.bathrooms ?? '–'} Baths
-          </span>
-          {listing.living_area ? (
-            <span className="flex items-center gap-1">
-              <Maximize2 className="w-3.5 h-3.5 text-gray-400" />
-              {listing.living_area.toLocaleString()} sqft
-            </span>
-          ) : null}
+      <div className="p-4 flex flex-col gap-2 flex-1 text-left">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-xl font-bold text-gray-900">{priceFormatted}</p>
         </div>
 
-        {/* Pool + days on market */}
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-1 text-xs text-gray-500">
-            <Waves className="w-3.5 h-3.5 text-gray-400" />
-            Pool
+        <div className="flex items-center gap-1.5 text-xs text-gray-500 leading-snug -mt-1">
+          <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+          <p className="line-clamp-1">{displayAddress}</p>
+        </div>
+
+        <div className="border-t border-[#d7dbe3]" />
+
+        <div className="flex items-center justify-between text-xs text-gray-700">
+          <span className="flex items-center gap-1">
+            <BedDouble className="w-3.5 h-3.5 text-[#6f7788]" />
+            {listing.bedrooms ?? '--'} Beds
           </span>
-          <span
-            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-              listing.has_pool
-                ? 'bg-green-100 text-green-700'
-                : 'bg-gray-100 text-gray-400'
-            }`}
-          >
-            {listing.has_pool ? 'Yes' : 'No'}
+          <span className="h-3.5 w-px bg-gray-200" />
+          <span className="flex items-center gap-1">
+            <Bath className="w-3.5 h-3.5 text-[#6f7788]" />
+            {listing.bathrooms ?? '--'} Baths
+          </span>
+          <span className="h-3.5 w-px bg-gray-200" />
+          <span className="flex items-center gap-1">
+            <Maximize2 className="w-3.5 h-3.5 text-[#6f7788]" />
+            {listing.living_area ? listing.living_area.toLocaleString() : '--'} sqft
           </span>
         </div>
 
-        {/* Photo counter */}
-        {hasMultiplePhotos && (
-          <p className="text-[10px] text-gray-400">
-            {photoIndex + 1} / {photos.length} photos
-          </p>
-        )}
-
-        {/* Expandable details */}
         <button
           onClick={() => setExpanded((v) => !v)}
           className="flex items-center justify-between w-full text-[#e8804c] text-xs font-semibold pt-1 border-t border-gray-100 mt-auto"
         >
           Show More
-          {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          {expanded ? (
+            <ChevronUp className="w-3.5 h-3.5" />
+          ) : (
+            <ChevronDown className="w-3.5 h-3.5" />
+          )}
         </button>
 
         {expanded && (
-          <div className="text-xs text-gray-500 space-y-1 pt-1">
-            {listing.year_built && <p>Built: {listing.year_built}</p>}
-            {listing.days_on_market != null && (
-              <p>{listing.days_on_market} days on market</p>
-            )}
-            {listing.lot_size && (
-              <p>Lot: {listing.lot_size.toLocaleString()} sqft</p>
-            )}
-            {listing.status && <p>Status: {listing.status}</p>}
-            {listing.description && (
-              <p className="line-clamp-3">{listing.description}</p>
-            )}
-            {listing.listing_url && (
+          <div className="pt-1">
+            <div className="px-0 py-0">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                {listing.year_built && (
+                  <div className={`flex items-center gap-1.5 ${showMoreHighlights.built ? highlightClass : ''}`}>
+                    <span className="text-gray-500">Built:</span>
+                    <span className="text-gray-800 font-semibold">{listing.year_built}</span>
+                  </div>
+                )}
+                {listing.days_on_market != null && (
+                  <div className={`flex items-center gap-1.5 ${showMoreHighlights.dom ? highlightClass : ''}`}>
+                    <span className="text-gray-500">DOM:</span>
+                    <span className="text-gray-800 font-semibold">
+                      {listing.days_on_market} Days
+                    </span>
+                  </div>
+                )}
+                {listing.lot_size && (
+                  <div className={`flex items-center gap-1.5 ${showMoreHighlights.lot ? highlightClass : ''}`}>
+                    <span className="text-gray-500">Lot:</span>
+                    <span className="text-gray-800 font-semibold">
+                      {listing.lot_size.toLocaleString()}sqft
+                    </span>
+                  </div>
+                )}
+                <div className={`flex items-center gap-1.5 ${showMoreHighlights.pool ? highlightClass : ''}`}>
+                  <Waves className="w-3.5 h-3.5 text-[#6f7788]" />
+                  <span className="text-gray-500">Pool:</span>
+                  <span
+                    className={`rounded-full border px-2 py-0.5 font-semibold ${
+                      hasPool
+                        ? 'border-[#86EFAC] bg-[#ECFDF3] text-[#166534]'
+                        : 'border-[#CBD5E1] bg-[#F8FAFC] text-[#475569]'
+                    }`}
+                  >
+                    {hasPool ? 'Yes' : 'No'}
+                  </span>
+                </div>
+              </div>
+            </div>
+            {hasPreviewLink && (
               <a
-                href={listing.listing_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 text-[#e8804c] font-medium mt-1"
+                href={previewHref}
+                className="mx-auto mt-2 flex w-fit items-center gap-1 rounded-full border border-[#e8804c] bg-white px-3 py-1 text-xs font-semibold text-[#e8804c] transition-colors hover:bg-[#FFEBD8]"
               >
-                View listing <ExternalLink className="w-3 h-3" />
+                View property <ExternalLink className="w-3 h-3" />
               </a>
             )}
           </div>

@@ -1564,13 +1564,13 @@ export default function Home() {
 
 
         <section
-          className={`home-hero-shell relative z-30 flex h-full flex-col items-center justify-start px-4 pb-2 pt-[13.2rem] text-center sm:pb-4 sm:pt-[15rem] md:pb-12 md:pt-24 ${isHomeSearchActive ? 'home-hero-shell--expanded' : ''}`}
+          className={`home-hero-shell relative z-30 flex h-full flex-col items-center justify-start px-4 pb-2 pt-[13.2rem] text-center sm:pb-4 sm:pt-[15rem] md:pb-12 md:pt-24 ${isHomeSearchActive ? 'home-hero-shell--expanded' : ''} ${isChatExpanded ? 'home-hero-shell--chat-open' : ''}`}
         >
 
           {/* ================= TEXT + SEARCH ================= */}
           <div
             ref={heroContentRef}
-            className={`home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-3 md:gap-5 md:-mt-2 lg:-mt-4 ${isShortDesktop ? 'translate-y-16' : ''}`}
+            className={`home-hero-content relative z-30 flex w-full max-w-[1600px] flex-col items-center gap-3 md:gap-5 md:-mt-2 lg:-mt-4 ${isShortDesktop ? 'translate-y-16' : ''} ${isChatExpanded ? 'home-hero-content--chat-open' : ''}`}
           >
 
             <h1 className="home-hero-title max-w-[340px] text-[2.55rem] font-medium leading-[1.06] tracking-[-0.03em] sm:max-w-[380px] sm:text-[2.8rem] md:max-w-none md:leading-snug md:tracking-tight md:text-[2.05rem] lg:text-[2.2rem] xl:text-[2.55rem] 2xl:text-[3.05rem]">

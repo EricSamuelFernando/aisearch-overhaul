@@ -13,6 +13,7 @@ interface Message {
   listings?: MLSListing[];
   focusedListing?: MLSListing;
   elapsed?: number;
+  queryText?: string;
 }
 
 function cleanContent(text: string): string {
@@ -88,6 +89,8 @@ const SUGGESTIONS = [
   'Condos in Miami under $400k',
   'Show me 4 bed homes in Dallas under $700k',
 ];
+const CHAT_EXPANDED_STORAGE_KEY = 'landing_ai_chat_expanded';
+const CHAT_STATE_STORAGE_KEY = 'landing_ai_chat_state_v1';
 
 function AskAiIcon({ size = 20 }: { size?: number }) {
   return (
@@ -122,7 +125,7 @@ function LiveTimer({ startTime }: { startTime: number }) {
   return <span className="text-[10px] text-gray-400 ml-1">{elapsed.toFixed(1)}s</span>;
 }
 
-function ListingsRow({ listings }: { listings: MLSListing[] }) {
+function ListingsRow({ listings, queryText }: { listings: MLSListing[]; queryText?: string }) {
   const rowRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -184,9 +187,9 @@ function ListingsRow({ listings }: { listings: MLSListing[] }) {
           </svg>
         </button>
       )}
-      <div ref={rowRef} className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">
+      <div ref={rowRef} className="flex items-start gap-3 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">
         {listings.map((listing, idx) => (
-          <ListingTile key={listing.id || idx} listing={listing} index={idx} />
+          <ListingTile key={listing.id || idx} listing={listing} index={idx} queryText={queryText} />
         ))}
       </div>
     </div>
@@ -202,12 +205,86 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const shouldAutoScrollRef = useRef(true);
   // Persist last fetched listings so follow-up responses can re-attach them
   const lastListingsRef = useRef<MLSListing[]>([]);
+  const hasHydratedRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const savedState = sessionStorage.getItem(CHAT_STATE_STORAGE_KEY);
+      if (savedState) {
+        const parsed = JSON.parse(savedState) as {
+          messages?: Message[];
+          input?: string;
+          isExpanded?: boolean;
+          lastListings?: MLSListing[];
+        };
+        if (Array.isArray(parsed.messages)) setMessages(parsed.messages);
+        if (typeof parsed.input === 'string') setInput(parsed.input);
+        if (typeof parsed.isExpanded === 'boolean') setIsExpanded(parsed.isExpanded);
+        if (Array.isArray(parsed.lastListings)) lastListingsRef.current = parsed.lastListings;
+      } else {
+        // Backward compatibility with older expanded-only key
+        const savedExpanded = sessionStorage.getItem(CHAT_EXPANDED_STORAGE_KEY);
+        if (savedExpanded === '1') setIsExpanded(true);
+      }
+    } catch {}
+    hasHydratedRef.current = true;
+  }, []);
 
   useEffect(() => {
     onExpandedChange?.(isExpanded);
   }, [isExpanded, onExpandedChange]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !hasHydratedRef.current) return;
+    // Always persist expanded/collapsed state even if large chat payload fails to save.
+    try {
+      sessionStorage.setItem(CHAT_EXPANDED_STORAGE_KEY, isExpanded ? '1' : '0');
+    } catch {}
+
+    // Persist a compact version of chat state to reduce quota errors.
+    const compactListings = (listings: MLSListing[] | undefined) =>
+      (listings ?? []).map((l) => ({
+        ...l,
+        photos: (l.photos ?? []).slice(0, 6),
+      }));
+
+    const compactMessages: Message[] = messages.slice(-20).map((m) => ({
+      ...m,
+      listings: compactListings(m.listings),
+      focusedListing: m.focusedListing
+        ? { ...m.focusedListing, photos: (m.focusedListing.photos ?? []).slice(0, 6) }
+        : undefined,
+    }));
+
+    try {
+      sessionStorage.setItem(
+        CHAT_STATE_STORAGE_KEY,
+        JSON.stringify({
+          messages: compactMessages,
+          input,
+          isExpanded,
+          lastListings: compactListings(lastListingsRef.current),
+        }),
+      );
+    } catch {
+      // Fallback: preserve text conversation + expanded state even if listing payload is too large.
+      try {
+        sessionStorage.setItem(
+          CHAT_STATE_STORAGE_KEY,
+          JSON.stringify({
+            messages: messages.slice(-20).map((m) => ({ role: m.role, content: m.content })),
+            input,
+            isExpanded,
+            lastListings: [],
+          }),
+        );
+      } catch {}
+    }
+  }, [messages, input, isExpanded]);
 
 
 
@@ -218,16 +295,40 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
     ta.style.height = `${Math.min(ta.scrollHeight, 120)}px`;
   }, [input]);
 
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+
+    const updatePinnedState = () => {
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      shouldAutoScrollRef.current = distanceFromBottom < 80;
+    };
+
+    updatePinnedState();
+    el.addEventListener('scroll', updatePinnedState, { passive: true });
+    return () => el.removeEventListener('scroll', updatePinnedState);
+  }, [isExpanded]);
+
+  useEffect(() => {
+    if (!isExpanded) return;
+    if (!shouldAutoScrollRef.current) return;
+
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: 'auto' });
+  }, [messages, loading, isExpanded]);
+
   const sendMessage = useCallback(async (text?: string) => {
     const content = (text ?? input).trim();
     if (!content || loading) return;
 
     setInput('');
     setIsExpanded(true);
+    shouldAutoScrollRef.current = true;
     setMessages((prev) => [...prev, { role: 'user', content }]);
     setLoading(true);
     // Placeholder assistant message
-    setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
+    setMessages((prev) => [...prev, { role: 'assistant', content: '', queryText: content }]);
 
     const start = Date.now();
     setStreamStartTime(start);
@@ -387,13 +488,13 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
                   <div className="flex flex-col gap-2 max-w-[90%] min-w-0">
                     {/* Full listing grid — rendered on new searches */}
                   {m.listings && m.listings.length > 0 && (
-                    <ListingsRow listings={m.listings} />
+                    <ListingsRow listings={m.listings} queryText={m.queryText} />
                   )}
 
                     {/* Single focused tile — rendered when user asks about a specific listing */}
                     {m.focusedListing && (
                       <div className="w-fit ring-2 ring-primary-main/40 rounded-2xl overflow-hidden">
-                        <ListingTile listing={m.focusedListing} index={0} />
+                        <ListingTile listing={m.focusedListing} index={0} queryText={m.queryText} />
                       </div>
                     )}
 
@@ -430,16 +531,6 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
                                     );
                                   })}
                                 </ul>
-                                <div className="font-semibold text-gray-900">All Results</div>
-                                <ol className="list-decimal pl-5 text-gray-800">
-                                  {m.listings.slice(1).map((listing, idx) => (
-                                    <li key={listing.id || idx}>
-                                      {listing.full_address}
-                                      {listing.city ? `, ${listing.city}` : ''}
-                                      {listing.state ? `, ${listing.state}` : ''}
-                                    </li>
-                                  ))}
-                                </ol>
                                 {extractFooterText(clean || m.content) ? (
                                   <div className="text-gray-600">
                                     {extractFooterText(clean || m.content)}

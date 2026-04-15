@@ -81,4 +81,12 @@ export interface MLSListing {
   description?: string;
   property_type?: string;
   status?: string;
+  /** Populated after photo_rank SSE — confidence score 0-1 from vision model */
+  bestScore?: number;
+}
+
+export interface PhotoRankResult {
+  listingId: string;
+  rankedPhotos: string[];
+  bestScore: number;
 }

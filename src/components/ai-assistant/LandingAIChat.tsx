@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { v4 as uuidv4 } from 'uuid';
-import { MLSListing } from '@/types/ai-assistant';
+import { MLSListing, PhotoRankResult } from '@/types/ai-assistant';
 import ListingTile from './ListingTile';
 
 interface Message {
@@ -261,7 +261,7 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
           const line = part.trim();
           if (!line.startsWith('data: ')) continue;
           const jsonStr = line.slice(6);
-          let event: { type: string; data?: MLSListing | MLSListing[]; index?: number; text?: string; message?: string };
+          let event: { type: string; data?: MLSListing | MLSListing[] | PhotoRankResult[]; index?: number; text?: string; message?: string };
           try {
             event = JSON.parse(jsonStr);
           } catch {
@@ -299,6 +299,24 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
             setMessages((prev) => {
               const updated = [...prev];
               updated[updated.length - 1] = { ...updated[updated.length - 1], elapsed };
+              return updated;
+            });
+          } else if (event.type === 'photo_rank') {
+            // Vision model finished scoring — reorder photos AND sort cards by best match.
+            const ranks = (event.data as PhotoRankResult[]) ?? [];
+            const rankMap = new Map(ranks.map((r) => [r.listingId, r]));
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (!last?.listings) return prev;
+              const updatedListings = last.listings
+                .map((l) => {
+                  const rank = rankMap.get(l.id);
+                  if (!rank) return l;
+                  return { ...l, photos: rank.rankedPhotos, bestScore: rank.bestScore };
+                })
+                .sort((a, b) => (b.bestScore ?? 0) - (a.bestScore ?? 0));
+              updated[updated.length - 1] = { ...last, listings: updatedListings };
               return updated;
             });
           } else if (event.type === 'error') {

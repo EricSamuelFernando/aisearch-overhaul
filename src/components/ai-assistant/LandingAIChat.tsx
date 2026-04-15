@@ -633,7 +633,7 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
             <button
               key={s}
               onClick={() => sendMessage(s)}
-              className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+              className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-white hover:bg-gray-50 hover:text-gray-900 transition-colors"
             >
               {s}
             </button>

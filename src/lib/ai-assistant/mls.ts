@@ -104,7 +104,7 @@ function normalizeListing(raw: unknown): MLSListing {
   const media = (listing.media ?? {}) as Record<string, unknown>;
 
   const photos = ((media.photosList as Record<string, unknown>[]) ?? [])
-    .slice(0, 12)
+    .slice(0, 20)
     .map((p) => (p.highRes ?? p.midRes ?? p.lowRes) as string)
     .filter(Boolean);
 

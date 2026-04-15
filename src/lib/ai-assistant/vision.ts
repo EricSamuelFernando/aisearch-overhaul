@@ -3,109 +3,138 @@ import { MLSListing, PhotoRankResult } from "@/types/ai-assistant";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-// Claude Haiku: fast, cheap, reliable vision — ~$0.0005 per listing scan
-const VISION_MODEL = "claude-haiku-4-5-20251001";
+const VISION_MODEL_FAST    = "claude-haiku-4-5-20251001";
+const VISION_MODEL_PRECISE = "claude-sonnet-4-6";
 
-// Max ms per listing — prevents one slow call blocking others
-const VISION_CALL_TIMEOUT_MS = 10000;
+// Timeout slightly higher than before — we now send up to 20 photos instead of 12
+const TIMEOUT_FAST_MS    = 15000;
+const TIMEOUT_PRECISE_MS = 25000;
+
+// Sonnet only retries a listing when Haiku found a PARTIAL match (score > 0 but < threshold)
+// A score of exactly 0.0 means "nothing there" — Sonnet won't find what Haiku couldn't
+const SONNET_FALLBACK_THRESHOLD = 0.3;
+
+// Never run more than 3 Sonnet calls per search regardless of listing count
+const SONNET_MAX_RETRIES = 3;
 
 /**
- * Score and reorder photos for all listings in parallel.
- * Uses Promise.allSettled so one failed call never blocks others.
+ * Two-pass vision ranking:
+ *   Pass 1 — Haiku on all listings in parallel (fast, cheap)
+ *   Pass 2 — Sonnet on listings where Haiku found a partial match only (capped at 3)
  */
 export async function rankListingPhotos(
   listings: MLSListing[],
   visualQuery: string,
   roomHint: string = "any",
+  visualConfidence: "high" | "medium" | "low" = "medium",
 ): Promise<PhotoRankResult[]> {
-  const results = await Promise.allSettled(
-    listings.map((listing) => rankSingleListing(listing, visualQuery, roomHint)),
+
+  // ── Pass 1: Haiku on all listings in parallel ─────────────────────────────
+  const haikuSettled = await Promise.allSettled(
+    listings.map((listing) =>
+      runVisionForListing(listing, VISION_MODEL_FAST, TIMEOUT_FAST_MS, visualQuery, roomHint),
+    ),
   );
 
-  return results.map((r, i) => {
+  const results: PhotoRankResult[] = haikuSettled.map((r, i) => {
     if (r.status === "fulfilled") return r.value;
-    console.warn(`[Vision] ranking failed for listing ${listings[i].id}:`, r.reason);
-    return {
-      listingId: listings[i].id,
-      rankedPhotos: listings[i].photos ?? [],
-      bestScore: 0,
-    };
+    console.warn(`[Vision] Haiku failed for ${listings[i].id}:`, r.reason);
+    return { listingId: listings[i].id, rankedPhotos: listings[i].photos ?? [], bestScore: 0 };
   });
+
+  // ── Pass 2: Sonnet fallback — only for "high" confidence queries ──────────
+  // Only retry listings where Haiku found SOMETHING (score > 0) but wasn't sure (< threshold)
+  // Never retry 0.0 — that means Haiku looked at all photos and found nothing
+  if (visualConfidence === "high") {
+    const candidates = results
+      .map((r, i) => ({ result: r, index: i, listing: listings[i] }))
+      .filter(({ result }) => result.bestScore > 0 && result.bestScore < SONNET_FALLBACK_THRESHOLD)
+      .slice(0, SONNET_MAX_RETRIES);
+
+    if (candidates.length > 0) {
+      console.log(`[Vision] Sonnet fallback for ${candidates.length} listing(s) with partial Haiku match`);
+
+      const sonnetSettled = await Promise.allSettled(
+        candidates.map(({ listing }) =>
+          runVisionForListing(listing, VISION_MODEL_PRECISE, TIMEOUT_PRECISE_MS, visualQuery, roomHint),
+        ),
+      );
+
+      sonnetSettled.forEach((sr, i) => {
+        const { result, index } = candidates[i];
+        if (sr.status === "fulfilled" && sr.value.bestScore > result.bestScore) {
+          console.log(
+            `[Vision] Sonnet improved: ${result.bestScore.toFixed(2)} → ${sr.value.bestScore.toFixed(2)} for ${result.listingId}`,
+          );
+          results[index] = sr.value;
+        } else if (sr.status === "rejected") {
+          console.warn(`[Vision] Sonnet fallback failed for ${result.listingId}:`, sr.reason);
+        }
+      });
+    }
+  }
+
+  return results;
 }
 
-async function rankSingleListing(
+async function runVisionForListing(
   listing: MLSListing,
+  model: string,
+  timeoutMs: number,
   visualQuery: string,
   roomHint: string,
 ): Promise<PhotoRankResult> {
   const photos = listing.photos ?? [];
-
   if (photos.length === 0) {
     return { listingId: listing.id, rankedPhotos: [], bestScore: 0 };
   }
 
-  // Score up to 12 photos — MLS orders exterior first, interior (kitchen/bath) later
-  const photosToScore = photos.slice(0, 12);
+  // Send ALL available photos (up to 20) — the model identifies rooms itself
+  // No hardcoded position ranges: the model knows what a kitchen looks like
+  const photosToScore = photos.slice(0, 20);
 
-  const roomContext = roomHint !== "any" ? ` Focus on the ${roomHint}.` : "";
+  // Room filter instruction — if a specific room is requested, the model must score
+  // photos of OTHER rooms as 0.0. This replaces brittle position-based selection.
+  const roomFilter =
+    roomHint !== "any"
+      ? `\nTarget room: ${roomHint}. Any photo that is NOT a ${roomHint} must be scored 0.0, regardless of other content.`
+      : "";
 
-  const scoringPrompt = `You are scoring real estate listing photos. The user wants to see: "${visualQuery}".${roomContext}
+  const scoringPrompt = `You are scoring real estate listing photos. The user wants: "${visualQuery}".${roomFilter}
 
 Score each photo 0.0–1.0:
-- 0.9–1.0: feature clearly visible and matches well
-- 0.5–0.8: feature partially visible or likely present
-- 0.0–0.4: feature not visible or wrong room/area
+- 0.9–1.0: feature clearly and unmistakably visible in the correct room
+- 0.5–0.8: feature partially visible or likely present in the correct room
+- 0.1–0.4: feature not clearly visible, or uncertain room type
+- 0.0: wrong room type, OR the feature is simply not present
 
 Respond ONLY with a JSON array of numbers, one per photo, in order.
-Example for 3 photos: [0.85, 0.1, 0.4]
+Example for 4 photos: [0.0, 0.85, 0.0, 0.1]
 No explanation. Just the array.`;
 
-  // Build multimodal content: interleave label + image for each photo
-  const imageContent: Anthropic.MessageParam["content"] = photosToScore.flatMap(
-    (url, i) => [
-      { type: "text" as const, text: `Photo ${i + 1}:` },
-      {
-        type: "image" as const,
-        source: { type: "url" as const, url },
-      },
-    ],
-  );
+  const imageContent: Anthropic.MessageParam["content"] = photosToScore.flatMap((url, i) => [
+    { type: "text" as const, text: `Photo ${i + 1}:` },
+    { type: "image" as const, source: { type: "url" as const, url } },
+  ]);
 
   const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(
-      () => reject(new Error(`Vision timed out after ${VISION_CALL_TIMEOUT_MS}ms`)),
-      VISION_CALL_TIMEOUT_MS,
-    ),
+    setTimeout(() => reject(new Error(`Vision timed out after ${timeoutMs}ms`)), timeoutMs),
   );
+
+  const apiPromise = anthropic.messages.create({
+    model,
+    max_tokens: 200,
+    temperature: 0,
+    messages: [{ role: "user", content: [...imageContent, { type: "text", text: scoringPrompt }] }],
+  });
 
   let scores: number[];
   try {
-    const apiPromise = anthropic.messages.create({
-      model: VISION_MODEL,
-      max_tokens: 100,
-      temperature: 0,
-      messages: [
-        {
-          role: "user",
-          content: [...imageContent, { type: "text", text: scoringPrompt }],
-        },
-      ],
-    });
-
     const response = await Promise.race([apiPromise, timeoutPromise]);
-    const raw =
-      response.content[0].type === "text" ? response.content[0].text.trim() : "[]";
-
-    // Extract JSON array — handle model adding extra text
+    const raw = response.content[0].type === "text" ? response.content[0].text.trim() : "[]";
     const match = raw.match(/\[[\d.,\s]+\]/);
-    const jsonStr = match ? match[0] : raw;
-
-    try {
-      const parsed = JSON.parse(jsonStr);
-      scores = Array.isArray(parsed) ? parsed : Array(photosToScore.length).fill(0);
-    } catch {
-      scores = Array(photosToScore.length).fill(0);
-    }
+    const parsed = JSON.parse(match ? match[0] : raw);
+    scores = Array.isArray(parsed) ? parsed : Array(photosToScore.length).fill(0);
   } catch (err) {
     console.warn(
       `[Vision] Claude call failed for ${listing.id}:`,
@@ -114,20 +143,16 @@ No explanation. Just the array.`;
     return { listingId: listing.id, rankedPhotos: photos, bestScore: 0 };
   }
 
-  // Pair each photo with its score, sort descending
+  // Pair photos with scores and sort descending
   const scored = photosToScore.map((url, i) => ({
     url,
     score: typeof scores[i] === "number" ? scores[i] : 0,
   }));
   scored.sort((a, b) => b.score - a.score);
 
-  // Append any photos beyond index 8 (unscored) at the end
-  const unscoredPhotos = photos.slice(12);
-  const rankedPhotos = [...scored.map((s) => s.url), ...unscoredPhotos];
-
   return {
     listingId: listing.id,
-    rankedPhotos,
+    rankedPhotos: scored.map((s) => s.url),
     bestScore: scored[0]?.score ?? 0,
   };
 }

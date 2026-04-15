@@ -72,8 +72,18 @@ const TOOLS: Groq.Chat.ChatCompletionTool[] = [
           },
           room_hint: {
             type: "string",
-            enum: ["kitchen", "bathroom", "living_room", "bedroom", "exterior", "backyard", "any"],
+            enum: ["kitchen", "dining_room", "bathroom", "living_room", "bedroom", "exterior", "backyard", "any"],
             description: "Which room the visual_query refers to. Helps prioritize which photos to score.",
+          },
+          visual_confidence: {
+            type: "string",
+            enum: ["high", "medium", "low"],
+            description:
+              "How specific and visually distinctive the feature is. " +
+              "'high' = very specific visual feature (blue kitchen cabinets, castle turrets, herringbone floors). " +
+              "'medium' = moderately specific (modern farmhouse, hardwood floors, open concept). " +
+              "'low' = generic aesthetic (nice interior, bright home, modern style). " +
+              "High confidence triggers Sonnet fallback if Haiku scores are low.",
           },
           description_keywords: {
             type: "string",
@@ -396,11 +406,13 @@ export async function POST(req: NextRequest) {
         // Extract visual fields before passing params to MLS (they are not MLS API fields)
         const visualQuery: string | undefined = rawParams.visual_query;
         const roomHint: string = rawParams.room_hint ?? "any";
+        const visualConfidence: "high" | "medium" | "low" = rawParams.visual_confidence ?? "medium";
         const descKeywords: string[] = rawParams.description_keywords
           ? (rawParams.description_keywords as string).split(",").map((k: string) => k.trim()).filter(Boolean)
           : [];
         delete rawParams.visual_query;
         delete rawParams.room_hint;
+        delete rawParams.visual_confidence;
         delete rawParams.description_keywords;
 
         const searchParams: MLSSearchParams = rawParams;
@@ -410,7 +422,7 @@ export async function POST(req: NextRequest) {
         }
         console.log(`\x1b[36m[AI]\x1b[0m search params: ${JSON.stringify(searchParams)}`);
         if (visualQuery) {
-          console.log(`\x1b[36m[AI]\x1b[0m \x1b[35mvisual_query:\x1b[0m "${visualQuery}" room_hint="${roomHint}"`);
+          console.log(`\x1b[36m[AI]\x1b[0m \x1b[35mvisual_query:\x1b[0m "${visualQuery}" room_hint="${roomHint}" confidence="${visualConfidence}"`);
         }
 
         let listings: Awaited<ReturnType<typeof searchListings>> = [];
@@ -476,7 +488,7 @@ export async function POST(req: NextRequest) {
             if (uncachedListings.length > 0) {
               console.log(`\x1b[36m[AI]\x1b[0m \x1b[35mstarting vision for ${uncachedListings.length} uncached listing(s)\x1b[0m`);
 
-              visionPromise = rankListingPhotos(uncachedListings, visualQuery, roomHint)
+              visionPromise = rankListingPhotos(uncachedListings, visualQuery, roomHint, visualConfidence)
                 .then(async (results) => {
                   // Merge vision score with text score — take the higher of the two
                   const merged = results.map((r) => {

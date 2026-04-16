@@ -23,48 +23,10 @@ function cleanContent(text: string): string {
     if (/^\s*-{3,}\s*$/.test(line)) return false;
     if (/^\s*\|?(?:\s*:?-+:?\s*\|)+\s*:?-+:?\s*\|?\s*$/.test(line)) return false;
     return true;
-  });
+  }).map((line) => line.replace(/^#{1,6}\s+/, '')); // strip stray heading markers
   return lines.join('\n').trim();
 }
 
-function extractPlainText(text: string): string {
-  const withoutLinks = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
-  const lines = withoutLinks
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .filter((line) => {
-      if (/top pick/i.test(line)) return false;
-      if (/want to filter/i.test(line)) return false;
-      if (/best value pick/i.test(line)) return false;
-      if (/all results/i.test(line)) return false;
-      if (/days on market/i.test(line)) return false;
-      if (/view listing/i.test(line)) return false;
-      if (/\$\s?\d/.test(line) && /\|/.test(line)) return false;
-      if (/[—-]\s*\$?\d/.test(line) && /\|/.test(line)) return false;
-      if (/^\d+\s/.test(line) && /\|/.test(line)) return false;
-      return true;
-    });
-
-  return lines.join('\n').trim();
-}
-
-function extractFooterText(text: string): string {
-  const withoutLinks = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
-  const line = withoutLinks
-    .split('\n')
-    .map((l) => l.trim())
-    .find((l) => /want to filter/i.test(l));
-  return line ? line.trim() : '';
-}
-function extractTopPickReason(text: string): string {
-  const withoutLinks = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
-  const line = withoutLinks
-    .split('\n')
-    .map((l) => l.trim())
-    .find((l) => /days on market/i.test(l) || /motivated/i.test(l) || /seller/i.test(l));
-  return line ? line.replace(/^[^a-z0-9]+/i, '').trim() : '';
-}
 function getUserId(): string {
   if (typeof window === 'undefined') return 'anon';
   // Use authenticated user's id if logged in
@@ -538,40 +500,41 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
                           <span className="animate-bounce delay-150">.</span>
                         </span>
                       ) : (
-                        m.listings || m.focusedListing || /top pick|best value pick|all results/i.test(clean || m.content) ? (
-                          <div className="text-gray-700 whitespace-pre-line space-y-3 text-left">
-                            <div>{extractPlainText(clean || m.content)}</div>
-                            {m.listings && m.listings.length > 0 && (
-                              <>
-                                <div className="font-semibold text-gray-900">Best Value Pick</div>
-                                <ul className="text-gray-800">
-                                  {[m.listings[0]].map((listing, idx) => {
-                                    const reason = extractTopPickReason(clean || m.content);
-                                    return (
-                                      <li key={listing?.id || idx}>
-                                        {listing.full_address}
-                                        {listing.city ? `, ${listing.city}` : ''}
-                                        {listing.state ? `, ${listing.state}` : ''}
-                                        {reason ? (
-                                          <div className="text-gray-500 text-[13px] mt-1">
-                                            {reason}
-                                          </div>
-                                        ) : null}
-                                      </li>
-                                    );
-                                  })}
-                                </ul>
-                                {extractFooterText(clean || m.content) ? (
-                                  <div className="text-gray-600">
-                                    {extractFooterText(clean || m.content)}
-                                  </div>
-                                ) : null}
-                              </>
-                            )}
+                        m.listings != null || m.focusedListing ? (
+                          // PATH A: search results — plain text beside tile cards
+                          <div className="text-gray-700 whitespace-pre-line text-left leading-relaxed">
+                            {clean || m.content}
                           </div>
                         ) : (
-                          <div className="prose prose-sm max-w-none prose-p:my-0 prose-ul:my-0 prose-li:my-0 prose-hr:hidden prose-table:border-0 prose-th:border-0 prose-td:border-0">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          // PATH B: Q&A, profile reads, conversational — styled markdown
+                          <div className="text-sm leading-relaxed text-gray-800">
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                h1: ({ children }) => <p className="font-semibold text-gray-900 mb-1">{children}</p>,
+                                h2: ({ children }) => <p className="font-semibold text-gray-900 mb-1">{children}</p>,
+                                h3: ({ children }) => <p className="font-semibold text-gray-900 mb-0.5">{children}</p>,
+                                strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
+                                p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                                ul: ({ children }) => <ul className="my-1 pl-4 space-y-0.5 list-disc marker:text-gray-300">{children}</ul>,
+                                ol: ({ children }) => <ol className="my-1 pl-4 space-y-0.5 list-decimal">{children}</ol>,
+                                li: ({ children }) => <li className="text-gray-700">{children}</li>,
+                                table: ({ children }) => (
+                                  <div className="overflow-x-auto my-3 rounded-lg border border-gray-100">
+                                    <table className="w-full text-sm border-collapse">{children}</table>
+                                  </div>
+                                ),
+                                thead: ({ children }) => <thead className="bg-gray-50">{children}</thead>,
+                                th: ({ children }) => (
+                                  <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200">
+                                    {children}
+                                  </th>
+                                ),
+                                tbody: ({ children }) => <tbody>{children}</tbody>,
+                                tr: ({ children }) => <tr className="border-b border-gray-100 last:border-0">{children}</tr>,
+                                td: ({ children }) => <td className="px-3 py-2 text-gray-800">{children}</td>,
+                              }}
+                            >
                               {clean || m.content}
                             </ReactMarkdown>
                           </div>

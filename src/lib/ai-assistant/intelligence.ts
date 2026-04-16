@@ -156,24 +156,15 @@ export function buildIntelligenceBlock(profile: BuyerProfile): string {
   if (hasBehavioral) {
     lines.push(`Derived from ${profile.searchCount} actual search(es):`);
 
-    // Top cities sorted by frequency
-    const sortedCities = Object.entries(profile.topCities)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 3);
-
-    if (sortedCities.length > 0) {
-      const [[primary, primaryCount], ...others] = sortedCities;
-      lines.push(`- Primary market: ${primary} (${primaryCount}x) → suggest or default to this city`);
-      if (others.length > 0) {
-        lines.push(`- Also searched: ${others.map(([c, n]) => `${c} (${n}x)`).join(", ")}`);
-      }
+    // Show only the single top city — never list secondary cities; the router has one city field
+    // and will merge multiple city names into a garbage string
+    const topCity = Object.entries(profile.topCities).sort(([, a], [, b]) => b - a)[0];
+    if (topCity) {
+      lines.push(`- Primary market: ${topCity[0]} (${topCity[1]}x) → use as city default when user doesn't specify. One city only — never combine.`);
     }
 
     if (profile.avgBudgetMax != null) {
-      lines.push(`- Typical budget max: $${Math.round(profile.avgBudgetMax).toLocaleString()} (avg across searches)`);
-    }
-    if (profile.avgBudgetMin != null) {
-      lines.push(`- Typical budget min: $${Math.round(profile.avgBudgetMin).toLocaleString()}`);
+      lines.push(`- Typical budget max: $${Math.round(profile.avgBudgetMax).toLocaleString()} → use as listing_price_max default only`);
     }
     if (profile.avgBedroomsMin != null) {
       lines.push(`- Typical bedrooms min: ${Math.round(profile.avgBedroomsMin)}`);
@@ -222,8 +213,9 @@ export function buildIntelligenceBlock(profile: BuyerProfile): string {
 
   lines.push(
     "Rules:",
-    "- Apply behavioral averages as defaults when user doesn't specify budget/bedrooms.",
-    "- If user says 'show me homes' with no city, suggest their primary market or ask which city.",
+    "- Use typical budget max as listing_price_max default when user doesn't specify a price ceiling.",
+    "- Never set listing_price_min from behavioral data — only set it when the user explicitly states a minimum price.",
+    "- If user says 'show me homes' with no city, use their primary market as the city.",
     "- Never override explicit user specifications — these are defaults only.",
   );
 

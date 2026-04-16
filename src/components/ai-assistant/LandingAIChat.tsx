@@ -286,7 +286,37 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
     }
   }, [messages, input, isExpanded]);
 
+  // Hydrate chat history from Redis on mount — silently, so history is ready
+  // when the user opens the chat without them having to ask "what did we talk about?"
+  // sessionStorage restore (above) runs first and takes precedence within the current
+  // session. The guard (current.length > 0) ensures Redis only fills in for
+  // genuinely fresh sessions where sessionStorage has nothing.
+  useEffect(() => {
+    const userId = getUserId();
+    const controller = new AbortController();
 
+    fetch(`/api/ai-assistant/history?userId=${encodeURIComponent(userId)}`, {
+      signal: controller.signal,
+    })
+      .then((r) => r.json())
+      .then(({ messages: history }: { messages: Message[] }) => {
+        if (!Array.isArray(history) || history.length === 0) return;
+        setMessages((current) => {
+          // Only apply if the user hasn't already started a conversation
+          if (current.length > 0) return current;
+          return history;
+        });
+        // Scroll to bottom after history renders — container has no auto-scroll
+        setTimeout(() => {
+          bottomRef.current?.scrollIntoView({ behavior: 'instant' });
+        }, 0);
+      })
+      .catch(() => {
+        // Silent failure — start with empty chat
+      });
+
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     const ta = textareaRef.current;

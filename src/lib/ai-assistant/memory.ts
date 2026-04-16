@@ -1,4 +1,4 @@
-import Groq from "groq-sdk";
+import OpenAI from "openai";
 import { getRedis } from "./db";
 import { db } from "./db-pg";
 import { buyerProfiles, searchEvents } from "./schema";
@@ -20,7 +20,10 @@ const PENDING_ACTION_TTL = 60 * 10;            // 10 minutes
 
 const HISTORY_MAX = 40;
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const sambanova = new OpenAI({
+  apiKey: process.env.SAMBANOVA_API_KEY,
+  baseURL: "https://api.sambanova.ai/v1",
+});
 
 function profileKey(userId: string)       { return `profile:${userId}`; }
 function historyKey(userId: string)       { return `history:${userId}`; }
@@ -266,8 +269,8 @@ export async function extractAndUpdateProfile(
   assistantResponse: string,
 ): Promise<void> {
   try {
-    const result = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+    const result = await sambanova.chat.completions.create({
+      model: "Meta-Llama-3.3-70B-Instruct",
       max_tokens: 300,
       temperature: 0,
       messages: [
@@ -333,7 +336,7 @@ For removals: detect when a user replaces or negates a preference ("not Austin",
       tool_choice: "required",
     });
 
-    const toolCall = result.choices[0].message.tool_calls?.[0];
+    const toolCall = result.choices[0].message.tool_calls?.[0] as { function: { name: string; arguments: string } } | undefined;
     if (!toolCall) return;
 
     const raw = JSON.parse(toolCall.function.arguments) as {
@@ -352,9 +355,22 @@ For removals: detect when a user replaces or negates a preference ("not Austin",
 
     const current = await loadProfile(userId);
 
+    // Coerce any value to a string array — guards against SambaNova returning
+    // a string instead of an array, and against corrupted Redis/Postgres data.
+    const toArr = (v: unknown): string[] =>
+      Array.isArray(v) ? (v as string[]) : typeof v === "string" && v.length > 0 ? [v] : [];
+
     // Helper: case-insensitive partial match for removals
     const shouldRemove = (item: string, removals: string[]): boolean =>
       removals.some((r) => item.toLowerCase().includes(r.toLowerCase()));
+
+    const curLocations  = toArr(current.preferredLocations);
+    const curMustHaves  = toArr(current.mustHaves);
+    const curBreakers   = toArr(current.dealBreakers);
+    const curTypes      = toArr(current.propertyTypes);
+    const removeLocations   = toArr(raw.removeLocations);
+    const removeMustHaves   = toArr(raw.removeMustHaves);
+    const removeDealBreakers = toArr(raw.removeDealBreakers);
 
     const merged: BuyerProfile = {
       ...current,
@@ -365,20 +381,20 @@ For removals: detect when a user replaces or negates a preference ("not Austin",
       bathroomsMin: raw.bathroomsMin ?? current.bathroomsMin,
       // Arrays — filter removals first, then union with additions
       preferredLocations: Array.from(new Set([
-        ...current.preferredLocations.filter((l) => !shouldRemove(l, raw.removeLocations ?? [])),
-        ...(raw.preferredLocations ?? []),
+        ...curLocations.filter((l) => !shouldRemove(l, removeLocations)),
+        ...toArr(raw.preferredLocations),
       ])),
       mustHaves: Array.from(new Set([
-        ...current.mustHaves.filter((m) => !shouldRemove(m, raw.removeMustHaves ?? [])),
-        ...(raw.mustHaves ?? []),
+        ...curMustHaves.filter((m) => !shouldRemove(m, removeMustHaves)),
+        ...toArr(raw.mustHaves),
       ])),
       dealBreakers: Array.from(new Set([
-        ...current.dealBreakers.filter((d) => !shouldRemove(d, raw.removeDealBreakers ?? [])),
-        ...(raw.dealBreakers ?? []),
+        ...curBreakers.filter((d) => !shouldRemove(d, removeDealBreakers)),
+        ...toArr(raw.dealBreakers),
       ])),
       propertyTypes: Array.from(new Set([
-        ...current.propertyTypes,
-        ...(raw.propertyTypes ?? []),
+        ...curTypes,
+        ...toArr(raw.propertyTypes),
       ])),
       lastUpdated: new Date().toISOString(),
     };
@@ -401,8 +417,8 @@ export async function extractAndSavePendingAction(
   assistantResponse: string,
 ): Promise<void> {
   try {
-    const result = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+    const result = await sambanova.chat.completions.create({
+      model: "Meta-Llama-3.3-70B-Instruct",
       max_tokens: 256,
       temperature: 0,
       messages: [
@@ -446,7 +462,7 @@ If no specific search was proposed — just general advice, questions, or vague 
       tool_choice: "required",
     });
 
-    const toolCall = result.choices[0].message.tool_calls?.[0];
+    const toolCall = result.choices[0].message.tool_calls?.[0] as { function: { name: string; arguments: string } } | undefined;
     if (!toolCall) return;
 
     const raw = JSON.parse(toolCall.function.arguments) as {

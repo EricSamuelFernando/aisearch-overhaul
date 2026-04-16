@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import Groq from "groq-sdk";
+// [OpenAI-compatible routing — uncomment + comment out Haiku block to switch provider]
+// import OpenAI from "openai";
 import {
   anthropic,
   buildIntentSystemPrompt,
@@ -28,7 +29,8 @@ import { MLSSearchParams, PhotoRankResult } from "@/types/ai-assistant";
 
 export const runtime = "nodejs";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+// const sambanova = new OpenAI({ apiKey: process.env.SAMBANOVA_API_KEY, baseURL: "https://api.sambanova.ai/v1" });
+// const fireworks  = new OpenAI({ apiKey: process.env.FIREWORKS_API_KEY,  baseURL: "https://api.fireworks.ai/inference/v1" });
 
 function sseEvent(data: object): string {
   return `data: ${JSON.stringify(data)}\n\n`;
@@ -41,108 +43,100 @@ function log(label: string, ref: number) {
   console.log(`\x1b[36m[AI]\x1b[0m ${color}+${ms}ms\x1b[0m  ${label}`);
 }
 
-const TOOLS: Groq.Chat.ChatCompletionTool[] = [
+// ── [OpenAI-compatible tool schema — uncomment for SambaNova / Fireworks] ────
+// const TOOLS: OpenAI.ChatCompletionTool[] = [
+//   { type: "function", function: { name: "search_mls", description: "Search MLS for real estate listings...", parameters: { type: "object", properties: { city: { type: "string" }, state: { type: "string" }, listing_price_min: { type: "number" }, listing_price_max: { type: "number" }, bedrooms_min: { type: "integer" }, bathrooms_min: { type: "number" }, has_pool: { type: "boolean" }, is_water_front: { type: "boolean" }, is_water_view: { type: "boolean" }, living_area_min: { type: "integer" }, year_built_min: { type: "integer" }, year_built_max: { type: "integer" }, days_on_market_max: { type: "integer" }, size: { type: "integer" }, visual_query: { type: "string" }, room_hint: { type: "string", enum: ["kitchen","dining_room","bathroom","living_room","bedroom","exterior","backyard","any"] }, visual_confidence: { type: "string", enum: ["high","medium","low"] }, description_keywords: { type: "string" } }, required: [] } } },
+//   { type: "function", function: { name: "reference_listing", description: "User is asking about the details of ONE specific listing already shown.", parameters: { type: "object", properties: { listing_index: { type: "integer", description: "1-based position" } }, required: ["listing_index"] } } },
+//   { type: "function", function: { name: "answer_user", description: "Answer a general conversational question with no property search intent.", parameters: { type: "object", properties: { topic: { type: "string" } }, required: ["topic"] } } },
+// ];
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Haiku routing tools (Anthropic format) ───────────────────────────────────
+const ANTHROPIC_TOOLS: Anthropic.Tool[] = [
   {
-    type: "function",
-    function: {
-      name: "search_mls",
-      description:
-        "Search MLS for real estate listings. Call this when the user wants to find, " +
-        "browse, filter, or re-show properties — including follow-ups like 'now show me X', " +
-        "'what about Dallas instead', 'filter to ones with a pool', 'show those again', " +
-        "'pull those listings again', 're-run that search'. " +
-        "Do NOT call this if the user is asking about the details of one specific already-shown listing.",
-      parameters: {
-        type: "object",
-        properties: {
-          city:               { type: "string",  description: "City name, title-cased e.g. 'Austin'" },
-          state:              { type: "string",  description: "Two-letter state code e.g. 'TX'" },
-          listing_price_min:  { type: "number",  description: "Minimum price in dollars" },
-          listing_price_max:  { type: "number",  description: "Maximum price in dollars" },
-          bedrooms_min:       { type: "integer", description: "Minimum bedrooms" },
-          bathrooms_min:      { type: "number",  description: "Minimum bathrooms" },
-          has_pool:           { type: "boolean", description: "Must have a pool" },
-          is_water_front:     { type: "boolean", description: "Must be on waterfront" },
-          is_water_view:      { type: "boolean", description: "Must have water view" },
-          living_area_min:    { type: "integer", description: "Minimum sq ft" },
-          year_built_min:     { type: "integer", description: "Minimum year built" },
-          year_built_max:     { type: "integer", description: "Maximum year built" },
-          days_on_market_max: { type: "integer", description: "Maximum days on market" },
-          size:               { type: "integer", description: "Number of results, default 6 max 12" },
-          visual_query: {
-            type: "string",
-            description:
-              "Visual/aesthetic feature the user wants to see in listing photos. " +
-              "Set ONLY when user describes something visual that cannot be expressed as an MLS filter. " +
-              "Examples: 'blue painted kitchen cabinets', 'bright natural sunlight through large windows', " +
-              "'open concept kitchen flowing into living room', 'hardwood floors', 'vaulted ceilings', " +
-              "'modern white interior', 'mountain view from inside'. " +
-              "Do NOT set for pool, waterfront, bedrooms, price — those are MLS filters.",
-          },
-          room_hint: {
-            type: "string",
-            enum: ["kitchen", "dining_room", "bathroom", "living_room", "bedroom", "exterior", "backyard", "any"],
-            description: "Which room the visual_query refers to. Helps prioritize which photos to score.",
-          },
-          visual_confidence: {
-            type: "string",
-            enum: ["high", "medium", "low"],
-            description:
-              "How specific and visually distinctive the feature is. " +
-              "'high' = very specific visual feature (blue kitchen cabinets, castle turrets, herringbone floors). " +
-              "'medium' = moderately specific (modern farmhouse, hardwood floors, open concept). " +
-              "'low' = generic aesthetic (nice interior, bright home, modern style). " +
-              "High confidence triggers Sonnet fallback if Haiku scores are low.",
-          },
-          description_keywords: {
-            type: "string",
-            description:
-              "Comma-separated terms to search in listing text descriptions. " +
-              "Use for features that may not be photographed: library, wine cellar, theater, solar panels. " +
-              "Include synonyms: 'library,study,bookshelf,bookshelves,reading room'. " +
-              "Set alongside visual_query whenever the feature is rare or architectural.",
-          },
+    name: "search_mls",
+    description:
+      "Search MLS for real estate listings. Call this when the user wants to find, " +
+      "browse, filter, or re-show properties — including follow-ups like 'now show me X', " +
+      "'what about Dallas instead', 'filter to ones with a pool', 'show those again', " +
+      "'pull those listings again', 're-run that search'. " +
+      "Do NOT call this if the user is asking about the details of one specific already-shown listing.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        city:               { type: "string",  description: "City name, title-cased e.g. 'Austin'" },
+        state:              { type: "string",  description: "Two-letter state code e.g. 'TX'" },
+        listing_price_min:  { type: "number",  description: "Minimum price in dollars" },
+        listing_price_max:  { type: "number",  description: "Maximum price in dollars" },
+        bedrooms_min:       { type: "integer", description: "Minimum bedrooms" },
+        bathrooms_min:      { type: "number",  description: "Minimum bathrooms" },
+        has_pool:           { type: "boolean", description: "Must have a pool" },
+        is_water_front:     { type: "boolean", description: "Must be on waterfront" },
+        is_water_view:      { type: "boolean", description: "Must have water view" },
+        living_area_min:    { type: "integer", description: "Minimum sq ft" },
+        year_built_min:     { type: "integer", description: "Minimum year built" },
+        year_built_max:     { type: "integer", description: "Maximum year built" },
+        days_on_market_max: { type: "integer", description: "Maximum days on market" },
+        size:               { type: "integer", description: "Number of results, default 6 max 12" },
+        visual_query: {
+          type: "string",
+          description:
+            "Visual/aesthetic feature the user wants to see in listing photos. " +
+            "Set ONLY when user describes something visual that cannot be expressed as an MLS filter. " +
+            "Examples: 'blue painted kitchen cabinets', 'bright natural sunlight through large windows', " +
+            "'open concept kitchen flowing into living room', 'hardwood floors', 'vaulted ceilings', " +
+            "'modern white interior', 'mountain view from inside'. " +
+            "Do NOT set for pool, waterfront, bedrooms, price — those are MLS filters.",
         },
-        required: [],
+        room_hint: {
+          type: "string",
+          enum: ["kitchen", "dining_room", "bathroom", "living_room", "bedroom", "exterior", "backyard", "any"],
+          description: "Which room the visual_query refers to.",
+        },
+        visual_confidence: {
+          type: "string",
+          enum: ["high", "medium", "low"],
+          description:
+            "'high' = very specific visual feature. 'medium' = moderately specific. 'low' = generic aesthetic.",
+        },
+        description_keywords: {
+          type: "string",
+          description:
+            "Comma-separated terms to search in listing text descriptions. " +
+            "Include synonyms: 'library,study,bookshelf,bookshelves,reading room'.",
+        },
       },
     },
   },
   {
-    type: "function",
-    function: {
-      name: "reference_listing",
-      description:
-        "User is asking about the details of ONE specific listing already shown in a previous turn — " +
-        "e.g. 'tell me more about the second house', 'what year was the first one built', " +
-        "'how big is listing #3'. " +
-        "Never call this to re-show all listings or run a new search.",
-      parameters: {
-        type: "object",
-        properties: {
-          listing_index: {
-            type: "integer",
-            description: "1-based position of the listing (1 = first tile shown, 2 = second, etc.)",
-          },
+    name: "reference_listing",
+    description:
+      "User is asking about the details of ONE specific listing already shown in a previous turn — " +
+      "e.g. 'tell me more about the second house', 'what year was the first one built', " +
+      "'how big is listing #3'. Never call this to re-show all listings or run a new search.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        listing_index: {
+          type: "integer",
+          description: "1-based position of the listing (1 = first tile shown, 2 = second, etc.)",
         },
-        required: ["listing_index"],
       },
+      required: ["listing_index"],
     },
   },
   {
-    type: "function",
-    function: {
-      name: "answer_user",
-      description:
-        "Answer a general conversational question that does NOT involve property listings. " +
-        "Use for greetings, general real estate advice, mortgage questions, profile questions. " +
-        "Never use this if the user wants to find, re-show, or re-fetch any listings.",
-      parameters: {
-        type: "object",
-        properties: {
-          topic: { type: "string", description: "Brief description of what the user is asking about" },
-        },
-        required: ["topic"],
+    name: "answer_user",
+    description:
+      "Answer a general conversational question that does NOT involve property listings. " +
+      "Use for greetings, general real estate advice, mortgage questions, profile questions. " +
+      "Never use this if the user wants to find, re-show, or re-fetch any listings.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        topic: { type: "string", description: "Brief description of what the user is asking about" },
       },
+      required: ["topic"],
     },
   },
 ];
@@ -159,6 +153,23 @@ function scoreByDescription(description: string | undefined, keywords: string[])
   if (hits === 0) return 0;
   // 1 hit → 0.60, more hits scale toward 0.75
   return Math.min(0.60 + (hits / keywords.length) * 0.15, 0.75);
+}
+
+// Terms that indicate a genuine buyer preference — used to gate Supermemory writes
+// on answer_user turns so we don't pollute with greetings and generic Q&A.
+// Length guard (<=30 chars) handles the short cases before this list is checked.
+const PREFERENCE_TERMS = [
+  'budget', 'afford', 'bedroom', 'bathroom', 'pool', 'garage',
+  'yard', 'basement', 'school district', 'commute', 'waterfront',
+  'condo', 'townhouse', 'single family', 'must have', 'deal breaker',
+  'prefer', 'looking for', "don't want", 'avoid', 'no hoa',
+  'square feet', 'sqft', 'neighborhood', 'downtown', 'suburb',
+] as const;
+
+function containsPreferenceSignal(message: string): boolean {
+  if (message.length <= 30) return false;
+  const lower = message.toLowerCase();
+  return PREFERENCE_TERMS.some((term) => lower.includes(term));
 }
 
 export async function POST(req: NextRequest) {
@@ -229,8 +240,8 @@ export async function POST(req: NextRequest) {
           { role: "user", content: message },
         ];
 
-        // ── Step 1: Groq routing (~1-2s) ─────────────────────────────────────
-        console.log("\x1b[36m[AI]\x1b[0m \x1b[35m→ Groq routing call\x1b[0m");
+        // ── Step 1: SambaNova routing (~1-3s) ────────────────────────────────
+        console.log("\x1b[36m[AI]\x1b[0m \x1b[35m→ SambaNova routing call\x1b[0m");
 
         // ── Pre-route pure affirmations in code — never let the LLM mishandle them ──
         // A pure affirmation is a short message (≤5 words) with no search-intent words.
@@ -265,6 +276,87 @@ export async function POST(req: NextRequest) {
           return;
         }
 
+        // ── Multi-city pre-route ─────────────────────────────────────────────────
+        // Fires when user explicitly asks to search across their saved/preferred
+        // locations (not just "show me homes" ambiguity). Runs parallel MLS calls —
+        // one per location (capped at 3), merges and deduplicates, streams a unified
+        // summary. Skips SambaNova entirely — intent is unambiguous.
+        const MULTI_CITY_INTENT = /\b(preferred locations?|all my (?:cities|locations?|markets?)|saved (?:locations?|cities|markets?)|my (?:saved|preferred) (?:locations?|cities|markets?))\b/i;
+        const isMultiCity = MULTI_CITY_INTENT.test(message) && profile.preferredLocations.length > 1;
+
+        if (isMultiCity) {
+          const parseLocation = (loc: string): { city?: string; state?: string } => {
+            const parts = loc.split(",").map((s) => s.trim());
+            return { city: parts[0], state: parts[1]?.split(" ")[0] };
+          };
+
+          const locations = profile.preferredLocations.slice(0, 3);
+          const carryParams: MLSSearchParams = searchCtx?.params ?? {};
+          const perCity = Math.ceil(12 / locations.length);
+
+          const [cityResults, memoryContext] = await Promise.all([
+            Promise.all(
+              locations.map((loc) => {
+                const { city, state } = parseLocation(loc);
+                return searchListings({ ...carryParams, city, state, size: perCity });
+              }),
+            ),
+            Promise.race([memoryPromise, new Promise<string>((resolve) => setTimeout(() => resolve(""), 2000))]),
+          ]);
+
+          // Deduplicate across cities by full address
+          const seen = new Set<string>();
+          const listings = cityResults.flat().filter((l) => {
+            if (seen.has(l.full_address)) return false;
+            seen.add(l.full_address);
+            return true;
+          });
+
+          log(`multi-city (${locations.join(" + ")}): ${listings.length} listing(s)`, T0);
+          send({ type: "listings", data: listings });
+          log("tiles emitted to client", T0);
+
+          const multiSummaryStream = await anthropic.messages.create({
+            model: "claude-sonnet-4-6",
+            max_tokens: 600,
+            system: buildSearchSystemPrompt(profile, memoryContext),
+            messages: [
+              { role: "user", content: message },
+              { role: "assistant", content: `Searching across ${locations.join(", ")}...` },
+              {
+                role: "user",
+                content: `[MLS RESULTS — searched ${locations.join(", ")}]\n${formatListingsForPrompt(listings)}\n[/MLS RESULTS]\n\nSummarise these listings. Note which city each one is in.`,
+              },
+            ],
+            stream: true,
+          });
+
+          let multiFullResp = "";
+          let firstMultiToken = true;
+          for await (const ev of multiSummaryStream) {
+            if (ev.type === "content_block_delta" && ev.delta.type === "text_delta") {
+              if (firstMultiToken) { log("first token", T0); firstMultiToken = false; }
+              multiFullResp += ev.delta.text;
+              send({ type: "token", text: ev.delta.text });
+            }
+          }
+          send({ type: "done" });
+          log("DONE — multi-city", T0);
+
+          await appendMessage(userId, { role: "assistant", content: multiFullResp, listings });
+          clearPendingAction(userId);
+          const primaryLoc = parseLocation(locations[0]);
+          saveSearchContext(userId, {
+            params: { ...carryParams, ...primaryLoc },
+            resolvedLocation: locations.join(" + "),
+            appliedAt: new Date().toISOString(),
+          });
+          recordSearchEvent(userId, { ...carryParams, city: locations[0], state: primaryLoc.state }, listings.length, profile);
+          writeMemory(userId, `User searched preferred locations: ${locations.join(", ")}. ${listings.length} result(s).`);
+          controller.close();
+          return;
+        }
+
         // Build buyer intelligence block from already-loaded profile (zero extra I/O)
         const intelligenceBlock = buildIntelligenceBlock(profile);
         if (intelligenceBlock) log("intelligence block ready", T0);
@@ -293,42 +385,70 @@ export async function POST(req: NextRequest) {
               .join(", ")}\nIf the user confirms ("yes", "do that", "go ahead", "sure"), call search_mls with these params.\n`
           : "";
 
-        const [groqResponse, memoryContext] = await Promise.all([
-          groq.chat.completions.create({
-            model: "llama-3.3-70b-versatile",
-            max_tokens: 256,
-            temperature: 0,
-            messages: [
-              {
-                role: "system",
-                // Intelligence block appended to base prompt — zero extra API call
-                content: buildIntentSystemPrompt(intelligenceBlock) + searchCtxBlock + pendingActionBlock,
-              },
-              ...history.slice(-8).map((m) => ({
-                role: m.role as "user" | "assistant",
-                content:
-                  m.role === "assistant"
-                    ? m.listings && m.listings.length > 0
-                      ? `[showed ${m.listings.length} listings: ${m.listings.map((l, i) => `#${i + 1} ${l.full_address}`).join(", ")}]`
-                      : "[assistant responded with answer]"
-                    : m.content,
-              })),
-              { role: "user", content: message },
-            ],
-            tools: TOOLS,
-            tool_choice: "required",
+        // History messages — no system role (Anthropic passes system separately)
+        const routingHistory: Anthropic.MessageParam[] = [
+          ...history.slice(-8).map((m) => ({
+            role: m.role as "user" | "assistant",
+            content:
+              m.role === "assistant"
+                ? m.listings && m.listings.length > 0
+                  ? `[showed ${m.listings.length} listings: ${m.listings.map((l, i) => `#${i + 1} ${l.full_address}`).join(", ")}]`
+                  : "[assistant responded with answer]"
+                : m.content,
+          })),
+          { role: "user" as const, content: message },
+        ];
+
+        const routingSystem = buildIntentSystemPrompt(intelligenceBlock) + searchCtxBlock + pendingActionBlock;
+
+        // ── [OpenAI-compatible routing — uncomment for SambaNova / Fireworks] ──
+        // const callRouting = () => sambanova.chat.completions.create({
+        //   model: "Meta-Llama-3.3-70B-Instruct",   // Fireworks: "accounts/fireworks/models/llama-v3p3-70b-instruct"
+        //   max_tokens: 256, temperature: 0,
+        //   messages: [{ role: "system", content: routingSystem }, ...routingHistory],
+        //   tools: TOOLS, tool_choice: "required",
+        // });
+        // const [routingResponse, memoryContext] = await Promise.all([
+        //   callRouting().catch(async (err) => { if (err?.status === 429) { await new Promise(r => setTimeout(r, 3000)); return callRouting(); } throw err; }),
+        //   Promise.race([memoryPromise, new Promise<string>(r => setTimeout(() => r(""), 2000))]),
+        // ]);
+        // const rawToolCall = routingResponse.choices[0].message.tool_calls?.[0] as { function: { name: string; arguments: string } } | undefined;
+        // ─────────────────────────────────────────────────────────────────────
+
+        // ── Haiku routing ────────────────────────────────────────────────────
+        const callHaikuRouting = () => anthropic.messages.create({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 256,
+          temperature: 0,
+          system: routingSystem,
+          messages: routingHistory,
+          tools: ANTHROPIC_TOOLS,
+          tool_choice: { type: "any" },
+        });
+
+        const [haikuResponse, memoryContext] = await Promise.all([
+          callHaikuRouting().catch(async (err) => {
+            if (err?.status === 429) {
+              console.warn("\x1b[33m[AI]\x1b[0m Haiku routing 429 — retrying in 3s");
+              await new Promise((r) => setTimeout(r, 3000));
+              return callHaikuRouting();
+            }
+            throw err;
           }),
-          // Give Supermemory the same window as Groq — resolves empty if slow
-          Promise.race([
-            memoryPromise,
-            new Promise<string>((resolve) => setTimeout(() => resolve(""), 2000)),
-          ]),
+          Promise.race([memoryPromise, new Promise<string>((resolve) => setTimeout(() => resolve(""), 2000))]),
         ]);
 
-        log("Groq routing done", T0);
+        const toolUseBlock = haikuResponse.content.find((b) => b.type === "tool_use") as Anthropic.ToolUseBlock | undefined;
+        // Normalise to shared interface so the rest of the route is provider-agnostic
+        const rawToolCall = toolUseBlock
+          ? { function: { name: toolUseBlock.name, arguments: JSON.stringify(toolUseBlock.input) } }
+          : undefined;
+        // ─────────────────────────────────────────────────────────────────────
+
+        log("Haiku routing done", T0);
         if (memoryContext) log("memory context ready", T0);
 
-        const toolCall = groqResponse.choices[0].message.tool_calls?.[0];
+        const toolCall = rawToolCall;
         const toolName = toolCall?.function.name;
         console.log(`\x1b[36m[AI]\x1b[0m tool: ${toolName ?? "none"}`);
 
@@ -358,7 +478,9 @@ export async function POST(req: NextRequest) {
           await appendMessage(userId, { role: "assistant", content: fullResp });
           extractAndUpdateProfile(userId, message, fullResp);
           extractAndSavePendingAction(userId, fullResp);
-          writeMemory(userId, `User preference signal from conversation: ${message.slice(0, 200)}`);
+          if (containsPreferenceSignal(message)) {
+            writeMemory(userId, `User said: "${message.slice(0, 200)}"`);
+          }
 
           controller.close();
           return;
@@ -579,6 +701,25 @@ export async function POST(req: NextRequest) {
                   log(`photo_rank SSE sent for ${merged.length} listing(s)`, T0);
                   await setBatchCachedRankings(visualQuery, merged);
                   log("photo_rank cached", T0);
+
+                  // Feed top photo matches back into Supermemory — this closes the
+                  // intelligence loop: we write not just that a visual search happened,
+                  // but what actually scored well. Future sessions get semantic context
+                  // about which features resonated, not just that they were searched.
+                  const topMatches = merged
+                    .filter((r) => r.bestScore >= 0.5)
+                    .sort((a, b) => b.bestScore - a.bestScore);
+                  if (topMatches.length > 0) {
+                    const topListing = listings.find((l) => l.id === topMatches[0].listingId);
+                    const quality = topMatches[0].bestScore >= 0.7 ? "strong" : "partial";
+                    writeMemory(
+                      userId,
+                      `Visual match result: "${visualQuery}" in ${resolvedLocation} — ${quality} photo match found. ` +
+                      `Best: ${topListing?.full_address ?? "unknown"} (score ${topMatches[0].bestScore.toFixed(2)}). ` +
+                      `${topMatches.length}/${merged.length} listing(s) above 0.5 threshold.`,
+                    );
+                    log(`supermemory enriched with top visual match (score ${topMatches[0].bestScore.toFixed(2)})`, T0);
+                  }
                 })
                 .catch((err) => {
                   console.warn("\x1b[33m[Vision] ranking failed:\x1b[0m", err instanceof Error ? err.message : err);
@@ -592,6 +733,29 @@ export async function POST(req: NextRequest) {
           send({ type: "listings", data: [] });
         }
 
+        const resolvedLocation =
+          [searchParams.city, searchParams.state].filter(Boolean).join(", ") || "Unknown";
+
+        // Build visual search context block for Sonnet — tells it what was searched
+        // and which listings have description evidence, so it can frame the response
+        // around the visual feature rather than writing a generic spec summary.
+        let visualSummaryContext = "";
+        if (visualQuery) {
+          const lines = [`[Visual search: "${visualQuery}"${roomHint !== "any" ? ` — ${roomHint}` : ""}]`];
+          const textMatches = [...textScoreMap.entries()]
+            .sort(([, a], [, b]) => b - a)
+            .slice(0, 3)
+            .map(([id]) => listings.find((l) => l.id === id)?.full_address)
+            .filter(Boolean) as string[];
+          if (textMatches.length > 0) {
+            lines.push(`Description evidence found in: ${textMatches.join("; ")}`);
+          } else {
+            lines.push("No description mentions found — photo ranking is the primary signal.");
+          }
+          lines.push("Tiles are ordered by photo match strength. Focus your summary on the visual feature.");
+          visualSummaryContext = lines.join("\n");
+        }
+
         log("starting Sonnet summary stream", T0);
 
         const summaryStream = await anthropic.messages.create({
@@ -603,7 +767,7 @@ export async function POST(req: NextRequest) {
             { role: "assistant", content: "Searching MLS now..." },
             {
               role: "user",
-              content: `[MLS RESULTS]\n${listingsText}\n[/MLS RESULTS]\n\nSummarise these listings for the user.`,
+              content: `[MLS RESULTS]\n${listingsText}\n[/MLS RESULTS]\n${visualSummaryContext ? `\n${visualSummaryContext}\n` : ""}\nSummarise these listings for the user.`,
             },
           ],
           stream: true,
@@ -632,9 +796,6 @@ export async function POST(req: NextRequest) {
 
         send({ type: "done" });
         log("DONE — total", T0);
-
-        const resolvedLocation =
-          [searchParams.city, searchParams.state].filter(Boolean).join(", ") || "Unknown";
 
         // Persist history and context synchronously (fast, Redis)
         await appendMessage(userId, { role: "assistant", content: fullResponse, listings });

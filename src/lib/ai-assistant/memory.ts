@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { getRedis } from "./db";
 import { db } from "./db-pg";
 import { buyerProfiles, searchEvents } from "./schema";
@@ -28,6 +27,9 @@ function pendingActionKey(userId: string) { return `pending_action:${userId}`; }
 
 const DEFAULT_PROFILE = (userId: string): BuyerProfile => ({
   userId,
+  // Identity
+  email:           null,
+  name:            null,
   // Stated
   preferredLocations: [],
   budgetMin:          null,
@@ -48,6 +50,7 @@ const DEFAULT_PROFILE = (userId: string): BuyerProfile => ({
   sessionCount:       0,
   lastActiveAt:       null,
   visualPreferences:  {},
+  personalContext:    {},
 });
 
 // ── Profile load / save ──────────────────────────────────────────────────────
@@ -77,6 +80,9 @@ export async function loadProfile(userId: string): Promise<BuyerProfile> {
       const row = rows[0];
       const profile: BuyerProfile = {
         userId:             row.userId,
+        // Identity
+        email:              row.email ?? null,
+        name:               row.name  ?? null,
         // Stated
         preferredLocations: row.preferredLocations ?? [],
         budgetMin:          row.budgetMin ?? null,
@@ -97,6 +103,7 @@ export async function loadProfile(userId: string): Promise<BuyerProfile> {
         sessionCount:      row.sessionCount ?? 0,
         lastActiveAt:      row.lastActiveAt?.toISOString() ?? null,
         visualPreferences: (row.visualPreferences as Record<string, number>) ?? {},
+        personalContext:   (row.personalContext   as Record<string, string>)  ?? {},
       };
       await redis.set(profileKey(userId), profile, { ex: PROFILE_TTL });
       return profile;
@@ -116,6 +123,9 @@ export async function saveProfile(profile: BuyerProfile): Promise<void> {
       .insert(buyerProfiles)
       .values({
         userId:             profile.userId,
+        // Identity
+        email:              profile.email ?? undefined,
+        name:               profile.name  ?? undefined,
         // Stated
         preferredLocations: profile.preferredLocations,
         budgetMin:          profile.budgetMin ?? undefined,
@@ -136,10 +146,14 @@ export async function saveProfile(profile: BuyerProfile): Promise<void> {
         sessionCount:      profile.sessionCount,
         lastActiveAt:      profile.lastActiveAt ? new Date(profile.lastActiveAt) : undefined,
         visualPreferences: profile.visualPreferences,
+        personalContext:   profile.personalContext,
       })
       .onConflictDoUpdate({
         target: buyerProfiles.userId,
         set: {
+          // Identity
+          email:              profile.email ?? undefined,
+          name:               profile.name  ?? undefined,
           // Stated
           preferredLocations: profile.preferredLocations,
           budgetMin:          profile.budgetMin ?? undefined,
@@ -160,6 +174,7 @@ export async function saveProfile(profile: BuyerProfile): Promise<void> {
           sessionCount:      profile.sessionCount,
           lastActiveAt:      profile.lastActiveAt ? new Date(profile.lastActiveAt) : undefined,
           visualPreferences: profile.visualPreferences,
+          personalContext:   profile.personalContext,
         },
       })
       .catch((err) => {
@@ -255,11 +270,7 @@ export async function recordSearchEvent(
 // ── Profile extraction (Haiku, fire-and-forget) ──────────────────────────────
 
 /**
-<<<<<<< HEAD
  * Extract structured buyer profile updates from the conversation using Claude Haiku.
-=======
- * Extract structured buyer profile updates from the conversation using Haiku.
->>>>>>> 61be1a6dc0a4c825d40b870b69ab9c01a62fa60b
  * Runs fire-and-forget after the response is streamed.
  * Supports both addition AND removal of preferences for accurate profile correction.
  */
@@ -272,10 +283,7 @@ export async function extractAndUpdateProfile(
     const result = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 300,
-<<<<<<< HEAD
       temperature: 0,
-=======
->>>>>>> 61be1a6dc0a4c825d40b870b69ab9c01a62fa60b
       system: `Extract buyer preference updates from a real estate conversation turn.
 Only extract what is explicitly stated or clearly implied. Return null for unknown fields.
 For removals: detect when a user replaces or negates a preference ("not Austin", "forget the pool", "actually 2 beds is fine", "instead of X").`,
@@ -290,11 +298,7 @@ For removals: detect when a user replaces or negates a preference ("not Austin",
           name: "update_profile",
           description: "Update the buyer profile with preferences found in this conversation turn",
           input_schema: {
-<<<<<<< HEAD
-            type: "object",
-=======
             type: "object" as const,
->>>>>>> 61be1a6dc0a4c825d40b870b69ab9c01a62fa60b
             properties: {
               // Additions
               preferredLocations: {
@@ -329,6 +333,13 @@ For removals: detect when a user replaces or negates a preference ("not Austin",
                 anyOf: [{ type: "array", items: { type: "string" } }, { type: "null" }],
                 description: "Deal-breakers to REMOVE",
               },
+              // Personal context — freeform key-value facts about the person
+              // Keys: snake_case e.g. "current_city", "has_children", "workplace", "life_stage"
+              // Values: whatever the user said, verbatim or short summary
+              personalContext: {
+                anyOf: [{ type: "object", additionalProperties: { type: "string" } }, { type: "null" }],
+                description: "Personal facts to ADD/UPDATE e.g. { current_city: 'Chicago', has_children: 'yes, ages 4 and 7' }",
+              },
             },
             required: [],
           },
@@ -337,13 +348,8 @@ For removals: detect when a user replaces or negates a preference ("not Austin",
       tool_choice: { type: "any" },
     });
 
-<<<<<<< HEAD
-    const toolBlock = result.content.find((b) => b.type === "tool_use") as Anthropic.ToolUseBlock | undefined;
-    if (!toolBlock) return;
-=======
-    const toolBlock = result.content.find(b => b.type === "tool_use");
+    const toolBlock = result.content.find((b) => b.type === "tool_use");
     if (!toolBlock || toolBlock.type !== "tool_use") return;
->>>>>>> 61be1a6dc0a4c825d40b870b69ab9c01a62fa60b
 
     const raw = toolBlock.input as {
       preferredLocations?:  string[] | null;
@@ -357,6 +363,7 @@ For removals: detect when a user replaces or negates a preference ("not Austin",
       removeLocations?:     string[] | null;
       removeMustHaves?:     string[] | null;
       removeDealBreakers?:  string[] | null;
+      personalContext?:     Record<string, string> | null;
     };
 
     const current = await loadProfile(userId);
@@ -402,6 +409,11 @@ For removals: detect when a user replaces or negates a preference ("not Austin",
         ...curTypes,
         ...toArr(raw.propertyTypes),
       ])),
+      // Personal context — merge additively, never wipe existing keys
+      personalContext: {
+        ...current.personalContext,
+        ...(raw.personalContext ?? {}),
+      },
       lastUpdated: new Date().toISOString(),
     };
 
@@ -431,10 +443,7 @@ export async function extractAndSavePendingAction(
     const result = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 256,
-<<<<<<< HEAD
       temperature: 0,
-=======
->>>>>>> 61be1a6dc0a4c825d40b870b69ab9c01a62fa60b
       system: `Detect whether an AI real estate assistant proposed a specific MLS search in its response.
 If a specific search was proposed (city/neighbourhood, price, beds, features), extract the params.
 If no specific search was proposed — just general advice, questions, or vague offers — return proposed=false.`,
@@ -449,11 +458,7 @@ If no specific search was proposed — just general advice, questions, or vague 
           name: "set_pending_search",
           description: "Call this to set or clear a pending search proposal.",
           input_schema: {
-<<<<<<< HEAD
-            type: "object",
-=======
             type: "object" as const,
->>>>>>> 61be1a6dc0a4c825d40b870b69ab9c01a62fa60b
             properties: {
               proposed:           { type: "boolean" },
               description:        { anyOf: [{ type: "string" }, { type: "null" }] },
@@ -474,13 +479,8 @@ If no specific search was proposed — just general advice, questions, or vague 
       tool_choice: { type: "any" },
     });
 
-<<<<<<< HEAD
-    const toolBlock = result.content.find((b) => b.type === "tool_use") as Anthropic.ToolUseBlock | undefined;
-    if (!toolBlock) return;
-=======
-    const toolBlock = result.content.find(b => b.type === "tool_use");
+    const toolBlock = result.content.find((b) => b.type === "tool_use");
     if (!toolBlock || toolBlock.type !== "tool_use") return;
->>>>>>> 61be1a6dc0a4c825d40b870b69ab9c01a62fa60b
 
     const raw = toolBlock.input as {
       proposed:            boolean;

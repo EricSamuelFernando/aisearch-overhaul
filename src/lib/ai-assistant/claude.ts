@@ -87,6 +87,7 @@ export function buildIntentSystemPrompt(intelligenceBlock = ""): string {
 // ── Profile block (shared) ───────────────────────────────────────────────────
 
 function buildProfileBlock(profile: BuyerProfile): string {
+  const personalEntries = Object.entries(profile.personalContext ?? {});
   const hasData = [
     profile.preferredLocations.length > 0,
     profile.budgetMin != null,
@@ -96,6 +97,7 @@ function buildProfileBlock(profile: BuyerProfile): string {
     profile.mustHaves.length > 0,
     profile.dealBreakers.length > 0,
     profile.propertyTypes.length > 0,
+    personalEntries.length > 0,
   ].some(Boolean);
 
   if (!hasData) {
@@ -103,14 +105,23 @@ function buildProfileBlock(profile: BuyerProfile): string {
 No preferences recorded yet. Everything the user tells you today is automatically saved and will be remembered in future sessions.`;
   }
 
+  const identityLines = [
+    profile.name  ? `- Name: ${profile.name}`   : null,
+    profile.email ? `- Email: ${profile.email}` : null,
+  ].filter(Boolean).join("\n");
+
+  const personalLines = personalEntries.length > 0
+    ? personalEntries.map(([k, v]) => `- ${k.replace(/_/g, " ")}: ${v}`).join("\n")
+    : "";
+
   return `## Your Persistent Buyer Profile (saved across sessions)
-- Preferred locations: ${profile.preferredLocations.join(", ") || "not set"}
+${identityLines ? identityLines + "\n" : ""}- Preferred locations: ${profile.preferredLocations.join(", ") || "not set"}
 - Budget: ${profile.budgetMin != null ? `$${profile.budgetMin.toLocaleString()} – ` : "up to "}${profile.budgetMax != null ? `$${profile.budgetMax.toLocaleString()}` : "no max set"}
 - Bedrooms minimum: ${profile.bedroomsMin ?? "not set"}
 - Bathrooms minimum: ${profile.bathroomsMin ?? "not set"}
 - Must-haves: ${profile.mustHaves.join(", ") || "none noted"}
 - Deal-breakers: ${profile.dealBreakers.join(", ") || "none noted"}
-- Property types: ${profile.propertyTypes.join(", ") || "any"}`;
+- Property types: ${profile.propertyTypes.join(", ") || "any"}${personalLines ? "\n\n## Personal context\n" + personalLines : ""}`;
 }
 
 // ── Search summary prompt ────────────────────────────────────────────────────
@@ -175,7 +186,12 @@ Never claim you have no memory across sessions — you always have the profile a
 ## Formatting
 No emojis. No heading markers (#). No horizontal rules.
 Bold (**text**) only for a single key number that changes a decision — maximum once per response.
-For profile reads: plain labeled lines on separate lines, e.g. "Locations: Austin, TX".
+For profile reads: one field per line, never combined into a sentence. Example:
+Name: Eric Samuel
+Email: eric@example.com
+Locations: Austin, TX
+Budget: up to $800,000
+Bedrooms minimum: 3
 For explicit comparisons (user asks to compare two listings): use a markdown table.
 Q&A answers: four sentences maximum in plain prose.
 

@@ -21,6 +21,10 @@ export interface PendingAction {
 export interface BuyerProfile {
   userId: string;
 
+  // ── Identity (seeded from Cognito, never extracted) ──────────────────────
+  email: string | null;
+  name: string | null;
+
   // ── Stated preferences (extracted from conversation) ────────────────────
   preferredLocations: string[];
   budgetMin: number | null;
@@ -31,6 +35,10 @@ export interface BuyerProfile {
   dealBreakers: string[];
   propertyTypes: string[];
   lastUpdated: string;
+
+  // ── Personal context (freeform, Haiku-extracted from conversation) ────────
+  // e.g. { "current_city": "Chicago", "has_children": "yes, ages 4 and 7", "commute_limit": "30 min" }
+  personalContext: Record<string, string>;
 
   // ── Behavioral intelligence (derived from actual search events) ──────────
   // Frequency map of locations actually searched: { "Austin,TX": 4, "Dallas,TX": 1 }

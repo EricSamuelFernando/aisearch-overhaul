@@ -8,6 +8,10 @@ import { MLSSearchParams } from "@/types/ai-assistant";
 export const buyerProfiles = pgTable("buyer_profiles", {
   userId: text("user_id").primaryKey(),
 
+  // Identity — seeded from Cognito on first request, never extracted
+  email: text("email"),
+  name:  text("name"),
+
   // Stated preferences — extracted from conversation via Haiku
   preferredLocations: jsonb("preferred_locations").$type<string[]>().notNull().default([]),
   budgetMin:          real("budget_min"),
@@ -34,6 +38,9 @@ export const buyerProfiles = pgTable("buyer_profiles", {
   lastActiveAt:     timestamp("last_active_at", { withTimezone: true }),
   // Visual/aesthetic preference frequency: { "hardwood floors": 4, "blue kitchen": 2 }
   visualPreferences: jsonb("visual_preferences").$type<Record<string, number>>().notNull().default({}),
+  // Personal context — freeform key-value extracted from conversation
+  // e.g. { "current_city": "Chicago", "has_children": "yes, ages 4 and 7" }
+  personalContext: jsonb("personal_context").$type<Record<string, string>>().notNull().default({}),
 });
 
 // ── Search Events ────────────────────────────────────────────────────────────

@@ -27,14 +27,25 @@ function cleanContent(text: string): string {
   return lines.join('\n').trim();
 }
 
-function getUserId(): string {
-  if (typeof window === 'undefined') return 'anon';
-  // Use authenticated user's id if logged in
+interface UserIdentity {
+  userId: string;
+  email:  string | null;
+  name:   string | null;
+}
+
+function getUserIdentity(): UserIdentity {
+  if (typeof window === 'undefined') return { userId: 'anon', email: null, name: null };
+  // Use authenticated user's details if logged in
   try {
     const userDetails = localStorage.getItem('userDetails');
     if (userDetails) {
       const parsed = JSON.parse(userDetails);
-      if (parsed?.id) return parsed.id;
+      if (parsed?.id) {
+        const firstName = parsed.firstname ?? parsed.firstName ?? '';
+        const lastName  = parsed.lastname  ?? parsed.lastName  ?? '';
+        const name = [firstName, lastName].filter(Boolean).join(' ') || null;
+        return { userId: parsed.id, email: parsed.email ?? null, name };
+      }
     }
   } catch {}
   // Anonymous fallback — persist across page reloads
@@ -43,7 +54,11 @@ function getUserId(): string {
     id = uuidv4();
     localStorage.setItem('snapz_ai_user_id', id);
   }
-  return id;
+  return { userId: id, email: null, name: null };
+}
+
+function getUserId(): string {
+  return getUserIdentity().userId;
 }
 
 const SUGGESTIONS = [
@@ -329,7 +344,7 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
       const res = await fetch('/api/ai-assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: content, userId: getUserId() }),
+        body: JSON.stringify({ message: content, ...getUserIdentity() }),
       });
 
       if (!res.ok || !res.body) throw new Error(`Error ${res.status}`);

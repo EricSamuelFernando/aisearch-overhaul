@@ -107,7 +107,7 @@ export function updateProfileIntelligence(
   }
 
   // visualPreferences — aesthetic/visual features from visual_query searches
-  // Only incremented when a visual_query was actually set by Groq
+  // Only incremented when a visual_query was actually set by Haiku
   const visualPreferences = { ...current.visualPreferences };
   if (visualContext?.visualQuery) {
     const label = extractVisualLabel(
@@ -129,10 +129,10 @@ export function updateProfileIntelligence(
   };
 }
 
-// ── Groq context block ───────────────────────────────────────────────────────
+// ── Haiku context block ──────────────────────────────────────────────────────
 
 /**
- * Build the intelligence block injected into Groq's INTENT_SYSTEM_PROMPT.
+ * Build the intelligence block injected into Haiku's INTENT_SYSTEM_PROMPT.
  * Returns empty string for brand-new users (session 1) so there's no noise.
  * Called on the hot path — must be synchronous and fast.
  */
@@ -228,8 +228,8 @@ export function buildIntelligenceBlock(profile: BuyerProfile): string {
  * Detect relative refinement terms in a user message and compute a param
  * delta against the last search context. Returns null if no relative term found.
  *
- * Called in route.ts BEFORE the Groq routing call so the pre-adjusted values
- * are injected into the Last search context block. Groq sees the result —
+ * Called in route.ts BEFORE the Haiku routing call so the pre-adjusted values
+ * are injected into the Last search context block. Haiku sees the result —
  * never needs to do arithmetic itself.
  */
 export function applyRelativeRefinement(

@@ -1,4 +1,3 @@
-import OpenAI from "openai";
 import { getRedis } from "./db";
 import { db } from "./db-pg";
 import { buyerProfiles, searchEvents } from "./schema";
@@ -12,6 +11,7 @@ import {
   VisualContext,
 } from "@/types/ai-assistant";
 import { updateProfileIntelligence } from "./intelligence";
+import { anthropic } from "./claude";
 
 const PROFILE_TTL        = 60 * 60 * 24 * 90; // 90 days
 const HISTORY_TTL        = 60 * 60 * 24 * 30; // 30 days
@@ -19,11 +19,6 @@ const SEARCH_CTX_TTL     = 60 * 60 * 24 * 7;  // 7 days
 const PENDING_ACTION_TTL = 60 * 10;            // 10 minutes
 
 const HISTORY_MAX = 40;
-
-const sambanova = new OpenAI({
-  apiKey: process.env.SAMBANOVA_API_KEY,
-  baseURL: "https://api.sambanova.ai/v1",
-});
 
 function profileKey(userId: string)       { return `profile:${userId}`; }
 function historyKey(userId: string)       { return `history:${userId}`; }
@@ -256,10 +251,10 @@ export async function recordSearchEvent(
   }
 }
 
-// ── Profile extraction (Groq, fire-and-forget) ───────────────────────────────
+// ── Profile extraction (Haiku, fire-and-forget) ──────────────────────────────
 
 /**
- * Extract structured buyer profile updates from the conversation using Groq.
+ * Extract structured buyer profile updates from the conversation using Haiku.
  * Runs fire-and-forget after the response is streamed.
  * Supports both addition AND removal of preferences for accurate profile correction.
  */
@@ -269,17 +264,13 @@ export async function extractAndUpdateProfile(
   assistantResponse: string,
 ): Promise<void> {
   try {
-    const result = await sambanova.chat.completions.create({
-      model: "Meta-Llama-3.3-70B-Instruct",
+    const result = await anthropic.messages.create({
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 300,
-      temperature: 0,
-      messages: [
-        {
-          role: "system",
-          content: `Extract buyer preference updates from a real estate conversation turn.
+      system: `Extract buyer preference updates from a real estate conversation turn.
 Only extract what is explicitly stated or clearly implied. Return null for unknown fields.
 For removals: detect when a user replaces or negates a preference ("not Austin", "forget the pool", "actually 2 beds is fine", "instead of X").`,
-        },
+      messages: [
         {
           role: "user",
           content: `User said: "${userMessage}"\nAssistant responded: "${assistantResponse.slice(0, 500)}"`,
@@ -287,59 +278,56 @@ For removals: detect when a user replaces or negates a preference ("not Austin",
       ],
       tools: [
         {
-          type: "function",
-          function: {
-            name: "update_profile",
-            description: "Update the buyer profile with preferences found in this conversation turn",
-            parameters: {
-              type: "object",
-              properties: {
-                // Additions
-                preferredLocations: {
-                  anyOf: [{ type: "array", items: { type: "string" } }, { type: "null" }],
-                  description: "Cities/regions to ADD e.g. ['Austin, TX']",
-                },
-                budgetMin:    { anyOf: [{ type: "number" }, { type: "null" }] },
-                budgetMax:    { anyOf: [{ type: "number" }, { type: "null" }] },
-                bedroomsMin:  { anyOf: [{ type: "integer" }, { type: "null" }] },
-                bathroomsMin: { anyOf: [{ type: "number" }, { type: "null" }] },
-                mustHaves: {
-                  anyOf: [{ type: "array", items: { type: "string" } }, { type: "null" }],
-                  description: "Features to ADD to must-haves",
-                },
-                dealBreakers: {
-                  anyOf: [{ type: "array", items: { type: "string" } }, { type: "null" }],
-                  description: "Items to ADD to deal-breakers",
-                },
-                propertyTypes: {
-                  anyOf: [{ type: "array", items: { type: "string" } }, { type: "null" }],
-                },
-                // Removals — for preference correction
-                removeLocations: {
-                  anyOf: [{ type: "array", items: { type: "string" } }, { type: "null" }],
-                  description: "Locations to REMOVE (user said 'not X', 'forget X', 'instead of X')",
-                },
-                removeMustHaves: {
-                  anyOf: [{ type: "array", items: { type: "string" } }, { type: "null" }],
-                  description: "Must-haves to REMOVE",
-                },
-                removeDealBreakers: {
-                  anyOf: [{ type: "array", items: { type: "string" } }, { type: "null" }],
-                  description: "Deal-breakers to REMOVE",
-                },
+          name: "update_profile",
+          description: "Update the buyer profile with preferences found in this conversation turn",
+          input_schema: {
+            type: "object" as const,
+            properties: {
+              // Additions
+              preferredLocations: {
+                anyOf: [{ type: "array", items: { type: "string" } }, { type: "null" }],
+                description: "Cities/regions to ADD e.g. ['Austin, TX']",
               },
-              required: [],
+              budgetMin:    { anyOf: [{ type: "number" }, { type: "null" }] },
+              budgetMax:    { anyOf: [{ type: "number" }, { type: "null" }] },
+              bedroomsMin:  { anyOf: [{ type: "integer" }, { type: "null" }] },
+              bathroomsMin: { anyOf: [{ type: "number" }, { type: "null" }] },
+              mustHaves: {
+                anyOf: [{ type: "array", items: { type: "string" } }, { type: "null" }],
+                description: "Features to ADD to must-haves",
+              },
+              dealBreakers: {
+                anyOf: [{ type: "array", items: { type: "string" } }, { type: "null" }],
+                description: "Items to ADD to deal-breakers",
+              },
+              propertyTypes: {
+                anyOf: [{ type: "array", items: { type: "string" } }, { type: "null" }],
+              },
+              // Removals — for preference correction
+              removeLocations: {
+                anyOf: [{ type: "array", items: { type: "string" } }, { type: "null" }],
+                description: "Locations to REMOVE (user said 'not X', 'forget X', 'instead of X')",
+              },
+              removeMustHaves: {
+                anyOf: [{ type: "array", items: { type: "string" } }, { type: "null" }],
+                description: "Must-haves to REMOVE",
+              },
+              removeDealBreakers: {
+                anyOf: [{ type: "array", items: { type: "string" } }, { type: "null" }],
+                description: "Deal-breakers to REMOVE",
+              },
             },
+            required: [],
           },
         },
       ],
-      tool_choice: "required",
+      tool_choice: { type: "any" },
     });
 
-    const toolCall = result.choices[0].message.tool_calls?.[0] as { function: { name: string; arguments: string } } | undefined;
-    if (!toolCall) return;
+    const toolBlock = result.content.find(b => b.type === "tool_use");
+    if (!toolBlock || toolBlock.type !== "tool_use") return;
 
-    const raw = JSON.parse(toolCall.function.arguments) as {
+    const raw = toolBlock.input as {
       preferredLocations?:  string[] | null;
       budgetMin?:           number   | null;
       budgetMax?:           number   | null;
@@ -355,7 +343,7 @@ For removals: detect when a user replaces or negates a preference ("not Austin",
 
     const current = await loadProfile(userId);
 
-    // Coerce any value to a string array — guards against SambaNova returning
+    // Coerce any value to a string array — guards against the model returning
     // a string instead of an array, and against corrupted Redis/Postgres data.
     const toArr = (v: unknown): string[] =>
       Array.isArray(v) ? (v as string[]) : typeof v === "string" && v.length > 0 ? [v] : [];
@@ -406,7 +394,7 @@ For removals: detect when a user replaces or negates a preference ("not Austin",
   }
 }
 
-// ── Pending action extraction (Groq, fire-and-forget) ────────────────────────
+// ── Pending action extraction (Haiku, fire-and-forget) ───────────────────────
 
 /**
  * Detects if Claude proposed a specific search in an answer_user response.
@@ -417,17 +405,13 @@ export async function extractAndSavePendingAction(
   assistantResponse: string,
 ): Promise<void> {
   try {
-    const result = await sambanova.chat.completions.create({
-      model: "Meta-Llama-3.3-70B-Instruct",
+    const result = await anthropic.messages.create({
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 256,
-      temperature: 0,
-      messages: [
-        {
-          role: "system",
-          content: `Detect whether an AI real estate assistant proposed a specific MLS search in its response.
+      system: `Detect whether an AI real estate assistant proposed a specific MLS search in its response.
 If a specific search was proposed (city/neighbourhood, price, beds, features), extract the params.
 If no specific search was proposed — just general advice, questions, or vague offers — return proposed=false.`,
-        },
+      messages: [
         {
           role: "user",
           content: `Assistant response: "${assistantResponse.slice(0, 800)}"`,
@@ -435,37 +419,34 @@ If no specific search was proposed — just general advice, questions, or vague 
       ],
       tools: [
         {
-          type: "function",
-          function: {
-            name: "set_pending_search",
-            description: "Call this to set or clear a pending search proposal.",
-            parameters: {
-              type: "object",
-              properties: {
-                proposed:           { type: "boolean" },
-                description:        { anyOf: [{ type: "string" }, { type: "null" }] },
-                city:               { anyOf: [{ type: "string" }, { type: "null" }] },
-                state:              { anyOf: [{ type: "string" }, { type: "null" }] },
-                listing_price_max:  { anyOf: [{ type: "number" }, { type: "null" }] },
-                listing_price_min:  { anyOf: [{ type: "number" }, { type: "null" }] },
-                bedrooms_min:       { anyOf: [{ type: "integer" }, { type: "null" }] },
-                bathrooms_min:      { anyOf: [{ type: "number" }, { type: "null" }] },
-                has_pool:           { anyOf: [{ type: "boolean" }, { type: "null" }] },
-                days_on_market_max: { anyOf: [{ type: "integer" }, { type: "null" }] },
-                living_area_min:    { anyOf: [{ type: "integer" }, { type: "null" }] },
-              },
-              required: ["proposed"],
+          name: "set_pending_search",
+          description: "Call this to set or clear a pending search proposal.",
+          input_schema: {
+            type: "object" as const,
+            properties: {
+              proposed:           { type: "boolean" },
+              description:        { anyOf: [{ type: "string" }, { type: "null" }] },
+              city:               { anyOf: [{ type: "string" }, { type: "null" }] },
+              state:              { anyOf: [{ type: "string" }, { type: "null" }] },
+              listing_price_max:  { anyOf: [{ type: "number" }, { type: "null" }] },
+              listing_price_min:  { anyOf: [{ type: "number" }, { type: "null" }] },
+              bedrooms_min:       { anyOf: [{ type: "integer" }, { type: "null" }] },
+              bathrooms_min:      { anyOf: [{ type: "number" }, { type: "null" }] },
+              has_pool:           { anyOf: [{ type: "boolean" }, { type: "null" }] },
+              days_on_market_max: { anyOf: [{ type: "integer" }, { type: "null" }] },
+              living_area_min:    { anyOf: [{ type: "integer" }, { type: "null" }] },
             },
+            required: ["proposed"],
           },
         },
       ],
-      tool_choice: "required",
+      tool_choice: { type: "any" },
     });
 
-    const toolCall = result.choices[0].message.tool_calls?.[0] as { function: { name: string; arguments: string } } | undefined;
-    if (!toolCall) return;
+    const toolBlock = result.content.find(b => b.type === "tool_use");
+    if (!toolBlock || toolBlock.type !== "tool_use") return;
 
-    const raw = JSON.parse(toolCall.function.arguments) as {
+    const raw = toolBlock.input as {
       proposed:            boolean;
       description?:        string | null;
       city?:               string | null;

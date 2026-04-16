@@ -1,7 +1,5 @@
 import { NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-// [OpenAI-compatible routing — uncomment + comment out Haiku block to switch provider]
-// import OpenAI from "openai";
 import {
   anthropic,
   buildIntentSystemPrompt,
@@ -29,9 +27,6 @@ import { MLSSearchParams, PhotoRankResult } from "@/types/ai-assistant";
 
 export const runtime = "nodejs";
 
-// const sambanova = new OpenAI({ apiKey: process.env.SAMBANOVA_API_KEY, baseURL: "https://api.sambanova.ai/v1" });
-// const fireworks  = new OpenAI({ apiKey: process.env.FIREWORKS_API_KEY,  baseURL: "https://api.fireworks.ai/inference/v1" });
-
 function sseEvent(data: object): string {
   return `data: ${JSON.stringify(data)}\n\n`;
 }
@@ -42,14 +37,6 @@ function log(label: string, ref: number) {
   const color = ms < 1000 ? "\x1b[32m" : ms < 3000 ? "\x1b[33m" : "\x1b[31m";
   console.log(`\x1b[36m[AI]\x1b[0m ${color}+${ms}ms\x1b[0m  ${label}`);
 }
-
-// ── [OpenAI-compatible tool schema — uncomment for SambaNova / Fireworks] ────
-// const TOOLS: OpenAI.ChatCompletionTool[] = [
-//   { type: "function", function: { name: "search_mls", description: "Search MLS for real estate listings...", parameters: { type: "object", properties: { city: { type: "string" }, state: { type: "string" }, listing_price_min: { type: "number" }, listing_price_max: { type: "number" }, bedrooms_min: { type: "integer" }, bathrooms_min: { type: "number" }, has_pool: { type: "boolean" }, is_water_front: { type: "boolean" }, is_water_view: { type: "boolean" }, living_area_min: { type: "integer" }, year_built_min: { type: "integer" }, year_built_max: { type: "integer" }, days_on_market_max: { type: "integer" }, size: { type: "integer" }, visual_query: { type: "string" }, room_hint: { type: "string", enum: ["kitchen","dining_room","bathroom","living_room","bedroom","exterior","backyard","any"] }, visual_confidence: { type: "string", enum: ["high","medium","low"] }, description_keywords: { type: "string" } }, required: [] } } },
-//   { type: "function", function: { name: "reference_listing", description: "User is asking about the details of ONE specific listing already shown.", parameters: { type: "object", properties: { listing_index: { type: "integer", description: "1-based position" } }, required: ["listing_index"] } } },
-//   { type: "function", function: { name: "answer_user", description: "Answer a general conversational question with no property search intent.", parameters: { type: "object", properties: { topic: { type: "string" } }, required: ["topic"] } } },
-// ];
-// ─────────────────────────────────────────────────────────────────────────────
 
 // ── Haiku routing tools (Anthropic format) ───────────────────────────────────
 const ANTHROPIC_TOOLS: Anthropic.Tool[] = [
@@ -194,7 +181,7 @@ export async function POST(req: NextRequest) {
 
         console.log(`\x1b[36m[AI]\x1b[0m query: "${message.slice(0, 80)}"`);
 
-        // Supermemory fires in background — never blocks Redis or Groq
+        // Supermemory fires in background — never blocks Redis or routing
         const memoryPromise = getUserMemoryContext(userId, message);
 
         // Redis parallel load (~30ms) — profile now includes intelligence fields
@@ -240,12 +227,12 @@ export async function POST(req: NextRequest) {
           { role: "user", content: message },
         ];
 
-        // ── Step 1: SambaNova routing (~1-3s) ────────────────────────────────
-        console.log("\x1b[36m[AI]\x1b[0m \x1b[35m→ SambaNova routing call\x1b[0m");
+        // ── Step 1: Haiku routing (~300-500ms) ───────────────────────────────
+        console.log("\x1b[36m[AI]\x1b[0m \x1b[35m→ Haiku routing call\x1b[0m");
 
         // ── Pre-route pure affirmations in code — never let the LLM mishandle them ──
         // A pure affirmation is a short message (≤5 words) with no search-intent words.
-        // If one is detected with no pending action and no search context, skip Groq entirely.
+        // If one is detected with no pending action and no search context, skip routing entirely.
         const SEARCH_WORDS = /\b(show|find|search|home|house|listing|propert|look|get|pull|fetch)\b/i;
         const PURE_AFFIRMATION = /^(yes|yeah|sure|ok|okay|yep|yup|sounds good|makes sense|that works|got it|great|alright|cool|perfect|nice|awesome|fine)\.?!?\s*$/i;
         const isPureAffirmation = PURE_AFFIRMATION.test(message.trim()) && !SEARCH_WORDS.test(message);
@@ -280,7 +267,7 @@ export async function POST(req: NextRequest) {
         // Fires when user explicitly asks to search across their saved/preferred
         // locations (not just "show me homes" ambiguity). Runs parallel MLS calls —
         // one per location (capped at 3), merges and deduplicates, streams a unified
-        // summary. Skips SambaNova entirely — intent is unambiguous.
+        // summary. Skips Haiku routing entirely — intent is unambiguous.
         const MULTI_CITY_INTENT = /\b(preferred locations?|all my (?:cities|locations?|markets?)|saved (?:locations?|cities|markets?)|my (?:saved|preferred) (?:locations?|cities|markets?))\b/i;
         const isMultiCity = MULTI_CITY_INTENT.test(message) && profile.preferredLocations.length > 1;
 
@@ -362,7 +349,7 @@ export async function POST(req: NextRequest) {
         if (intelligenceBlock) log("intelligence block ready", T0);
 
         // Pre-compute relative refinements in JS — deterministic, no LLM arithmetic.
-        // Adjusted values are shown to Groq so it uses the exact numbers we computed.
+        // Adjusted values are shown to Haiku so it uses the exact numbers we computed.
         const relativeDelta = searchCtx
           ? applyRelativeRefinement(message, searchCtx.params)
           : null;
@@ -400,20 +387,6 @@ export async function POST(req: NextRequest) {
         ];
 
         const routingSystem = buildIntentSystemPrompt(intelligenceBlock) + searchCtxBlock + pendingActionBlock;
-
-        // ── [OpenAI-compatible routing — uncomment for SambaNova / Fireworks] ──
-        // const callRouting = () => sambanova.chat.completions.create({
-        //   model: "Meta-Llama-3.3-70B-Instruct",   // Fireworks: "accounts/fireworks/models/llama-v3p3-70b-instruct"
-        //   max_tokens: 256, temperature: 0,
-        //   messages: [{ role: "system", content: routingSystem }, ...routingHistory],
-        //   tools: TOOLS, tool_choice: "required",
-        // });
-        // const [routingResponse, memoryContext] = await Promise.all([
-        //   callRouting().catch(async (err) => { if (err?.status === 429) { await new Promise(r => setTimeout(r, 3000)); return callRouting(); } throw err; }),
-        //   Promise.race([memoryPromise, new Promise<string>(r => setTimeout(() => r(""), 2000))]),
-        // ]);
-        // const rawToolCall = routingResponse.choices[0].message.tool_calls?.[0] as { function: { name: string; arguments: string } } | undefined;
-        // ─────────────────────────────────────────────────────────────────────
 
         // ── Haiku routing ────────────────────────────────────────────────────
         const callHaikuRouting = () => anthropic.messages.create({
@@ -579,7 +552,7 @@ export async function POST(req: NextRequest) {
 
         const rawParams = JSON.parse(toolCall.function.arguments);
 
-        // Groq occasionally returns typed params as strings — coerce at the boundary
+        // Haiku occasionally returns typed params as strings — coerce at the boundary
         const NUMERIC_MLS_PARAMS = [
           "listing_price_min", "listing_price_max",
           "bedrooms_min", "bedrooms_max",

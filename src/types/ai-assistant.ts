@@ -50,7 +50,7 @@ export interface BuyerProfile {
   visualPreferences: Record<string, number>;
 }
 
-// Visual context extracted by Groq alongside standard search params.
+// Visual context extracted by Haiku alongside standard search params.
 // Passed through the pipeline so memory can track aesthetic preferences.
 export interface VisualContext {
   visualQuery?: string;

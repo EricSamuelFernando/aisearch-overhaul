@@ -8,7 +8,7 @@ import { MLSSearchParams } from "@/types/ai-assistant";
 export const buyerProfiles = pgTable("buyer_profiles", {
   userId: text("user_id").primaryKey(),
 
-  // Stated preferences — extracted from conversation via Groq
+  // Stated preferences — extracted from conversation via Haiku
   preferredLocations: jsonb("preferred_locations").$type<string[]>().notNull().default([]),
   budgetMin:          real("budget_min"),
   budgetMax:          real("budget_max"),

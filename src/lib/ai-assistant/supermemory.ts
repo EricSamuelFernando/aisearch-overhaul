@@ -6,7 +6,7 @@ const client = new Supermemory({
 
 // How long to wait for Supermemory before giving up.
 // 500ms was too aggressive — cold starts and graph traversal need more time.
-// 1500ms keeps us under Groq's window while giving Supermemory a real chance.
+// 1500ms keeps us under Haiku's window while giving Supermemory a real chance.
 const MEMORY_FETCH_TIMEOUT_MS = 1500;
 
 /**

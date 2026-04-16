@@ -8,7 +8,7 @@ export const anthropic = new Anthropic({
 // ── Intent prompt ────────────────────────────────────────────────────────────
 
 /**
- * Base intent routing prompt for Groq.
+ * Base intent routing prompt for Haiku.
  * Keep this as a const — the intelligence block is appended at call time
  * via buildIntentSystemPrompt so it stays fresh per-request.
  */
@@ -76,7 +76,7 @@ When unsure between high and medium, choose high.
 - Default size: 6, max: 12. Visual queries: size=12`;
 
 /**
- * Build the full Groq intent system prompt.
+ * Build the full Haiku intent system prompt.
  * intelligenceBlock comes from buildIntelligenceBlock(profile) in intelligence.ts —
  * already loaded from Redis, zero extra I/O cost.
  */

@@ -69,14 +69,48 @@ Always set when visual_query is set.
 When unsure between high and medium, choose high.
 
 ## Parameters
-- state: 2-letter code (TX, CA, FL, NY, CO, AZ, etc.)
+
+### Price / size
 - "700k"=700000, "1.5M"=1500000, "2 million"=2000000
 - "under $500k" → listing_price_max=500000
 - "between 1M and 3M" → listing_price_min=1000000, listing_price_max=3000000
 - "4 bed" → bedrooms_min=4
-- property_sub_type: SFR=single-family, MFR=multi-family (duplex/triplex/quadplex/multi-unit/investment property), LAND=land only, CONDO=condo/townhome, MOBILE=manufactured home
-- "duplex" / "multi-family" / "multi-unit" / "triplex" / "investment property" → property_sub_type=MFR
-- Default size: 6, max: 12. Visual queries: size=12`;
+- "single story" / "ranch style" / "no stairs" → stories=1
+- "big yard" → lot_size_min=10000. "half acre" → lot_size_min=21780. "acre lot" → lot_size_min=43560
+- "no HOA" → listing_association_fee_max=0. "low HOA" → listing_association_fee_max=200
+- "just listed" / "new to market" → days_on_market_max=7
+- Default size: 6, max: 12. Visual queries: always size=12
+
+### Property classification — use property_sub_type only
+Never set listing_property_type. Use property_sub_type whenever the user names a specific type.
+
+| User says | property_sub_type |
+|---|---|
+| "homes" / "houses" / "properties" (generic) | (omit — no sub_type needed) |
+| "condo" / "condos" | "Condo" |
+| "townhouse" / "townhome" | "Townhouse" |
+| "single family" / "sfr" | "Single Family" |
+| "cabin" | "Cabin" |
+| "ranch style" / "ranch home" | "Ranch" |
+| "manufactured home" | "Manufactured Home" |
+| "mobile home" | "Mobile Home" |
+| "duplex" | "Duplex" |
+| "triplex" | "Triplex" |
+| "fourplex" / "quadplex" | "Fourplex" |
+| "multi-family" / "multi-unit" / "investment property" | "Multi-Family" |
+| "apartment" / "apartment building" | "Apartment" |
+| "mixed use" | "Mixed Use" |
+
+### View booleans — set the boolean AND visual_query together
+When user mentions a view, ALWAYS do both:
+- "mountain view" → is_mountain_view=true + visual_query="mountain range visible through windows, scenic mountain backdrop, mountain peaks exterior view"
+- "city view" / "skyline view" → is_city_view=true + visual_query="city skyline view through large windows, downtown city lights, high-rise city view"
+- "park view" / "overlooking park" → is_park_view=true + visual_query="green park visible from window, overlooking public park, park views exterior"
+- "water view" → is_water_view=true + visual_query="water visible through windows, lake or river view, waterfront view"
+- "waterfront" → is_water_front=true + visual_query="direct waterfront, dock or pier, water at edge of property"
+
+### State code
+state: 2-letter ALL-CAPS code (TX, CA, FL, NY, CO, AZ, NV, WA, OR, etc.)`;
 
 /**
  * Build the full Haiku intent system prompt.

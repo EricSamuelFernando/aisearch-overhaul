@@ -54,34 +54,83 @@ const ANTHROPIC_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object" as const,
       properties: {
-        city:               { type: "string",  description: "City name, title-cased e.g. 'Austin'" },
-        state:              { type: "string",  description: "Two-letter state code e.g. 'TX'" },
-        listing_price_min:  { type: "number",  description: "Minimum price in dollars" },
-        listing_price_max:  { type: "number",  description: "Maximum price in dollars" },
-        bedrooms_min:       { type: "integer", description: "Minimum bedrooms" },
-        bathrooms_min:      { type: "number",  description: "Minimum bathrooms" },
-        has_pool:           { type: "boolean", description: "Must have a pool" },
-        is_water_front:     { type: "boolean", description: "Must be on waterfront" },
-        is_water_view:      { type: "boolean", description: "Must have water view" },
-        living_area_min:    { type: "integer", description: "Minimum sq ft" },
-        year_built_min:     { type: "integer", description: "Minimum year built" },
-        year_built_max:     { type: "integer", description: "Maximum year built" },
-        days_on_market_max: { type: "integer", description: "Maximum days on market" },
+        // ── Geography ──────────────────────────────────────────────────────
+        city:    { type: "string",  description: "City name, title-cased e.g. 'Austin'" },
+        state:   { type: "string",  description: "Two-letter ALL-CAPS state code e.g. 'TX'" },
+        county:  { type: "string",  description: "County name — fallback when city search returns 0 results e.g. 'Sacramento County'" },
+        zip:     { type: "string",  description: "ZIP code e.g. '78701'" },
+
+        // ── Property classification ────────────────────────────────────────
         property_sub_type: {
           type: "string",
-          enum: ["SFR", "MFR", "LAND", "CONDO", "MOBILE", "OTHER"],
-          description: "SFR=single-family, MFR=multi-family (duplex/triplex/quadplex), LAND=land-only, CONDO=condo/townhome, MOBILE=manufactured",
+          enum: [
+            "Single Family", "Condo", "Townhouse", "Duplex", "Multi-Family",
+            "Triplex", "Fourplex", "Apartment", "Manufactured Home", "Mobile Home",
+            "Cabin", "Ranch", "Mixed Use",
+          ],
+          description:
+            "Set when user names a specific property type. " +
+            "'condo' → 'Condo'. 'townhouse' → 'Townhouse'. 'single family'/'sfr' → 'Single Family'. " +
+            "'duplex' → 'Duplex'. 'triplex' → 'Triplex'. 'fourplex'/'quadplex' → 'Fourplex'. " +
+            "'multi-family'/'multi-unit'/'investment property' → 'Multi-Family'. " +
+            "'apartment'/'apartment building' → 'Apartment'. " +
+            "'cabin' → 'Cabin'. 'ranch style'/'ranch home' → 'Ranch'. " +
+            "'manufactured home' → 'Manufactured Home'. 'mobile home' → 'Mobile Home'. " +
+            "'mixed use' → 'Mixed Use'. " +
+            "'house'/'home' alone → do NOT set this field.",
         },
-        size:               { type: "integer", description: "Number of results, default 6 max 12" },
+
+        // ── Price ──────────────────────────────────────────────────────────
+        listing_price_min:    { type: "number",  description: "Minimum listing price in dollars" },
+        listing_price_max:    { type: "number",  description: "Maximum listing price in dollars" },
+        price_per_sqft_min:   { type: "number",  description: "Minimum price per sq ft — use for 'best value per sqft' or 'under $X/sqft' queries" },
+        price_per_sqft_max:   { type: "number",  description: "Maximum price per sq ft" },
+
+        // ── Beds / Baths / Size ───────────────────────────────────────────
+        bedrooms_min:         { type: "integer", description: "Minimum bedrooms" },
+        bedrooms_max:         { type: "integer", description: "Maximum bedrooms — use for 'no more than X beds', 'cozy 2-bed max'" },
+        bathrooms_min:        { type: "number",  description: "Minimum bathrooms" },
+        bathrooms_max:        { type: "number",  description: "Maximum bathrooms" },
+        living_area_min:      { type: "integer", description: "Minimum living area in sq ft" },
+        living_area_max:      { type: "integer", description: "Maximum living area in sq ft" },
+        lot_size_min:         { type: "integer", description: "Minimum lot size in sq ft — use for 'big yard', 'half acre' (21780 sqft), 'acre+' (43560 sqft)" },
+        lot_size_max:         { type: "integer", description: "Maximum lot size in sq ft" },
+        stories:              { type: "integer", description: "Exact story count — use for 'single story'/'ranch style'/'no stairs' (1) or 'two story' (2)" },
+
+        // ── Features ──────────────────────────────────────────────────────
+        has_pool:             { type: "boolean", description: "Must have a pool" },
+        has_basement:         { type: "boolean", description: "Must have a basement" },
+
+        // ── Views / Aesthetics — set boolean AND visual_query together ─────
+        is_water_front:       { type: "boolean", description: "On waterfront — also set visual_query for photo ranking" },
+        is_water_view:        { type: "boolean", description: "Has water view — also set visual_query for photo ranking" },
+        is_mountain_view:     { type: "boolean", description: "Has mountain view — ALSO set visual_query='mountain range visible through windows, scenic mountain backdrop exterior'" },
+        is_city_view:         { type: "boolean", description: "Has city view — ALSO set visual_query='city skyline view, downtown city lights view from window'" },
+        is_park_view:         { type: "boolean", description: "Overlooks a park — ALSO set visual_query='park view, green park visible from window, overlooking park'" },
+
+        // ── Age / Market timing ───────────────────────────────────────────
+        year_built_min:       { type: "integer", description: "Minimum year built" },
+        year_built_max:       { type: "integer", description: "Maximum year built" },
+        days_on_market_min:   { type: "integer", description: "Minimum days on market — use for 'been sitting a while', 'motivated seller'" },
+        days_on_market_max:   { type: "integer", description: "Maximum days on market — use for 'fresh listings', 'just listed' (set to 7)" },
+        latest_only:          { type: "boolean", description: "true = eliminate ghost active listings — always set true alongside active searches" },
+
+        // ── HOA ───────────────────────────────────────────────────────────
+        listing_association_fee_max: { type: "integer", description: "Max HOA/association fee per month — use for 'low HOA', 'no HOA' (set to 0), 'under $200 HOA'" },
+
+        // ── Result control ────────────────────────────────────────────────
+        size: { type: "integer", description: "Number of results — default 6, max 12. Visual queries: always 12." },
+
+        // ── Visual / Photo ranking (not sent to MLS — processed client-side) ──
         visual_query: {
           type: "string",
           description:
-            "Visual/aesthetic feature the user wants to see in listing photos. " +
-            "Set ONLY when user describes something visual that cannot be expressed as an MLS filter. " +
-            "Examples: 'blue painted kitchen cabinets', 'bright natural sunlight through large windows', " +
-            "'open concept kitchen flowing into living room', 'hardwood floors', 'vaulted ceilings', " +
-            "'modern white interior', 'mountain view from inside'. " +
-            "Do NOT set for pool, waterfront, bedrooms, price — those are MLS filters.",
+            "Visual/aesthetic feature to rank listing photos against. " +
+            "Set ONLY for things MLS filters cannot express (style, materials, finishes, ambiance). " +
+            "Expand to 15–20 specific camera-visible words. " +
+            "Examples: 'blue painted kitchen cabinets, blue island', 'shiplap walls, barn door, farmhouse sink', " +
+            "'floor-to-ceiling bookshelves, dedicated reading room', 'soaking tub, rainfall shower, natural stone'. " +
+            "Do NOT set for pool, waterfront, views (use the boolean flags), bedrooms, price.",
         },
         room_hint: {
           type: "string",
@@ -91,14 +140,11 @@ const ANTHROPIC_TOOLS: Anthropic.Tool[] = [
         visual_confidence: {
           type: "string",
           enum: ["high", "medium", "low"],
-          description:
-            "'high' = very specific visual feature. 'medium' = moderately specific. 'low' = generic aesthetic.",
+          description: "'high' = specific material/color/fixture. 'medium' = style or common feature. 'low' = generic aesthetic.",
         },
         description_keywords: {
           type: "string",
-          description:
-            "Comma-separated terms to search in listing text descriptions. " +
-            "Include synonyms: 'library,study,bookshelf,bookshelves,reading room'.",
+          description: "Comma-separated terms to match in listing text. Include synonyms: 'library,study,bookshelf,reading room'.",
         },
       },
     },
@@ -689,18 +735,20 @@ export async function POST(req: NextRequest) {
         // ── search_mls → fetch listings, stream summary ───────────────────────
         // Declared here so they're in scope for vision merge and controller await
         let visionPromise: Promise<void> | null = null;
-        const textScoreMap = new Map<string, number>(); // listingId → description text score
 
         const rawParams = JSON.parse(toolCall.function.arguments);
 
         // Haiku occasionally returns typed params as strings — coerce at the boundary
         const NUMERIC_MLS_PARAMS = [
           "listing_price_min", "listing_price_max",
+          "price_per_sqft_min", "price_per_sqft_max",
           "bedrooms_min", "bedrooms_max",
           "bathrooms_min", "bathrooms_max",
           "living_area_min", "living_area_max",
+          "lot_size_min", "lot_size_max",
           "year_built_min", "year_built_max",
           "days_on_market_min", "days_on_market_max",
+          "stories", "listing_association_fee_max",
           "size", "radius", "latitude", "longitude",
         ] as const;
         for (const key of NUMERIC_MLS_PARAMS) {
@@ -712,6 +760,7 @@ export async function POST(req: NextRequest) {
         const BOOLEAN_MLS_PARAMS = [
           "has_pool", "has_basement",
           "is_water_front", "is_water_view", "is_mountain_view",
+          "is_city_view", "is_park_view", "latest_only",
         ] as const;
         for (const key of BOOLEAN_MLS_PARAMS) {
           if (typeof rawParams[key] === "string") {
@@ -732,10 +781,7 @@ export async function POST(req: NextRequest) {
         delete rawParams.description_keywords;
 
         const searchParams: MLSSearchParams = rawParams;
-        // For visual queries, fetch more candidates so vision has a larger pool to score
-        if (visualQuery && !searchParams.size) {
-          searchParams.size = 12;
-        }
+
         console.log(`\x1b[36m[AI]\x1b[0m search params: ${JSON.stringify(searchParams)}`);
         if (visualQuery) {
           console.log(`\x1b[36m[AI]\x1b[0m \x1b[35mvisual_query:\x1b[0m "${visualQuery}" room_hint="${roomHint}" confidence="${visualConfidence}"`);
@@ -751,22 +797,6 @@ export async function POST(req: NextRequest) {
 
           listings = await searchListings(searchParams);
           log(`MLS returned ${listings.length} listing(s)`, T0);
-
-          // ── Text scoring: instant, zero API cost — runs against listing descriptions
-          if (visualQuery && descKeywords.length > 0 && listings.length > 0) {
-            for (const l of listings) {
-              const score = scoreByDescription(l.description, descKeywords);
-              if (score > 0) textScoreMap.set(l.id, score);
-            }
-            if (textScoreMap.size > 0) {
-              log(`description text match: ${textScoreMap.size}/${listings.length} listing(s)`, T0);
-              // Apply text scores immediately so initial card order reflects text evidence
-              listings = listings.map((l) => {
-                const textScore = textScoreMap.get(l.id) ?? 0;
-                return textScore > 0 ? { ...l, bestScore: textScore } : l;
-              });
-            }
-          }
 
           if (visualQuery && listings.length > 0) {
             // Batch cache lookup — fast Redis call (~10ms)
@@ -787,8 +817,6 @@ export async function POST(req: NextRequest) {
               return l;
             });
             if (cacheHits > 0) log(`photo_rank cache hit: ${cacheHits}/${listings.length}`, T0);
-            // Pre-sort: cache hits with scores bubble up; uncached (no score) hold at end
-            listings.sort((a, b) => (b.bestScore ?? -1) - (a.bestScore ?? -1));
           }
 
           send({ type: "listings", data: listings });
@@ -806,21 +834,12 @@ export async function POST(req: NextRequest) {
 
               visionPromise = rankListingPhotos(uncachedListings, visualQuery, roomHint, visualConfidence)
                 .then(async (results) => {
-                  // Merge vision score with text score — take the higher of the two
-                  const merged = results.map((r) => {
-                    const textScore = textScoreMap.get(r.listingId) ?? 0;
-                    return textScore > r.bestScore ? { ...r, bestScore: textScore } : r;
-                  });
-                  send({ type: "photo_rank", data: merged });
-                  log(`photo_rank SSE sent for ${merged.length} listing(s)`, T0);
-                  await setBatchCachedRankings(visualQuery, merged);
+                  send({ type: "photo_rank", data: results });
+                  log(`photo_rank SSE sent for ${results.length} listing(s)`, T0);
+                  await setBatchCachedRankings(visualQuery, results);
                   log("photo_rank cached", T0);
 
-                  // Feed top photo matches back into Supermemory — this closes the
-                  // intelligence loop: we write not just that a visual search happened,
-                  // but what actually scored well. Future sessions get semantic context
-                  // about which features resonated, not just that they were searched.
-                  const topMatches = merged
+                  const topMatches = results
                     .filter((r) => r.bestScore >= 0.5)
                     .sort((a, b) => b.bestScore - a.bestScore);
                   if (topMatches.length > 0) {
@@ -830,7 +849,7 @@ export async function POST(req: NextRequest) {
                       userId,
                       `Visual match result: "${visualQuery}" in ${resolvedLocation} — ${quality} photo match found. ` +
                       `Best: ${topListing?.full_address ?? "unknown"} (score ${topMatches[0].bestScore.toFixed(2)}). ` +
-                      `${topMatches.length}/${merged.length} listing(s) above 0.5 threshold.`,
+                      `${topMatches.length}/${results.length} listing(s) above 0.5 threshold.`,
                     );
                     log(`supermemory enriched with top visual match (score ${topMatches[0].bestScore.toFixed(2)})`, T0);
                   }
@@ -855,19 +874,7 @@ export async function POST(req: NextRequest) {
         // around the visual feature rather than writing a generic spec summary.
         let visualSummaryContext = "";
         if (visualQuery) {
-          const lines = [`[Visual search: "${visualQuery}"${roomHint !== "any" ? ` — ${roomHint}` : ""}]`];
-          const textMatches = [...textScoreMap.entries()]
-            .sort(([, a], [, b]) => b - a)
-            .slice(0, 3)
-            .map(([id]) => listings.find((l) => l.id === id)?.full_address)
-            .filter(Boolean) as string[];
-          if (textMatches.length > 0) {
-            lines.push(`Description evidence found in: ${textMatches.join("; ")}`);
-          } else {
-            lines.push("No description mentions found — photo ranking is the primary signal.");
-          }
-          lines.push("Tiles are ordered by photo match strength. Focus your summary on the visual feature.");
-          visualSummaryContext = lines.join("\n");
+          visualSummaryContext = `[Visual search: "${visualQuery}"${roomHint !== "any" ? ` — ${roomHint}` : ""}]\nTiles are ordered by photo match strength. Focus your summary on the visual feature.`;
         }
 
         log("starting Sonnet summary stream", T0);

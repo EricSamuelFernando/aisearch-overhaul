@@ -69,8 +69,9 @@ export async function searchListings(params: MLSSearchParams): Promise<MLSListin
 
   // Strip lease/rental results; also strip land unless the search explicitly requested it
   const wantsLand =
-    (params.property_sub_type ?? "").toUpperCase() === "LAND" ||
-    (params.listing_property_type ?? "").toUpperCase() === "LAND";
+    (params.listing_property_type ?? "").toUpperCase() === "LAND" ||
+    (params.property_sub_type ?? "").toLowerCase() === "land" ||
+    (params.property_type ?? "").toUpperCase() === "LAND";
 
   const filtered = normalized.filter((l) => {
     const pt = (l.property_type ?? "").toLowerCase();

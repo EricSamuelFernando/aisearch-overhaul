@@ -15,6 +15,49 @@ interface Message {
   focusedListing?: MLSListing;
   elapsed?: number;
   queryText?: string;
+  timestamp?: string;
+}
+
+interface HistorySession {
+  startTs: number | null;
+  label: string;
+  messages: Message[];
+}
+
+function groupIntoSessions(messages: Message[]): HistorySession[] {
+  const GAP_MS = 2 * 60 * 60 * 1000; // 2 hours = new session
+  const sessions: HistorySession[] = [];
+  let current: HistorySession | null = null;
+  let lastTs: number | null = null;
+
+  for (const msg of messages) {
+    const ts = msg.timestamp ? new Date(msg.timestamp).getTime() : null;
+    if (!current || (ts && lastTs && ts - lastTs > GAP_MS)) {
+      const label = ts ? sessionDateLabel(ts) : 'Earlier';
+      current = { startTs: ts, label, messages: [] };
+      sessions.push(current);
+    }
+    current.messages.push(msg);
+    if (ts) lastTs = ts;
+  }
+
+  return sessions.reverse(); // newest session first
+}
+
+function sessionDateLabel(ts: number): string {
+  const d = new Date(ts);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return d.toLocaleDateString('en-US', { weekday: 'long' });
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: diffDays > 365 ? 'numeric' : undefined });
+}
+
+function sessionPreview(session: HistorySession): string {
+  const firstUser = session.messages.find((m) => m.role === 'user');
+  return firstUser ? firstUser.content.slice(0, 72) : 'Conversation';
 }
 
 function cleanContent(text: string): string {
@@ -78,6 +121,8 @@ const SUGGESTIONS = [
 ];
 const CHAT_EXPANDED_STORAGE_KEY = 'landing_ai_chat_expanded';
 const CHAT_STATE_STORAGE_KEY = 'landing_ai_chat_state_v1';
+const SESSION_TS_KEY = 'landing_ai_chat_session_ts';
+const SESSION_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours — after this, new visit starts clean
 
 function AskAiIcon({ size = 20 }: { size?: number }) {
   return (
@@ -256,13 +301,9 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
   const [loading, setLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [streamStartTime, setStreamStartTime] = useState<number | null>(null);
-  const [interviewMode, setInterviewMode] = useState(false);
-  // Ref so sendMessage callback always reads current value without stale closure
-  const interviewModeRef = useRef(false);
-  const setInterview = (val: boolean) => {
-    interviewModeRef.current = val;
-    setInterviewMode(val);
-  };
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyMessages, setHistoryMessages] = useState<Message[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -274,22 +315,33 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
-      const savedState = sessionStorage.getItem(CHAT_STATE_STORAGE_KEY);
-      if (savedState) {
-        const parsed = JSON.parse(savedState) as {
-          messages?: Message[];
-          input?: string;
-          isExpanded?: boolean;
-          lastListings?: MLSListing[];
-        };
-        if (Array.isArray(parsed.messages)) setMessages(parsed.messages);
-        if (typeof parsed.input === 'string') setInput(parsed.input);
-        if (typeof parsed.isExpanded === 'boolean') setIsExpanded(parsed.isExpanded);
-        if (Array.isArray(parsed.lastListings)) lastListingsRef.current = parsed.lastListings;
+      const sessionTs = sessionStorage.getItem(SESSION_TS_KEY);
+      const now = Date.now();
+      const isActiveSession = sessionTs && (now - parseInt(sessionTs)) < SESSION_TIMEOUT_MS;
+
+      if (isActiveSession) {
+        // Restore in-progress conversation — user refreshed within the same session window
+        const savedState = sessionStorage.getItem(CHAT_STATE_STORAGE_KEY);
+        if (savedState) {
+          const parsed = JSON.parse(savedState) as {
+            messages?: Message[];
+            input?: string;
+            isExpanded?: boolean;
+            lastListings?: MLSListing[];
+          };
+          if (Array.isArray(parsed.messages)) setMessages(parsed.messages);
+          if (typeof parsed.input === 'string') setInput(parsed.input);
+          if (typeof parsed.isExpanded === 'boolean') setIsExpanded(parsed.isExpanded);
+          if (Array.isArray(parsed.lastListings)) lastListingsRef.current = parsed.lastListings;
+        } else {
+          // Backward compat
+          const savedExpanded = sessionStorage.getItem(CHAT_EXPANDED_STORAGE_KEY);
+          if (savedExpanded === '1') setIsExpanded(true);
+        }
       } else {
-        // Backward compatibility with older expanded-only key
-        const savedExpanded = sessionStorage.getItem(CHAT_EXPANDED_STORAGE_KEY);
-        if (savedExpanded === '1') setIsExpanded(true);
+        // New session — clear stale state and stamp the start time
+        sessionStorage.removeItem(CHAT_STATE_STORAGE_KEY);
+        sessionStorage.setItem(SESSION_TS_KEY, now.toString());
       }
     } catch {}
     hasHydratedRef.current = true;
@@ -322,6 +374,8 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
     }));
 
     try {
+      // Refresh the session timestamp so active conversations don't expire mid-use
+      sessionStorage.setItem(SESSION_TS_KEY, Date.now().toString());
       sessionStorage.setItem(
         CHAT_STATE_STORAGE_KEY,
         JSON.stringify({
@@ -347,37 +401,9 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
     }
   }, [messages, input, isExpanded]);
 
-  // Hydrate chat history from Redis on mount — silently, so history is ready
-  // when the user opens the chat without them having to ask "what did we talk about?"
-  // sessionStorage restore (above) runs first and takes precedence within the current
-  // session. The guard (current.length > 0) ensures Redis only fills in for
-  // genuinely fresh sessions where sessionStorage has nothing.
-  useEffect(() => {
-    const userId = getUserId();
-    const controller = new AbortController();
-
-    fetch(`/api/ai-assistant/history?userId=${encodeURIComponent(userId)}`, {
-      signal: controller.signal,
-    })
-      .then((r) => r.json())
-      .then(({ messages: history }: { messages: Message[] }) => {
-        if (!Array.isArray(history) || history.length === 0) return;
-        setMessages((current) => {
-          // Only apply if the user hasn't already started a conversation
-          if (current.length > 0) return current;
-          return history;
-        });
-        // Scroll to bottom after history renders — container has no auto-scroll
-        setTimeout(() => {
-          bottomRef.current?.scrollIntoView({ behavior: 'instant' });
-        }, 0);
-      })
-      .catch(() => {
-        // Silent failure — start with empty chat
-      });
-
-    return () => controller.abort();
-  }, []);
+  // History is loaded on-demand when the user opens the past-chats panel.
+  // We no longer inject past sessions into the main chat on mount —
+  // each visit starts clean, and the AI's Supermemory greeting surfaces prior context naturally.
 
   useEffect(() => {
     const ta = textareaRef.current;
@@ -431,7 +457,6 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
         body: JSON.stringify({
           message: content,
           ...getUserIdentity(),
-          ...(interviewModeRef.current ? { mode: 'interview' } : {}),
         }),
       });
 
@@ -457,7 +482,7 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
           const line = part.trim();
           if (!line.startsWith('data: ')) continue;
           const jsonStr = line.slice(6);
-          let event: { type: string; data?: MLSListing | MLSListing[] | PhotoRankResult[]; index?: number; text?: string; message?: string };
+          let event: { type: string; data?: MLSListing | MLSListing[] | PhotoRankResult[] | Record<string, unknown>; index?: number; text?: string; message?: string };
           try {
             event = JSON.parse(jsonStr);
           } catch {
@@ -497,14 +522,6 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
               updated[updated.length - 1] = { ...updated[updated.length - 1], elapsed };
               return updated;
             });
-            // Detect when Home Pilot transitions to search — exit interview mode
-            if (interviewModeRef.current && (
-              prose.includes("Want me to pull up") ||
-              prose.includes("pull up some homes") ||
-              prose.includes("pull up some listings")
-            )) {
-              setInterview(false);
-            }
           } else if (event.type === 'photo_rank') {
             // Vision model finished scoring — reorder photos AND sort cards by best match.
             const ranks = (event.data as PhotoRankResult[]) ?? [];
@@ -523,6 +540,9 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
               updated[updated.length - 1] = { ...last, listings: updatedListings };
               return updated;
             });
+          } else if (event.type === 'debug') {
+            // Score report for testing — visible in browser devtools Network tab
+            console.log('[AI Debug]', event.data);
           } else if (event.type === 'error') {
             throw new Error(event.message ?? 'Unknown error');
           }
@@ -553,6 +573,31 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
     }
   }
 
+  const loadHistoryPanel = useCallback(async () => {
+    setShowHistory(true);
+    if (historyMessages.length > 0) return; // already loaded
+    setHistoryLoading(true);
+    try {
+      const userId = getUserId();
+      const res = await fetch(`/api/ai-assistant/history?userId=${encodeURIComponent(userId)}`);
+      if (res.ok) {
+        const { messages: loaded } = await res.json() as { messages: Message[] };
+        if (Array.isArray(loaded)) {
+          // Exclude messages already present in the active chat so the history
+          // panel only shows truly past sessions — not the current conversation.
+          const activeContents = new Set(
+            messages.map((m) => `${m.role}:${m.content.slice(0, 120)}`)
+          );
+          const pastOnly = loaded.filter(
+            (m) => !activeContents.has(`${m.role}:${m.content.slice(0, 120)}`)
+          );
+          setHistoryMessages(pastOnly);
+        }
+      }
+    } catch {}
+    setHistoryLoading(false);
+  }, [historyMessages.length, messages]);
+
   const lastMsgIndex = messages.length - 1;
 
   return (
@@ -561,13 +606,20 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
       {/* Chat messages + input panel */}
       {isExpanded && (
         <div className="relative rounded-2xl bg-white border border-gray-200 shadow-sm overflow-hidden">
-          {interviewMode && (
-            <div className="flex items-center gap-1.5 px-4 pt-3 pb-0">
-              <span className="w-2 h-2 rounded-full bg-[#e8804c] animate-pulse flex-shrink-0" />
-              <span className="text-xs text-[#e8804c] font-semibold tracking-wide">HOME PILOT</span>
-            </div>
-          )}
-          <div className="flex items-start justify-end px-4 pt-3">
+          <div className="flex items-center justify-between px-4 pt-3">
+            {/* Past chats button */}
+            <button
+              type="button"
+              onClick={loadHistoryPanel}
+              className="w-[32px] h-[32px] text-gray-400 hover:text-gray-600 flex items-center justify-center"
+              aria-label="Past conversations"
+              title="Past conversations"
+            >
+              <svg viewBox="0 0 24 24" className="w-[17px] h-[17px]" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                <circle cx="12" cy="12" r="9" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 7v5l3 3" />
+              </svg>
+            </button>
             <button
               type="button"
               onClick={() => setIsExpanded(false)}
@@ -579,6 +631,56 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
               </svg>
             </button>
           </div>
+
+          {/* Past conversations panel — overlays the messages area */}
+          {showHistory && (
+            <div className="absolute inset-0 bg-white z-30 flex flex-col rounded-2xl overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowHistory(false)}
+                  className="flex items-center gap-1.5 text-gray-500 hover:text-gray-800 transition-colors"
+                >
+                  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span className="text-sm font-medium">Back</span>
+                </button>
+                <span className="ml-auto text-xs text-gray-400 font-medium tracking-wide uppercase">Past conversations</span>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1 chat-scrollbar">
+                {historyLoading ? (
+                  <div className="flex items-center gap-2 text-gray-400 text-sm py-8 justify-center">
+                    <span className="w-3 h-3 border-2 border-gray-300 border-t-[#e8804c] rounded-full animate-spin" />
+                    Loading…
+                  </div>
+                ) : historyMessages.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-10">No past conversations yet.</p>
+                ) : (() => {
+                  const sessions = groupIntoSessions(historyMessages).slice(0, 5);
+                  return sessions.map((session, si) => (
+                    <button
+                      key={si}
+                      type="button"
+                      onClick={() => {
+                        setMessages(session.messages);
+                        setShowHistory(false);
+                      }}
+                      className="w-full text-left px-3 py-3 rounded-xl hover:bg-gray-50 active:bg-gray-100 transition-colors group"
+                    >
+                      <p className="text-sm text-gray-800 truncate leading-snug font-medium group-hover:text-black">
+                        {sessionPreview(session)}
+                      </p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        {session.label} · {session.messages.length} message{session.messages.length !== 1 ? 's' : ''}
+                      </p>
+                    </button>
+                  ));
+                })()}
+              </div>
+            </div>
+          )}
           <div ref={scrollContainerRef} className="h-[720px] overflow-y-auto px-4 pb-4 space-y-4 chat-scrollbar">
             {messages.map((m, i) => {
               const clean = cleanContent(m.content);
@@ -675,20 +777,6 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
                       </div>
                     )}
 
-                    {/* Interview suggestion chips — render below last AI message while in interview mode */}
-                    {!isUser && !loading && i === lastMsgIndex && interviewMode && extractSuggestions(m.content).length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {extractSuggestions(m.content).map((s) => (
-                          <button
-                            key={s}
-                            onClick={() => sendMessage(s)}
-                            className="text-xs px-3 py-1.5 rounded-full border border-[#e8804c] text-[#e8804c] hover:bg-[#e8804c] hover:text-white transition-colors font-medium"
-                          >
-                            {s}
-                          </button>
-                        ))}
-                      </div>
-                    )}
 
                     {/* Elapsed timer */}
                     {!isUser && (
@@ -730,7 +818,7 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
               <textarea
                 ref={textareaRef}
                 className="flex-1 resize-none bg-transparent text-gray-900 placeholder-gray-400 text-sm focus:outline-none min-h-[24px] max-h-[120px] overflow-y-auto leading-relaxed"
-                placeholder={interviewMode ? "Answer or type your own response…" : "Ask anything about homes, neighborhoods, budgets…"}
+                placeholder="Ask anything about homes, neighborhoods, budgets…"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -790,20 +878,6 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
             disabled={loading}
             rows={1}
           />
-          {/* Home Pilot — profile-building interview */}
-          <button
-            onClick={() => {
-              router.push('/buy/browse?openHomePilot=1');
-            }}
-            disabled={loading}
-            className="flex-shrink-0 h-[34px] px-3 rounded-full bg-[#e8804c] text-white text-xs font-semibold flex items-center gap-1.5 hover:bg-[#d4703c] transition-colors whitespace-nowrap disabled:opacity-50"
-            aria-label="Start Home Pilot interview"
-          >
-            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="currentColor">
-              <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
-            </svg>
-            Home Pilot
-          </button>
           <button
             onClick={() => sendMessage()}
             disabled={loading || !input.trim()}

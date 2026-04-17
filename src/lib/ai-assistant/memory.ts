@@ -194,7 +194,9 @@ export async function loadHistory(userId: string, limit = 20): Promise<AIAssista
 export async function appendMessage(userId: string, message: AIAssistantMessage): Promise<void> {
   const redis = getRedis();
   const key = historyKey(userId);
-  await redis.rpush(key, message);
+  // Stamp every message at write time so the history panel can group by session
+  const stamped: AIAssistantMessage = { ...message, timestamp: new Date().toISOString() };
+  await redis.rpush(key, stamped);
   await redis.ltrim(key, -HISTORY_MAX, -1);
   await redis.expire(key, HISTORY_TTL);
 }

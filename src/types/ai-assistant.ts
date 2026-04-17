@@ -3,6 +3,8 @@ export interface AIAssistantMessage {
   content: string;
   listings?: MLSListing[];
   focusedListing?: MLSListing;
+  /** ISO timestamp added at write time — absent on messages written before this field existed */
+  timestamp?: string;
 }
 
 export interface SearchContext {
@@ -77,35 +79,68 @@ export interface SearchEvent {
 }
 
 export interface MLSSearchParams {
+  // ── Geography ───────────────────────────────────────────────────────────────
   city?: string;
   state?: string;
   zip?: string;
   county?: string;
+  latitude?: number;
+  longitude?: number;
+  radius?: number;
+
+  // ── Property classification ──────────────────────────────────────────────
+  /** Broadest MLS category: RESIDENTIAL | RESIDENTIAL_INCOME | RENTAL | LAND | COMMERCIAL | FARM */
+  listing_property_type?: string;
+  /** MLS full-string sub-type: "Single Family" | "Condo" | "Townhouse" | "Duplex" | "Multi-Family" | "Triplex" | "Fourplex" | "Manufactured Home" | "Land" | "Apartment" | "Cabin" | "Ranch" */
+  property_sub_type?: string;
+  /** Public-record type: SFR | MFR | LAND | CONDO | MOBILE | OTHER */
+  property_type?: string;
+
+  // ── Price ───────────────────────────────────────────────────────────────────
   listing_price_min?: number;
   listing_price_max?: number;
+  price_per_sqft_min?: number;
+  price_per_sqft_max?: number;
+
+  // ── Beds / Baths / Size ──────────────────────────────────────────────────
   bedrooms_min?: number;
   bedrooms_max?: number;
   bathrooms_min?: number;
   bathrooms_max?: number;
+  living_area_min?: number;
+  living_area_max?: number;
+  lot_size_min?: number;
+  lot_size_max?: number;
+  stories?: number;
+
+  // ── Features ────────────────────────────────────────────────────────────────
   has_pool?: boolean;
   has_basement?: boolean;
+
+  // ── Views / Aesthetics ───────────────────────────────────────────────────
   is_water_front?: boolean;
   is_water_view?: boolean;
   is_mountain_view?: boolean;
-  /** Residential | Commercial | Land | Rental — use to exclude leases */
-  listing_property_type?: string;
-  /** SFR | MFR | LAND | CONDO | MOBILE | OTHER */
-  property_sub_type?: string;
-  living_area_min?: number;
-  living_area_max?: number;
+  is_city_view?: boolean;
+  is_park_view?: boolean;
+
+  // ── Age / Market timing ──────────────────────────────────────────────────
   year_built_min?: number;
   year_built_max?: number;
   days_on_market_min?: number;
   days_on_market_max?: number;
+  listing_date_min?: string;
+  listing_date_max?: string;
+  /** true = eliminate ghost active/closed overlap — use with active:true */
+  latest_only?: boolean;
+
+  // ── HOA ──────────────────────────────────────────────────────────────────
+  listing_association_fee_min?: number;
+  listing_association_fee_max?: number;
+
+  // ── Result control ───────────────────────────────────────────────────────
   size?: number;
-  radius?: number;
-  latitude?: number;
-  longitude?: number;
+  sort?: Record<string, "asc" | "desc">;
 }
 
 export interface MLSListing {

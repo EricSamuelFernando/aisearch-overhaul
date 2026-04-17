@@ -11,13 +11,16 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const raw = await loadHistory(userId, 20);
+    const raw = await loadHistory(userId, 40);
 
-    // Strip photos from listing objects — history tiles don't need photo arrays,
-    // keeping the payload small for active users with many listing turns.
+    // Keep only the first 3 photos per listing — enough for history tile thumbnails
+    // without sending full 20-photo arrays across the wire.
     const messages = raw.map((m) => ({
       ...m,
-      listings: m.listings?.map(({ photos: _p, ...listing }) => listing),
+      listings: m.listings?.map(({ photos, ...listing }) => ({
+        ...listing,
+        photos: (photos ?? []).slice(0, 3),
+      })),
     }));
 
     return NextResponse.json({ messages });

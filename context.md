@@ -154,10 +154,33 @@ Triggers when user explicitly says "search my preferred locations", "all my citi
 - Sonnet summary notes which city each listing is in
 - Search context saved for primary location for carry-over
 
+## MLS Parameter Overhaul
+The `search_mls` tool schema and `MLSSearchParams` type were fully audited against the RealEstateAPI v2 docs. Key fixes:
+
+### property classification (three distinct fields)
+| Field | Values | Purpose |
+|---|---|---|
+| `listing_property_type` | `RESIDENTIAL`, `RESIDENTIAL_INCOME`, `RENTAL`, `LAND`, `COMMERCIAL`, `FARM` | Broadest MLS category — always set; generic "homes" → `RESIDENTIAL` |
+| `property_sub_type` | `"Single Family"`, `"Condo"`, `"Townhouse"`, `"Duplex"`, `"Multi-Family"`, etc. (full English strings) | Only set when user names a specific type |
+| `property_type` | `SFR`, `MFR`, `LAND`, `CONDO`, `MOBILE`, `OTHER` | Public-record type (assessor data) — abbreviated values |
+
+Root bug: previous schema used `property_sub_type: enum ["SFR","MFR","CONDO",...]` — these abbreviations belong to `property_type`, not `property_sub_type`. The API rejected them silently, returning 0 results.
+
+### New parameters added to tool schema + MLSSearchParams
+`is_city_view`, `is_park_view`, `lot_size_min/max`, `bathrooms_max`, `bedrooms_max`, `living_area_max`, `price_per_sqft_min/max`, `stories`, `days_on_market_min`, `latest_only`, `listing_association_fee_max`, `county`, `zip`
+
+### View boolean + visual_query pairing rule
+When any view boolean is set, visual_query must also be set:
+- `is_mountain_view=true` → also set `visual_query="mountain range visible through windows..."`
+- MLS pre-filters the result set; vision ranks photo quality within that filtered set
+
+### intelligence.ts extractFeatures update
+Now tracks: `city view`, `park view`, `single story`, `no HOA`, `large lot` alongside existing features.
+
 ## Param Coercion
 Haiku occasionally returns typed params as strings. `route.ts` coerces at the boundary before any downstream use:
-- Numeric fields (listing_price_min/max, bedrooms_min/max, living_area_min/max, year_built_min/max, etc.) — string → Number, NaN → undefined
-- Boolean fields (has_pool, has_basement, is_water_front, is_water_view, is_mountain_view) — "true"/"false" → boolean, other → undefined
+- Numeric fields (listing_price_min/max, bedrooms_min/max, bathrooms_min/max, living_area_min/max, lot_size_min/max, price_per_sqft_min/max, year_built_min/max, days_on_market_min/max, stories, listing_association_fee_max, size, radius, latitude, longitude) — string → Number, NaN → undefined
+- Boolean fields (has_pool, has_basement, is_water_front, is_water_view, is_mountain_view, is_city_view, is_park_view, latest_only) — "true"/"false" → boolean, other → undefined
 
 ## Profile Extraction Safety
 `extractAndUpdateProfile` in `memory.ts` uses a `toArr()` helper that coerces any value to `string[]` before array operations. Guards against:
@@ -166,12 +189,13 @@ Haiku occasionally returns typed params as strings. `route.ts` coerces at the bo
 
 ## SSE Event Types
 ```
-{ type: "listings",      data: MLSListing[] }          — emitted immediately after MLS returns
-{ type: "listing_focus", data: MLSListing, index }      — single tile for reference_listing path
-{ type: "photo_rank",    data: PhotoRankResult[] }      — vision scores, merged into tiles by frontend
-{ type: "token",         text: string }                 — streaming summary tokens
-{ type: "done" }                                        — stream complete
-{ type: "error",         message: string }              — error
+{ type: "listings",      data: MLSListing[] }                                        — emitted immediately after MLS returns
+{ type: "listing_focus", data: MLSListing, index }                                   — single tile for reference_listing path
+{ type: "photo_rank",    data: PhotoRankResult[], lowMatch?: boolean }               — vision scores; lowMatch=true when best score < 0.25
+{ type: "debug",         data: { pool, text_matches, vision_targets, best_score, low_match } } — testing/monitoring only
+{ type: "token",         text: string }                                              — streaming summary tokens
+{ type: "done" }                                                                     — stream complete
+{ type: "error",         message: string }                                           — error
 ```
 
 ## MLS Base Payload
@@ -179,17 +203,82 @@ Haiku occasionally returns typed params as strings. `route.ts` coerces at the bo
 { "active": true, "has_photos": true, "status": "Active", "sold": false, "include_photos": true, "size": 6 }
 ```
 Post-fetch filters: lease/rental stripped, duplicates deduplicated by address.
-Visual queries fetch `size: 12` to give vision a larger pool to score.
+
+### Visual Query Pool Sizing
+Two modes based on whether an MLS boolean backs the visual query:
+- **Backed visual** (`is_mountain_view`, `is_city_view`, `is_park_view`, `is_water_view`, `is_water_front` set): `size=12`. MLS already pre-filtered at API level.
+- **Pure visual** (visual_query only, no backing boolean — color, style, material, interior): `size=30`, then trimmed to top 15 before emitting to client.
+
+### Pure Visual Candidate Selection (Option 1)
+For queries like "blue homes", "modern farmhouse style", "hardwood floors":
+1. Fetch 30 candidates from MLS (single call)
+2. Text-pre-score all 30 against `description_keywords` instantly
+3. Sort by bestScore descending (text matches + cache hits float to top)
+4. Trim to top 15 — highest-quality candidates for vision
+5. Emit 15 tiles to client immediately
+6. Run vision only on those 15 uncached listings
+
+### Visual Match Threshold (Option 2)
+After vision scoring, `bestOverallScore` is computed across all merged results:
+- If `bestOverallScore < 0.25`: `lowMatch: true` flag added to `photo_rank` SSE event
+- Frontend renders "Limited visual matches in this area — showing closest available." below the listing row
+- A `debug` SSE event is always emitted with `{ pool, text_matches, vision_targets, best_score, low_match }` — visible in browser devtools Network tab for testing
+
+### Option 3 (Planned — pending resultIndex verification)
+Parallel page fetches: two simultaneous MLS calls (page 1 + page 2) → merge ~30 candidates with zero extra latency. To be implemented after verifying `resultIndex` is a simple numeric offset in the RealEstateAPI response.
 
 ## User Identity
 - **Logged-in users:** `userId` = backend `id` from `localStorage.userDetails` (set after Cognito Google login)
 - **Anonymous users:** persistent random UUID from `localStorage.snapz_ai_user_id`
 - `getUserId()` in `LandingAIChat.tsx` handles both cases
 
+## Home Pilot — Profile-Building Interview (Implemented, UI temporarily disabled)
+
+An onboarding flow that builds a complete buyer intelligence profile through natural conversation instead of spec forms. The backend (`route.ts` interview mode, `buildInterviewSystemPrompt`, `extractAndUpdateProfileFromInterview`) is fully implemented. The UI entry point (button, suggestion chips, badge) is commented out in `LandingAIChat.tsx` pending UX review — re-enable by restoring `interviewMode` state, `setInterview` helper, `interviewModeRef`, and the Home Pilot button in the collapsed input bar.
+
+### Architecture
+- **Entry point:** "Home Pilot" button in `LandingAIChat.tsx` collapsed input bar. Sets `interviewMode = true` (tracked via ref for stale-closure safety) and sends the first message with `mode: "interview"` in the request body.
+- **Route bypass:** When `mode === "interview"` in the request, Haiku routing is skipped entirely. Sonnet handles the full conversation using `buildInterviewSystemPrompt` from `claude.ts`.
+- **Transition detection:** The interview prompt instructs Sonnet to say "Want me to pull up some homes in [City]" when ready to search. The frontend's `done` SSE handler detects this phrase and sets `interviewMode = false`. The user's "yes" then flows through normal Haiku routing.
+
+### Question Flow
+Lifestyle-first, one question per turn, never a spec checklist:
+1. What is driving the move? (life event, motivation, timeline)
+2. Who is coming? (household → derives bedrooms, school need, yard need)
+3. How do they use the home day-to-day? (WFH → office, entertaining → open layout, cooking → kitchen)
+4. What feeling when they walk in? (aesthetic/vibe → visual search fuel, with mandatory follow-up for concrete terms)
+5. Location + budget — confirm or narrow
+
+### SUGGEST: Format
+Every question response ends with a `SUGGEST:` line:
+```
+SUGGEST: Starting a family | Relocating for work | Need more space | First home | Something else
+```
+- `cleanContent()` in the frontend strips it from displayed text
+- `extractSuggestions()` parses it into chip options
+- Chips render below the last AI message while in interview mode
+- Tapping a chip calls `sendMessage(option)` directly
+- User can always type a custom answer instead
+
+### Storage Pipeline (all three layers on every turn)
+- **`extractAndUpdateProfileFromInterview`** (`memory.ts`) — richer Haiku extraction than the normal path. Extracts:
+  - `visualPreferenceLabels` → increments `visualPreferences` frequency map (threshold lowered to 1 in `buildIntelligenceBlock` so interview-stated aesthetics immediately inform future searches)
+  - `bedroomsMin` inferred from household composition ("couple + 2 kids" → 3)
+  - `mustHaves` inferred from lifestyle ("works from home" → "home office", "has kids" → "yard")
+  - `propertyTypes` inferred from life stage ("family with kids" → SFR)
+  - Full `personalContext` bag: `driving_move`, `household_composition`, `work_style`, `lifestyle`, `timeline`, `current_city`, `life_stage`, etc.
+- **Redis + Postgres** — `saveProfile` called on every turn via `extractAndUpdateProfileFromInterview`. Both layers updated atomically.
+- **Supermemory** — always written on interview turns (no `containsPreferenceSignal` gate). Format: `"Home Pilot interview — User said: '...'. AI asked: '...'"`.
+
+### Intelligence Integration
+`buildIntelligenceBlock` (`intelligence.ts`) now surfaces:
+- `personalContext` entries in the Haiku routing block with derived hints (children → SFR/school/yard, WFH → office)
+- `visualPreferences` at threshold ≥ 1 (changed from ≥ 2) so stated aesthetics immediately appear as defaults
+
 ## Known Issues / Planned
 
 ### Memory
-- **No history on chat open** — frontend starts blank every session despite Redis holding 30 days of history and Postgres holding the full profile. The user has to ask "what did we talk about?" to trigger recall, which defeats the persistent memory value prop. Fix: `GET /api/ai-assistant/history` endpoint that returns the last N messages from Redis + `loadProfile` → mount fetch in `LandingAIChat.tsx` to hydrate the chat window on open.
+- **Past chats panel** — `LandingAIChat.tsx` has a history panel (clock icon in chat header) that loads past messages from `GET /api/ai-assistant/history`. Sessions are grouped by 2-hour inactivity gaps. Messages written after the timestamp addition carry `timestamp: ISO string`; older messages show in an "Earlier" group. The `sessionStorage` restore is gated by a 2-hour session timeout — new tab or >2h since last activity starts fresh. The AI's Supermemory-powered greeting naturally surfaces context from past sessions.
 - **`sessionCount` is a dead field** — tracked in `BuyerProfile`, Redis, and Postgres but never incremented. `searchCount` works correctly. `sessionCount` needs a different trigger (first message of a new browser session) which is not wired up. Either implement it (detect new session vs continuation based on `lastActiveAt` timestamp gap) or remove the field from schema + profile to avoid confusion.
 - **`answer_user` Supermemory write is too generic** — fires for every conversational response including greetings and general Q&A with: `"User preference signal from conversation: ${message.slice(0, 200)}"`. This pollutes Supermemory with noise. Fix: only write on `answer_user` turns that contain an actual preference signal (budget, location, feature mention) — gate the write behind a content check or pass it through the same extraction logic used for profile updates.
 

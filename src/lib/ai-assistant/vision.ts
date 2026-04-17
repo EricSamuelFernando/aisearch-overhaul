@@ -132,8 +132,10 @@ No explanation. Just the array.`;
   try {
     const response = await Promise.race([apiPromise, timeoutPromise]);
     const raw = response.content[0].type === "text" ? response.content[0].text.trim() : "[]";
-    const match = raw.match(/\[[\d.,\s]+\]/);
-    const parsed = JSON.parse(match ? match[0] : raw);
+    const startIdx = raw.indexOf("[");
+    const endIdx   = raw.lastIndexOf("]");
+    const jsonStr  = startIdx !== -1 && endIdx !== -1 ? raw.slice(startIdx, endIdx + 1) : "[]";
+    const parsed = JSON.parse(jsonStr);
     scores = Array.isArray(parsed) ? parsed : Array(photosToScore.length).fill(0);
   } catch (err) {
     console.warn(

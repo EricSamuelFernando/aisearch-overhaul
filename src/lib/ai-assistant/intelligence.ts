@@ -41,6 +41,11 @@ export function extractFeatures(params: MLSSearchParams): string[] {
   if (params.is_water_front)                        features.push("waterfront");
   if (params.is_water_view)                         features.push("water view");
   if (params.is_mountain_view)                      features.push("mountain view");
+  if (params.is_city_view)                          features.push("city view");
+  if (params.is_park_view)                          features.push("park view");
+  if (params.stories === 1)                         features.push("single story");
+  if (params.listing_association_fee_max === 0)     features.push("no HOA");
+  if (params.lot_size_min && params.lot_size_min >= 21780) features.push("large lot");
   if (params.year_built_min && params.year_built_min >= 2015) features.push("newer construction");
   if (params.living_area_min && params.living_area_min >= 3000) features.push("large sq ft");
   return features;

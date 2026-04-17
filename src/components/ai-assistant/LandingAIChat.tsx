@@ -151,14 +151,52 @@ function ListingsRow({ listings, queryText }: { listings: MLSListing[]; queryTex
 
   const browseUrl = (() => {
     const params = new URLSearchParams();
-    const trimmedQuery = (queryText ?? '').trim();
-    if (trimmedQuery) {
-      params.set('q', trimmedQuery);
-    } else {
-      const firstListing = listings[0];
-      const fallbackQuery = [firstListing?.city, firstListing?.state].filter(Boolean).join(', ').trim();
-      if (fallbackQuery) params.set('q', fallbackQuery);
+
+    const normalize = (value?: string) => (value ?? '').trim();
+    const zipCounts = new Map<string, number>();
+    const cityStateCounts = new Map<string, number>();
+
+    for (const listing of listings) {
+      const zip = normalize(listing.zip);
+      if (zip) {
+        zipCounts.set(zip, (zipCounts.get(zip) ?? 0) + 1);
+      }
+
+      const city = normalize(listing.city);
+      const state = normalize(listing.state).toUpperCase();
+      const cityState = [city, state].filter(Boolean).join(', ');
+      if (cityState) {
+        cityStateCounts.set(cityState, (cityStateCounts.get(cityState) ?? 0) + 1);
+      }
     }
+
+    const mostFrequent = (counts: Map<string, number>) => {
+      let winner = '';
+      let best = 0;
+      for (const [key, count] of counts.entries()) {
+        if (count > best) {
+          winner = key;
+          best = count;
+        }
+      }
+      return winner;
+    };
+
+    // Prefer the location signal from the cards shown to the user.
+    // ZIP is the most specific when available; otherwise use dominant city/state.
+    const dominantZip = mostFrequent(zipCounts);
+    const dominantCityState = mostFrequent(cityStateCounts);
+    const derivedLocationQuery = dominantZip || dominantCityState;
+
+    if (derivedLocationQuery) {
+      params.set('q', derivedLocationQuery);
+    } else {
+      const trimmedQuery = (queryText ?? '').trim();
+      if (trimmedQuery) {
+        params.set('q', trimmedQuery);
+      }
+    }
+
     const queryString = params.toString();
     return queryString ? `/buy/browse?${queryString}` : '/buy/browse';
   })();

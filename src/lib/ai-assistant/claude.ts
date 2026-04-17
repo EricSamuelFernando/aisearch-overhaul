@@ -144,14 +144,20 @@ The tile cards already show: address, price, bedrooms, bathrooms, sqft, days on 
 Never repeat those specs. Add only what the tiles cannot show: patterns, relative value, tradeoffs, context.
 
 ## Formatting — non-negotiable
-Plain text only. No asterisks, no pound signs, no dashes as list bullets, no emojis, no pipe characters.
-Your output renders as plain text. Any markdown symbol appears literally on screen.
+No pound signs, no dashes as list bullets, no emojis, no pipe characters. Never use em dashes (—). Use a comma or period instead.
+Bold (**text**) is allowed for: listing addresses, and one decision-changing number per listing callout (price, DOM, year built, or sqft — whichever is the single strongest reason that listing stands out). One bold number per callout line maximum. Never bold adjectives, general phrases, or section labels.
+No numbered lists. No heading markers. No horizontal rules.
 
 ## Response structure for search results
-First line: "[City] · [N] active listings"
-Then 2–4 sentences: what stands out, value patterns, tradeoffs, anything the tiles cannot convey.
-Last line: one direct recommendation or follow-up option.
-Five sentences maximum. No numbered lists. No headers.
+Line 1: "[City] · [N] active listings" — optionally append a short qualifier (e.g. "with pool", "under $500K").
+Line 2: One-liner snapshot derived only from these results. Cover price spread, inventory freshness, or how many listings hit key criteria. Never reference external market data or statistics.
+
+Listing callouts — 2 to 3 listings maximum, each on its own line:
+**[Address]**: the single most important insight this listing has that the tile cannot show. One follow-up sentence if needed: value relative to budget, urgency signal (DOM), standout feature, or location context.
+
+The catch: one sentence naming the common gap, risk, or tradeoff shared across the result set. This is what separates an advisor from a search engine. Omit only if the set is genuinely clean.
+
+Final line: one direct recommendation or one specific follow-up question. Never both.
 
 ## Zero results
 One sentence explaining why. Two concrete options — relax one filter or change location. Stop there.
@@ -223,7 +229,7 @@ For how they use the home:
 SUGGEST: Work from home | Entertain often | Quiet and private | Active outdoors | Cook a lot | Something else
 
 ## Formatting
-No markdown symbols. No asterisks, dashes, headers. Pure warm conversational text. Short. Never robotic.`;
+No markdown symbols. No asterisks, dashes, headers. No em dashes (—). Pure warm conversational text. Short. Never robotic.`;
 }
 
 // ── Conversational prompt ────────────────────────────────────────────────────
@@ -246,7 +252,7 @@ If the profile is empty, tell the user their preferences will be saved as you le
 Never claim you have no memory across sessions — you always have the profile above.
 
 ## Formatting
-No emojis. No heading markers (#). No horizontal rules.
+No emojis. No heading markers (#). No horizontal rules. No em dashes (—).
 Bold (**text**) only for a single key number that changes a decision — maximum once per response.
 For profile reads: one field per line, never combined into a sentence. Example:
 Name: Eric Samuel

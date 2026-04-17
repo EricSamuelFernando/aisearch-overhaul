@@ -550,9 +550,17 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
                         </span>
                       ) : (
                         m.listings != null || m.focusedListing ? (
-                          // PATH A: search results — plain text beside tile cards
-                          <div className="text-gray-700 whitespace-pre-line text-left leading-relaxed">
-                            {clean || m.content}
+                          // PATH A: search results — markdown beside tile cards
+                          <div className="text-sm leading-relaxed text-gray-700 text-left">
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
+                                p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                              }}
+                            >
+                              {clean || m.content}
+                            </ReactMarkdown>
                           </div>
                         ) : (
                           // PATH B: Q&A, profile reads, conversational — styled markdown

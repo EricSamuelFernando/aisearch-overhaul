@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { v4 as uuidv4 } from 'uuid';
+import { useRouter } from 'next/navigation';
 import { MLSListing, PhotoRankResult } from '@/types/ai-assistant';
 import ListingTile from './ListingTile';
 
@@ -112,6 +113,7 @@ function LiveTimer({ startTime }: { startTime: number }) {
 }
 
 function ListingsRow({ listings, queryText }: { listings: MLSListing[]; queryText?: string }) {
+  const router = useRouter();
   const rowRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -147,6 +149,20 @@ function ListingsRow({ listings, queryText }: { listings: MLSListing[]; queryTex
     el.scrollBy({ left: direction === 'left' ? -amount : amount, behavior: 'smooth' });
   };
 
+  const browseUrl = (() => {
+    const params = new URLSearchParams();
+    const trimmedQuery = (queryText ?? '').trim();
+    if (trimmedQuery) {
+      params.set('q', trimmedQuery);
+    } else {
+      const firstListing = listings[0];
+      const fallbackQuery = [firstListing?.city, firstListing?.state].filter(Boolean).join(', ').trim();
+      if (fallbackQuery) params.set('q', fallbackQuery);
+    }
+    const queryString = params.toString();
+    return queryString ? `/buy/browse?${queryString}` : '/buy/browse';
+  })();
+
   return (
     <div className="relative">
       {canScrollLeft && (
@@ -177,12 +193,27 @@ function ListingsRow({ listings, queryText }: { listings: MLSListing[]; queryTex
         {listings.map((listing, idx) => (
           <ListingTile key={listing.id || idx} listing={listing} index={idx} queryText={queryText} />
         ))}
+        <button
+          type="button"
+          onClick={() => router.push(browseUrl)}
+          className="self-center flex-shrink-0 w-[132px] h-[132px] rounded-2xl border-[3px] border-[#e8804c] bg-white text-[#c86b3e] shadow-sm hover:shadow-md hover:bg-[#fffaf7] transition-all flex flex-col items-center justify-center"
+          aria-label="View more properties"
+        >
+          <span className="w-11 h-11 rounded-full bg-[#e8804c] flex items-center justify-center mb-3">
+            <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor" aria-hidden="true">
+              <path d="M13.5 5.5a1 1 0 0 1 1.42 0l4.58 4.58a1 1 0 0 1 0 1.42l-4.58 4.58a1 1 0 0 1-1.42-1.42l2.88-2.88H5a1 1 0 1 1 0-2h11.96L13.5 6.92a1 1 0 0 1 0-1.42z" />
+            </svg>
+          </span>
+          <span className="text-[12px] leading-tight font-semibold">View more</span>
+          <span className="text-[12px] leading-tight font-semibold">properties</span>
+        </button>
       </div>
     </div>
   );
 }
 
 export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?: (expanded: boolean) => void }) {
+  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -725,8 +756,7 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
           {/* Home Pilot — profile-building interview */}
           <button
             onClick={() => {
-              setInterview(true);
-              sendMessage('Help me find my perfect home');
+              router.push('/buy/browse?openHomePilot=1');
             }}
             disabled={loading}
             className="flex-shrink-0 h-[34px] px-3 rounded-full bg-[#e8804c] text-white text-xs font-semibold flex items-center gap-1.5 hover:bg-[#d4703c] transition-colors whitespace-nowrap disabled:opacity-50"

@@ -22,9 +22,18 @@ function cleanContent(text: string): string {
     // Remove markdown horizontal rules and table separator rows
     if (/^\s*-{3,}\s*$/.test(line)) return false;
     if (/^\s*\|?(?:\s*:?-+:?\s*\|)+\s*:?-+:?\s*\|?\s*$/.test(line)) return false;
+    // Strip SUGGEST: lines — rendered separately as chips
+    if (line.startsWith('SUGGEST:')) return false;
     return true;
   }).map((line) => line.replace(/^#{1,6}\s+/, '')); // strip stray heading markers
   return lines.join('\n').trim();
+}
+
+function extractSuggestions(content: string): string[] {
+  const lines = content.split('\n');
+  const suggestLine = lines.find((l) => l.startsWith('SUGGEST:'));
+  if (!suggestLine) return [];
+  return suggestLine.replace('SUGGEST:', '').split('|').map((s) => s.trim()).filter(Boolean);
 }
 
 interface UserIdentity {
@@ -179,6 +188,13 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
   const [loading, setLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [streamStartTime, setStreamStartTime] = useState<number | null>(null);
+  const [interviewMode, setInterviewMode] = useState(false);
+  // Ref so sendMessage callback always reads current value without stale closure
+  const interviewModeRef = useRef(false);
+  const setInterview = (val: boolean) => {
+    interviewModeRef.current = val;
+    setInterviewMode(val);
+  };
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -344,7 +360,11 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
       const res = await fetch('/api/ai-assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: content, ...getUserIdentity() }),
+        body: JSON.stringify({
+          message: content,
+          ...getUserIdentity(),
+          ...(interviewModeRef.current ? { mode: 'interview' } : {}),
+        }),
       });
 
       if (!res.ok || !res.body) throw new Error(`Error ${res.status}`);
@@ -409,6 +429,14 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
               updated[updated.length - 1] = { ...updated[updated.length - 1], elapsed };
               return updated;
             });
+            // Detect when Home Pilot transitions to search — exit interview mode
+            if (interviewModeRef.current && (
+              prose.includes("Want me to pull up") ||
+              prose.includes("pull up some homes") ||
+              prose.includes("pull up some listings")
+            )) {
+              setInterview(false);
+            }
           } else if (event.type === 'photo_rank') {
             // Vision model finished scoring — reorder photos AND sort cards by best match.
             const ranks = (event.data as PhotoRankResult[]) ?? [];
@@ -465,6 +493,12 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
       {/* Chat messages + input panel */}
       {isExpanded && (
         <div className="relative rounded-2xl bg-white border border-gray-200 shadow-sm overflow-hidden">
+          {interviewMode && (
+            <div className="flex items-center gap-1.5 px-4 pt-3 pb-0">
+              <span className="w-2 h-2 rounded-full bg-[#e8804c] animate-pulse flex-shrink-0" />
+              <span className="text-xs text-[#e8804c] font-semibold tracking-wide">HOME PILOT</span>
+            </div>
+          )}
           <div className="flex items-start justify-end px-4 pt-3">
             <button
               type="button"
@@ -565,6 +599,21 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
                       </div>
                     )}
 
+                    {/* Interview suggestion chips — render below last AI message while in interview mode */}
+                    {!isUser && !loading && i === lastMsgIndex && interviewMode && extractSuggestions(m.content).length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {extractSuggestions(m.content).map((s) => (
+                          <button
+                            key={s}
+                            onClick={() => sendMessage(s)}
+                            className="text-xs px-3 py-1.5 rounded-full border border-[#e8804c] text-[#e8804c] hover:bg-[#e8804c] hover:text-white transition-colors font-medium"
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
                     {/* Elapsed timer */}
                     {!isUser && (
                       <div className="flex items-center gap-1 px-1">
@@ -605,7 +654,7 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
               <textarea
                 ref={textareaRef}
                 className="flex-1 resize-none bg-transparent text-gray-900 placeholder-gray-400 text-sm focus:outline-none min-h-[24px] max-h-[120px] overflow-y-auto leading-relaxed"
-                placeholder="Ask anything about homes, neighborhoods, budgets…"
+                placeholder={interviewMode ? "Answer or type your own response…" : "Ask anything about homes, neighborhoods, budgets…"}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -658,13 +707,28 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
           <textarea
             ref={textareaRef}
             className="flex-1 resize-none bg-transparent text-gray-900 placeholder-gray-400 text-sm focus:outline-none min-h-[24px] max-h-[120px] overflow-y-auto leading-relaxed"
-            placeholder="Ask anything about homes, neighborhoods, budgets…"
+            placeholder="Find homes by address or ask anything…"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={loading}
             rows={1}
           />
+          {/* Home Pilot — profile-building interview */}
+          <button
+            onClick={() => {
+              setInterview(true);
+              sendMessage('Help me find my perfect home');
+            }}
+            disabled={loading}
+            className="flex-shrink-0 h-[34px] px-3 rounded-full bg-[#e8804c] text-white text-xs font-semibold flex items-center gap-1.5 hover:bg-[#d4703c] transition-colors whitespace-nowrap disabled:opacity-50"
+            aria-label="Start Home Pilot interview"
+          >
+            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="currentColor">
+              <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+            </svg>
+            Home Pilot
+          </button>
           <button
             onClick={() => sendMessage()}
             disabled={loading || !input.trim()}

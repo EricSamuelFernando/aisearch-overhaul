@@ -67,10 +67,16 @@ export async function searchListings(params: MLSSearchParams): Promise<MLSListin
 
   const normalized = records.map(normalizeListing);
 
-  // Strip lease/rental results
+  // Strip lease/rental results; also strip land unless the search explicitly requested it
+  const wantsLand =
+    (params.property_sub_type ?? "").toUpperCase() === "LAND" ||
+    (params.listing_property_type ?? "").toUpperCase() === "LAND";
+
   const filtered = normalized.filter((l) => {
     const pt = (l.property_type ?? "").toLowerCase();
-    return !pt.includes("lease") && !pt.includes("rental");
+    if (pt.includes("lease") || pt.includes("rental")) return false;
+    if (!wantsLand && pt.includes("land")) return false;
+    return true;
   });
 
   if (filtered.length !== normalized.length) {

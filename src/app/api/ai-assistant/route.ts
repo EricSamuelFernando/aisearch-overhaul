@@ -5,6 +5,7 @@ import {
   buildIntentSystemPrompt,
   buildSearchSystemPrompt,
   buildConversationalSystemPrompt,
+  buildInterviewSystemPrompt,
 } from "@/lib/ai-assistant/claude";
 import { buildIntelligenceBlock, buildSearchMemoryContent, applyRelativeRefinement } from "@/lib/ai-assistant/intelligence";
 import { searchListings, formatListingsForPrompt } from "@/lib/ai-assistant/mls";
@@ -18,6 +19,7 @@ import {
   clearPendingAction,
   appendMessage,
   extractAndUpdateProfile,
+  extractAndUpdateProfileFromInterview,
   extractAndSavePendingAction,
   recordSearchEvent,
 } from "@/lib/ai-assistant/memory";
@@ -65,6 +67,11 @@ const ANTHROPIC_TOOLS: Anthropic.Tool[] = [
         year_built_min:     { type: "integer", description: "Minimum year built" },
         year_built_max:     { type: "integer", description: "Maximum year built" },
         days_on_market_max: { type: "integer", description: "Maximum days on market" },
+        property_sub_type: {
+          type: "string",
+          enum: ["SFR", "MFR", "LAND", "CONDO", "MOBILE", "OTHER"],
+          description: "SFR=single-family, MFR=multi-family (duplex/triplex/quadplex), LAND=land-only, CONDO=condo/townhome, MOBILE=manufactured",
+        },
         size:               { type: "integer", description: "Number of results, default 6 max 12" },
         visual_query: {
           type: "string",
@@ -224,7 +231,7 @@ export async function POST(req: NextRequest) {
       console.log("\n\x1b[36m[AI]\x1b[0m ─────────────── new request ───────────────");
 
       try {
-        const { message, userId, email, name } = await req.json();
+        const { message, userId, email, name, mode } = await req.json();
 
         if (!message || !userId) {
           send({ type: "error", message: "Missing message or userId" });
@@ -254,7 +261,65 @@ export async function POST(req: NextRequest) {
           saveProfile(profile); // fire-and-forget — non-critical path
         }
 
-        await appendMessage(userId, { role: "user", content: message });
+        // Don't record the synthetic start trigger in history
+        const isInterviewStart = message === "__home_pilot_start__";
+        if (!isInterviewStart) {
+          await appendMessage(userId, { role: "user", content: message });
+        }
+
+        // ── Interview mode (Home Pilot) — bypass Haiku entirely ──────────────
+        if (mode === "interview") {
+          const memoryContext = await Promise.race([
+            memoryPromise,
+            new Promise<string>((resolve) => setTimeout(() => resolve(""), 2000)),
+          ]);
+
+          const interviewMessages: Anthropic.MessageParam[] = isInterviewStart
+            ? [{ role: "user" as const, content: "Please begin the interview." }]
+            : [
+                ...history.flatMap((m) => ([{
+                  role: m.role as "user" | "assistant",
+                  content: m.content,
+                }])),
+                { role: "user" as const, content: message },
+              ];
+
+          const interviewStream = await anthropic.messages.create({
+            model: "claude-sonnet-4-6",
+            max_tokens: 400,
+            system: buildInterviewSystemPrompt(profile),
+            messages: interviewMessages,
+            stream: true,
+          });
+
+          let interviewResp = "";
+          let firstIToken = true;
+          for await (const ev of interviewStream) {
+            if (ev.type === "content_block_delta" && ev.delta.type === "text_delta") {
+              if (firstIToken) { log("first interview token", T0); firstIToken = false; }
+              interviewResp += ev.delta.text;
+              send({ type: "token", text: ev.delta.text });
+            }
+          }
+          send({ type: "done" });
+          log("DONE — interview turn", T0);
+
+          await appendMessage(userId, { role: "assistant", content: interviewResp });
+
+          if (!isInterviewStart) {
+            // Extract full buyer intelligence from this interview answer
+            extractAndUpdateProfileFromInterview(userId, message, interviewResp);
+            // Always write to Supermemory — every interview answer is preference signal
+            writeMemory(
+              userId,
+              `Home Pilot interview — User said: "${message.slice(0, 200)}". ` +
+              `AI asked: "${interviewResp.replace(/SUGGEST:.*$/m, "").trim().slice(0, 200)}"`,
+            );
+          }
+
+          controller.close();
+          return;
+        }
 
         // Build conversation history for Claude — inject listing context blocks
         // so Claude can answer positional follow-ups ("the second home").

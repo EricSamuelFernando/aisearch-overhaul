@@ -179,13 +179,13 @@ export function buildIntelligenceBlock(profile: BuyerProfile): string {
       lines.push(`- Frequently searched features: ${topFeatures.map(([f, n]) => `${f} (${n}x)`).join(", ")}`);
     }
 
-    // Visual/aesthetic preferences — only show if searched at least twice
+    // Visual/aesthetic preferences — threshold of 1 so interview-stated aesthetics appear immediately
     const topVisual = Object.entries(profile.visualPreferences ?? {})
-      .filter(([, count]) => count >= 2)
+      .filter(([, count]) => count >= 1)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 4);
     if (topVisual.length > 0) {
-      lines.push(`- Frequently sought aesthetics: ${topVisual.map(([f, n]) => `${f} (${n}x)`).join(", ")}`);
+      lines.push(`- Aesthetic preferences: ${topVisual.map(([f, n]) => `${f} (${n}x)`).join(", ")}`);
       lines.push(`  → When no explicit visual query given, consider setting visual_query for top aesthetic.`);
     }
   }
@@ -209,6 +209,27 @@ export function buildIntelligenceBlock(profile: BuyerProfile): string {
     if (profile.mustHaves.length > 0)           lines.push(`- Must-haves: ${profile.mustHaves.join(", ")}`);
     if (profile.dealBreakers.length > 0)        lines.push(`- Deal-breakers: ${profile.dealBreakers.join(", ")}`);
     if (profile.propertyTypes.length > 0)       lines.push(`- Property types: ${profile.propertyTypes.join(", ")}`);
+  }
+
+  // Personal context — life facts from the Home Pilot interview.
+  // Surface the routing-relevant ones so Haiku can use them as search defaults.
+  const ctx = profile.personalContext ?? {};
+  const ctxEntries = Object.entries(ctx).slice(0, 8);
+  if (ctxEntries.length > 0) {
+    lines.push("Personal context (use to enrich search defaults):");
+    for (const [k, v] of ctxEntries) {
+      lines.push(`- ${k.replace(/_/g, " ")}: ${v}`);
+    }
+    // Derived routing hints so Haiku doesn't have to infer
+    if (ctx.household_composition) {
+      const hh = ctx.household_composition.toLowerCase();
+      if (hh.includes("kid") || hh.includes("child") || hh.includes("baby")) {
+        lines.push("  → Has children: prefer SFR, school district proximity, yard");
+      }
+    }
+    if (ctx.work_style && ctx.work_style.toLowerCase().includes("home")) {
+      lines.push("  → Works from home: home office is a likely must-have");
+    }
   }
 
   lines.push(

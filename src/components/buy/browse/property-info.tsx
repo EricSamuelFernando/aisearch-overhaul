@@ -1128,7 +1128,7 @@ function PropertyBrowseView({ }: Props) {
                     </div>
                   </div>
 
-                  <form onSubmit={handleTopSearchSubmit} className="px-3 pb-2 pt-2">
+                  {/* <form onSubmit={handleTopSearchSubmit} className="px-3 pb-2 pt-2">
                     <div className="relative min-w-0 rounded-full bg-[#efebe6]">
                       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                       <SpeechInput
@@ -1140,7 +1140,7 @@ function PropertyBrowseView({ }: Props) {
                         inputClassName="h-10 w-full rounded-full border-0 bg-transparent pl-10 pr-3 text-sm text-gray-900 shadow-none outline-none ring-0 placeholder:text-gray-500 focus-visible:ring-0"
                       />
                     </div>
-                  </form>
+                  </form> */}
 
                   <div className="flex items-center justify-between px-3 pb-3 pt-0.5">
                     <p className="text-[11px] text-gray-500">
@@ -1358,7 +1358,7 @@ function PropertyBrowseView({ }: Props) {
             <div className="pointer-events-none absolute inset-y-0 left-0 z-20 hidden w-[620px] max-w-[44vw] lg:block">
               <div className="pointer-events-auto relative flex h-full flex-col border-r border-gray-200 bg-[#f7f7f7]">
                 <div className="border-b border-gray-200 bg-white px-4 py-3">
-                  <form onSubmit={handleTopSearchSubmit} className="relative z-30 flex items-center gap-2">
+                  {/* <form onSubmit={handleTopSearchSubmit} className="relative z-30 flex items-center gap-2">
                     <div className="relative min-w-0 flex-1 rounded-2xl border border-gray-300 bg-white shadow-sm ring-1 ring-black/5 transition focus-within:border-gray-400 focus-within:ring-2 focus-within:ring-orange-200">
                       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                       <SpeechInput
@@ -1386,7 +1386,16 @@ function PropertyBrowseView({ }: Props) {
                     >
                       Search
                     </button>
-                  </form>
+                  </form> */}
+
+                  <div className="mt-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                    <MapPinned className="h-3.5 w-3.5" />
+                    {query ? `Results for ${query}` : 'Search Results'}
+                    <span className="normal-case tracking-normal text-gray-400">•</span>
+                    <span className="normal-case tracking-normal text-gray-600">
+                      {resultCount.toLocaleString()} result{resultCount === 1 ? '' : 's'}
+                    </span>
+                  </div>
 
                   {activeFilterChips.length > 0 ? (
                     <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -1429,15 +1438,6 @@ function PropertyBrowseView({ }: Props) {
                       </button>
                     </div>
                   ) : null}
-
-                  <div className="mt-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                    <MapPinned className="h-3.5 w-3.5" />
-                    {query ? `Results for ${query}` : 'Search Results'}
-                    <span className="normal-case tracking-normal text-gray-400">•</span>
-                    <span className="normal-case tracking-normal text-gray-600">
-                      {resultCount.toLocaleString()} result{resultCount === 1 ? '' : 's'}
-                    </span>
-                  </div>
 
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                     <button

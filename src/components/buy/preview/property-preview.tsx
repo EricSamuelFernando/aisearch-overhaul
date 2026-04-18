@@ -319,9 +319,9 @@ const PropertyPreview: React.FC = () => {
   const [schoolsError, setSchoolsError] = React.useState<string | null>(null);
 
   // Ask AI Integration
-  const { askAIMutation } = useAskAIApi();
-  const [aiAnswer, setAiAnswer] = React.useState<string | null>(null);
-  const [userQuestionDisplay, setUserQuestionDisplay] = React.useState<string | null>(null);
+  const { streamQuery, isStreaming } = useAskAIApi();
+  const [messages, setMessages] = React.useState<Array<{ role: 'user' | 'ai'; text: string }>>([]);
+  const [streamingText, setStreamingText] = React.useState('');
   const [aiSuggestions, setAiSuggestions] = React.useState<string[]>([
     "What should I look out for?",
     "Will I like my neighbors?",
@@ -333,19 +333,103 @@ const PropertyPreview: React.FC = () => {
 
 
   const handleAskAIQuery = (query: string) => {
-    if (!query.trim()) return;
+    if (!query.trim() || isStreaming) return;
 
-    setUserQuestionDisplay(query);
-    setAskAIQuestion(query); // Keep input synced if needed, or clear it
+    setMessages(prev => [...prev, { role: 'user', text: query }]);
+    setStreamingText('');
+    setAskAIQuestion('');
 
-    askAIMutation.mutate({ query }, {
-      onSuccess: (data) => {
-        setAiAnswer(data.answer);
-        if (data.suggestions && data.suggestions.length > 0) {
-          setAiSuggestions(data.suggestions);
-        }
-        setAskAIQuestion(''); // Clear input after successful send
-      }
+    // ── Build full page context so the AI can answer from actual page data ──
+    // proprtyData (typo is intentional — matches state variable) = detailed MLS data
+    const prd = proprtyData;          // primary source: has hasBasement, homedetails, publicRemarks
+    const pd  = propertyData;         // Redux store
+    const pdl = pd?.listing;
+    const pdp = pdl?.property || (pd as any)?.property || {};
+    const pdd = (propertyDatas as any)?.data;
+
+    const address =
+      prd?.address?.unparsedAddress ||
+      pdl?.address?.unparsedAddress ||
+      (pd as any)?.public?.address?.label ||
+      pdd?.address?.unparsedAddress || '';
+    const city     = prd?.address?.city    || pdl?.address?.city    || pdd?.address?.city    || '';
+    const state    = prd?.address?.stateOrProvince || pdl?.address?.stateOrProvince || pdd?.address?.stateOrProvince || '';
+    const zip      = prd?.address?.zipCode || pdl?.address?.zipCode || pdd?.address?.zipCode || '';
+    const county   = prd?.address?.countyOrParish || pdd?.address?.countyOrParish || '';
+    const price    = prd?.listPrice       || pdl?.listPriceLow      || (pd as any)?.listPrice || pdd?.listPrice || '';
+    const beds     = prd?.property?.bedroomsTotal  || pdp?.bedroomsTotal  || pdd?.property?.bedroomsTotal  || '';
+    const baths    = prd?.property?.bathroomsTotal || pdp?.bathroomsTotal || pdd?.property?.bathroomsTotal || '';
+    const sqft     = prd?.property?.livingArea     || pdp?.livingArea     || pdd?.property?.livingArea     || '';
+    const yearBuilt   = prd?.property?.yearBuilt   || pdp?.yearBuilt      || pdd?.property?.yearBuilt      || '';
+    const propType    = prd?.property?.propertyType || pdp?.propertyType  || pdd?.property?.propertyType   || '';
+    const lotSqft     = prd?.property?.lotSizeSquareFeet || pdd?.property?.lotSizeSquareFeet || '';
+    const hoaFee      = pdl?.listingAssociationFee || pdd?.listingAssociationFee || '';
+    const daysOnMkt   = prd?.daysOnMarket || (pd as any)?.daysOnMarket || pdl?.daysOnMarket || '';
+    // Features from homedetails (the tab the user is viewing)
+    const hasBasement  = prd?.property?.hasBasement;   // boolean — always include even if false
+    const hasFireplace = prd?.homedetails?.fireplaceYn;
+    const flooring     = prd?.homedetails?.flooring    || '';
+    const publicRemarks = prd?.publicRemarks || pdd?.publicRemarks || '';
+
+    const lines: string[] = ['[PROPERTY]'];
+    if (address)    lines.push(`Address: ${address}${city ? ', ' + city : ''}${state ? ', ' + state : ''}${zip ? ' ' + zip : ''}`);
+    if (county)     lines.push(`County: ${county}`);
+    if (price)      lines.push(`Price: $${Number(price).toLocaleString()}`);
+    if (beds)       lines.push(`Bedrooms: ${beds}`);
+    if (baths)      lines.push(`Bathrooms: ${baths}`);
+    if (sqft)       lines.push(`Living area: ${Number(sqft).toLocaleString()} sqft`);
+    if (yearBuilt)  lines.push(`Year built: ${yearBuilt}`);
+    if (propType)   lines.push(`Property type: ${propType}`);
+    if (lotSqft)    lines.push(`Lot size: ${Number(lotSqft).toLocaleString()} sqft`);
+    if (hoaFee)     lines.push(`HOA fee: $${hoaFee}/mo`);
+    if (daysOnMkt)  lines.push(`Days on market: ${daysOnMkt}`);
+    // Always emit basement/fireplace — even false is useful info
+    if (hasBasement != null)  lines.push(`Has basement: ${hasBasement ? 'Yes' : 'No'}`);
+    if (hasFireplace != null) lines.push(`Has fireplace: ${hasFireplace ? 'Yes' : 'No'}`);
+    if (flooring)   lines.push(`Flooring: ${flooring}`);
+    if (publicRemarks) lines.push(`Remarks: ${String(publicRemarks).slice(0, 400)}`);
+
+    // ── Schools section ──
+    const schoolsToUse = nearbySchools.length > 0 ? nearbySchools : [];
+    if (schoolsToUse.length > 0) {
+      lines.push('');
+      lines.push('[SCHOOLS NEARBY]');
+      schoolsToUse.slice(0, 6).forEach((s: any) => {
+        const parts = [s.name, s.type, s.grades ? `Grades ${s.grades}` : '', s.distance, s.rating ? `Rating: ${s.rating}` : ''].filter(Boolean);
+        lines.push(parts.join(' | '));
+      });
+    }
+
+    // ── College readiness section ──
+    if (collegeReadinessData) {
+      lines.push('');
+      lines.push('[COLLEGE READINESS]');
+      const cr = collegeReadinessData;
+      if (cr.score != null)       lines.push(`Score: ${cr.score}`);
+      if (cr.grade)               lines.push(`Grade: ${cr.grade}`);
+      if (cr.percentile != null)  lines.push(`Percentile: ${cr.percentile}`);
+      if (cr.summary)             lines.push(`Summary: ${String(cr.summary).slice(0, 200)}`);
+    }
+
+    // Cap total context at ~2500 chars to keep tokens reasonable
+    const rawContext = lines.join('\n');
+    const context = rawContext.length > 2500 ? rawContext.slice(0, 2500) + '...' : rawContext;
+
+    const augmentedQuery = lines.length > 1
+      ? `${context}\n\n[USER QUESTION]\n${query}`
+      : query;
+
+    streamQuery({
+      query: augmentedQuery,
+      onToken: (token) => setStreamingText(prev => prev + token),
+      onDone: (fullText) => {
+        setMessages(prev => [...prev, { role: 'ai', text: fullText }]);
+        setStreamingText('');
+      },
+      onError: () => {
+        error({ message: 'Failed to get answer from AI. Please try again.' });
+        setStreamingText('');
+      },
     });
   };
 
@@ -3350,30 +3434,66 @@ const PropertyPreview: React.FC = () => {
                       <h3 className="text-[18px] font-semibold xl:text-[20px]">Ask AI</h3>
                     </div>
 
-                    <div className="text-[14px] text-gray-600 leading-relaxed mb-4 xl:text-[18px] xl:leading-[26px] xl:text-[#484747] xl:mb-[16px]">
-                      {aiAnswer ? (
-                        <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                          <p className="font-semibold text-blue-800 mb-1">AI Answer:</p>
-                          <p>{aiAnswer}</p>
-                        </div>
-                      ) : (
-                        <p>Your AI real estate assistant. We&apos;ll answer pretty much any question about this home.</p>
-                      )}
-                    </div>
+                    {/* Default description — only when no conversation yet */}
+                    {messages.length === 0 && !isStreaming && (
+                      <p className="text-[14px] text-gray-600 leading-relaxed mb-4 xl:text-[18px] xl:leading-[26px] xl:text-[#484747] xl:mb-[16px]">
+                        Your AI real estate assistant. We&apos;ll answer pretty much any question about this home.
+                      </p>
+                    )}
 
-                    {/* Suggestions */}
-                    <div className="space-y-3 mb-5 xl:space-y-[16px] xl:mb-[16px]">
-                      {(aiSuggestions || []).map((label: string, index: number) => (
-                        <button
-                          key={index}
-                          onClick={() => handleAskAIQuery(label)}
-                          className="w-full text-left rounded-xl bg-[#F6F6F6] px-4 py-2.5 cursor-pointer flex items-center justify-between text-[14px] hover:bg-[#F0F0F0] transition-colors xl:h-[52px] xl:rounded-[10px] xl:bg-[#F3F3F3] xl:px-[20px] xl:text-[16px]"
-                          disabled={askAIMutation.isPending}>
-                          <span>{label}</span>
-                          <ChevronDown className="h-4 w-4 text-gray-600 xl:h-[24px] xl:w-[24px]" />
-                        </button>
-                      ))}
-                    </div>
+                    {/* Chat thread */}
+                    {(messages.length > 0 || isStreaming || streamingText) && (
+                      <div className="space-y-2 mb-4 max-h-[280px] overflow-y-auto">
+                        {messages.map((msg, i) => (
+                          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[85%] text-[13px] xl:text-[14px] leading-relaxed rounded-2xl px-3 py-2 ${
+                              msg.role === 'user'
+                                ? 'bg-black text-white rounded-br-none'
+                                : 'bg-[#F3F3F3] text-gray-800 rounded-bl-none'
+                            }`}>
+                              {msg.text}
+                            </div>
+                          </div>
+                        ))}
+                        {/* Streaming token display */}
+                        {streamingText && (
+                          <div className="flex justify-start">
+                            <div className="max-w-[85%] text-[13px] xl:text-[14px] leading-relaxed rounded-2xl rounded-bl-none px-3 py-2 bg-[#F3F3F3] text-gray-800">
+                              {streamingText}
+                              <span className="inline-block w-0.5 h-3.5 bg-gray-400 ml-0.5 animate-pulse align-middle" />
+                            </div>
+                          </div>
+                        )}
+                        {/* Typing dots before first token arrives */}
+                        {isStreaming && !streamingText && (
+                          <div className="flex justify-start">
+                            <div className="rounded-2xl rounded-bl-none px-4 py-3 bg-[#F3F3F3]">
+                              <div className="flex gap-1 items-center">
+                                <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                                <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                                <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Suggestion chips — hide once conversation starts */}
+                    {messages.length === 0 && (
+                      <div className="space-y-3 mb-5 xl:space-y-[16px] xl:mb-[16px]">
+                        {(aiSuggestions || []).map((label: string, index: number) => (
+                          <button
+                            key={index}
+                            onClick={() => handleAskAIQuery(label)}
+                            className="w-full text-left rounded-xl bg-[#F6F6F6] px-4 py-2.5 cursor-pointer flex items-center justify-between text-[14px] hover:bg-[#F0F0F0] transition-colors xl:h-[52px] xl:rounded-[10px] xl:bg-[#F3F3F3] xl:px-[20px] xl:text-[16px]"
+                            disabled={isStreaming}>
+                            <span>{label}</span>
+                            <ChevronDown className="h-4 w-4 text-gray-600 xl:h-[24px] xl:w-[24px]" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
 
                     {/* Input */}
                     <div className="relative">
@@ -3384,13 +3504,13 @@ const PropertyPreview: React.FC = () => {
                         value={askAIQuestion}
                         onChange={(e) => setAskAIQuestion(e.target.value)}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !askAIMutation.isPending) {
+                          if (e.key === 'Enter' && !isStreaming) {
                             handleAskAIQuery(askAIQuestion);
                           }
                         }}
-                        disabled={askAIMutation.isPending}
+                        disabled={isStreaming}
                       />
-                      {askAIMutation.isPending && (
+                      {isStreaming && (
                         <div className="absolute right-4 top-3 xl:top-[18px]">
                           <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
                         </div>
@@ -3400,10 +3520,10 @@ const PropertyPreview: React.FC = () => {
                     {/* Button */}
                     <button
                       onClick={() => handleAskAIQuery(askAIQuestion)}
-                      disabled={askAIMutation.isPending || !askAIQuestion.trim()}
+                      disabled={isStreaming || !askAIQuestion.trim()}
                       className="w-full bg-black text-white py-2.5 rounded-full text-[15px] font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed xl:h-[52px] xl:rounded-[28px] xl:text-[18px]"
                     >
-                      {askAIMutation.isPending ? 'Thinking...' : 'Send'}
+                      {isStreaming ? 'Thinking...' : 'Send'}
                     </button>
                   </div>
                 </div>
@@ -3556,15 +3676,15 @@ const PropertyPreview: React.FC = () => {
             <div className="space-y-4">
               {/* Predefined Questions */}
               <div className="space-y-2">
-                <button className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-                  <span className="text-sm">What should I look out for?</span>
-                </button>
-                <button className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-                  <span className="text-sm">Will I like my neighbors?</span>
-                </button>
-                <button className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-                  <span className="text-sm">Can I raise a family here?</span>
-                </button>
+                {(aiSuggestions || []).map((label: string, index: number) => (
+                  <button
+                    key={index}
+                    onClick={() => { handleAskAIQuery(label); setIsAskAIModalOpen(false); }}
+                    className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                    disabled={isStreaming}>
+                    <span className="text-sm">{label}</span>
+                  </button>
+                ))}
               </div>
 
               {/* Custom Question Input */}
@@ -3583,10 +3703,10 @@ const PropertyPreview: React.FC = () => {
           <div className="flex-shrink-0 px-6 pb-6">
             <button
               onClick={handleAskAI}
-              disabled={!askAIQuestion.trim()}
+              disabled={!askAIQuestion.trim() || isStreaming}
               className="w-full bg-black text-white py-3 rounded-lg font-medium disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-gray-800 transition-colors"
             >
-              Send
+              {isStreaming ? 'Thinking...' : 'Send'}
             </button>
           </div>
         </DialogContent>

@@ -141,6 +141,13 @@ export interface MLSSearchParams {
   // ── Result control ───────────────────────────────────────────────────────
   size?: number;
   sort?: Record<string, "asc" | "desc">;
+
+  // ── Visual / pipeline fields (stripped before MLS API call) ─────────────
+  visual_query?: string;
+  room_hint?: string;
+  visual_confidence?: "high" | "medium" | "low";
+  /** Comma-separated keyword synonyms for description text matching */
+  description_keywords?: string;
 }
 
 export interface MLSListing {

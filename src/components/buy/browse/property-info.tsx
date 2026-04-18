@@ -304,6 +304,7 @@ function PropertyBrowseView({ }: Props) {
       listing_price_max: priceMax ?? aiSearchParams?.listing_price_max,
       listing_property_type: propertyType ?? aiSearchParams?.listing_property_type,
       property_sub_type: propertyType ?? aiSearchParams?.property_sub_type,
+      property_type: aiSearchParams?.property_type,
       has_pool: hasPool ?? aiSearchParams?.has_pool,
       latest_only: latestOnly ?? aiSearchParams?.latest_only,
       public_land_use: subType ?? aiSearchParams?.public_land_use,

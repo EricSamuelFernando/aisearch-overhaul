@@ -31,7 +31,7 @@ export async function searchListings(params: MLSSearchParams): Promise<MLSListin
     headers: {
       "Content-Type": "application/json",
       "accept": "application/json",
-      "x-api-key": process.env.REAPI_KEY!,
+      "x-api-key": process.env.REALESTATE_API_KEY!,
     },
     body: JSON.stringify(payload),
   });

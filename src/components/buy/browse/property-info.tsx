@@ -200,6 +200,25 @@ const deriveBrowseLocationQuery = (rawQuery: string | null): string => {
   return '';
 };
 
+const parseBooleanQueryParam = (value: string | null): boolean | undefined => {
+  if (value === null) return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === '1' || normalized === 'true' || normalized === 'yes') return true;
+  if (normalized === '0' || normalized === 'false' || normalized === 'no') return false;
+  return undefined;
+};
+
+const parseAiParams = (raw: string | null): Record<string, any> => {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(decodeURIComponent(raw));
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    return parsed as Record<string, any>;
+  } catch {
+    return {};
+  }
+};
+
 function PropertyBrowseView({ }: Props) {
   const { currentView } = useProperty();
   const { savePropertyView } = usePropertyActions();
@@ -250,18 +269,36 @@ function PropertyBrowseView({ }: Props) {
   const pathname = usePathname();
   const rawQuery = searchParams.get('q');
   const query = useMemo(() => deriveBrowseLocationQuery(rawQuery), [rawQuery]);
+  const aiSearchParams = useMemo(() => parseAiParams(searchParams.get('aiParams')), [searchParams]);
   const isMlsMode = true;
   const isSearchModeReady = true;
   const PAGE_SIZE = 20;
 
-  const activeSearchFilters = useMemo(() => ({
-    bedrooms: Number(searchParams.get('bedRooms') || '') || undefined,
-    bathrooms: Number(searchParams.get('bathRooms') || '') || undefined,
-    listing_price_min: Number(searchParams.get('priceMin') || '') || undefined,
-    listing_price_max: Number(searchParams.get('priceMax') || '') || undefined,
-    listing_property_type: searchParams.get('propertyType') || undefined,
-    public_land_use: searchParams.get('subType') || undefined,
-  }), [searchParams]);
+  const activeSearchFilters = useMemo(() => {
+    const bedRooms = Number(searchParams.get('bedRooms') || '') || undefined;
+    const bathRooms = Number(searchParams.get('bathRooms') || '') || undefined;
+    const priceMin = Number(searchParams.get('priceMin') || '') || undefined;
+    const priceMax = Number(searchParams.get('priceMax') || '') || undefined;
+    const propertyType = searchParams.get('propertyType') || undefined;
+    const subType = searchParams.get('subType') || undefined;
+    const hasPool = parseBooleanQueryParam(searchParams.get('hasPool'));
+    const latestOnly = parseBooleanQueryParam(searchParams.get('latestOnly'));
+
+    return {
+      ...aiSearchParams,
+      bedrooms: bedRooms ?? aiSearchParams?.bedrooms,
+      bedrooms_min: bedRooms ?? aiSearchParams?.bedrooms_min ?? aiSearchParams?.bedrooms,
+      bathrooms: bathRooms ?? aiSearchParams?.bathrooms,
+      bathrooms_min: bathRooms ?? aiSearchParams?.bathrooms_min ?? aiSearchParams?.bathrooms,
+      listing_price_min: priceMin ?? aiSearchParams?.listing_price_min,
+      listing_price_max: priceMax ?? aiSearchParams?.listing_price_max,
+      listing_property_type: propertyType ?? aiSearchParams?.listing_property_type,
+      property_sub_type: propertyType ?? aiSearchParams?.property_sub_type,
+      has_pool: hasPool ?? aiSearchParams?.has_pool,
+      latest_only: latestOnly ?? aiSearchParams?.latest_only,
+      public_land_use: subType ?? aiSearchParams?.public_land_use,
+    };
+  }, [searchParams, aiSearchParams]);
   const activeSearchFiltersKey = useMemo(
     () => JSON.stringify(activeSearchFilters),
     [activeSearchFilters],
@@ -631,6 +668,7 @@ function PropertyBrowseView({ }: Props) {
           {
             ...body,
             ...activeSearchFilters,
+            ai_params: aiSearchParams,
             query: queryText,
             radius: 20,
             from_browse: true,
@@ -735,6 +773,7 @@ function PropertyBrowseView({ }: Props) {
     try {
       const response = await axios.post(MLS_SEARCH_LIVE_URL, {
         ...activeSearchFilters,
+        ai_params: aiSearchParams,
         query: queryText,
         radius: 20,
         from_browse: true,
@@ -780,6 +819,7 @@ function PropertyBrowseView({ }: Props) {
     query,
     activeSearchFilters,
     addProperties,
+    aiSearchParams,
     hasMoreResults,
     nextResultIndex,
     user?.id,

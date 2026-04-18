@@ -316,11 +316,24 @@ export async function POST(request: NextRequest) {
     // Merge explicit UI filters from browse/filter drawers when present.
     const mergedPayload = {
       ...payload,
+      ...(body?.ai_params && typeof body.ai_params === 'object' && !Array.isArray(body.ai_params)
+        ? body.ai_params
+        : {}),
+      active: typeof body?.active === 'boolean' ? body.active : true,
+      has_photos: typeof body?.has_photos === 'boolean' ? body.has_photos : true,
+      include_photos: typeof body?.include_photos === 'boolean' ? body.include_photos : true,
+      status: coerceString(body?.status) ?? 'Active',
+      sold: typeof body?.sold === 'boolean' ? body.sold : false,
       bedrooms: coerceNumber(body?.bedrooms) ?? payload.bedrooms,
+      bedrooms_min: coerceNumber(body?.bedrooms_min) ?? coerceNumber(body?.bedrooms) ?? payload.bedrooms_min ?? payload.bedrooms,
+      bedrooms_max: coerceNumber(body?.bedrooms_max) ?? payload.bedrooms_max,
       bathrooms: coerceNumber(body?.bathrooms) ?? payload.bathrooms,
+      bathrooms_min: coerceNumber(body?.bathrooms_min) ?? coerceNumber(body?.bathrooms) ?? payload.bathrooms_min ?? payload.bathrooms,
+      bathrooms_max: coerceNumber(body?.bathrooms_max) ?? payload.bathrooms_max,
       listing_price_min: coerceNumber(body?.listing_price_min) ?? payload.listing_price_min,
       listing_price_max: coerceNumber(body?.listing_price_max) ?? payload.listing_price_max,
       listing_property_type: coerceString(body?.listing_property_type) ?? payload.listing_property_type,
+      property_sub_type: coerceString(body?.property_sub_type) ?? payload.property_sub_type,
       public_land_use: coerceString(body?.public_land_use) ?? payload.public_land_use,
       property_type: coerceString(body?.property_type) ?? payload.property_type,
       // MLS docs: geo radius searches support latitude/longitude + radius.
@@ -328,12 +341,17 @@ export async function POST(request: NextRequest) {
       longitude: coerceNumber(body?.longitude) ?? payload.longitude,
       radius: coerceNumber(body?.radius) ?? payload.radius,
       has_pool: typeof body?.has_pool === 'boolean' ? body.has_pool : payload.has_pool,
+      latest_only: typeof body?.latest_only === 'boolean' ? body.latest_only : payload.latest_only,
       additional_criteria:
         body?.additional_criteria && typeof body.additional_criteria === 'object'
           ? body.additional_criteria
           : payload.additional_criteria,
       propertyType: coerceString(body?.propertyType) ?? undefined,
     };
+
+    if (typeof mergedPayload.listing_property_type === 'string') {
+      mergedPayload.listing_property_type = mergedPayload.listing_property_type.toUpperCase();
+    }
 
     // Defensive cleanup so we do not send empty values upstream.
     Object.keys(mergedPayload).forEach((key) => {

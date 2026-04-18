@@ -5,13 +5,14 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { v4 as uuidv4 } from 'uuid';
 import { useRouter } from 'next/navigation';
-import { MLSListing, PhotoRankResult } from '@/types/ai-assistant';
+import { MLSListing, MLSSearchParams, PhotoRankResult } from '@/types/ai-assistant';
 import ListingTile from './ListingTile';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
   listings?: MLSListing[];
+  searchParams?: Partial<MLSSearchParams>;
   focusedListing?: MLSListing;
   elapsed?: number;
   queryText?: string;
@@ -165,7 +166,104 @@ function LiveTimer({ startTime }: { startTime: number }) {
   return <span className="text-[10px] text-gray-400 ml-1">{elapsed.toFixed(1)}s</span>;
 }
 
-function ListingsRow({ listings, queryText }: { listings: MLSListing[]; queryText?: string }) {
+const buildLocationQueryFromSearchParams = (searchParams?: Partial<MLSSearchParams>): string => {
+  if (!searchParams) return '';
+  const city = (searchParams.city ?? '').trim();
+  const state = (searchParams.state ?? '').trim().toUpperCase();
+  if (city && state) return `${city}, ${state}`;
+  if (city) return city;
+  if (state) return state;
+  const zip = (searchParams.zip ?? '').trim();
+  if (zip) return zip;
+  const county = (searchParams.county ?? '').trim();
+  if (county) return county;
+  return '';
+};
+
+const buildBrowseUrl = (
+  listings: MLSListing[],
+  queryText?: string,
+  searchParams?: Partial<MLSSearchParams>,
+): string => {
+  const params = new URLSearchParams();
+
+  const derivedLocationFromSearch = buildLocationQueryFromSearchParams(searchParams);
+  if (derivedLocationFromSearch) {
+    params.set('q', derivedLocationFromSearch);
+  }
+
+  const setNumeric = (key: string, value?: number) => {
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+      params.set(key, String(value));
+    }
+  };
+
+  // Reuse the same filter shape expected by /buy/browse.
+  setNumeric('bedRooms', searchParams?.bedrooms_min ?? searchParams?.bedrooms_max);
+  setNumeric('bathRooms', searchParams?.bathrooms_min ?? searchParams?.bathrooms_max);
+  setNumeric('priceMin', searchParams?.listing_price_min);
+  setNumeric('priceMax', searchParams?.listing_price_max);
+
+  const propertyType =
+    (searchParams?.property_sub_type ?? '').trim() ||
+    (searchParams?.listing_property_type ?? '').trim() ||
+    (searchParams?.property_type ?? '').trim();
+  if (propertyType) {
+    params.set('propertyType', propertyType);
+  }
+
+  if (searchParams?.has_pool === true) {
+    params.set('hasPool', '1');
+  }
+  if (searchParams?.latest_only === true) {
+    params.set('latestOnly', '1');
+  }
+
+  if (searchParams && Object.keys(searchParams).length > 0) {
+    params.set('aiParams', encodeURIComponent(JSON.stringify(searchParams)));
+  }
+
+  // Fallback for older messages that do not have search params.
+  if (!params.get('q')) {
+    const normalize = (value?: string) => (value ?? '').trim();
+    const stateCounts = new Map<string, number>();
+    const cityStateCounts = new Map<string, number>();
+
+    for (const listing of listings) {
+      const state = normalize(listing.state).toUpperCase();
+      if (state) stateCounts.set(state, (stateCounts.get(state) ?? 0) + 1);
+
+      const city = normalize(listing.city);
+      const cityState = [city, state].filter(Boolean).join(', ');
+      if (cityState) cityStateCounts.set(cityState, (cityStateCounts.get(cityState) ?? 0) + 1);
+    }
+
+    const mostFrequent = (counts: Map<string, number>) => {
+      let winner = '';
+      let best = 0;
+      for (const [key, count] of counts.entries()) {
+        if (count > best) {
+          winner = key;
+          best = count;
+        }
+      }
+      return winner;
+    };
+
+    const dominantState = mostFrequent(stateCounts);
+    const dominantCityState = mostFrequent(cityStateCounts);
+    const derivedLocationQuery = dominantState || dominantCityState || (queryText ?? '').trim();
+
+    if (derivedLocationQuery) {
+      params.set('q', derivedLocationQuery);
+    }
+  }
+
+  const queryString = params.toString();
+  return queryString ? `/buy/browse?${queryString}` : '/buy/browse';
+};
+
+function ListingsRow({ listings, queryText, searchParams }: { listings: MLSListing[]; queryText?: string; searchParams?: Partial<MLSSearchParams> }) {
   const router = useRouter();
   const rowRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -202,56 +300,7 @@ function ListingsRow({ listings, queryText }: { listings: MLSListing[]; queryTex
     el.scrollBy({ left: direction === 'left' ? -amount : amount, behavior: 'smooth' });
   };
 
-  const browseUrl = (() => {
-    const params = new URLSearchParams();
-
-    const normalize = (value?: string) => (value ?? '').trim();
-    const stateCounts = new Map<string, number>();
-    const cityStateCounts = new Map<string, number>();
-
-    for (const listing of listings) {
-      const state = normalize(listing.state).toUpperCase();
-      if (state) {
-        stateCounts.set(state, (stateCounts.get(state) ?? 0) + 1);
-      }
-
-      const city = normalize(listing.city);
-      const cityState = [city, state].filter(Boolean).join(', ');
-      if (cityState) {
-        cityStateCounts.set(cityState, (cityStateCounts.get(cityState) ?? 0) + 1);
-      }
-    }
-
-    const mostFrequent = (counts: Map<string, number>) => {
-      let winner = '';
-      let best = 0;
-      for (const [key, count] of counts.entries()) {
-        if (count > best) {
-          winner = key;
-          best = count;
-        }
-      }
-      return winner;
-    };
-
-    // Prefer the location signal from the cards shown to the user.
-    // Use dominant state first, then dominant city/state.
-    const dominantState = mostFrequent(stateCounts);
-    const dominantCityState = mostFrequent(cityStateCounts);
-    const derivedLocationQuery = dominantState || dominantCityState;
-
-    if (derivedLocationQuery) {
-      params.set('q', derivedLocationQuery);
-    } else {
-      const trimmedQuery = (queryText ?? '').trim();
-      if (trimmedQuery) {
-        params.set('q', trimmedQuery);
-      }
-    }
-
-    const queryString = params.toString();
-    return queryString ? `/buy/browse?${queryString}` : '/buy/browse';
-  })();
+  const browseUrl = buildBrowseUrl(listings, queryText, searchParams);
 
   return (
     <div className="relative">
@@ -503,11 +552,26 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
           }
 
           if (event.type === 'listings') {
-            const listings = (event.data as MLSListing[]) ?? [];
+            const payload = event.data;
+            let listings: MLSListing[] = [];
+            let searchParams: Partial<MLSSearchParams> | undefined;
+
+            if (Array.isArray(payload)) {
+              listings = payload as MLSListing[];
+            } else if (payload && typeof payload === 'object') {
+              const typedPayload = payload as { listings?: MLSListing[]; params?: Partial<MLSSearchParams> };
+              if (Array.isArray(typedPayload.listings)) {
+                listings = typedPayload.listings;
+              }
+              if (typedPayload.params && typeof typedPayload.params === 'object') {
+                searchParams = typedPayload.params;
+              }
+            }
+
             if (listings.length > 0) lastListingsRef.current = listings;
             setMessages((prev) => {
               const updated = [...prev];
-              updated[updated.length - 1] = { ...updated[updated.length - 1], listings };
+              updated[updated.length - 1] = { ...updated[updated.length - 1], listings, searchParams };
               return updated;
             });
           } else if (event.type === 'listing_focus') {
@@ -740,7 +804,7 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
                   <div className="flex flex-col gap-2 max-w-[90%] min-w-0">
                     {/* Full listing grid — rendered on new searches */}
                   {m.listings && m.listings.length > 0 && (
-                    <ListingsRow listings={m.listings} queryText={m.queryText} />
+                    <ListingsRow listings={m.listings} queryText={m.queryText} searchParams={m.searchParams} />
                   )}
 
                     {/* Single focused tile — rendered when user asks about a specific listing */}

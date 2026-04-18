@@ -420,8 +420,9 @@ export async function POST(req: NextRequest) {
             return true;
           });
 
+          const primaryLoc = parseLocation(locations[0]);
           log(`multi-city (${locations.join(" + ")}): ${listings.length} listing(s)`, T0);
-          send({ type: "listings", data: listings });
+          send({ type: "listings", data: { listings, params: { ...carryParams, ...primaryLoc } } });
           log("tiles emitted to client", T0);
 
           const multiSummaryStream = await anthropic.messages.create({
@@ -453,13 +454,12 @@ export async function POST(req: NextRequest) {
 
           await appendMessage(userId, { role: "assistant", content: multiFullResp, listings }, convId);
           clearPendingAction(userId);
-          const primaryLoc = parseLocation(locations[0]);
           saveSearchContext(userId, {
             params: { ...carryParams, ...primaryLoc },
             resolvedLocation: locations.join(" + "),
             appliedAt: new Date().toISOString(),
           }, convId);
-          recordSearchEvent(userId, { ...carryParams, city: locations[0], state: primaryLoc.state }, listings.length, profile);
+          recordSearchEvent(userId, { ...carryParams, ...primaryLoc }, listings.length, profile);
           writeMemory(userId, `User searched preferred locations: ${locations.join(", ")}. ${listings.length} result(s).`);
           controller.close();
           return;
@@ -764,7 +764,7 @@ export async function POST(req: NextRequest) {
             if (cacheHits > 0) log(`photo_rank cache hit: ${cacheHits}/${listings.length}`, T0);
           }
 
-          send({ type: "listings", data: listings });
+          send({ type: "listings", data: { listings, params: searchParams } });
           log("tiles emitted to client", T0);
           listingsText = formatListingsForPrompt(listings);
 
@@ -808,7 +808,7 @@ export async function POST(req: NextRequest) {
           const msg = err instanceof Error ? err.message : String(err);
           console.error("\x1b[31m[MLS error]\x1b[0m", msg);
           listingsText = `MLS search failed: ${msg}. Apologise briefly and suggest the user try again.`;
-          send({ type: "listings", data: [] });
+          send({ type: "listings", data: { listings: [], params: searchParams } });
         }
 
         const resolvedLocation =

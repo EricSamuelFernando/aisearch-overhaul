@@ -162,6 +162,7 @@ export interface MLSListing {
   description?: string;
   property_type?: string;
   property_sub_type?: string;
+  mls_type?: string;
   status?: string;
   garage_spaces?: number;
   stories?: number;

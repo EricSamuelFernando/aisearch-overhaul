@@ -382,11 +382,13 @@ For removals: detect when a user replaces or negates a preference ("not Austin",
                 description: "Deal-breakers to REMOVE",
               },
               // Personal context — freeform key-value facts about the person
-              // Keys: snake_case e.g. "current_city", "has_children", "workplace", "life_stage"
+              // Keys: snake_case. REQUIRED key names for common fields:
+              //   age → numeric string e.g. "42" (ALWAYS use "age", never "age_years" or "user_age")
+              //   current_city, has_children, workplace, life_stage
               // Values: whatever the user said, verbatim or short summary
               personalContext: {
                 anyOf: [{ type: "object", additionalProperties: { type: "string" } }, { type: "null" }],
-                description: "Personal facts to ADD/UPDATE e.g. { current_city: 'Chicago', has_children: 'yes, ages 4 and 7' }",
+                description: "Personal facts to ADD/UPDATE e.g. { age: '42', current_city: 'Chicago', has_children: 'yes, ages 4 and 7' }. Use 'age' (not 'user_age' or 'age_years') when the user states their age.",
               },
             },
             required: [],

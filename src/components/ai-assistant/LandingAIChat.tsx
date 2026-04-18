@@ -396,12 +396,11 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
           if (savedExpanded === '1') setIsExpanded(true);
         }
       } else {
-        // New session — clear stale state and stamp the start time
+        // New session — clear stale state, stamp start time, and issue a fresh convId.
+        // Never reuse the previous session's convId — that would pull stale search context
+        // from Redis and apply old filters (location, beds, baths) to new searches.
         sessionStorage.removeItem(CHAT_STATE_STORAGE_KEY);
         sessionStorage.setItem(SESSION_TS_KEY, now.toString());
-      }
-      // Ensure a conversation ID exists for this session
-      if (!sessionStorage.getItem(CONV_ID_KEY)) {
         sessionStorage.setItem(CONV_ID_KEY, uuidv4());
       }
     } catch {}

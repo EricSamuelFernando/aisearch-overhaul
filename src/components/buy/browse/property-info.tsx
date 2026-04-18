@@ -1,6 +1,7 @@
 'use client';
 
 import CustomMap from '@/components/custom-map';
+import type { MLSSearchParams } from '@/types/ai-assistant';
 import { cn } from '@/lib/utils';
 import { setPropertyQuery } from '@/slices/property/property-slice';
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -284,7 +285,7 @@ function PropertyBrowseView({ }: Props) {
   const isSearchModeReady = true;
   const PAGE_SIZE = 20;
 
-  const activeSearchFilters = useMemo(() => {
+  const activeSearchFilters = useMemo((): Partial<MLSSearchParams> & Record<string, any> => {
     const bedRooms = Number(searchParams.get('bedRooms') || '') || undefined;
     const bathRooms = Number(searchParams.get('bathRooms') || '') || undefined;
     const priceMin = Number(searchParams.get('priceMin') || '') || undefined;

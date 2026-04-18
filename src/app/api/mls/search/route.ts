@@ -521,7 +521,7 @@ export async function POST(request: NextRequest) {
       };
       const payloadAttempts = buildFallbackPayloads(pagePayloadBase);
       let upstream: TracedUpstreamResult | null = null;
-      let pagePayload = pagePayloadBase;
+      let pagePayload: Record<string, any> = pagePayloadBase;
       let pageRecords: any[] = [];
 
       for (let attemptIndex = 0; attemptIndex < payloadAttempts.length; attemptIndex += 1) {

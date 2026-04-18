@@ -24,6 +24,7 @@ import { storeSearchHistory } from '@/lib/api';
 
 type Props = {};
 type MobileSheetMode = 'collapsed' | 'default' | 'full';
+type ActiveFilterChip = { id: string; label: string };
 
 type ParsedQueryFilters = {
   bedRooms?: number;
@@ -219,6 +220,15 @@ const parseAiParams = (raw: string | null): Record<string, any> => {
   }
 };
 
+const MAX_VISIBLE_FILTER_CHIPS = 6;
+
+const formatCurrencyLabel = (value: number) => {
+  if (!Number.isFinite(value)) return `$${value}`;
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`;
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}K`;
+  return `$${value}`;
+};
+
 function PropertyBrowseView({ }: Props) {
   const { currentView } = useProperty();
   const { savePropertyView } = usePropertyActions();
@@ -312,6 +322,7 @@ function PropertyBrowseView({ }: Props) {
   const [draftPriceMax, setDraftPriceMax] = useState<string>(searchParams.get('priceMax') || '');
   const [draftBeds, setDraftBeds] = useState<string>(searchParams.get('bedRooms') || '');
   const [draftBaths, setDraftBaths] = useState<string>(searchParams.get('bathRooms') || '');
+  const [areFilterChipsExpanded, setAreFilterChipsExpanded] = useState(false);
   const [topSearchAnimatedPlaceholder, setTopSearchAnimatedPlaceholder] = useState('');
   const [topSearchPromptIndex, setTopSearchPromptIndex] = useState(0);
   const [topSearchCharIndex, setTopSearchCharIndex] = useState(0);
@@ -541,6 +552,185 @@ function PropertyBrowseView({ }: Props) {
       ['priceMin', 'priceMax', 'bedRooms', 'bathRooms'].forEach((key) => params.delete(key));
     });
     setShowCompactFilters(false);
+  }, [pushBrowseParams]);
+
+  const activeFilterChips = useMemo<ActiveFilterChip[]>(() => {
+    const chips: ActiveFilterChip[] = [];
+    const addChip = (id: string, label: string) => chips.push({ id, label });
+
+    const beds = Number(activeSearchFilters?.bedrooms_min ?? activeSearchFilters?.bedrooms);
+    if (Number.isFinite(beds) && beds > 0) addChip('beds', `${beds}+ Beds`);
+
+    const baths = Number(activeSearchFilters?.bathrooms_min ?? activeSearchFilters?.bathrooms);
+    if (Number.isFinite(baths) && baths > 0) addChip('baths', `${baths}+ Baths`);
+
+    const minPrice = Number(activeSearchFilters?.listing_price_min);
+    const maxPrice = Number(activeSearchFilters?.listing_price_max);
+    if (Number.isFinite(minPrice) && Number.isFinite(maxPrice)) {
+      addChip('price', `${formatCurrencyLabel(minPrice)} - ${formatCurrencyLabel(maxPrice)}`);
+    } else if (Number.isFinite(minPrice)) {
+      addChip('price', `Min ${formatCurrencyLabel(minPrice)}`);
+    } else if (Number.isFinite(maxPrice)) {
+      addChip('price', `Up to ${formatCurrencyLabel(maxPrice)}`);
+    }
+
+    const propertyType = String(
+      activeSearchFilters?.property_sub_type ??
+      activeSearchFilters?.listing_property_type ??
+      activeSearchFilters?.property_type ??
+      '',
+    ).trim();
+    if (propertyType) addChip('propertyType', propertyType);
+
+    if (activeSearchFilters?.has_pool === true) addChip('has_pool', 'Pool');
+    if (activeSearchFilters?.latest_only === true) addChip('latest_only', 'Latest Only');
+    if (activeSearchFilters?.is_water_front === true) addChip('is_water_front', 'Waterfront');
+    if (activeSearchFilters?.is_water_view === true) addChip('is_water_view', 'Water View');
+    if (activeSearchFilters?.is_mountain_view === true) addChip('is_mountain_view', 'Mountain View');
+    if (activeSearchFilters?.is_city_view === true) addChip('is_city_view', 'City View');
+    if (activeSearchFilters?.is_park_view === true) addChip('is_park_view', 'Park View');
+
+    const yearBuiltMin = Number(activeSearchFilters?.year_built_min);
+    if (Number.isFinite(yearBuiltMin) && yearBuiltMin > 0) addChip('year_built_min', `Built ${yearBuiltMin}+`);
+    const yearBuiltMax = Number(activeSearchFilters?.year_built_max);
+    if (Number.isFinite(yearBuiltMax) && yearBuiltMax > 0) addChip('year_built_max', `Built up to ${yearBuiltMax}`);
+
+    const domMin = Number(activeSearchFilters?.days_on_market_min);
+    if (Number.isFinite(domMin) && domMin > 0) addChip('days_on_market_min', `DOM ${domMin}+`);
+    const domMax = Number(activeSearchFilters?.days_on_market_max);
+    if (Number.isFinite(domMax) && domMax > 0) addChip('days_on_market_max', `DOM up to ${domMax}`);
+
+    const hoaMax = Number(activeSearchFilters?.listing_association_fee_max);
+    if (Number.isFinite(hoaMax) && hoaMax >= 0) addChip('listing_association_fee_max', `HOA up to ${formatCurrencyLabel(hoaMax)}`);
+
+    const lotSizeMin = Number(activeSearchFilters?.lot_size_min);
+    if (Number.isFinite(lotSizeMin) && lotSizeMin > 0) addChip('lot_size_min', `Lot ${lotSizeMin.toLocaleString()}+ sqft`);
+    const lotSizeMax = Number(activeSearchFilters?.lot_size_max);
+    if (Number.isFinite(lotSizeMax) && lotSizeMax > 0) addChip('lot_size_max', `Lot up to ${lotSizeMax.toLocaleString()} sqft`);
+
+    const livingAreaMin = Number(activeSearchFilters?.living_area_min);
+    if (Number.isFinite(livingAreaMin) && livingAreaMin > 0) addChip('living_area_min', `${livingAreaMin.toLocaleString()}+ sqft`);
+    const livingAreaMax = Number(activeSearchFilters?.living_area_max);
+    if (Number.isFinite(livingAreaMax) && livingAreaMax > 0) addChip('living_area_max', `Up to ${livingAreaMax.toLocaleString()} sqft`);
+
+    const stories = Number(activeSearchFilters?.stories);
+    if (Number.isFinite(stories) && stories > 0) addChip('stories', `${stories}-Story`);
+    if (activeSearchFilters?.has_basement === true) addChip('has_basement', 'Basement');
+
+    const combinedIntentText = [
+      String(activeSearchFilters?.description_keywords ?? ''),
+      String(activeSearchFilters?.visual_query ?? ''),
+      String(activeSearchFilters?.room_hint ?? ''),
+    ]
+      .join(', ')
+      .toLowerCase();
+
+    const hasGardenIntent =
+      /\bgarden\b|\byard\b|\bbackyard\b|\blandscap/.test(combinedIntentText);
+    const hasDiningIntent =
+      /\bdining\b|\bdining room\b|\bdining table\b/.test(combinedIntentText);
+    const hasHardwoodIntent = /\bhardwood\b/.test(combinedIntentText);
+    const hasNaturalLightIntent =
+      /\bnatural light\b|\bbright\b|\blarge windows?\b|\bbig windows?\b|\bwell lit\b/.test(combinedIntentText);
+
+    if (hasGardenIntent) addChip('intent_garden', 'Garden/Yard');
+    if (hasDiningIntent) addChip('intent_dining', 'Dining Space');
+    if (hasHardwoodIntent) addChip('intent_hardwood', 'Hardwood Floors');
+    if (hasNaturalLightIntent) addChip('intent_natural_light', 'Natural Light');
+
+    return chips;
+  }, [activeSearchFilters]);
+
+  const visibleFilterChips = useMemo(
+    () =>
+      areFilterChipsExpanded
+        ? activeFilterChips
+        : activeFilterChips.slice(0, MAX_VISIBLE_FILTER_CHIPS),
+    [activeFilterChips, areFilterChipsExpanded],
+  );
+  const hiddenFilterChipCount = Math.max(0, activeFilterChips.length - visibleFilterChips.length);
+
+  const handleRemoveFilterChip = useCallback((chipId: string) => {
+    pushBrowseParams((params) => {
+      const ai = parseAiParams(params.get('aiParams'));
+      const removeAiKeys = (keys: string[]) => keys.forEach((k) => delete ai[k]);
+
+      const removeIntentTerms = (patterns: RegExp[]) => {
+        const normalizeList = (raw: string) =>
+          raw
+            .split(',')
+            .map((k: string) => k.trim())
+            .filter(Boolean);
+        const filterTerms = (terms: string[]) =>
+          terms.filter((term) => !patterns.some((p) => p.test(term.toLowerCase())));
+
+        const keywordTerms = filterTerms(normalizeList(String(ai.description_keywords ?? '')));
+        if (keywordTerms.length > 0) ai.description_keywords = keywordTerms.join(', ');
+        else delete ai.description_keywords;
+
+        const visualTerms = filterTerms(normalizeList(String(ai.visual_query ?? '')));
+        if (visualTerms.length > 0) ai.visual_query = visualTerms.join(', ');
+        else delete ai.visual_query;
+      };
+
+      if (chipId === 'intent_garden') {
+        removeIntentTerms([/\bgarden\b/, /\byard\b/, /\bbackyard\b/, /\blandscap/]);
+      } else if (chipId === 'intent_dining') {
+        removeIntentTerms([/\bdining\b/, /\bdining room\b/, /\bdining table\b/]);
+        if (String(ai.room_hint ?? '').toLowerCase() === 'dining_room') delete ai.room_hint;
+      } else if (chipId === 'intent_hardwood') {
+        removeIntentTerms([/\bhardwood\b/]);
+      } else if (chipId === 'intent_natural_light') {
+        removeIntentTerms([/\bnatural light\b/, /\bbright\b/, /\blarge windows?\b/, /\bbig windows?\b/, /\bwell lit\b/]);
+      } else {
+        switch (chipId) {
+          case 'beds':
+            params.delete('bedRooms');
+            removeAiKeys(['bedrooms', 'bedrooms_min', 'bedrooms_max']);
+            break;
+          case 'baths':
+            params.delete('bathRooms');
+            removeAiKeys(['bathrooms', 'bathrooms_min', 'bathrooms_max']);
+            break;
+          case 'price':
+            params.delete('priceMin');
+            params.delete('priceMax');
+            removeAiKeys(['listing_price_min', 'listing_price_max']);
+            break;
+          case 'propertyType':
+            params.delete('propertyType');
+            removeAiKeys(['property_sub_type', 'listing_property_type', 'property_type']);
+            break;
+          default:
+            removeAiKeys([chipId]);
+        }
+      }
+
+      if (chipId === 'has_pool') params.delete('hasPool');
+      if (chipId === 'latest_only') params.delete('latestOnly');
+
+      if (Object.keys(ai).length > 0) {
+        params.set('aiParams', encodeURIComponent(JSON.stringify(ai)));
+      } else {
+        params.delete('aiParams');
+      }
+    });
+  }, [pushBrowseParams]);
+
+  const handleClearAllActiveChips = useCallback(() => {
+    pushBrowseParams((params) => {
+      [
+        'bedRooms',
+        'bathRooms',
+        'priceMin',
+        'priceMax',
+        'propertyType',
+        'subType',
+        'hasPool',
+        'latestOnly',
+        'aiParams',
+      ].forEach((key) => params.delete(key));
+    });
   }, [pushBrowseParams]);
 
   const resolveSheetModeAfterDrag = useCallback((startMode: MobileSheetMode, deltaY: number): MobileSheetMode => {
@@ -1197,6 +1387,48 @@ function PropertyBrowseView({ }: Props) {
                       Search
                     </button>
                   </form>
+
+                  {activeFilterChips.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {visibleFilterChips.map((chip) => (
+                        <button
+                          key={chip.id}
+                          type="button"
+                          onClick={() => handleRemoveFilterChip(chip.id)}
+                          className="inline-flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-xs font-medium text-orange-800 hover:bg-orange-100"
+                          title={`Remove ${chip.label}`}
+                        >
+                          <span>{chip.label}</span>
+                          <X className="h-3 w-3" />
+                        </button>
+                      ))}
+                      {hiddenFilterChipCount > 0 && !areFilterChipsExpanded ? (
+                        <button
+                          type="button"
+                          onClick={() => setAreFilterChipsExpanded(true)}
+                          className="inline-flex items-center rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                        >
+                          +{hiddenFilterChipCount} more
+                        </button>
+                      ) : null}
+                      {areFilterChipsExpanded && activeFilterChips.length > MAX_VISIBLE_FILTER_CHIPS ? (
+                        <button
+                          type="button"
+                          onClick={() => setAreFilterChipsExpanded(false)}
+                          className="inline-flex items-center rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                        >
+                          Show less
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={handleClearAllActiveChips}
+                        className="inline-flex items-center rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                      >
+                        Clear all
+                      </button>
+                    </div>
+                  ) : null}
 
                   <div className="mt-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
                     <MapPinned className="h-3.5 w-3.5" />

@@ -73,6 +73,117 @@ const coerceString = (value: unknown) => {
   return s ? s : undefined;
 };
 
+const MLS_ALLOWED_KEYS = new Set([
+  // Location / geo
+  'address', 'city', 'state', 'zip', 'county', 'latitude', 'longitude', 'radius',
+  // Listing/property types
+  'listing_property_type', 'property_sub_type', 'property_type', 'public_land_use',
+  // Pricing
+  'listing_price_min', 'listing_price_max', 'price_per_sqft_min', 'price_per_sqft_max',
+  // Beds/baths/sizes
+  'bedrooms', 'bedrooms_min', 'bedrooms_max',
+  'bathrooms', 'bathrooms_min', 'bathrooms_max',
+  'living_area_min', 'living_area_max',
+  'lot_size_min', 'lot_size_max',
+  'stories',
+  // Feature flags
+  'has_pool', 'has_basement',
+  'is_water_front', 'is_water_view', 'is_mountain_view', 'is_city_view', 'is_park_view',
+  // Time/build/market
+  'year_built_min', 'year_built_max',
+  'days_on_market_min', 'days_on_market_max',
+  'listing_date_min', 'listing_date_max',
+  'latest_only',
+  // HOA
+  'listing_association_fee_min', 'listing_association_fee_max',
+  // Result/status controls
+  'active', 'has_photos', 'include_photos', 'status', 'custom_status', 'sold', 'size',
+  // Advanced passthrough container used by upstream integrations
+  'additional_criteria',
+]);
+
+const MLS_LISTING_PROPERTY_TYPE_ENUM = new Set([
+  'RESIDENTIAL',
+  'RESIDENTIAL_INCOME',
+  'RENTAL',
+  'LAND',
+  'COMMERCIAL',
+  'FARM',
+]);
+
+const sanitizeMlsPayload = (payload: Record<string, any>) =>
+  Object.fromEntries(
+    Object.entries(payload).filter(([key, value]) =>
+      MLS_ALLOWED_KEYS.has(key) &&
+      value !== undefined &&
+      value !== null &&
+      value !== '',
+    ),
+  );
+
+const omitKeys = (payload: Record<string, any>, keys: string[]) => {
+  const next = { ...payload };
+  keys.forEach((key) => delete next[key]);
+  return next;
+};
+
+const buildFallbackPayloads = (basePayload: Record<string, any>) => {
+  const attempts: Record<string, any>[] = [];
+  attempts.push(basePayload);
+
+  // Step 1: drop potentially board-specific type fields.
+  attempts.push(
+    omitKeys(basePayload, [
+      'property_sub_type',
+      'property_type',
+      'public_land_use',
+      'listing_property_type',
+    ]),
+  );
+
+  // Step 2: drop advanced filters that commonly trigger strict validation upstream.
+  attempts.push(
+    omitKeys(attempts[1], [
+      'latest_only',
+      'has_basement',
+      'stories',
+      'living_area_min',
+      'living_area_max',
+      'lot_size_min',
+      'lot_size_max',
+      'listing_association_fee_min',
+      'listing_association_fee_max',
+      'days_on_market_min',
+      'days_on_market_max',
+      'year_built_min',
+      'year_built_max',
+      'listing_date_min',
+      'listing_date_max',
+      'is_water_front',
+      'is_water_view',
+      'is_mountain_view',
+      'is_city_view',
+      'is_park_view',
+      'additional_criteria',
+    ]),
+  );
+
+  // Step 3: keep only core search filters.
+  attempts.push(
+    omitKeys(attempts[2], [
+      'bedrooms_max',
+      'bathrooms_max',
+      'price_per_sqft_min',
+      'price_per_sqft_max',
+    ]),
+  );
+
+  // Deduplicate attempts
+  const unique = new Map<string, Record<string, any>>();
+  attempts.forEach((payload) => unique.set(stableKey(payload), payload));
+  return Array.from(unique.values());
+};
+
 const STATE_TO_ABBREV: Record<string, string> = {
   alabama: 'AL', alaska: 'AK', arizona: 'AZ', arkansas: 'AR', california: 'CA', colorado: 'CO',
   connecticut: 'CT', delaware: 'DE', florida: 'FL', georgia: 'GA', hawaii: 'HI', idaho: 'ID',
@@ -350,7 +461,12 @@ export async function POST(request: NextRequest) {
     };
 
     if (typeof mergedPayload.listing_property_type === 'string') {
-      mergedPayload.listing_property_type = mergedPayload.listing_property_type.toUpperCase();
+      const normalizedListingPropertyType = mergedPayload.listing_property_type.trim().toUpperCase();
+      if (MLS_LISTING_PROPERTY_TYPE_ENUM.has(normalizedListingPropertyType)) {
+        mergedPayload.listing_property_type = normalizedListingPropertyType;
+      } else {
+        delete (mergedPayload as Record<string, any>).listing_property_type;
+      }
     }
 
     // Defensive cleanup so we do not send empty values upstream.
@@ -371,6 +487,8 @@ export async function POST(request: NextRequest) {
     ) {
       delete (mergedPayload as Record<string, any>).additional_criteria;
     }
+    const sanitizedPayload = sanitizeMlsPayload(mergedPayload);
+
     const requestedPageSize = coerceNumber(body?.page_size ?? body?.pageSize ?? body?.size ?? body?.limit);
     const requestedResultIndex = coerceNumber(body?.result_index ?? body?.resultIndex ?? body?.offset);
     const isPaginatedRequest =
@@ -396,18 +514,52 @@ export async function POST(request: NextRequest) {
     let lastPageRecordCount = 0;
 
     while (aggregateRaw.length < maxResults) {
-      const pagePayload = {
-        ...mergedPayload,
+      const pagePayloadBase = {
+        ...sanitizedPayload,
         size: Math.min(pageSize, maxResults - aggregateRaw.length),
         resultIndex,
       };
-      console.log(`${logPrefix} call -> local_dedupe_layer`, {
-        call: 'dedupedMlsSearchPagePost',
-        payload: pagePayload,
-      });
-      const upstream = await dedupedMlsSearchPagePost(pagePayload);
+      const payloadAttempts = buildFallbackPayloads(pagePayloadBase);
+      let upstream: TracedUpstreamResult | null = null;
+      let pagePayload = pagePayloadBase;
+      let pageRecords: any[] = [];
+
+      for (let attemptIndex = 0; attemptIndex < payloadAttempts.length; attemptIndex += 1) {
+        pagePayload = payloadAttempts[attemptIndex];
+        console.log(`${logPrefix} call -> local_dedupe_layer`, {
+          call: 'dedupedMlsSearchPagePost',
+          attempt: attemptIndex + 1,
+          payload: pagePayload,
+        });
+        const attemptUpstream = await dedupedMlsSearchPagePost(pagePayload);
+        const attemptRecords = attemptUpstream.ok ? extractMlsSearchRecords(attemptUpstream.json) : [];
+        upstream = attemptUpstream;
+        pageRecords = attemptRecords;
+
+        if (!attemptUpstream.ok) {
+          continue;
+        }
+
+        if (attemptRecords.length > 0 || attemptIndex === payloadAttempts.length - 1) {
+          if (attemptIndex > 0) {
+            console.warn(`${logPrefix} recovered via fallback payload attempt ${attemptIndex + 1}`);
+          }
+          break;
+        }
+
+        console.warn(
+          `${logPrefix} fallback escalation: attempt ${attemptIndex + 1} returned 0 records, trying relaxed payload`,
+        );
+      }
+
+      if (!upstream) {
+        return NextResponse.json(
+          { error: 'MLS search upstream request failed: no upstream response' },
+          { status: 502 },
+        );
+      }
+
       pagesFetched += 1;
-      const pageRecords = extractMlsSearchRecords(upstream.json);
       lastPageRecordCount = pageRecords.length;
       console.log(`${logPrefix} call -> ${upstream.source}`, {
         endpoint: upstream.endpoint,
@@ -546,7 +698,7 @@ export async function POST(request: NextRequest) {
       debug:
         process.env.NODE_ENV !== 'production'
           ? {
-            payload: mergedPayload,
+            payload: sanitizedPayload,
             upstreamStatus: lastUpstream?.status,
             pagesFetched,
             aggregated: aggregateRaw.length,

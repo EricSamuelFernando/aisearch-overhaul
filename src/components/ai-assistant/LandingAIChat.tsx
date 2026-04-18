@@ -308,7 +308,7 @@ function ListingsRow({ listings, queryText, searchParams }: { listings: MLSListi
         <button
           type="button"
           onClick={() => scrollBy('left')}
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-gray-200 text-gray-600 shadow-md flex items-center justify-center"
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full bg-gray-200 text-gray-600 shadow-md flex items-center justify-center"
           aria-label="Scroll left"
         >
           <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -320,7 +320,7 @@ function ListingsRow({ listings, queryText, searchParams }: { listings: MLSListi
         <button
           type="button"
           onClick={() => scrollBy('right')}
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-[#e8804c] text-white shadow-md flex items-center justify-center"
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full bg-[#e8804c] text-white shadow-md flex items-center justify-center"
           aria-label="Scroll right"
         >
           <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -328,7 +328,7 @@ function ListingsRow({ listings, queryText, searchParams }: { listings: MLSListi
           </svg>
         </button>
       )}
-      <div ref={rowRef} className="flex items-start gap-3 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">
+      <div ref={rowRef} className="flex items-start gap-3 overflow-x-auto pb-2 -mx-1 px-14 scrollbar-hide">
         {listings.map((listing, idx) => (
           <ListingTile key={listing.id || idx} listing={listing} index={idx} queryText={queryText} />
         ))}

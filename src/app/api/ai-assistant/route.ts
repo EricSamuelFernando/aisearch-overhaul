@@ -26,7 +26,7 @@ import {
 import { writeMemory, getUserMemoryContext } from "@/lib/ai-assistant/supermemory";
 import { rankListingPhotos } from "@/lib/ai-assistant/vision";
 import { getBatchCachedRankings, setBatchCachedRankings } from "@/lib/ai-assistant/photo-cache";
-import { BuyerProfile, MLSSearchParams, PhotoRankResult } from "@/types/ai-assistant";
+import { MLSSearchParams, PhotoRankResult } from "@/types/ai-assistant";
 
 export const runtime = "nodejs";
 
@@ -152,9 +152,12 @@ const ANTHROPIC_TOOLS: Anthropic.Tool[] = [
   {
     name: "reference_listing",
     description:
-      "User is asking about the details of ONE specific listing already shown in a previous turn — " +
-      "e.g. 'tell me more about the second house', 'what year was the first one built', " +
-      "'how big is listing #3'. Never call this to re-show all listings or run a new search.",
+      "User is asking about the details of ONE specific listing by an explicit position reference — " +
+      "a number (#1, #3), an ordinal (first, second, third), or 'the last one'. " +
+      "Examples: 'tell me more about the second house', 'what year was #3 built', 'how big is the first one'. " +
+      "NEVER call this for questions about multiple listings: 'which of these are duplexes', " +
+      "'are any of these single family homes', 'which has a pool', 'which is the biggest' — those are answer_user. " +
+      "NEVER call this without a clear position reference. When in doubt, use answer_user.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -196,61 +199,6 @@ function scoreByDescription(description: string | undefined, keywords: string[])
   return Math.min(0.60 + (hits / keywords.length) * 0.15, 0.75);
 }
 
-// Terms that indicate a genuine buyer preference — used to gate Supermemory writes
-// on answer_user turns so we don't pollute with greetings and generic Q&A.
-// Length guard (<=30 chars) handles the short cases before this list is checked.
-const PROFILE_READ_TRIGGERS = [
-  'my preferences', 'what do you know', 'do you remember',
-  'what are my', 'my profile', 'my budget', 'my locations',
-  'what i told you', 'what have i told', 'my must', 'my deal',
-  'remember me', 'know about me',
-] as const;
-
-function isProfileReadRequest(message: string): boolean {
-  const lower = message.toLowerCase();
-  return PROFILE_READ_TRIGGERS.some((t) => lower.includes(t));
-}
-
-function buildProfileReadResponse(profile: BuyerProfile): string {
-  const personalEntries = Object.entries(profile.personalContext ?? {});
-  const hasAny = [
-    profile.name, profile.email,
-    profile.preferredLocations.length > 0,
-    profile.budgetMin != null, profile.budgetMax != null,
-    profile.bedroomsMin != null, profile.bathroomsMin != null,
-    profile.mustHaves.length > 0, profile.dealBreakers.length > 0,
-    profile.propertyTypes.length > 0,
-    personalEntries.length > 0,
-  ].some(Boolean);
-
-  if (!hasAny) {
-    return "I don't have any preferences on file for you yet. Tell me what you're looking for and I'll remember it for future sessions.";
-  }
-
-  const lines: string[] = ["Here's what I have on file for you:"];
-  if (profile.name)  lines.push(`Name: ${profile.name}`);
-  if (profile.email) lines.push(`Email: ${profile.email}`);
-  lines.push(`Locations: ${profile.preferredLocations.join(", ") || "not set"}`);
-  const budgetMin = profile.budgetMin != null ? `$${profile.budgetMin.toLocaleString()}` : null;
-  const budgetMax = profile.budgetMax != null ? `$${profile.budgetMax.toLocaleString()}` : null;
-  if (budgetMin || budgetMax) {
-    lines.push(`Budget: ${budgetMin ? budgetMin + " – " : "up to "}${budgetMax ?? "no max set"}`);
-  } else {
-    lines.push("Budget: not set");
-  }
-  lines.push(`Bedrooms minimum: ${profile.bedroomsMin ?? "not set"}`);
-  lines.push(`Bathrooms minimum: ${profile.bathroomsMin ?? "not set"}`);
-  lines.push(`Must-haves: ${profile.mustHaves.join(", ") || "none noted"}`);
-  lines.push(`Deal-breakers: ${profile.dealBreakers.join(", ") || "none noted"}`);
-  lines.push(`Property types: ${profile.propertyTypes.join(", ") || "any"}`);
-  if (personalEntries.length > 0) {
-    for (const [k, v] of personalEntries) {
-      lines.push(`${k.replace(/_/g, " ")}: ${v}`);
-    }
-  }
-  return lines.join("\n");
-}
-
 const PREFERENCE_TERMS = [
   'budget', 'afford', 'bedroom', 'bathroom', 'pool', 'garage',
   'yard', 'basement', 'school district', 'commute', 'waterfront',
@@ -277,7 +225,8 @@ export async function POST(req: NextRequest) {
       console.log("\n\x1b[36m[AI]\x1b[0m ─────────────── new request ───────────────");
 
       try {
-        const { message, userId, email, name, mode } = await req.json();
+        const { message, userId, email, name, mode, conversationId: incomingConvId } = await req.json();
+        const convId: string = incomingConvId ?? crypto.randomUUID();
 
         if (!message || !userId) {
           send({ type: "error", message: "Missing message or userId" });
@@ -293,8 +242,8 @@ export async function POST(req: NextRequest) {
         // Redis parallel load (~30ms) — profile now includes intelligence fields
         const [profile, history, searchCtx, pendingAction] = await Promise.all([
           loadProfile(userId),
-          loadHistory(userId, 20),
-          loadSearchContext(userId),
+          loadHistory(userId, 20, convId),
+          loadSearchContext(userId, convId),
           loadPendingAction(userId),
         ]);
         log("profile + history loaded", T0);
@@ -310,7 +259,7 @@ export async function POST(req: NextRequest) {
         // Don't record the synthetic start trigger in history
         const isInterviewStart = message === "__home_pilot_start__";
         if (!isInterviewStart) {
-          await appendMessage(userId, { role: "user", content: message });
+          await appendMessage(userId, { role: "user", content: message }, convId);
         }
 
         // ── Interview mode (Home Pilot) — bypass Haiku entirely ──────────────
@@ -350,7 +299,7 @@ export async function POST(req: NextRequest) {
           send({ type: "done" });
           log("DONE — interview turn", T0);
 
-          await appendMessage(userId, { role: "assistant", content: interviewResp });
+          await appendMessage(userId, { role: "assistant", content: interviewResp }, convId);
 
           if (!isInterviewStart) {
             // Extract full buyer intelligence from this interview answer
@@ -379,7 +328,7 @@ export async function POST(req: NextRequest) {
               const listingBlock = m.listings
                 .map(
                   (l, i) =>
-                    `#${i + 1}: ${l.full_address} — $${l.listing_price?.toLocaleString()}, ${l.bedrooms}bd/${l.bathrooms}ba, ${l.living_area?.toLocaleString()} sqft${l.year_built ? `, built ${l.year_built}` : ""}`,
+                    `#${i + 1}: ${l.full_address} — $${l.listing_price?.toLocaleString()}, ${l.bedrooms}bd/${l.bathrooms}ba, ${l.living_area?.toLocaleString()} sqft${l.year_built ? `, built ${l.year_built}` : ""}${l.property_sub_type ? `, ${l.property_sub_type}` : l.property_type ? `, ${l.property_type}` : ""}${l.stories != null ? `, ${l.stories === 1 ? "single story" : `${l.stories} stories`}` : ""}${l.garage_spaces ? `, ${l.garage_spaces}-car garage` : ""}${l.has_pool ? ", pool" : ""}${l.has_basement ? ", basement" : ""}${l.hoa_fee != null ? `, HOA $${l.hoa_fee}/mo` : ""}${l.neighborhood ? `, ${l.neighborhood}` : ""}${l.is_waterfront ? ", waterfront" : l.is_water_view ? ", water view" : ""}${l.is_mountain_view ? ", mountain view" : ""}${l.is_city_view ? ", city view" : ""}${l.is_park_view ? ", park view" : ""}${l.description ? ` | "${l.description.slice(0, 200)}${l.description.length > 200 ? "…" : ""}"` : ""}`,
                 )
                 .join("\n");
               return [
@@ -430,7 +379,7 @@ export async function POST(req: NextRequest) {
             }
           }
           send({ type: "done" });
-          await appendMessage(userId, { role: "assistant", content: ackResp });
+          await appendMessage(userId, { role: "assistant", content: ackResp }, convId);
           controller.close();
           return;
         }
@@ -502,14 +451,14 @@ export async function POST(req: NextRequest) {
           send({ type: "done" });
           log("DONE — multi-city", T0);
 
-          await appendMessage(userId, { role: "assistant", content: multiFullResp, listings });
+          await appendMessage(userId, { role: "assistant", content: multiFullResp, listings }, convId);
           clearPendingAction(userId);
           const primaryLoc = parseLocation(locations[0]);
           saveSearchContext(userId, {
             params: { ...carryParams, ...primaryLoc },
             resolvedLocation: locations.join(" + "),
             appliedAt: new Date().toISOString(),
-          });
+          }, convId);
           recordSearchEvent(userId, { ...carryParams, city: locations[0], state: primaryLoc.state }, listings.length, profile);
           writeMemory(userId, `User searched preferred locations: ${locations.join(", ")}. ${listings.length} result(s).`);
           controller.close();
@@ -599,21 +548,6 @@ export async function POST(req: NextRequest) {
 
         // ── answer_user → Sonnet handles it conversationally ─────────────────
         if (!toolCall || toolName === "answer_user") {
-          // Short-circuit profile reads — build response from DB data directly,
-          // never delegate to Sonnet which reformats it into a run-on sentence.
-          if (isProfileReadRequest(message)) {
-            console.log("\x1b[36m[AI]\x1b[0m profile read short-circuit");
-            const profileResp = buildProfileReadResponse(profile);
-            for (const char of profileResp) {
-              send({ type: "token", text: char });
-            }
-            send({ type: "done" });
-            log("DONE — profile read", T0);
-            await appendMessage(userId, { role: "assistant", content: profileResp });
-            controller.close();
-            return;
-          }
-
           console.log("\x1b[36m[AI]\x1b[0m conversational path → Sonnet");
           const convStream = await anthropic.messages.create({
             model: "claude-sonnet-4-6",
@@ -635,7 +569,7 @@ export async function POST(req: NextRequest) {
           send({ type: "done" });
           log("DONE — conversational", T0);
 
-          await appendMessage(userId, { role: "assistant", content: fullResp });
+          await appendMessage(userId, { role: "assistant", content: fullResp }, convId);
           extractAndUpdateProfile(userId, message, fullResp);
           extractAndSavePendingAction(userId, fullResp);
           if (containsPreferenceSignal(message)) {
@@ -671,7 +605,7 @@ export async function POST(req: NextRequest) {
               }
             }
             send({ type: "done" });
-            await appendMessage(userId, { role: "assistant", content: fallbackResp });
+            await appendMessage(userId, { role: "assistant", content: fallbackResp }, convId);
             extractAndUpdateProfile(userId, message, fallbackResp);
             writeMemory(userId, `User asked about listing but none found at index ${listing_index}.`);
             controller.close();
@@ -687,11 +621,22 @@ export async function POST(req: NextRequest) {
             `Bedrooms: ${targetListing.bedrooms}`,
             `Bathrooms: ${targetListing.bathrooms}`,
             `Living area: ${targetListing.living_area?.toLocaleString()} sqft`,
-            targetListing.lot_size    ? `Lot size: ${targetListing.lot_size?.toLocaleString()} sqft` : null,
-            targetListing.year_built  ? `Year built: ${targetListing.year_built}` : null,
-            targetListing.has_pool    != null ? `Pool: ${targetListing.has_pool ? "Yes" : "No"}` : null,
+            targetListing.lot_size       ? `Lot size: ${targetListing.lot_size?.toLocaleString()} sqft` : null,
+            targetListing.year_built     ? `Year built: ${targetListing.year_built}` : null,
+            targetListing.stories        != null ? `Stories: ${targetListing.stories}` : null,
+            targetListing.garage_spaces  ? `Garage spaces: ${targetListing.garage_spaces}` : null,
+            targetListing.has_pool       != null ? `Pool: ${targetListing.has_pool ? "Yes" : "No"}` : null,
+            targetListing.has_basement   != null ? `Basement: ${targetListing.has_basement ? "Yes" : "No"}` : null,
+            targetListing.hoa_fee        != null ? `HOA fee: $${targetListing.hoa_fee}/mo` : null,
+            targetListing.neighborhood   ? `Neighborhood: ${targetListing.neighborhood}` : null,
+            targetListing.property_sub_type ? `Property type: ${targetListing.property_sub_type}` : targetListing.property_type ? `Property type: ${targetListing.property_type}` : null,
+            targetListing.is_waterfront  ? `Waterfront: Yes` : null,
+            targetListing.is_water_view  ? `Water view: Yes` : null,
+            targetListing.is_mountain_view ? `Mountain view: Yes` : null,
+            targetListing.is_city_view   ? `City view: Yes` : null,
+            targetListing.is_park_view   ? `Park view: Yes` : null,
             targetListing.days_on_market != null ? `Days on market: ${targetListing.days_on_market}` : null,
-            targetListing.description ? `Description: ${targetListing.description}` : null,
+            targetListing.description    ? `Description: ${targetListing.description}` : null,
           ]
             .filter(Boolean)
             .join("\n");
@@ -722,7 +667,7 @@ export async function POST(req: NextRequest) {
           send({ type: "done" });
           log("DONE — reference_listing", T0);
 
-          await appendMessage(userId, { role: "assistant", content: focusResp, focusedListing: targetListing });
+          await appendMessage(userId, { role: "assistant", content: focusResp, focusedListing: targetListing }, convId);
           extractAndUpdateProfile(userId, message, focusResp);
           writeMemory(
             userId,
@@ -919,13 +864,13 @@ export async function POST(req: NextRequest) {
         log("DONE — total", T0);
 
         // Persist history and context synchronously (fast, Redis)
-        await appendMessage(userId, { role: "assistant", content: fullResponse, listings });
+        await appendMessage(userId, { role: "assistant", content: fullResponse, listings }, convId);
         clearPendingAction(userId);
         saveSearchContext(userId, {
           params: searchParams,
           resolvedLocation,
           appliedAt: new Date().toISOString(),
-        });
+        }, convId);
 
         // Fire-and-forget background tasks — never block the stream
         // Pass the already-loaded profile to avoid an extra Redis round-trip

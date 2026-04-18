@@ -21,9 +21,21 @@ const PENDING_ACTION_TTL = 60 * 10;            // 10 minutes
 const HISTORY_MAX = 40;
 
 function profileKey(userId: string)       { return `profile:${userId}`; }
-function historyKey(userId: string)       { return `history:${userId}`; }
-function searchCtxKey(userId: string)     { return `search_ctx:${userId}`; }
+function historyKey(userId: string)       { return `history:${userId}`; }         // legacy flat key
+function searchCtxKey(userId: string)     { return `search_ctx:${userId}`; }      // legacy
 function pendingActionKey(userId: string) { return `pending_action:${userId}`; }
+
+// Per-conversation keys (new multi-convo architecture)
+function convHistoryKey(userId: string, convId: string) { return `chat:history:${userId}:${convId}`; }
+function convIndexKey(userId: string)                   { return `chat:index:${userId}`; }
+function convSearchCtxKey(userId: string, convId: string) { return `search_ctx:${userId}:${convId}`; }
+
+export interface ConversationMeta {
+  id: string;
+  preview: string;
+  messageCount: number;
+  timestamp: string | null;
+}
 
 const DEFAULT_PROFILE = (userId: string): BuyerProfile => ({
   userId,
@@ -185,32 +197,66 @@ export async function saveProfile(profile: BuyerProfile): Promise<void> {
 
 // ── History ──────────────────────────────────────────────────────────────────
 
-export async function loadHistory(userId: string, limit = 20): Promise<AIAssistantMessage[]> {
+export async function loadHistory(userId: string, limit = 20, convId?: string): Promise<AIAssistantMessage[]> {
   const redis = getRedis();
-  const items = await redis.lrange<AIAssistantMessage>(historyKey(userId), -limit, -1);
+  const key = convId ? convHistoryKey(userId, convId) : historyKey(userId);
+  const items = await redis.lrange<AIAssistantMessage>(key, -limit, -1);
   return items ?? [];
 }
 
-export async function appendMessage(userId: string, message: AIAssistantMessage): Promise<void> {
+export async function appendMessage(userId: string, message: AIAssistantMessage, convId?: string): Promise<void> {
   const redis = getRedis();
-  const key = historyKey(userId);
-  // Stamp every message at write time so the history panel can group by session
   const stamped: AIAssistantMessage = { ...message, timestamp: new Date().toISOString() };
-  await redis.rpush(key, stamped);
-  await redis.ltrim(key, -HISTORY_MAX, -1);
-  await redis.expire(key, HISTORY_TTL);
+  if (convId) {
+    const key = convHistoryKey(userId, convId);
+    await redis.rpush(key, stamped);
+    await redis.ltrim(key, -HISTORY_MAX, -1);
+    await redis.expire(key, HISTORY_TTL);
+    await redis.zadd(convIndexKey(userId), { score: Date.now(), member: convId });
+    await redis.expire(convIndexKey(userId), HISTORY_TTL);
+  } else {
+    const key = historyKey(userId);
+    await redis.rpush(key, stamped);
+    await redis.ltrim(key, -HISTORY_MAX, -1);
+    await redis.expire(key, HISTORY_TTL);
+  }
+}
+
+export async function loadConversationIndex(userId: string, limit = 5): Promise<ConversationMeta[]> {
+  const redis = getRedis();
+  const convIds = await redis.zrange(convIndexKey(userId), 0, limit - 1, { rev: true }) as string[];
+  if (!convIds || convIds.length === 0) return [];
+
+  const metas = await Promise.all(
+    convIds.map(async (convId) => {
+      const key = convHistoryKey(userId, convId);
+      const [messages, count] = await Promise.all([
+        redis.lrange<AIAssistantMessage>(key, 0, 2),
+        redis.llen(key),
+      ]);
+      const msgs = messages ?? [];
+      const firstUser = msgs.find((m) => m.role === "user");
+      const preview = firstUser?.content?.slice(0, 80) ?? "Conversation";
+      const lastMsg = msgs.at(-1);
+      return { id: convId, preview, messageCount: count ?? 0, timestamp: lastMsg?.timestamp ?? null };
+    }),
+  );
+
+  return metas;
 }
 
 // ── Search context ───────────────────────────────────────────────────────────
 
-export async function loadSearchContext(userId: string): Promise<SearchContext | null> {
+export async function loadSearchContext(userId: string, convId?: string): Promise<SearchContext | null> {
   const redis = getRedis();
-  return redis.get<SearchContext>(searchCtxKey(userId));
+  const key = convId ? convSearchCtxKey(userId, convId) : searchCtxKey(userId);
+  return redis.get<SearchContext>(key);
 }
 
-export async function saveSearchContext(userId: string, ctx: SearchContext): Promise<void> {
+export async function saveSearchContext(userId: string, ctx: SearchContext, convId?: string): Promise<void> {
   const redis = getRedis();
-  await redis.set(searchCtxKey(userId), ctx, { ex: SEARCH_CTX_TTL });
+  const key = convId ? convSearchCtxKey(userId, convId) : searchCtxKey(userId);
+  await redis.set(key, ctx, { ex: SEARCH_CTX_TTL });
 }
 
 // ── Pending action ───────────────────────────────────────────────────────────

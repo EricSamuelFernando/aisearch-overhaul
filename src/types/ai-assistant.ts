@@ -161,7 +161,18 @@ export interface MLSListing {
   listing_url?: string;
   description?: string;
   property_type?: string;
+  property_sub_type?: string;
   status?: string;
+  garage_spaces?: number;
+  stories?: number;
+  has_basement?: boolean;
+  hoa_fee?: number;
+  neighborhood?: string;
+  is_waterfront?: boolean;
+  is_water_view?: boolean;
+  is_mountain_view?: boolean;
+  is_city_view?: boolean;
+  is_park_view?: boolean;
   /** Populated after photo_rank SSE — confidence score 0-1 from vision model */
   bestScore?: number;
 }

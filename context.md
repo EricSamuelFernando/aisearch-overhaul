@@ -277,6 +277,19 @@ SUGGEST: Starting a family | Relocating for work | Need more space | First home 
 
 ## Known Issues / Planned
 
+### Multi-Conversation Architecture (planned — ~1 hour scope)
+Current state: flat Redis history per user (`chat:history:{userId}`), no conversation isolation. Frontend uses `groupIntoSessions()` (2-hour gap grouping) for display only — clicking a past session replaces the chat state but all messages still share one Redis key, so continuing a past convo mixes old + new messages into the same backend context.
+
+Goal: ChatGPT/Claude-style isolated conversations. Each conversation has its own ID, Redis key, and index entry. Continuing a past convo resumes its exact context — no bleed-through.
+
+**4-file scope:**
+1. `memory.ts` — `loadHistory`, `appendMessage`, `loadSearchContext` accept optional `conversationId`. Redis keys: `chat:history:{userId}:{convId}` per convo, `chat:index:{userId}` sorted set (score = timestamp) for listing last-5. Backward compat: fall back to legacy flat key if no `convId` provided.
+2. `route.ts` — accept `conversationId` in request body. If absent, generate `nanoid()` UUID. Return `conversationId` in `done` SSE event.
+3. `src/app/api/ai-assistant/history/route.ts` (new GET endpoint) — read `chat:index:{userId}` → load last 5 conversation keys → return `{ conversations: [{ id, preview, messageCount, timestamp }] }`.
+4. `LandingAIChat.tsx` — store `conversationId` in sessionStorage. On "New chat" → clear + generate new ID. On "Continue" from history panel → set conversationId to selected convo ID, load its messages, resume.
+
+**Backward compat:** legacy `chat:history:{userId}` keys stay untouched. Users with existing history get it under a synthetic `convId = "legacy"` on first migration touch.
+
 ### Memory
 - **Past chats panel** — `LandingAIChat.tsx` has a history panel (clock icon in chat header) that loads past messages from `GET /api/ai-assistant/history`. Sessions are grouped by 2-hour inactivity gaps. Messages written after the timestamp addition carry `timestamp: ISO string`; older messages show in an "Earlier" group. The `sessionStorage` restore is gated by a 2-hour session timeout — new tab or >2h since last activity starts fresh. The AI's Supermemory-powered greeting naturally surfaces context from past sessions.
 - **`sessionCount` is a dead field** — tracked in `BuyerProfile`, Redis, and Postgres but never incremented. `searchCount` works correctly. `sessionCount` needs a different trigger (first message of a new browser session) which is not wired up. Either implement it (detect new session vs continuation based on `lastActiveAt` timestamp gap) or remove the field from schema + profile to avoid confusion.

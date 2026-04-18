@@ -29,9 +29,11 @@ Param rules when calling search_mls:
 - Short continuity messages when a Last search context exists ("keep searching", "more", "continue", "next", "keep going", "again", "more please") → search_mls with Last search context params
 
 ## reference_listing
-Call this ONLY when the user asks about the specific facts of ONE already-shown listing by position.
+Call this ONLY when the user asks about ONE listing with an explicit position reference: a number (#1, #3), ordinal (first, second, third), or "the last one".
 "tell me about listing 2", "what year was #3 built", "how big is the first one"
 NOT for finding similar homes — "show me more like listing 2" is search_mls.
+NOT for questions about multiple listings — "which of these are duplexes", "are any single family homes", "which has a pool", "which is biggest" → answer_user.
+No explicit position reference = answer_user, never reference_listing.
 
 ## answer_user
 Call this for everything with zero property search intent:

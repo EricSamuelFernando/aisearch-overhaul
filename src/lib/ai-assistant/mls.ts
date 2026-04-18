@@ -12,6 +12,7 @@ export async function searchListings(params: MLSSearchParams): Promise<MLSListin
     active: true,
     has_photos: true,
     status: "Active",
+    custom_status: "Active",
     sold: false,
     include_photos: true,
     size: restParams.size ?? 6,
@@ -77,11 +78,14 @@ export async function searchListings(params: MLSSearchParams): Promise<MLSListin
     const pt = (l.property_type ?? "").toLowerCase();
     if (pt.includes("lease") || pt.includes("rental")) return false;
     if (!wantsLand && pt.includes("land")) return false;
+    // API sometimes returns pending/contingent/sold despite active:true in payload
+    const status = (l.status ?? "").toLowerCase();
+    if (status && status !== "active") return false;
     return true;
   });
 
   if (filtered.length !== normalized.length) {
-    console.log(`[MLS] filtered out ${normalized.length - filtered.length} lease/rental record(s)`);
+    console.log(`[MLS] filtered out ${normalized.length - filtered.length} lease/rental/non-active record(s)`);
   }
 
   // Deduplicate by address — API sometimes returns the same property twice
@@ -135,7 +139,18 @@ function normalizeListing(raw: unknown): MLSListing {
     listing_url: (listing.url as string) ?? undefined,
     description: (listing.publicRemarks as string) ?? undefined,
     property_type: (property.propertyType as string) ?? undefined,
+    property_sub_type: ((property.propertySubType as string[]) ?? [])[0] ?? undefined,
     status: (leadTypes.mlsStatus as string) ?? (listing.standardStatus as string) ?? undefined,
+    garage_spaces: (property.garageSpaces as number) ?? undefined,
+    stories: (property.stories as number) ?? undefined,
+    has_basement: property.hasBasement != null ? Boolean(property.hasBasement) : undefined,
+    hoa_fee: (property.associationFee as number) ?? undefined,
+    neighborhood: (property.neighborhood as string) ?? (property.subdivisionName as string) ?? undefined,
+    is_waterfront: property.isWaterFront != null ? Boolean(property.isWaterFront) : undefined,
+    is_water_view: property.isWaterView != null ? Boolean(property.isWaterView) : undefined,
+    is_mountain_view: property.isMountainView != null ? Boolean(property.isMountainView) : undefined,
+    is_city_view: property.isCityView != null ? Boolean(property.isCityView) : undefined,
+    is_park_view: property.isParkView != null ? Boolean(property.isParkView) : undefined,
   };
 }
 
@@ -146,7 +161,7 @@ export function formatListingsForPrompt(listings: MLSListing[]): string {
   return listings
     .map(
       (l, i) =>
-        `[${i + 1}] ${l.full_address}, ${l.city}, ${l.state} — $${l.listing_price?.toLocaleString()} | ${l.bedrooms}bd/${l.bathrooms}ba | ${l.living_area?.toLocaleString()} sqft${l.year_built ? ` | Built ${l.year_built}` : ""}${l.has_pool ? " | Pool" : ""}${l.days_on_market != null ? ` | ${l.days_on_market} DOM` : ""}${l.listing_url ? ` | ${l.listing_url}` : ""}`,
+        `[${i + 1}] ${l.full_address}, ${l.city}, ${l.state} — $${l.listing_price?.toLocaleString()} | ${l.bedrooms}bd/${l.bathrooms}ba | ${l.living_area?.toLocaleString()} sqft${l.year_built ? ` | Built ${l.year_built}` : ""}${l.property_sub_type ? ` | ${l.property_sub_type}` : l.property_type ? ` | ${l.property_type}` : ""}${l.stories != null ? ` | ${l.stories === 1 ? "Single story" : `${l.stories} stories`}` : ""}${l.garage_spaces ? ` | ${l.garage_spaces}-car garage` : ""}${l.has_pool ? " | Pool" : ""}${l.has_basement ? " | Basement" : ""}${l.hoa_fee != null ? ` | HOA $${l.hoa_fee}/mo` : ""}${l.neighborhood ? ` | ${l.neighborhood}` : ""}${l.is_waterfront ? " | Waterfront" : l.is_water_view ? " | Water view" : ""}${l.is_mountain_view ? " | Mountain view" : ""}${l.is_city_view ? " | City view" : ""}${l.is_park_view ? " | Park view" : ""}${l.days_on_market != null ? ` | ${l.days_on_market} DOM` : ""}${l.listing_url ? ` | ${l.listing_url}` : ""}`,
     )
     .join("\n");
 }

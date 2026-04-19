@@ -16,6 +16,7 @@
 # production
 /build
 *.txt
+!services/listing-image-classifier/requirements.txt
 *.terraform
 
 # misc
@@ -51,3 +52,12 @@ next-env.d.ts
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+# local runtime logs
+*.log
+.tmp-next*.log
+
+# Listing image classifier local artifacts
+services/listing-image-classifier/.cache/
+services/listing-image-classifier/.venv/
+services/listing-image-classifier/**/__pycache__/
+services/listing-image-classifier/**/*.pyc

@@ -505,14 +505,22 @@ const SEVERITY_COLOR: Record<string, string> = {
   opportunity: '#7c3aed',
 };
 
-const AI_API_BASE = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api`;
+const IMAGE_CLASSIFIER_BASE_URL =
+  process.env.NEXT_PUBLIC_IMAGE_CLASSIFIER_BASE_URL ||
+  process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI ||
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  '';
+const AI_API_BASE = IMAGE_CLASSIFIER_BASE_URL
+  ? `${IMAGE_CLASSIFIER_BASE_URL}/api`
+  : '/api';
 const CACHE_PREFIX = 'photo_categorization_v1';
 
 function readConditionCache(listingId: string, propertyId: string) {
   try {
-    const raw = typeof window !== 'undefined'
-      ? window.sessionStorage.getItem(`${CACHE_PREFIX}:${listingId}:${propertyId}`)
-      : null;
+    if (typeof window === 'undefined') return null;
+    const raw =
+      window.sessionStorage.getItem(`${CACHE_PREFIX}:${listingId}`) ||
+      window.sessionStorage.getItem(`${CACHE_PREFIX}:${listingId}:${propertyId}`);
     return raw ? JSON.parse(raw) : null;
   } catch { return null; }
 }
@@ -533,7 +541,7 @@ function HomeConditionCard({ listingId, propertyId }: Pick<BuyerDecisionSignalsP
   React.useEffect(() => {
     if (!listingId) return;
     const pid = propertyId || '';
-    const key = `${listingId}:${pid}`;
+    const key = `${listingId}`;
     if (fetchedRef.current === key) return;
     fetchedRef.current = key;
 

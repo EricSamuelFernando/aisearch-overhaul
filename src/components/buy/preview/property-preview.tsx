@@ -85,6 +85,7 @@ const defaultEstimatedData: any = {
   projectedGain: "22.6%",
   projectedGainDescription: "Post-graduation enrolment rates",
 };
+const IMAGE_CATEGORIZATION_PREFETCH_API = '/api/image_categorization/prefetch';
 
 const normalizeAuthServiceRestBaseUrl = (raw?: string | null) => {
   const trimmed = (raw || '').trim().replace(/\/+$/, '');
@@ -303,6 +304,8 @@ const PropertyPreview: React.FC = () => {
   const hasFetchedViewsForRef = React.useRef<string | null>(null);
   const hasFetchedSavesForRef = React.useRef<string | null>(null);
   const hasFetchedSchoolsForRef = React.useRef<string | null>(null);
+  // Tracks listings already queued for image categorization prefetch.
+  const issuedImagePrefetchRef = React.useRef<Set<string>>(new Set());
   const [rentEstimate, setRentEstimate] = React.useState<number | null>(null);
   const [rentDelta, setRentDelta] = React.useState<number | null>(null);
   const [projectedGainPct, setProjectedGainPct] = React.useState<number | null>(null);
@@ -311,6 +314,57 @@ const PropertyPreview: React.FC = () => {
   const authRestBaseUrl = React.useMemo(
     () => normalizeAuthServiceRestBaseUrl(process.env.NEXT_PUBLIC_AUTH_SERIVCE_URL),
     []
+  );
+
+  const triggerImageCategorizationPrefetch = React.useCallback(
+    (rawListingId: unknown, rawPropertyId?: unknown, source: string = 'unknown') => {
+      const listingNumeric = toPositiveIntegerOrNull(rawListingId);
+      if (listingNumeric === null) return;
+
+      const propertyNumeric = toPositiveIntegerOrNull(rawPropertyId);
+      const prefetchKey = `${listingNumeric}`;
+      if (issuedImagePrefetchRef.current.has(prefetchKey)) return;
+      issuedImagePrefetchRef.current.add(prefetchKey);
+
+      const payload: Record<string, number> = { listingId: listingNumeric };
+      if (propertyNumeric !== null) {
+        payload.propertyId = propertyNumeric;
+      }
+
+      void fetch(IMAGE_CATEGORIZATION_PREFETCH_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        cache: 'no-store',
+      }).then(async (response) => {
+        const data = await response.json().catch(() => null);
+        if (response.ok) {
+          const status = String(data?.status || '').toLowerCase();
+          if (status === 'failed') {
+            issuedImagePrefetchRef.current.delete(prefetchKey);
+          }
+          return;
+        }
+
+        console.warn('[ImageCategorization] Preview prefetch failed', {
+          source,
+          listingId: listingNumeric,
+          propertyId: propertyNumeric,
+          status: response.status,
+          body: data,
+        });
+        issuedImagePrefetchRef.current.delete(prefetchKey);
+      }).catch((error) => {
+        console.warn('[ImageCategorization] Preview prefetch network error', {
+          source,
+          listingId: listingNumeric,
+          propertyId: propertyNumeric,
+          error: String(error || ''),
+        });
+        issuedImagePrefetchRef.current.delete(prefetchKey);
+      });
+    },
+    [],
   );
 
   // Neo4j schools API integration
@@ -1125,6 +1179,22 @@ const PropertyPreview: React.FC = () => {
 
       const hasPrimaryData = hasUsablePropertyData(data);
       if (hasPrimaryData) {
+        const resolvedListingForPrefetch =
+          data?.data?.listingId ??
+          data?.listing_id ??
+          primaryListingId ??
+          listingIdFromQuery ??
+          listingIdFromPath;
+        const resolvedPropertyForPrefetch =
+          data?.property_id ??
+          data?.data?.propertyId ??
+          requestPropertyId;
+        triggerImageCategorizationPrefetch(
+          resolvedListingForPrefetch,
+          resolvedPropertyForPrefetch,
+          'property-detail-primary',
+        );
+
         setpropertyDatas(data)
         setPropertyData(data?.data);
         setTags(data?.data?.tags);
@@ -1169,6 +1239,12 @@ const PropertyPreview: React.FC = () => {
           propertyIdFromQuery,
         ]);
         if (fallbackListing) {
+          triggerImageCategorizationPrefetch(
+            fallbackListing?.listingId ?? primaryListingId ?? listingIdFromPath,
+            fallbackListing?.propertyId ?? requestPropertyId,
+            'property-detail-fallback',
+          );
+
           setpropertyDatas({
             data: fallbackListing,
             property_detail: data?.property_detail ?? null,
@@ -1375,6 +1451,65 @@ const PropertyPreview: React.FC = () => {
       ""
     );
   }, [proprtyData, propertyDatas, propertyData, propertyId]);
+
+  const categorizedListingId = React.useMemo(() => {
+    const rawValue =
+      propertyDatas?.data?.listingId ||
+      listingId ||
+      id ||
+      property?.listingId ||
+      propertyData?.listingId ||
+      '';
+    const normalized = toPositiveIntegerOrNull(rawValue);
+    if (normalized !== null) return String(normalized);
+    return String(rawValue || '').trim();
+  }, [
+    propertyDatas?.data?.listingId,
+    listingId,
+    id,
+    property?.listingId,
+    propertyData?.listingId,
+  ]);
+
+  const categorizedPropertyId = React.useMemo(() => {
+    const rawValue =
+      propertyDatas?.data?.propertyId ||
+      property?.propertyId ||
+      propertyData?.propertyId ||
+      propertyId ||
+      '';
+    const normalized = toPositiveIntegerOrNull(rawValue);
+    if (normalized !== null) return String(normalized);
+    return String(rawValue || '').trim();
+  }, [
+    propertyDatas?.data?.propertyId,
+    property?.propertyId,
+    propertyData?.propertyId,
+    propertyId,
+  ]);
+
+  React.useEffect(() => {
+    const seedListingId = toPositiveIntegerOrNull(listingId) ?? toPositiveIntegerOrNull(id);
+    if (seedListingId === null) return;
+    const seedPropertyId = toPositiveIntegerOrNull(propertyId);
+    triggerImageCategorizationPrefetch(
+      seedListingId,
+      seedPropertyId,
+      'preview-route-seed',
+    );
+  }, [id, listingId, propertyId, triggerImageCategorizationPrefetch]);
+
+  React.useEffect(() => {
+    triggerImageCategorizationPrefetch(
+      categorizedListingId,
+      categorizedPropertyId,
+      'preview-id-effect',
+    );
+  }, [
+    categorizedListingId,
+    categorizedPropertyId,
+    triggerImageCategorizationPrefetch,
+  ]);
 
   React.useEffect(() => {
     if (!rentAddress && !rentZpid) return;
@@ -2829,14 +2964,21 @@ const PropertyPreview: React.FC = () => {
                       (transformData.prop?.media?.primaryListingImageUrl ? [{ highRes: transformData.prop?.media?.primaryListingImageUrl }] : [])
                   }
                   onImageClick={handleImageClick}
-                  onShowAllPhotos={() => setIsCategorizedModalOpen(true)}
+                  onShowAllPhotos={() => {
+                    triggerImageCategorizationPrefetch(
+                      categorizedListingId,
+                      categorizedPropertyId,
+                      'show-all-click',
+                    );
+                    setIsCategorizedModalOpen(true);
+                  }}
                 />
 
                 <CategorizedPhotosModal
                   isOpen={isCategorizedModalOpen}
                   onClose={() => setIsCategorizedModalOpen(false)}
-                  listingId={String(propertyDatas?.data?.listingId || listingId || property?.listingId || '')}
-                  propertyId={String(propertyDatas?.data?.propertyId || property?.propertyId || '')}
+                  listingId={categorizedListingId}
+                  propertyId={categorizedPropertyId}
                   fallbackPhotos={transformData.prop?.media?.photosList?.map((img: any) => img.highRes) || []}
                   address={transformData.prop?.address?.unparsedAddress || propertyDatas?.data?.address?.unparsedAddress}
                   city={transformData.prop?.address?.city || propertyDatas?.data?.address?.city}

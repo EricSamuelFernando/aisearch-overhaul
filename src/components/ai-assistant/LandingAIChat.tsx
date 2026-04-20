@@ -737,7 +737,7 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
   const lastMsgIndex = messages.length - 1;
 
   return (
-    <div className={`w-full mx-auto transition-all duration-500 ${isExpanded ? 'max-w-[860px] max-h-[880px]' : showTryAsking ? 'max-w-[680px] max-h-[420px]' : 'max-w-[680px] max-h-[160px]'}`}>
+    <div className={`w-full mx-auto transition-all duration-500 ${isExpanded ? 'max-w-[860px] max-h-[880px]' : showTryAsking ? 'max-w-[680px] max-h-[480px]' : 'max-w-[680px] max-h-[160px]'}`}>
 
       {/* Chat messages + input panel */}
       {isExpanded && (
@@ -1007,86 +1007,78 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
         </div>
       )}
 
-      {/* Input bar (collapsed state) */}
+      {/* Input bar + Try Asking — unified container when panel is open */}
       {!isExpanded && (
-        <div className="flex items-center gap-2 bg-white rounded-full px-3 py-2 shadow-xl border border-gray-200">
-          <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center">
-            <AskAiIcon size={22} />
+        <div className={showTryAsking ? 'rounded-2xl shadow-xl border border-gray-200 bg-white overflow-hidden' : ''}>
+          {/* Search bar */}
+          <div className={`flex items-center gap-2 bg-white px-3 py-2 ${showTryAsking ? 'rounded-t-2xl' : 'rounded-full shadow-xl border border-gray-200'}`}>
+            <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center">
+              <AskAiIcon size={22} />
+            </div>
+            <textarea
+              ref={textareaRef}
+              className="flex-1 resize-none bg-transparent text-gray-900 placeholder-gray-400 text-sm focus:outline-none min-h-[24px] max-h-[120px] overflow-y-auto leading-relaxed"
+              placeholder="Find homes by address or ask anything…"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={() => {
+                setShowTryAsking(true);
+                const ids = getSuggestionIds();
+                fetchPersonalizedSuggestions(ids.userId, ids.tempUserId, userGeoLocation);
+              }}
+              onBlur={() => setTimeout(() => setShowTryAsking(false), 200)}
+              disabled={loading}
+              rows={1}
+            />
+            <button
+              onClick={() => sendMessage()}
+              disabled={loading || !input.trim()}
+              className="flex-shrink-0 w-[38px] h-[38px] rounded-full bg-black text-white flex items-center justify-center disabled:opacity-100 disabled:bg-black hover:bg-black/90 transition-colors"
+              aria-label="Send"
+            >
+              {loading ? (
+                <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <svg className="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 4.75c.3 0 .58.12.79.33l5.5 5.5a1.125 1.125 0 1 1-1.59 1.59L13.125 8.6V19a1.125 1.125 0 1 1-2.25 0V8.6l-3.57 3.57a1.125 1.125 0 1 1-1.59-1.59l5.5-5.5c.21-.21.49-.33.79-.33Z" />
+                </svg>
+              )}
+            </button>
           </div>
-          <textarea
-            ref={textareaRef}
-            className="flex-1 resize-none bg-transparent text-gray-900 placeholder-gray-400 text-sm focus:outline-none min-h-[24px] max-h-[120px] overflow-y-auto leading-relaxed"
-            placeholder="Find homes by address or ask anything…"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onFocus={() => {
-              setShowTryAsking(true);
-              const ids = getSuggestionIds();
-              fetchPersonalizedSuggestions(ids.userId, ids.tempUserId, userGeoLocation);
-            }}
-            onBlur={() => setTimeout(() => setShowTryAsking(false), 200)}
-            disabled={loading}
-            rows={1}
-          />
-          <button
-            onClick={() => sendMessage()}
-            disabled={loading || !input.trim()}
-            className="flex-shrink-0 w-[38px] h-[38px] rounded-full bg-black text-white flex items-center justify-center disabled:opacity-100 disabled:bg-black hover:bg-black/90 transition-colors"
-            aria-label="Send"
-          >
-            {loading ? (
-              <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <svg className="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 4.75c.3 0 .58.12.79.33l5.5 5.5a1.125 1.125 0 1 1-1.59 1.59L13.125 8.6V19a1.125 1.125 0 1 1-2.25 0V8.6l-3.57 3.57a1.125 1.125 0 1 1-1.59-1.59l5.5-5.5c.21-.21.49-.33.79-.33Z" />
-              </svg>
-            )}
-          </button>
-        </div>
-      )}
 
-      {/* Try Asking panel — personalized suggestions on search bar focus */}
-      {!isExpanded && showTryAsking && (
-        <div className="mt-2 bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-4 pt-3 pb-1">
-            Try Asking
-          </p>
-          <div className="pb-2">
-            {suggestionsLoading && personalizedSuggestions.length === 0
-              ? Array.from({ length: 4 }).map((_, i) => (
-                <div key={`skel-${i}`} className="flex items-center gap-3 px-4 py-3">
-                  <div className="w-4 h-4 flex-shrink-0 rounded-full bg-gray-200 animate-pulse" />
-                  <div
-                    className="h-3.5 rounded-full bg-gray-200 animate-pulse"
-                    style={{ width: `${55 + i * 10}%` }}
-                  />
-                </div>
-              ))
-              : tryAskingSuggestions.map((text, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onMouseDown={() => sendMessage(text)}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-orange-50/50 w-full text-left group transition-all"
-                >
-                  <svg
-                    className="w-4 h-4 flex-shrink-0 text-gray-400 group-hover:text-[#F58634] transition-colors"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2.25}
-                  >
-                    <circle cx="11" cy="11" r="8" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35" />
-                  </svg>
-                  <span className="text-sm text-gray-600 group-hover:text-gray-900 font-medium leading-snug">
-                    {text}
-                  </span>
-                </button>
-              ))
-            }
-          </div>
+          {/* Try Asking panel */}
+          {showTryAsking && (
+            <div className="border-t border-gray-100">
+              <p className="text-xs text-gray-400 px-4 pt-3 pb-2">
+                Or try asking...
+              </p>
+              <div className="pb-2">
+                {suggestionsLoading && personalizedSuggestions.length === 0
+                  ? Array.from({ length: 4 }).map((_, i) => (
+                    <div key={`skel-${i}`} className="flex items-center gap-3 px-4 py-3 mx-2 mb-1 rounded-xl bg-gray-50">
+                      <div
+                        className="h-3.5 rounded-full bg-gray-200 animate-pulse"
+                        style={{ width: `${50 + i * 12}%` }}
+                      />
+                    </div>
+                  ))
+                  : tryAskingSuggestions.map((text, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onMouseDown={() => sendMessage(text)}
+                      className="flex items-center w-[calc(100%-16px)] mx-2 mb-1 text-left px-3 py-2.5 rounded-xl bg-gray-50 hover:bg-[#FFF5EE] hover:border-l-2 hover:border-[#F58634] group transition-all"
+                    >
+                      <span className="text-sm text-gray-700 group-hover:text-gray-900 leading-snug">
+                        {text}
+                      </span>
+                    </button>
+                  ))
+                }
+              </div>
+            </div>
+          )}
         </div>
       )}
 

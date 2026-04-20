@@ -400,6 +400,13 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
   const [showHistory, setShowHistory] = useState(false);
   const [conversations, setConversations] = useState<ConversationMeta[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [interviewMode, setInterviewMode] = useState(false);
+  const interviewModeRef = useRef(false);
+  const pendingAutoSendRef = useRef(false);
+  const [interviewDone, setInterviewDone] = useState(() => {
+    try { return sessionStorage.getItem('home_pilot_completed') === '1'; } catch { return false; }
+  });
+  const [pendingMigratedConvId, setPendingMigratedConvId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -449,6 +456,36 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
   useEffect(() => {
     onExpandedChange?.(isExpanded);
   }, [isExpanded, onExpandedChange]);
+
+  // Guest → authenticated session handoff.
+  // Runs once on mount. If the user logged in after chatting as a guest,
+  // merges their anonymous profile + conversation into their real account.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const guestId = localStorage.getItem('snapz_ai_user_id');
+      const userDetailsRaw = localStorage.getItem('userDetails');
+      if (!guestId || !userDetailsRaw) return;
+      const parsed = JSON.parse(userDetailsRaw);
+      const realUserId = parsed?.id;
+      if (!realUserId || realUserId === guestId) return;
+
+      fetch('/api/ai-assistant/merge-guest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guestId, realUserId }),
+      })
+        .then(async (res) => {
+          if (!res.ok) return;
+          const data = await res.json() as { migratedConvId: string | null };
+          localStorage.removeItem('snapz_ai_user_id');
+          if (data.migratedConvId) setPendingMigratedConvId(data.migratedConvId);
+        })
+        .catch(() => {});
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   useEffect(() => {
     if (typeof window === 'undefined' || !hasHydratedRef.current) return;
@@ -559,6 +596,7 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
           message: content,
           ...getUserIdentity(),
           conversationId: sessionStorage.getItem(CONV_ID_KEY),
+          ...(interviewModeRef.current ? { mode: 'interview' } : {}),
         }),
       });
 
@@ -660,6 +698,12 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
           } else if (event.type === 'debug') {
             // Score report for testing — visible in browser devtools Network tab
             console.log('[AI Debug]', event.data);
+          } else if (event.type === 'interview_complete') {
+            interviewModeRef.current = false;
+            setInterviewMode(false);
+            pendingAutoSendRef.current = true;
+            try { sessionStorage.setItem('home_pilot_completed', '1'); } catch {}
+            setInterviewDone(true);
           } else if (event.type === 'error') {
             throw new Error(event.message ?? 'Unknown error');
           }
@@ -734,6 +778,28 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
     try { sessionStorage.removeItem(CHAT_STATE_STORAGE_KEY); } catch {}
   }, []);
 
+  const startInterview = useCallback(() => {
+    startNewConversation();
+    interviewModeRef.current = true;
+    setInterviewMode(true);
+    setIsExpanded(true);
+    sendMessage('__home_pilot_start__');
+  }, [sendMessage, startNewConversation]);
+
+  useEffect(() => {
+    if (!loading && pendingAutoSendRef.current) {
+      pendingAutoSendRef.current = false;
+      sendMessage('show me homes matching my profile');
+    }
+  }, [loading, sendMessage]);
+
+  // Defined after continueConversation — restores migrated guest conversation.
+  useEffect(() => {
+    if (!pendingMigratedConvId || messages.length > 0) return;
+    continueConversation(pendingMigratedConvId);
+    setPendingMigratedConvId(null);
+  }, [pendingMigratedConvId, continueConversation, messages.length]);
+
   const lastMsgIndex = messages.length - 1;
 
   return (
@@ -744,6 +810,11 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
         <div className="relative rounded-2xl bg-white border border-gray-200 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-4 pt-3">
             <div className="flex items-center gap-1">
+              {interviewMode && (
+                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#fff0e8] text-[#c86b3e] border border-[#e8804c]/30 mr-1">
+                  Home Pilot
+                </span>
+              )}
               {/* Past chats button */}
               <button
                 type="button"
@@ -832,6 +903,8 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
               const isUser = m.role === 'user';
               const isThinking = !isUser && !clean && !m.listings && loading && i === lastMsgIndex;
               const isStreaming = !isUser && loading && i === lastMsgIndex && (!!clean || !!m.listings);
+
+              if (isUser && m.content === '__home_pilot_start__') return null;
 
               return (
                 <div key={i} className={`flex ${isUser ? 'justify-end' : 'justify-start'} gap-2`}>
@@ -956,6 +1029,26 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
           </div>
 
           <div className="border-t border-gray-200 px-4 py-3">
+            {interviewMode && (() => {
+              const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
+              const chips = lastAssistant ? extractSuggestions(lastAssistant.content) : [];
+              if (chips.length === 0) return null;
+              return (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {chips.map((chip) => (
+                    <button
+                      key={chip}
+                      type="button"
+                      onClick={() => sendMessage(chip)}
+                      disabled={loading}
+                      className="text-xs px-3 py-1.5 rounded-full border border-[#e8804c] text-[#c86b3e] hover:bg-[#fff5f0] transition-colors disabled:opacity-50"
+                    >
+                      {chip}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
             <div className="flex items-center gap-2 bg-white rounded-full border border-gray-200 px-3 py-2 shadow-sm">
               <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center">
                 <AskAiIcon size={22} />
@@ -995,6 +1088,12 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
       {/* Suggestion chips */}
       {!isExpanded && (
         <div className="flex flex-wrap justify-center gap-2 mb-3">
+          <button
+            onClick={startInterview}
+            className="text-xs px-3 py-1.5 rounded-full bg-[#e8804c] text-white hover:bg-[#d4703e] transition-colors font-medium"
+          >
+            {interviewDone ? 'Revisit Home Pilot' : 'Home Pilot'}
+          </button>
           {SUGGESTIONS.map((s) => (
             <button
               key={s}

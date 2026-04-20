@@ -37,6 +37,7 @@ export interface BuyerProfile {
   dealBreakers: string[];
   propertyTypes: string[];
   lastUpdated: string;
+  interviewCompleted: boolean;
 
   // ── Personal context (freeform, Haiku-extracted from conversation) ────────
   // e.g. { "current_city": "Chicago", "has_children": "yes, ages 4 and 7", "commute_limit": "30 min" }

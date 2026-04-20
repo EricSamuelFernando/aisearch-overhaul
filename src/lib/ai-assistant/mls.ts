@@ -122,7 +122,8 @@ function normalizeListing(raw: unknown): MLSListing {
   const photos = ((media.photosList as Record<string, unknown>[]) ?? [])
     .slice(0, 20)
     .map((p) => (p.highRes ?? p.midRes ?? p.lowRes) as string)
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((u) => `/api/photo?url=${encodeURIComponent(u)}`);
 
   return {
     id: String(l.id ?? l.listingId ?? ""),

@@ -7,6 +7,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { useRouter } from 'next/navigation';
 import { MLSListing, MLSSearchParams, PhotoRankResult } from '@/types/ai-assistant';
 import ListingTile from './ListingTile';
+import { useGeolocation } from '@/hooks/useGeolocation';
+import { useSuggestions } from '@/hooks/useSuggestions';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -127,6 +129,28 @@ const SUGGESTIONS = [
   'Condos in Miami under $400k',
   'Show me 4 bed homes in Dallas under $700k',
 ];
+
+// Static fallback for Try Asking when personalized suggestions haven't loaded yet
+const STATIC_TRY_ASKING = [
+  '3-bedroom homes near top-rated schools',
+  'What can I afford on $8,000 a month?',
+  'Compare buying vs renting right now',
+  'Show me homes with a pool under $700k',
+];
+
+// Returns userId (real) or tempUserId (anon) for the suggestions API
+function getSuggestionIds(): { userId: string | null; tempUserId: string | null } {
+  if (typeof window === 'undefined') return { userId: null, tempUserId: null };
+  try {
+    const userDetails = localStorage.getItem('userDetails');
+    if (userDetails) {
+      const parsed = JSON.parse(userDetails);
+      if (parsed?.id) return { userId: parsed.id, tempUserId: null };
+    }
+  } catch {}
+  const tempId = localStorage.getItem('snapz_ai_user_id');
+  return { userId: null, tempUserId: tempId || null };
+}
 const CHAT_EXPANDED_STORAGE_KEY = 'landing_ai_chat_expanded';
 const CHAT_STATE_STORAGE_KEY = 'landing_ai_chat_state_v1';
 const SESSION_TS_KEY = 'landing_ai_chat_session_ts';
@@ -357,7 +381,22 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showTryAsking, setShowTryAsking] = useState(false);
   const [streamStartTime, setStreamStartTime] = useState<number | null>(null);
+
+  // Personalized "Try Asking" suggestions
+  const { location: userGeoLocation } = useGeolocation();
+  const {
+    suggestions: personalizedSuggestions,
+    loading: suggestionsLoading,
+    fetch: fetchPersonalizedSuggestions,
+    clearCache: clearSuggestionsCache,
+  } = useSuggestions();
+
+  // Displayed suggestions: personalized if ready, else static fallback
+  const tryAskingSuggestions = personalizedSuggestions.length > 0
+    ? personalizedSuggestions
+    : STATIC_TRY_ASKING;
   const [showHistory, setShowHistory] = useState(false);
   const [conversations, setConversations] = useState<ConversationMeta[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -500,6 +539,8 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
     if (!content || loading) return;
 
     setInput('');
+    setShowTryAsking(false);
+    clearSuggestionsCache(); // bust cache so next focus re-fetches with new context
     setIsExpanded(true);
     shouldAutoScrollRef.current = true;
     setMessages((prev) => [...prev, { role: 'user', content }]);
@@ -696,7 +737,7 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
   const lastMsgIndex = messages.length - 1;
 
   return (
-    <div className={`w-full mx-auto transition-all duration-500 ${isExpanded ? 'max-w-[860px] max-h-[880px]' : 'max-w-[680px] max-h-[160px]'}`}>
+    <div className={`w-full mx-auto transition-all duration-500 ${isExpanded ? 'max-w-[860px] max-h-[880px]' : showTryAsking ? 'max-w-[680px] max-h-[420px]' : 'max-w-[680px] max-h-[160px]'}`}>
 
       {/* Chat messages + input panel */}
       {isExpanded && (
@@ -979,6 +1020,12 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
+            onFocus={() => {
+              setShowTryAsking(true);
+              const ids = getSuggestionIds();
+              fetchPersonalizedSuggestions(ids.userId, ids.tempUserId, userGeoLocation);
+            }}
+            onBlur={() => setTimeout(() => setShowTryAsking(false), 200)}
             disabled={loading}
             rows={1}
           />
@@ -996,6 +1043,50 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
               </svg>
             )}
           </button>
+        </div>
+      )}
+
+      {/* Try Asking panel — personalized suggestions on search bar focus */}
+      {!isExpanded && showTryAsking && (
+        <div className="mt-2 bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-4 pt-3 pb-1">
+            Try Asking
+          </p>
+          <div className="pb-2">
+            {suggestionsLoading && personalizedSuggestions.length === 0
+              ? Array.from({ length: 4 }).map((_, i) => (
+                <div key={`skel-${i}`} className="flex items-center gap-3 px-4 py-3">
+                  <div className="w-4 h-4 flex-shrink-0 rounded-full bg-gray-200 animate-pulse" />
+                  <div
+                    className="h-3.5 rounded-full bg-gray-200 animate-pulse"
+                    style={{ width: `${55 + i * 10}%` }}
+                  />
+                </div>
+              ))
+              : tryAskingSuggestions.map((text, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onMouseDown={() => sendMessage(text)}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-orange-50/50 w-full text-left group transition-all"
+                >
+                  <svg
+                    className="w-4 h-4 flex-shrink-0 text-gray-400 group-hover:text-[#F58634] transition-colors"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2.25}
+                  >
+                    <circle cx="11" cy="11" r="8" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35" />
+                  </svg>
+                  <span className="text-sm text-gray-600 group-hover:text-gray-900 font-medium leading-snug">
+                    {text}
+                  </span>
+                </button>
+              ))
+            }
+          </div>
         </div>
       )}
 

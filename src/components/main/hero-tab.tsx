@@ -18,6 +18,8 @@ import ThinkingPanel from '@/components/main/ThinkingPanel';
 import type { ThinkingStep } from '@/components/main/ThinkingPanel';
 import { warning as showWarning } from '@/components/alert/notify';
 import { useRecordPropertyView } from '@/hooks/api/auth/useViewHistory';
+import { useGeolocation } from '@/hooks/useGeolocation';
+import { useSuggestions } from '@/hooks/useSuggestions';
 
 
 // Force refresh logic
@@ -1309,6 +1311,15 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const tempUserId = useAppSelector((state: any) => state.propertyPreference.tempUserId);
     const { sessionId: globalSessionId, setSessionId: setGlobalSessionId } = usePropertyStore();
 
+    // ── Personalized "Try Asking" suggestions ────────────────────────────────
+    const { location: userGeoLocation } = useGeolocation();
+    const {
+        suggestions: personalizedSuggestions,
+        loading: suggestionsLoading,
+        fetch: fetchPersonalizedSuggestions,
+        clearCache: clearSuggestionsCache,
+    } = useSuggestions();
+
     useEffect(() => {
         if (!tempUserId) {
             dispatch(initializeTempUserId());
@@ -1388,14 +1399,26 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     );
     const searchSuggestionIntent = classifySuggestionIntent(searchTerm);
     const initialSuggestionsMode = searchTerm.trim().length === 0;
+
+    // When search box is empty: prefer AI-personalized suggestions, fall back to static
+    // When user is typing: use local scored suggestions as before
+    const initialDisplaySuggestions: Suggestion[] = React.useMemo(() => {
+        if (personalizedSuggestions.length > 0) {
+            return personalizedSuggestions.map((text, i) => ({ id: `ai-pers-${i}`, text }));
+        }
+        return INITIAL_AI_TRY_ASKING_SUGGESTIONS;
+    }, [personalizedSuggestions]);
+
     const displayedAiSuggestions = initialSuggestionsMode
-        ? INITIAL_AI_TRY_ASKING_SUGGESTIONS
+        ? initialDisplaySuggestions
         : aiSuggestions;
+
+    // Show suggestions when: collapsed + focused + NL intent + (has suggestions OR is loading personalized)
     const suggestionsVisible =
         !isExpanded &&
         showSuggestions &&
         searchSuggestionIntent === 'nl' &&
-        displayedAiSuggestions.length > 0;
+        (displayedAiSuggestions.length > 0 || (suggestionsLoading && initialSuggestionsMode));
     const anySuggestionsVisible = !isExpanded && (
         suggestionsVisible ||
         (!!searchTerm.trim() && (showAddressSuggestions || isLoadingAddressSuggestions || showLocationSuggestions || isLoadingLocationSuggestions))
@@ -2635,6 +2658,8 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         setMlsBypassMode(false);
         setMlsBypassModeEnabled(false);
         trackAiQueryForSuggestions(queryToSearch);
+        // Bust suggestion cache so next focus re-generates fresh personalized suggestions
+        clearSuggestionsCache();
         setShowProactiveGreeting(false); // Hide proactive greeting once user sends first message
         setIsExpanded(true); // Immediate UI response
         if (onSearchStateChange) {
@@ -4229,19 +4254,20 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                 }
                                             }}
                                             onFocus={() => {
-                                                // Collapsed search box clicked — open chat with proactive greeting
-                                                setIsExpanded(true);
-                                                setProactiveGreetingText(buildProactiveGreeting(user?.firstname, user?.id));
-                                                setProactiveSuggestions(buildProactiveSuggestions());
-                                                setProactiveGreetingComplete(false);
-                                                setShowProactiveGreeting(true);
-                                                if (onSearchStateChange) onSearchStateChange(true, '');
+                                                // Show "Try Asking" dropdown first — expand only on submit
+                                                setShowSuggestions(true);
                                                 onSuggestionsOpen?.(true);
                                                 setShowAiModeTip(false);
                                                 if (aiModeTipTimerRef.current) {
                                                     clearTimeout(aiModeTipTimerRef.current);
                                                     aiModeTipTimerRef.current = null;
                                                 }
+                                                // Fetch personalized suggestions (no-op if already cached)
+                                                fetchPersonalizedSuggestions(
+                                                    user?.id || null,
+                                                    tempUserId || null,
+                                                    userGeoLocation
+                                                );
                                             }}
                                             onBlur={() => setTimeout(() => {
                                                 setShowSuggestions(false);
@@ -4374,7 +4400,18 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                                 {initialSuggestionsMode ? 'Try Asking' : 'AI Suggestions'}
                                             </p>
                                             <div className="space-y-1">
-                                                {displayedAiSuggestions.map((suggestion) => (
+                                                {/* Skeleton loaders while personalized suggestions are being fetched for first time */}
+                                                {suggestionsLoading && initialSuggestionsMode && personalizedSuggestions.length === 0
+                                                    ? Array.from({ length: 4 }).map((_, i) => (
+                                                        <div key={`skel-${i}`} className="flex items-center gap-3 p-3">
+                                                            <div className="w-4 h-4 flex-shrink-0 rounded-full bg-gray-200 animate-pulse" />
+                                                            <div
+                                                                className="h-3.5 rounded-full bg-gray-200 animate-pulse"
+                                                                style={{ width: `${55 + i * 10}%` }}
+                                                            />
+                                                        </div>
+                                                    ))
+                                                    : displayedAiSuggestions.map((suggestion) => (
                                                     <div
                                                         key={suggestion.id}
                                                         onMouseDown={() => handleSuggestionClick(suggestion.text)}

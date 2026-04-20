@@ -138,6 +138,21 @@ const STATIC_TRY_ASKING = [
   'Show me homes with a pool under $700k',
 ];
 
+// "Be Inspired" visual search tags — appended to current query on click
+const BE_INSPIRED_TAGS = [
+  { label: 'Natural light',             query: 'natural light and large windows' },
+  { label: 'White themed',              query: 'white themed interior' },
+  { label: 'Garden & outdoors',         query: 'garden and outdoor space' },
+  { label: 'Instagrammable bathroom',   query: 'instagrammable bathroom' },
+  { label: 'Modern kitchen',            query: 'modern kitchen' },
+  { label: 'High ceilings',             query: 'high ceilings' },
+  { label: 'Pool & spa',                query: 'pool and spa' },
+  { label: 'Floating stairs',           query: 'floating stairs' },
+  { label: 'Floor-to-ceiling windows',  query: 'floor-to-ceiling windows' },
+  { label: "Chef's kitchen",            query: "chef's kitchen" },
+  { label: 'Wine cellar',               query: 'wine cellar' },
+];
+
 // Returns userId (real) or tempUserId (anon) for the suggestions API
 function getSuggestionIds(): { userId: string | null; tempUserId: string | null } {
   if (typeof window === 'undefined') return { userId: null, tempUserId: null };
@@ -737,7 +752,7 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
   const lastMsgIndex = messages.length - 1;
 
   return (
-    <div className={`w-full mx-auto transition-all duration-500 ${isExpanded ? 'max-w-[860px] max-h-[880px]' : showTryAsking ? 'max-w-[680px] max-h-[480px]' : 'max-w-[680px] max-h-[160px]'}`}>
+    <div className={`w-full mx-auto transition-all duration-500 ${isExpanded ? 'max-w-[860px] max-h-[880px]' : showTryAsking ? 'max-w-[680px] max-h-[620px]' : 'max-w-[680px] max-h-[160px]'}`}>
 
       {/* Chat messages + input panel */}
       {isExpanded && (
@@ -992,20 +1007,6 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
         </div>
       )}
 
-      {/* Suggestion chips */}
-      {!isExpanded && (
-        <div className="flex flex-wrap justify-center gap-2 mb-3">
-          {SUGGESTIONS.map((s) => (
-            <button
-              key={s}
-              onClick={() => sendMessage(s)}
-              className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-white hover:bg-gray-50 hover:text-gray-900 transition-colors"
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Input bar + Try Asking — unified container when panel is open */}
       {!isExpanded && (
@@ -1076,6 +1077,37 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
                     </button>
                   ))
                 }
+              </div>
+
+              {/* Be Inspired section */}
+              <div className="border-t border-gray-100 px-4 pt-3 pb-4">
+                <p className="text-xs text-gray-400 mb-2.5">Be inspired...</p>
+                <div className="flex flex-wrap gap-2">
+                  {BE_INSPIRED_TAGS.map(({ label, query }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onMouseDown={() => {
+                        const current = input.trim();
+                        const next = current
+                          ? `${current} with ${query}`
+                          : `Show me homes with ${query}`;
+                        setInput(next);
+                        setTimeout(() => textareaRef.current?.focus(), 0);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 bg-white text-gray-600 text-xs font-medium hover:bg-[#FFF5EE] hover:border-[#F58634]/50 hover:text-gray-900 transition-all"
+                    >
+                      <svg
+                        className="w-2.5 h-2.5 flex-shrink-0"
+                        viewBox="0 0 24 24"
+                        fill="#E8A020"
+                      >
+                        <path d="M12 1.5c.3 2.8 1.2 5.4 2.8 7 1.6 1.6 4.2 2.5 7 2.8-2.8.3-5.4 1.2-7 2.8-1.6 1.6-2.5 4.2-2.8 7-.3-2.8-1.2-5.4-2.8-7-1.6-1.6-4.2-2.5-7-2.8 2.8-.3 5.4-1.2 7-2.8 1.6-1.6 2.5-4.2 2.8-7z" />
+                      </svg>
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}

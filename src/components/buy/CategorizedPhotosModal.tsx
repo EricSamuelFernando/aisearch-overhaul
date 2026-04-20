@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import Image from 'next/image';
 import { preloadImageUrls } from '@/lib/photo-preload';
@@ -42,7 +42,7 @@ const API_BASE_URL = IMAGE_CLASSIFIER_BASE_URL
     ? `${IMAGE_CLASSIFIER_BASE_URL}/api`
     : '/api';
 const IMAGE_CATEGORIZATION_API = `${API_BASE_URL}/image_categorization`;
-const CATEGORY_CACHE_PREFIX = 'photo_categorization_v1';
+const CATEGORY_CACHE_PREFIX = 'photo_categorization_v2';
 const IMAGE_CATEGORIZATION_POLL_INTERVAL_MS = 250;
 const IMAGE_CATEGORIZATION_POLL_WAIT_TIMEOUT_MS = 3500;
 const IMAGE_CATEGORIZATION_MAX_POLL_ATTEMPTS = 16;
@@ -94,15 +94,20 @@ const getUrlKeyCandidates = (value: unknown): string[] => {
     try {
         const parsed = new URL(cleaned);
         const path = stripQueryAndHash(parsed.pathname || '').toLowerCase();
-        if (path) candidates.add(path);
-        const leaf = path.split('/').filter(Boolean).at(-1);
-        if (leaf) candidates.add(leaf);
+        if (path) {
+            candidates.add(path);
+            if (path.startsWith('/')) {
+                candidates.add(path.slice(1));
+            }
+        }
     } catch {
         const withoutDomain = normalized.replace(/^https?:\/\/[^/]+/i, '');
         if (withoutDomain) {
             candidates.add(withoutDomain);
-            const leaf = withoutDomain.split('/').filter(Boolean).at(-1);
-            if (leaf) candidates.add(leaf);
+            const normalizedPath = withoutDomain.startsWith('/') ? withoutDomain.slice(1) : withoutDomain;
+            if (normalizedPath) {
+                candidates.add(normalizedPath);
+            }
         }
     }
 
@@ -114,6 +119,109 @@ const doesUrlMatch = (left: unknown, right: unknown): boolean => {
     const rightKeys = new Set(getUrlKeyCandidates(right));
     if (leftKeys.length === 0 || rightKeys.size === 0) return false;
     return leftKeys.some((key) => rightKeys.has(key));
+};
+
+const normalizeRoomToken = (value: unknown): string => {
+    if (typeof value !== 'string') return '';
+    return value
+        .toLowerCase()
+        .replaceAll('_', ' ')
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+};
+
+const getInsightSampleUrls = (insight: any): string[] => {
+    const sampleImages = Array.isArray(insight?.sample_images) ? insight.sample_images : [];
+    const sampleUrls = Array.isArray(insight?.sample_urls) ? insight.sample_urls : [];
+    const singleSampleUrl = typeof insight?.sample_url === 'string' ? [insight.sample_url] : [];
+    const imageUrls = sampleImages
+        .map((sample: any) => (typeof sample === 'string' ? sample : sample?.url))
+        .filter((url: unknown): url is string => typeof url === 'string' && url.length > 0);
+
+    return [...imageUrls, ...sampleUrls, ...singleSampleUrl];
+};
+
+const insightSeverityRank = (insight: any): number => {
+    const severity = String(insight?.severity || '').toLowerCase();
+    if (severity === 'high') return 3;
+    if (severity === 'medium') return 2;
+    if (severity === 'low') return 1;
+    return 0;
+};
+
+const insightConfidenceScore = (insight: any): number => {
+    const raw = insight?.confidence;
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+        return raw > 1 ? raw / 100 : raw;
+    }
+
+    const normalized = String(raw || insight?.confidence_label || '').toLowerCase();
+    if (normalized.includes('high')) return 0.9;
+    if (normalized.includes('medium')) return 0.6;
+    if (normalized.includes('low')) return 0.3;
+    return 0;
+};
+
+const rankAndDedupeInsightsForImage = (
+    insights: any[],
+    imageUrl: unknown,
+    room: string | null,
+): any[] => {
+    const normalizedRoom = normalizeRoomToken(room);
+    const bestByKey = new Map<string, { insight: any; score: number }>();
+
+    for (const insight of insights) {
+        const sampleUrls = getInsightSampleUrls(insight);
+        const exactImageMatch = sampleUrls.some((sampleUrl) => doesUrlMatch(sampleUrl, imageUrl));
+        const areas = Array.isArray(insight?.areas) ? insight.areas : [];
+        const normalizedAreas = areas.map((area: unknown) => normalizeRoomToken(area)).filter(Boolean);
+        const roomMatch = normalizedRoom ? normalizedAreas.includes(normalizedRoom) : false;
+        const specificityBoost = areas.length === 1 ? 90 : 0;
+        const roomScopedBoost = insight?._roomScoped ? 180 : 0;
+        const selectedArea = roomMatch
+            ? (areas.find((area: unknown) => normalizeRoomToken(area) === normalizedRoom) || room || 'global')
+            : (areas[0] || room || 'global');
+
+        // Prefer title-based identity so room-scoped and aggregated variants with different
+        // issue keys but same user-facing finding collapse into one card.
+        const identity = String(insight?.title || insight?.issue || 'insight')
+            .toLowerCase()
+            .replace(/[^a-z0-9\s]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        const dedupeKey = `${identity}::${String(selectedArea).toLowerCase().trim()}`;
+        const score =
+            (exactImageMatch ? 1000 : 0) +
+            (roomMatch ? 120 : 0) +
+            specificityBoost +
+            roomScopedBoost +
+            (insightSeverityRank(insight) * 10) +
+            (insightConfidenceScore(insight) * 5);
+
+        const existing = bestByKey.get(dedupeKey);
+        if (!existing || score > existing.score) {
+            bestByKey.set(dedupeKey, { insight, score });
+        }
+    }
+
+    return [...bestByKey.values()]
+        .sort((a, b) => b.score - a.score)
+        .map((entry) => entry.insight);
+};
+
+const getInsightImageConfidence = (insight: any, imageUrl: unknown): number | null => {
+    const sampleImages = Array.isArray(insight?.sample_images) ? insight.sample_images : [];
+    for (const sample of sampleImages) {
+        if (!sample) continue;
+        if (typeof sample === 'string') continue;
+        if (doesUrlMatch(sample?.url, imageUrl)) {
+            const value = Number(sample?.confidence);
+            if (!Number.isFinite(value)) return null;
+            return value > 1 ? value / 100 : value;
+        }
+    }
+    return null;
 };
 
 const classifyInsightTag = (insight: any): ImageTagKind => {
@@ -493,10 +601,19 @@ export default function CategorizedPhotosModal({
 
     const effectiveInsights = useMemo(() => {
         const directInsights = Array.isArray(analysis?.insights) ? analysis.insights : [];
-        if (directInsights.length > 0) return directInsights;
-
+        const synthesizedRoomInsights = directInsights.flatMap((insight: any) => {
+            const areas = Array.isArray(insight?.areas) ? insight.areas.filter(Boolean) : [];
+            if (areas.length <= 1) return [];
+            return areas.map((area: string) => ({
+                ...insight,
+                what: `${insight?.title || 'Condition issue'} observed in ${area}.`,
+                areas: [area],
+                _roomScoped: true,
+                _syntheticRoomScoped: true,
+            }));
+        });
         const roomSections = Array.isArray(analysis?.room_sections) ? analysis.room_sections : [];
-        return roomSections.flatMap((roomSection: any) => {
+        const roomScopedInsights = roomSections.flatMap((roomSection: any) => {
             const roomLabel = roomSection?.title || roomSection?.area;
             const issues = Array.isArray(roomSection?.issues) ? roomSection.issues : [];
             return issues.map((issue: any) => ({
@@ -507,8 +624,12 @@ export default function CategorizedPhotosModal({
                 areas: roomLabel ? [roomLabel] : [],
                 category: String(issue?.severity || '').toLowerCase() === 'high' ? 'repair' : 'potential',
                 classification: String(issue?.severity || '').toLowerCase() === 'high' ? 'Red Alert' : undefined,
+                _roomScoped: true,
             }));
         });
+        if (roomScopedInsights.length === 0 && synthesizedRoomInsights.length === 0) return directInsights;
+        if (directInsights.length === 0) return roomScopedInsights;
+        return [...roomScopedInsights, ...synthesizedRoomInsights, ...directInsights];
     }, [analysis]);
 
     const imageInsightMap = useMemo(() => {
@@ -545,18 +666,24 @@ export default function CategorizedPhotosModal({
         return mapped;
     }, [effectiveInsights]);
 
+    const resolveInsightsForImage = useCallback((imageUrl: unknown, room: string | null): any[] => {
+        const seen = new Set<any>();
+        const matchedInsights = getUrlKeyCandidates(imageUrl).flatMap((key) => {
+            const matches = imageInsightMap.get(key) || [];
+            return matches.filter((insight) => {
+                if (seen.has(insight)) return false;
+                seen.add(insight);
+                return true;
+            });
+        });
+
+        return rankAndDedupeInsightsForImage(matchedInsights, imageUrl, room);
+    }, [imageInsightMap]);
+
     const groupedPhotoSections = useMemo(() => {
         return orderedCats.map(([room, items]) => {
             const enrichedItems = (Array.isArray(items) ? items : []).map((item: any, idx: number) => {
-                const seen = new Set<any>();
-                const insights = getUrlKeyCandidates(item?.url).flatMap((key) => {
-                    const matches = imageInsightMap.get(key) || [];
-                    return matches.filter((insight) => {
-                        if (seen.has(insight)) return false;
-                        seen.add(insight);
-                        return true;
-                    });
-                });
+                const insights = resolveInsightsForImage(item?.url, room);
                 const tag = resolveImageTag(insights);
                 return {
                     item,
@@ -579,19 +706,11 @@ export default function CategorizedPhotosModal({
                 counts,
             };
         });
-    }, [orderedCats, imageInsightMap]);
+    }, [orderedCats, resolveInsightsForImage]);
 
     const fallbackTaggedPhotos = useMemo(() => {
         return fallbackPhotos.map((url, idx) => {
-            const seen = new Set<any>();
-            const insights = getUrlKeyCandidates(url).flatMap((key) => {
-                const matches = imageInsightMap.get(key) || [];
-                return matches.filter((insight) => {
-                    if (seen.has(insight)) return false;
-                    seen.add(insight);
-                    return true;
-                });
-            });
+            const insights = resolveInsightsForImage(url, null);
             const tag = resolveImageTag(insights);
             return {
                 url,
@@ -600,7 +719,7 @@ export default function CategorizedPhotosModal({
                 tag,
             };
         });
-    }, [fallbackPhotos, imageInsightMap]);
+    }, [fallbackPhotos, resolveInsightsForImage]);
 
     // Gallery Logic
     const closeGallery = () => setPreviewGallery(null);
@@ -727,26 +846,35 @@ export default function CategorizedPhotosModal({
                                 </button>
                             </div>
                             <div className="mt-3 space-y-2">
-                                {selectedTaggedImage.insights.slice(0, 2).map((insight, idx) => (
-                                    <div key={idx} className="rounded-lg border border-white/70 bg-white/70 p-3">
-                                        <div className="text-sm font-semibold text-gray-900">
-                                            {insight?.title || 'Condition Insight'}
+                                {selectedTaggedImage.insights.slice(0, 2).map((insight, idx) => {
+                                    const photoConfidence = getInsightImageConfidence(insight, selectedTaggedImage.url);
+                                    return (
+                                        <div key={idx} className="rounded-lg border border-white/70 bg-white/70 p-3">
+                                            <div className="text-sm font-semibold text-gray-900">
+                                                {insight?.title || 'Condition Insight'}
+                                            </div>
+                                            {(insight?.what || insight?.summary) && (
+                                                <p className="mt-1 text-sm text-gray-700">{insight?.what || insight?.summary}</p>
+                                            )}
+                                            {photoConfidence !== null && (
+                                                <p className="mt-1 text-xs text-gray-600">
+                                                    <span className="font-semibold text-gray-700">Photo confidence:</span>{' '}
+                                                    {Math.round(photoConfidence * 100)}%
+                                                </p>
+                                            )}
+                                            {(insight?.why || insight?.impact) && (
+                                                <p className="mt-1 text-xs text-gray-600">
+                                                    <span className="font-semibold text-gray-700">Impact:</span> {insight?.why || insight?.impact}
+                                                </p>
+                                            )}
+                                            {(insight?.next_step || insight?.recommendation) && (
+                                                <p className="mt-1 text-xs text-gray-600">
+                                                    <span className="font-semibold text-gray-700">Next step:</span> {insight?.next_step || insight?.recommendation}
+                                                </p>
+                                            )}
                                         </div>
-                                        {(insight?.what || insight?.summary) && (
-                                            <p className="mt-1 text-sm text-gray-700">{insight?.what || insight?.summary}</p>
-                                        )}
-                                        {(insight?.why || insight?.impact) && (
-                                            <p className="mt-1 text-xs text-gray-600">
-                                                <span className="font-semibold text-gray-700">Impact:</span> {insight?.why || insight?.impact}
-                                            </p>
-                                        )}
-                                        {(insight?.next_step || insight?.recommendation) && (
-                                            <p className="mt-1 text-xs text-gray-600">
-                                                <span className="font-semibold text-gray-700">Next step:</span> {insight?.next_step || insight?.recommendation}
-                                            </p>
-                                        )}
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     )}

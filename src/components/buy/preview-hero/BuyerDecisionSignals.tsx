@@ -505,14 +505,8 @@ const SEVERITY_COLOR: Record<string, string> = {
   opportunity: '#7c3aed',
 };
 
-const IMAGE_CLASSIFIER_BASE_URL =
-  process.env.NEXT_PUBLIC_IMAGE_CLASSIFIER_BASE_URL ||
-  process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  '';
-const AI_API_BASE = IMAGE_CLASSIFIER_BASE_URL
-  ? `${IMAGE_CLASSIFIER_BASE_URL}/api`
-  : '/api';
+// Keep classifier calls on local API routes so backend fallback logic can execute.
+const AI_API_BASE = '/api';
 const CACHE_PREFIX = 'photo_categorization_v1';
 
 function readConditionCache(listingId: string, propertyId: string) {

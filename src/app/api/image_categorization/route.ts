@@ -1,12 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  awaitImageCategorizationJobCompletion,
-  ensureImageCategorizationJob,
-  getImageCategorizationJobSnapshot,
-  waitForImageCategorizationJob,
-} from '@/lib/server/image-categorization-jobs';
-import {
-  allowLegacyClassifierFallback,
   ClassifierServiceError,
   postToClassifierService,
 } from '@/lib/server/image-classifier-service-client';
@@ -77,60 +70,6 @@ function validatePayload(parsed: ParsedPayload): NextResponse | null {
   return null;
 }
 
-async function runLegacyJobFlow(parsed: ParsedPayload): Promise<NextResponse> {
-  const listingId = Number(parsed.listingId);
-  const propertyId = parsed.propertyId;
-  const { key, entry, started } = ensureImageCategorizationJob({
-    listingId,
-    propertyId,
-  });
-  console.log(
-    `[ImageCategorization][route][legacy] listing=${listingId} property=${propertyId ?? 'n/a'} started=${started} status=${entry.status} asyncMode=${parsed.asyncMode} waitTimeoutMs=${parsed.waitTimeoutMs ?? 'none'}`,
-  );
-
-  if (parsed.asyncMode) {
-    const snapshot = getImageCategorizationJobSnapshot(key) || {
-      listingId,
-      propertyId,
-      status: started ? 'queued' : entry.status,
-    };
-
-    return NextResponse.json(
-      {
-        ...snapshot,
-        jobQueued: started || entry.status === 'running' || entry.status === 'queued',
-      },
-      { status: 202 },
-    );
-  }
-
-  if (parsed.waitTimeoutMs) {
-    await waitForImageCategorizationJob(key, parsed.waitTimeoutMs);
-    const snapshot =
-      getImageCategorizationJobSnapshot(key) || {
-        listingId,
-        propertyId,
-        status: 'queued',
-      };
-    return NextResponse.json(snapshot, { status: 200 });
-  }
-
-  await awaitImageCategorizationJobCompletion(key);
-  const snapshot = getImageCategorizationJobSnapshot(key);
-  if (!snapshot) {
-    return NextResponse.json(
-      { error: 'Image categorization job not found after completion' },
-      { status: 500 },
-    );
-  }
-
-  const failed = String(snapshot.status || '').toLowerCase() === 'failed';
-  if (failed) {
-    return NextResponse.json(snapshot, { status: 500 });
-  }
-  return NextResponse.json(snapshot, { status: 200 });
-}
-
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const parsed = parsePayload(body);
@@ -152,15 +91,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(proxied.body, { status: proxied.status });
   } catch (error) {
     if (error instanceof ClassifierServiceError) {
-      const canFallback =
-        allowLegacyClassifierFallback() && (error.statusCode >= 500 || error.statusCode === 502);
-      if (canFallback) {
-        console.warn(
-          `[ImageCategorization][route] proxy failed, falling back to legacy pipeline: ${error.message}`,
-        );
-        return runLegacyJobFlow(parsed);
-      }
-
       return NextResponse.json(
         error.payload || {
           error: error.message,

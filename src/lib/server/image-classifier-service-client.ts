@@ -81,8 +81,3 @@ export async function postToClassifierService(
     clearTimeout(timeout);
   }
 }
-
-export function allowLegacyClassifierFallback(): boolean {
-  const value = String(process.env.IMAGE_CLASSIFIER_ALLOW_FALLBACK ?? 'true').toLowerCase();
-  return value === '1' || value === 'true' || value === 'yes' || value === 'on';
-}

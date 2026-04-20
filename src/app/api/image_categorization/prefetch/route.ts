@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  ensureImageCategorizationJob,
-  getImageCategorizationJobSnapshot,
-} from '@/lib/server/image-categorization-jobs';
-import {
-  allowLegacyClassifierFallback,
   ClassifierServiceError,
   postToClassifierService,
 } from '@/lib/server/image-classifier-service-client';
@@ -59,35 +54,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(proxied.body, { status: proxied.status });
   } catch (error) {
     if (error instanceof ClassifierServiceError) {
-      const canFallback =
-        allowLegacyClassifierFallback() && (error.statusCode >= 500 || error.statusCode === 502);
-      if (canFallback) {
-        console.warn(
-          `[ImageCategorization][prefetch] proxy failed, falling back to legacy pipeline: ${error.message}`,
-        );
-        const { key, entry, started } = ensureImageCategorizationJob({
-          listingId,
-          propertyId,
-        });
-        console.log(
-          `[ImageCategorization][prefetch][legacy] listing=${listingId} property=${propertyId ?? 'n/a'} started=${started} status=${entry.status}`,
-        );
-        const snapshot = getImageCategorizationJobSnapshot(key) || {
-          listingId,
-          propertyId,
-          status: started ? 'queued' : entry.status,
-        };
-
-        return NextResponse.json(
-          {
-            ...snapshot,
-            scheduled: started,
-            deduped: !started,
-          },
-          { status: 200 },
-        );
-      }
-
       return NextResponse.json(
         error.payload || {
           error: error.message,

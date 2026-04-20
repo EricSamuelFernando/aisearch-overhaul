@@ -7,8 +7,8 @@
     "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next build",
     "build:demo": "cross-env NODE_OPTIONS=--max-old-space-size=4096 node scripts/prepare-env.cjs demo && next build",
     "build:prod": "cross-env NODE_OPTIONS=--max-old-space-size=4096 node scripts/prepare-env.cjs prod && next build",
-    "start": "node scripts/start-with-classifier.cjs",
-    "start:next": "next start -p 8001",
+    "start": "next start -p 3001",
+    "start:next": "next start -p 3001",
     "lint": "next lint"
   },
   "dependencies": {

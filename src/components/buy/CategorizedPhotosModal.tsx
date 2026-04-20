@@ -33,15 +33,9 @@ const ROOM_ORDER = [
 ];
 const ROOM_ORDER_LOOKUP = new Map(ROOM_ORDER.map((label, idx) => [label, idx]));
 
-const IMAGE_CLASSIFIER_BASE_URL =
-    process.env.NEXT_PUBLIC_IMAGE_CLASSIFIER_BASE_URL ||
-    process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI ||
-    process.env.NEXT_PUBLIC_API_BASE_URL ||
-    '';
-const API_BASE_URL = IMAGE_CLASSIFIER_BASE_URL
-    ? `${IMAGE_CLASSIFIER_BASE_URL}/api`
-    : '/api';
-const IMAGE_CATEGORIZATION_API = `${API_BASE_URL}/image_categorization`;
+// Always use the local Next.js API route so server-side fallback logic can run
+// when upstream classifier hosts are unavailable.
+const IMAGE_CATEGORIZATION_API = '/api/image_categorization';
 const CATEGORY_CACHE_PREFIX = 'photo_categorization_v2';
 const IMAGE_CATEGORIZATION_POLL_INTERVAL_MS = 250;
 const IMAGE_CATEGORIZATION_POLL_WAIT_TIMEOUT_MS = 3500;
@@ -169,7 +163,12 @@ const rankAndDedupeInsightsForImage = (
     room: string | null,
 ): any[] => {
     const normalizedRoom = normalizeRoomToken(room);
-    const bestByKey = new Map<string, { insight: any; score: number }>();
+    const bestByKey = new Map<string, {
+        insight: any;
+        score: number;
+        roomMatch: boolean;
+        exactImageMatch: boolean;
+    }>();
 
     for (const insight of insights) {
         const sampleUrls = getInsightSampleUrls(insight);
@@ -201,11 +200,32 @@ const rankAndDedupeInsightsForImage = (
 
         const existing = bestByKey.get(dedupeKey);
         if (!existing || score > existing.score) {
-            bestByKey.set(dedupeKey, { insight, score });
+            bestByKey.set(dedupeKey, {
+                insight,
+                score,
+                roomMatch,
+                exactImageMatch,
+            });
         }
     }
 
-    return [...bestByKey.values()]
+    let rankedEntries = [...bestByKey.values()];
+
+    // When a room card is clicked, keep room-scoped insights first so
+    // unrelated-area duplicates (e.g. kitchen insight on bathroom image) do not surface.
+    if (normalizedRoom) {
+        const roomMatchedEntries = rankedEntries.filter((entry) => entry.roomMatch);
+        if (roomMatchedEntries.length > 0) {
+            rankedEntries = roomMatchedEntries;
+        } else {
+            const exactImageEntries = rankedEntries.filter((entry) => entry.exactImageMatch);
+            if (exactImageEntries.length > 0) {
+                rankedEntries = exactImageEntries;
+            }
+        }
+    }
+
+    return rankedEntries
         .sort((a, b) => b.score - a.score)
         .map((entry) => entry.insight);
 };

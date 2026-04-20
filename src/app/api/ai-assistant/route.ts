@@ -20,6 +20,8 @@ import {
   appendMessage,
   extractAndUpdateProfile,
   extractAndUpdateProfileFromInterview,
+  markInterviewCompleted,
+  bumpSessionIfNew,
   extractAndSavePendingAction,
   recordSearchEvent,
 } from "@/lib/ai-assistant/memory";
@@ -250,6 +252,9 @@ export async function POST(req: NextRequest) {
         ]);
         log("profile + history loaded", T0);
 
+        // Increment session counter when this is a new session (gap > 2h).
+        if (bumpSessionIfNew(profile)) saveProfile(profile); // fire-and-forget
+
         // Seed identity fields if this is the first time we've seen them —
         // never overwrite an existing value, just fill in nulls.
         if ((email && !profile.email) || (name && !profile.name)) {
@@ -304,9 +309,15 @@ export async function POST(req: NextRequest) {
           await appendMessage(userId, { role: "assistant", content: interviewResp }, convId);
 
           if (!isInterviewStart) {
-            // Extract full buyer intelligence from this interview answer
-            extractAndUpdateProfileFromInterview(userId, message, interviewResp);
-            // Always write to Supermemory — every interview answer is preference signal
+            const isTransition = interviewResp.includes("Want me to pull up some homes in");
+            if (isTransition) {
+              // Final interview turn — await so profile is in Redis before the auto-search fires
+              await extractAndUpdateProfileFromInterview(userId, message, interviewResp);
+              await markInterviewCompleted(userId);
+              send({ type: "interview_complete" });
+            } else {
+              extractAndUpdateProfileFromInterview(userId, message, interviewResp);
+            }
             writeMemory(
               userId,
               `Home Pilot interview — User said: "${message.slice(0, 200)}". ` +

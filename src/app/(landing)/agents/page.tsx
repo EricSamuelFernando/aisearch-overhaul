@@ -7,7 +7,9 @@ import MainTestimonial from '@/components/main-testimonial';
 
 const AGENTS_REVALIDATE_SECONDS = 300;
 
-export const revalidate = AGENTS_REVALIDATE_SECONDS;
+// force-dynamic prevents Next.js from fetching the GraphQL endpoint at build
+// time when the auth service isn't running. Data is still ISR-cached per fetch.
+export const dynamic = 'force-dynamic';
 
 const AGENTS_TESTIMONIALS = [
   {

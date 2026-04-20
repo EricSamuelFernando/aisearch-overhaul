@@ -53,8 +53,12 @@ export function extractFeatures(params: MLSSearchParams): string[] {
 
 // ── Math helpers ─────────────────────────────────────────────────────────────
 
+// Cap the effective window so early low-budget searches don't permanently drag down the average.
+const INTELLIGENCE_WINDOW = 10;
+
 /**
- * Compute a cumulative running average.
+ * Windowed running average — weight is capped at INTELLIGENCE_WINDOW so old
+ * searches don't permanently drag down the result.
  * count = the NEW total count (after including this value).
  */
 export function runningAvg(
@@ -63,7 +67,8 @@ export function runningAvg(
   count: number,
 ): number {
   if (current === null || count <= 1) return newValue;
-  return (current * (count - 1) + newValue) / count;
+  const w = Math.min(count, INTELLIGENCE_WINDOW);
+  return (current * (w - 1) + newValue) / w;
 }
 
 // ── Intelligence update ──────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { pgTable, text, real, integer, jsonb, timestamp, uuid, index } from "drizzle-orm/pg-core";
+import { pgTable, text, real, integer, jsonb, timestamp, uuid, index, boolean } from "drizzle-orm/pg-core";
 import { MLSSearchParams } from "@/types/ai-assistant";
 
 // ── Buyer Profiles ───────────────────────────────────────────────────────────
@@ -22,6 +22,7 @@ export const buyerProfiles = pgTable("buyer_profiles", {
   dealBreakers:       jsonb("deal_breakers").$type<string[]>().notNull().default([]),
   propertyTypes:      jsonb("property_types").$type<string[]>().notNull().default([]),
   lastUpdated:        timestamp("last_updated", { withTimezone: true }).notNull().defaultNow(),
+  interviewCompleted: boolean("interview_completed").notNull().default(false),
 
   // Behavioral intelligence — derived from search_events, never from conversation
   // Frequency map: { "Austin,TX": 4, "Dallas,TX": 1 }

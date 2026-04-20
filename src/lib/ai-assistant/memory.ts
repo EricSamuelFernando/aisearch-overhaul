@@ -14,6 +14,7 @@ import { updateProfileIntelligence } from "./intelligence";
 import { anthropic } from "./claude";
 
 const PROFILE_TTL        = 60 * 60 * 24 * 90; // 90 days
+const SESSION_GAP_MS     = 2 * 60 * 60 * 1000; // 2 hours — mirrors frontend SESSION_TIMEOUT_MS
 const HISTORY_TTL        = 60 * 60 * 24 * 30; // 30 days
 const SEARCH_CTX_TTL     = 60 * 60 * 24 * 7;  // 7 days
 const PENDING_ACTION_TTL = 60 * 10;            // 10 minutes
@@ -52,6 +53,7 @@ const DEFAULT_PROFILE = (userId: string): BuyerProfile => ({
   dealBreakers:       [],
   propertyTypes:      [],
   lastUpdated:        new Date().toISOString(),
+  interviewCompleted: false,
   // Behavioral intelligence
   topCities:        {},
   avgBudgetMax:     null,
@@ -64,6 +66,21 @@ const DEFAULT_PROFILE = (userId: string): BuyerProfile => ({
   visualPreferences:  {},
   personalContext:    {},
 });
+
+// ── Session tracking ─────────────────────────────────────────────────────────
+
+/**
+ * Mutates profile.sessionCount in place when this request is a new session
+ * (lastActiveAt is null or gap > 2h). Returns true if incremented.
+ * Caller should fire-and-forget saveProfile when true.
+ */
+export function bumpSessionIfNew(profile: BuyerProfile): boolean {
+  const isNew =
+    !profile.lastActiveAt ||
+    Date.now() - new Date(profile.lastActiveAt).getTime() > SESSION_GAP_MS;
+  if (isNew) profile.sessionCount += 1;
+  return isNew;
+}
 
 // ── Profile load / save ──────────────────────────────────────────────────────
 
@@ -105,6 +122,7 @@ export async function loadProfile(userId: string): Promise<BuyerProfile> {
         dealBreakers:       row.dealBreakers ?? [],
         propertyTypes:      row.propertyTypes ?? [],
         lastUpdated:        row.lastUpdated.toISOString(),
+        interviewCompleted: row.interviewCompleted ?? false,
         // Behavioral intelligence — default to empty for pre-migration rows
         topCities:        (row.topCities as Record<string, number>) ?? {},
         avgBudgetMax:     row.avgBudgetMax ?? null,
@@ -148,6 +166,7 @@ export async function saveProfile(profile: BuyerProfile): Promise<void> {
         dealBreakers:       profile.dealBreakers,
         propertyTypes:      profile.propertyTypes,
         lastUpdated:        new Date(profile.lastUpdated),
+        interviewCompleted: profile.interviewCompleted,
         // Behavioral intelligence
         topCities:        profile.topCities,
         avgBudgetMax:     profile.avgBudgetMax ?? undefined,
@@ -176,6 +195,7 @@ export async function saveProfile(profile: BuyerProfile): Promise<void> {
           dealBreakers:       profile.dealBreakers,
           propertyTypes:      profile.propertyTypes,
           lastUpdated:        new Date(profile.lastUpdated),
+          interviewCompleted: profile.interviewCompleted,
           // Behavioral intelligence
           topCities:         profile.topCities,
           avgBudgetMax:      profile.avgBudgetMax ?? undefined,
@@ -243,6 +263,127 @@ export async function loadConversationIndex(userId: string, limit = 5): Promise<
   );
 
   return metas;
+}
+
+// ── Guest session merge ──────────────────────────────────────────────────────
+
+function mergeCounts(
+  a: Record<string, number>,
+  b: Record<string, number>,
+): Record<string, number> {
+  const result = { ...a };
+  for (const [k, v] of Object.entries(b)) result[k] = (result[k] ?? 0) + v;
+  return result;
+}
+
+function mostRecent(a: string | null, b: string | null): string | null {
+  if (!a) return b;
+  if (!b) return a;
+  return new Date(a) > new Date(b) ? a : b;
+}
+
+/**
+ * Merges a guest (anonymous) profile + most recent conversation into a real
+ * authenticated user account. Called once after login when a guestId exists
+ * in localStorage. Returns the migrated convId so the UI can restore it,
+ * or null if there was nothing worth migrating.
+ */
+export async function mergeGuestProfile(
+  guestId: string,
+  realUserId: string,
+): Promise<string | null> {
+  const redis = getRedis();
+
+  const [guest, real] = await Promise.all([
+    loadProfile(guestId),
+    loadProfile(realUserId),
+  ]);
+
+  const guestHasData =
+    guest.searchCount > 0 ||
+    Object.keys(guest.personalContext).length > 0 ||
+    guest.preferredLocations.length > 0 ||
+    guest.mustHaves.length > 0 ||
+    guest.interviewCompleted;
+
+  if (!guestHasData) return null;
+
+  const merged: BuyerProfile = {
+    // Start from guest — carries interview/search data
+    ...guest,
+    userId: realUserId,
+    // Identity always from real account
+    email: real.email ?? guest.email,
+    name:  real.name  ?? guest.name,
+    // Stated: merge arrays, real scalar wins
+    preferredLocations: Array.from(new Set([...guest.preferredLocations, ...real.preferredLocations])),
+    budgetMin:    real.budgetMin    ?? guest.budgetMin,
+    budgetMax:    real.budgetMax    ?? guest.budgetMax,
+    bedroomsMin:  real.bedroomsMin  ?? guest.bedroomsMin,
+    bathroomsMin: real.bathroomsMin ?? guest.bathroomsMin,
+    mustHaves:    Array.from(new Set([...guest.mustHaves,    ...real.mustHaves])),
+    dealBreakers: Array.from(new Set([...guest.dealBreakers, ...real.dealBreakers])),
+    propertyTypes: Array.from(new Set([...guest.propertyTypes, ...real.propertyTypes])),
+    interviewCompleted: guest.interviewCompleted || real.interviewCompleted,
+    // Behavioral intelligence: additive merge
+    topCities:        mergeCounts(guest.topCities,        real.topCities),
+    featureFrequency: mergeCounts(guest.featureFrequency, real.featureFrequency),
+    visualPreferences: mergeCounts(guest.visualPreferences, real.visualPreferences),
+    avgBudgetMax:    real.avgBudgetMax    ?? guest.avgBudgetMax,
+    avgBudgetMin:    real.avgBudgetMin    ?? guest.avgBudgetMin,
+    avgBedroomsMin:  real.avgBedroomsMin  ?? guest.avgBedroomsMin,
+    searchCount:  guest.searchCount  + real.searchCount,
+    sessionCount: guest.sessionCount + real.sessionCount,
+    lastActiveAt: mostRecent(guest.lastActiveAt, real.lastActiveAt),
+    personalContext: { ...guest.personalContext, ...real.personalContext },
+    lastUpdated: new Date().toISOString(),
+  };
+
+  await saveProfile(merged);
+
+  // Migrate the most recent guest conversation to the real userId
+  const guestConvIds = await redis.zrange(
+    convIndexKey(guestId), 0, 0, { rev: true },
+  ) as string[];
+
+  let migratedConvId: string | null = null;
+
+  if (guestConvIds.length > 0) {
+    const convId = guestConvIds[0];
+    const srcHistory   = convHistoryKey(guestId, convId);
+    const srcSearchCtx = convSearchCtxKey(guestId, convId);
+    const dstHistory   = convHistoryKey(realUserId, convId);
+    const dstSearchCtx = convSearchCtxKey(realUserId, convId);
+
+    const [messages, searchCtx] = await Promise.all([
+      redis.lrange(srcHistory, 0, -1),
+      redis.get(srcSearchCtx),
+    ]);
+
+    if (messages && messages.length > 0) {
+      await redis.rpush(dstHistory, ...(messages as string[]));
+      await redis.expire(dstHistory, HISTORY_TTL);
+      await redis.zadd(convIndexKey(realUserId), { score: Date.now(), member: convId });
+      await redis.expire(convIndexKey(realUserId), HISTORY_TTL);
+      migratedConvId = convId;
+    }
+
+    if (searchCtx) {
+      await redis.set(dstSearchCtx, searchCtx, { ex: SEARCH_CTX_TTL });
+    }
+
+    // Clean up guest keys — fire-and-forget
+    Promise.all([
+      redis.del(profileKey(guestId)),
+      redis.del(convIndexKey(guestId)),
+      redis.del(srcHistory),
+      redis.del(srcSearchCtx),
+    ]).catch(() => {});
+  } else {
+    redis.del(profileKey(guestId)).catch(() => {});
+  }
+
+  return migratedConvId;
 }
 
 // ── Search context ───────────────────────────────────────────────────────────
@@ -479,6 +620,30 @@ For removals: detect when a user replaces or negates a preference ("not Austin",
   }
 }
 
+// ── Property type normalization ──────────────────────────────────────────────
+
+const PROPERTY_TYPE_CANONICAL: [string[], string][] = [
+  [["single family", "single-family", "sfr", "singlefamily"], "Single Family"],
+  [["multi-family", "multifamily", "multi family", "mfr", "investment property", "income property"], "Multi-Family"],
+  [["condo", "condominium"], "Condo"],
+  [["townhouse", "townhome", "town house", "town home"], "Townhouse"],
+  [["duplex"], "Duplex"],
+  [["triplex"], "Triplex"],
+  [["fourplex", "quadplex", "4plex", "four-plex", "quad-plex"], "Fourplex"],
+  [["manufactured home", "mobile home", "manufactured", "mobile"], "Manufactured Home"],
+  [["cabin"], "Cabin"],
+  [["apartment"], "Apartment"],
+  [["land", "vacant lot", "lot only"], "Land"],
+];
+
+function normalizePropertyType(raw: string): string {
+  const lower = raw.toLowerCase().trim();
+  for (const [patterns, canonical] of PROPERTY_TYPE_CANONICAL) {
+    if (patterns.some((p) => lower === p || lower.includes(p))) return canonical;
+  }
+  return raw.trim();
+}
+
 // ── Interview profile extraction (Haiku, fire-and-forget) ───────────────────
 //
 // Richer than extractAndUpdateProfile — used exclusively on Home Pilot turns.
@@ -526,7 +691,7 @@ Extract visual labels as short concrete phrases for photo search matching.`,
               bathroomsMin: { anyOf: [{ type: "number" }, { type: "null" }] },
               propertyTypes: {
                 anyOf: [{ type: "array", items: { type: "string" } }, { type: "null" }],
-                description: "Infer: family with kids→SFR, young couple→condo or SFR, investor→MFR",
+                description: "Use EXACT MLS values only: 'Single Family', 'Condo', 'Townhouse', 'Multi-Family', 'Duplex', 'Triplex', 'Fourplex', 'Manufactured Home', 'Cabin', 'Apartment', 'Land'. Infer: family with kids→Single Family, young couple→Condo or Single Family, investor→Multi-Family",
               },
               mustHaves: {
                 anyOf: [{ type: "array", items: { type: "string" } }, { type: "null" }],
@@ -602,7 +767,7 @@ Extract visual labels as short concrete phrases for photo search matching.`,
       ])),
       propertyTypes: Array.from(new Set([
         ...toArr(current.propertyTypes),
-        ...toArr(raw.propertyTypes),
+        ...toArr(raw.propertyTypes).map(normalizePropertyType),
       ])),
       personalContext: {
         ...current.personalContext,
@@ -621,6 +786,12 @@ Extract visual labels as short concrete phrases for photo search matching.`,
   } catch (err) {
     console.warn("[Memory] interview extraction failed:", err instanceof Error ? err.message : err);
   }
+}
+
+export async function markInterviewCompleted(userId: string): Promise<void> {
+  const profile = await loadProfile(userId);
+  if (profile.interviewCompleted) return;
+  await saveProfile({ ...profile, interviewCompleted: true });
 }
 
 // ── Pending action extraction (Haiku, fire-and-forget) ───────────────────────

@@ -1,12 +1,9 @@
 'use client';
 
 import { usePropertyStore } from '@/store/use-property-store';
-import { useAppDispatch } from '@/lib/hook';
-import { setPropertyView } from '@/slices/property/property-slice';
-import { useProperty } from '@/shared/hooks/useProperty';
-import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { MLSSearchParams } from '@/types/ai-assistant';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 function AskAiIcon({ size = 31 }: { size?: number }) {
   return (
@@ -33,67 +30,139 @@ function AskAiIcon({ size = 31 }: { size?: number }) {
 }
 
 type ChatMessage = { id: string; role: 'user' | 'assistant'; content: string };
+type ListingsPayload = { params?: Partial<MLSSearchParams> };
 
-interface BrowseAIDelta {
-  city: string | null;
-  state: string | null;
-  beds: number | null;
-  baths: number | null;
-  priceMin: number | null;
-  priceMax: number | null;
-  propertyType: string | null;
-  subcategories_add: string[];
-  subcategories_remove: string[];
-  clear_filters: boolean;
-  map_overlay: string | null;      // "schools" | "none" | null
-  poi_add: string[];               // restaurants | gyms | hospitals | parks
-  poi_remove: string[];
-  view_mode: string | null;        // "map" | "grid" | null
-  compare_mode: boolean | null;
-  clear_draw: boolean;
-  reply: string;
+interface UserIdentity {
+  userId: string;
+  email: string | null;
+  name: string | null;
 }
+
+function getUserIdentity(): UserIdentity {
+  if (typeof window === 'undefined') return { userId: 'anon', email: null, name: null };
+  try {
+    const userDetails = localStorage.getItem('userDetails');
+    if (userDetails) {
+      const parsed = JSON.parse(userDetails);
+      if (parsed?.id) {
+        const firstName = parsed.firstname ?? parsed.firstName ?? '';
+        const lastName = parsed.lastname ?? parsed.lastName ?? '';
+        const fullName = [firstName, lastName].filter(Boolean).join(' ') || null;
+        return { userId: parsed.id, email: parsed.email ?? null, name: fullName };
+      }
+    }
+  } catch {}
+
+  let id = localStorage.getItem('snapz_ai_user_id');
+  if (!id) {
+    id = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `anon-${Date.now()}`;
+    localStorage.setItem('snapz_ai_user_id', id);
+  }
+  return { userId: id, email: null, name: null };
+}
+
+const toKeywordList = (raw?: string) =>
+  String(raw ?? '')
+    .split(',')
+    .map((k) => k.trim())
+    .filter(Boolean);
+
+const uniqueKeywords = (items: string[]) => Array.from(new Set(items.map((k) => k.toLowerCase())));
+
+const enrichAiParamsFromQuery = (
+  aiParams: Partial<MLSSearchParams>,
+  rawQuery: string,
+): Partial<MLSSearchParams> => {
+  const q = rawQuery.toLowerCase();
+  const next: Partial<MLSSearchParams> = { ...aiParams };
+  const existingKeywords = toKeywordList(aiParams.description_keywords as string | undefined);
+  const inferredKeywords: string[] = [];
+
+  if (/\b(big|large)\s+garden\b|\bgarden\b|\b(backyard|yard)\b/.test(q)) {
+    inferredKeywords.push('big garden', 'large backyard', 'spacious yard');
+    if (typeof next.lot_size_min !== 'number') next.lot_size_min = 7000;
+  }
+  if (/\bdining\b|\bdining room\b|\bdining table\b/.test(q)) {
+    inferredKeywords.push('dining room', 'large dining table');
+    if (!next.room_hint || next.room_hint === 'any') next.room_hint = 'dining_room';
+  }
+  if (/\bhardwood floors?\b|\bhardwood\b/.test(q)) {
+    inferredKeywords.push('hardwood floors');
+  }
+  if (/\bnatural light\b|\bbright\b|\bbig windows?\b|\bwell lit\b/.test(q)) {
+    inferredKeywords.push('natural light', 'large windows', 'bright interior');
+  }
+
+  const mergedKeywords = uniqueKeywords([...existingKeywords, ...inferredKeywords]);
+  if (mergedKeywords.length > 0 && !next.description_keywords) {
+    next.description_keywords = mergedKeywords.join(', ');
+  } else if (mergedKeywords.length > 0) {
+    next.description_keywords = mergedKeywords.join(', ');
+  }
+
+  if (!next.visual_query && inferredKeywords.length > 0) {
+    next.visual_query = mergedKeywords.join(', ');
+  }
+
+  return next;
+};
 
 export default function BrowseAIChat() {
   const router = useRouter();
-  const dispatch = useAppDispatch();
-  const { currentView } = useProperty();
+  const searchParams = useSearchParams();
   const [expanded, setExpanded] = useState(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [showChatPanel, setShowChatPanel] = useState(true);
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const dragStartRef = useRef<{ pointerX: number; pointerY: number; startX: number; startY: number } | null>(null);
+  const previousUserSelectRef = useRef<string>('');
+  const draggedRef = useRef(false);
 
-  // Current URL state — source of truth for what's on screen
-  const searchParams = useSearchParams();
+  const { clearProperties, setIsLoading } = usePropertyStore();
+
   const rawQ = searchParams.get('q') || '';
-  const urlParts = rawQ.split(',').map(s => s.trim());
-  const browseCity = urlParts[0] || null;
-  const stateCandidate = urlParts[1]?.toUpperCase();
-  const browseState = stateCandidate && /^[A-Z]{2}$/.test(stateCandidate) ? stateCandidate : null;
-
-  const {
-    allProperties,
-    setIsLoading,
-    clearProperties,
-    selectedSubCategories,
-    toggleSubCategory,
-    setSelectedSubCategories,
-    mapOverlay,
-    setMapOverlay,
-    activePOICategories,
-    setActivePOICategories,
-    isCompareMode,
-    setCompareMode,
-    incrementClearDrawSignal,
-    setDrawFilteredPropertyIds,
-  } = usePropertyStore();
-
+  const browseCity = rawQ.split(',')[0]?.trim() || null;
   const hasMessages = messages.length > 0;
+
+  const clampPosition = useCallback((x: number, y: number) => {
+    if (typeof window === 'undefined') return { x, y };
+    const node = containerRef.current;
+    const width = node?.offsetWidth ?? 58;
+    const height = node?.offsetHeight ?? 58;
+    const maxX = Math.max(8, window.innerWidth - width - 8);
+    const maxY = Math.max(8, window.innerHeight - height - 8);
+    return {
+      x: Math.min(Math.max(8, x), maxX),
+      y: Math.min(Math.max(8, y), maxY),
+    };
+  }, []);
+
+  const getExpandedBarWidth = useCallback(() => {
+    if (typeof window === 'undefined') return 440;
+    return Math.min(window.innerWidth - 32, 440);
+  }, []);
+
+  const collapseToCenteredIcon = useCallback(() => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    const startX = position?.x ?? rect?.left;
+    const startY = position?.y ?? rect?.top;
+    if (typeof startX !== 'number' || typeof startY !== 'number') return;
+
+    const currentWidth = containerRef.current?.offsetWidth ?? getExpandedBarWidth();
+    const collapsedWidth = 58;
+    const centeredX = startX + (currentWidth - collapsedWidth) / 2;
+    setPosition(clampPosition(centeredX, startY));
+  }, [position, clampPosition, getExpandedBarWidth]);
 
   useEffect(() => {
     if (expanded) setTimeout(() => inputRef.current?.focus(), 180);
@@ -107,219 +176,326 @@ export default function BrowseAIChat() {
     function handler(e: MouseEvent) {
       if (loading) return;
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        if (expanded) collapseToCenteredIcon();
         setExpanded(false);
       }
     }
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [loading]);
+  }, [loading, expanded, collapseToCenteredIcon]);
 
-  useEffect(() => () => { abortRef.current?.abort(); }, []);
+  useEffect(() => () => abortRef.current?.abort(), []);
 
-  function buildContext() {
-    const beds = searchParams.get('bedRooms') ? Number(searchParams.get('bedRooms')) : null;
-    const baths = searchParams.get('bathRooms') ? Number(searchParams.get('bathRooms')) : null;
-    const priceMin = searchParams.get('priceMin') ? Number(searchParams.get('priceMin')) : null;
-    const priceMax = searchParams.get('priceMax') ? Number(searchParams.get('priceMax')) : null;
-    const propertyType = searchParams.get('propertyType') || null;
+  const captureCurrentPosition = useCallback(() => {
+    if (position || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    setPosition(clampPosition(rect.left, rect.top));
+  }, [position, clampPosition]);
 
-    // Top 10 visible listings for Q&A context
-    const topProperties = allProperties.slice(0, 10).map((p: any) => {
-      const d = p.data || p;
-      const listing = d.listing || d;
-      const addr = listing?.address?.unparsedAddress || d.address || '';
-      const price = listing?.listPriceLow ?? listing?.listPrice ?? listing?.ListPrice ?? d.price ?? 0;
-      const beds = d.beds ?? listing?.property?.bedroomsTotal ?? 0;
-      const baths = d.baths ?? listing?.property?.bathroomsTotal ?? 0;
-      return { address: addr, price: Number(price) || 0, beds: Number(beds) || 0, baths: Number(baths) || 0 };
+  useEffect(() => {
+    if (!position) return;
+    const id = window.requestAnimationFrame(() => {
+      setPosition((prev) => {
+        if (!prev) return prev;
+        return clampPosition(prev.x, prev.y);
+      });
     });
+    return () => window.cancelAnimationFrame(id);
+  }, [expanded, messages.length, clampPosition, position]);
 
-    return {
-      city: browseCity,
-      state: browseState,
-      beds,
-      baths,
-      priceMin,
-      priceMax,
-      propertyType,
-      activeSubCategories: selectedSubCategories,
-      mapOverlay: mapOverlay || 'none',
-      currentView: currentView || 'map',
-      isCompareMode: isCompareMode || false,
-      resultCount: allProperties.length,
-      topProperties,
+  useEffect(() => {
+    if (!position) return;
+    const onResize = () => {
+      setPosition((prev) => {
+        if (!prev) return prev;
+        return clampPosition(prev.x, prev.y);
+      });
     };
-  }
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [position, clampPosition]);
 
-  function applyDelta(delta: BrowseAIDelta) {
+  const applySearchParams = useCallback((aiParams: Partial<MLSSearchParams>, fallbackQuery: string) => {
+    const enrichedParams = enrichAiParamsFromQuery(aiParams, fallbackQuery);
     const params = new URLSearchParams(searchParams.toString());
+    const city = (enrichedParams.city ?? '').trim();
+    const state = (enrichedParams.state ?? '').trim().toUpperCase();
+    const zip = (enrichedParams.zip ?? '').trim();
+    const county = (enrichedParams.county ?? '').trim();
+    const nextQ = city && state ? `${city}, ${state}` : city || zip || county || fallbackQuery;
+    if (nextQ) params.set('q', nextQ);
 
-    // Clear all non-location filters
-    if (delta.clear_filters) {
-      params.delete('bedRooms');
-      params.delete('bathRooms');
-      params.delete('priceMin');
-      params.delete('priceMax');
-      params.delete('propertyType');
-      setSelectedSubCategories([]);
-    }
+    const setOrDelete = (key: string, value: unknown) => {
+      if (value === null || value === undefined || value === '') params.delete(key);
+      else params.set(key, String(value));
+    };
 
-    // Location change — update ?q= param and clear stale cards immediately
-    if (delta.city) {
-      const newQ = delta.state ? `${delta.city}, ${delta.state}` : delta.city;
-      params.set('q', newQ);
-      clearProperties();
-    }
+    setOrDelete('bedRooms', enrichedParams.bedrooms_min ?? enrichedParams.bedrooms_max);
+    setOrDelete('bathRooms', enrichedParams.bathrooms_min ?? enrichedParams.bathrooms_max);
+    setOrDelete('priceMin', enrichedParams.listing_price_min);
+    setOrDelete('priceMax', enrichedParams.listing_price_max);
+    setOrDelete(
+      'propertyType',
+      enrichedParams.property_sub_type ?? enrichedParams.listing_property_type ?? enrichedParams.property_type,
+    );
+    setOrDelete('hasPool', enrichedParams.has_pool === true ? 1 : undefined);
+    setOrDelete('latestOnly', enrichedParams.latest_only === true ? 1 : undefined);
+    params.set('aiParams', encodeURIComponent(JSON.stringify(enrichedParams)));
 
-    // Numeric filters — null = no change, 0 = delete, positive = set
-    if (delta.beds !== null) {
-      delta.beds === 0 ? params.delete('bedRooms') : params.set('bedRooms', String(delta.beds));
-    }
-    if (delta.baths !== null) {
-      delta.baths === 0 ? params.delete('bathRooms') : params.set('bathRooms', String(delta.baths));
-    }
-    if (delta.priceMin !== null) {
-      delta.priceMin === 0 ? params.delete('priceMin') : params.set('priceMin', String(delta.priceMin));
-    }
-    if (delta.priceMax !== null) {
-      delta.priceMax === 0 ? params.delete('priceMax') : params.set('priceMax', String(delta.priceMax));
-    }
-    if (delta.propertyType !== null) {
-      delta.propertyType === '' ? params.delete('propertyType') : params.set('propertyType', delta.propertyType);
-    }
-
-    // Subcategory toggles (client-side feature filter on loaded results)
-    delta.subcategories_add?.forEach(sc => {
-      if (!selectedSubCategories.includes(sc)) toggleSubCategory(sc);
-    });
-    delta.subcategories_remove?.forEach(sc => {
-      if (selectedSubCategories.includes(sc)) toggleSubCategory(sc);
-    });
-
-    // POI category toggles (restaurants, gyms, hospitals, parks)
-    if ((delta.poi_add?.length ?? 0) > 0 || (delta.poi_remove?.length ?? 0) > 0) {
-      let next = [...activePOICategories];
-      delta.poi_add?.forEach(k => { if (!next.includes(k)) next.push(k); });
-      delta.poi_remove?.forEach(k => { next = next.filter(x => x !== k); });
-      setActivePOICategories(next);
-    }
-
-    // Map overlay (schools district layer)
-    if (delta.map_overlay !== null && delta.map_overlay !== undefined) {
-      const overlay = delta.map_overlay === 'schools' ? 'schools' : 'none';
-      setMapOverlay(overlay);
-    }
-
-    // View mode (map / grid)
-    if (delta.view_mode === 'map' || delta.view_mode === 'grid') {
-      dispatch(setPropertyView(delta.view_mode));
-    }
-
-    // Compare mode
-    if (delta.compare_mode !== null && delta.compare_mode !== undefined) {
-      setCompareMode(delta.compare_mode);
-    }
-
-    // Clear drawn polygon
-    if (delta.clear_draw) {
-      setDrawFilteredPropertyIds(null);
-      incrementClearDrawSignal();
-    }
-
-    // Push URL change — property-info.tsx useEffect detects this and fires sendSearchRequest()
-    const hasUrlChange =
-      delta.city ||
-      delta.beds !== null ||
-      delta.baths !== null ||
-      delta.priceMin !== null ||
-      delta.priceMax !== null ||
-      delta.propertyType !== null ||
-      delta.clear_filters;
-
-    if (hasUrlChange) {
-      setIsLoading(true);
-      router.replace(`?${params.toString()}`, { scroll: false });
-    }
-  }
-
-  function clearChat() {
-    setMessages([]);
-  }
+    clearProperties();
+    setIsLoading(true);
+    router.replace(`?${params.toString()}`, { scroll: false });
+  }, [searchParams, clearProperties, setIsLoading, router]);
 
   async function send() {
     const query = input.trim();
     if (!query || loading) return;
 
     const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', content: query };
-    setMessages(prev => [...prev, userMsg]);
+    const assistantId = (Date.now() + 1).toString();
+
+    setMessages(prev => [...prev, userMsg, { id: assistantId, role: 'assistant', content: '' }]);
     setInput('');
     setLoading(true);
     setExpanded(true);
+    setShowChatPanel(true);
 
     abortRef.current?.abort();
     abortRef.current = new AbortController();
 
     try {
-      const context = buildContext();
-      // Last 6 messages = last 3 conversation turns
-      const history = messages.slice(-6).map(m => ({ role: m.role, content: m.content }));
-
-      const res = await fetch('/api/browse-ai', {
+      const res = await fetch('/api/ai-assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: query, context, history }),
+        body: JSON.stringify({ message: query, ...getUserIdentity() }),
         signal: abortRef.current.signal,
       });
 
-      if (!res.ok) throw new Error(`Request failed (${res.status})`);
-      const delta: BrowseAIDelta = await res.json();
+      if (!res.ok || !res.body) throw new Error(`Request failed (${res.status})`);
 
-      applyDelta(delta);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let prose = '';
+      let paramsApplied = false;
 
-      setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: delta.reply || 'Done.',
-      }]);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop() ?? '';
+
+        for (const part of parts) {
+          const line = part.trim();
+          if (!line.startsWith('data: ')) continue;
+          const jsonStr = line.slice(6);
+          let event: { type: string; data?: any; text?: string; message?: string };
+          try {
+            event = JSON.parse(jsonStr);
+          } catch {
+            continue;
+          }
+
+          if (event.type === 'listings') {
+            const payload = event.data;
+            if (payload && !Array.isArray(payload) && typeof payload === 'object' && !paramsApplied) {
+              const aiParams = (payload as ListingsPayload).params;
+              if (aiParams) {
+                applySearchParams(aiParams, query);
+                paramsApplied = true;
+              }
+            }
+          } else if (event.type === 'token') {
+            prose += event.text ?? '';
+            const snapshot = prose;
+            setMessages(prev => prev.map(m => (m.id === assistantId ? { ...m, content: snapshot } : m)));
+          } else if (event.type === 'error') {
+            throw new Error(event.message ?? 'Unknown error');
+          }
+        }
+      }
+
+      setMessages(prev =>
+        prev.map(m => (m.id === assistantId && !m.content.trim() ? { ...m, content: 'Done.' } : m)),
+      );
     } catch (err: any) {
       if (err?.name === 'AbortError') return;
       console.error('[BrowseAIChat] error:', err);
-      setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'Something went wrong. Please try again.',
-      }]);
+      setMessages(prev =>
+        prev.map(m => (m.id === assistantId ? { ...m, content: 'Something went wrong. Please try again.' } : m)),
+      );
     } finally {
       setLoading(false);
     }
   }
 
   function handleKey(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter') { e.preventDefault(); send(); }
-    if (e.key === 'Escape') { setExpanded(false); }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      send();
+    }
+    if (e.key === 'Escape') {
+      collapseToCenteredIcon();
+      setExpanded(false);
+    }
+  }
+
+  function handleIconPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (expanded) return;
+    if (e.button !== 0) return;
+
+    startDrag(e.clientX, e.clientY);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function handleIconPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    handleDragMove(e.clientX, e.clientY);
+  }
+
+  function handleIconPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    if (dragStartRef.current) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    stopDrag();
+  }
+
+  function startDrag(clientX: number, clientY: number) {
+    captureCurrentPosition();
+    const rect = containerRef.current?.getBoundingClientRect();
+    const startX = position?.x ?? rect?.left ?? 0;
+    const startY = position?.y ?? rect?.top ?? 0;
+
+    dragStartRef.current = {
+      pointerX: clientX,
+      pointerY: clientY,
+      startX,
+      startY,
+    };
+    draggedRef.current = false;
+    setDragging(true);
+    if (typeof document !== 'undefined') {
+      previousUserSelectRef.current = document.body.style.userSelect;
+      document.body.style.userSelect = 'none';
+    }
+  }
+
+  function handleDragMove(clientX: number, clientY: number) {
+    if (!dragStartRef.current) return;
+    const dx = clientX - dragStartRef.current.pointerX;
+    const dy = clientY - dragStartRef.current.pointerY;
+
+    if (!draggedRef.current && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+      draggedRef.current = true;
+    }
+
+    const next = clampPosition(dragStartRef.current.startX + dx, dragStartRef.current.startY + dy);
+    setPosition(next);
+  }
+
+  function stopDrag() {
+    setDragging(false);
+    dragStartRef.current = null;
+    if (typeof document !== 'undefined') {
+      document.body.style.userSelect = previousUserSelectRef.current;
+    }
+  }
+
+  function handlePanelPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (!expanded || !hasMessages) return;
+    if (e.button !== 0) return;
+
+    const target = e.target as HTMLElement;
+    const interactive = target.closest('button, input, textarea, a, [role="button"]');
+    if (interactive) return;
+
+    startDrag(e.clientX, e.clientY);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function handlePanelPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    handleDragMove(e.clientX, e.clientY);
+  }
+
+  function handlePanelPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    if (dragStartRef.current) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    stopDrag();
+  }
+
+  function handleToggleClick() {
+    if (draggedRef.current) {
+      draggedRef.current = false;
+      return;
+    }
+    if (!expanded) {
+      captureCurrentPosition();
+      const rect = containerRef.current?.getBoundingClientRect();
+      const startX = position?.x ?? rect?.left ?? 0;
+      const startY = position?.y ?? rect?.top ?? 0;
+      const collapsedWidth = 58;
+      const expandedWidth = getExpandedBarWidth();
+      const centeredX = startX - (expandedWidth - collapsedWidth) / 2;
+      setPosition(clampPosition(centeredX, startY));
+      setShowChatPanel(true);
+      setExpanded(true);
+      return;
+    }
+    collapseToCenteredIcon();
+    setExpanded(false);
   }
 
   return (
     <div
       ref={containerRef}
-      className="fixed bottom-5 right-3 left-auto translate-x-0 z-50 flex flex-col items-center gap-3 md:bottom-8 md:left-1/2 md:right-auto md:-translate-x-1/2"
+      className={[
+        `fixed z-50 flex flex-col items-center ${hasMessages ? 'gap-0' : 'gap-3'}`,
+        position ? '' : 'bottom-5 right-3 left-auto translate-x-0 md:bottom-8 md:left-1/2 md:right-auto md:-translate-x-1/2',
+      ].join(' ')}
+      style={position ? { left: `${position.x}px`, top: `${position.y}px` } : undefined}
     >
-      {/* ── Floating chat history ─────────────────────────────────────────── */}
-      {hasMessages && (
-        <div className="w-[440px] bg-white rounded-2xl shadow-[0_16px_48px_rgba(0,0,0,0.16)] border border-gray-100 overflow-hidden">
+      {hasMessages && showChatPanel && (
+        <div
+          className={`relative w-[440px] bg-white rounded-t-2xl rounded-b-none border border-gray-100 border-b-0 overflow-hidden ${expanded ? (dragging ? 'cursor-grabbing' : 'cursor-grab') : ''} ${expanded ? 'shadow-none' : 'shadow-[0_16px_48px_rgba(0,0,0,0.16)]'}`}
+          onPointerDown={handlePanelPointerDown}
+          onPointerMove={handlePanelPointerMove}
+          onPointerUp={handlePanelPointerUp}
+          onPointerCancel={handlePanelPointerUp}
+        >
+          <div className="h-12 border-b border-gray-100 px-4 flex items-center justify-end">
+            <button
+              type="button"
+              aria-label="Close chat panel"
+              className="h-6 w-6 p-0 rounded-full border border-gray-200 bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-50 flex items-center justify-center select-none outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                collapseToCenteredIcon();
+                setShowChatPanel(false);
+                setExpanded(false);
+              }}
+            >
+              <span className="block text-xs leading-none select-none">&times;</span>
+            </button>
+          </div>
           <div className="max-h-[320px] overflow-y-auto px-4 py-4 space-y-3">
             {messages.map(msg => (
+              (msg.role === 'assistant' && !msg.content.trim()) ? null : (
               <div key={msg.id} className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {msg.role === 'assistant' && <div className="shrink-0 mt-0.5"><AskAiIcon size={20} /></div>}
-                <div className={[
-                  'max-w-[86%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed',
-                  msg.role === 'user'
-                    ? 'bg-gray-950 text-white rounded-tr-sm'
-                    : 'bg-gray-50 text-gray-800 border border-gray-100 rounded-tl-sm',
-                ].join(' ')}>
+                <div
+                  className={[
+                    'max-w-[86%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed',
+                    msg.role === 'user'
+                      ? 'bg-gray-950 text-white rounded-tr-sm'
+                      : 'bg-gray-50 text-gray-800 border border-gray-100 rounded-tl-sm',
+                  ].join(' ')}
+                >
                   <p className="whitespace-pre-wrap">{msg.content}</p>
                 </div>
               </div>
+              )
             ))}
             {loading && (
               <div className="flex gap-2 justify-start">
@@ -327,7 +503,11 @@ export default function BrowseAIChat() {
                 <div className="bg-gray-50 border border-gray-100 rounded-2xl rounded-tl-sm px-4 py-2.5">
                   <span className="flex gap-1.5">
                     {[0, 150, 300].map(d => (
-                      <span key={d} className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: `${d}ms` }} />
+                      <span
+                        key={d}
+                        className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
+                        style={{ animationDelay: `${d}ms` }}
+                      />
                     ))}
                   </span>
                 </div>
@@ -335,33 +515,37 @@ export default function BrowseAIChat() {
             )}
             <div ref={messagesEndRef} />
           </div>
-          <div className="border-t border-gray-100 px-4 py-2 flex justify-end">
-            <button
-              onClick={clearChat}
-              className="text-xs text-gray-300 hover:text-gray-500 transition-colors"
-            >
-              Clear chat
-            </button>
-          </div>
         </div>
       )}
 
-      {/* ── Expanding pill ─────────────────────────────────────────────────── */}
       <div
         className={[
-          'flex items-center bg-white rounded-full border border-gray-200',
+          'flex items-center !bg-white border border-gray-100',
+          expanded && hasMessages ? 'rounded-t-none rounded-b-2xl' : 'rounded-full',
           'transition-all duration-300 ease-out overflow-hidden',
           expanded
-            ? 'w-[calc(100vw-32px)] max-w-[440px] md:w-[440px] pl-3 pr-2.5 py-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.14)]'
-            : 'w-[58px] h-[58px] justify-center cursor-pointer hover:shadow-[0_12px_40px_rgba(0,0,0,0.20)]',
-          !expanded && hasMessages && !loading ? 'browse-ai-active-glow' : 'shadow-[0_8px_32px_rgba(0,0,0,0.14)]',
+            ? `w-[calc(100vw-32px)] max-w-[440px] md:w-[440px] pl-3 pr-2.5 py-2.5 ${hasMessages ? 'rounded-t-none border-t-0 shadow-none' : 'shadow-[0_8px_32px_rgba(0,0,0,0.14)]'}`
+            : `w-[58px] h-[58px] justify-center cursor-${dragging ? 'grabbing' : 'grab'} hover:shadow-[0_12px_40px_rgba(0,0,0,0.20)]`,
+          !expanded && !loading ? 'browse-ai-active-glow' : (expanded && hasMessages ? '' : 'shadow-[0_8px_32px_rgba(0,0,0,0.14)]'),
         ].join(' ')}
-        onClick={() => !expanded && setExpanded(true)}
+        onPointerDown={handleIconPointerDown}
+        onPointerMove={handleIconPointerMove}
+        onPointerUp={handleIconPointerUp}
+        onPointerCancel={handleIconPointerUp}
+        onClick={() => {
+          if (!expanded) handleToggleClick();
+        }}
+        style={{ backgroundColor: '#ffffff' }}
       >
         <button
           className={`flex items-center justify-center transition-all duration-200 hover:scale-105 relative${expanded ? ' shrink-0' : ' w-full h-full'}`}
           style={expanded ? { marginRight: '8px' } : undefined}
-          onClick={e => { if (expanded) { e.stopPropagation(); setExpanded(false); } }}
+          onClick={(e) => {
+            if (expanded) {
+              e.stopPropagation();
+              handleToggleClick();
+            }
+          }}
           aria-label="Toggle AI search"
         >
           <AskAiIcon size={expanded ? 28 : 38} />
@@ -378,9 +562,9 @@ export default function BrowseAIChat() {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKey}
-              placeholder={browseCity ? `Ask about listings in ${browseCity}…` : 'Ask about these listings…'}
+              placeholder={browseCity ? `Ask about listings in ${browseCity}...` : 'Ask about these listings...'}
               disabled={loading}
-              className="flex-1 text-sm text-gray-800 placeholder-gray-400 bg-transparent outline-none disabled:opacity-50 min-w-0"
+              className="flex-1 text-sm text-gray-800 placeholder-gray-400 !bg-white outline-none disabled:opacity-50 min-w-0"
             />
             <button
               onClick={send}
@@ -390,7 +574,7 @@ export default function BrowseAIChat() {
               {loading ? (
                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
-                <svg viewBox="0 0 24 24" fill="white" className="w-[18px] h-[18px] block" style={{ transform: 'rotate(-45deg)' }}>
+                <svg viewBox="0 0 24 24" fill="white" className="w-[18px] h-[18px] block">
                   <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
                 </svg>
               )}

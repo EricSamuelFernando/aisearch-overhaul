@@ -102,62 +102,17 @@ export async function POST(req: NextRequest) {
     const augmentedQuery = buildAugmentedQuery(query, effectiveContext);
     const { context, context_id, ...passthrough } = body || {};
 
-    console.log('[Proxy /api/ask-ai] -> upstream:', AI_BACKEND, '| query:', query);
+    // DISABLED: upstream proxy to demo-new-ai.snaphomz.com is no longer used.
+    // The listing detail Ask AI is now wired to /api/ai-assistant (landing page AI).
+    // console.log('[Proxy /api/ask-ai] -> upstream:', AI_BACKEND, '| query:', query);
+    //
+    // const upstream = await fetch(`${AI_BACKEND}/api/chat`, { ... });
+    // ...
 
-    const upstream = await fetch(`${AI_BACKEND}/api/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'text/event-stream',
-        ...(userId ? { 'x-user-id': userId } : {}),
-      },
-      body: JSON.stringify({
-        ...passthrough,
-        query: augmentedQuery,
-      }),
-    });
-
-    if (!upstream.ok || !upstream.body) {
-      return new Response(
-        `data: {"type":"error","message":"Upstream error ${upstream.status}"}\n\n`,
-        { status: 502, headers: { 'Content-Type': 'text/event-stream' } },
-      );
-    }
-
-    const encoder = new TextEncoder();
-    const upstreamReader = upstream.body.getReader();
-    const contextEvent = effectiveContextId
-      ? `data: ${JSON.stringify({ type: 'metadata', context_id: effectiveContextId })}\n\n`
-      : '';
-
-    const stream = new ReadableStream<Uint8Array>({
-      start(controller) {
-        if (contextEvent) {
-          controller.enqueue(encoder.encode(contextEvent));
-        }
-      },
-      async pull(controller) {
-        const { done, value } = await upstreamReader.read();
-        if (done) {
-          controller.close();
-          return;
-        }
-        controller.enqueue(value);
-      },
-      cancel() {
-        upstreamReader.cancel();
-      },
-    });
-
-    return new Response(stream, {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'X-Accel-Buffering': 'no',
-        'Connection': 'keep-alive',
-      },
-    });
+    return new Response(
+      `data: {"type":"error","message":"/api/ask-ai is deprecated. Use /api/ai-assistant."}\n\ndata: {"type":"done"}\n\n`,
+      { status: 200, headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } },
+    );
   } catch (err: any) {
     console.error('[Proxy /api/ask-ai] Error:', err?.message);
     const safeMessage = String(err?.message || '').replace(/"/g, "'");

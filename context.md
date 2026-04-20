@@ -19,13 +19,14 @@
 | `src/lib/ai-assistant/intelligence.ts` | Pure computation — updateProfileIntelligence, buildIntelligenceBlock, applyRelativeRefinement, buildSearchMemoryContent |
 | `src/lib/ai-assistant/memory.ts` | Redis + Postgres profile/history + SambaNova extraction + recordSearchEvent |
 | `src/lib/ai-assistant/supermemory.ts` | Supermemory read/write (1500ms timeout) |
-| `src/lib/ai-assistant/mls.ts` | MLS API call, normalization, deduplication |
+| `src/lib/ai-assistant/mls.ts` | MLS API call, normalization, deduplication, post-fetch filters |
 | `src/lib/ai-assistant/vision.ts` | Two-pass photo ranking — Haiku on all listings, Sonnet fallback for high-confidence partial matches |
 | `src/lib/ai-assistant/photo-cache.ts` | Redis photo rank cache — keyed by `listingId + MD5(visualQuery)[0:8]`, 7-day TTL |
 | `src/lib/ai-assistant/schema.ts` | Drizzle schema — `buyer_profiles` + `search_events` tables |
 | `src/lib/ai-assistant/db.ts` | Upstash Redis client singleton |
 | `src/lib/ai-assistant/db-pg.ts` | Neon/Drizzle Postgres client (lazy proxy) |
 | `src/components/ai-assistant/LandingAIChat.tsx` | Frontend SSE parser + tile renderer + chat UI + photo_rank merge |
+| `src/components/ai-assistant/ListingTile.tsx` | Individual listing card — photo carousel, best-match badge, expanded details, query highlights |
 | `src/types/ai-assistant.ts` | MLSSearchParams, MLSListing, BuyerProfile, SearchContext, PendingAction, VisualContext, PhotoRankResult |
 
 ## Architecture Flow
@@ -40,7 +41,9 @@
 9. **search_mls path:**
    - Haiku params coerced (string → number/boolean) at boundary before MLS call
    - Visual fields (`visual_query`, `room_hint`, `visual_confidence`, `description_keywords`) extracted from Haiku params before passing to MLS
+   - **Issue 7 override** (line ~700): if `isPureAffirmation && pendingAction`, rawParams is overridden with `{ ...searchCtx.params, ...pendingAction.params, ...visual }` — pending action city/state always wins
    - Text scoring via `scoreByDescription()` runs instantly against listing descriptions
+   - **55+ filter** (post-MLS): if `profile.personalContext.age < 55`, listings whose description contains age-restricted terms are dropped before SSE emit
    - Redis photo rank cache checked (batch lookup, ~10ms)
    - MLS API called → emit `listings` SSE immediately (cached rankings applied inline)
    - `visualSummaryContext` block built from visual query + text score matches → injected into Sonnet summary message
@@ -48,9 +51,121 @@
    - Sonnet streams visual-aware summary
    - Vision result emitted as `photo_rank` SSE when ready (capped at 8s)
    - Top photo matches (score ≥ 0.5) written to Supermemory with quality context (fire-and-forget)
-10. **reference_listing path:** look up listing from history by index → emit `listing_focus` SSE → Sonnet streams focused analysis
+10. **reference_listing path:** look up listing from ALL history turns (newest-first) by position index → emit `listing_focus` SSE → Sonnet streams focused analysis
 11. **answer_user path:** Sonnet streams conversational response using buyer profile + history
-12. **After response (fire-and-forget):** `recordSearchEvent` (search_events insert + intelligence update + profile save) + profile extraction + pending action extraction via SambaNova + Supermemory write
+12. **After response (fire-and-forget):** `recordSearchEvent` (search_events insert + intelligence update + profile save) + profile extraction + pending action extraction + Supermemory write
+
+## QA Bug Fixes (all shipped)
+
+Seven bugs were identified in QA testing and fixed. All fixes are production-ready.
+
+### Issue 1 — Constraint mutation on location switch
+**Symptom:** Changing only the city would drop bedrooms_min, bathrooms_min, has_pool from the search.
+**Fix:** Added explicit CARRY-FORWARD RULES block to Haiku intent prompt in `claude.ts`:
+- Every search_mls call starts with ALL params from Last search context as base
+- Params are only replaced if the user's message explicitly changes them
+- bedrooms_min, bathrooms_min, feature flags never dropped unless user explicitly removes them
+- "luxury" tier change only adjusts price — never removes structural filters
+
+### Issue 2 — Session context bleeding
+**Symptom:** Opening a new browser tab/session would inherit stale search context from a previous session.
+**Fix:** `LandingAIChat.tsx` mount logic — new session branch always generates a fresh `convId = uuidv4()`. Per-conversation Redis keys (`chat:history:{userId}:{convId}`, `search_ctx:{userId}:{convId}`) ensure clean slate.
+
+### Issue 3 — Inconsistent routing for city queries
+**Symptom:** Some city-only messages routed to `answer_user` and asked clarifying questions instead of searching.
+**Fix:** Added explicit rule to `claude.ts` intent prompt: "NEVER call answer_user when the user names a city, state, neighborhood, or zip code — always call search_mls immediately."
+
+### Issue 4 — Rental listings appearing in results
+**Symptom:** Short-term rentals and lease listings appeared in purchase search results.
+**Fix (mls.ts):**
+- Added `custom_status: "Active"` to MLS API payload (required alongside `status: "Active"`)
+- Post-fetch filter checks both `property_type` and `mls_type` for "lease"/"rental" strings
+- Status filter: any status !== "active" is dropped
+- Price sanity: `listing_price < $20k` = monthly rent, not a purchase → dropped
+
+### Issue 5 — Wrong listing tile on identity-based reference
+**Symptom:** "Tell me about the New York home" triggered reference_listing and showed the wrong tile.
+**Fix (claude.ts + route.ts):**
+- Identity references ("the New York home", "the cheap one") → `answer_user` not `reference_listing`
+- `reference_listing` only fires on explicit position: #N, first/second/third/last
+- Handler scans ALL history turns newest-first (not just most recent search) to find the listing at the given index
+
+### Issue 6 — 55+ age-restricted communities shown to younger buyers
+**Symptom:** After user stated their age (e.g. 42), 55+ community listings still appeared.
+**Fix (route.ts + memory.ts):**
+- Post-MLS filter in route.ts: if `profile.personalContext.age < 55`, filter listings whose `description` contains age-restricted terms (`"55+"`, `"senior community"`, `"age restricted"`, `"active adult community"`, etc.)
+- Age key fallback: checks `personalContext.age` → `personalContext.user_age` → scans all keys containing "age"/"old" with numeric value
+- `memory.ts` extraction prompt updated to enforce canonical key `"age"` (not `"age_years"` or `"user_age"`)
+- `PREFERENCE_TERMS` list in route.ts extended to include `"55+"`, `"senior"`, `"age restrict"`, `"i'm "`, `"years old"` so these statements trigger Supermemory write
+- **Known ceiling:** filter only catches listings that explicitly mention 55+ in their MLS description. Community-name-only (e.g. "Sun City") not filterable at this layer.
+
+### Issue 7 — Wrong location used on pending action confirmation
+**Symptom:** Assistant proposes "search Austin, TX" → user confirms "yes" → search runs in previous city.
+**Fix (route.ts):**
+- Code-level override at line ~700: when `isPureAffirmation && pendingAction`, rawParams is replaced with `{ ...searchCtx.params, ...pendingAction.params, ...visual }` — pending action params win unconditionally
+- pendingActionBlock prompt text updated: "CRITICAL: The city and state in the pending action OVERRIDE Last search context city/state"
+- After search, `saveSearchContext` saves the post-override params — next carry-forward has the correct city
+
+## MLS Data Layer (fully audited)
+
+### Normalization (mls.ts — confirmed from live API response)
+All listing data lives under `raw.listing`. Key nested paths:
+```
+listing.address.unparsedAddress        → full_address
+listing.listPriceLow                   → listing_price (fallback: leadTypes.mlsListingPrice)
+listing.property.bedroomsTotal         → bedrooms
+listing.property.bathroomsTotal        → bathrooms
+listing.property.livingArea            → living_area
+listing.property.propertySubType[0]    → property_sub_type  (ARRAY — take [0])
+listing.property.garageSpaces          → garage_spaces
+listing.property.stories               → stories
+listing.property.hasBasement           → has_basement
+listing.property.associationFee        → hoa_fee
+listing.property.neighborhood          → neighborhood (fallback: subdivisionName)
+listing.property.isWaterFront          → is_waterfront
+listing.property.isWaterView           → is_water_view
+listing.property.isMountainView        → is_mountain_view
+listing.property.isCityView            → is_city_view
+listing.property.isParkView            → is_park_view
+listing.media.photosList[].highRes     → photos[] (up to 20, prefer highRes → midRes → lowRes)
+listing.publicRemarks                  → description
+leadTypes.mlsType[0]                   → mls_type (ARRAY — take [0], used for lease/rental filter)
+leadTypes.mlsDaysOnMarket              → days_on_market
+leadTypes.mlsStatus                    → status (fallback: listing.standardStatus)
+```
+
+### MLS API Payload (always sent)
+```json
+{
+  "active": true,
+  "has_photos": true,
+  "status": "Active",
+  "custom_status": "Active",
+  "sold": false,
+  "include_photos": true,
+  "size": 6
+}
+```
+
+### Post-Fetch Filter Chain (mls.ts)
+1. Drop if `property_type` or `mls_type` contains "lease" or "rental"
+2. Drop if land (unless search explicitly requested land)
+3. Drop if `status !== "active"` (catches pending/contingent slipping through)
+4. Drop if `listing_price > 0 && listing_price < 20000` (monthly rent, not purchase)
+5. Deduplicate by `full_address` (API sometimes returns duplicates)
+
+### Conversation Context Block (route.ts)
+Between each assistant history turn that had listings, synthetic user/assistant turns are injected:
+```
+[Listings shown to user in the previous turn]
+#1: 123 Main St — $450,000, 3bd/2ba, 1,800 sqft, built 2005, Single Family, single story, 2-car garage, pool, HOA $150/mo, Downtown | "Updated kitchen with quartz counters…"
+...
+[End of listings]
+```
+Includes: address, price, beds/baths/sqft, year built, property_sub_type, stories, garage, pool, basement, HOA, neighborhood, views, description (truncated 200 chars).
+
+### formatListingsForPrompt (mls.ts)
+Used for Sonnet's summary context. Same fields as context block, plus DOM and listing URL. Omits description (performance).
 
 ## Routing Provider Architecture
 Haiku is the active router. SambaNova and Fireworks are commented out in `route.ts` for easy switching.
@@ -70,234 +185,166 @@ Haiku is the active router. SambaNova and Fireworks are commented out in `route.
 ## Three-Tool Routing (Haiku)
 Haiku always calls one of three tools — never returns free text. `tool_choice: { type: "any" }`.
 
-- `search_mls` — any message with a city, price, beds, features, visual/aesthetic description, follow-up refinement, re-fetch, relative refinement ("cheaper", "bigger", "newer"), profile-triggered search ("show me homes matching my profile"), or similarity search ("more like listing 2")
-- `reference_listing` — user asks about the specific facts/details of one already-shown listing by position ("tell me about the 2nd house", "what year was #3 built"). NOT for similarity searches.
-- `answer_user` — pure greetings, general real estate advice, profile reads ("what's my budget?"), standalone affirmations with no pending action
+- `search_mls` — any message with a city, price, beds, features, visual/aesthetic description, follow-up refinement, re-fetch, relative refinement ("cheaper", "bigger", "newer"), profile-triggered search ("show me homes matching my profile"), or similarity search ("more like listing 2"). When in doubt → always search_mls.
+- `reference_listing` — user asks about ONE listing with explicit position (#N, first/second/third/last). NOT for identity references ("the New York home" → answer_user). NOT for multiple listings.
+- `answer_user` — pure greetings, general real estate advice, profile reads. NEVER when user names a city/state/zip/neighborhood.
 
-### Intent Classification Rules (key ones)
-- **Relative refinements:** pre-adjusted values already in Last search context — Haiku uses exact values, no arithmetic
-- **Similar-to-listing:** "show me more like listing 2" → `search_mls` (NOT `reference_listing`)
-- **Profile-triggered search:** "show me homes matching my profile" → `search_mls` using Primary market + budget from Buyer Intelligence block
-- **Continuity messages:** "keep searching", "more", "continue", "next" with Last search context → `search_mls` with same params
-- **Region/state-only:** "homes in Texas" with no city → use Primary market from Buyer Intelligence if it matches that state, otherwise `answer_user` to ask which city
-- **Visual/aesthetic:** any aesthetic description → `search_mls` with `visual_query` set, always
-- **Tiebreaker:** when in doubt between `search_mls` and `answer_user` — always `search_mls`
+### Carry-Forward Rules (strict, in Haiku prompt)
+- Start every search_mls with ALL params from Last search context as base
+- Only replace a param if user explicitly changes it
+- bedrooms_min, bathrooms_min, feature flags NEVER dropped unless user explicitly removes them
+- Location-only change: keep price, beds, baths, features exactly from Last search context
+- Price tier change ("luxury"): adjust price only — keep beds/baths/features unchanged
+- Confirmations ("yes", "sure", "go ahead", "yeah show", "yes please", "let's see", "do it") → use Pending proposed action params if present, else Last search context. Short messages ≤4 words = always confirmation.
 
 ### Intent Prompt Philosophy
-The Haiku routing prompt is intentionally short (~65 lines). Long prompts with many examples make routing *worse* — attention dilutes and the model pattern-matches examples instead of reasoning. The prompt defines categories, not examples. Every routing bug should be fixed by simplifying the prompt or handling in code — never by adding more examples.
+The Haiku routing prompt is intentionally short (~65 lines). Long prompts with many examples make routing worse — attention dilutes. The prompt defines categories, not examples. Every routing bug should be fixed by simplifying the prompt or handling in code — never by adding more examples.
 
 ## Memory Architecture
 
 ### Redis (fast cache, structured)
-- **BuyerProfile** — stated preferences (budgetMin/Max, bedroomsMin, bathroomsMin, preferredLocations, mustHaves, dealBreakers, propertyTypes) + behavioral intelligence (topCities, avgBudgetMax, avgBudgetMin, avgBedroomsMin, featureFrequency, visualPreferences, searchCount, sessionCount, lastActiveAt). TTL: 90 days.
+- **BuyerProfile** — stated preferences + behavioral intelligence. TTL: 90 days.
 - **History** — last 40 messages with `listings` array attached to assistant turns. TTL: 30 days. Last 8 passed to Haiku, last 20 to Sonnet.
-- **SearchContext** — last applied search params + resolvedLocation. TTL: 7 days. Injected into Haiku for implicit carry-over + relative refinement base.
-- **PendingAction** — proposed search extracted after `answer_user` turns. TTL: 10 min. Injected into Haiku so "yes/do that/go ahead" correctly triggers search_mls.
+- **SearchContext** — last applied search params + resolvedLocation. TTL: 7 days. Per-conversation key.
+- **PendingAction** — proposed search extracted after `answer_user` turns. TTL: 10 min. Per-user key (not per-conversation). Cleared after every search_mls.
 - **Photo rank cache** — keyed `photo_rank:v2:{listingId}:{md5(visualQuery)[0:8]}`. TTL: 7 days.
 
 ### Postgres / Neon (permanent)
-- `buyer_profiles` table — permanent source of truth for BuyerProfile including all behavioral intelligence columns.
-- `search_events` table — immutable event log, one row per MLS search. Source of truth for re-computing intelligence. Indexed on `user_id` + `searched_at`.
-- `loadProfile`: Redis hit → Postgres fallback → default. Backfills Redis on Postgres hit. Backward-compatible defaults for pre-migration rows.
+- `buyer_profiles` table — permanent source of truth for BuyerProfile.
+- `search_events` table — immutable event log, one row per MLS search.
+- `loadProfile`: Redis hit → Postgres fallback → default. Backfills Redis on Postgres hit.
 - `saveProfile`: writes to Redis + Postgres simultaneously (upsert).
 - Schema managed via `drizzle-kit push` (not migrations).
 
-### Buyer Intelligence (derived from search_events, never from conversation)
-Computed by `updateProfileIntelligence()` in `intelligence.ts` after every search:
-- `topCities` — frequency map of cities actually searched: `{ "Austin,TX": 4 }`
-- `avgBudgetMax / avgBudgetMin / avgBedroomsMin` — running averages of actual search params used
-- `featureFrequency` — MLS boolean flags used: `{ "pool": 3, "waterfront": 1 }`
-- `visualPreferences` — aesthetic labels from visual searches: `{ "hardwood floors": 4, "blue kitchen": 2 }`
-- `searchCount` — lifetime search counter
+### BuyerProfile.personalContext
+Freeform `Record<string, string>` extracted by Haiku after every turn. Key naming is enforced:
+- `age` → always `"age"` (not `"age_years"`, `"user_age"`). Enforced in extraction prompt.
+- `current_city`, `has_children`, `workplace`, `life_stage` — canonical snake_case keys.
+- Merged additively — existing keys never wiped.
+- `age` is read by the 55+ community filter in route.ts.
 
-`buildIntelligenceBlock()` converts this into a Haiku-injected prompt section. Rules:
-- Only shows the **single top city** — never secondary cities (multiple cities caused SambaNova to merge them into garbage strings like "Folsom / San Francisco, CA")
-- Only shows features/aesthetics used 2+ times (noise filter)
-- Shows `avgBudgetMax` as `listing_price_max` default only
-- **Never shows `avgBudgetMin`** — behavioral average of price floors is sparse/noisy and caused phantom `listing_price_min` filters eliminating most results
-- Explicit rule: never set `listing_price_min` from behavioral data — only from explicit user statements
+### Buyer Intelligence (derived from search_events)
+Computed by `updateProfileIntelligence()` after every search:
+- `topCities` — frequency map of cities actually searched
+- `avgBudgetMax / avgBudgetMin / avgBedroomsMin` — running averages
+- `featureFrequency` — MLS boolean flags used (pool, waterfront, single story, no HOA, large lot, etc.)
+- `visualPreferences` — aesthetic labels from visual searches
+
+Rules in `buildIntelligenceBlock()`:
+- Only shows the **single top city** — never secondary cities
+- Features/aesthetics used 2+ times (1+ for interview-stated aesthetics)
+- `avgBudgetMax` shown as `listing_price_max` default only
+- **Never shows `avgBudgetMin`** — too sparse/noisy, caused phantom lower-bound filters
 
 ### Supermemory (semantic, behavioral)
-- Writes every interaction (fire-and-forget) via `buildSearchMemoryContent()` — clean behavioral signals only, no raw listing data.
-- Visual searches write the aesthetic label: `Visual preference: "hardwood floors" (any).`
-- **Visual match quality write** — after vision scoring completes, top photo matches (score ≥ 0.5) write a second Supermemory entry with specific listing address + score. Future sessions get qualitative context ("322 Ocean Court scored 0.85 for chef's kitchen") not just a counter.
-- Reads race against Haiku (1500ms timeout). Returns empty string on timeout — graceful degradation.
-- `containerTag = userId` — fully isolated per user.
+- Writes every search interaction (fire-and-forget) via `buildSearchMemoryContent()`
+- `answer_user` path writes only when `containsPreferenceSignal(message)` is true
+- `PREFERENCE_TERMS` includes: budget, afford, bedroom, bathroom, pool, garage, yard, basement, school district, commute, waterfront, prefer, looking for, don't want, don't show, avoid, no hoa, 55+, senior, age restrict, i'm, years old, etc.
+- Top photo matches (score ≥ 0.5) write a second quality entry after vision completes
+- Reads race against Haiku (1500ms timeout)
+- `containerTag = userId` — fully isolated per user
+
+## Type System
+
+### MLSSearchParams (types/ai-assistant.ts)
+Includes all MLS filter fields plus visual pipeline fields (stripped before MLS API call):
+```typescript
+visual_query?: string;
+room_hint?: string;
+visual_confidence?: "high" | "medium" | "low";
+description_keywords?: string;  // comma-separated
+```
+These are set by Haiku, read in route.ts, then deleted from rawParams before `searchListings()` is called.
+
+### MLSListing (types/ai-assistant.ts)
+Full field set (all confirmed from live API):
+`id`, `full_address`, `city`, `state`, `zip`, `listing_price`, `bedrooms`, `bathrooms`, `living_area`, `lot_size`, `year_built`, `has_pool`, `days_on_market`, `photos[]`, `listing_url`, `description`, `property_type`, `property_sub_type`, `mls_type`, `status`, `garage_spaces`, `stories`, `has_basement`, `hoa_fee`, `neighborhood`, `is_waterfront`, `is_water_view`, `is_mountain_view`, `is_city_view`, `is_park_view`, `bestScore`
 
 ## Visual Search Pipeline
 1. Haiku extracts `visual_query`, `room_hint`, `visual_confidence`, `description_keywords` alongside standard MLS params
-2. Visual fields stripped from MLS params before API call (they are not MLS filter fields)
+2. Visual fields stripped from MLS params before API call
 3. Text scoring via `scoreByDescription()` — instant, zero API cost, scores 0–0.75
 4. Redis batch cache check for existing photo rankings (~10ms)
 5. For uncached listings: `rankListingPhotos()` — Haiku on all listings in parallel (15s timeout), Sonnet fallback for partial Haiku matches (score 0–0.3) on `high` confidence queries only, capped at 3 Sonnet calls
-6. `visualSummaryContext` block built (visual query + text score matches by listing address) and injected into Sonnet summary message
-7. Vision runs in parallel with Sonnet summary — `photo_rank` SSE emitted when ready
-8. Tiles reorder on frontend by photo match score — strongest visual match becomes the thumbnail
+6. `visualSummaryContext` block built and injected into Sonnet summary message
+7. Vision runs in parallel with Sonnet summary — `photo_rank` SSE emitted when ready (8s cap)
+8. Tiles reorder on frontend by photo match score
 9. Rankings cached in Redis with 7-day TTL
-10. Visual context passed to `recordSearchEvent` → `visualPreferences` frequency updated in profile
-11. Visual context passed to `buildSearchMemoryContent` → Supermemory gets aesthetic label signal
-12. Top photo matches (score ≥ 0.5) write quality signal to Supermemory from vision callback
-
-### Sonnet Visual Summary Behavior
-When `visualSummaryContext` is present in the results message, Sonnet:
-- Leads with the visual feature, not generic price/beds/baths specs
-- Cites description evidence as concrete proof ("Listing 2 explicitly mentions X")
-- Tells the user tiles are ordered by photo match strength
-- Is honest when no description evidence exists ("photo ranking is your best signal")
-- Never claims to see photos directly — it has descriptions and ranking context only
 
 ## Multi-City Search
-Triggers when user explicitly says "search my preferred locations", "all my cities", "my saved locations" etc. AND has 2+ preferred locations saved.
-- Skips Haiku routing entirely — intent is unambiguous
+Triggers when user explicitly says "search my preferred locations", "all my cities" etc. AND has 2+ preferred locations saved.
+- Skips Haiku routing entirely
 - Fires parallel MLS calls (max 3 cities), distributing result slots evenly
 - Deduplicates by full address across cities
-- Sonnet summary notes which city each listing is in
-- Search context saved for primary location for carry-over
-
-## MLS Parameter Overhaul
-The `search_mls` tool schema and `MLSSearchParams` type were fully audited against the RealEstateAPI v2 docs. Key fixes:
-
-### property classification (three distinct fields)
-| Field | Values | Purpose |
-|---|---|---|
-| `listing_property_type` | `RESIDENTIAL`, `RESIDENTIAL_INCOME`, `RENTAL`, `LAND`, `COMMERCIAL`, `FARM` | Broadest MLS category — always set; generic "homes" → `RESIDENTIAL` |
-| `property_sub_type` | `"Single Family"`, `"Condo"`, `"Townhouse"`, `"Duplex"`, `"Multi-Family"`, etc. (full English strings) | Only set when user names a specific type |
-| `property_type` | `SFR`, `MFR`, `LAND`, `CONDO`, `MOBILE`, `OTHER` | Public-record type (assessor data) — abbreviated values |
-
-Root bug: previous schema used `property_sub_type: enum ["SFR","MFR","CONDO",...]` — these abbreviations belong to `property_type`, not `property_sub_type`. The API rejected them silently, returning 0 results.
-
-### New parameters added to tool schema + MLSSearchParams
-`is_city_view`, `is_park_view`, `lot_size_min/max`, `bathrooms_max`, `bedrooms_max`, `living_area_max`, `price_per_sqft_min/max`, `stories`, `days_on_market_min`, `latest_only`, `listing_association_fee_max`, `county`, `zip`
-
-### View boolean + visual_query pairing rule
-When any view boolean is set, visual_query must also be set:
-- `is_mountain_view=true` → also set `visual_query="mountain range visible through windows..."`
-- MLS pre-filters the result set; vision ranks photo quality within that filtered set
-
-### intelligence.ts extractFeatures update
-Now tracks: `city view`, `park view`, `single story`, `no HOA`, `large lot` alongside existing features.
-
-## Param Coercion
-Haiku occasionally returns typed params as strings. `route.ts` coerces at the boundary before any downstream use:
-- Numeric fields (listing_price_min/max, bedrooms_min/max, bathrooms_min/max, living_area_min/max, lot_size_min/max, price_per_sqft_min/max, year_built_min/max, days_on_market_min/max, stories, listing_association_fee_max, size, radius, latitude, longitude) — string → Number, NaN → undefined
-- Boolean fields (has_pool, has_basement, is_water_front, is_water_view, is_mountain_view, is_city_view, is_park_view, latest_only) — "true"/"false" → boolean, other → undefined
-
-## Profile Extraction Safety
-`extractAndUpdateProfile` in `memory.ts` uses a `toArr()` helper that coerces any value to `string[]` before array operations. Guards against:
-- SambaNova returning a string instead of an array for array fields
-- Corrupted Redis/Postgres data from pre-migration rows
+- `clearPendingAction(userId)` called after multi-city search too
 
 ## SSE Event Types
 ```
-{ type: "listings",      data: MLSListing[] }                                        — emitted immediately after MLS returns
-{ type: "listing_focus", data: MLSListing, index }                                   — single tile for reference_listing path
-{ type: "photo_rank",    data: PhotoRankResult[], lowMatch?: boolean }               — vision scores; lowMatch=true when best score < 0.25
-{ type: "debug",         data: { pool, text_matches, vision_targets, best_score, low_match } } — testing/monitoring only
-{ type: "token",         text: string }                                              — streaming summary tokens
-{ type: "done" }                                                                     — stream complete
-{ type: "error",         message: string }                                           — error
+{ type: "listings",      data: { listings: MLSListing[], params: MLSSearchParams } }
+{ type: "listing_focus", data: MLSListing, index: number }
+{ type: "photo_rank",    data: PhotoRankResult[], lowMatch?: boolean }
+{ type: "debug",         data: { pool, text_matches, vision_targets, best_score, low_match } }
+{ type: "token",         text: string }
+{ type: "done" }
+{ type: "error",         message: string }
 ```
 
-## MLS Base Payload
-```json
-{ "active": true, "has_photos": true, "status": "Active", "sold": false, "include_photos": true, "size": 6 }
-```
-Post-fetch filters: lease/rental stripped, duplicates deduplicated by address.
+## ListingTile Highlights (client-side)
+`showMoreHighlights` in `ListingTile.tsx` auto-expands and highlights fields that match the user's query:
+- `built` — highlights year_built when query mentions "built in", "year built", "constructed in"
+- `dom` — highlights days_on_market when query mentions "DOM", "days on market"
+- `lot` — highlights lot_size when query mentions "lot"
+- `pool` — highlights pool status based on whether user wants/doesn't want pool
 
-### Visual Query Pool Sizing
-Two modes based on whether an MLS boolean backs the visual query:
-- **Backed visual** (`is_mountain_view`, `is_city_view`, `is_park_view`, `is_water_view`, `is_water_front` set): `size=12`. MLS already pre-filtered at API level.
-- **Pure visual** (visual_query only, no backing boolean — color, style, material, interior): `size=30`, then trimmed to top 15 before emitting to client.
+## Decision Signals (property detail page)
+`BuyerDecisionSignals.tsx` — horizontal scroll row of 7 cards on the property preview page:
+1. **Monthly Cost** — P&I + tax (1.25% default) + HOA + insurance. Hardcoded 6.8% / 20% down / 30yr. Note shown to user.
+2. **Market Position** — `(subjectPpsf - compPpsfAvg) / compPpsfAvg * 100`. ±5% threshold for "Fair Value" vs above/below market. Shows DOM.
+3. **Schools Nearby** — top 3 schools with SVG rating rings. "View all ↓" dispatches `preview-nav` custom event.
+4. **Neighborhood** — calls `/api/neighborhood-summary` with lat/lng. Shows dining, grocery, parks, transit counts from Google Places. Has dedup guard.
+5. **Sold Nearby** — filters comps to ±30% sqft, sorts newest, top 3. Shows avg $/sqft. ⚠️ Fallback to list price if closePrice missing.
+6. **Home Condition** — calls `NEXT_PUBLIC_AI_BACKEND_BASE_URI/api/image_categorization`. Shows issues count, high-priority count, standout count. Has sessionStorage cache.
+7. **Municode Ordinance** — static link to library.municode.com for the property's city/state. No live data fetch.
 
-### Pure Visual Candidate Selection (Option 1)
-For queries like "blue homes", "modern farmhouse style", "hardwood floors":
-1. Fetch 30 candidates from MLS (single call)
-2. Text-pre-score all 30 against `description_keywords` instantly
-3. Sort by bestScore descending (text matches + cache hits float to top)
-4. Trim to top 15 — highest-quality candidates for vision
-5. Emit 15 tiles to client immediately
-6. Run vision only on those 15 uncached listings
-
-### Visual Match Threshold (Option 2)
-After vision scoring, `bestOverallScore` is computed across all merged results:
-- If `bestOverallScore < 0.25`: `lowMatch: true` flag added to `photo_rank` SSE event
-- Frontend renders "Limited visual matches in this area — showing closest available." below the listing row
-- A `debug` SSE event is always emitted with `{ pool, text_matches, vision_targets, best_score, low_match }` — visible in browser devtools Network tab for testing
-
-### Option 3 (Planned — pending resultIndex verification)
-Parallel page fetches: two simultaneous MLS calls (page 1 + page 2) → merge ~30 candidates with zero extra latency. To be implemented after verifying `resultIndex` is a simple numeric offset in the RealEstateAPI response.
-
-## User Identity
-- **Logged-in users:** `userId` = backend `id` from `localStorage.userDetails` (set after Cognito Google login)
-- **Anonymous users:** persistent random UUID from `localStorage.snapz_ai_user_id`
-- `getUserId()` in `LandingAIChat.tsx` handles both cases
+`PropertyTakeawaysAI.tsx` — AI narrative above the cards:
+- Calls `/api/property-takeaways` → GPT-4o-mini generates 3–5 sentence summary
+- Splits into 3 story sections: Home / Neighborhood / Top Schools
+- ⚠️ Uses **OpenAI** (`gpt-4o-mini`, `OPENAI_API_KEY`) — inconsistent with rest of app which uses Anthropic
+- ⚠️ Cache is **in-memory Map** — resets on every Vercel cold start, effectively no caching. Should be Redis.
 
 ## Home Pilot — Profile-Building Interview (Implemented, UI temporarily disabled)
+Backend fully implemented. UI entry point commented out in `LandingAIChat.tsx`.
+- Re-enable by restoring `interviewMode` state, `setInterview` helper, `interviewModeRef`, and the Home Pilot button.
+- Route bypass: `mode === "interview"` in request body skips Haiku, uses `buildInterviewSystemPrompt`.
+- Transition: Sonnet says "Want me to pull up some homes in [City]" → frontend detects phrase → exits interview mode.
+- Storage: extracts full personalContext bag (`driving_move`, `household_composition`, `work_style`, `lifestyle`, `timeline`, etc.) + infers bedrooms/mustHaves/propertyTypes from lifestyle signals.
+- Always writes to Supermemory on interview turns (no PREFERENCE_TERMS gate).
 
-An onboarding flow that builds a complete buyer intelligence profile through natural conversation instead of spec forms. The backend (`route.ts` interview mode, `buildInterviewSystemPrompt`, `extractAndUpdateProfileFromInterview`) is fully implemented. The UI entry point (button, suggestion chips, badge) is commented out in `LandingAIChat.tsx` pending UX review — re-enable by restoring `interviewMode` state, `setInterview` helper, `interviewModeRef`, and the Home Pilot button in the collapsed input bar.
+## Known Issues / Pending
 
-### Architecture
-- **Entry point:** "Home Pilot" button in `LandingAIChat.tsx` collapsed input bar. Sets `interviewMode = true` (tracked via ref for stale-closure safety) and sends the first message with `mode: "interview"` in the request body.
-- **Route bypass:** When `mode === "interview"` in the request, Haiku routing is skipped entirely. Sonnet handles the full conversation using `buildInterviewSystemPrompt` from `claude.ts`.
-- **Transition detection:** The interview prompt instructs Sonnet to say "Want me to pull up some homes in [City]" when ready to search. The frontend's `done` SSE handler detects this phrase and sets `interviewMode = false`. The user's "yes" then flows through normal Haiku routing.
+### PropertyTakeawaysAI — Two issues to fix
+1. **OpenAI dependency** — `/api/property-takeaways/route.ts` uses `gpt-4o-mini` via `OPENAI_API_KEY`. Should be migrated to Claude (Haiku for speed/cost). Fails with 500 if `OPENAI_API_KEY` is absent.
+2. **In-memory cache** — `Map<string, CacheEntry>` at module scope dies on every cold start. Should use Redis with same pattern as rest of app.
 
-### Question Flow
-Lifestyle-first, one question per turn, never a spec checklist:
-1. What is driving the move? (life event, motivation, timeline)
-2. Who is coming? (household → derives bedrooms, school need, yard need)
-3. How do they use the home day-to-day? (WFH → office, entertaining → open layout, cooking → kitchen)
-4. What feeling when they walk in? (aesthetic/vibe → visual search fuel, with mandatory follow-up for concrete terms)
-5. Location + budget — confirm or narrow
+### Sold Nearby card — price fallback issue
+`NeighborhoodCompsCard` falls back to `listPriceLow || listPrice` if `closePrice` is missing from comps data. A "Sold Nearby" card showing list price (not close price) is misleading. Needs a guard that hides the price or labels it as "Listed at" when closePrice is absent.
 
-### SUGGEST: Format
-Every question response ends with a `SUGGEST:` line:
-```
-SUGGEST: Starting a family | Relocating for work | Need more space | First home | Something else
-```
-- `cleanContent()` in the frontend strips it from displayed text
-- `extractSuggestions()` parses it into chip options
-- Chips render below the last AI message while in interview mode
-- Tapping a chip calls `sendMessage(option)` directly
-- User can always type a custom answer instead
+### sessionCount is a dead field
+Tracked in `BuyerProfile`, Redis, and Postgres but never incremented. `searchCount` works correctly. Either implement it (detect new session vs continuation based on `lastActiveAt` gap) or remove from schema + profile.
 
-### Storage Pipeline (all three layers on every turn)
-- **`extractAndUpdateProfileFromInterview`** (`memory.ts`) — richer Haiku extraction than the normal path. Extracts:
-  - `visualPreferenceLabels` → increments `visualPreferences` frequency map (threshold lowered to 1 in `buildIntelligenceBlock` so interview-stated aesthetics immediately inform future searches)
-  - `bedroomsMin` inferred from household composition ("couple + 2 kids" → 3)
-  - `mustHaves` inferred from lifestyle ("works from home" → "home office", "has kids" → "yard")
-  - `propertyTypes` inferred from life stage ("family with kids" → SFR)
-  - Full `personalContext` bag: `driving_move`, `household_composition`, `work_style`, `lifestyle`, `timeline`, `current_city`, `life_stage`, etc.
-- **Redis + Postgres** — `saveProfile` called on every turn via `extractAndUpdateProfileFromInterview`. Both layers updated atomically.
-- **Supermemory** — always written on interview turns (no `containsPreferenceSignal` gate). Format: `"Home Pilot interview — User said: '...'. AI asked: '...'"`.
+### answer_user Supermemory write — now gated
+Fixed: `containsPreferenceSignal()` now includes age/55+/senior/preference terms so personal context statements always reach Supermemory.
 
-### Intelligence Integration
-`buildIntelligenceBlock` (`intelligence.ts`) now surfaces:
-- `personalContext` entries in the Haiku routing block with derived hints (children → SFR/school/yard, WFH → office)
-- `visualPreferences` at threshold ≥ 1 (changed from ≥ 2) so stated aesthetics immediately appear as defaults
-
-## Known Issues / Planned
-
-### Multi-Conversation Architecture (planned — ~1 hour scope)
-Current state: flat Redis history per user (`chat:history:{userId}`), no conversation isolation. Frontend uses `groupIntoSessions()` (2-hour gap grouping) for display only — clicking a past session replaces the chat state but all messages still share one Redis key, so continuing a past convo mixes old + new messages into the same backend context.
-
-Goal: ChatGPT/Claude-style isolated conversations. Each conversation has its own ID, Redis key, and index entry. Continuing a past convo resumes its exact context — no bleed-through.
-
-**4-file scope:**
-1. `memory.ts` — `loadHistory`, `appendMessage`, `loadSearchContext` accept optional `conversationId`. Redis keys: `chat:history:{userId}:{convId}` per convo, `chat:index:{userId}` sorted set (score = timestamp) for listing last-5. Backward compat: fall back to legacy flat key if no `convId` provided.
-2. `route.ts` — accept `conversationId` in request body. If absent, generate `nanoid()` UUID. Return `conversationId` in `done` SSE event.
-3. `src/app/api/ai-assistant/history/route.ts` (new GET endpoint) — read `chat:index:{userId}` → load last 5 conversation keys → return `{ conversations: [{ id, preview, messageCount, timestamp }] }`.
-4. `LandingAIChat.tsx` — store `conversationId` in sessionStorage. On "New chat" → clear + generate new ID. On "Continue" from history panel → set conversationId to selected convo ID, load its messages, resume.
-
-**Backward compat:** legacy `chat:history:{userId}` keys stay untouched. Users with existing history get it under a synthetic `convId = "legacy"` on first migration touch.
-
-### Memory
-- **Past chats panel** — `LandingAIChat.tsx` has a history panel (clock icon in chat header) that loads past messages from `GET /api/ai-assistant/history`. Sessions are grouped by 2-hour inactivity gaps. Messages written after the timestamp addition carry `timestamp: ISO string`; older messages show in an "Earlier" group. The `sessionStorage` restore is gated by a 2-hour session timeout — new tab or >2h since last activity starts fresh. The AI's Supermemory-powered greeting naturally surfaces context from past sessions.
-- **`sessionCount` is a dead field** — tracked in `BuyerProfile`, Redis, and Postgres but never incremented. `searchCount` works correctly. `sessionCount` needs a different trigger (first message of a new browser session) which is not wired up. Either implement it (detect new session vs continuation based on `lastActiveAt` timestamp gap) or remove the field from schema + profile to avoid confusion.
-- **`answer_user` Supermemory write is too generic** — fires for every conversational response including greetings and general Q&A with: `"User preference signal from conversation: ${message.slice(0, 200)}"`. This pollutes Supermemory with noise. Fix: only write on `answer_user` turns that contain an actual preference signal (budget, location, feature mention) — gate the write behind a content check or pass it through the same extraction logic used for profile updates.
+### 55+ filter ceiling
+The age-restricted community filter only works when the MLS public remarks explicitly mention "55+", "senior community", etc. Listings in age-restricted communities that only use the development name (e.g. "Sun City") are not caught. No fix available at the MLS data layer.
 
 ### Infrastructure
-- **SambaNova 429 on fire-and-forget extraction** — non-critical (profile/pending action extraction in `memory.ts`). Caught and logged. If frequent, add retry with backoff on the extraction calls.
-- **Routing latency** — Haiku routing ~0.5–1s (improvement over SambaNova's ~3s). If Fireworks credits become available, test `accounts/fireworks/models/llama-v3p3-70b-instruct` as OpenAI-compatible alternative (uncomment the provider block in `route.ts`).
+- **SambaNova 429 on fire-and-forget extraction** — non-critical, caught and logged.
+- **Routing latency** — Haiku routing ~0.5–1s. If Fireworks credits available, test as alternative (provider block already in route.ts, just uncomment).
+- **REALESTATE_API_KEY** — renamed from `REAPI_KEY`. Verify this env var is set in Vercel production settings.
+
+### Multi-Conversation Architecture (implemented)
+Per-conversation Redis keys are active (`chat:history:{userId}:{convId}`, `search_ctx:{userId}:{convId}`). `convId` is generated in `LandingAIChat.tsx` and persisted in sessionStorage. New sessions always get a fresh convId. Legacy flat keys (`chat:history:{userId}`) remain in Redis but are no longer written to.
 
 ## Auth
 - AWS Cognito (User Pool `us-east-1_XP9jpI8bY`) with Google identity provider
@@ -313,12 +360,13 @@ Goal: ChatGPT/Claude-style isolated conversations. Each conversation has its own
 ## Required Env Vars
 ```
 ANTHROPIC_API_KEY
-SAMBANOVA_API_KEY                     # Used only for background profile/pending-action extraction in memory.ts
-REAPI_KEY
+SAMBANOVA_API_KEY                     # Background profile/pending-action extraction in memory.ts only
+REALESTATE_API_KEY                    # Renamed from REAPI_KEY — verify in Vercel settings
 UPSTASH_REDIS_REST_URL
 UPSTASH_REDIS_REST_TOKEN
 SUPERMEMORY_API_KEY
 DATABASE_URL                          # Neon Postgres connection string
+OPENAI_API_KEY                        # Only for /api/property-takeaways (gpt-4o-mini) — pending migration to Claude
 NEXT_PUBLIC_AUTH_SERIVCE_GRAPHQL_URL  # Points to /api/auth/graphql (proxy)
 NEXT_PUBLIC_AUTH_SERIVCE_URL          # https://demo-api.snaphomz.com
 NEXT_PUBLIC_NOTIFICATION_SERVICE_URL  # https://demo-api.snaphomz.com
@@ -326,6 +374,7 @@ NEXT_PUBLIC_COGNITO_USER_POOL_ID
 NEXT_PUBLIC_COGNITO_CLIENT_ID
 NEXT_PUBLIC_COGNITO_DOMAIN
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+NEXT_PUBLIC_AI_BACKEND_BASE_URI       # Used by HomeCondition card for image_categorization API
 ```
 
 ## Run Locally

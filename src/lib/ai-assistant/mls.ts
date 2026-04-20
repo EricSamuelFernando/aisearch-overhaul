@@ -76,11 +76,16 @@ export async function searchListings(params: MLSSearchParams): Promise<MLSListin
 
   const filtered = normalized.filter((l) => {
     const pt = (l.property_type ?? "").toLowerCase();
+    const mt = (l.mls_type ?? "").toLowerCase();
+    // Drop lease/rental — check both property_type and mlsType array
     if (pt.includes("lease") || pt.includes("rental")) return false;
+    if (mt.includes("lease") || mt.includes("rental")) return false;
     if (!wantsLand && pt.includes("land")) return false;
     // API sometimes returns pending/contingent/sold despite active:true in payload
     const status = (l.status ?? "").toLowerCase();
     if (status && status !== "active") return false;
+    // Price sanity: residential listing_price below $20k is a monthly rent, not a purchase
+    if (l.listing_price > 0 && l.listing_price < 20000) return false;
     return true;
   });
 
@@ -117,7 +122,8 @@ function normalizeListing(raw: unknown): MLSListing {
   const photos = ((media.photosList as Record<string, unknown>[]) ?? [])
     .slice(0, 20)
     .map((p) => (p.highRes ?? p.midRes ?? p.lowRes) as string)
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((u) => `/api/photo?url=${encodeURIComponent(u)}`);
 
   return {
     id: String(l.id ?? l.listingId ?? ""),
@@ -140,6 +146,7 @@ function normalizeListing(raw: unknown): MLSListing {
     description: (listing.publicRemarks as string) ?? undefined,
     property_type: (property.propertyType as string) ?? undefined,
     property_sub_type: ((property.propertySubType as string[]) ?? [])[0] ?? undefined,
+    mls_type: ((leadTypes.mlsType as string[]) ?? [])[0] ?? undefined,
     status: (leadTypes.mlsStatus as string) ?? (listing.standardStatus as string) ?? undefined,
     garage_spaces: (property.garageSpaces as number) ?? undefined,
     stories: (property.stories as number) ?? undefined,

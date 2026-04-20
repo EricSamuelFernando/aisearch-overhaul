@@ -20,6 +20,8 @@ import {
   appendMessage,
   extractAndUpdateProfile,
   extractAndUpdateProfileFromInterview,
+  markInterviewCompleted,
+  bumpSessionIfNew,
   extractAndSavePendingAction,
   recordSearchEvent,
 } from "@/lib/ai-assistant/memory";
@@ -203,8 +205,10 @@ const PREFERENCE_TERMS = [
   'budget', 'afford', 'bedroom', 'bathroom', 'pool', 'garage',
   'yard', 'basement', 'school district', 'commute', 'waterfront',
   'condo', 'townhouse', 'single family', 'must have', 'deal breaker',
-  'prefer', 'looking for', "don't want", 'avoid', 'no hoa',
+  'prefer', 'looking for', "don't want", "don't show", 'avoid', 'no hoa',
   'square feet', 'sqft', 'neighborhood', 'downtown', 'suburb',
+  "i'm ", 'i am ', 'years old', 'my age', 'age is',
+  '55+', 'senior', 'age restrict', 'adult community',
 ] as const;
 
 function containsPreferenceSignal(message: string): boolean {
@@ -247,6 +251,9 @@ export async function POST(req: NextRequest) {
           loadPendingAction(userId),
         ]);
         log("profile + history loaded", T0);
+
+        // Increment session counter when this is a new session (gap > 2h).
+        if (bumpSessionIfNew(profile)) saveProfile(profile); // fire-and-forget
 
         // Seed identity fields if this is the first time we've seen them —
         // never overwrite an existing value, just fill in nulls.
@@ -302,9 +309,15 @@ export async function POST(req: NextRequest) {
           await appendMessage(userId, { role: "assistant", content: interviewResp }, convId);
 
           if (!isInterviewStart) {
-            // Extract full buyer intelligence from this interview answer
-            extractAndUpdateProfileFromInterview(userId, message, interviewResp);
-            // Always write to Supermemory — every interview answer is preference signal
+            const isTransition = interviewResp.includes("Want me to pull up some homes in");
+            if (isTransition) {
+              // Final interview turn — await so profile is in Redis before the auto-search fires
+              await extractAndUpdateProfileFromInterview(userId, message, interviewResp);
+              await markInterviewCompleted(userId);
+              send({ type: "interview_complete" });
+            } else {
+              extractAndUpdateProfileFromInterview(userId, message, interviewResp);
+            }
             writeMemory(
               userId,
               `Home Pilot interview — User said: "${message.slice(0, 200)}". ` +
@@ -488,9 +501,9 @@ export async function POST(req: NextRequest) {
           : "";
 
         const pendingActionBlock = pendingAction
-          ? `\n## Pending proposed action\nThe assistant proposed a search last turn: "${pendingAction.description}"\nParams: ${Object.entries(pendingAction.params)
+          ? `\n## Pending proposed action\nThe assistant proposed this search last turn: "${pendingAction.description}"\nParams: ${Object.entries(pendingAction.params)
               .map(([k, v]) => `${k}=${v}`)
-              .join(", ")}\nIf the user confirms ("yes", "do that", "go ahead", "sure"), call search_mls with these params.\n`
+              .join(", ")}\nIf the user confirms ("yes", "do that", "go ahead", "sure"), call search_mls with these params. CRITICAL: The city and state in the pending action OVERRIDE Last search context city/state — do NOT substitute a different location.\n`
           : "";
 
         // History messages — no system role (Anthropic passes system separately)
@@ -585,8 +598,12 @@ export async function POST(req: NextRequest) {
           console.log("\x1b[36m[AI]\x1b[0m reference_listing path");
           const { listing_index } = JSON.parse(toolCall.function.arguments) as { listing_index: number };
 
-          const lastListingTurn = [...history].reverse().find((m) => m.listings && m.listings.length > 0);
-          const targetListing = lastListingTurn?.listings?.[listing_index - 1];
+          // Search all history turns newest-first — user may reference a listing from
+          // an earlier turn, not necessarily the most recent search.
+          const allListingTurns = [...history].reverse().filter((m) => m.listings && m.listings.length > 0);
+          let targetListing = allListingTurns
+            .map((t) => t.listings![listing_index - 1])
+            .find(Boolean);
 
           if (!targetListing) {
             // No listing at that index — fall through to conversational
@@ -683,6 +700,22 @@ export async function POST(req: NextRequest) {
 
         const rawParams = JSON.parse(toolCall.function.arguments);
 
+        // Issue 7 fix: pure affirmation confirming a pending action.
+        // Haiku's carry-forward rules can silently substitute the Last search context
+        // city/state for the pending action city/state. Override here in code — pending
+        // action params are authoritative for location, price, and structural filters.
+        // We preserve any visual params Haiku added (visual_query, room_hint, etc.).
+        if (isPureAffirmation && pendingAction) {
+          const visual: Record<string, unknown> = {};
+          if (rawParams.visual_query)        visual.visual_query        = rawParams.visual_query;
+          if (rawParams.room_hint)           visual.room_hint           = rawParams.room_hint;
+          if (rawParams.visual_confidence)   visual.visual_confidence   = rawParams.visual_confidence;
+          if (rawParams.description_keywords) visual.description_keywords = rawParams.description_keywords;
+          // Base = search context (beds/baths/features), then pending action wins (location/price), then visual
+          Object.assign(rawParams, { ...(searchCtx?.params ?? {}), ...pendingAction.params, ...visual });
+          console.log(`\x1b[36m[AI]\x1b[0m pending action override applied: city=${rawParams.city ?? "?"} state=${rawParams.state ?? "?"}`);
+        }
+
         // Haiku occasionally returns typed params as strings — coerce at the boundary
         const NUMERIC_MLS_PARAMS = [
           "listing_price_min", "listing_price_max",
@@ -742,6 +775,33 @@ export async function POST(req: NextRequest) {
 
           listings = await searchListings(searchParams);
           log(`MLS returned ${listings.length} listing(s)`, T0);
+
+          // Filter age-restricted (55+) communities when user is known to be under 55.
+          // Check canonical key "age" first; fall back to scanning all personalContext values
+          // for a numeric-looking string in case an older extraction used a different key name.
+          const userAgeRaw = profile.personalContext?.age
+            ?? profile.personalContext?.user_age
+            ?? Object.entries(profile.personalContext ?? {}).find(([k, v]) =>
+                (k.includes("age") || k.includes("old")) && /^\d+$/.test(v.trim())
+              )?.[1]
+            ?? null;
+          const userAge = userAgeRaw !== null ? parseInt(String(userAgeRaw), 10) : null;
+          if (userAge !== null && !isNaN(userAge) && userAge < 55) {
+            const AGE_RESTRICTED_TERMS = [
+              "55+", "55 and older", "55 and over", "55 or older",
+              "55+ community", "senior community", "age restricted",
+              "age-restricted", "age qualified", "age-qualified",
+              "active adult community", "55 years",
+            ];
+            const before = listings.length;
+            listings = listings.filter((l) => {
+              const desc = (l.description ?? "").toLowerCase();
+              return !AGE_RESTRICTED_TERMS.some((term) => desc.includes(term.toLowerCase()));
+            });
+            if (listings.length < before) {
+              log(`Filtered ${before - listings.length} age-restricted listing(s) (user age ${userAge})`, T0);
+            }
+          }
 
           if (visualQuery && listings.length > 0) {
             // Batch cache lookup — fast Redis call (~10ms)

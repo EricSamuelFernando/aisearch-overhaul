@@ -7,6 +7,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { useRouter } from 'next/navigation';
 import { MLSListing, MLSSearchParams, PhotoRankResult } from '@/types/ai-assistant';
 import ListingTile from './ListingTile';
+import { useGeolocation } from '@/hooks/useGeolocation';
+import { useSuggestions } from '@/hooks/useSuggestions';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -127,6 +129,43 @@ const SUGGESTIONS = [
   'Condos in Miami under $400k',
   'Show me 4 bed homes in Dallas under $700k',
 ];
+
+// Static fallback for Try Asking when personalized suggestions haven't loaded yet
+const STATIC_TRY_ASKING = [
+  '3-bedroom homes near top-rated schools',
+  'What can I afford on $8,000 a month?',
+  'Compare buying vs renting right now',
+  'Show me homes with a pool under $700k',
+];
+
+// "Be Inspired" visual search tags — appended to current query on click
+const BE_INSPIRED_TAGS = [
+  { label: 'Natural light',             query: 'natural light and large windows' },
+  { label: 'White themed',              query: 'white themed interior' },
+  { label: 'Garden & outdoors',         query: 'garden and outdoor space' },
+  { label: 'Instagrammable bathroom',   query: 'instagrammable bathroom' },
+  { label: 'Modern kitchen',            query: 'modern kitchen' },
+  { label: 'High ceilings',             query: 'high ceilings' },
+  { label: 'Pool & spa',                query: 'pool and spa' },
+  { label: 'Floating stairs',           query: 'floating stairs' },
+  { label: 'Floor-to-ceiling windows',  query: 'floor-to-ceiling windows' },
+  { label: "Chef's kitchen",            query: "chef's kitchen" },
+  { label: 'Wine cellar',               query: 'wine cellar' },
+];
+
+// Returns userId (real) or tempUserId (anon) for the suggestions API
+function getSuggestionIds(): { userId: string | null; tempUserId: string | null } {
+  if (typeof window === 'undefined') return { userId: null, tempUserId: null };
+  try {
+    const userDetails = localStorage.getItem('userDetails');
+    if (userDetails) {
+      const parsed = JSON.parse(userDetails);
+      if (parsed?.id) return { userId: parsed.id, tempUserId: null };
+    }
+  } catch {}
+  const tempId = localStorage.getItem('snapz_ai_user_id');
+  return { userId: null, tempUserId: tempId || null };
+}
 const CHAT_EXPANDED_STORAGE_KEY = 'landing_ai_chat_expanded';
 const CHAT_STATE_STORAGE_KEY = 'landing_ai_chat_state_v1';
 const SESSION_TS_KEY = 'landing_ai_chat_session_ts';
@@ -308,7 +347,7 @@ function ListingsRow({ listings, queryText, searchParams }: { listings: MLSListi
         <button
           type="button"
           onClick={() => scrollBy('left')}
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-gray-200 text-gray-600 shadow-md flex items-center justify-center"
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full bg-gray-200 text-gray-600 shadow-md flex items-center justify-center"
           aria-label="Scroll left"
         >
           <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -320,7 +359,7 @@ function ListingsRow({ listings, queryText, searchParams }: { listings: MLSListi
         <button
           type="button"
           onClick={() => scrollBy('right')}
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-[#e8804c] text-white shadow-md flex items-center justify-center"
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full bg-[#e8804c] text-white shadow-md flex items-center justify-center"
           aria-label="Scroll right"
         >
           <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -328,7 +367,7 @@ function ListingsRow({ listings, queryText, searchParams }: { listings: MLSListi
           </svg>
         </button>
       )}
-      <div ref={rowRef} className="flex items-start gap-3 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">
+      <div ref={rowRef} className="flex items-start gap-3 overflow-x-auto pb-2 -mx-1 px-14 scrollbar-hide">
         {listings.map((listing, idx) => (
           <ListingTile key={listing.id || idx} listing={listing} index={idx} queryText={queryText} />
         ))}
@@ -357,10 +396,32 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showTryAsking, setShowTryAsking] = useState(false);
   const [streamStartTime, setStreamStartTime] = useState<number | null>(null);
+
+  // Personalized "Try Asking" suggestions
+  const { location: userGeoLocation } = useGeolocation();
+  const {
+    suggestions: personalizedSuggestions,
+    loading: suggestionsLoading,
+    fetch: fetchPersonalizedSuggestions,
+    clearCache: clearSuggestionsCache,
+  } = useSuggestions();
+
+  // Displayed suggestions: personalized if ready, else static fallback
+  const tryAskingSuggestions = personalizedSuggestions.length > 0
+    ? personalizedSuggestions
+    : STATIC_TRY_ASKING;
   const [showHistory, setShowHistory] = useState(false);
   const [conversations, setConversations] = useState<ConversationMeta[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [interviewMode, setInterviewMode] = useState(false);
+  const interviewModeRef = useRef(false);
+  const pendingAutoSendRef = useRef(false);
+  const [interviewDone, setInterviewDone] = useState(() => {
+    try { return sessionStorage.getItem('home_pilot_completed') === '1'; } catch { return false; }
+  });
+  const [pendingMigratedConvId, setPendingMigratedConvId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -396,12 +457,11 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
           if (savedExpanded === '1') setIsExpanded(true);
         }
       } else {
-        // New session — clear stale state and stamp the start time
+        // New session — clear stale state, stamp start time, and issue a fresh convId.
+        // Never reuse the previous session's convId — that would pull stale search context
+        // from Redis and apply old filters (location, beds, baths) to new searches.
         sessionStorage.removeItem(CHAT_STATE_STORAGE_KEY);
         sessionStorage.setItem(SESSION_TS_KEY, now.toString());
-      }
-      // Ensure a conversation ID exists for this session
-      if (!sessionStorage.getItem(CONV_ID_KEY)) {
         sessionStorage.setItem(CONV_ID_KEY, uuidv4());
       }
     } catch {}
@@ -411,6 +471,36 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
   useEffect(() => {
     onExpandedChange?.(isExpanded);
   }, [isExpanded, onExpandedChange]);
+
+  // Guest → authenticated session handoff.
+  // Runs once on mount. If the user logged in after chatting as a guest,
+  // merges their anonymous profile + conversation into their real account.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const guestId = localStorage.getItem('snapz_ai_user_id');
+      const userDetailsRaw = localStorage.getItem('userDetails');
+      if (!guestId || !userDetailsRaw) return;
+      const parsed = JSON.parse(userDetailsRaw);
+      const realUserId = parsed?.id;
+      if (!realUserId || realUserId === guestId) return;
+
+      fetch('/api/ai-assistant/merge-guest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guestId, realUserId }),
+      })
+        .then(async (res) => {
+          if (!res.ok) return;
+          const data = await res.json() as { migratedConvId: string | null };
+          localStorage.removeItem('snapz_ai_user_id');
+          if (data.migratedConvId) setPendingMigratedConvId(data.migratedConvId);
+        })
+        .catch(() => {});
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   useEffect(() => {
     if (typeof window === 'undefined' || !hasHydratedRef.current) return;
@@ -501,6 +591,8 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
     if (!content || loading) return;
 
     setInput('');
+    setShowTryAsking(false);
+    clearSuggestionsCache(); // bust cache so next focus re-fetches with new context
     setIsExpanded(true);
     shouldAutoScrollRef.current = true;
     setMessages((prev) => [...prev, { role: 'user', content }]);
@@ -519,6 +611,7 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
           message: content,
           ...getUserIdentity(),
           conversationId: sessionStorage.getItem(CONV_ID_KEY),
+          ...(interviewModeRef.current ? { mode: 'interview' } : {}),
         }),
       });
 
@@ -620,6 +713,12 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
           } else if (event.type === 'debug') {
             // Score report for testing — visible in browser devtools Network tab
             console.log('[AI Debug]', event.data);
+          } else if (event.type === 'interview_complete') {
+            interviewModeRef.current = false;
+            setInterviewMode(false);
+            pendingAutoSendRef.current = true;
+            try { sessionStorage.setItem('home_pilot_completed', '1'); } catch {}
+            setInterviewDone(true);
           } else if (event.type === 'error') {
             throw new Error(event.message ?? 'Unknown error');
           }
@@ -694,16 +793,43 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
     try { sessionStorage.removeItem(CHAT_STATE_STORAGE_KEY); } catch {}
   }, []);
 
+  const startInterview = useCallback(() => {
+    startNewConversation();
+    interviewModeRef.current = true;
+    setInterviewMode(true);
+    setIsExpanded(true);
+    sendMessage('__home_pilot_start__');
+  }, [sendMessage, startNewConversation]);
+
+  useEffect(() => {
+    if (!loading && pendingAutoSendRef.current) {
+      pendingAutoSendRef.current = false;
+      sendMessage('show me homes matching my profile');
+    }
+  }, [loading, sendMessage]);
+
+  // Defined after continueConversation — restores migrated guest conversation.
+  useEffect(() => {
+    if (!pendingMigratedConvId || messages.length > 0) return;
+    continueConversation(pendingMigratedConvId);
+    setPendingMigratedConvId(null);
+  }, [pendingMigratedConvId, continueConversation, messages.length]);
+
   const lastMsgIndex = messages.length - 1;
 
   return (
-    <div className={`w-full mx-auto transition-all duration-500 ${isExpanded ? 'max-w-[860px] max-h-[880px]' : 'max-w-[680px] max-h-[160px]'}`}>
+    <div className={`w-full mx-auto transition-all duration-500 ${isExpanded ? 'max-w-[860px] max-h-[880px]' : showTryAsking ? 'max-w-[680px] max-h-[620px]' : 'max-w-[680px] max-h-[160px]'}`}>
 
       {/* Chat messages + input panel */}
       {isExpanded && (
         <div className="relative rounded-2xl bg-white border border-gray-200 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-4 pt-3">
             <div className="flex items-center gap-1">
+              {interviewMode && (
+                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#fff0e8] text-[#c86b3e] border border-[#e8804c]/30 mr-1">
+                  Home Pilot
+                </span>
+              )}
               {/* Past chats button */}
               <button
                 type="button"
@@ -792,6 +918,8 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
               const isUser = m.role === 'user';
               const isThinking = !isUser && !clean && !m.listings && loading && i === lastMsgIndex;
               const isStreaming = !isUser && loading && i === lastMsgIndex && (!!clean || !!m.listings);
+
+              if (isUser && m.content === '__home_pilot_start__') return null;
 
               return (
                 <div key={i} className={`flex ${isUser ? 'justify-end' : 'justify-start'} gap-2`}>
@@ -916,6 +1044,26 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
           </div>
 
           <div className="border-t border-gray-200 px-4 py-3">
+            {interviewMode && (() => {
+              const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
+              const chips = lastAssistant ? extractSuggestions(lastAssistant.content) : [];
+              if (chips.length === 0) return null;
+              return (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {chips.map((chip) => (
+                    <button
+                      key={chip}
+                      type="button"
+                      onClick={() => sendMessage(chip)}
+                      disabled={loading}
+                      className="text-xs px-3 py-1.5 rounded-full border border-[#e8804c] text-[#c86b3e] hover:bg-[#fff5f0] transition-colors disabled:opacity-50"
+                    >
+                      {chip}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
             <div className="flex items-center gap-2 bg-white rounded-full border border-gray-200 px-3 py-2 shadow-sm">
               <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center">
                 <AskAiIcon size={22} />
@@ -952,51 +1100,110 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
         </div>
       )}
 
-      {/* Suggestion chips */}
-      {!isExpanded && (
-        <div className="flex flex-wrap justify-center gap-2 mb-3">
-          {SUGGESTIONS.map((s) => (
-            <button
-              key={s}
-              onClick={() => sendMessage(s)}
-              className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-white hover:bg-gray-50 hover:text-gray-900 transition-colors"
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
 
-      {/* Input bar (collapsed state) */}
+      {/* Input bar + Try Asking — unified container when panel is open */}
       {!isExpanded && (
-        <div className="flex items-center gap-2 bg-white rounded-full px-3 py-2 shadow-xl border border-gray-200">
-          <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center">
-            <AskAiIcon size={22} />
+        <div className={showTryAsking ? 'rounded-2xl shadow-xl border border-gray-200 bg-white overflow-hidden' : ''}>
+          {/* Search bar */}
+          <div className={`flex items-center gap-2 bg-white px-3 py-2 ${showTryAsking ? 'rounded-t-2xl' : 'rounded-full shadow-xl border border-gray-200'}`}>
+            <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center">
+              <AskAiIcon size={22} />
+            </div>
+            <textarea
+              ref={textareaRef}
+              className="flex-1 resize-none bg-transparent text-gray-900 placeholder-gray-400 text-sm focus:outline-none min-h-[24px] max-h-[120px] overflow-y-auto leading-relaxed"
+              placeholder="Find homes by address or ask anything…"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={() => {
+                setShowTryAsking(true);
+                const ids = getSuggestionIds();
+                fetchPersonalizedSuggestions(ids.userId, ids.tempUserId, userGeoLocation);
+              }}
+              onBlur={() => setTimeout(() => setShowTryAsking(false), 200)}
+              disabled={loading}
+              rows={1}
+            />
+            <button
+              onClick={() => sendMessage()}
+              disabled={loading || !input.trim()}
+              className="flex-shrink-0 w-[38px] h-[38px] rounded-full bg-black text-white flex items-center justify-center disabled:opacity-100 disabled:bg-black hover:bg-black/90 transition-colors"
+              aria-label="Send"
+            >
+              {loading ? (
+                <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <svg className="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 4.75c.3 0 .58.12.79.33l5.5 5.5a1.125 1.125 0 1 1-1.59 1.59L13.125 8.6V19a1.125 1.125 0 1 1-2.25 0V8.6l-3.57 3.57a1.125 1.125 0 1 1-1.59-1.59l5.5-5.5c.21-.21.49-.33.79-.33Z" />
+                </svg>
+              )}
+            </button>
           </div>
-          <textarea
-            ref={textareaRef}
-            className="flex-1 resize-none bg-transparent text-gray-900 placeholder-gray-400 text-sm focus:outline-none min-h-[24px] max-h-[120px] overflow-y-auto leading-relaxed"
-            placeholder="Find homes by address or ask anything…"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={loading}
-            rows={1}
-          />
-          <button
-            onClick={() => sendMessage()}
-            disabled={loading || !input.trim()}
-            className="flex-shrink-0 w-[38px] h-[38px] rounded-full bg-black text-white flex items-center justify-center disabled:opacity-100 disabled:bg-black hover:bg-black/90 transition-colors"
-            aria-label="Send"
-          >
-            {loading ? (
-              <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <svg className="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 4.75c.3 0 .58.12.79.33l5.5 5.5a1.125 1.125 0 1 1-1.59 1.59L13.125 8.6V19a1.125 1.125 0 1 1-2.25 0V8.6l-3.57 3.57a1.125 1.125 0 1 1-1.59-1.59l5.5-5.5c.21-.21.49-.33.79-.33Z" />
-              </svg>
-            )}
-          </button>
+
+          {/* Try Asking panel */}
+          {showTryAsking && (
+            <div className="border-t border-gray-100">
+              <p className="text-xs text-gray-400 px-4 pt-3 pb-2">
+                Or try asking...
+              </p>
+              <div className="pb-2">
+                {suggestionsLoading && personalizedSuggestions.length === 0
+                  ? Array.from({ length: 4 }).map((_, i) => (
+                    <div key={`skel-${i}`} className="flex items-center gap-3 px-4 py-3 mx-2 mb-1 rounded-xl bg-gray-50">
+                      <div
+                        className="h-3.5 rounded-full bg-gray-200 animate-pulse"
+                        style={{ width: `${50 + i * 12}%` }}
+                      />
+                    </div>
+                  ))
+                  : tryAskingSuggestions.map((text, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onMouseDown={() => sendMessage(text)}
+                      className="flex items-center w-[calc(100%-16px)] mx-2 mb-1 text-left px-3 py-2.5 rounded-xl bg-gray-50 hover:bg-[#FFF5EE] hover:border-l-2 hover:border-[#F58634] group transition-all"
+                    >
+                      <span className="text-sm text-gray-700 group-hover:text-gray-900 leading-snug">
+                        {text}
+                      </span>
+                    </button>
+                  ))
+                }
+              </div>
+
+              {/* Be Inspired section */}
+              <div className="border-t border-gray-100 px-4 pt-3 pb-4">
+                <p className="text-xs text-gray-400 mb-2.5">Be inspired...</p>
+                <div className="flex flex-wrap gap-2">
+                  {BE_INSPIRED_TAGS.map(({ label, query }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onMouseDown={() => {
+                        const current = input.trim();
+                        const next = current
+                          ? `${current} with ${query}`
+                          : `Show me homes with ${query}`;
+                        setInput(next);
+                        setTimeout(() => textareaRef.current?.focus(), 0);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 bg-white text-gray-600 text-xs font-medium hover:bg-[#FFF5EE] hover:border-[#F58634]/50 hover:text-gray-900 transition-all"
+                    >
+                      <svg
+                        className="w-2.5 h-2.5 flex-shrink-0"
+                        viewBox="0 0 24 24"
+                        fill="#E8A020"
+                      >
+                        <path d="M12 1.5c.3 2.8 1.2 5.4 2.8 7 1.6 1.6 4.2 2.5 7 2.8-2.8.3-5.4 1.2-7 2.8-1.6 1.6-2.5 4.2-2.8 7-.3-2.8-1.2-5.4-2.8-7-1.6-1.6-4.2-2.5-7-2.8 2.8-.3 5.4-1.2 7-2.8 1.6-1.6 2.5-4.2 2.8-7z" />
+                      </svg>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

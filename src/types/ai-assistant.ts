@@ -37,6 +37,7 @@ export interface BuyerProfile {
   dealBreakers: string[];
   propertyTypes: string[];
   lastUpdated: string;
+  interviewCompleted: boolean;
 
   // ── Personal context (freeform, Haiku-extracted from conversation) ────────
   // e.g. { "current_city": "Chicago", "has_children": "yes, ages 4 and 7", "commute_limit": "30 min" }
@@ -141,6 +142,13 @@ export interface MLSSearchParams {
   // ── Result control ───────────────────────────────────────────────────────
   size?: number;
   sort?: Record<string, "asc" | "desc">;
+
+  // ── Visual / pipeline fields (stripped before MLS API call) ─────────────
+  visual_query?: string;
+  room_hint?: string;
+  visual_confidence?: "high" | "medium" | "low";
+  /** Comma-separated keyword synonyms for description text matching */
+  description_keywords?: string;
 }
 
 export interface MLSListing {
@@ -162,6 +170,7 @@ export interface MLSListing {
   description?: string;
   property_type?: string;
   property_sub_type?: string;
+  mls_type?: string;
   status?: string;
   garage_spaces?: number;
   stories?: number;

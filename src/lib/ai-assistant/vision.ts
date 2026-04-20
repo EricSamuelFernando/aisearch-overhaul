@@ -77,6 +77,36 @@ export async function rankListingPhotos(
   return results;
 }
 
+/**
+ * Resolves a photo URL to base64 for Claude's vision API.
+ * Photos are stored as proxy paths (/api/photo?url=...) — we decode and fetch
+ * server-side with the CDN auth header, then send as base64.
+ */
+async function fetchPhotoAsBase64(
+  proxyOrDirectUrl: string,
+): Promise<{ mediaType: string; data: string } | null> {
+  try {
+    let targetUrl = proxyOrDirectUrl;
+    if (proxyOrDirectUrl.startsWith('/api/photo?url=')) {
+      targetUrl = decodeURIComponent(proxyOrDirectUrl.slice('/api/photo?url='.length));
+    }
+    const res = await fetch(targetUrl, {
+      headers: {
+        'x-api-key': process.env.REALESTATE_API_KEY ?? '',
+        'Referer': 'https://realestateapi.com',
+        'User-Agent': 'Snaphomz/1.0',
+      },
+    });
+    if (!res.ok) return null;
+    const buffer = await res.arrayBuffer();
+    const data = Buffer.from(buffer).toString('base64');
+    const mediaType = (res.headers.get('content-type') ?? 'image/jpeg').split(';')[0].trim();
+    return { mediaType, data };
+  } catch {
+    return null;
+  }
+}
+
 async function runVisionForListing(
   listing: MLSListing,
   model: string,
@@ -92,6 +122,18 @@ async function runVisionForListing(
   // Send ALL available photos (up to 20) — the model identifies rooms itself
   // No hardcoded position ranges: the model knows what a kitchen looks like
   const photosToScore = photos.slice(0, 20);
+
+  // Fetch all photos as base64 in parallel (CDN requires auth — can't pass URL directly to Claude)
+  const photoData = await Promise.all(photosToScore.map((url) => fetchPhotoAsBase64(url)));
+
+  // Only score photos that loaded successfully; track original indices for result mapping
+  const validPhotos = photosToScore
+    .map((url, i) => ({ url, b64: photoData[i] }))
+    .filter((p): p is { url: string; b64: { mediaType: string; data: string } } => p.b64 !== null);
+
+  if (validPhotos.length === 0) {
+    return { listingId: listing.id, rankedPhotos: photos, bestScore: 0 };
+  }
 
   // Room filter instruction — if a specific room is requested, the model must score
   // photos of OTHER rooms as 0.0. This replaces brittle position-based selection.
@@ -112,9 +154,16 @@ Respond ONLY with a JSON array of numbers, one per photo, in order.
 Example for 4 photos: [0.0, 0.85, 0.0, 0.1]
 No explanation. Just the array.`;
 
-  const imageContent: Anthropic.MessageParam["content"] = photosToScore.flatMap((url, i) => [
+  const imageContent: Anthropic.MessageParam["content"] = validPhotos.flatMap(({ b64 }, i) => [
     { type: "text" as const, text: `Photo ${i + 1}:` },
-    { type: "image" as const, source: { type: "url" as const, url } },
+    {
+      type: "image" as const,
+      source: {
+        type: "base64" as const,
+        media_type: b64.mediaType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+        data: b64.data,
+      },
+    },
   ]);
 
   const timeoutPromise = new Promise<never>((_, reject) =>
@@ -145,16 +194,19 @@ No explanation. Just the array.`;
     return { listingId: listing.id, rankedPhotos: photos, bestScore: 0 };
   }
 
-  // Pair photos with scores and sort descending
-  const scored = photosToScore.map((url, i) => ({
+  // Pair valid photos with scores and sort descending
+  const scored = validPhotos.map(({ url }, i) => ({
     url,
     score: typeof scores[i] === "number" ? scores[i] : 0,
   }));
   scored.sort((a, b) => b.score - a.score);
 
+  // Unscored photos (failed to fetch) go to the end
+  const unscoredUrls = photosToScore.filter((u) => !validPhotos.find((v) => v.url === u));
+
   return {
     listingId: listing.id,
-    rankedPhotos: scored.map((s) => s.url),
+    rankedPhotos: [...scored.map((s) => s.url), ...unscoredUrls],
     bestScore: scored[0]?.score ?? 0,
   };
 }

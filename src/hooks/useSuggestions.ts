@@ -2,11 +2,16 @@
 import { useState, useCallback, useRef } from 'react';
 import type { GeoLocation } from './useGeolocation';
 
-const CLIENT_SESSION_KEY = 'snaphomz:suggestions:v2';
+export interface Suggestion {
+  label: string; // short editorial label shown in pill (≤28 chars)
+  query: string; // full search query sent on click
+}
+
+const CLIENT_SESSION_KEY = 'snaphomz:suggestions:v5'; // bump busts old cache
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 min — matches server-side Redis TTL
 
 interface SuggestionsCache {
-  suggestions: string[];
+  suggestions: Suggestion[];
   cacheKey: string;
   ts: number;
 }
@@ -24,12 +29,18 @@ function buildCacheKey(
   return `${uid}:${loc}`;
 }
 
-function readCache(key: string): string[] | null {
+function readCache(key: string): Suggestion[] | null {
   try {
     const raw = sessionStorage.getItem(CLIENT_SESSION_KEY);
     if (!raw) return null;
     const cache: SuggestionsCache = JSON.parse(raw);
-    if (cache.cacheKey === key && Date.now() - cache.ts < CACHE_TTL_MS) {
+    if (
+      cache.cacheKey === key &&
+      Date.now() - cache.ts < CACHE_TTL_MS &&
+      Array.isArray(cache.suggestions) &&
+      cache.suggestions.length > 0 &&
+      typeof cache.suggestions[0] === 'object'
+    ) {
       return cache.suggestions;
     }
   } catch {
@@ -38,7 +49,7 @@ function readCache(key: string): string[] | null {
   return null;
 }
 
-function writeCache(key: string, suggestions: string[]): void {
+function writeCache(key: string, suggestions: Suggestion[]): void {
   try {
     const cache: SuggestionsCache = { suggestions, cacheKey: key, ts: Date.now() };
     sessionStorage.setItem(CLIENT_SESSION_KEY, JSON.stringify(cache));
@@ -47,17 +58,8 @@ function writeCache(key: string, suggestions: string[]): void {
   }
 }
 
-/**
- * Fetches and caches personalized search suggestions.
- *
- * Usage:
- *   const { suggestions, loading, fetch: fetchSuggestions, clearCache } = useSuggestions();
- *
- * Call fetchSuggestions(userId, tempUserId, location) lazily — on search bar focus.
- * Call clearCache() after user submits a query so next session re-generates fresh suggestions.
- */
 export function useSuggestions() {
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -97,11 +99,10 @@ export function useSuggestions() {
 
         const data = await res.json();
         if (Array.isArray(data.suggestions) && data.suggestions.length > 0) {
-          setSuggestions(data.suggestions);
-          writeCache(cacheKey, data.suggestions);
+          setSuggestions(data.suggestions as Suggestion[]);
+          writeCache(cacheKey, data.suggestions as Suggestion[]);
         }
       } catch (err: unknown) {
-        // AbortError is expected on cleanup — ignore silently
         if (err instanceof Error && err.name !== 'AbortError') {
           console.warn('[useSuggestions] fetch failed:', err.message);
         }
@@ -112,10 +113,6 @@ export function useSuggestions() {
     []
   );
 
-  /**
-   * Call after user submits a query so next focus re-generates fresh suggestions
-   * reflecting the new conversation context.
-   */
   const clearCache = useCallback(() => {
     try {
       sessionStorage.removeItem(CLIENT_SESSION_KEY);

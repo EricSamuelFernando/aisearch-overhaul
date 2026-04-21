@@ -6,7 +6,12 @@ import { anthropic } from '@/lib/ai-assistant/claude';
 import type { AIAssistantMessage } from '@/types/ai-assistant';
 
 const SUGGESTIONS_TTL = 60 * 10; // 10 minutes
-const SUGGESTIONS_VERSION = 'v2'; // bump to bust all cached suggestions
+const SUGGESTIONS_VERSION = 'v5'; // bump to bust all cached suggestions
+
+export interface Suggestion {
+  label: string; // short editorial label shown in pill (≤28 chars)
+  query: string; // full search query sent on click
+}
 
 function suggestionsKey(userId: string, locSlug: string) {
   return `suggestions:${SUGGESTIONS_VERSION}:${userId}:${locSlug}`;
@@ -19,11 +24,11 @@ function buildLocSlug(location: { city?: string; state?: string; countryCode?: s
   return `${location.city}-${location.state || ''}`.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 }
 
-const GENERIC_FALLBACKS = [
-  '3 bed homes under $600k near good schools',
-  'How much house can I afford on $10k/month?',
-  'Best cities for first-time home buyers',
-  'Compare mortgage rates and monthly payments',
+const GENERIC_FALLBACKS: Suggestion[] = [
+  { label: 'Homes under $600K',      query: '3 bed homes under $600,000' },
+  { label: 'Buy vs. rent?',          query: 'Should I buy or rent right now in this market?' },
+  { label: 'Near top schools',       query: 'Homes near top-rated schools' },
+  { label: 'Best time to buy?',      query: 'Is now a good time to buy a home?' },
 ];
 
 export async function POST(req: NextRequest) {
@@ -48,8 +53,8 @@ export async function POST(req: NextRequest) {
 
     // Check Redis cache first
     const redis = getRedis();
-    const cached = await redis.get<string[]>(cacheKey);
-    if (cached && Array.isArray(cached) && cached.length > 0) {
+    const cached = await redis.get<Suggestion[]>(cacheKey);
+    if (cached && Array.isArray(cached) && cached.length > 0 && typeof cached[0] === 'object') {
       return NextResponse.json({ suggestions: cached, cached: true });
     }
 
@@ -127,18 +132,27 @@ export async function POST(req: NextRequest) {
       : 'generic';
 
     const systemPrompt = `You are a real estate AI assistant for Snaphomz, a US real estate search platform.
-Generate exactly 4 short, specific, natural-language search suggestions for the search bar.
+Generate exactly 4 search suggestions. Each has a short LABEL and a full QUERY.
 
-Rules:
-1. Each suggestion must be under 65 characters
-2. Sound like real typed queries (conversational, natural)
-3. Mix 4 types: property search, financial question, neighborhood info, lifestyle/comparison
-4. If US location is given, reference it in at least 2 of the 4 suggestions
-5. If user has preferences (budget, beds, locations), weave them into suggestions
-6. If user has recent searches, suggest related follow-up queries
-7. Be specific — include numbers, locations, features where possible
-8. NEVER repeat or rephrase the same idea twice
-9. Return ONLY a raw JSON array of 4 strings. No markdown, no explanation, no extra text.`;
+Rules for LABEL (shown in a pill button, max 2 lines):
+- Max 36 characters. Count every character including spaces.
+- Descriptive but concise — user should understand exactly what clicking does.
+- Can be 1 line (~18 chars) or 2 lines (~36 chars split naturally at a word boundary.
+- Examples: "Homes with pool in Austin" (25), "Buy vs. rent in today's market?" (31), "4-bed homes near top schools" (28), "What can I afford on $9K/mo?" (28)
+- NO filler words. NO "I want", "Show me", "Find me".
+
+Rules for QUERY (sent to the AI search on click):
+- Full natural-language query, 1-2 sentences max
+- Conversational, specific
+- Weave in user context (location, budget, preferences) if available
+
+Rules for both:
+- Mix 4 types: property search, financial question, neighborhood info, lifestyle/comparison
+- If US location is given, reference it in at least 2 suggestions
+- NEVER repeat or rephrase the same idea twice
+
+Return ONLY a raw JSON array of 4 objects. No markdown, no explanation.
+Format: [{"label":"...","query":"..."},{"label":"...","query":"..."},...]`;
 
     const userPrompt = contextLines.length > 0
       ? `User context:\n${contextLines.join('\n')}\n\nGenerate 4 personalized suggestions.`
@@ -154,15 +168,22 @@ Rules:
 
     const raw = response.content[0]?.type === 'text' ? response.content[0].text.trim() : '';
 
-    let suggestions: string[] = [];
+    let suggestions: Suggestion[] = [];
     try {
       const match = raw.match(/\[[\s\S]*?\]/);
       if (match) {
         const parsed = JSON.parse(match[0]);
         if (Array.isArray(parsed)) {
           suggestions = parsed
-            .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
-            .map((s) => s.trim())
+            .filter((s): s is { label: string; query: string } =>
+              s && typeof s === 'object' &&
+              typeof s.label === 'string' && s.label.trim().length > 0 &&
+              typeof s.query === 'string' && s.query.trim().length > 0
+            )
+            .map((s) => ({
+              label: s.label.trim().slice(0, 36), // hard cap — fits 2 lines in pill
+              query: s.query.trim(),
+            }))
             .slice(0, 4);
         }
       }
@@ -174,10 +195,10 @@ Rules:
     if (suggestions.length < 4) {
       suggestions = geoContext
         ? [
-            `Homes for sale in ${geoContext.city}, ${geoContext.state}`,
-            `Best neighborhoods in ${geoContext.city} for families`,
-            'How much home can I afford on my income?',
-            'What are current mortgage rates?',
+            { label: `Homes in ${geoContext.city}`,          query: `Homes for sale in ${geoContext.city}, ${geoContext.state}` },
+            { label: `Best areas in ${geoContext.city}`,     query: `Best neighborhoods in ${geoContext.city} for families` },
+            { label: 'What can I afford?',                   query: 'How much home can I afford on my income?' },
+            { label: 'Current mortgage rates',               query: 'What are current mortgage rates?' },
           ]
         : GENERIC_FALLBACKS;
     }
@@ -188,6 +209,6 @@ Rules:
     return NextResponse.json({ suggestions, cached: false, personalizationLevel });
   } catch (err) {
     console.error('[/api/suggestions] error:', err instanceof Error ? err.message : err);
-    return NextResponse.json({ suggestions: GENERIC_FALLBACKS, cached: false, error: true });
+    return NextResponse.json({ suggestions: GENERIC_FALLBACKS as Suggestion[], cached: false, error: true });
   }
 }

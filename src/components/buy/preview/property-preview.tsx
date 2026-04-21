@@ -1010,12 +1010,12 @@ const PropertyPreview: React.FC = () => {
       (subjectPrice && subjectSqft ? subjectPrice / subjectSqft : 0)
     );
 
-    const nearbyHomes = propertyDatas?.nearbyHomes || [];
+    const nearbyHomes = propertyDatas?.offtheMarket || propertyDatas?.offTheMarket || [];
     const compPpsfValues = nearbyHomes
       .map((home: any) => {
         const listing = home?.listing || home;
         const compPrice = toNumber(
-          listing?.listPriceLow ?? listing?.listPrice ?? listing?.listPriceHigh
+          listing?.closePrice ?? listing?.listPriceLow ?? 0
         );
         const compSqft = toNumber(
           listing?.property?.livingArea ??

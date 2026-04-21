@@ -157,6 +157,15 @@ const IconMap = () => (
 function AffordabilityCard({
   listPrice, hoaMonthly, taxPercent, estimatedMonthlyPayment,
 }: Pick<BuyerDecisionSignalsProps, 'listPrice' | 'hoaMonthly' | 'taxPercent' | 'estimatedMonthlyPayment'>) {
+  const [liveRate, setLiveRate] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    fetch('/api/mortgage-rate?term=30')
+      .then((r) => r.json())
+      .then((d) => { if (d?.ratePct) setLiveRate(d.ratePct); })
+      .catch(() => {});
+  }, []);
+
   if (!listPrice) {
     return (
       <Card label="Monthly Cost" icon={<IconCalc />}>
@@ -165,7 +174,8 @@ function AffordabilityCard({
     );
   }
 
-  const pi = Math.round(estimatedMonthlyPayment ?? calcMonthlyPI(listPrice * 0.8));
+  const rate = liveRate ?? 6.8;
+  const pi = Math.round(estimatedMonthlyPayment ?? calcMonthlyPI(listPrice * 0.8, rate));
   const tax = Math.round((listPrice * (taxPercent ?? 1.25)) / 100 / 12);
   const hoa = hoaMonthly ?? 0;
   const ins = Math.round((listPrice * 0.0055) / 12);
@@ -184,7 +194,7 @@ function AffordabilityCard({
         <span className="text-xs" style={{ color: '#9A8878' }}>/mo</span>
       </div>
       <p className="text-[11px] leading-relaxed" style={{ color: '#5A4A3A' }}>{tidbit}</p>
-      <p className="mt-2 text-[9px]" style={{ color: '#B0A090' }}>Estimate: 20% down · 30yr · 6.8%</p>
+      <p className="mt-2 text-[9px]" style={{ color: '#B0A090' }}>Estimate: 20% down · 30yr · {rate.toFixed(2)}%{liveRate ? ' (live)' : ''}</p>
     </Card>
   );
 }
@@ -312,10 +322,15 @@ function SchoolsCard({ schools }: Pick<BuyerDecisionSignalsProps, 'schools'>) {
 
 // ─── Card 4: Neighborhood ─────────────────────────────────────────────────────
 
-const ICONS: Record<string, string> = { dining: '🍽️', grocery: '🛒', parks: '🌳', transit: '🚌' };
+function walkScoreLabel(score: number): { label: string; color: string } {
+  if (score >= 80) return { label: 'Very Walkable', color: '#16a34a' };
+  if (score >= 60) return { label: 'Walkable',      color: '#65a30d' };
+  if (score >= 40) return { label: 'Some Errands',  color: '#d97706' };
+  return                   { label: 'Car Dependent', color: '#dc2626' };
+}
 
 function NeighborhoodCard({ lat, lng }: Pick<BuyerDecisionSignalsProps, 'lat' | 'lng'>) {
-  const [summary, setSummary] = React.useState<Record<string, NeighborhoodCategory> | null>(null);
+  const [data, setData] = React.useState<{ summary: Record<string, any>; walkScore?: number } | null>(null);
   const [loading, setLoading] = React.useState(false);
   const fetchedRef = React.useRef<string | null>(null);
 
@@ -331,10 +346,20 @@ function NeighborhoodCard({ lat, lng }: Pick<BuyerDecisionSignalsProps, 'lat' | 
       body: JSON.stringify({ lat, lng }),
     })
       .then((r) => r.json())
-      .then((d) => setSummary(d?.summary ?? null))
-      .catch(() => setSummary(null))
+      .then((d) => setData(d?.summary ? d : null))
+      .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, [lat, lng]);
+
+  const summary = data?.summary ?? null;
+  const walkScore = data?.walkScore ?? null;
+
+  const CATS = [
+    { key: 'dining',  icon: '🍽️' },
+    { key: 'grocery', icon: '🛒' },
+    { key: 'transit', icon: '🚌' },
+    { key: 'parks',   icon: '🌳' },
+  ];
 
   return (
     <Card label="Neighborhood" icon={<IconMap />}>
@@ -350,23 +375,40 @@ function NeighborhoodCard({ lat, lng }: Pick<BuyerDecisionSignalsProps, 'lat' | 
         </p>
       ) : (
         <>
-          {(() => {
-            const d = summary.dining;
-            const g = summary.grocery;
-            const p = summary.parks;
-            const t = summary.transit;
-            const parts: string[] = [];
-            if (d?.count > 0) parts.push(`${d.count} dining spot${d.count > 1 ? 's' : ''}${d.topNames[0] ? ` — try ${d.topNames[0].split(' ').slice(0,3).join(' ')}` : ''}`);
-            if (g?.count > 0) parts.push(`${g.count} grocer${g.count > 1 ? 'ies' : 'y'} nearby`);
-            if (p?.count > 0) parts.push(`${p.count} park${p.count > 1 ? 's' : ''} within a mile`);
-            if (t?.count > 0) parts.push(`${t.count} transit stop${t.count > 1 ? 's' : ''} close by`);
-            const sentence = parts.length > 0
-              ? parts.join('. ') + '.'
-              : 'Limited amenities data for this area.';
+          {/* Walk score */}
+          {walkScore !== null && (() => {
+            const { label, color } = walkScoreLabel(walkScore);
             return (
-              <p className="text-[11px] leading-relaxed" style={{ color: '#5A4A3A' }}>{sentence}</p>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[22px] font-bold leading-none" style={{ color }}>{walkScore}</span>
+                <div>
+                  <p className="text-[10px] font-semibold" style={{ color }}>{label}</p>
+                  <p className="text-[9px]" style={{ color: '#9A8878' }}>out of 100</p>
+                </div>
+              </div>
             );
           })()}
+
+          {/* Category rows with top-rated */}
+          <div className="space-y-1">
+            {CATS.map(({ key, icon }) => {
+              const cat = summary[key];
+              if (!cat || cat.count === 0) return null;
+              const topRated = cat.topRated;
+              return (
+                <div key={key} className="flex items-start gap-1.5">
+                  <span className="text-[11px] leading-tight">{icon}</span>
+                  <span className="text-[10px] leading-tight" style={{ color: '#5A4A3A' }}>
+                    <span className="font-medium">{cat.count}</span>
+                    {topRated
+                      ? <> · {topRated.name.split(' ').slice(0, 3).join(' ')} <span style={{ color: '#d97706' }}>★{topRated.rating.toFixed(1)}</span></>
+                      : cat.topNames[0] ? <> · {cat.topNames[0].split(' ').slice(0, 3).join(' ')}</> : null
+                    }
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </>
       )}
       <p className="mt-2 text-[9px]" style={{ color: '#B0A090' }}>Within 1 mile · Google Places</p>
@@ -433,7 +475,7 @@ function NeighborhoodCompsCard({ comps, sqft }: Pick<BuyerDecisionSignalsProps, 
   const ppsfValues = filtered
     .map((c: any) => {
       const listing = c?.listing || c;
-      const price = listing?.closePrice || listing?.listPriceLow || listing?.listPrice || 0;
+      const price = listing?.closePrice || 0;
       const cSqft = listing?.property?.livingArea || listing?.property?.livingSquareFeet || 0;
       return price > 0 && cSqft > 0 ? Math.round(price / cSqft) : 0;
     })
@@ -453,7 +495,7 @@ function NeighborhoodCompsCard({ comps, sqft }: Pick<BuyerDecisionSignalsProps, 
       <div className="space-y-2">
         {filtered.map((c: any, i: number) => {
           const listing = c?.listing || c;
-          const price = listing?.closePrice || listing?.listPriceLow || listing?.listPrice || 0;
+          const price = listing?.closePrice || 0;
           const addr = listing?.address;
           const street = addr
             ? `${addr.streetNumber || ''} ${addr.streetName || ''}`.trim()
@@ -461,7 +503,7 @@ function NeighborhoodCompsCard({ comps, sqft }: Pick<BuyerDecisionSignalsProps, 
           const cSqft = listing?.property?.livingArea || listing?.property?.livingSquareFeet || 0;
           const beds = listing?.property?.bedroomsTotal || 0;
           const baths = listing?.property?.bathroomsTotal || 0;
-          const dateStr = listing?.closeDate || listing?.modificationTimestamp || '';
+          const dateStr = listing?.closeDate || '';
           const rel = dateStr ? relativeDate(dateStr) : '';
 
           return (
@@ -505,16 +547,13 @@ const SEVERITY_COLOR: Record<string, string> = {
   opportunity: '#7c3aed',
 };
 
-// Keep classifier calls on local API routes so backend fallback logic can execute.
-const AI_API_BASE = '/api';
 const CACHE_PREFIX = 'photo_categorization_v1';
 
 function readConditionCache(listingId: string, propertyId: string) {
   try {
-    if (typeof window === 'undefined') return null;
-    const raw =
-      window.sessionStorage.getItem(`${CACHE_PREFIX}:${listingId}`) ||
-      window.sessionStorage.getItem(`${CACHE_PREFIX}:${listingId}:${propertyId}`);
+    const raw = typeof window !== 'undefined'
+      ? window.sessionStorage.getItem(`${CACHE_PREFIX}:${listingId}:${propertyId}`)
+      : null;
     return raw ? JSON.parse(raw) : null;
   } catch { return null; }
 }
@@ -535,7 +574,7 @@ function HomeConditionCard({ listingId, propertyId }: Pick<BuyerDecisionSignalsP
   React.useEffect(() => {
     if (!listingId) return;
     const pid = propertyId || '';
-    const key = `${listingId}`;
+    const key = `${listingId}:${pid}`;
     if (fetchedRef.current === key) return;
     fetchedRef.current = key;
 
@@ -545,7 +584,7 @@ function HomeConditionCard({ listingId, propertyId }: Pick<BuyerDecisionSignalsP
     if (fromCache) { setAnalysis(fromCache); return; }
 
     setLoading(true);
-    fetch(`${AI_API_BASE}/image_categorization`, {
+    fetch('/api/image_categorization', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -644,13 +683,7 @@ function HomeConditionCard({ listingId, propertyId }: Pick<BuyerDecisionSignalsP
         </div>
       ))}
 
-      <button
-        className="mt-1 text-[10px] font-medium hover:opacity-70 transition-opacity text-left"
-        style={{ color: '#E8804C' }}
-        onClick={() => window.dispatchEvent(new CustomEvent('preview-nav', { detail: '#home-condition' }))}
-      >
-        Full report ↓
-      </button>
+      <p className="mt-2 text-[9px]" style={{ color: '#B0A090' }}>Based on listing photos only. Not a substitute for a professional inspection.</p>
     </Card>
   );
 }

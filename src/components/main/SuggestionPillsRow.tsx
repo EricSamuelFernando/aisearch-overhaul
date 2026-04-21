@@ -2,61 +2,66 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { FlipSuggestionPill } from './FlipSuggestionPill';
+import { SuggestionPill } from './SuggestionPill';
+import type { Suggestion } from '@/hooks/useSuggestions';
 
 const STATIC_PILLS = [
-  { label: '3 bed homes in LA',    query: '3 bedroom homes in Los Angeles' },
-  { label: 'Buy vs rent today?',   query: 'Should I buy or rent right now in this market?' },
-  { label: 'Near top schools',     query: 'Homes near top-rated schools' },
+  { label: 'Homes under $700K',      query: 'Homes under $700,000' },
+  { label: 'Buy vs. rent?',          query: 'Should I buy or rent right now in this market?' },
+  { label: 'Near top schools',       query: 'Homes near top-rated schools' },
 ] as const;
 
-// Delay (ms) before flipping — ensures entry animation always plays first,
+// Guard: always show static state first so entry animation plays before text swap,
 // even when personalized suggestions arrive instantly from sessionStorage cache.
-const MIN_STATIC_DISPLAY_MS = 700;
+const MIN_STATIC_DISPLAY_MS = 800;
 
 interface SuggestionPillsRowProps {
-  personalizedSuggestions: string[];
+  personalizedSuggestions: Suggestion[];
   onPillClick: (text: string) => void;
 }
 
 export function SuggestionPillsRow({ personalizedSuggestions, onPillClick }: SuggestionPillsRowProps) {
-  const [flipped, setFlipped] = useState<boolean[]>([false, false, false]);
-  const [readyToFlip, setReadyToFlip] = useState(false);
+  const [isPersonalized, setIsPersonalized] = useState(false);
+  const [readyToSwap, setReadyToSwap]       = useState(false);
 
   useEffect(() => {
-    const t = setTimeout(() => setReadyToFlip(true), MIN_STATIC_DISPLAY_MS);
+    const t = setTimeout(() => setReadyToSwap(true), MIN_STATIC_DISPLAY_MS);
     return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
-    if (readyToFlip && personalizedSuggestions.length > 0) {
-      setFlipped(STATIC_PILLS.map((_, i) => i < personalizedSuggestions.length));
+    if (readyToSwap && personalizedSuggestions.length > 0) {
+      setIsPersonalized(true);
     }
-  }, [readyToFlip, personalizedSuggestions]);
+  }, [readyToSwap, personalizedSuggestions]);
 
   return (
-    <div className="flex flex-wrap gap-3 justify-center mb-5">
-      {STATIC_PILLS.map((pill, i) => (
-        <motion.div
-          key={pill.label}
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{
-            delay: i * 0.08,
-            duration: 0.4,
-            ease: [0.25, 0.46, 0.45, 0.94],
-          }}
-        >
-          <FlipSuggestionPill
-            label={pill.label}
-            query={pill.query}
-            personalizedText={personalizedSuggestions[i] ?? null}
-            flipped={flipped[i]}
-            flipDelay={i * 0.13}
-            onClick={onPillClick}
-          />
-        </motion.div>
-      ))}
+    // Fixed-height wrapper — search bar never shifts regardless of pill state
+    <div className="min-h-[80px] flex items-center justify-center mb-6">
+      <div className="grid grid-cols-3 gap-3 w-full max-w-[636px] px-1">
+        {STATIC_PILLS.map((pill, i) => (
+          <motion.div
+            key={pill.label}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+              delay: i * 0.09,
+              duration: 0.35,
+              ease: [0.25, 0.46, 0.45, 0.94],
+            }}
+          >
+            <SuggestionPill
+              staticLabel={pill.label}
+              staticQuery={pill.query}
+              personalizedLabel={personalizedSuggestions[i]?.label ?? null}
+              personalizedQuery={personalizedSuggestions[i]?.query ?? null}
+              isPersonalized={isPersonalized}
+              transitionDelay={i * 0.22}
+              onClick={onPillClick}
+            />
+          </motion.div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -1417,7 +1417,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     // When user is typing: use local scored suggestions as before
     const initialDisplaySuggestions: Suggestion[] = React.useMemo(() => {
         if (personalizedSuggestions.length > 0) {
-            return personalizedSuggestions.map((text, i) => ({ id: `ai-pers-${i}`, text }));
+            return personalizedSuggestions.map((s, i) => ({ id: `ai-pers-${i}`, text: s.query }));
         }
         return INITIAL_AI_TRY_ASKING_SUGGESTIONS;
     }, [personalizedSuggestions]);

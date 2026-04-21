@@ -10,6 +10,7 @@ import ListingTile from './ListingTile';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { useSuggestions } from '@/hooks/useSuggestions';
 import { SuggestionPillsRow } from '@/components/main/SuggestionPillsRow';
+import { SearchFilterPills, FILTER_GROUPS } from '@/components/main/SearchFilterPills';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -167,6 +168,56 @@ function getSuggestionIds(): { userId: string | null; tempUserId: string | null 
   const tempId = localStorage.getItem('snapz_ai_user_id');
   return { userId: null, tempUserId: tempId || null };
 }
+// ─── Tier 1: deterministic client-side query builder ─────────────────────────
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildAutoQuery(
+  filterIds: Set<string>,
+  location: { city?: string; state?: string; countryCode?: string } | null,
+): string {
+  if (filterIds.size === 0) return '';
+
+  const allFilters = FILTER_GROUPS.flatMap((g) => g.filters);
+  const getLabel = (id: string) => allFilters.find((f) => f.id === id)?.label ?? '';
+
+  const bedFilter    = ['2bed', '3bed', '4bed'].find((id) => filterIds.has(id));
+  const bathFilter   = ['2bath', '3bath'].find((id) => filterIds.has(id));
+  const typeFilters  = ['singlefamily', 'condo', 'townhouse', 'multifamily', 'apartment'].filter((id) => filterIds.has(id));
+  const featureFilters = ['pool', 'garage', 'backyard', 'homeoffice'].filter((id) => filterIds.has(id));
+
+  // Subject: "3 bed single family homes" / "condos" / "homes"
+  let subject: string;
+  if (bedFilter && typeFilters.length > 0) {
+    subject = `${getLabel(bedFilter)} ${typeFilters.map((id) => getLabel(id).toLowerCase()).join(' and ')} homes`;
+  } else if (bedFilter) {
+    subject = `${getLabel(bedFilter)} homes`;
+  } else if (typeFilters.length > 0) {
+    subject = `${typeFilters.map((id) => getLabel(id).toLowerCase()).join(' and ')} homes`;
+  } else {
+    subject = 'homes';
+  }
+
+  // Features
+  const extras: string[] = [];
+  if (bathFilter) extras.push(getLabel(bathFilter));
+  featureFilters.forEach((id) => extras.push(getLabel(id).toLowerCase()));
+
+  let query = `Show me ${subject}`;
+  if (extras.length > 0) query += ` with ${extras.join(' and ')}`;
+
+  // Location
+  if (location?.countryCode === 'US' && location?.city) {
+    query += ` in ${location.city}${location.state ? `, ${location.state}` : ''}`;
+  }
+
+  return query;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const CHAT_EXPANDED_STORAGE_KEY = 'landing_ai_chat_expanded';
 const CHAT_STATE_STORAGE_KEY = 'landing_ai_chat_state_v1';
 const SESSION_TS_KEY = 'landing_ai_chat_session_ts';
@@ -399,9 +450,18 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
   const [isExpanded, setIsExpanded] = useState(false);
   const [showTryAsking, setShowTryAsking] = useState(false);
   const [streamStartTime, setStreamStartTime] = useState<number | null>(null);
+  const [highlightedFilters, setHighlightedFilters] = useState<Set<string>>(new Set());
+  const [selectedFilters, setSelectedFilters] = useState<Set<string>>(new Set());
+  const [selectedBeInspired, setSelectedBeInspired] = useState<Set<string>>(new Set());
+  // 'auto' = query built by us (filters can rebuild it); 'manual' = user typed (only append)
+  const queryModeRef = useRef<'auto' | 'manual'>('auto');
+  const buildQueryDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Personalized "Try Asking" suggestions
   const { location: userGeoLocation } = useGeolocation();
+  // Keep a ref so filter query builder can read location without being in dep arrays
+  const locationRef = useRef(userGeoLocation);
+  useEffect(() => { locationRef.current = userGeoLocation; }, [userGeoLocation]);
   const {
     suggestions: personalizedSuggestions,
     loading: suggestionsLoading,
@@ -411,7 +471,7 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
 
   // Displayed suggestions: personalized if ready, else static fallback
   const tryAskingSuggestions = personalizedSuggestions.length > 0
-    ? personalizedSuggestions
+    ? personalizedSuggestions.map((s) => s.label)
     : STATIC_TRY_ASKING;
   const [showHistory, setShowHistory] = useState(false);
   const [conversations, setConversations] = useState<ConversationMeta[]>([]);
@@ -480,11 +540,128 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Re-fetch suggestions when user closes the chat — context may have changed after search.
+  const hasBeenExpandedRef = useRef(false);
+  useEffect(() => {
+    if (isExpanded) {
+      hasBeenExpandedRef.current = true;
+    } else if (hasBeenExpandedRef.current) {
+      const ids = getSuggestionIds();
+      fetchPersonalizedSuggestions(ids.userId, ids.tempUserId, userGeoLocation);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpanded]);
+
   // Pill click: populate textarea + focus (no immediate submit — user reviews first)
   const handlePillClick = useCallback((text: string) => {
     setInput(text);
     setTimeout(() => textareaRef.current?.focus(), 0);
   }, []);
+
+  // Filter pill toggle — auto mode: rebuilds query; manual mode: appends/removes label
+  const handleFilterToggle = useCallback((id: string) => {
+    const label = FILTER_GROUPS.flatMap((g) => g.filters).find((f) => f.id === id)?.label ?? '';
+    const wasSelected = selectedFilters.has(id);
+    // Update selection set (pure — no side effects inside updater)
+    setSelectedFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    // Update input OUTSIDE the updater — StrictMode double-invokes updaters, causing duplicates
+    if (queryModeRef.current === 'manual') {
+      if (wasSelected) {
+        setInput((cur) => cur.replace(new RegExp(`\\s*${escapeRegex(label)}\\s*`, 'gi'), ' ').trim());
+      } else {
+        setInput((cur) => (cur ? `${cur} ${label}` : label));
+      }
+    }
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  }, [selectedFilters]);
+
+  // Filter → query builder: Tier 1 (instant) + Tier 2 (Haiku, debounced 400ms)
+  useEffect(() => {
+    if (queryModeRef.current !== 'auto') return;
+
+    if (buildQueryDebounceRef.current) clearTimeout(buildQueryDebounceRef.current);
+
+    if (selectedFilters.size === 0) {
+      setInput('');
+      return;
+    }
+
+    // Tier 1 — instant deterministic query
+    const tier1 = buildAutoQuery(selectedFilters, locationRef.current);
+    setInput(tier1);
+
+    // Tier 2 — Haiku-enriched query (only for authenticated users with profile data)
+    const ids = getSuggestionIds();
+    if (!ids.userId) return; // anonymous user: Tier 1 is sufficient
+
+    const filterLabels = FILTER_GROUPS.flatMap((g) => g.filters)
+      .filter((f) => selectedFilters.has(f.id))
+      .map((f) => f.label);
+
+    buildQueryDebounceRef.current = setTimeout(async () => {
+      if (queryModeRef.current !== 'auto') return;
+      try {
+        const res = await fetch('/api/build-query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filterLabels,
+            location: locationRef.current || null,
+            userId: ids.userId,
+            tempUserId: ids.tempUserId,
+          }),
+        });
+        if (!res.ok) return;
+        const { query } = await res.json() as { query: string };
+        if (query && queryModeRef.current === 'auto') {
+          // Ensure Tier 2 result is at least as good as Tier 1 (longer = more enriched)
+          const tier1Len = buildAutoQuery(selectedFilters, locationRef.current).length;
+          if (query.length > tier1Len) {
+            setInput(query);
+          }
+        }
+      } catch {
+        // Tier 1 result stays
+      }
+    }, 400);
+
+    return () => {
+      if (buildQueryDebounceRef.current) clearTimeout(buildQueryDebounceRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFilters]);
+
+  // Type-to-highlight: glow unset filter pills — AI-powered semantic detection (debounced 600ms)
+  const highlightDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (highlightDebounceRef.current) clearTimeout(highlightDebounceRef.current);
+    if (!input.trim()) {
+      setHighlightedFilters(new Set());
+      return;
+    }
+    highlightDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/detect-filters', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: input }),
+        });
+        const { filterIds } = await res.json() as { filterIds: string[] };
+        setHighlightedFilters(new Set(filterIds.filter((id) => !selectedFilters.has(id))));
+      } catch {
+        setHighlightedFilters(new Set());
+      }
+    }, 600);
+    return () => {
+      if (highlightDebounceRef.current) clearTimeout(highlightDebounceRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input]);
 
   // Guest → authenticated session handoff.
   // Runs once on mount. If the user logged in after chatting as a guest,
@@ -604,7 +781,12 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
     const content = (text ?? input).trim();
     if (!content || loading) return;
 
+    const messageToSend = content;
+
     setInput('');
+    setSelectedFilters(new Set());
+    setSelectedBeInspired(new Set());
+    queryModeRef.current = 'auto';
     setShowTryAsking(false);
     clearSuggestionsCache(); // bust cache so next focus re-fetches with new context
     setIsExpanded(true);
@@ -622,7 +804,7 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: content,
+          message: messageToSend,
           ...getUserIdentity(),
           conversationId: sessionStorage.getItem(CONV_ID_KEY),
           ...(interviewModeRef.current ? { mode: 'interview' } : {}),
@@ -1117,42 +1299,101 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
 
       {/* Suggestion pills — float above the search bar on the hero background */}
       {!isExpanded && !input && (
-        <SuggestionPillsRow
-          personalizedSuggestions={personalizedSuggestions}
-          onPillClick={handlePillClick}
-        />
+        <>
+          <div className="flex items-center gap-3 mb-3 px-1">
+            <div className="flex-1 h-px bg-white/15" />
+            <p className="text-[10px] font-semibold text-white/65 tracking-[0.2em] uppercase flex items-center gap-1.5">
+              <span className="text-[#F58634]/90 text-[8px]">✦</span>
+              Try asking
+              <span className="text-[#F58634]/90 text-[8px]">✦</span>
+            </p>
+            <div className="flex-1 h-px bg-white/15" />
+          </div>
+          <SuggestionPillsRow
+            personalizedSuggestions={personalizedSuggestions}
+            onPillClick={handlePillClick}
+          />
+        </>
       )}
 
       {/* Search input bar */}
       {!isExpanded && (
-        <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-full shadow-xl border border-gray-200">
-          <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center">
-            <AskAiIcon size={22} />
+        <div
+          className="bg-white shadow-xl border border-gray-200 rounded-2xl overflow-hidden"
+          onBlur={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+              setTimeout(() => setShowTryAsking(false), 150);
+            }
+          }}
+        >
+          <div className="flex items-center gap-2 px-3 py-2">
+            <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center">
+              <AskAiIcon size={22} />
+            </div>
+            <textarea
+              ref={textareaRef}
+              className="flex-1 resize-none bg-transparent text-gray-900 placeholder-gray-400 text-sm focus:outline-none min-h-[24px] max-h-[120px] overflow-y-auto leading-relaxed"
+              placeholder="Find homes by address or ask anything…"
+              value={input}
+              onChange={(e) => {
+                const val = e.target.value;
+                // Empty → back to auto so next filter click rebuilds the smart query
+                queryModeRef.current = val ? 'manual' : 'auto';
+                setInput(val);
+              }}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setShowTryAsking(true)}
+              disabled={loading}
+              rows={1}
+            />
+            <button
+              onClick={() => sendMessage()}
+              disabled={loading || !input.trim()}
+              className="flex-shrink-0 w-[38px] h-[38px] rounded-full bg-black text-white flex items-center justify-center disabled:opacity-100 disabled:bg-black hover:bg-black/90 transition-colors"
+              aria-label="Send"
+            >
+              {loading ? (
+                <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <svg className="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 4.75c.3 0 .58.12.79.33l5.5 5.5a1.125 1.125 0 1 1-1.59 1.59L13.125 8.6V19a1.125 1.125 0 1 1-2.25 0V8.6l-3.57 3.57a1.125 1.125 0 1 1-1.59-1.59l5.5-5.5c.21-.21.49-.33.79-.33Z" />
+                </svg>
+              )}
+            </button>
           </div>
-          <textarea
-            ref={textareaRef}
-            className="flex-1 resize-none bg-transparent text-gray-900 placeholder-gray-400 text-sm focus:outline-none min-h-[24px] max-h-[120px] overflow-y-auto leading-relaxed"
-            placeholder="Find homes by address or ask anything…"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={loading}
-            rows={1}
-          />
-          <button
-            onClick={() => sendMessage()}
-            disabled={loading || !input.trim()}
-            className="flex-shrink-0 w-[38px] h-[38px] rounded-full bg-black text-white flex items-center justify-center disabled:opacity-100 disabled:bg-black hover:bg-black/90 transition-colors"
-            aria-label="Send"
+
+          {/* Filter groups + Be inspired — smooth height reveal */}
+          <div
+            className="grid transition-[grid-template-rows] duration-200 ease-out"
+            style={{ gridTemplateRows: showTryAsking ? '1fr' : '0fr' }}
           >
-            {loading ? (
-              <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <svg className="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 4.75c.3 0 .58.12.79.33l5.5 5.5a1.125 1.125 0 1 1-1.59 1.59L13.125 8.6V19a1.125 1.125 0 1 1-2.25 0V8.6l-3.57 3.57a1.125 1.125 0 1 1-1.59-1.59l5.5-5.5c.21-.21.49-.33.79-.33Z" />
-              </svg>
-            )}
-          </button>
+            <div className="overflow-hidden">
+              <div className="border-t border-gray-100">
+                <SearchFilterPills
+                  selectedFilters={selectedFilters}
+                  onFilterToggle={handleFilterToggle}
+                  highlightedFilters={highlightedFilters}
+                  beInspiredTags={BE_INSPIRED_TAGS}
+                  selectedBeInspired={selectedBeInspired}
+                  onBeInspiredClick={(label, query) => {
+                    const wasActive = selectedBeInspired.has(label);
+                    setSelectedBeInspired((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(label)) next.delete(label); else next.add(label);
+                      return next;
+                    });
+                    queryModeRef.current = 'manual';
+                    if (wasActive) {
+                      setInput((cur) => cur.replace(new RegExp(`\\s*${escapeRegex(query)}\\s*`, 'gi'), ' ').trim());
+                    } else {
+                      setInput((cur) => (cur ? `${cur} ${query}` : query));
+                    }
+                    setTimeout(() => textareaRef.current?.focus(), 0);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

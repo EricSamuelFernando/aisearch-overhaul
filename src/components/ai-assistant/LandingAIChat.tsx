@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { v4 as uuidv4 } from 'uuid';
 import { useRouter } from 'next/navigation';
-import { MLSListing, MLSSearchParams, PhotoRankResult } from '@/types/ai-assistant';
+import { MLSListing, MLSSearchParams, PhotoRankResult, ListingEnrichment, CommuteResult } from '@/types/ai-assistant';
 import ListingTile from './ListingTile';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { useSuggestions } from '@/hooks/useSuggestions';
@@ -21,6 +21,7 @@ interface Message {
   elapsed?: number;
   queryText?: string;
   timestamp?: string;
+  commuteResults?: CommuteResult[];
 }
 
 interface HistorySession {
@@ -222,6 +223,8 @@ const CHAT_EXPANDED_STORAGE_KEY = 'landing_ai_chat_expanded';
 const CHAT_STATE_STORAGE_KEY = 'landing_ai_chat_state_v1';
 const SESSION_TS_KEY = 'landing_ai_chat_session_ts';
 const CONV_ID_KEY = 'landing_ai_chat_conv_id';
+// localStorage key — persists across tab restores, unlike sessionStorage
+const LAST_ACTIVITY_KEY = 'snapz_chat_last_activity';
 const SESSION_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours — after this, new visit starts clean
 
 function AskAiIcon({ size = 20 }: { size?: number }) {
@@ -354,7 +357,7 @@ const buildBrowseUrl = (
   return queryString ? `/buy/browse?${queryString}` : '/buy/browse';
 };
 
-function ListingsRow({ listings, queryText, searchParams }: { listings: MLSListing[]; queryText?: string; searchParams?: Partial<MLSSearchParams> }) {
+function ListingsRow({ listings, queryText, searchParams, commuteResults }: { listings: MLSListing[]; queryText?: string; searchParams?: Partial<MLSSearchParams>; commuteResults?: CommuteResult[] }) {
   const router = useRouter();
   const rowRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -421,7 +424,7 @@ function ListingsRow({ listings, queryText, searchParams }: { listings: MLSListi
       )}
       <div ref={rowRef} className="flex items-start gap-3 overflow-x-auto pb-2 -mx-1 px-14 scrollbar-hide">
         {listings.map((listing, idx) => (
-          <ListingTile key={listing.id || idx} listing={listing} index={idx} queryText={queryText} />
+          <ListingTile key={listing.id || idx} listing={listing} index={idx} queryText={queryText} commuteResult={commuteResults?.find(r => r.listingId === String(listing.id))} />
         ))}
         <button
           type="button"
@@ -496,7 +499,20 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
     try {
       const sessionTs = sessionStorage.getItem(SESSION_TS_KEY);
       const now = Date.now();
-      const isActiveSession = sessionTs && (now - parseInt(sessionTs)) < SESSION_TIMEOUT_MS;
+
+      // Secondary check in localStorage: survives tab suspends (iOS Safari, Chrome restore).
+      // sessionStorage alone can be preserved when the browser suspends/restores a tab
+      // without the user actually closing it. If localStorage shows the last real activity
+      // was more than SESSION_TIMEOUT_MS ago, treat this as a new visit regardless.
+      const lastActivity = localStorage.getItem(LAST_ACTIVITY_KEY);
+      const activityFresh = lastActivity
+        ? now - parseInt(lastActivity) < SESSION_TIMEOUT_MS
+        : false;
+
+      const isActiveSession =
+        sessionTs &&
+        now - parseInt(sessionTs) < SESSION_TIMEOUT_MS &&
+        activityFresh;
 
       if (isActiveSession) {
         // Restore in-progress conversation — user refreshed within the same session window
@@ -716,8 +732,11 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
     }));
 
     try {
-      // Refresh the session timestamp so active conversations don't expire mid-use
-      sessionStorage.setItem(SESSION_TS_KEY, Date.now().toString());
+      // Refresh both timestamps — sessionStorage for tab-level restore, localStorage
+      // as the authoritative "last real activity" that survives tab suspend/restore.
+      const now = Date.now().toString();
+      sessionStorage.setItem(SESSION_TS_KEY, now);
+      localStorage.setItem(LAST_ACTIVITY_KEY, now);
       sessionStorage.setItem(
         CHAT_STATE_STORAGE_KEY,
         JSON.stringify({
@@ -906,6 +925,37 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
               updated[updated.length - 1] = { ...last, listings: updatedListings };
               return updated;
             });
+          } else if (event.type === 'profile') {
+            // Server sends authoritative profile state early in every response.
+            // Use it to seed UI flags that sessionStorage can't reliably persist.
+            const pd = event.data as { interviewCompleted?: boolean } | undefined;
+            if (pd?.interviewCompleted) setInterviewDone(true);
+          } else if (event.type === 'poi_enrichment') {
+            // Merge POI enrichment into the last message's listings (same pattern as photo_rank)
+            const enrichments = event.data as unknown as ListingEnrichment[];
+            const enrichMap = new Map(enrichments.map((e) => [e.listingId, e]));
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (!last?.listings) return prev;
+              updated[updated.length - 1] = {
+                ...last,
+                listings: last.listings.map((l) => {
+                  const enrich = enrichMap.get(String(l.id));
+                  return enrich ? { ...l, enrichment: enrich } : l;
+                }),
+              };
+              return updated;
+            });
+          } else if (event.type === 'commute_data') {
+              const results = event.data as unknown as CommuteResult[];
+              setMessages((prev) => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                if (!last) return prev;
+                updated[updated.length - 1] = { ...last, commuteResults: results };
+                return updated;
+              });
           } else if (event.type === 'debug') {
             // Score report for testing — visible in browser devtools Network tab
             console.log('[AI Debug]', event.data);
@@ -986,6 +1036,12 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
     setMessages([]);
     setConversations([]); // clear so history panel refetches next time
     lastListingsRef.current = [];
+    // Always reset interview state — stale refs would cause the next request to
+    // go out with mode:'interview', triggering false transition detection and
+    // auto-firing "show me homes matching my profile" on an unrelated search.
+    interviewModeRef.current = false;
+    setInterviewMode(false);
+    pendingAutoSendRef.current = false;
     try { sessionStorage.removeItem(CHAT_STATE_STORAGE_KEY); } catch {}
   }, []);
 
@@ -1128,7 +1184,7 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
                   <div className="flex flex-col gap-2 max-w-[90%] min-w-0">
                     {/* Full listing grid — rendered on new searches */}
                   {m.listings && m.listings.length > 0 && (
-                    <ListingsRow listings={m.listings} queryText={m.queryText} searchParams={m.searchParams} />
+                    <ListingsRow listings={m.listings} queryText={m.queryText} searchParams={m.searchParams} commuteResults={m.commuteResults} />
                   )}
 
                     {/* Single focused tile — rendered when user asks about a specific listing */}
@@ -1361,6 +1417,23 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
               )}
             </button>
           </div>
+
+          {/* Home Pilot button — visible when Try Asking panel is closed */}
+          {!showTryAsking && (
+            <div className="flex justify-center mt-2">
+              <button
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); startInterview(); }}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-[#e8804c]/40 bg-[#fff5f0] text-[#c86b3e] text-xs font-medium hover:bg-[#ffe8d6] hover:border-[#e8804c] transition-all shadow-sm"
+              >
+                <svg viewBox="0 0 24 24" className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                  <polyline strokeLinecap="round" strokeLinejoin="round" points="9 22 9 12 15 12 15 22" />
+                </svg>
+                {interviewDone ? 'Revisit Home Pilot' : 'Home Pilot'}
+              </button>
+            </div>
+          )}
 
           {/* Filter groups + Be inspired — smooth height reveal */}
           <div

@@ -11,6 +11,8 @@ export interface SearchContext {
   params: MLSSearchParams;
   resolvedLocation: string; // human-readable e.g. "Las Vegas, NV"
   appliedAt: string;        // ISO timestamp
+  /** Set when search used POI proximity routing (near_poi_type / near_poi_query) */
+  nearPOI?: { query: string; name: string; lat: number; lng: number };
 }
 
 export interface PendingAction {
@@ -149,6 +151,19 @@ export interface MLSSearchParams {
   visual_confidence?: "high" | "medium" | "low";
   /** Comma-separated keyword synonyms for description text matching */
   description_keywords?: string;
+
+  // ── Proximity / commute fields (stripped before MLS API call) ────────────
+  near_poi_type?: string;
+  near_poi_query?: string;
+  /** Address or place to compute commute from (e.g. "123 Market St, San Francisco") */
+  commute_from?: string;
+  /** Maximum acceptable commute time in minutes */
+  commute_max_minutes?: number;
+  /** Commute travel mode — default: driving */
+  commute_mode?: "driving" | "transit" | "walking";
+  /** Second commute origin (e.g. school address) — both must be within their limits */
+  commute_from_2?: string;
+  commute_max_minutes_2?: number;
 }
 
 export interface MLSListing {
@@ -184,10 +199,64 @@ export interface MLSListing {
   is_park_view?: boolean;
   /** Populated after photo_rank SSE — confidence score 0-1 from vision model */
   bestScore?: number;
+  /** Populated after poi_enrichment SSE — nearby amenities and neighborhood score */
+  enrichment?: ListingEnrichment;
 }
 
 export interface PhotoRankResult {
   listingId: string;
   rankedPhotos: string[];
   bestScore: number;
+}
+
+export interface POIBadge {
+  type: string;
+  label: string;
+  name: string;
+  distanceMi: number;
+}
+
+export interface NeighborhoodScore {
+  score: number;
+  breakdown: {
+    grocery: number;
+    transit: number;
+    park: number;
+    school: number;
+    hospital: number;
+  };
+}
+
+export interface ListingEnrichment {
+  listingId: string;
+  pois: POIBadge[];
+  neighborhood: NeighborhoodScore;
+  /** Distance to the specific POI the user searched near (e.g. "Galleria Mall") */
+  distanceToSearchPOI?: { name: string; distanceMi: number };
+  /** Geocoded lat/lng of the listing — used for Street View and commute calculation */
+  location?: { lat: number; lng: number };
+  /** Google Solar API — rooftop solar potential */
+  solar?: { yearlyEnergyKwh: number; panelCount: number; carbonOffsetKg: number };
+  /** Google Air Quality API — current AQI at listing location */
+  airQuality?: { aqi: number; category: string };
+  /** Google Pollen API — current pollen levels at listing location */
+  pollen?: { tree: string; grass: string; weed: string };
+  /** Open-Meteo — current conditions + 30-year climate normals */
+  weather?: {
+    tempF: number;
+    condition: string;
+    humidity: number;
+    summerHighF: number;
+    winterLowF: number;
+    annualRainfallIn: number;
+  };
+}
+
+/** Per-listing commute result — separate from enrichment since it changes per search origin */
+export interface CommuteResult {
+  listingId: string;
+  minutes: number;
+  distanceMi: number;
+  mode: string;
+  withinLimit: boolean;
 }

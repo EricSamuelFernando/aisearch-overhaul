@@ -278,16 +278,7 @@ Triggers when user explicitly says "search my preferred locations", "all my citi
 - Deduplicates by full address across cities
 - `clearPendingAction(userId)` called after multi-city search too
 
-## SSE Event Types
-```
-{ type: "listings",      data: { listings: MLSListing[], params: MLSSearchParams } }
-{ type: "listing_focus", data: MLSListing, index: number }
-{ type: "photo_rank",    data: PhotoRankResult[], lowMatch?: boolean }
-{ type: "debug",         data: { pool, text_matches, vision_targets, best_score, low_match } }
-{ type: "token",         text: string }
-{ type: "done" }
-{ type: "error",         message: string }
-```
+## SSE Event Types (legacy reference — see updated list in Google Places section above)
 
 ## ListingTile Highlights (client-side)
 `showMoreHighlights` in `ListingTile.tsx` auto-expands and highlights fields that match the user's query:
@@ -312,13 +303,87 @@ Triggers when user explicitly says "search my preferred locations", "all my citi
 - ⚠️ Uses **OpenAI** (`gpt-4o-mini`, `OPENAI_API_KEY`) — inconsistent with rest of app which uses Anthropic
 - ⚠️ Cache is **in-memory Map** — resets on every Vercel cold start, effectively no caching. Should be Redis.
 
-## Home Pilot — Profile-Building Interview (Implemented, UI temporarily disabled)
-Backend fully implemented. UI entry point commented out in `LandingAIChat.tsx`.
-- Re-enable by restoring `interviewMode` state, `setInterview` helper, `interviewModeRef`, and the Home Pilot button.
+## Home Pilot — Profile-Building Interview (Active)
+Fully implemented and live. Entry point: orange pill button below the search bar in collapsed state in `LandingAIChat.tsx`.
 - Route bypass: `mode === "interview"` in request body skips Haiku, uses `buildInterviewSystemPrompt`.
-- Transition: Sonnet says "Want me to pull up some homes in [City]" → frontend detects phrase → exits interview mode.
+- **Transition detection (tool-based):** Sonnet is given `INTERVIEW_COMPLETION_TOOL` (`complete_interview`) with `tool_choice: "auto"`. When interview is complete, Sonnet calls the tool alongside its text. Route detects `content_block_start` with `tool_use` type and name `complete_interview` → sets `interviewComplete = true`. Replaces the old brittle string-match (`isTransition`).
+- **`interviewCompleted` persisted:** `BuyerProfile.interviewCompleted` boolean stored in Redis + Postgres. Emitted to client as `profile` SSE event on every request so `interviewDone` state survives page refresh without sessionStorage.
 - Storage: extracts full personalContext bag (`driving_move`, `household_composition`, `work_style`, `lifestyle`, `timeline`, etc.) + infers bedrooms/mustHaves/propertyTypes from lifestyle signals.
 - Always writes to Supermemory on interview turns (no PREFERENCE_TERMS gate).
+- `startNewConversation` resets `interviewModeRef.current`, `interviewMode`, and `pendingAutoSendRef.current` to prevent interview state leaking into fresh chats.
+
+## Google Places API Integration (Active)
+
+Three-option integration. Key: `GOOGLE_PLACES_API_KEY` (server-side only). File: `src/lib/ai-assistant/places.ts`.
+
+### Option 1 — Proximity Routing
+Haiku tool schema (`search_mls`) has two new optional params:
+- `near_poi_type` (enum: hospital/school/grocery/park/transit/restaurant/gym/pharmacy) — generic category
+- `near_poi_query` (string) — named place, e.g. "UCSF Medical Center San Francisco"
+- Never both simultaneously
+
+In `route.ts`, before the MLS call:
+1. `near_poi_type`/`near_poi_query` extracted and deleted from rawParams
+2. `resolvePOILocation(poiQuery, city, state)` called → Google Places Text Search → lat/lng
+3. `latitude`, `longitude`, `radius=3` injected into rawParams for MLS API
+
+`resolvePOILocation` is Redis-cached 24h at `places:poi:{md5(term+city+state)[:12]}`.
+
+Intent prompt updated in `claude.ts` with `### Proximity` section: generic categories → `near_poi_type`, named places → `near_poi_query`, always include city+state.
+
+### Option 2 — Listing Enrichment (POI badges)
+After MLS listings SSE is emitted, `enrichListings(listings)` fires in parallel (fire-and-forget):
+```typescript
+enrichListings(listings).then(enrichments => send({ type: "poi_enrichment", data: enrichments }));
+```
+- Batches up to 8 listings
+- Per listing: geocodes `full_address` → Nearby Search for 5 types (hospital 5km, school 2km, grocery 1.5km, transit 800m, park 1km)
+- Returns `POIBadge[]` (type, label, name, distanceMi)
+- All geocodes cached 7d; per-listing enrichment cached 7d at `places:enrich:v1:{listingId}`
+
+Frontend (`LandingAIChat.tsx`) handles `poi_enrichment` SSE: merges enrichment into last message's listings by `listingId`. `ListingTile.tsx` renders POI badges in expanded "Show More" section with emoji icons (🏥🏫🛒🚇🌳) and distances.
+
+### Option 3 — Neighborhood Score
+Same Nearby Search results used to compute 0–10 score: 2pts per found type (grocery/transit/park/school/hospital). Rendered as a color-coded pill in `ListingTile.tsx`:
+- Green (≥8): `bg-[#ECFDF3] text-[#166534]` — "Area N/10"
+- Amber (5–7): `bg-[#FFFBEB] text-[#92400E]`
+- Gray (<5): `bg-gray-50 text-gray-500`
+
+### New Types (`src/types/ai-assistant.ts`)
+```typescript
+POIBadge         { type, label, name, distanceMi }
+NeighborhoodScore { score, breakdown: { grocery, transit, park, school, hospital } }
+ListingEnrichment { listingId, pois: POIBadge[], neighborhood: NeighborhoodScore }
+MLSListing.enrichment?: ListingEnrichment   // added field
+```
+
+## withRetry — Anthropic Overload Handling
+All 8 `anthropic.messages.create` calls in `route.ts` are wrapped with `withRetry<T>(fn, label, maxAttempts=2)`. Retries on HTTP 429, 529, and `overloaded_error` type with `2s × attempt` backoff. Logs each retry to console.
+
+## SSE Event Types (updated)
+```
+{ type: "listings",       data: { listings: MLSListing[], params: MLSSearchParams } }
+{ type: "listing_focus",  data: MLSListing, index: number }
+{ type: "photo_rank",     data: PhotoRankResult[], lowMatch?: boolean }
+{ type: "poi_enrichment", data: ListingEnrichment[] }
+{ type: "profile",        data: { interviewCompleted?: boolean } }
+{ type: "debug",          data: { pool, text_matches, vision_targets, best_score, low_match } }
+{ type: "token",          text: string }
+{ type: "done" }
+{ type: "error",          message: string }
+```
+
+## Session Restore — Dual-Layer Guard
+Mobile browsers (iOS Safari) suspend tabs without clearing sessionStorage, causing stale chat to appear on return.
+
+Fix (`LandingAIChat.tsx`):
+- `SESSION_TS_KEY` (sessionStorage) — set on every message
+- `LAST_ACTIVITY_KEY` (localStorage) — set on every message, 2h TTL gate
+- On mount: session restore only if BOTH `sessionTs` (sessionStorage) AND `activityFresh` (localStorage) are within 2 hours
+- `startNewConversation` writes a fresh `convId` and clears `LAST_ACTIVITY_KEY`
+
+## avgBudgetMax Windowed Average
+`runningAvg()` in `intelligence.ts` is now capped at `INTELLIGENCE_WINDOW = 10` — the effective weight never exceeds 10 searches. Prevents an early low-budget search from permanently dragging down the average across dozens of sessions.
 
 ## Known Issues / Pending
 
@@ -375,6 +440,7 @@ NEXT_PUBLIC_COGNITO_CLIENT_ID
 NEXT_PUBLIC_COGNITO_DOMAIN
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 NEXT_PUBLIC_AI_BACKEND_BASE_URI       # Used by HomeCondition card for image_categorization API
+GOOGLE_PLACES_API_KEY                 # Server-side only — POI proximity routing + listing enrichment (places.ts)
 ```
 
 ## Run Locally

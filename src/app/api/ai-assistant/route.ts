@@ -28,13 +28,46 @@ import {
 import { writeMemory, getUserMemoryContext } from "@/lib/ai-assistant/supermemory";
 import { rankListingPhotos } from "@/lib/ai-assistant/vision";
 import { getBatchCachedRankings, setBatchCachedRankings } from "@/lib/ai-assistant/photo-cache";
-import { MLSSearchParams, PhotoRankResult } from "@/types/ai-assistant";
+import { resolvePOILocation, enrichListings, loadCachedEnrichments, geocodeAddress, getCommuteTimes } from "@/lib/ai-assistant/places";
+import { MLSSearchParams, PhotoRankResult, ListingEnrichment, CommuteResult } from "@/types/ai-assistant";
 
 export const runtime = "nodejs";
 
 function sseEvent(data: object): string {
   return `data: ${JSON.stringify(data)}\n\n`;
 }
+
+// Retry wrapper for Anthropic overload (529) and rate-limit (429) errors.
+// Streaming calls can be retried because the error surfaces before the stream opens.
+async function withRetry<T>(fn: () => Promise<T>, label: string, maxAttempts = 2): Promise<T> {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err: unknown) {
+      const apiErr = err as { status?: number; error?: { type?: string } };
+      const retryable = apiErr?.status === 429 || apiErr?.status === 529 || apiErr?.error?.type === "overloaded_error";
+      if (retryable && attempt < maxAttempts) {
+        const delay = attempt * 2000;
+        console.warn(`\x1b[33m[AI]\x1b[0m ${label} overloaded/rate-limited — retrying in ${delay}ms`);
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error("unreachable");
+}
+
+// Tool Sonnet calls during the Home Pilot interview to signal completion.
+// Replaces the fragile string-match approach — model explicitly declares it's done.
+const INTERVIEW_COMPLETION_TOOL: Anthropic.Tool = {
+  name: "complete_interview",
+  description:
+    "Signal that the Home Pilot interview is complete and the assistant is ready to search for homes. " +
+    "Call this ONLY when you have gathered: rough location, rough budget, household composition, and at least one aesthetic preference. " +
+    "Always include your final conversational text message alongside this tool call.",
+  input_schema: { type: "object" as const, properties: {} },
+};
 
 
 function log(label: string, ref: number) {
@@ -121,7 +154,55 @@ const ANTHROPIC_TOOLS: Anthropic.Tool[] = [
         listing_association_fee_max: { type: "integer", description: "Max HOA/association fee per month — use for 'low HOA', 'no HOA' (set to 0), 'under $200 HOA'" },
 
         // ── Result control ────────────────────────────────────────────────
-        size: { type: "integer", description: "Number of results — default 6, max 12. Visual queries: always 12." },
+        size: { type: "integer", description: "Number of results — default 6, max 12. Visual queries: always size=12" },
+
+        // ── Proximity (Google Places resolution) ──────────────────────────
+        near_poi_type: {
+          type: "string",
+          enum: ["hospital", "school", "grocery", "park", "transit", "restaurant", "gym", "pharmacy"],
+          description:
+            "Set when user wants homes near a specific amenity type. " +
+            "'near hospitals' / 'close to hospital' → 'hospital'. " +
+            "'good schools' / 'school district' / 'near schools' → 'school'. " +
+            "'walkable' / 'near transit' / 'near subway' → 'transit'. " +
+            "'near grocery' / 'walkable to stores' / 'near Trader Joes' → 'grocery'. " +
+            "'near parks' / 'near green space' → 'park'. " +
+            "Never set for general location queries with no amenity intent.",
+        },
+        near_poi_query: {
+          type: "string",
+          description:
+            "Named place to resolve proximity to. Use for specific institutions or branded stores. " +
+            "'near UCSF' → 'UCSF Medical Center'. 'near Whole Foods' → 'Whole Foods'. " +
+            "'near Stanford' → 'Stanford University'. " +
+            "Overrides near_poi_type when set. Include city context if helpful.",
+        },
+        commute_from: {
+          type: "string",
+          description:
+            "Full address or named place the user wants to commute FROM. " +
+            "Set when user says 'near my office at [address]', 'within X min of [place]', 'commute from [address]'. " +
+            "Include city and state if user provides them. Example: '123 Market St, San Francisco, CA'.",
+        },
+        commute_max_minutes: {
+          type: "integer",
+          description: "Maximum acceptable commute time in minutes. Only set when user explicitly states a commute limit.",
+        },
+        commute_mode: {
+          type: "string",
+          enum: ["driving", "transit", "walking"],
+          description: "Travel mode for commute. Default: driving. Use transit if user says 'public transit', 'subway', 'BART', 'metro'. Use walking if user says 'walkable', 'walking distance'.",
+        },
+        commute_from_2: {
+          type: "string",
+          description:
+            "Second commute origin — use when user needs to be within commute range of TWO places. " +
+            "Example: 'between my office at [A] and my kid school at [B]' → commute_from=[A], commute_from_2=[B].",
+        },
+        commute_max_minutes_2: {
+          type: "integer",
+          description: "Maximum commute time in minutes for the second origin (commute_from_2).",
+        },
 
         // ── Visual / Photo ranking (not sent to MLS — processed client-side) ──
         visual_query: {
@@ -252,6 +333,10 @@ export async function POST(req: NextRequest) {
         ]);
         log("profile + history loaded", T0);
 
+        // Let the client sync UI state (e.g. interviewDone button label) from the
+        // authoritative database value without a separate network round-trip.
+        send({ type: "profile", data: { interviewCompleted: profile.interviewCompleted } });
+
         // Increment session counter when this is a new session (gap > 2h).
         if (bumpSessionIfNew(profile)) saveProfile(profile); // fire-and-forget
 
@@ -286,17 +371,27 @@ export async function POST(req: NextRequest) {
                 { role: "user" as const, content: message },
               ];
 
-          const interviewStream = await anthropic.messages.create({
-            model: "claude-sonnet-4-6",
-            max_tokens: 400,
-            system: buildInterviewSystemPrompt(profile),
-            messages: interviewMessages,
-            stream: true,
-          });
+          const interviewStream = await withRetry(
+            () => anthropic.messages.create({
+              model: "claude-sonnet-4-6",
+              max_tokens: 500,
+              system: buildInterviewSystemPrompt(profile),
+              messages: interviewMessages,
+              tools: [INTERVIEW_COMPLETION_TOOL],
+              tool_choice: { type: "auto" },
+              stream: true,
+            }),
+            "interview Sonnet",
+          );
 
           let interviewResp = "";
+          let interviewComplete = false;
           let firstIToken = true;
           for await (const ev of interviewStream) {
+            // Detect tool call — model explicitly signals interview is done
+            if (ev.type === "content_block_start" && ev.content_block.type === "tool_use") {
+              if (ev.content_block.name === "complete_interview") interviewComplete = true;
+            }
             if (ev.type === "content_block_delta" && ev.delta.type === "text_delta") {
               if (firstIToken) { log("first interview token", T0); firstIToken = false; }
               interviewResp += ev.delta.text;
@@ -309,8 +404,7 @@ export async function POST(req: NextRequest) {
           await appendMessage(userId, { role: "assistant", content: interviewResp }, convId);
 
           if (!isInterviewStart) {
-            const isTransition = interviewResp.includes("Want me to pull up some homes in");
-            if (isTransition) {
+            if (interviewComplete) {
               // Final interview turn — await so profile is in Redis before the auto-search fires
               await extractAndUpdateProfileFromInterview(userId, message, interviewResp);
               await markInterviewCompleted(userId);
@@ -329,8 +423,23 @@ export async function POST(req: NextRequest) {
           return;
         }
 
+        // Pre-load enrichment from Redis cache for all history turns with listings.
+        // This gives Sonnet full awareness of POI distances and neighborhood scores
+        // so it can answer follow-up questions without per-path ad-hoc injections.
+        const historyListingIds = history
+          .filter((m) => m.listings && m.listings.length > 0)
+          .flatMap((m) => m.listings!.map((l) => String(l.id)));
+        const enrichmentByListingId = new Map<string, ListingEnrichment>();
+        if (historyListingIds.length > 0) {
+          const cached = await loadCachedEnrichments(
+            [...new Set(historyListingIds)],
+            searchCtx?.nearPOI?.name,
+          ).catch(() => [] as ListingEnrichment[]);
+          for (const e of cached) enrichmentByListingId.set(e.listingId, e);
+        }
+
         // Build conversation history for Claude — inject listing context blocks
-        // so Claude can answer positional follow-ups ("the second home").
+        // so Claude can answer positional follow-ups and proximity questions.
         const conversationMessages: Anthropic.MessageParam[] = [
           ...history.flatMap((m) => {
             const base: Anthropic.MessageParam = {
@@ -339,10 +448,23 @@ export async function POST(req: NextRequest) {
             };
             if (m.role === "assistant" && m.listings && m.listings.length > 0) {
               const listingBlock = m.listings
-                .map(
-                  (l, i) =>
-                    `#${i + 1}: ${l.full_address} — $${l.listing_price?.toLocaleString()}, ${l.bedrooms}bd/${l.bathrooms}ba, ${l.living_area?.toLocaleString()} sqft${l.year_built ? `, built ${l.year_built}` : ""}${l.property_sub_type ? `, ${l.property_sub_type}` : l.property_type ? `, ${l.property_type}` : ""}${l.stories != null ? `, ${l.stories === 1 ? "single story" : `${l.stories} stories`}` : ""}${l.garage_spaces ? `, ${l.garage_spaces}-car garage` : ""}${l.has_pool ? ", pool" : ""}${l.has_basement ? ", basement" : ""}${l.hoa_fee != null ? `, HOA $${l.hoa_fee}/mo` : ""}${l.neighborhood ? `, ${l.neighborhood}` : ""}${l.is_waterfront ? ", waterfront" : l.is_water_view ? ", water view" : ""}${l.is_mountain_view ? ", mountain view" : ""}${l.is_city_view ? ", city view" : ""}${l.is_park_view ? ", park view" : ""}${l.description ? ` | "${l.description.slice(0, 200)}${l.description.length > 200 ? "…" : ""}"` : ""}`,
-                )
+                .map((l, i) => {
+                  const enrich = enrichmentByListingId.get(String(l.id));
+                  const enrichStr = enrich
+                    ? [
+                        enrich.distanceToSearchPOI
+                          ? `${enrich.distanceToSearchPOI.distanceMi}mi from ${enrich.distanceToSearchPOI.name}`
+                          : null,
+                        enrich.neighborhood.score > 0
+                          ? `Area ${enrich.neighborhood.score}/10`
+                          : null,
+                        enrich.pois.length > 0
+                          ? `nearby: ${enrich.pois.map((p) => `${p.label} ${p.distanceMi}mi`).join(", ")}`
+                          : null,
+                      ].filter(Boolean).join(" | ")
+                    : "";
+                  return `#${i + 1}: ${l.full_address} — $${l.listing_price?.toLocaleString()}, ${l.bedrooms}bd/${l.bathrooms}ba, ${l.living_area?.toLocaleString()} sqft${l.year_built ? `, built ${l.year_built}` : ""}${l.property_sub_type ? `, ${l.property_sub_type}` : l.property_type ? `, ${l.property_type}` : ""}${l.stories != null ? `, ${l.stories === 1 ? "single story" : `${l.stories} stories`}` : ""}${l.garage_spaces ? `, ${l.garage_spaces}-car garage` : ""}${l.has_pool ? ", pool" : ""}${l.has_basement ? ", basement" : ""}${l.hoa_fee != null ? `, HOA $${l.hoa_fee}/mo` : ""}${l.neighborhood ? `, ${l.neighborhood}` : ""}${l.is_waterfront ? ", waterfront" : l.is_water_view ? ", water view" : ""}${l.is_mountain_view ? ", mountain view" : ""}${l.is_city_view ? ", city view" : ""}${l.is_park_view ? ", park view" : ""}${l.description ? ` | "${l.description.slice(0, 200)}${l.description.length > 200 ? "…" : ""}"` : ""}${enrichStr ? ` | [${enrichStr}]` : ""}`;
+                })
                 .join("\n");
               return [
                 base,
@@ -377,13 +499,16 @@ export async function POST(req: NextRequest) {
             memoryPromise,
             new Promise<string>((resolve) => setTimeout(() => resolve(""), 2000)),
           ]);
-          const ackStream = await anthropic.messages.create({
-            model: "claude-sonnet-4-6",
-            max_tokens: 256,
-            system: buildConversationalSystemPrompt(profile, memoryContext),
-            messages: [{ role: "user", content: message }],
-            stream: true,
-          });
+          const ackStream = await withRetry(
+            () => anthropic.messages.create({
+              model: "claude-sonnet-4-6",
+              max_tokens: 256,
+              system: buildConversationalSystemPrompt(profile, memoryContext),
+              messages: [{ role: "user", content: message }],
+              stream: true,
+            }),
+            "affirmation Sonnet",
+          );
           let ackResp = "";
           for await (const ev of ackStream) {
             if (ev.type === "content_block_delta" && ev.delta.type === "text_delta") {
@@ -438,20 +563,23 @@ export async function POST(req: NextRequest) {
           send({ type: "listings", data: { listings, params: { ...carryParams, ...primaryLoc } } });
           log("tiles emitted to client", T0);
 
-          const multiSummaryStream = await anthropic.messages.create({
-            model: "claude-sonnet-4-6",
-            max_tokens: 600,
-            system: buildSearchSystemPrompt(profile, memoryContext),
-            messages: [
-              { role: "user", content: message },
-              { role: "assistant", content: `Searching across ${locations.join(", ")}...` },
-              {
-                role: "user",
-                content: `[MLS RESULTS — searched ${locations.join(", ")}]\n${formatListingsForPrompt(listings)}\n[/MLS RESULTS]\n\nSummarise these listings. Note which city each one is in.`,
-              },
-            ],
-            stream: true,
-          });
+          const multiSummaryStream = await withRetry(
+            () => anthropic.messages.create({
+              model: "claude-sonnet-4-6",
+              max_tokens: 600,
+              system: buildSearchSystemPrompt(profile, memoryContext),
+              messages: [
+                { role: "user", content: message },
+                { role: "assistant", content: `Searching across ${locations.join(", ")}...` },
+                {
+                  role: "user",
+                  content: `[MLS RESULTS — searched ${locations.join(", ")}]\n${formatListingsForPrompt(listings)}\n[/MLS RESULTS]\n\nSummarise these listings. Note which city each one is in.`,
+                },
+              ],
+              stream: true,
+            }),
+            "multi-city Sonnet",
+          );
 
           let multiFullResp = "";
           let firstMultiToken = true;
@@ -534,14 +662,7 @@ export async function POST(req: NextRequest) {
         });
 
         const [haikuResponse, memoryContext] = await Promise.all([
-          callHaikuRouting().catch(async (err) => {
-            if (err?.status === 429) {
-              console.warn("\x1b[33m[AI]\x1b[0m Haiku routing 429 — retrying in 3s");
-              await new Promise((r) => setTimeout(r, 3000));
-              return callHaikuRouting();
-            }
-            throw err;
-          }),
+          withRetry(callHaikuRouting, "Haiku routing"),
           Promise.race([memoryPromise, new Promise<string>((resolve) => setTimeout(() => resolve(""), 2000))]),
         ]);
 
@@ -562,13 +683,17 @@ export async function POST(req: NextRequest) {
         // ── answer_user → Sonnet handles it conversationally ─────────────────
         if (!toolCall || toolName === "answer_user") {
           console.log("\x1b[36m[AI]\x1b[0m conversational path → Sonnet");
-          const convStream = await anthropic.messages.create({
-            model: "claude-sonnet-4-6",
-            max_tokens: 512,
-            system: buildConversationalSystemPrompt(profile, memoryContext),
-            messages: conversationMessages,
-            stream: true,
-          });
+
+          const convStream = await withRetry(
+            () => anthropic.messages.create({
+              model: "claude-sonnet-4-6",
+              max_tokens: 512,
+              system: buildConversationalSystemPrompt(profile, memoryContext),
+              messages: conversationMessages,
+              stream: true,
+            }),
+            "conversational Sonnet",
+          );
 
           let fullResp = "";
           let firstToken = true;
@@ -607,13 +732,16 @@ export async function POST(req: NextRequest) {
 
           if (!targetListing) {
             // No listing at that index — fall through to conversational
-            const fallbackStream = await anthropic.messages.create({
-              model: "claude-sonnet-4-6",
-              max_tokens: 512,
-              system: buildConversationalSystemPrompt(profile, memoryContext),
-              messages: conversationMessages,
-              stream: true,
-            });
+            const fallbackStream = await withRetry(
+              () => anthropic.messages.create({
+                model: "claude-sonnet-4-6",
+                max_tokens: 512,
+                system: buildConversationalSystemPrompt(profile, memoryContext),
+                messages: conversationMessages,
+                stream: true,
+              }),
+              "reference fallback Sonnet",
+            );
             let fallbackResp = "";
             for await (const ev of fallbackStream) {
               if (ev.type === "content_block_delta" && ev.delta.type === "text_delta") {
@@ -658,19 +786,22 @@ export async function POST(req: NextRequest) {
             .filter(Boolean)
             .join("\n");
 
-          const focusStream = await anthropic.messages.create({
-            model: "claude-sonnet-4-6",
-            max_tokens: 512,
-            system: buildConversationalSystemPrompt(profile, memoryContext),
-            messages: [
-              ...conversationMessages.slice(0, -1),
-              {
-                role: "user",
-                content: `${message}\n\n[Listing #${listing_index} details]\n${focusedListingText}\n[End of listing]`,
-              },
-            ],
-            stream: true,
-          });
+          const focusStream = await withRetry(
+            () => anthropic.messages.create({
+              model: "claude-sonnet-4-6",
+              max_tokens: 512,
+              system: buildConversationalSystemPrompt(profile, memoryContext),
+              messages: [
+                ...conversationMessages.slice(0, -1),
+                {
+                  role: "user",
+                  content: `${message}\n\n[Listing #${listing_index} details]\n${focusedListingText}\n[End of listing]`,
+                },
+              ],
+              stream: true,
+            }),
+            "listing focus Sonnet",
+          );
 
           let focusResp = "";
           let firstToken = true;
@@ -758,6 +889,53 @@ export async function POST(req: NextRequest) {
         delete rawParams.visual_confidence;
         delete rawParams.description_keywords;
 
+        // Extract proximity params — resolved to lat/lng via Google Places before MLS call
+        const nearPOIType: string | undefined = rawParams.near_poi_type;
+        const nearPOIQuery: string | undefined = rawParams.near_poi_query;
+        delete rawParams.near_poi_type;
+        delete rawParams.near_poi_query;
+
+        // Extract commute params — resolved via Distance Matrix after MLS (fire-and-forget)
+        const commuteFrom: string | undefined = rawParams.commute_from;
+        const commuteMaxMinutes: number | undefined = rawParams.commute_max_minutes;
+        const commuteMode = (rawParams.commute_mode ?? "driving") as "driving" | "transit" | "walking";
+        const commuteFrom2: string | undefined = rawParams.commute_from_2;
+        const commuteMaxMinutes2: number | undefined = rawParams.commute_max_minutes_2;
+        delete rawParams.commute_from;
+        delete rawParams.commute_max_minutes;
+        delete rawParams.commute_mode;
+        delete rawParams.commute_from_2;
+        delete rawParams.commute_max_minutes_2;
+
+        // Geocode commute origins on the hot path (cached — ~5ms warm, ~150ms cold)
+        let commuteOrigin1: { lat: number; lng: number } | null = null;
+        let commuteOrigin2: { lat: number; lng: number } | null = null;
+        if (commuteFrom) {
+          commuteOrigin1 = await geocodeAddress(commuteFrom);
+          if (commuteOrigin1) log(`Commute origin 1 geocoded: "${commuteFrom.slice(0, 40)}"`, T0);
+        }
+        if (commuteFrom2) {
+          commuteOrigin2 = await geocodeAddress(commuteFrom2);
+          if (commuteOrigin2) log(`Commute origin 2 geocoded: "${commuteFrom2.slice(0, 40)}"`, T0);
+        }
+
+        // Option 1: resolve POI to lat/lng and inject into MLS params (cached 24h in Redis)
+        let resolvedPOI: { name: string; lat: number; lng: number } | null = null;
+        if ((nearPOIType || nearPOIQuery) && (rawParams.city || rawParams.state)) {
+          const resolved = await resolvePOILocation(
+            nearPOIQuery ?? nearPOIType!,
+            rawParams.city ?? "",
+            rawParams.state ?? "",
+          );
+          if (resolved) {
+            rawParams.latitude  = resolved.lat;
+            rawParams.longitude = resolved.lng;
+            rawParams.radius    = 3; // 3-mile radius around the POI
+            resolvedPOI = { name: resolved.name, lat: resolved.lat, lng: resolved.lng };
+            log(`POI resolved: "${resolved.name}" → ${resolved.lat.toFixed(4)},${resolved.lng.toFixed(4)}`, T0);
+          }
+        }
+
         const searchParams: MLSSearchParams = rawParams;
 
         console.log(`\x1b[36m[AI]\x1b[0m search params: ${JSON.stringify(searchParams)}`);
@@ -828,6 +1006,75 @@ export async function POST(req: NextRequest) {
           log("tiles emitted to client", T0);
           listingsText = formatListingsForPrompt(listings);
 
+          // Options 2+3: fire POI enrichment in parallel with Sonnet — same pattern as vision.
+          // Geocodes addresses, fetches nearby amenities, computes neighborhood score.
+          // Result arrives as poi_enrichment SSE — never blocks the summary stream.
+          if (listings.length > 0) {
+            enrichListings(listings, resolvedPOI ?? undefined)
+              .then((enrichments) => {
+                if (enrichments.length > 0) {
+                  send({ type: "poi_enrichment", data: enrichments });
+                  log(`poi_enrichment sent (${enrichments.length} listing(s))`, T0);
+                }
+              })
+              .catch((err) => {
+                console.warn("[Places] enrichment failed:", err instanceof Error ? err.message : err);
+              });
+          }
+
+          // Fire commute times in parallel — Distance Matrix per listing, emitted as commute_data SSE
+          if (listings.length > 0 && (commuteOrigin1 || commuteOrigin2)) {
+            const enrichedListings = listings.filter(l => l.full_address);
+            // Geocode all listing addresses to lat/lng (cached — fast on warm path)
+            Promise.all(
+              enrichedListings.map(async l => {
+                const latLng = await geocodeAddress(l.full_address!);
+                return latLng ? { id: String(l.id), lat: latLng.lat, lng: latLng.lng } : null;
+              })
+            ).then(async (geocodedRaw) => {
+              const geocodedDests = geocodedRaw.filter((d): d is { id: string; lat: number; lng: number } => d !== null);
+              if (geocodedDests.length === 0) return;
+              const [results1, results2] = await Promise.all([
+                commuteOrigin1
+                  ? getCommuteTimes(
+                      commuteOrigin1.lat,
+                      commuteOrigin1.lng,
+                      geocodedDests,
+                      commuteMode,
+                      commuteMaxMinutes,
+                    )
+                  : Promise.resolve([] as CommuteResult[]),
+                commuteOrigin2
+                  ? getCommuteTimes(
+                      commuteOrigin2.lat,
+                      commuteOrigin2.lng,
+                      geocodedDests,
+                      commuteMode,
+                      commuteMaxMinutes2,
+                    )
+                  : Promise.resolve([] as CommuteResult[]),
+              ]);
+              // Merge: a listing is withinLimit only if it passes BOTH origins (when both set)
+              const merged: CommuteResult[] = results1.map(r1 => {
+                const r2 = results2.find(r => r.listingId === r1.listingId);
+                return {
+                  ...r1,
+                  withinLimit: r1.withinLimit && (r2 ? r2.withinLimit : true),
+                };
+              });
+              // Include any listings only in results2 (shouldn't happen but be safe)
+              results2.forEach(r2 => {
+                if (!merged.find(r => r.listingId === r2.listingId)) {
+                  merged.push(r2);
+                }
+              });
+              if (merged.length > 0) {
+                send({ type: "commute_data", data: merged });
+                log(`commute_data sent (${merged.length} listing(s))`, T0);
+              }
+            }).catch(err => console.error("[AI] commute calculation error:", err));
+          }
+
           // ── For listings NOT in cache: start vision in parallel with Claude.
           //    We store the promise so we can await it before closing the
           //    SSE controller — fixes "Controller is already closed" error.
@@ -882,22 +1129,38 @@ export async function POST(req: NextRequest) {
           visualSummaryContext = `[Visual search: "${visualQuery}"${roomHint !== "any" ? ` — ${roomHint}` : ""}]\nTiles are ordered by photo match strength. Focus your summary on the visual feature.`;
         }
 
+        let poiSummaryContext = "";
+        if (resolvedPOI) {
+          poiSummaryContext = `[Proximity filter: these listings are within 3 miles of "${resolvedPOI.name}". Mention this in your summary — tell the user how close the homes are to the place they searched near. Each listing tile shows the exact distance.]`;
+        }
+
+        let commuteSummaryContext = "";
+        if (commuteFrom) {
+          const parts = [`[Commute filter: user wants homes within ${commuteMaxMinutes ?? "?"} min ${commuteMode} from "${commuteFrom}".`];
+          if (commuteFrom2) parts.push(`Also within ${commuteMaxMinutes2 ?? "?"} min from "${commuteFrom2}".`);
+          parts.push("Commute times are being calculated and will appear as badges on each tile. Mention the commute requirement in your summary.]");
+          commuteSummaryContext = parts.join(" ");
+        }
+
         log("starting Sonnet summary stream", T0);
 
-        const summaryStream = await anthropic.messages.create({
-          model: "claude-sonnet-4-6",
-          max_tokens: 512,
-          system: buildSearchSystemPrompt(profile, memoryContext),
-          messages: [
-            { role: "user", content: message },
-            { role: "assistant", content: "Searching MLS now..." },
-            {
-              role: "user",
-              content: `[MLS RESULTS]\n${listingsText}\n[/MLS RESULTS]\n${visualSummaryContext ? `\n${visualSummaryContext}\n` : ""}\nSummarise these listings for the user.`,
-            },
-          ],
-          stream: true,
-        });
+        const summaryStream = await withRetry(
+          () => anthropic.messages.create({
+            model: "claude-sonnet-4-6",
+            max_tokens: 512,
+            system: buildSearchSystemPrompt(profile, memoryContext),
+            messages: [
+              { role: "user", content: message },
+              { role: "assistant", content: "Searching MLS now..." },
+              {
+                role: "user",
+                content: `[MLS RESULTS]\n${listingsText}\n[/MLS RESULTS]\n${visualSummaryContext ? `\n${visualSummaryContext}\n` : ""}${poiSummaryContext ? `\n${poiSummaryContext}\n` : ""}${commuteSummaryContext ? `\n${commuteSummaryContext}\n` : ""}\nSummarise these listings for the user.`,
+              },
+            ],
+            stream: true,
+          }),
+          "search summary Sonnet",
+        );
 
         let fullResponse = "";
         let firstToken = true;
@@ -930,6 +1193,8 @@ export async function POST(req: NextRequest) {
           params: searchParams,
           resolvedLocation,
           appliedAt: new Date().toISOString(),
+          ...(resolvedPOI ? { nearPOI: { query: nearPOIQuery ?? nearPOIType ?? "", ...resolvedPOI } } : {}),
+          ...(commuteFrom ? { commuteFilter: { from: commuteFrom, maxMinutes: commuteMaxMinutes, mode: commuteMode, from2: commuteFrom2, maxMinutes2: commuteMaxMinutes2 } } : {}),
         }, convId);
 
         // Fire-and-forget background tasks — never block the stream

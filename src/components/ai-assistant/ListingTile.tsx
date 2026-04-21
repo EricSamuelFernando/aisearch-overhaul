@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Image from 'next/image';
-import { MLSListing } from '@/types/ai-assistant';
+import { MLSListing, CommuteResult } from '@/types/ai-assistant';
 import {
   BedDouble,
   Bath,
@@ -21,9 +21,10 @@ interface Props {
   listing: MLSListing;
   index: number;
   queryText?: string;
+  commuteResult?: CommuteResult;
 }
 
-export default function ListingTile({ listing, index, queryText }: Props) {
+export default function ListingTile({ listing, index, queryText, commuteResult }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [isPhotoTransitioning, setIsPhotoTransitioning] = useState(false);
@@ -267,6 +268,35 @@ export default function ListingTile({ listing, index, queryText }: Props) {
           <p className="text-xl font-bold text-gray-900">{priceFormatted}</p>
         </div>
 
+        {commuteResult && (
+          <div className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold mb-1 ${
+            commuteResult.withinLimit
+              ? 'bg-[#ECFDF3] text-[#166534] border-[#86EFAC]'
+              : 'bg-[#FEF2F2] text-[#991B1B] border-[#FECACA]'
+          }`}>
+            🚗 {commuteResult.minutes} min · {commuteResult.distanceMi} mi
+          </div>
+        )}
+
+        {listing.enrichment && listing.enrichment.neighborhood.score > 0 && (() => {
+          const score = listing.enrichment.neighborhood.score;
+          const colorClass = score >= 8
+            ? 'bg-[#ECFDF3] text-[#166534] border-[#86EFAC]'
+            : score >= 5
+            ? 'bg-[#FFFBEB] text-[#92400E] border-[#FDE68A]'
+            : 'bg-gray-50 text-gray-500 border-gray-200';
+          return (
+            <div className="flex items-center gap-1.5 -mt-1">
+              <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${colorClass}`}>
+                <svg viewBox="0 0 12 12" className="w-2.5 h-2.5" fill="currentColor">
+                  <path d="M6 1l1.2 2.4L10 3.9l-2 1.95.47 2.75L6 7.4l-2.47 1.2L4 5.85 2 3.9l2.8-.5L6 1z"/>
+                </svg>
+                Area {score}/10
+              </span>
+            </div>
+          );
+        })()}
+
         <div className="flex items-center gap-1.5 text-xs text-gray-500 leading-snug -mt-1">
           <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
           <p className="line-clamp-1">{displayAddress}</p>
@@ -344,6 +374,112 @@ export default function ListingTile({ listing, index, queryText }: Props) {
                 </div>
               </div>
             </div>
+            {listing.enrichment && (listing.enrichment.pois.length > 0 || listing.enrichment.distanceToSearchPOI) && (
+              <div className="mt-2 pt-2 border-t border-gray-100 space-y-1">
+                {listing.enrichment.distanceToSearchPOI && (
+                  <div className="flex items-center justify-between text-[10px] font-semibold text-[#e8804c]">
+                    <span>📍 {listing.enrichment.distanceToSearchPOI.name}</span>
+                    <span>{listing.enrichment.distanceToSearchPOI.distanceMi} mi</span>
+                  </div>
+                )}
+                {listing.enrichment.pois.map((poi) => {
+                  const icons: Record<string, string> = {
+                    hospital: '🏥',
+                    school: '🏫',
+                    grocery: '🛒',
+                    transit: '🚇',
+                    park: '🌳',
+                    restaurant: '🍽️',
+                    gym: '💪',
+                    pharmacy: '💊',
+                  };
+                  return (
+                    <div key={poi.type} className="flex items-center justify-between text-[10px] text-gray-600">
+                      <span>{icons[poi.type] ?? '📍'} {poi.name}</span>
+                      <span className="font-semibold text-gray-700">{poi.distanceMi} mi</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Solar potential — single family only */}
+            {listing.enrichment?.solar && listing.property_sub_type === "Single Family" && (
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <div className="flex items-center justify-between text-[10px] text-gray-600">
+                  <span>☀️ Solar potential</span>
+                  <span className="font-semibold text-gray-700">{Math.round(listing.enrichment.solar.yearlyEnergyKwh).toLocaleString()} kWh/yr</span>
+                </div>
+                <div className="flex items-center justify-between text-[10px] text-gray-500 mt-0.5">
+                  <span>{listing.enrichment.solar.panelCount} panels · {Math.round(listing.enrichment.solar.carbonOffsetKg / 1000 * 10) / 10}t CO₂ offset/yr</span>
+                </div>
+              </div>
+            )}
+
+            {/* Air quality + Pollen */}
+            {(listing.enrichment?.airQuality || listing.enrichment?.pollen) && (
+              <div className="mt-2 pt-2 border-t border-gray-100 space-y-1">
+                {listing.enrichment.airQuality && (() => {
+                  const aqi = listing.enrichment!.airQuality!.aqi;
+                  const colorClass = aqi <= 50
+                    ? 'text-green-700'
+                    : aqi <= 100
+                    ? 'text-yellow-700'
+                    : 'text-red-700';
+                  return (
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="text-gray-600">💨 Air quality</span>
+                      <span className={`font-semibold ${colorClass}`}>AQI {aqi} · {listing.enrichment!.airQuality!.category}</span>
+                    </div>
+                  );
+                })()}
+                {listing.enrichment.pollen && (
+                  <div className="flex items-center justify-between text-[10px] text-gray-600">
+                    <span>🌿 Pollen</span>
+                    <span className="font-semibold text-gray-700 text-right">
+                      Tree: {listing.enrichment.pollen.tree} · Grass: {listing.enrichment.pollen.grass}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Weather */}
+            {listing.enrichment?.weather && (
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <div className="flex items-center justify-between text-[10px] text-gray-600">
+                  <span>🌡️ Weather now</span>
+                  <span className="font-semibold text-gray-700">{listing.enrichment.weather.tempF}°F · {listing.enrichment.weather.condition} · {listing.enrichment.weather.humidity}% humidity</span>
+                </div>
+                <div className="flex items-center justify-between text-[10px] text-gray-500 mt-0.5">
+                  <span>Summer avg high</span>
+                  <span>{listing.enrichment.weather.summerHighF}°F</span>
+                </div>
+                <div className="flex items-center justify-between text-[10px] text-gray-500 mt-0.5">
+                  <span>Winter avg low</span>
+                  <span>{listing.enrichment.weather.winterLowF}°F</span>
+                </div>
+                <div className="flex items-center justify-between text-[10px] text-gray-500 mt-0.5">
+                  <span>Annual rainfall</span>
+                  <span>{listing.enrichment.weather.annualRainfallIn} in/yr</span>
+                </div>
+              </div>
+            )}
+
+            {/* Street View */}
+            {listing.enrichment?.location && process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && (
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <p className="text-[10px] text-gray-500 mb-1">Street view</p>
+                <img
+                  src={`https://maps.googleapis.com/maps/api/streetview?size=380x160&location=${listing.enrichment.location.lat},${listing.enrichment.location.lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`}
+                  alt="Street view"
+                  className="w-full rounded-md object-cover"
+                  loading="lazy"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+              </div>
+            )}
+
             {hasPreviewLink && (
               <a
                 href={previewHref}

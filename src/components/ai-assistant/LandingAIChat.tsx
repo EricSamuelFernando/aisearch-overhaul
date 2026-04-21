@@ -9,6 +9,7 @@ import { MLSListing, MLSSearchParams, PhotoRankResult } from '@/types/ai-assista
 import ListingTile from './ListingTile';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { useSuggestions } from '@/hooks/useSuggestions';
+import { SuggestionPillsRow } from '@/components/main/SuggestionPillsRow';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -471,6 +472,19 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
   useEffect(() => {
     onExpandedChange?.(isExpanded);
   }, [isExpanded, onExpandedChange]);
+
+  // Eagerly fetch personalized suggestions on mount so pills can flip ~1s after load.
+  useEffect(() => {
+    const ids = getSuggestionIds();
+    fetchPersonalizedSuggestions(ids.userId, ids.tempUserId, userGeoLocation);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Pill click: populate textarea + focus (no immediate submit — user reviews first)
+  const handlePillClick = useCallback((text: string) => {
+    setInput(text);
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  }, []);
 
   // Guest → authenticated session handoff.
   // Runs once on mount. If the user logged in after chatting as a guest,
@@ -1101,109 +1115,44 @@ export default function LandingAIChat({ onExpandedChange }: { onExpandedChange?:
       )}
 
 
-      {/* Input bar + Try Asking — unified container when panel is open */}
+      {/* Suggestion pills — float above the search bar on the hero background */}
+      {!isExpanded && !input && (
+        <SuggestionPillsRow
+          personalizedSuggestions={personalizedSuggestions}
+          onPillClick={handlePillClick}
+        />
+      )}
+
+      {/* Search input bar */}
       {!isExpanded && (
-        <div className={showTryAsking ? 'rounded-2xl shadow-xl border border-gray-200 bg-white overflow-hidden' : ''}>
-          {/* Search bar */}
-          <div className={`flex items-center gap-2 bg-white px-3 py-2 ${showTryAsking ? 'rounded-t-2xl' : 'rounded-full shadow-xl border border-gray-200'}`}>
-            <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center">
-              <AskAiIcon size={22} />
-            </div>
-            <textarea
-              ref={textareaRef}
-              className="flex-1 resize-none bg-transparent text-gray-900 placeholder-gray-400 text-sm focus:outline-none min-h-[24px] max-h-[120px] overflow-y-auto leading-relaxed"
-              placeholder="Find homes by address or ask anything…"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onFocus={() => {
-                setShowTryAsking(true);
-                const ids = getSuggestionIds();
-                fetchPersonalizedSuggestions(ids.userId, ids.tempUserId, userGeoLocation);
-              }}
-              onBlur={() => setTimeout(() => setShowTryAsking(false), 200)}
-              disabled={loading}
-              rows={1}
-            />
-            <button
-              onClick={() => sendMessage()}
-              disabled={loading || !input.trim()}
-              className="flex-shrink-0 w-[38px] h-[38px] rounded-full bg-black text-white flex items-center justify-center disabled:opacity-100 disabled:bg-black hover:bg-black/90 transition-colors"
-              aria-label="Send"
-            >
-              {loading ? (
-                <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <svg className="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 4.75c.3 0 .58.12.79.33l5.5 5.5a1.125 1.125 0 1 1-1.59 1.59L13.125 8.6V19a1.125 1.125 0 1 1-2.25 0V8.6l-3.57 3.57a1.125 1.125 0 1 1-1.59-1.59l5.5-5.5c.21-.21.49-.33.79-.33Z" />
-                </svg>
-              )}
-            </button>
+        <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-full shadow-xl border border-gray-200">
+          <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center">
+            <AskAiIcon size={22} />
           </div>
-
-          {/* Try Asking panel */}
-          {showTryAsking && (
-            <div className="border-t border-gray-100">
-              <p className="text-xs text-gray-400 px-4 pt-3 pb-2">
-                Or try asking...
-              </p>
-              <div className="pb-2">
-                {suggestionsLoading && personalizedSuggestions.length === 0
-                  ? Array.from({ length: 4 }).map((_, i) => (
-                    <div key={`skel-${i}`} className="flex items-center gap-3 px-4 py-3 mx-2 mb-1 rounded-xl bg-gray-50">
-                      <div
-                        className="h-3.5 rounded-full bg-gray-200 animate-pulse"
-                        style={{ width: `${50 + i * 12}%` }}
-                      />
-                    </div>
-                  ))
-                  : tryAskingSuggestions.map((text, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onMouseDown={() => sendMessage(text)}
-                      className="flex items-center w-[calc(100%-16px)] mx-2 mb-1 text-left px-3 py-2.5 rounded-xl bg-gray-50 hover:bg-[#FFF5EE] hover:border-l-2 hover:border-[#F58634] group transition-all"
-                    >
-                      <span className="text-sm text-gray-700 group-hover:text-gray-900 leading-snug">
-                        {text}
-                      </span>
-                    </button>
-                  ))
-                }
-              </div>
-
-              {/* Be Inspired section */}
-              <div className="border-t border-gray-100 px-4 pt-3 pb-4">
-                <p className="text-xs text-gray-400 mb-2.5">Be inspired...</p>
-                <div className="flex flex-wrap gap-2">
-                  {BE_INSPIRED_TAGS.map(({ label, query }) => (
-                    <button
-                      key={label}
-                      type="button"
-                      onMouseDown={() => {
-                        const current = input.trim();
-                        const next = current
-                          ? `${current} with ${query}`
-                          : `Show me homes with ${query}`;
-                        setInput(next);
-                        setTimeout(() => textareaRef.current?.focus(), 0);
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 bg-white text-gray-600 text-xs font-medium hover:bg-[#FFF5EE] hover:border-[#F58634]/50 hover:text-gray-900 transition-all"
-                    >
-                      <svg
-                        className="w-2.5 h-2.5 flex-shrink-0"
-                        viewBox="0 0 24 24"
-                        fill="#E8A020"
-                      >
-                        <path d="M12 1.5c.3 2.8 1.2 5.4 2.8 7 1.6 1.6 4.2 2.5 7 2.8-2.8.3-5.4 1.2-7 2.8-1.6 1.6-2.5 4.2-2.8 7-.3-2.8-1.2-5.4-2.8-7-1.6-1.6-4.2-2.5-7-2.8 2.8-.3 5.4-1.2 7-2.8 1.6-1.6 2.5-4.2 2.8-7z" />
-                      </svg>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+          <textarea
+            ref={textareaRef}
+            className="flex-1 resize-none bg-transparent text-gray-900 placeholder-gray-400 text-sm focus:outline-none min-h-[24px] max-h-[120px] overflow-y-auto leading-relaxed"
+            placeholder="Find homes by address or ask anything…"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={loading}
+            rows={1}
+          />
+          <button
+            onClick={() => sendMessage()}
+            disabled={loading || !input.trim()}
+            className="flex-shrink-0 w-[38px] h-[38px] rounded-full bg-black text-white flex items-center justify-center disabled:opacity-100 disabled:bg-black hover:bg-black/90 transition-colors"
+            aria-label="Send"
+          >
+            {loading ? (
+              <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <svg className="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 4.75c.3 0 .58.12.79.33l5.5 5.5a1.125 1.125 0 1 1-1.59 1.59L13.125 8.6V19a1.125 1.125 0 1 1-2.25 0V8.6l-3.57 3.57a1.125 1.125 0 1 1-1.59-1.59l5.5-5.5c.21-.21.49-.33.79-.33Z" />
+              </svg>
+            )}
+          </button>
         </div>
       )}
 

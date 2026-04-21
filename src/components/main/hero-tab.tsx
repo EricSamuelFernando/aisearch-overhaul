@@ -20,6 +20,7 @@ import { warning as showWarning } from '@/components/alert/notify';
 import { useRecordPropertyView } from '@/hooks/api/auth/useViewHistory';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { useSuggestions } from '@/hooks/useSuggestions';
+import { SuggestionPillsRow } from '@/components/main/SuggestionPillsRow';
 
 
 // Force refresh logic
@@ -1335,6 +1336,17 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         fetch(`${aiBase}/health`, { method: 'GET', mode: 'no-cors' }).catch(() => { });
     }, []);
 
+    // Fire personalized suggestions on mount so pills can flip ~1s after load.
+    // useSuggestions handles dedup + sessionStorage caching — safe to call eagerly.
+    useEffect(() => {
+        fetchPersonalizedSuggestions(
+            user?.id || null,
+            tempUserId || null,
+            userGeoLocation
+        );
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     const [searchTerm, setSearchTerm] = useState('');
     const [showSuggestions, setShowSuggestions] = useState(false);
     // Address autocomplete state
@@ -1363,6 +1375,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
     const [showAttachTooltip, setShowAttachTooltip] = useState(false);
     const attachMenuRef = useRef<HTMLDivElement | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const collapsedInputRef = useRef<HTMLInputElement | null>(null);
     const pendingImageRef = useRef<File | null>(null);
     const chatLayoutRef = useRef<HTMLDivElement | null>(null);
     // Menu State for AI Badge
@@ -1413,12 +1426,14 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         ? initialDisplaySuggestions
         : aiSuggestions;
 
-    // Show suggestions when: collapsed + focused + NL intent + (has suggestions OR is loading personalized)
+    // Show suggestions when: collapsed + focused + NL intent + user is typing
+    // (initial empty-input mode is handled by the SuggestionPillsRow above the search bar)
     const suggestionsVisible =
         !isExpanded &&
         showSuggestions &&
         searchSuggestionIntent === 'nl' &&
-        (displayedAiSuggestions.length > 0 || (suggestionsLoading && initialSuggestionsMode));
+        !initialSuggestionsMode &&
+        displayedAiSuggestions.length > 0;
     const anySuggestionsVisible = !isExpanded && (
         suggestionsVisible ||
         (!!searchTerm.trim() && (showAddressSuggestions || isLoadingAddressSuggestions || showLocationSuggestions || isLoadingLocationSuggestions))
@@ -3227,6 +3242,12 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
         }
     };
 
+    // Pill click: populate input + focus (no immediate submit — user reviews query first)
+    const handlePillClick = useCallback((text: string) => {
+        setSearchTerm(text);
+        setTimeout(() => collapsedInputRef.current?.focus(), 0);
+    }, []);
+
     // ─── Address autocomplete helpers ──────────────────────────────────────────
 
     /**
@@ -4200,6 +4221,13 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                     {/* State 1: Collapsed Search Bar Form */}
                     {!isExpanded ? (
                         <>
+                            {/* Flip suggestion pills — shown above search input when idle */}
+                            {!searchTerm && (
+                                <SuggestionPillsRow
+                                    personalizedSuggestions={personalizedSuggestions}
+                                    onPillClick={handlePillClick}
+                                />
+                            )}
                             <motion.form
                                 key="search-form"
                                 initial={{ opacity: 0 }}
@@ -4235,6 +4263,7 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                     <div className="flex-1 min-w-0 flex items-center gap-3 max-[380px]:gap-1.5">
                                         {renderPendingImageChip('collapsed')}
                                         <input
+                                            ref={collapsedInputRef}
                                             type="text"
                                             value={searchTerm}
                                             onChange={(e) => {
@@ -4397,21 +4426,10 @@ export const HeroSearchForm = ({ placeholderText, onSearchStateChange, isSearchA
                                     >
                                         <div className="p-4 pt-4 text-left">
                                             <p className="text-[10px] font-bold text-gray-400 mb-3 uppercase tracking-wider pl-2">
-                                                {initialSuggestionsMode ? 'Try Asking' : 'AI Suggestions'}
+                                                AI Suggestions
                                             </p>
                                             <div className="space-y-1">
-                                                {/* Skeleton loaders while personalized suggestions are being fetched for first time */}
-                                                {suggestionsLoading && initialSuggestionsMode && personalizedSuggestions.length === 0
-                                                    ? Array.from({ length: 4 }).map((_, i) => (
-                                                        <div key={`skel-${i}`} className="flex items-center gap-3 p-3">
-                                                            <div className="w-4 h-4 flex-shrink-0 rounded-full bg-gray-200 animate-pulse" />
-                                                            <div
-                                                                className="h-3.5 rounded-full bg-gray-200 animate-pulse"
-                                                                style={{ width: `${55 + i * 10}%` }}
-                                                            />
-                                                        </div>
-                                                    ))
-                                                    : displayedAiSuggestions.map((suggestion) => (
+                                                {displayedAiSuggestions.map((suggestion) => (
                                                     <div
                                                         key={suggestion.id}
                                                         onMouseDown={() => handleSuggestionClick(suggestion.text)}

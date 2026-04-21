@@ -3244,6 +3244,7 @@ type Props = {
     bounds: google.maps.LatLngBounds
   ) => void;
   onDrawFilterChange?: (filteredIds: string[] | null) => void;
+  onMapInteraction?: () => void;
   onMeasureStateChange?: (state: {
     active: boolean;
     duration: string | null;
@@ -3253,6 +3254,7 @@ type Props = {
   clearDrawSignal?: number;
   useOverlayResultsRail?: boolean;
   hideControls?: boolean;
+  mapUiLeftMode?: boolean;
   /** AI-driven POI categories. When this prop changes, the map syncs its
    *  active category keys to match. Valid values: 'restaurants' | 'gyms' | 'hospitals' | 'parks' */
   externalActivePOICategories?: string[];
@@ -3337,10 +3339,12 @@ const CustomMap: React.FC<Props> = ({
   onMarkerClick,
   onMapMove,
   onDrawFilterChange,
+  onMapInteraction,
   onMeasureStateChange,
   clearDrawSignal = 0,
   useOverlayResultsRail = false,
   hideControls = false,
+  mapUiLeftMode = false,
   externalActivePOICategories,
 }) => {
   const { isLoaded } = useJsApiLoader({
@@ -3452,14 +3456,19 @@ const CustomMap: React.FC<Props> = ({
     setMeasureError(null);
   }, []);
 
+  const notifyMapInteraction = useCallback(() => {
+    onMapInteraction?.();
+  }, [onMapInteraction]);
+
   const adjustMapZoom = useCallback(
     (delta: number) => {
+      notifyMapInteraction();
       if (!mapInstance) return;
       const currentZoom = mapInstance.getZoom() ?? zoom;
       const nextZoom = Math.max(3, Math.min(21, currentZoom + delta));
       mapInstance.setZoom(nextZoom);
     },
-    [mapInstance, zoom],
+    [mapInstance, notifyMapInteraction, zoom],
   );
 
   useEffect(() => {
@@ -5648,13 +5657,14 @@ const CustomMap: React.FC<Props> = ({
   // The recentDataClickRef guard prevents it from clearing a name that was
   // just set by the Data layer click above.
   const handleMapDragStart = useCallback(() => {
+    notifyMapInteraction();
     if (!isTouchDevice) return;
     suppressMapClickRef.current = true;
     if (suppressMapClickTimerRef.current) {
       clearTimeout(suppressMapClickTimerRef.current);
       suppressMapClickTimerRef.current = null;
     }
-  }, [isTouchDevice]);
+  }, [isTouchDevice, notifyMapInteraction]);
 
   const handleMapDragEnd = useCallback(() => {
     if (!isTouchDevice) return;
@@ -5676,6 +5686,7 @@ const CustomMap: React.FC<Props> = ({
       skipNextMapClickRef.current = false;
       return;
     }
+    notifyMapInteraction();
     if (showDistricts && event?.latLng) {
       const name = findDistrictNameAtLatLng(event.latLng);
       if (name) {
@@ -5773,7 +5784,7 @@ const CustomMap: React.FC<Props> = ({
     }
 
     setMeasureEnd(point);
-  }, [measureMode, measureStart, measureEnd, onMarkerClick, drawMode, isTouchDevice, mapInstance, showDistricts, findDistrictNameAtLatLng]);
+  }, [measureMode, measureStart, measureEnd, onMarkerClick, drawMode, isTouchDevice, mapInstance, showDistricts, findDistrictNameAtLatLng, notifyMapInteraction]);
 
   useEffect(() => {
     if (!isLoaded || !mapInstance) return;
@@ -5980,13 +5991,14 @@ const CustomMap: React.FC<Props> = ({
     });
     const zoomListener = mapInstance.addListener('zoom_changed', () => {
       userMovedMapRef.current = true;
+      notifyMapInteraction();
       setCurrentMapZoom(mapInstance.getZoom() ?? zoom);
     });
     return () => {
       google.maps.event.removeListener(dragListener);
       google.maps.event.removeListener(zoomListener);
     };
-  }, [mapInstance, zoom]);
+  }, [mapInstance, notifyMapInteraction, zoom]);
 
   useEffect(() => {
     // If we've already drawn a polygon or are in the middle of a search, 
@@ -6032,6 +6044,7 @@ const CustomMap: React.FC<Props> = ({
   }, [mapInstance, markers, zoom, drawMode, hasActiveDrawPolygon, searchQuery, useOverlayResultsRail, selectedPlaceId]);
 
   const submitExploreSearch = useCallback(() => {
+    notifyMapInteraction();
     const query = exploreSearchInput.trim();
     if (!query) {
       searchRequestIdRef.current += 1;
@@ -6041,9 +6054,10 @@ const CustomMap: React.FC<Props> = ({
     }
     setExploreFeedback(null);
     runTextSearch(query);
-  }, [clearSearchMarkers, exploreSearchInput, runTextSearch]);
+  }, [clearSearchMarkers, exploreSearchInput, notifyMapInteraction, runTextSearch]);
 
   const toggleExploreCategory = useCallback((categoryKey: keyof typeof quickCategories) => {
+    notifyMapInteraction();
     setActiveCategoryKeys((prev) => {
       const exists = prev.includes(categoryKey);
       if (exists) {
@@ -6064,7 +6078,7 @@ const CustomMap: React.FC<Props> = ({
       });
       return next;
     });
-  }, [clearCategoryMarkers, quickCategories, runTextSearch]);
+  }, [clearCategoryMarkers, notifyMapInteraction, quickCategories, runTextSearch]);
 
   // Sync AI-driven POI categories from parent prop
   useEffect(() => {
@@ -6143,7 +6157,7 @@ const CustomMap: React.FC<Props> = ({
           'absolute z-30 pointer-events-auto',
           shouldHideControls ? 'hidden' : '',
           isTouchDevice ? 'hidden' : '',
-          useOverlayResultsRail && !isTouchDevice
+          useOverlayResultsRail && !isTouchDevice && !mapUiLeftMode
             ? 'left-[calc(min(44vw,620px)+16px)] top-3 sm:top-4'
             : 'left-3 top-3 sm:left-4 sm:top-4',
         )}
@@ -6243,8 +6257,13 @@ const CustomMap: React.FC<Props> = ({
         className={cn(
           'absolute z-30 pointer-events-auto',
           shouldHideControls ? 'hidden' : '',
-          isTouchDevice ? 'right-3 bottom-[132px]' : 'right-3 bottom-3 sm:right-4 sm:bottom-4',
+          'left-3 top-[68px] sm:left-4 sm:top-[76px]',
         )}
+        style={
+          useOverlayResultsRail && !isTouchDevice && !mapUiLeftMode
+            ? { left: 'calc(min(44vw, 620px) + 16px)' }
+            : undefined
+        }
       >
         <div className="flex items-start gap-2">
           {isTouchDevice && activeToolPanel === 'explore' && (
@@ -6475,8 +6494,8 @@ const CustomMap: React.FC<Props> = ({
 
           <div
             className={cn(
-              'flex flex-col border border-gray-200 bg-white/95 shadow-lg backdrop-blur',
-              isTouchDevice ? 'overflow-hidden rounded-md p-0' : 'gap-2 rounded-xl p-1.5',
+              'border border-gray-200 bg-white/95 shadow-lg backdrop-blur',
+              isTouchDevice ? 'flex flex-col overflow-hidden rounded-md p-0' : 'flex flex-col items-center gap-2 rounded-xl p-1.5',
             )}
           >
             {isTouchDevice ? (

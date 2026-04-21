@@ -354,12 +354,17 @@ function PropertyBrowseView({ }: Props) {
     error: null,
   });
   const [isMobileFilterMenuOpen, setIsMobileFilterMenuOpen] = useState(false);
+  const [isDesktopListingsHiddenByMap, setIsDesktopListingsHiddenByMap] = useState(false);
+  const [isDesktopListingsPinnedOpen, setIsDesktopListingsPinnedOpen] = useState(false);
+  const [isDesktopMapOnlyMode, setIsDesktopMapOnlyMode] = useState(false);
   const dragStartYRef = useRef<number | null>(null);
   const dragStartModeRef = useRef<MobileSheetMode>('default');
   const dragDeltaYRef = useRef(0);
   const ignoreNextHandleClickRef = useRef(false);
   const lastHandledSearchSubmitNonceRef = useRef(0);
   const cancelDebouncedSearchRef = useRef<(() => void) | null>(null);
+  const mapInteractionRestoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const preInteractionMobileSheetModeRef = useRef<MobileSheetMode>('default');
 
 
   const subCategoryAvailability = useMemo(() => {
@@ -400,6 +405,90 @@ function PropertyBrowseView({ }: Props) {
   );
 
   const hasDrawFilter = Array.isArray(drawFilteredPropertyIds) && drawFilteredPropertyIds.length > 0;
+
+  const handleMapInteractionAutoHideListings = useCallback(() => {
+    if (currentView !== 'map') return;
+
+    const isMobileViewport = typeof window !== 'undefined' && window.innerWidth < 1024;
+    if (isMobileViewport) {
+      if (mobileSheetMode !== 'collapsed') {
+        preInteractionMobileSheetModeRef.current = mobileSheetMode;
+      }
+      setMobileSheetMode('collapsed');
+    } else {
+      if (isDesktopListingsPinnedOpen) return;
+      setIsDesktopListingsHiddenByMap(true);
+    }
+
+    if (mapInteractionRestoreTimerRef.current) {
+      clearTimeout(mapInteractionRestoreTimerRef.current);
+    }
+
+    if (isDesktopMapOnlyMode && !isMobileViewport) {
+      mapInteractionRestoreTimerRef.current = null;
+      return;
+    }
+
+    mapInteractionRestoreTimerRef.current = setTimeout(() => {
+      const isMobileNow = typeof window !== 'undefined' && window.innerWidth < 1024;
+      if (isMobileNow) {
+        const restoreMode = preInteractionMobileSheetModeRef.current;
+        setMobileSheetMode(restoreMode === 'collapsed' ? 'default' : restoreMode);
+      } else {
+        setIsDesktopListingsHiddenByMap(false);
+      }
+      mapInteractionRestoreTimerRef.current = null;
+    }, 1800);
+  }, [currentView, mobileSheetMode, isDesktopListingsPinnedOpen, isDesktopMapOnlyMode]);
+
+  const handleOpenDesktopListingsPanel = useCallback(() => {
+    if (mapInteractionRestoreTimerRef.current) {
+      clearTimeout(mapInteractionRestoreTimerRef.current);
+      mapInteractionRestoreTimerRef.current = null;
+    }
+    // Reopen panel, but keep pin off by default unless user explicitly pins it.
+    setIsDesktopListingsPinnedOpen(false);
+    setIsDesktopListingsHiddenByMap(false);
+  }, []);
+
+  const handleToggleDesktopListingsPin = useCallback(() => {
+    setIsDesktopListingsPinnedOpen((prev) => !prev);
+  }, []);
+
+  const handleToggleDesktopMapOnlyMode = useCallback(() => {
+    setIsDesktopMapOnlyMode((prev) => {
+      const next = !prev;
+      if (mapInteractionRestoreTimerRef.current) {
+        clearTimeout(mapInteractionRestoreTimerRef.current);
+        mapInteractionRestoreTimerRef.current = null;
+      }
+      if (next) {
+        setIsDesktopListingsPinnedOpen(false);
+        setIsDesktopListingsHiddenByMap(true);
+      } else {
+        setIsDesktopListingsHiddenByMap(false);
+      }
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (currentView === 'map') return;
+    if (mapInteractionRestoreTimerRef.current) {
+      clearTimeout(mapInteractionRestoreTimerRef.current);
+      mapInteractionRestoreTimerRef.current = null;
+    }
+    setIsDesktopMapOnlyMode(false);
+    setIsDesktopListingsPinnedOpen(false);
+    setIsDesktopListingsHiddenByMap(false);
+  }, [currentView]);
+
+  useEffect(() => () => {
+    if (mapInteractionRestoreTimerRef.current) {
+      clearTimeout(mapInteractionRestoreTimerRef.current);
+      mapInteractionRestoreTimerRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     const inferred = parseQueryFilters(rawQuery ?? '');
@@ -836,7 +925,7 @@ function PropertyBrowseView({ }: Props) {
           typeof body?.longitude === 'number' ? Number(body.longitude.toFixed(3)) : body?.longitude,
       });
       const isMapRefresh = body?.latitude !== undefined && body?.longitude !== undefined;
-      const duplicateCooldownMs = isMapRefresh ? 6000 : 1500;
+      const duplicateCooldownMs = isMapRefresh ? 1200 : 800;
       const now = Date.now();
       if (
         lastSearchFingerprintRef.current === fingerprint &&
@@ -939,7 +1028,7 @@ function PropertyBrowseView({ }: Props) {
         setIsSearching(false);
         setIsLoading(false);
       }
-    }, 1000),
+    }, 250),
     [
       query,
       activeSearchFilters,
@@ -1063,8 +1152,8 @@ function PropertyBrowseView({ }: Props) {
   if (currentView === 'map') {
     return (
       <>
-        <section className="relative mb-0 flex-1 min-h-0 w-full px-0 pb-0 md:px-6">
-          <div className="relative h-full min-h-0 w-full overflow-hidden bg-white md:rounded-2xl md:border md:border-gray-200 md:shadow-sm">
+        <section className="relative mb-0 flex-1 min-h-0 w-full px-0 pb-0">
+          <div className="relative h-full min-h-0 w-full overflow-hidden">
             <div ref={mapRef} className="absolute inset-0">
               <CustomMap
                 width="100%"
@@ -1091,9 +1180,11 @@ function PropertyBrowseView({ }: Props) {
                   }
                 }}
                 onMeasureStateChange={setMobileMeasureState}
+                onMapInteraction={handleMapInteractionAutoHideListings}
                 clearDrawSignal={clearDrawSignal}
                 externalActivePOICategories={activePOICategories}
                 useOverlayResultsRail
+                mapUiLeftMode={isDesktopListingsHiddenByMap || isDesktopMapOnlyMode}
                 hideControls={mobileSheetMode !== 'collapsed'}
                 onMapMove={(center) => {
                   // Only re-search while panning in MLS mode if WE DON'T have properties.
@@ -1173,7 +1264,7 @@ function PropertyBrowseView({ }: Props) {
               <div className="absolute inset-x-0 top-0 z-40 px-3 pt-3 lg:hidden">
                 <div className="flex min-h-9 items-center justify-center rounded-full border border-gray-200 bg-white/95 px-3 text-[11px] font-semibold text-gray-800 shadow-sm backdrop-blur">
                   {mobileMeasureState.duration && mobileMeasureState.distance
-                    ? `${mobileMeasureState.duration} • ${mobileMeasureState.distance}`
+                    ? `${mobileMeasureState.duration} â€¢ ${mobileMeasureState.distance}`
                     : mobileMeasureState.error || 'Measure: tap listing pill, then destination.'}
                 </div>
               </div>
@@ -1357,8 +1448,13 @@ function PropertyBrowseView({ }: Props) {
               </div>
             </div>
 
-            <div className="pointer-events-none absolute inset-y-0 left-0 z-20 hidden w-[620px] max-w-[44vw] lg:block">
-              <div className="pointer-events-auto relative flex h-full flex-col border-r border-gray-200 bg-[#f7f7f7]">
+            <div
+              className={cn(
+                'pointer-events-none absolute left-3 top-3 bottom-3 z-20 hidden w-[620px] max-w-[44vw] lg:block transition-all duration-300',
+                isDesktopListingsHiddenByMap ? 'lg:-translate-x-[105%] lg:opacity-0' : 'lg:translate-x-0 lg:opacity-100',
+              )}
+            >
+              <div className="pointer-events-auto relative flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-[#f7f7f7] shadow-md">
                 <div className="border-b border-gray-200 bg-white px-4 py-3">
                   {/* <form onSubmit={handleTopSearchSubmit} className="relative z-30 flex items-center gap-2">
                     <div className="relative min-w-0 flex-1 rounded-2xl border border-gray-300 bg-white shadow-sm ring-1 ring-black/5 transition focus-within:border-gray-400 focus-within:ring-2 focus-within:ring-orange-200">
@@ -1390,15 +1486,63 @@ function PropertyBrowseView({ }: Props) {
                     </button>
                   </form> */}
 
-                  <div className="mt-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                    <MapPinned className="h-3.5 w-3.5" />
-                    {query ? `Results for ${query}` : 'Search Results'}
-                    <span className="normal-case tracking-normal text-gray-400">•</span>
-                    <span className="normal-case tracking-normal text-gray-600">
-                      {resultCount.toLocaleString()} result{resultCount === 1 ? '' : 's'}
-                    </span>
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                      <MapPinned className="h-3.5 w-3.5" />
+                      {query ? `Results for ${query}` : 'Search Results'}
+                      <span className="normal-case tracking-normal text-gray-400">•</span>
+                      <span className="normal-case tracking-normal text-gray-600">
+                        {resultCount.toLocaleString()} result{resultCount === 1 ? '' : 's'}
+                      </span>
+                      {isDesktopListingsPinnedOpen ? (
+                        <span className="rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-green-700">
+                          Pinned
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="relative inline-flex group">
+                      <button
+                        type="button"
+                        onClick={handleToggleDesktopListingsPin}
+                        className={cn(
+                          'inline-flex h-7 w-7 items-center justify-center rounded-full border shadow-sm transition-colors',
+                          isDesktopListingsPinnedOpen
+                            ? 'border-gray-900 bg-gray-900 text-white'
+                            : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-800',
+                        )}
+                        aria-label={isDesktopListingsPinnedOpen ? 'Click to hide listings panel' : 'Click to pin listings panel'}
+                        >
+                        {isDesktopListingsPinnedOpen ? (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="14"
+                            height="14"
+                            fill="currentColor"
+                            viewBox="0 0 256 256"
+                            aria-hidden="true"
+                          >
+                            <path d="M235.32,81.37,174.63,20.69a16,16,0,0,0-22.63,0L98.37,74.49c-10.66-3.34-35-7.37-60.4,13.14a16,16,0,0,0-1.29,23.78L85,159.71,42.34,202.34a8,8,0,0,0,11.32,11.32L96.29,171l48.29,48.29A16,16,0,0,0,155.9,224c.38,0,.75,0,1.13,0a15.93,15.93,0,0,0,11.64-6.33c19.64-26.1,17.75-47.32,13.19-60L235.33,104A16,16,0,0,0,235.32,81.37ZM224,92.69h0l-57.27,57.46a8,8,0,0,0-1.49,9.22c9.46,18.93-1.8,38.59-9.34,48.62L48,100.08c12.08-9.74,23.64-12.31,32.48-12.31A40.13,40.13,0,0,1,96.81,91a8,8,0,0,0,9.25-1.51L163.32,32,224,92.68Z" />
+                          </svg>
+                        ) : (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="14"
+                            height="14"
+                            fill="currentColor"
+                            viewBox="0 0 256 256"
+                            aria-hidden="true"
+                          >
+                            <path d="M53.92,34.62A8,8,0,1,0,42.08,45.38L67.37,73.2A69.82,69.82,0,0,0,38,87.63a16,16,0,0,0-1.29,23.78L85,159.71,42.34,202.34a8,8,0,0,0,11.32,11.32L96.29,171l48.29,48.29A16,16,0,0,0,155.9,224c.38,0,.75,0,1.13,0a15.93,15.93,0,0,0,11.64-6.33,89.75,89.75,0,0,0,11.58-20.27l21.84,24a8,8,0,1,0,11.84-10.76ZM155.9,208,48,100.08C58.23,91.83,69.2,87.72,80.66,87.81l87.16,95.88C165.59,193.56,160.24,202.23,155.9,208Zm79.42-104-44.64,44.79a8,8,0,1,1-11.33-11.3L224,92.7,163.32,32,122.1,73.35a8,8,0,0,1-11.33-11.29L152,20.7a16,16,0,0,1,22.63,0l60.69,60.68A16,16,0,0,1,235.32,104Z" />
+                          </svg>
+                        )}
+                      </button>
+                      <span
+                        className="pointer-events-none absolute right-full top-1/2 z-40 mr-2 -translate-y-1/2 whitespace-nowrap rounded-full bg-black px-2.5 py-1 text-[11px] font-medium text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+                      >
+                        {isDesktopListingsPinnedOpen ? 'Click to hide listings panel' : 'Click to pin listings panel'}
+                      </span>
+                    </div>
                   </div>
-
                   {activeFilterChips.length > 0 ? (
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       {visibleFilterChips.map((chip) => (
@@ -1610,6 +1754,49 @@ function PropertyBrowseView({ }: Props) {
                 </div>
               </div>
             </div>
+
+            {isDesktopListingsHiddenByMap ? (
+              <div className="pointer-events-auto absolute left-0 top-1/2 z-30 hidden -translate-y-1/2 lg:flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={handleOpenDesktopListingsPanel}
+                  className="inline-flex items-center gap-2 rounded-r-xl border border-l-0 border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-md hover:bg-gray-50"
+                  aria-label="Show listings panel"
+                >
+                  <List className="h-4 w-4" />
+                  <span>Listings</span>
+                </button>
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={handleToggleDesktopMapOnlyMode}
+              className={cn(
+                'pointer-events-auto absolute right-4 top-4 z-30 hidden lg:inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold shadow-md transition-colors',
+                isDesktopMapOnlyMode
+                  ? 'border-gray-900 bg-gray-900 text-white'
+                  : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50',
+              )}
+              aria-label={isDesktopMapOnlyMode ? 'Disable map only mode' : 'Enable map only mode'}
+              aria-pressed={isDesktopMapOnlyMode}
+            >
+              <span>Map only</span>
+              <span
+                className={cn(
+                  'relative inline-flex h-6 w-11 items-center rounded-full border border-gray-400 bg-white transition-colors shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]',
+                  isDesktopMapOnlyMode ? 'bg-white' : 'bg-white/90',
+                )}
+                aria-hidden="true"
+              >
+                <span
+                  className={cn(
+                    'inline-block h-4 w-4 transform rounded-full bg-gray-800 shadow transition-transform',
+                    isDesktopMapOnlyMode ? 'translate-x-6' : 'translate-x-1',
+                  )}
+                />
+              </span>
+            </button>
           </div>
         </section>
         <PropertyComparisonModal
@@ -1676,8 +1863,9 @@ function PropertyBrowseView({ }: Props) {
               }}
               clearDrawSignal={clearDrawSignal}
               externalActivePOICategories={activePOICategories}
+              onMapInteraction={handleMapInteractionAutoHideListings}
               onMapMove={(center) => {
-                // AI search is query-based — map panning should not re-fetch (properties already loaded)
+                // AI search is query-based â€” map panning should not re-fetch (properties already loaded)
                 // Only MLS mode is geo-based and needs map-move re-requests
                 if (!isMlsMode) return;
                 if (!query.trim()) return;
@@ -1698,3 +1886,4 @@ function PropertyBrowseView({ }: Props) {
 }
 
 export default PropertyBrowseView;
+

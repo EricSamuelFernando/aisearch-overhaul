@@ -112,108 +112,30 @@ const enrichAiParamsFromQuery = (
 export default function BrowseAIChat() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [expanded, setExpanded] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [showChatPanel, setShowChatPanel] = useState(true);
-  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
-  const [dragging, setDragging] = useState(false);
-
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: 'assistant-welcome',
+      role: 'assistant',
+      content: "I'm your AI listing assistant. Ask about homes, neighborhoods, budget, or features and I'll refine results.",
+    },
+  ]);
   const containerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const dragStartRef = useRef<{ pointerX: number; pointerY: number; startX: number; startY: number } | null>(null);
-  const previousUserSelectRef = useRef<string>('');
-  const draggedRef = useRef(false);
 
   const { clearProperties, setIsLoading } = usePropertyStore();
 
   const rawQ = searchParams.get('q') || '';
   const browseCity = rawQ.split(',')[0]?.trim() || null;
-  const hasMessages = messages.length > 0;
-
-  const clampPosition = useCallback((x: number, y: number) => {
-    if (typeof window === 'undefined') return { x, y };
-    const node = containerRef.current;
-    const width = node?.offsetWidth ?? 58;
-    const height = node?.offsetHeight ?? 58;
-    const maxX = Math.max(8, window.innerWidth - width - 8);
-    const maxY = Math.max(8, window.innerHeight - height - 8);
-    return {
-      x: Math.min(Math.max(8, x), maxX),
-      y: Math.min(Math.max(8, y), maxY),
-    };
-  }, []);
-
-  const getExpandedBarWidth = useCallback(() => {
-    if (typeof window === 'undefined') return 440;
-    return Math.min(window.innerWidth - 32, 440);
-  }, []);
-
-  const collapseToCenteredIcon = useCallback(() => {
-    const rect = containerRef.current?.getBoundingClientRect();
-    const startX = position?.x ?? rect?.left;
-    const startY = position?.y ?? rect?.top;
-    if (typeof startX !== 'number' || typeof startY !== 'number') return;
-
-    const currentWidth = containerRef.current?.offsetWidth ?? getExpandedBarWidth();
-    const collapsedWidth = 58;
-    const centeredX = startX + (currentWidth - collapsedWidth) / 2;
-    setPosition(clampPosition(centeredX, startY));
-  }, [position, clampPosition, getExpandedBarWidth]);
-
-  useEffect(() => {
-    if (expanded) setTimeout(() => inputRef.current?.focus(), 180);
-  }, [expanded]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (loading) return;
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        if (expanded) collapseToCenteredIcon();
-        setExpanded(false);
-      }
-    }
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [loading, expanded, collapseToCenteredIcon]);
-
   useEffect(() => () => abortRef.current?.abort(), []);
-
-  const captureCurrentPosition = useCallback(() => {
-    if (position || !containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    setPosition(clampPosition(rect.left, rect.top));
-  }, [position, clampPosition]);
-
-  useEffect(() => {
-    if (!position) return;
-    const id = window.requestAnimationFrame(() => {
-      setPosition((prev) => {
-        if (!prev) return prev;
-        return clampPosition(prev.x, prev.y);
-      });
-    });
-    return () => window.cancelAnimationFrame(id);
-  }, [expanded, messages.length, clampPosition, position]);
-
-  useEffect(() => {
-    if (!position) return;
-    const onResize = () => {
-      setPosition((prev) => {
-        if (!prev) return prev;
-        return clampPosition(prev.x, prev.y);
-      });
-    };
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, [position, clampPosition]);
 
   const applySearchParams = useCallback((aiParams: Partial<MLSSearchParams>, fallbackQuery: string) => {
     const enrichedParams = enrichAiParamsFromQuery(aiParams, fallbackQuery);
@@ -257,8 +179,6 @@ export default function BrowseAIChat() {
     setMessages(prev => [...prev, userMsg, { id: assistantId, role: 'assistant', content: '' }]);
     setInput('');
     setLoading(true);
-    setExpanded(true);
-    setShowChatPanel(true);
 
     abortRef.current?.abort();
     abortRef.current = new AbortController();
@@ -336,150 +256,29 @@ export default function BrowseAIChat() {
       e.preventDefault();
       send();
     }
-    if (e.key === 'Escape') {
-      collapseToCenteredIcon();
-      setExpanded(false);
-    }
-  }
-
-  function handleIconPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    if (expanded) return;
-    if (e.button !== 0) return;
-
-    startDrag(e.clientX, e.clientY);
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }
-
-  function handleIconPointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    handleDragMove(e.clientX, e.clientY);
-  }
-
-  function handleIconPointerUp(e: React.PointerEvent<HTMLDivElement>) {
-    if (dragStartRef.current) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    }
-    stopDrag();
-  }
-
-  function startDrag(clientX: number, clientY: number) {
-    captureCurrentPosition();
-    const rect = containerRef.current?.getBoundingClientRect();
-    const startX = position?.x ?? rect?.left ?? 0;
-    const startY = position?.y ?? rect?.top ?? 0;
-
-    dragStartRef.current = {
-      pointerX: clientX,
-      pointerY: clientY,
-      startX,
-      startY,
-    };
-    draggedRef.current = false;
-    setDragging(true);
-    if (typeof document !== 'undefined') {
-      previousUserSelectRef.current = document.body.style.userSelect;
-      document.body.style.userSelect = 'none';
-    }
-  }
-
-  function handleDragMove(clientX: number, clientY: number) {
-    if (!dragStartRef.current) return;
-    const dx = clientX - dragStartRef.current.pointerX;
-    const dy = clientY - dragStartRef.current.pointerY;
-
-    if (!draggedRef.current && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
-      draggedRef.current = true;
-    }
-
-    const next = clampPosition(dragStartRef.current.startX + dx, dragStartRef.current.startY + dy);
-    setPosition(next);
-  }
-
-  function stopDrag() {
-    setDragging(false);
-    dragStartRef.current = null;
-    if (typeof document !== 'undefined') {
-      document.body.style.userSelect = previousUserSelectRef.current;
-    }
-  }
-
-  function handlePanelPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    if (!expanded || !hasMessages) return;
-    if (e.button !== 0) return;
-
-    const target = e.target as HTMLElement;
-    const interactive = target.closest('button, input, textarea, a, [role="button"]');
-    if (interactive) return;
-
-    startDrag(e.clientX, e.clientY);
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }
-
-  function handlePanelPointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    handleDragMove(e.clientX, e.clientY);
-  }
-
-  function handlePanelPointerUp(e: React.PointerEvent<HTMLDivElement>) {
-    if (dragStartRef.current) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    }
-    stopDrag();
-  }
-
-  function handleToggleClick() {
-    if (draggedRef.current) {
-      draggedRef.current = false;
-      return;
-    }
-    if (!expanded) {
-      captureCurrentPosition();
-      const rect = containerRef.current?.getBoundingClientRect();
-      const startX = position?.x ?? rect?.left ?? 0;
-      const startY = position?.y ?? rect?.top ?? 0;
-      const collapsedWidth = 58;
-      const expandedWidth = getExpandedBarWidth();
-      const centeredX = startX - (expandedWidth - collapsedWidth) / 2;
-      setPosition(clampPosition(centeredX, startY));
-      setShowChatPanel(true);
-      setExpanded(true);
-      return;
-    }
-    collapseToCenteredIcon();
-    setExpanded(false);
   }
 
   return (
     <div
       ref={containerRef}
       className={[
-        `fixed z-50 flex flex-col items-center ${hasMessages ? 'gap-0' : 'gap-3'}`,
-        position ? '' : 'bottom-5 right-3 left-auto translate-x-0 md:bottom-8 md:left-1/2 md:right-auto md:-translate-x-1/2',
+        'fixed z-50 bottom-4 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-6 md:bottom-6',
+        isOpen ? 'w-[calc(100vw-24px)] max-w-[440px]' : 'w-auto',
       ].join(' ')}
-      style={position ? { left: `${position.x}px`, top: `${position.y}px` } : undefined}
     >
-      {hasMessages && showChatPanel && (
-        <div
-          className={`relative w-[440px] bg-white rounded-t-2xl rounded-b-none border border-gray-100 border-b-0 overflow-hidden ${expanded ? (dragging ? 'cursor-grabbing' : 'cursor-grab') : ''} ${expanded ? 'shadow-none' : 'shadow-[0_16px_48px_rgba(0,0,0,0.16)]'}`}
-          onPointerDown={handlePanelPointerDown}
-          onPointerMove={handlePanelPointerMove}
-          onPointerUp={handlePanelPointerUp}
-          onPointerCancel={handlePanelPointerUp}
-        >
-          <div className="h-12 border-b border-gray-100 px-4 flex items-center justify-end">
+      {isOpen ? (
+        <div className="bg-white rounded-3xl border border-gray-100 shadow-[0_18px_52px_rgba(0,0,0,0.17)] overflow-hidden">
+          <div className="h-11 border-b border-gray-100 px-4 flex items-center justify-end">
             <button
               type="button"
               aria-label="Close chat panel"
-              className="h-6 w-6 p-0 rounded-full border border-gray-200 bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-50 flex items-center justify-center select-none outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0"
-              onClick={(e) => {
-                e.stopPropagation();
-                collapseToCenteredIcon();
-                setShowChatPanel(false);
-                setExpanded(false);
-              }}
+              className="h-6 w-6 p-0 rounded-full border border-gray-200 bg-white text-gray-500 hover:text-gray-700 hover:bg-gray-50 flex items-center justify-center"
+              onClick={() => setIsOpen(false)}
             >
               <span className="block text-xs leading-none select-none">&times;</span>
             </button>
           </div>
-          <div className="max-h-[320px] overflow-y-auto px-4 py-4 space-y-3">
+          <div className="max-h-[320px] min-h-[210px] overflow-y-auto px-4 py-4 space-y-3">
             {messages.map(msg => (
               (msg.role === 'assistant' && !msg.content.trim()) ? null : (
               <div key={msg.id} className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -515,50 +314,11 @@ export default function BrowseAIChat() {
             )}
             <div ref={messagesEndRef} />
           </div>
-        </div>
-      )}
-
-      <div
-        className={[
-          'flex items-center !bg-white border border-gray-100',
-          expanded && hasMessages ? 'rounded-t-none rounded-b-2xl' : 'rounded-full',
-          'transition-all duration-300 ease-out overflow-hidden',
-          expanded
-            ? `w-[calc(100vw-32px)] max-w-[440px] md:w-[440px] pl-3 pr-2.5 py-2.5 ${hasMessages ? 'rounded-t-none border-t-0 shadow-none' : 'shadow-[0_8px_32px_rgba(0,0,0,0.14)]'}`
-            : `w-[58px] h-[58px] justify-center cursor-${dragging ? 'grabbing' : 'grab'} hover:shadow-[0_12px_40px_rgba(0,0,0,0.20)]`,
-          !expanded && !loading ? 'browse-ai-active-glow' : (expanded && hasMessages ? '' : 'shadow-[0_8px_32px_rgba(0,0,0,0.14)]'),
-        ].join(' ')}
-        onPointerDown={handleIconPointerDown}
-        onPointerMove={handleIconPointerMove}
-        onPointerUp={handleIconPointerUp}
-        onPointerCancel={handleIconPointerUp}
-        onClick={() => {
-          if (!expanded) handleToggleClick();
-        }}
-        style={{ backgroundColor: '#ffffff' }}
-      >
-        <button
-          className={`flex items-center justify-center transition-all duration-200 hover:scale-105 relative${expanded ? ' shrink-0' : ' w-full h-full'}`}
-          style={expanded ? { marginRight: '8px' } : undefined}
-          onClick={(e) => {
-            if (expanded) {
-              e.stopPropagation();
-              handleToggleClick();
-            }
-          }}
-          aria-label="Toggle AI search"
-        >
-          <AskAiIcon size={expanded ? 28 : 38} />
-          {loading && !expanded && (
-            <span className="absolute inset-0 rounded-full animate-ping bg-orange-400 opacity-30" />
-          )}
-        </button>
-
-        {expanded && (
-          <>
-            <span className="w-px h-5 bg-gray-200 shrink-0 mr-3" />
+          <div className="flex items-center bg-white border-t border-gray-100 px-3 py-2.5">
+            <div className="shrink-0 mr-2">
+              <AskAiIcon size={24} />
+            </div>
             <input
-              ref={inputRef}
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKey}
@@ -579,9 +339,18 @@ export default function BrowseAIChat() {
                 </svg>
               )}
             </button>
-          </>
-        )}
-      </div>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setIsOpen(true)}
+          aria-label="Open AI search chat"
+          className="h-[58px] w-[58px] rounded-full border border-gray-200 bg-white shadow-[0_18px_52px_rgba(0,0,0,0.17)] flex items-center justify-center hover:shadow-[0_22px_58px_rgba(0,0,0,0.2)]"
+        >
+          <AskAiIcon size={34} />
+        </button>
+      )}
     </div>
   );
 }

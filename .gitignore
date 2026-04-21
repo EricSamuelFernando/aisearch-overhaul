@@ -51,3 +51,7 @@ next-env.d.ts
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+# local runtime logs
+*.log
+.tmp-next*.log
+

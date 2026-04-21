@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import Image from 'next/image';
 import { preloadImageUrls } from '@/lib/photo-preload';
@@ -33,8 +33,257 @@ const ROOM_ORDER = [
 ];
 const ROOM_ORDER_LOOKUP = new Map(ROOM_ORDER.map((label, idx) => [label, idx]));
 
-const API_BASE_URL = `${process.env.NEXT_PUBLIC_AI_BACKEND_BASE_URI}/api`
-const CATEGORY_CACHE_PREFIX = 'photo_categorization_v1';
+// Always use the local Next.js API route so server-side fallback logic can run
+// when upstream classifier hosts are unavailable.
+const IMAGE_CATEGORIZATION_API = '/api/image_categorization';
+const CATEGORY_CACHE_PREFIX = 'photo_categorization_v2';
+const IMAGE_CATEGORIZATION_POLL_INTERVAL_MS = 250;
+const IMAGE_CATEGORIZATION_POLL_WAIT_TIMEOUT_MS = 3500;
+const IMAGE_CATEGORIZATION_MAX_POLL_ATTEMPTS = 16;
+
+const extractCategorization = (data: any) => {
+    const images = data?.categorization?.categorized_images ||
+        data?.data?.categorization?.categorized_images ||
+        data?.images ||
+        {};
+
+    const analysisData = data?.categorization?.condition_analysis ||
+        data?.categorization?.analysis ||
+        data?.data?.categorization?.condition_analysis ||
+        data?.data?.categorization?.analysis ||
+        data?.analysis ||
+        {};
+
+    const hasCategorization = Boolean(
+        images &&
+        typeof images === 'object' &&
+        !Array.isArray(images) &&
+        Object.keys(images).length > 0
+    );
+
+    return { images, analysisData, hasCategorization };
+};
+
+type ImageTagKind = 'none' | 'red_alert' | 'needs_review' | 'opportunity';
+
+interface TaggedImageSelection {
+    room: string;
+    url: string;
+    tag: ImageTagKind;
+    insights: any[];
+}
+
+const getUrlKeyCandidates = (value: unknown): string[] => {
+    if (typeof value !== 'string') return [];
+    const raw = value.trim();
+    if (!raw) return [];
+
+    const stripQueryAndHash = (input: string) => input.split('#')[0].split('?')[0].trim();
+    const cleaned = stripQueryAndHash(raw);
+    if (!cleaned) return [];
+
+    const normalized = cleaned.toLowerCase();
+    const candidates = new Set<string>([normalized]);
+
+    try {
+        const parsed = new URL(cleaned);
+        const path = stripQueryAndHash(parsed.pathname || '').toLowerCase();
+        if (path) {
+            candidates.add(path);
+            if (path.startsWith('/')) {
+                candidates.add(path.slice(1));
+            }
+        }
+    } catch {
+        const withoutDomain = normalized.replace(/^https?:\/\/[^/]+/i, '');
+        if (withoutDomain) {
+            candidates.add(withoutDomain);
+            const normalizedPath = withoutDomain.startsWith('/') ? withoutDomain.slice(1) : withoutDomain;
+            if (normalizedPath) {
+                candidates.add(normalizedPath);
+            }
+        }
+    }
+
+    return [...candidates];
+};
+
+const doesUrlMatch = (left: unknown, right: unknown): boolean => {
+    const leftKeys = getUrlKeyCandidates(left);
+    const rightKeys = new Set(getUrlKeyCandidates(right));
+    if (leftKeys.length === 0 || rightKeys.size === 0) return false;
+    return leftKeys.some((key) => rightKeys.has(key));
+};
+
+const normalizeRoomToken = (value: unknown): string => {
+    if (typeof value !== 'string') return '';
+    return value
+        .toLowerCase()
+        .replaceAll('_', ' ')
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+};
+
+const getInsightSampleUrls = (insight: any): string[] => {
+    const sampleImages = Array.isArray(insight?.sample_images) ? insight.sample_images : [];
+    const sampleUrls = Array.isArray(insight?.sample_urls) ? insight.sample_urls : [];
+    const singleSampleUrl = typeof insight?.sample_url === 'string' ? [insight.sample_url] : [];
+    const imageUrls = sampleImages
+        .map((sample: any) => (typeof sample === 'string' ? sample : sample?.url))
+        .filter((url: unknown): url is string => typeof url === 'string' && url.length > 0);
+
+    return [...imageUrls, ...sampleUrls, ...singleSampleUrl];
+};
+
+const insightSeverityRank = (insight: any): number => {
+    const severity = String(insight?.severity || '').toLowerCase();
+    if (severity === 'high') return 3;
+    if (severity === 'medium') return 2;
+    if (severity === 'low') return 1;
+    return 0;
+};
+
+const insightConfidenceScore = (insight: any): number => {
+    const raw = insight?.confidence;
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+        return raw > 1 ? raw / 100 : raw;
+    }
+
+    const normalized = String(raw || insight?.confidence_label || '').toLowerCase();
+    if (normalized.includes('high')) return 0.9;
+    if (normalized.includes('medium')) return 0.6;
+    if (normalized.includes('low')) return 0.3;
+    return 0;
+};
+
+const rankAndDedupeInsightsForImage = (
+    insights: any[],
+    imageUrl: unknown,
+    room: string | null,
+): any[] => {
+    const normalizedRoom = normalizeRoomToken(room);
+    const bestByKey = new Map<string, {
+        insight: any;
+        score: number;
+        roomMatch: boolean;
+        exactImageMatch: boolean;
+    }>();
+
+    for (const insight of insights) {
+        const sampleUrls = getInsightSampleUrls(insight);
+        const exactImageMatch = sampleUrls.some((sampleUrl) => doesUrlMatch(sampleUrl, imageUrl));
+        const areas = Array.isArray(insight?.areas) ? insight.areas : [];
+        const normalizedAreas = areas.map((area: unknown) => normalizeRoomToken(area)).filter(Boolean);
+        const roomMatch = normalizedRoom ? normalizedAreas.includes(normalizedRoom) : false;
+        const specificityBoost = areas.length === 1 ? 90 : 0;
+        const roomScopedBoost = insight?._roomScoped ? 180 : 0;
+        const selectedArea = roomMatch
+            ? (areas.find((area: unknown) => normalizeRoomToken(area) === normalizedRoom) || room || 'global')
+            : (areas[0] || room || 'global');
+
+        // Prefer title-based identity so room-scoped and aggregated variants with different
+        // issue keys but same user-facing finding collapse into one card.
+        const identity = String(insight?.title || insight?.issue || 'insight')
+            .toLowerCase()
+            .replace(/[^a-z0-9\s]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        const dedupeKey = `${identity}::${String(selectedArea).toLowerCase().trim()}`;
+        const score =
+            (exactImageMatch ? 1000 : 0) +
+            (roomMatch ? 120 : 0) +
+            specificityBoost +
+            roomScopedBoost +
+            (insightSeverityRank(insight) * 10) +
+            (insightConfidenceScore(insight) * 5);
+
+        const existing = bestByKey.get(dedupeKey);
+        if (!existing || score > existing.score) {
+            bestByKey.set(dedupeKey, {
+                insight,
+                score,
+                roomMatch,
+                exactImageMatch,
+            });
+        }
+    }
+
+    let rankedEntries = [...bestByKey.values()];
+
+    // When a room card is clicked, keep room-scoped insights first so
+    // unrelated-area duplicates (e.g. kitchen insight on bathroom image) do not surface.
+    if (normalizedRoom) {
+        const roomMatchedEntries = rankedEntries.filter((entry) => entry.roomMatch);
+        if (roomMatchedEntries.length > 0) {
+            rankedEntries = roomMatchedEntries;
+        } else {
+            const exactImageEntries = rankedEntries.filter((entry) => entry.exactImageMatch);
+            if (exactImageEntries.length > 0) {
+                rankedEntries = exactImageEntries;
+            }
+        }
+    }
+
+    return rankedEntries
+        .sort((a, b) => b.score - a.score)
+        .map((entry) => entry.insight);
+};
+
+const getInsightImageConfidence = (insight: any, imageUrl: unknown): number | null => {
+    const sampleImages = Array.isArray(insight?.sample_images) ? insight.sample_images : [];
+    for (const sample of sampleImages) {
+        if (!sample) continue;
+        if (typeof sample === 'string') continue;
+        if (doesUrlMatch(sample?.url, imageUrl)) {
+            const value = Number(sample?.confidence);
+            if (!Number.isFinite(value)) return null;
+            return value > 1 ? value / 100 : value;
+        }
+    }
+    return null;
+};
+
+const classifyInsightTag = (insight: any): ImageTagKind => {
+    const severity = String(insight?.severity || '').toLowerCase();
+    const classification = String(insight?.classification || '').toLowerCase();
+    const category = String(insight?.category || '').toLowerCase();
+    const textBlob = `${insight?.title || ''} ${insight?.what || ''} ${insight?.category_label || ''}`.toLowerCase();
+
+    if (severity === 'high' || classification.includes('red alert')) return 'red_alert';
+    if (category === 'upgrade' || classification.includes('opportunity') || textBlob.includes('opportunit')) {
+        return 'opportunity';
+    }
+    return 'needs_review';
+};
+
+const resolveImageTag = (insights: any[]): ImageTagKind => {
+    if (!insights.length) return 'none';
+    if (insights.some((insight) => classifyInsightTag(insight) === 'red_alert')) return 'red_alert';
+    if (insights.some((insight) => classifyInsightTag(insight) === 'opportunity')) return 'opportunity';
+    return 'needs_review';
+};
+
+const tagLabel = (tag: ImageTagKind): string | null => {
+    if (tag === 'red_alert') return 'Red Alert';
+    if (tag === 'opportunity') return 'Opportunity';
+    if (tag === 'needs_review') return 'Needs Review';
+    return null;
+};
+
+const tagBorderClass = (tag: ImageTagKind): string => {
+    if (tag === 'red_alert') return 'border-red-300';
+    if (tag === 'opportunity') return 'border-blue-300';
+    if (tag === 'needs_review') return 'border-amber-300';
+    return 'border-gray-200';
+};
+
+const tagBadgeClass = (tag: ImageTagKind): string => {
+    if (tag === 'red_alert') return 'bg-red-50 text-red-600 border-red-300';
+    if (tag === 'opportunity') return 'bg-blue-50 text-blue-600 border-blue-300';
+    if (tag === 'needs_review') return 'bg-amber-50 text-amber-700 border-amber-300';
+    return 'bg-gray-50 text-gray-600 border-gray-200';
+};
 
 export default function CategorizedPhotosModal({
     isOpen,
@@ -56,8 +305,15 @@ export default function CategorizedPhotosModal({
     const [cats, setCats] = useState<Record<string, any[]> | null>(null);
     const [analysis, setAnalysis] = useState<any>(null);
     const [loading, setLoading] = useState(false);
+    const [isCategorizationPending, setIsCategorizationPending] = useState(false);
+    const [categorizationError, setCategorizationError] = useState<string | null>(null);
     const [previewGallery, setPreviewGallery] = useState<{ title: string; urls: string[]; index: number } | null>(null);
+    const [selectedTaggedImage, setSelectedTaggedImage] = useState<TaggedImageSelection | null>(null);
     const [allowInteraction, setAllowInteraction] = useState(false);
+    const [highlightSelectedInsight, setHighlightSelectedInsight] = useState(false);
+    const contentScrollRef = useRef<HTMLDivElement | null>(null);
+    const summaryCardRef = useRef<HTMLDivElement | null>(null);
+    const selectedInsightRef = useRef<HTMLDivElement | null>(null);
 
     // Prevent ghost clicks by blocking pointer events initially
     useEffect(() => {
@@ -67,6 +323,46 @@ export default function CategorizedPhotosModal({
             return () => clearTimeout(timer);
         }
     }, [isOpen]);
+
+    useEffect(() => {
+        if (!isOpen) {
+            setLoading(false);
+            setIsCategorizationPending(false);
+            setCategorizationError(null);
+            setSelectedTaggedImage(null);
+            setHighlightSelectedInsight(false);
+        }
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (!selectedTaggedImage || !isOpen) return;
+
+        setHighlightSelectedInsight(true);
+        const frameId = window.requestAnimationFrame(() => {
+            const container = contentScrollRef.current;
+            const target = summaryCardRef.current || selectedInsightRef.current;
+            if (container && target) {
+                const containerRect = container.getBoundingClientRect();
+                const targetRect = target.getBoundingClientRect();
+                const topOffset = 28;
+                const nextTop = container.scrollTop + (targetRect.top - containerRect.top) - topOffset;
+                container.scrollTo({
+                    top: Math.max(nextTop, 0),
+                    behavior: 'smooth',
+                });
+                return;
+            }
+            target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        const timer = window.setTimeout(() => {
+            setHighlightSelectedInsight(false);
+        }, 1400);
+
+        return () => {
+            window.cancelAnimationFrame(frameId);
+            window.clearTimeout(timer);
+        };
+    }, [selectedTaggedImage, isOpen]);
 
     useEffect(() => {
         if (!cats) return;
@@ -141,104 +437,164 @@ export default function CategorizedPhotosModal({
     }, [isOpen, listingId]);
     */
 
-    // --- NEW IMPLEMENTATION (Optimized with preloadedData) ---
-    // Data handling logic
+    // --- NEW IMPLEMENTATION (Optimized with preloadedData + async polling) ---
     useEffect(() => {
-        if (isOpen) {
-            // Function to process data (either from prop or API)
-            const processData = (data: any) => {
-                // Handle the response structure from /get_data
-                // Based on user log: {"categorization": { "categorized_images": { ... } }}
-                // Also keep fallback support for direct structure just in case
-                const images = data?.categorization?.categorized_images ||
-                    data?.data?.categorization?.categorized_images ||
-                    data?.images ||
-                    {};
+        if (!isOpen) return;
 
-                const analysisData = data?.categorization?.condition_analysis ||
-                    data?.categorization?.analysis ||
-                    data?.data?.categorization?.condition_analysis ||
-                    data?.data?.categorization?.analysis ||
-                    data?.analysis ||
-                    {};
+        let cancelled = false;
+        const cacheKey = `${CATEGORY_CACHE_PREFIX}:${listingId}`;
 
-                setCats(images);
-                setAnalysis(analysisData);
-            };
+        const readCache = () => {
+            try {
+                const raw = typeof window !== 'undefined' ? window.sessionStorage.getItem(cacheKey) : null;
+                return raw ? JSON.parse(raw) : null;
+            } catch {
+                return null;
+            }
+        };
 
-            const cacheKey = `${CATEGORY_CACHE_PREFIX}:${listingId}:${propertyId}`;
-            const readCache = () => {
-                try {
-                    const raw = typeof window !== 'undefined' ? window.sessionStorage.getItem(cacheKey) : null;
-                    return raw ? JSON.parse(raw) : null;
-                } catch {
-                    return null;
-                }
-            };
-            const writeCache = (data: any) => {
-                try {
-                    if (typeof window === 'undefined') return;
-                    window.sessionStorage.setItem(cacheKey, JSON.stringify(data));
-                } catch {
-                    // Ignore cache errors
-                }
-            };
+        const writeCache = (data: any) => {
+            try {
+                if (typeof window === 'undefined') return;
+                window.sessionStorage.setItem(cacheKey, JSON.stringify(data));
+            } catch {
+                // Ignore cache errors
+            }
+        };
 
-            // Used preloaded data if available AND has categorization, otherwise fetch
-            const hasCategorization = preloadedData?.categorization?.categorized_images ||
-                preloadedData?.data?.categorization?.categorized_images;
+        const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-            if (hasCategorization) {
-                console.log('Using preloaded data for CategorizedPhotosModal');
+        const applyData = (data: any): boolean => {
+            const { images, analysisData, hasCategorization } = extractCategorization(data);
+            if (cancelled) return hasCategorization;
+            setCats(images);
+            setAnalysis(analysisData);
+            return hasCategorization;
+        };
+
+        const run = async () => {
+            setCategorizationError(null);
+            setIsCategorizationPending(false);
+            setLoading(true);
+            setCats(null);
+            setAnalysis(null);
+
+            const preloadedHasCategorization = extractCategorization(preloadedData).hasCategorization;
+            if (preloadedHasCategorization) {
                 writeCache(preloadedData);
-                processData(preloadedData);
+                applyData(preloadedData);
+                setLoading(false);
                 return;
             }
 
-            if (listingId) {
-                const cached = readCache();
-                if (cached?.categorization?.categorized_images || cached?.data?.categorization?.categorized_images) {
-                    processData(cached);
+            const cached = readCache();
+            if (extractCategorization(cached).hasCategorization) {
+                applyData(cached);
+                setLoading(false);
+                return;
+            }
+
+            const parsedListingId = Number(listingId);
+            const parsedPropertyId = Number(propertyId);
+            if (!Number.isFinite(parsedListingId)) {
+                setCategorizationError('A valid listingId is required for image categorization');
+                setCats({});
+                setAnalysis(null);
+                setLoading(false);
+                return;
+            }
+
+            try {
+                const basePayload: Record<string, number | boolean> = { listingId: parsedListingId };
+                if (Number.isFinite(parsedPropertyId)) {
+                    basePayload.propertyId = parsedPropertyId;
+                }
+
+                const kickoffRes = await fetch(IMAGE_CATEGORIZATION_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...basePayload, asyncMode: true }),
+                    cache: 'no-store',
+                });
+                const kickoffData = await kickoffRes.json().catch(() => ({}));
+                if (!kickoffRes.ok) {
+                    throw new Error(kickoffData?.error || `Status ${kickoffRes.status}`);
+                }
+                if (applyData(kickoffData)) {
+                    writeCache(kickoffData);
+                    setLoading(false);
+                    return;
+                }
+                setLoading(false);
+                setIsCategorizationPending(true);
+
+                let pollStatus = String(kickoffData?.status || '').toLowerCase();
+                let pollError = kickoffData?.error || kickoffData?.details || null;
+
+                for (let attempt = 0; attempt < IMAGE_CATEGORIZATION_MAX_POLL_ATTEMPTS; attempt += 1) {
+                    if (cancelled) return;
+                    if (pollStatus === 'failed' || pollStatus === 'error') {
+                        throw new Error(String(pollError || 'Image categorization failed'));
+                    }
+
+                    const pollRes = await fetch(IMAGE_CATEGORIZATION_API, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ...basePayload, waitTimeoutMs: IMAGE_CATEGORIZATION_POLL_WAIT_TIMEOUT_MS }),
+                        cache: 'no-store',
+                    });
+                    const pollData = await pollRes.json().catch(() => ({}));
+                    if (!pollRes.ok) {
+                        throw new Error(pollData?.error || `Status ${pollRes.status}`);
+                    }
+                    if (applyData(pollData)) {
+                        writeCache(pollData);
+                        setIsCategorizationPending(false);
+                        return;
+                    }
+
+                    pollStatus = String(pollData?.status || '').toLowerCase();
+                    pollError = pollData?.error || pollData?.details || null;
+                    if (pollStatus === 'done' && !extractCategorization(pollData).hasCategorization) {
+                        break;
+                    }
+                    await sleep(IMAGE_CATEGORIZATION_POLL_INTERVAL_MS);
+                }
+
+                const finalRes = await fetch(IMAGE_CATEGORIZATION_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...basePayload, waitTimeoutMs: IMAGE_CATEGORIZATION_POLL_WAIT_TIMEOUT_MS }),
+                    cache: 'no-store',
+                });
+                const finalData = await finalRes.json().catch(() => ({}));
+                if (finalRes.ok && applyData(finalData)) {
+                    writeCache(finalData);
+                    setIsCategorizationPending(false);
                     return;
                 }
 
-                setLoading(true);
-
-                const fetchCategorizedImages = async () => {
-                    try {
-                        // Use POST /image_categorization
-                        const url = `${API_BASE_URL}/image_categorization`;
-                        const res = await fetch(url, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                listingId: parseInt(listingId, 10),
-                                propertyId: parseInt(propertyId, 10)
-                            })
-                        });
-
-                        if (!res.ok) throw new Error(`Status ${res.status}`);
-                        const data = await res.json();
-
-                        console.log('Full API Response:', data); // Debug: see full response
-                        writeCache(data);
-                        processData(data);
-
-                    } catch (err) {
-                        console.error("API attempt failed", err);
-                        setCats({});
-                        setAnalysis(null);
-                    } finally {
-                        setLoading(false);
-                    }
-                };
-
-                fetchCategorizedImages();
+                setCats({});
+                setAnalysis(null);
+                setIsCategorizationPending(false);
+            } catch (err: any) {
+                console.error('API attempt failed', err);
+                if (!cancelled) {
+                    setCategorizationError(err?.message || 'Failed to categorize photos');
+                    setCats({});
+                    setAnalysis(null);
+                    setIsCategorizationPending(false);
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
             }
-        }
-    }, [isOpen, listingId, preloadedData]);
+        };
+
+        run();
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen, listingId, propertyId, preloadedData]);
 
     // Derived state for ordered categories
     const orderedCats = useMemo(() => {
@@ -260,8 +616,130 @@ export default function CategorizedPhotosModal({
     }, [cats]);
 
     const hasGroupedPhotos = orderedCats.length > 0;
-    const showFallback = !loading && !hasGroupedPhotos && fallbackPhotos.length > 0;
+    const showFallback = !hasGroupedPhotos && fallbackPhotos.length > 0 && (!loading || isCategorizationPending);
     const summaryText = analysis?.property_summary || analysis?.home_story || description || "";
+
+    const effectiveInsights = useMemo(() => {
+        const directInsights = Array.isArray(analysis?.insights) ? analysis.insights : [];
+        const synthesizedRoomInsights = directInsights.flatMap((insight: any) => {
+            const areas = Array.isArray(insight?.areas) ? insight.areas.filter(Boolean) : [];
+            if (areas.length <= 1) return [];
+            return areas.map((area: string) => ({
+                ...insight,
+                what: `${insight?.title || 'Condition issue'} observed in ${area}.`,
+                areas: [area],
+                _roomScoped: true,
+                _syntheticRoomScoped: true,
+            }));
+        });
+        const roomSections = Array.isArray(analysis?.room_sections) ? analysis.room_sections : [];
+        const roomScopedInsights = roomSections.flatMap((roomSection: any) => {
+            const roomLabel = roomSection?.title || roomSection?.area;
+            const issues = Array.isArray(roomSection?.issues) ? roomSection.issues : [];
+            return issues.map((issue: any) => ({
+                ...issue,
+                what: issue?.summary || issue?.title || '',
+                why: issue?.why || issue?.impact || '',
+                next_step: issue?.recommendation || '',
+                areas: roomLabel ? [roomLabel] : [],
+                category: String(issue?.severity || '').toLowerCase() === 'high' ? 'repair' : 'potential',
+                classification: String(issue?.severity || '').toLowerCase() === 'high' ? 'Red Alert' : undefined,
+                _roomScoped: true,
+            }));
+        });
+        if (roomScopedInsights.length === 0 && synthesizedRoomInsights.length === 0) return directInsights;
+        if (directInsights.length === 0) return roomScopedInsights;
+        return [...roomScopedInsights, ...synthesizedRoomInsights, ...directInsights];
+    }, [analysis]);
+
+    const imageInsightMap = useMemo(() => {
+        const mapped = new Map<string, any[]>();
+        const pushInsight = (candidateUrl: unknown, insight: any) => {
+            for (const key of getUrlKeyCandidates(candidateUrl)) {
+                const current = mapped.get(key) || [];
+                if (!current.includes(insight)) {
+                    current.push(insight);
+                    mapped.set(key, current);
+                }
+            }
+        };
+
+        for (const insight of effectiveInsights) {
+            const sampleImages = Array.isArray(insight?.sample_images) ? insight.sample_images : [];
+            const sampleUrls = Array.isArray(insight?.sample_urls) ? insight.sample_urls : [];
+            const singleSampleUrl = typeof insight?.sample_url === 'string' ? [insight.sample_url] : [];
+            for (const sampleImage of sampleImages) {
+                if (typeof sampleImage === 'string') {
+                    pushInsight(sampleImage, insight);
+                } else {
+                    pushInsight(sampleImage?.url, insight);
+                }
+            }
+            for (const url of sampleUrls) {
+                pushInsight(url, insight);
+            }
+            for (const url of singleSampleUrl) {
+                pushInsight(url, insight);
+            }
+        }
+
+        return mapped;
+    }, [effectiveInsights]);
+
+    const resolveInsightsForImage = useCallback((imageUrl: unknown, room: string | null): any[] => {
+        const seen = new Set<any>();
+        const matchedInsights = getUrlKeyCandidates(imageUrl).flatMap((key) => {
+            const matches = imageInsightMap.get(key) || [];
+            return matches.filter((insight) => {
+                if (seen.has(insight)) return false;
+                seen.add(insight);
+                return true;
+            });
+        });
+
+        return rankAndDedupeInsightsForImage(matchedInsights, imageUrl, room);
+    }, [imageInsightMap]);
+
+    const groupedPhotoSections = useMemo(() => {
+        return orderedCats.map(([room, items]) => {
+            const enrichedItems = (Array.isArray(items) ? items : []).map((item: any, idx: number) => {
+                const insights = resolveInsightsForImage(item?.url, room);
+                const tag = resolveImageTag(insights);
+                return {
+                    item,
+                    idx,
+                    insights,
+                    tag,
+                };
+            });
+
+            const counts = {
+                red_alert: enrichedItems.filter((entry) => entry.tag === 'red_alert').length,
+                needs_review: enrichedItems.filter((entry) => entry.tag === 'needs_review').length,
+                opportunity: enrichedItems.filter((entry) => entry.tag === 'opportunity').length,
+            };
+
+            return {
+                room,
+                items,
+                enrichedItems,
+                counts,
+            };
+        });
+    }, [orderedCats, resolveInsightsForImage]);
+
+    const fallbackTaggedPhotos = useMemo(() => {
+        return fallbackPhotos.map((url, idx) => {
+            const insights = resolveInsightsForImage(url, null);
+            const tag = resolveImageTag(insights);
+            return {
+                url,
+                idx,
+                insights,
+                tag,
+            };
+        });
+    }, [fallbackPhotos, resolveInsightsForImage]);
 
     // Gallery Logic
     const closeGallery = () => setPreviewGallery(null);
@@ -308,10 +786,10 @@ export default function CategorizedPhotosModal({
                 </div>
 
                 {/* Content */}
-                <div className="overflow-y-auto p-3 sm:p-4 grow">
+                <div ref={contentScrollRef} className="overflow-y-auto p-3 sm:p-4 grow">
                     {/* Original Summary Text (fallback) */}
                     {summaryText && (
-                        <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-sm text-emerald-900">
+                        <div ref={summaryCardRef} className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-sm text-emerald-900">
                             {summaryText}
                         </div>
                     )}
@@ -323,36 +801,189 @@ export default function CategorizedPhotosModal({
                         </div>
                     )}
 
+                    {isCategorizationPending && !hasGroupedPhotos && (
+                        <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900 flex items-center gap-2">
+                            <span className="inline-block h-3 w-3 rounded-full border-2 border-blue-500 border-t-transparent animate-spin"></span>
+                            <span>AI insights are loading in the background. You can browse photos now and tags will appear automatically.</span>
+                        </div>
+                    )}
+
+                    {!loading && selectedTaggedImage && (
+                        <div
+                            ref={selectedInsightRef}
+                            className={`mb-5 rounded-xl border p-4 transition ${selectedTaggedImage.tag === 'red_alert'
+                                ? 'border-red-200 bg-red-50/60'
+                                : selectedTaggedImage.tag === 'opportunity'
+                                    ? 'border-blue-200 bg-blue-50/60'
+                                    : 'border-amber-200 bg-amber-50/60'
+                                } ${highlightSelectedInsight ? 'ring-2 ring-indigo-300 shadow-md' : 'shadow-sm'}`}
+                        >
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <div className="text-xs font-semibold uppercase tracking-wide text-gray-600">Selected Image Insight</div>
+                                    <h4 className="text-sm sm:text-base font-semibold text-gray-900 mt-1">
+                                        {selectedTaggedImage.tag === 'opportunity'
+                                            ? 'Opportunity for this image'
+                                            : selectedTaggedImage.tag === 'red_alert'
+                                                ? 'Risk found in this image'
+                                                : 'Review item for this image'}
+                                    </h4>
+                                    <p className="mt-1 text-xs text-gray-600">
+                                        This card updates when you click a tagged photo.
+                                    </p>
+                                </div>
+                                <button
+                                    className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                                    onClick={() => {
+                                        if (selectedTaggedImage.room === 'all photos') {
+                                            const selectedKeys = new Set(getUrlKeyCandidates(selectedTaggedImage.url));
+                                            const index = fallbackPhotos.findIndex((url) =>
+                                                getUrlKeyCandidates(url).some((key) => selectedKeys.has(key))
+                                            );
+                                            if (index < 0) return;
+                                            setPreviewGallery({
+                                                title: 'all photos',
+                                                urls: fallbackPhotos,
+                                                index,
+                                            });
+                                            return;
+                                        }
+                                        const roomSection = groupedPhotoSections.find((section) => section.room === selectedTaggedImage.room);
+                                        if (!roomSection) return;
+                                        const selectedKeys = new Set(getUrlKeyCandidates(selectedTaggedImage.url));
+                                        const index = roomSection.enrichedItems.findIndex((entry) =>
+                                            getUrlKeyCandidates(entry.item?.url).some((key) => selectedKeys.has(key))
+                                        );
+                                        if (index < 0) return;
+                                        setPreviewGallery({
+                                            title: selectedTaggedImage.room.replaceAll('_', ' '),
+                                            urls: roomSection.items.map((x: any) => x.url),
+                                            index,
+                                        });
+                                    }}
+                                >
+                                    Open image
+                                </button>
+                            </div>
+                            <div className="mt-3 space-y-2">
+                                {selectedTaggedImage.insights.slice(0, 2).map((insight, idx) => {
+                                    const photoConfidence = getInsightImageConfidence(insight, selectedTaggedImage.url);
+                                    return (
+                                        <div key={idx} className="rounded-lg border border-white/70 bg-white/70 p-3">
+                                            <div className="text-sm font-semibold text-gray-900">
+                                                {insight?.title || 'Condition Insight'}
+                                            </div>
+                                            {(insight?.what || insight?.summary) && (
+                                                <p className="mt-1 text-sm text-gray-700">{insight?.what || insight?.summary}</p>
+                                            )}
+                                            {photoConfidence !== null && (
+                                                <p className="mt-1 text-xs text-gray-600">
+                                                    <span className="font-semibold text-gray-700">Photo confidence:</span>{' '}
+                                                    {Math.round(photoConfidence * 100)}%
+                                                </p>
+                                            )}
+                                            {(insight?.why || insight?.impact) && (
+                                                <p className="mt-1 text-xs text-gray-600">
+                                                    <span className="font-semibold text-gray-700">Impact:</span> {insight?.why || insight?.impact}
+                                                </p>
+                                            )}
+                                            {(insight?.next_step || insight?.recommendation) && (
+                                                <p className="mt-1 text-xs text-gray-600">
+                                                    <span className="font-semibold text-gray-700">Next step:</span> {insight?.next_step || insight?.recommendation}
+                                                </p>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
                     {!loading && hasGroupedPhotos && (
                         <div className="space-y-8" style={{ pointerEvents: allowInteraction ? 'auto' : 'none' }}>
-                            {orderedCats.map(([room, items]) => (
-                                <div key={room}>
-                                    <div className="mb-3 flex items-center gap-2">
-                                        <div className="text-xl font-semibold capitalize">{room.replaceAll('_', ' ')}</div>
-                                        <div className="text-sm text-gray-500">{items.length} photo{items.length !== 1 ? 's' : ''}</div>
+                            {groupedPhotoSections.map((section) => (
+                                <div key={section.room}>
+                                    <div className="mb-3 flex flex-wrap items-center gap-2">
+                                        <div className="text-3xl font-semibold capitalize leading-none">{section.room.replaceAll('_', ' ')}</div>
+                                        <div className="text-2xl text-gray-500 leading-none">
+                                            {section.items.length} photo{section.items.length !== 1 ? 's' : ''}
+                                        </div>
+                                        {section.counts.red_alert > 0 && (
+                                            <span className="rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600">
+                                                {section.counts.red_alert} red
+                                            </span>
+                                        )}
+                                        {section.counts.needs_review > 0 && (
+                                            <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                                                {section.counts.needs_review} review
+                                            </span>
+                                        )}
+                                        {section.counts.opportunity > 0 && (
+                                            <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-600">
+                                                {section.counts.opportunity} opportunity
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                        {items.map((item: any, idx: number) => (
-                                            <div
-                                                key={idx}
-                                                className="aspect-[4/3] overflow-hidden rounded-xl bg-gray-100 border cursor-pointer hover:opacity-90 transition relative"
-                                                onClick={() => {
-                                                    if (!allowInteraction) {
-                                                        console.log('Click blocked - interaction not allowed yet');
-                                                        return;
-                                                    }
-                                                    setPreviewGallery({ title: room.replaceAll('_', ' '), urls: items.map((x: any) => x.url), index: idx });
-                                                }}
-                                            >
-                                                <Image
-                                                    src={item.url}
-                                                    alt={`${room} photo`}
-                                                    fill
-                                                    className="w-full h-full object-cover"
-                                                    sizes="(max-width: 768px) 50vw, 25vw"
-                                                />
-                                            </div>
-                                        ))}
+                                        {section.enrichedItems.map((entry) => {
+                                            const label = tagLabel(entry.tag);
+                                            const isSelected = doesUrlMatch(selectedTaggedImage?.url, entry.item?.url);
+                                            return (
+                                                <div
+                                                    key={`${section.room}-${entry.idx}`}
+                                                    className={`aspect-[4/3] overflow-hidden rounded-xl bg-gray-100 border-2 cursor-pointer transition relative ${tagBorderClass(entry.tag)} ${isSelected ? 'ring-2 ring-indigo-500 ring-offset-2 shadow-md' : ''}`}
+                                                    onClick={() => {
+                                                        if (!allowInteraction) return;
+                                                        if (entry.tag === 'none') {
+                                                            setSelectedTaggedImage(null);
+                                                            setPreviewGallery({
+                                                                title: section.room.replaceAll('_', ' '),
+                                                                urls: section.items.map((x: any) => x.url),
+                                                                index: entry.idx,
+                                                            });
+                                                            return;
+                                                        }
+                                                        setSelectedTaggedImage({
+                                                            room: section.room,
+                                                            url: String(entry.item?.url || ''),
+                                                            tag: entry.tag,
+                                                            insights: entry.insights,
+                                                        });
+                                                    }}
+                                                >
+                                                    <Image
+                                                        src={entry.item?.url}
+                                                        alt={`${section.room} photo`}
+                                                        fill
+                                                        className="w-full h-full object-cover"
+                                                        sizes="(max-width: 768px) 50vw, 25vw"
+                                                    />
+                                                    {label && (
+                                                        <span className={`absolute left-2 top-2 rounded-full border px-2 py-0.5 text-xs font-semibold ${tagBadgeClass(entry.tag)}`}>
+                                                            {label}
+                                                        </span>
+                                                    )}
+                                                    {isSelected && entry.tag !== 'none' && (
+                                                        <span className="absolute bottom-2 left-2 rounded-full bg-indigo-600/90 px-2 py-0.5 text-[11px] font-semibold text-white">
+                                                            Selected insight
+                                                        </span>
+                                                    )}
+                                                    <button
+                                                        className="absolute bottom-2 right-2 rounded-full bg-black/55 px-2 py-1 text-[11px] font-medium text-white hover:bg-black/70"
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            setPreviewGallery({
+                                                                title: section.room.replaceAll('_', ' '),
+                                                                urls: section.items.map((x: any) => x.url),
+                                                                index: entry.idx,
+                                                            });
+                                                        }}
+                                                    >
+                                                        View
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             ))}
@@ -428,7 +1059,7 @@ export default function CategorizedPhotosModal({
                                                         <span className={`mr-2 ${section.label === 'High-priority repairs' ? 'text-red-600' :
                                                             section.label === 'Renovation opportunities' ? 'text-blue-600' :
                                                                 'text-gray-600'
-                                                            }`}>•</span>
+                                                            }`}>-</span>
                                                         <span className="break-words">{item}</span>
                                                     </li>
                                                 ))}
@@ -655,7 +1286,7 @@ export default function CategorizedPhotosModal({
                                             <ul className="space-y-1 text-sm text-gray-700">
                                                 {analysis.limitations.map((limitation: string, idx: number) => (
                                                     <li key={idx} className="flex items-start">
-                                                        <span className="mr-2">•</span>
+                                                        <span className="mr-2">-</span>
                                                         <span>{limitation}</span>
                                                     </li>
                                                 ))}
@@ -670,7 +1301,7 @@ export default function CategorizedPhotosModal({
                                             <ul className="space-y-1 text-sm text-gray-700">
                                                 {analysis.next_steps.map((step: string, idx: number) => (
                                                     <li key={idx} className="flex items-start">
-                                                        <span className="mr-2">•</span>
+                                                        <span className="mr-2">-</span>
                                                         <span>{step}</span>
                                                     </li>
                                                 ))}
@@ -682,15 +1313,64 @@ export default function CategorizedPhotosModal({
                         </div>
                     )}
 
+                    {!loading && categorizationError && (
+                        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                            Could not organize photos by room right now. Showing all available photos.
+                        </div>
+                    )}
+
                     {showFallback && (
                         <div>
-                            <p className="text-gray-500 mb-4">Categorization not available. Showing all photos.</p>
+                            <p className="text-gray-500 mb-4">
+                                {isCategorizationPending
+                                    ? 'Showing all photos first for speed. Room grouping and AI tags will appear shortly.'
+                                    : 'Categorization not available. Showing all photos.'}
+                            </p>
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                {fallbackPhotos.map((url, idx) => (
-                                    <div key={idx} className="aspect-[4/3] bg-gray-100 rounded-xl overflow-hidden relative border">
-                                        <Image src={url} alt="Property photo" fill className="object-cover" />
-                                    </div>
-                                ))}
+                                {fallbackTaggedPhotos.map((entry) => {
+                                    const label = tagLabel(entry.tag);
+                                    const isSelected = doesUrlMatch(selectedTaggedImage?.url, entry.url);
+                                    return (
+                                        <div
+                                            key={entry.idx}
+                                            className={`aspect-[4/3] bg-gray-100 rounded-xl overflow-hidden relative border-2 cursor-pointer ${tagBorderClass(entry.tag)} ${isSelected ? 'ring-2 ring-indigo-500 ring-offset-2 shadow-md' : ''}`}
+                                            onClick={() => {
+                                                if (entry.tag === 'none') {
+                                                    setSelectedTaggedImage(null);
+                                                    setPreviewGallery({ title: 'all photos', urls: fallbackPhotos, index: entry.idx });
+                                                    return;
+                                                }
+                                                setSelectedTaggedImage({
+                                                    room: 'all photos',
+                                                    url: entry.url,
+                                                    tag: entry.tag,
+                                                    insights: entry.insights,
+                                                });
+                                            }}
+                                        >
+                                            <Image src={entry.url} alt="Property photo" fill className="object-cover" />
+                                            {label && (
+                                                <span className={`absolute left-2 top-2 rounded-full border px-2 py-0.5 text-xs font-semibold ${tagBadgeClass(entry.tag)}`}>
+                                                    {label}
+                                                </span>
+                                            )}
+                                            {isSelected && entry.tag !== 'none' && (
+                                                <span className="absolute bottom-2 left-2 rounded-full bg-indigo-600/90 px-2 py-0.5 text-[11px] font-semibold text-white">
+                                                    Selected insight
+                                                </span>
+                                            )}
+                                            <button
+                                                className="absolute bottom-2 right-2 rounded-full bg-black/55 px-2 py-1 text-[11px] font-medium text-white hover:bg-black/70"
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    setPreviewGallery({ title: 'all photos', urls: fallbackPhotos, index: entry.idx });
+                                                }}
+                                            >
+                                                View
+                                            </button>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
@@ -744,3 +1424,4 @@ export default function CategorizedPhotosModal({
         </div>
     );
 }
+

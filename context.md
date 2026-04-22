@@ -189,16 +189,27 @@ Haiku always calls one of three tools — never returns free text. `tool_choice:
 - `reference_listing` — user asks about ONE listing with explicit position (#N, first/second/third/last). NOT for identity references ("the New York home" → answer_user). NOT for multiple listings.
 - `answer_user` — pure greetings, general real estate advice, profile reads. NEVER when user names a city/state/zip/neighborhood.
 
-### Carry-Forward Rules (strict, in Haiku prompt)
-- Start every search_mls with ALL params from Last search context as base
-- Only replace a param if user explicitly changes it
-- bedrooms_min, bathrooms_min, feature flags NEVER dropped unless user explicitly removes them
-- Location-only change: keep price, beds, baths, features exactly from Last search context
-- Price tier change ("luxury"): adjust price only — keep beds/baths/features unchanged
-- Confirmations ("yes", "sure", "go ahead", "yeah show", "yes please", "let's see", "do it") → use Pending proposed action params if present, else Last search context. Short messages ≤4 words = always confirmation.
+### Two-Category Param Model (Haiku prompt — replaces flat carry-forward rules)
+Params are split into two categories with different carry-forward behavior:
+
+**PREFERENCE PARAMS** — always carry forward unless user explicitly changes them:
+`listing_price_min/max`, `bedrooms_min`, `bathrooms_min`, `has_pool`, `has_basement`, `stories`, `lot_size_min`, `listing_association_fee_max`, `days_on_market_max`, `property_sub_type`, `visual_query`, `visual_confidence`, `room_hint`, `description_keywords`, `size`, all `is_*` view booleans.
+
+**GEOGRAPHIC PARAMS** — always derived fresh from the current message:
+`city`, `state`, `zip`, `near_poi_type`, `near_poi_query`, `commute_from`, `commute_from_2`, `commute_max_minutes`, `commute_max_minutes_2`, `commute_mode`.
+- Any geographic signal in the current message (city name, POI, commute origin, landmark) → derive from that signal, never from Last search context
+- No geographic signal → carry forward geographic params from Last search context
+- `commute_from` always implies `city`/`state`: "30 min from Apple Park" → `commute_from="Apple Park, Cupertino, CA"`, `city="Cupertino"`, `state="CA"`
+
+**Why this model:** avoids the failure mode where a commute search in a new city carries forward the previous search's city (Roseville) and produces wrong results.
+
+### Clarification Rule (Haiku prompt)
+Never guess personal details about the user. If the request requires personal information not stated in the current message and not in the Buyer Intelligence profile, use `answer_user` to ask. Applies to: work address ("where I work", "my office"), school location ("my kids' school"), any personal place ("my gym", "my church"). Does NOT apply to general search params — for those, search with defaults or carry forward.
 
 ### Intent Prompt Philosophy
-The Haiku routing prompt is intentionally short (~65 lines). Long prompts with many examples make routing worse — attention dilutes. The prompt defines categories, not examples. Every routing bug should be fixed by simplifying the prompt or handling in code — never by adding more examples.
+The Haiku routing prompt is intentionally structured. Two-category param model provides a single architectural rule that resolves all carry-forward conflicts. Every routing bug should be fixed by clarifying the model — not by adding per-case patches.
+
+⚠️ **Pending refactor:** The two-category model is currently encoded in the Haiku prompt (non-deterministic). The correct production architecture is to have Haiku extract only a *delta* (what changed) and apply carry-forward logic in a typed `mergeSearchContext(lastCtx, delta)` TypeScript function — testable, deterministic, no LLM involved in business logic. Tracked in todo list.
 
 ## Memory Architecture
 
@@ -349,13 +360,84 @@ Same Nearby Search results used to compute 0–10 score: 2pts per found type (gr
 - Amber (5–7): `bg-[#FFFBEB] text-[#92400E]`
 - Gray (<5): `bg-gray-50 text-gray-500`
 
+### Option 4 — Distance-to-Searched-POI
+When the search used a named POI (`near_poi_query`), `enrichListings` is called with `referencePOI: { name, lat, lng }`. Each listing's enrichment gets `distanceToSearchPOI: { name, distanceMi }`. This is embedded directly into the listing context block that flows into all Sonnet paths — Sonnet always has the distance to the searched POI without any per-path injection.
+
+### Option 5 — Commute Search (Distance Matrix)
+Haiku `search_mls` tool has 5 new commute params: `commute_from`, `commute_max_minutes`, `commute_mode`, `commute_from_2`, `commute_max_minutes_2`.
+
+Flow in `route.ts`:
+1. Commute params extracted and deleted from rawParams before MLS call
+2. Commute origins geocoded (cached 7d at `places:geo:v1:{hash}`) — hot-path, ~5ms warm
+3. MLS search runs normally → listings SSE emitted
+4. Fire-and-forget: `getCommuteTimes()` calls Distance Matrix API for each listing address, cached 24h per destination at `places:commute:v1:{originHash}:{destId}`
+5. Two-origin merge: listing passes only if within limit of BOTH origins (AND logic)
+6. `commute_data` SSE emitted with `CommuteResult[]`
+7. `commuteSummaryContext` injected into Sonnet summary message
+8. `commuteFilter` saved in SearchContext
+
+`CommuteResult`: `{ listingId, minutes, distanceMi, mode, withinLimit }`
+
+Frontend: `commute_data` SSE merged into last message's `commuteResults`. `ListingTile` renders commute badge (🚗 X min · X mi) — green if `withinLimit`, red if over.
+
+**Latency:** Only origin geocoding is on the hot path (+5ms warm, +150ms cold). Distance Matrix is fire-and-forget — zero perceived latency. Cost: ~$0.03/1000 commute searches.
+
+### Option 6 — Solar, Air Quality, Pollen (Google APIs)
+Fired in parallel inside `enrichListings`:
+- **Solar** (`getSolarData`): Google Solar API, cached 30d at `places:solar:v1:{coordHash}`. Yearly kWh, panel count, CO₂ offset. Shown in `ListingTile` Show More — **Single Family only** (`property_sub_type === "Single Family"`).
+- **Air Quality** (`getAirQuality`): POST to Google Air Quality API, cached 6h at `places:aqi:v1:{coordHash}`. AQI number + category. Color-coded in tile: green ≤50, yellow ≤100, red >100.
+- **Pollen** (`getPollenData`): Google Pollen API, cached 12h at `places:pollen:v1:{coordHash}`. Tree + grass + weed levels.
+
+### Option 7 — Open-Meteo Weather
+`getWeatherData(lat, lng)` in `places.ts`. No API key required — Open-Meteo is free.
+
+Two separate fetches:
+- **Current conditions**: `api.open-meteo.com/v1/forecast` → temp (°F), WMO condition code → readable string, humidity. Cached 6h at `places:weather:current:v1:{lat2dp}_{lng2dp}`.
+- **Climate normals**: `climate-api.open-meteo.com/v1/climate` → 1991–2020 ERA5 monthly data → summer avg high (Jun/Jul/Aug), winter avg low (Dec/Jan/Feb), annual rainfall (in). Cached 30d at `places:weather:climate:v1:{coordKey}`.
+
+Returned as `ListingEnrichment.weather?: { tempF, condition, humidity, summerHighF, winterLowF, annualRainfallIn }`.
+
+Rendered in `ListingTile` Show More section. Injected into Sonnet system prompt enrichment block so Sonnet can answer climate/seasonal questions directly.
+
+### Option 8 — Street View
+Static image URL rendered in `ListingTile` Show More section using `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`. `onError` handler hides it when the address has no Street View coverage. No server-side fetch or caching needed — browser calls Google CDN directly.
+
+### Enrichment in Conversation History
+`loadCachedEnrichments(listingIds, referencePOIName?)` batch-loads enrichments from Redis for all listing IDs in history turns. Called at the start of every request before `conversationMessages` is built. Enrichment data is embedded directly into the listing context block that Sonnet always sees:
+```
+#1: 6102 Maxie St — $529,000 … | 0.8mi from Galleria Mall | Area 8/10 | nearby: School 0.4mi, Grocery 0.8mi
+```
+This means Sonnet always has POI distances, area score, and all enrichment data across ALL response paths (search, reference, answer) without any per-path injection.
+
+### Google API Key Restriction
+The `GOOGLE_PLACES_API_KEY` must use **"IP addresses"** restriction in Google Cloud Console — NOT "Websites". Server-side Node.js `fetch` does not send a `Referer` header, so a "Websites" restriction will return `REQUEST_DENIED` for every call. For Vercel production: either use no application restriction (rely on API-level restrictions) or add Vercel's egress IPs.
+
+### Cache Key Versions
+- Enrichment with refPOI: `places:enrich:v4:{listingId}:{addrHash(poiName)}`
+- Enrichment without refPOI: `places:enrich:v3:{listingId}`
+Bump version when adding new fields to `ListingEnrichment` to force re-fetch.
+
 ### New Types (`src/types/ai-assistant.ts`)
 ```typescript
-POIBadge         { type, label, name, distanceMi }
+POIBadge          { type, label, name, distanceMi }
 NeighborhoodScore { score, breakdown: { grocery, transit, park, school, hospital } }
-ListingEnrichment { listingId, pois: POIBadge[], neighborhood: NeighborhoodScore }
+ListingEnrichment {
+  listingId,
+  pois: POIBadge[],
+  neighborhood: NeighborhoodScore,
+  distanceToSearchPOI?: { name, distanceMi },
+  location?: { lat, lng },
+  solar?: { yearlyEnergyKwh, panelCount, carbonOffsetKg },
+  airQuality?: { aqi, category },
+  pollen?: { tree, grass, weed },
+  weather?: { tempF, condition, humidity, summerHighF, winterLowF, annualRainfallIn },
+}
+CommuteResult     { listingId, minutes, distanceMi, mode, withinLimit }
 MLSListing.enrichment?: ListingEnrichment   // added field
+SearchContext.nearPOI?: { query, name, lat, lng }
 ```
+
+MLSSearchParams commute additions: `commute_from?`, `commute_max_minutes?`, `commute_mode?`, `commute_from_2?`, `commute_max_minutes_2?`
 
 ## withRetry — Anthropic Overload Handling
 All 8 `anthropic.messages.create` calls in `route.ts` are wrapped with `withRetry<T>(fn, label, maxAttempts=2)`. Retries on HTTP 429, 529, and `overloaded_error` type with `2s × attempt` backoff. Logs each retry to console.
@@ -365,7 +447,8 @@ All 8 `anthropic.messages.create` calls in `route.ts` are wrapped with `withRetr
 { type: "listings",       data: { listings: MLSListing[], params: MLSSearchParams } }
 { type: "listing_focus",  data: MLSListing, index: number }
 { type: "photo_rank",     data: PhotoRankResult[], lowMatch?: boolean }
-{ type: "poi_enrichment", data: ListingEnrichment[] }
+{ type: "poi_enrichment", data: ListingEnrichment[] }         // POIs + score + solar + AQI + pollen + weather + distanceToSearchPOI
+{ type: "commute_data",   data: CommuteResult[] }              // fire-and-forget after listings SSE
 { type: "profile",        data: { interviewCompleted?: boolean } }
 { type: "debug",          data: { pool, text_matches, vision_targets, best_score, low_match } }
 { type: "token",          text: string }
@@ -403,10 +486,23 @@ Fixed: `containsPreferenceSignal()` now includes age/55+/senior/preference terms
 ### 55+ filter ceiling
 The age-restricted community filter only works when the MLS public remarks explicitly mention "55+", "senior community", etc. Listings in age-restricted communities that only use the development name (e.g. "Sun City") are not caught. No fix available at the MLS data layer.
 
+### Property Preview Page — Enrichment Integration (planned, not yet built)
+Plan: add a `<NeighborhoodIntelligence>` section to the property detail page at `/buy/[propertyId]/prop/preview`.
+- New API route `/api/property-enrichment` — accepts `lat`, `lng`, `address`, `listingId`, `subType`, calls existing `places.ts` functions, returns `ListingEnrichment`. Reuses Redis cache — if AI assistant already enriched the listing, preview page gets it instantly.
+- New component `<NeighborhoodIntelligence>` — three cards: Area Score + POI badges, Environment (weather + AQI + pollen), Solar (single family only).
+- Inserted between "Home Highlights" and "Schools Nearby" sections on the detail page.
+- Street View: review existing button in sidebar, replace/enhance with inline static image.
+
+### LandingAIChat.tsx Merge Conflict (resolved)
+Conflict at line ~1421 between colleague's `SearchFilterPills` component (upstream) and session's Home Pilot button + old Try Asking UI (stashed). Resolution: kept colleague's `SearchFilterPills` entirely + added Home Pilot button above it. Old Try Asking suggestions list and Be Inspired section (stashed) dropped — superseded by `SearchFilterPills`.
+
+⚠️ `onBeInspiredClick` handler in `SearchFilterPills` uses `new RegExp(...)` — violates no-regex rule in CLAUDE.md. Exception granted for now; fix when touching that component next.
+
 ### Infrastructure
 - **SambaNova 429 on fire-and-forget extraction** — non-critical, caught and logged.
 - **Routing latency** — Haiku routing ~0.5–1s. If Fireworks credits available, test as alternative (provider block already in route.ts, just uncomment).
 - **REALESTATE_API_KEY** — renamed from `REAPI_KEY`. Verify this env var is set in Vercel production settings.
+- **`GOOGLE_PLACES_API_KEY` in Vercel** — must be added to Vercel env vars for production enrichment to work. Key restriction must be "IP addresses" not "Websites".
 
 ### Multi-Conversation Architecture (implemented)
 Per-conversation Redis keys are active (`chat:history:{userId}:{convId}`, `search_ctx:{userId}:{convId}`). `convId` is generated in `LandingAIChat.tsx` and persisted in sessionStorage. New sessions always get a fresh convId. Legacy flat keys (`chat:history:{userId}`) remain in Redis but are no longer written to.
